@@ -348,33 +348,81 @@ const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
 renderer.setSize(innerWidth, innerHeight);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0d0c);
-scene.fog = new THREE.FogExp2(0x0b0d0c, 0.012);
+scene.background = new THREE.Color(0x160a26);                 // dark purple night sky
+scene.fog = new THREE.FogExp2(0x160a26, 0.011);               // grid dissolves into the sky at the horizon
 const EYE = 4;
-const camera = new THREE.PerspectiveCamera(95, innerWidth/innerHeight, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(95, innerWidth/innerHeight, 0.1, 700);
 camera.position.set(0, EYE, 0);
-scene.add(new THREE.AmbientLight(0x35423c, 1.0));
-scene.add(new THREE.HemisphereLight(0x96b0a4, 0x0a0c0b, 0.55));
+scene.add(new THREE.AmbientLight(0x2e2740, 1.0));             // faint purple ambient
+scene.add(new THREE.HemisphereLight(0x7e6ea6, 0x0a0c0b, 0.5));// purple sky-light from above
 const dLight = new THREE.DirectionalLight(0xbfe6c8, 0.6); dLight.position.set(6,14,4); scene.add(dLight);
 
 const ROOM = {w:64, h:28, d:64};
+// no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 (function buildArena(){
-  const wallMat = new THREE.MeshStandardMaterial({color:0x141816, roughness:0.95, metalness:0.05, side:THREE.BackSide});
-  const room = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w, ROOM.h, ROOM.d), wallMat);
-  room.position.y = ROOM.h/2 - 0.01; scene.add(room);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w, ROOM.d), new THREE.MeshStandardMaterial({color:0x0e110f, roughness:1, metalness:0}));
+  const FLOOR=620;                                            // floor stretches well past the fog → reads as a horizon
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshStandardMaterial({color:0x0c0a14, roughness:1, metalness:0}));
   floor.rotation.x = -Math.PI/2; scene.add(floor);
-  const grid = new THREE.GridHelper(ROOM.w, 32, 0x2a3a33, 0x18221e); grid.position.y = 0.02; scene.add(grid);
-  function strip(w,h,c,x,y,z,ry){ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.5})); m.position.set(x,y,z); if(ry)m.rotation.y=ry; scene.add(m); }
-  strip(ROOM.w*0.9,0.18,0x74e84a,0,8.5,-ROOM.d/2+0.05,0); strip(ROOM.w*0.9,0.18,0x74e84a,0,8.5,ROOM.d/2-0.05,Math.PI);
-  strip(ROOM.w*0.9,0.10,0xff8a2b,0,3.0,-ROOM.d/2+0.05,0); strip(ROOM.w*0.9,0.10,0xff8a2b,0,3.0,ROOM.d/2-0.05,Math.PI);
-  strip(ROOM.d*0.9,0.14,0x2c4f46,-ROOM.w/2+0.05,9.5,0,Math.PI/2); strip(ROOM.d*0.9,0.14,0x2c4f46,ROOM.w/2-0.05,9.5,0,Math.PI/2);
+  const grid = new THREE.GridHelper(FLOOR, FLOOR/2, 0x33b39e, 0x1c3b34); grid.position.y = 0.02;
+  grid.material.transparent = true; grid.material.opacity = 0.55; scene.add(grid);
 })();
 
-// floor beat-ring: a circle expanding from under the player to beyond the walls over each 8-beat phrase
-const floorRing = new THREE.Mesh(new THREE.RingGeometry(0.95,1.0,64),
-  new THREE.MeshBasicMaterial({color:0x43d9ff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false}));
-floorRing.rotation.x=-Math.PI/2; floorRing.position.set(0,0.06,0); floorRing.visible=false; scene.add(floorRing);
+/* ---- starfield (twinkling night sky) ---- */
+let starGeo=null, starBase=null, starPhase=null, starRate=null;
+function makeStarTex(){
+  const c=document.createElement('canvas'); c.width=c.height=32; const g=c.getContext('2d');
+  const grd=g.createRadialGradient(16,16,0,16,16,16);
+  grd.addColorStop(0,'rgba(255,255,255,1)'); grd.addColorStop(0.35,'rgba(255,255,255,0.65)'); grd.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=grd; g.fillRect(0,0,32,32); return new THREE.CanvasTexture(c);
+}
+function buildStars(){
+  const N=460, R=320;
+  const PAL=[[1,1,1],[0.82,0.9,1],[1,0.95,0.82],[1,0.79,0.42],[1,0.5,0.46],[0.55,0.72,1]]; // white, blue-white, warm, yellow, red, blue
+  const W=[0.34,0.22,0.16,0.12,0.08,0.08];
+  starGeo=new THREE.BufferGeometry();
+  const pos=new Float32Array(N*3), col=new Float32Array(N*3);
+  starBase=new Float32Array(N*3); starPhase=new Float32Array(N); starRate=new Float32Array(N);
+  for(let k=0;k<N;k++){
+    const theta=Math.random()*Math.PI*2, phi=Math.acos(1-Math.random()*0.7);   // bias toward the upper sky
+    const sx=Math.sin(phi)*Math.cos(theta), sy=Math.cos(phi), sz=Math.sin(phi)*Math.sin(theta);
+    pos[k*3]=sx*R; pos[k*3+1]=Math.max(3,sy*R); pos[k*3+2]=sz*R;
+    let rnd=Math.random(), ci=0, acc=0; for(let p=0;p<W.length;p++){ acc+=W[p]; if(rnd<=acc){ci=p;break;} }
+    const b=0.45+Math.random()*0.55;                                           // inherent brightness varies (fakes size)
+    starBase[k*3]=PAL[ci][0]*b; starBase[k*3+1]=PAL[ci][1]*b; starBase[k*3+2]=PAL[ci][2]*b;
+    col[k*3]=starBase[k*3]; col[k*3+1]=starBase[k*3+1]; col[k*3+2]=starBase[k*3+2];
+    starPhase[k]=Math.random()*6.283; starRate[k]=0.6+Math.random()*2.4;
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  starGeo.setAttribute('color', new THREE.BufferAttribute(col,3));
+  const mat=new THREE.PointsMaterial({size:4.2, map:makeStarTex(), vertexColors:true, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:false, fog:false});
+  const pts=new THREE.Points(starGeo, mat); pts.frustumCulled=false; scene.add(pts);
+}
+function updateStars(t){
+  if(!starGeo) return; const col=starGeo.attributes.color.array, N=starPhase.length;
+  for(let k=0;k<N;k++){ const tw=0.32+0.68*0.5*(1+Math.sin(t*starRate[k]+starPhase[k]));
+    col[k*3]=starBase[k*3]*tw; col[k*3+1]=starBase[k*3+1]*tw; col[k*3+2]=starBase[k*3+2]*tw; }
+  starGeo.attributes.color.needsUpdate=true;
+}
+buildStars();
+let skyT=0;
+
+/* ---- expanding ground rings = the beat pulse. A fresh ring every couple beats; on a streak they fire
+       every beat and warm from rail-blue toward toxic-green. ---- */
+const RING_POOL=[], RING_SPEED=5, RING_LIFE=9;
+const RING_COOL=new THREE.Color(0x43d9ff), RING_HOT=new THREE.Color(0x74e84a);
+for(let k=0;k<12;k++){
+  const m=new THREE.Mesh(new THREE.RingGeometry(0.95,1.0,72),
+    new THREE.MeshBasicMaterial({color:0x43d9ff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false}));
+  m.rotation.x=-Math.PI/2; m.position.set(0,0.06,0); m.visible=false; scene.add(m);
+  RING_POOL.push({mesh:m, active:false, t0:0, intensity:0.5});
+}
+function emitRing(){
+  const r=RING_POOL.find(x=>!x.active); if(!r) return;
+  const heat=Math.min(1, state.streak/18);
+  r.active=true; r.t0=state.t; r.intensity=0.42+Math.min(0.45, state.streak*0.02);
+  r.mesh.material.color.copy(RING_COOL).lerp(RING_HOT, heat);
+  r.mesh.visible=true; r.mesh.scale.set(0.5,0.5,1); r.mesh.material.opacity=r.intensity;
+}
 
 /* ========================= LOOK ========================= */
 let yaw=0, pitch=0, radPerPx=CFG.baseRadPerPx;
@@ -562,7 +610,13 @@ function onGrid(time){
     if(hat) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);
     if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker on every beat
   }catch(e){}
-  if(i%2===0){ try{ Tone.Draw.schedule(()=>pulseBeat(i===0), time); }catch(e){} }
+  if(i%2===0){
+    try{ Tone.Draw.schedule(()=>pulseBeat(i===0), time); }catch(e){}
+    const beatIdx=i/2;                                        // 0..3 across the grid cycle
+    if(beatIdx%2===0 || state.streak>=8){                     // base: a ring every 2 beats; on a streak: every beat
+      try{ Tone.Draw.schedule(()=>{ if(state.running) emitRing(); }, time); }catch(e){ if(state.running) emitRing(); }
+    }
+  }
   // sparse, spaced groove — a cooldown after each orb forbids clustering; density sets the rate
   const active=targets.filter(t=>!t.dead).length;
   let spawned=false;
@@ -832,11 +886,20 @@ function animate(){
   }
 
   for(let i=beams.length-1;i>=0;i--){ const b=beams[i]; b.age+=dt; b.line.material.opacity=Math.max(0,0.9*(1-b.age/b.life)); if(b.age>=b.life){ scene.remove(b.line); b.line.geometry.dispose(); b.line.material.dispose(); beams.splice(i,1);} }
-  // floor beat-ring: expand from a dot under the player to beyond the walls over an 8-beat phrase
-  if(state.mode==='rhythm' && state.running && toneReady){
-    const cyc=8*(60/state.bpm), phase=(Tone.Transport.seconds % cyc)/cyc, R=0.4+phase*40;
-    floorRing.scale.set(R,R,1); floorRing.material.opacity=0.5*(1-phase); floorRing.visible=true;
-  } else if(floorRing.visible){ floorRing.visible=false; }
+  // twinkle the sky every frame (even while paused), then advance any live ground rings
+  skyT += dt; updateStars(skyT);
+  if(state.mode==='rhythm' && state.running){
+    const spb=60/state.bpm;
+    for(const r of RING_POOL){
+      if(!r.active) continue;
+      const ageB=(state.t-r.t0)/spb;
+      if(ageB>=RING_LIFE){ r.active=false; r.mesh.visible=false; continue; }
+      const R=0.5+ageB*RING_SPEED;
+      r.mesh.scale.set(R,R,1); r.mesh.material.opacity=r.intensity*Math.max(0,1-ageB/RING_LIFE);
+    }
+  } else {
+    for(const r of RING_POOL){ if(r.active){ r.active=false; r.mesh.visible=false; } }
+  }
   updateAssist();
   renderer.render(scene,camera);
 }
