@@ -342,6 +342,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianDamp:0.35,          // wander: noise intensity, speed cap, LIGHT mean-reversion so orbs travel/strafe (not jitter in place)
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
+  dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   spawnField:'full', audioAssist:false, baseRadPerPx:0.0022,
@@ -361,14 +362,14 @@ const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
 renderer.setSize(innerWidth, innerHeight);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x160a26);                 // dark purple night sky
-scene.fog = new THREE.FogExp2(0x160a26, 0.011);               // grid dissolves into the sky at the horizon
+scene.background = new THREE.Color(0x05060e);                 // night sky — updateSky() drives this through the day/night cycle
+scene.fog = new THREE.FogExp2(0x05060e, 0.012);              // grid dissolves into the sky at the horizon
 const EYE = 4;
 const camera = new THREE.PerspectiveCamera(95, innerWidth/innerHeight, 0.1, 700);
 camera.position.set(0, EYE, 0);
-scene.add(new THREE.AmbientLight(0x2e2740, 1.0));             // faint purple ambient
-scene.add(new THREE.HemisphereLight(0x7e6ea6, 0x0a0c0b, 0.5));// purple sky-light from above
-const dLight = new THREE.DirectionalLight(0xbfe6c8, 0.6); dLight.position.set(6,14,4); scene.add(dLight);
+const ambLight = new THREE.AmbientLight(0x0e1220, 0.6); scene.add(ambLight);           // all three lights are re-tinted each frame by updateSky()
+const hemiLight = new THREE.HemisphereLight(0x44557f, 0x0a0c0b, 0.35); scene.add(hemiLight);
+const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,14,4); scene.add(dLight);
 
 const ROOM = {w:64, h:28, d:64};
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
@@ -380,25 +381,26 @@ const ROOM = {w:64, h:28, d:64};
   grid.material.transparent = true; grid.material.opacity = 0.55; scene.add(grid);
 })();
 
-/* ---- starfield (twinkling night sky) ---- */
-let starGeo=null, starBase=null, starPhase=null, starRate=null;
+/* ========================= SKY: stars, sun, moon, day/night ========================= */
+const skyGroup=new THREE.Group(); scene.add(skyGroup);        // the whole celestial sphere — rotates slowly so the sky drifts
+let starPts=null, starGeo=null, starBase=null, starPhase=null, starRate=null;
 function makeStarTex(){
   const c=document.createElement('canvas'); c.width=c.height=32; const g=c.getContext('2d');
   const grd=g.createRadialGradient(16,16,0,16,16,16);
-  grd.addColorStop(0,'rgba(255,255,255,1)'); grd.addColorStop(0.35,'rgba(255,255,255,0.65)'); grd.addColorStop(1,'rgba(255,255,255,0)');
+  grd.addColorStop(0,'rgba(255,255,255,1)'); grd.addColorStop(0.35,'rgba(255,255,255,0.6)'); grd.addColorStop(1,'rgba(255,255,255,0)');
   g.fillStyle=grd; g.fillRect(0,0,32,32); return new THREE.CanvasTexture(c);
 }
 function buildStars(){
-  const N=460, R=320;
+  const N=560, R=340;
   const PAL=[[1,1,1],[0.82,0.9,1],[1,0.95,0.82],[1,0.79,0.42],[1,0.5,0.46],[0.55,0.72,1]]; // white, blue-white, warm, yellow, red, blue
   const W=[0.34,0.22,0.16,0.12,0.08,0.08];
   starGeo=new THREE.BufferGeometry();
   const pos=new Float32Array(N*3), col=new Float32Array(N*3);
   starBase=new Float32Array(N*3); starPhase=new Float32Array(N); starRate=new Float32Array(N);
   for(let k=0;k<N;k++){
-    const theta=Math.random()*Math.PI*2, phi=Math.acos(1-Math.random()*0.7);   // bias toward the upper sky
+    const theta=Math.random()*Math.PI*2, phi=Math.acos(1-2*Math.random());     // full sphere → rotation continually reveals new stars
     const sx=Math.sin(phi)*Math.cos(theta), sy=Math.cos(phi), sz=Math.sin(phi)*Math.sin(theta);
-    pos[k*3]=sx*R; pos[k*3+1]=Math.max(3,sy*R); pos[k*3+2]=sz*R;
+    pos[k*3]=sx*R; pos[k*3+1]=sy*R; pos[k*3+2]=sz*R;
     let rnd=Math.random(), ci=0, acc=0; for(let p=0;p<W.length;p++){ acc+=W[p]; if(rnd<=acc){ci=p;break;} }
     const b=0.45+Math.random()*0.55;                                           // inherent brightness varies (fakes size)
     starBase[k*3]=PAL[ci][0]*b; starBase[k*3+1]=PAL[ci][1]*b; starBase[k*3+2]=PAL[ci][2]*b;
@@ -407,16 +409,75 @@ function buildStars(){
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
   starGeo.setAttribute('color', new THREE.BufferAttribute(col,3));
-  const mat=new THREE.PointsMaterial({size:4.2, map:makeStarTex(), vertexColors:true, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:false, fog:false});
-  const pts=new THREE.Points(starGeo, mat); pts.frustumCulled=false; scene.add(pts);
+  const mat=new THREE.PointsMaterial({size:4.4, map:makeStarTex(), vertexColors:true, transparent:true, opacity:1, depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:false, fog:false});
+  starPts=new THREE.Points(starGeo, mat); starPts.frustumCulled=false; skyGroup.add(starPts);
 }
-function updateStars(t){
+function updateStars(t){                                       // per-star brightness twinkle
   if(!starGeo) return; const col=starGeo.attributes.color.array, N=starPhase.length;
-  for(let k=0;k<N;k++){ const tw=0.32+0.68*0.5*(1+Math.sin(t*starRate[k]+starPhase[k]));
+  for(let k=0;k<N;k++){ const tw=0.30+0.70*0.5*(1+Math.sin(t*starRate[k]+starPhase[k]));
     col[k*3]=starBase[k*3]*tw; col[k*3+1]=starBase[k*3+1]*tw; col[k*3+2]=starBase[k*3+2]*tw; }
   starGeo.attributes.color.needsUpdate=true;
 }
 buildStars();
+
+// --- sun & moon: same tilted circular orbit, 180° apart, carried by skyGroup's rotation ---
+function discTex(stops){
+  const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  const grd=g.createRadialGradient(64,64,0,64,64,64); for(const s of stops) grd.addColorStop(s[0],s[1]);
+  g.fillStyle=grd; g.fillRect(0,0,128,128); return new THREE.CanvasTexture(c);
+}
+const SUN_R=270, sunU=new THREE.Vector3(1,0,0.25).normalize(), skyV=new THREE.Vector3(0,1,0);
+const orbitAxis=new THREE.Vector3().crossVectors(sunU, skyV).normalize();
+const sunTex=discTex([[0,'rgba(255,250,232,1)'],[0.16,'rgba(255,241,196,1)'],[0.30,'rgba(255,205,120,0.8)'],[0.55,'rgba(255,150,70,0.22)'],[1,'rgba(255,140,60,0)']]);
+const moonTex=discTex([[0,'rgba(246,249,255,1)'],[0.40,'rgba(228,234,247,0.97)'],[0.5,'rgba(205,214,235,0.5)'],[0.72,'rgba(180,195,225,0.16)'],[1,'rgba(170,188,222,0)']]);
+const sun=new THREE.Sprite(new THREE.SpriteMaterial({map:sunTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, fog:false}));
+sun.scale.set(54,54,1); sun.position.copy(sunU).multiplyScalar(SUN_R); skyGroup.add(sun);
+const moon=new THREE.Sprite(new THREE.SpriteMaterial({map:moonTex, transparent:true, depthWrite:false, fog:false}));
+moon.scale.set(34,34,1); moon.position.copy(sunU).multiplyScalar(-SUN_R); skyGroup.add(moon);
+
+// --- daytime clouds: soft sprites that drift and fade in with the sun ---
+function cloudTex(){
+  const c=document.createElement('canvas'); c.width=256; c.height=128; const g=c.getContext('2d');
+  g.globalCompositeOperation='lighter';
+  for(let i=0;i<16;i++){ const x=44+Math.random()*168, y=52+Math.random()*36, r=22+Math.random()*34;
+    const gr=g.createRadialGradient(x,y,0,x,y,r); gr.addColorStop(0,'rgba(255,255,255,0.5)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gr; g.beginPath(); g.arc(x,y,r,0,6.2832); g.fill(); }
+  return new THREE.CanvasTexture(c);
+}
+const cloudGroup=new THREE.Group(); scene.add(cloudGroup); const clouds=[];
+(function(){ const ctex=cloudTex();
+  for(let i=0;i<8;i++){ const m=new THREE.Sprite(new THREE.SpriteMaterial({map:ctex, transparent:true, opacity:0, depthWrite:false, fog:false}));
+    const az=Math.random()*Math.PI*2, rad=120+Math.random()*60, h=36+Math.random()*64, w=72+Math.random()*80;
+    m.position.set(Math.cos(az)*rad, h, Math.sin(az)*rad); m.scale.set(w, w*0.42, 1); m.renderOrder=-5; cloudGroup.add(m); clouds.push(m); }
+})();
+
+// --- day/night driver ---
+let dayPhase=0.82;                                            // 0=sunrise, .25=noon, .5=sunset, .75=midnight; start in deep night
+const SKY_NIGHT=new THREE.Color(0x05060e), SKY_DAY=new THREE.Color(0x5e93cf), SKY_DUSK=new THREE.Color(0xd0743a);
+const LITE_NIGHT=new THREE.Color(0x44557f), LITE_DAY=new THREE.Color(0xfff1d6);
+const AMB_NIGHT=new THREE.Color(0x0e1220), AMB_DAY=new THREE.Color(0x9fb1cc);
+const CLOUD_WHITE=new THREE.Color(0xeef3fb);
+const _sky=new THREE.Color(), _amb=new THREE.Color(), _lite=new THREE.Color(), _cloud=new THREE.Color(), sunDir=new THREE.Vector3();
+function smooth(a,b,x){ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); }
+function updateSky(dt){
+  dayPhase=(dayPhase + dt/CFG.dayCycleSec) % 1;
+  const sunA=dayPhase*Math.PI*2;
+  skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // carries stars + sun + moon around the orbit
+  sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
+  const sunY=sunDir.y, day=smooth(-0.12,0.22,sunY), tw=Math.max(0,1-Math.abs(sunY)/0.26);  // day 0..1, dawn/dusk warmth
+  _sky.copy(SKY_NIGHT).lerp(SKY_DAY, day).lerp(SKY_DUSK, tw*0.55);
+  scene.background.copy(_sky); scene.fog.color.copy(_sky); scene.fog.density=0.012-0.005*day;
+  if(starPts) starPts.material.opacity=Math.max(0,1-day*1.15);
+  sun.material.opacity=smooth(-0.18,0.06,sunY);              // visible from just below the horizon up
+  moon.material.opacity=0.9*smooth(-0.18,0.06,-sunY);
+  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); ambLight.color.copy(_amb); ambLight.intensity=0.55+0.55*day;
+  hemiLight.color.copy(_sky); hemiLight.intensity=0.30+0.6*day;
+  _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); dLight.intensity=0.22+0.7*day;
+  dLight.position.copy(sunY>=0?sunDir:sunDir.clone().negate()).multiplyScalar(60);  // light comes from whichever body is up
+  cloudGroup.rotation.y += dt*0.006;
+  _cloud.copy(CLOUD_WHITE).lerp(SKY_DUSK, tw*0.5);
+  for(const m of clouds){ m.material.opacity=day*0.72; m.material.color.copy(_cloud); }
+}
 let skyT=0;
 
 /* ---- expanding ground rings = the beat pulse. A fresh ring every couple beats; on a streak they fire
@@ -979,7 +1040,7 @@ function animate(){
 
   for(let i=beams.length-1;i>=0;i--){ const b=beams[i]; b.age+=dt; b.line.material.opacity=Math.max(0,0.9*(1-b.age/b.life)); if(b.age>=b.life){ scene.remove(b.line); b.line.geometry.dispose(); b.line.material.dispose(); beams.splice(i,1);} }
   // twinkle the sky every frame (even while paused), then advance any live ground rings
-  skyT += dt; updateStars(skyT);
+  skyT += dt; updateStars(skyT); updateSky(dt);
   if(state.mode==='rhythm' && state.running){
     const spb=60/state.bpm;
     for(const r of RING_POOL){
