@@ -340,7 +340,8 @@ const CFG = {
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
-  brownian:8, brownianMax:7, brownianDamp:1.6,           // random-walk wander on targets (intensity scales with difficulty)
+  brownian:7, brownianMax:9, brownianDamp:0.35,          // wander: noise intensity, speed cap, LIGHT mean-reversion so orbs travel/strafe (not jitter in place)
+  flickNearDeg:18, flickFarDeg:50, flickJitterFrac:0.45, flickMinDeg:6, flickMaxDeg:95,  // spawn = controlled flick angle from current aim, growing with tempo
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   spawnField:'full', audioAssist:false, baseRadPerPx:0.0022,
@@ -692,10 +693,14 @@ function spawnTarget(opts){
   const shell=new THREE.Mesh(new THREE.SphereGeometry(r*1.55,16,12),
     new THREE.MeshBasicMaterial({color:TOXIC,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false}));
   core.add(shell);
-  const up=new THREE.Vector3(0,1,0); let dir3;
-  if(CFG.spawnField==='full'){
-    const az=Math.random()*Math.PI*2, pit=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
-    dir3=new THREE.Vector3(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit)).normalize();
+  const up=new THREE.Vector3(0,1,0), a0=aimDir(); let dir3;
+  if(CFG.spawnField==='full'){                            // flick-distance curve: orb sits a controlled angle θ from your aim, θ grows with tempo
+    const tMean=lerp(CFG.flickNearDeg, CFG.flickFarDeg, diffT()), jit=CFG.flickJitterFrac*tMean;
+    const thetaDeg=Math.max(CFG.flickMinDeg, Math.min(CFG.flickMaxDeg, tMean+(Math.random()*2-1)*jit));
+    const theta=THREE.MathUtils.degToRad(thetaDeg), phi=Math.random()*Math.PI*2;   // φ = which way around the aim (keeps 360 variety)
+    const ref=Math.abs(a0.y)>0.95 ? new THREE.Vector3(1,0,0) : up;
+    const t1=new THREE.Vector3().crossVectors(ref,a0).normalize(), t2=new THREE.Vector3().crossVectors(a0,t1);
+    dir3=a0.clone().multiplyScalar(Math.cos(theta)).addScaledVector(t1, Math.cos(phi)*Math.sin(theta)).addScaledVector(t2, Math.sin(phi)*Math.sin(theta));
   }else{
     const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
     const flat=new THREE.Vector3(fwd.x,0,fwd.z).normalize();
@@ -704,8 +709,9 @@ function spawnTarget(opts){
     const pitOff=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
     dir3=flat.clone().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(up,yawOff)).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(right,pitOff)).normalize();
   }
-  const dist=lerp(CFG.spawnDist[0],CFG.spawnDist[1],Math.random());
-  const pos=PLAYER_POS.clone().add(dir3.multiplyScalar(dist));
+  const d0=CFG.spawnDist[0], d1=CFG.spawnDist[1];          // cube-root warp → constant volumetric density (no bunching at the near edge)
+  const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, Math.random()));
+  const pos=PLAYER_POS.clone().addScaledVector(dir3, dist);
   pos.y=Math.max(2.2,Math.min(ROOM.h-2.5,pos.y)); core.position.copy(pos);
   const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*(state.mode==='rhythm'?0.7:1);
   const vel=new THREE.Vector3(Math.random()*2-1,(Math.random()*2-1)*0.35,Math.random()*2-1).normalize().multiplyScalar(dmag);
@@ -713,7 +719,7 @@ function spawnTarget(opts){
   scene.add(core);
   const snd=makeTargetSound(core);
   const life=opts.life!=null?opts.life:targetLife();
-  const a0=aimDir(), rhythm=(state.mode==='rhythm');
+  const rhythm=(state.mode==='rhythm');                   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
   targets.push({mesh:core, shell, born:state.t, expireAt:state.t+life, vel, radius:r, dead:false, sc:reduceMotion?1:0.01, snd,
     aim0:a0, angPath:0, lastAim:a0.clone(), trail:rhythm?[aimPoint(a0)]:null, trailMesh:rhythm?newTrailMesh():null});
 }
@@ -945,10 +951,10 @@ function animate(){
       const tg=targets[i];
       if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.sc); }
       if(!reduceMotion) tg.shell.material.opacity=0.13+0.06*Math.sin(state.t*4+i);
-      if(CFG.brownian>0){                                  // brownian wander: random velocity kicks, damped + speed-capped
-        const j=CFG.brownian*(0.5+0.8*diffT())*Math.sqrt(dt);
-        tg.vel.x+=(Math.random()*2-1)*j; tg.vel.y+=(Math.random()*2-1)*j*0.5; tg.vel.z+=(Math.random()*2-1)*j;
-        tg.vel.multiplyScalar(1-CFG.brownianDamp*dt);
+      if(CFG.brownian>0){                                  // brownian wander: sqrt(dt) kicks + LIGHT mean-reversion → orbs strafe/travel, base drift survives
+        const s=CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(dt);
+        tg.vel.x+=(Math.random()*2-1)*s; tg.vel.y+=(Math.random()*2-1)*s*0.6; tg.vel.z+=(Math.random()*2-1)*s;
+        tg.vel.multiplyScalar(Math.max(0,1-CFG.brownianDamp*dt));
         const sp=tg.vel.length(); if(sp>CFG.brownianMax) tg.vel.multiplyScalar(CFG.brownianMax/sp);
       }
       tg.mesh.position.addScaledVector(tg.vel,dt);
