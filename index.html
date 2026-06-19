@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Aim Dojo — Rhythm &amp; Spatial Audio Trainer</title>
+<meta name="description" content="Aim Dojo — a browser-based rhythm and spatial-audio aim trainer. A woodblock tick sets the pulse: find it, track it, fire on the beat. No install.">
+<meta name="theme-color" content="#0b0d0c">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Aim Dojo — Rhythm &amp; Spatial Audio Trainer">
+<meta property="og:description" content="Find it, track it, fire on the beat. A browser aim trainer driven by rhythm and 3D spatial audio. No install — just play.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Aim Dojo — Rhythm &amp; Spatial Audio Trainer">
+<meta name="twitter:description" content="Find it, track it, fire on the beat. A browser aim trainer driven by rhythm and 3D spatial audio.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0d0c'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2343d9ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%2374e84a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0b0d0c; --gunmetal:#161b19; --panel:#1d2421; --panel-edge:#2c3631;
+  --steel:#41504a; --toxic:#74e84a; --plasma:#ff8a2b; --rail:#43d9ff; --blood:#ff4242;
+  --bone:#d8e0d4; --bone-dim:#8c968f;
+  --mono:'Share Tech Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-family:var(--mono);color:var(--bone);-webkit-font-smoothing:antialiased}
+#scene{position:fixed;inset:0;display:block}
+
+#beatRing{position:fixed;left:50%;top:50%;width:60px;height:60px;border:2px solid var(--rail);border-radius:50%;transform:translate(-50%,-50%) scale(.4);z-index:3;pointer-events:none;opacity:0}
+#beatRing.pulse{animation:ring .35s ease-out}
+@keyframes ring{0%{opacity:.55;transform:translate(-50%,-50%) scale(.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.7)}}
+
+#reticle{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;pointer-events:none;z-index:5}
+#reticle .arm{position:absolute;background:var(--rail);box-shadow:0 0 6px var(--rail);opacity:.9}
+#reticle .h{top:50%;height:2px;transform:translateY(-50%)}
+#reticle .v{left:50%;width:2px;transform:translateX(-50%)}
+#reticle .l{left:0;width:11px}#reticle .r{right:0;width:11px}
+#reticle .t{top:0;height:11px}#reticle .b{bottom:0;height:11px}
+#reticle .dot{position:absolute;left:50%;top:50%;width:3px;height:3px;border-radius:50%;background:var(--rail);transform:translate(-50%,-50%);box-shadow:0 0 6px var(--rail);transition:transform .08s ease, box-shadow .08s ease}
+#reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
+#reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
+#hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
+#hitmark span{position:absolute;left:50%;top:50%;width:13px;height:2px;background:var(--toxic);box-shadow:0 0 6px var(--toxic)}
+#hitmark span:nth-child(1){transform:translate(-50%,-50%) rotate(45deg) translateX(8px)}
+#hitmark span:nth-child(2){transform:translate(-50%,-50%) rotate(45deg) translateX(-8px)}
+#hitmark span:nth-child(3){transform:translate(-50%,-50%) rotate(-45deg) translateX(8px)}
+#hitmark span:nth-child(4){transform:translate(-50%,-50%) rotate(-45deg) translateX(-8px)}
+@keyframes hitpop{0%{opacity:1;transform:translate(-50%,-50%) scale(.6)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.25)}}
+#hitmark.fire{animation:hitpop .18s ease-out forwards}
+
+#timing{position:fixed;left:50%;top:37%;transform:translate(-50%,-50%);z-index:6;text-align:center;pointer-events:none;opacity:0}
+#timing .g{font-size:30px;letter-spacing:.18em}
+#timing .s{font-size:12px;letter-spacing:.18em;color:var(--bone-dim);margin-top:3px}
+#timing.show{animation:timingPop .5s ease-out}
+#timing.perfect .g{color:var(--toxic)} #timing.good .g{color:var(--plasma)} #timing.off .g{color:var(--blood)}
+@keyframes timingPop{0%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+
+#assist{position:fixed;inset:0;z-index:4;pointer-events:none}
+.arrow{position:absolute;display:none}
+.arrow span{position:absolute;left:0;top:0;width:0;height:0;border-left:15px solid var(--c,var(--plasma));border-top:9px solid transparent;border-bottom:9px solid transparent;transform:translate(-50%,-50%);filter:drop-shadow(0 0 5px var(--c,var(--plasma)))}
+
+.hud{position:fixed;z-index:4;pointer-events:none;text-shadow:0 0 8px rgba(0,0,0,.7)}
+#statBox{left:18px;top:16px;display:flex;flex-direction:column;gap:9px}
+.stat{display:flex;align-items:baseline;gap:8px}
+.stat .k{font-size:11px;letter-spacing:.18em;color:var(--bone-dim)}
+.stat .v{font-size:21px;line-height:1;color:var(--bone)}
+.stat .sub{font-size:11px;color:var(--bone-dim)}
+.stat .v.green{color:var(--toxic)}
+
+#speedBox{right:18px;top:14px;text-align:right}
+#speedLabel{font-size:11px;letter-spacing:.2em;color:var(--bone-dim)}
+#speedVal{font-size:60px;line-height:.9;color:var(--plasma);transition:transform .12s ease}
+#speedVal .x{font-size:24px;color:var(--bone-dim);margin-left:3px}
+#speedVal.up{animation:flashUp .45s ease-out}
+#speedVal.down{animation:flashDown .45s ease-out}
+@keyframes flashUp{0%{color:var(--toxic);transform:scale(1.18)}100%{color:var(--plasma);transform:scale(1)}}
+@keyframes flashDown{0%{color:var(--blood);transform:scale(.86)}100%{color:var(--plasma);transform:scale(1)}}
+
+#gauge{left:50%;bottom:26px;transform:translateX(-50%);width:min(560px,86vw)}
+#gaugeHead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+#verdict{font-size:13px;letter-spacing:.22em}
+#verdict.go{color:var(--toxic)}#verdict.hold{color:var(--plasma)}#verdict.slow{color:var(--blood)}#verdict.warm{color:var(--bone-dim)}
+#accVal{font-size:20px}
+#bar{position:relative;height:16px;border:1px solid var(--panel-edge);background:linear-gradient(90deg,rgba(255,66,66,.10) 0%,rgba(255,138,43,.08) 55%,rgba(116,232,74,.12) 100%)}
+#fill{position:absolute;left:0;top:0;bottom:0;width:0%;transition:width .25s ease, background .2s linear;background:var(--plasma)}
+#fill.go{background:var(--toxic)}#fill.slow{background:var(--blood)}#fill.hold{background:var(--plasma)}
+.gate{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--bone);opacity:.8}
+.gate::after{content:attr(data-l);position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:.12em;color:var(--bone-dim);white-space:nowrap}
+#gaugeFoot{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;letter-spacing:.14em;color:var(--bone-dim)}
+
+#muteBtn{position:fixed;right:18px;top:96px;z-index:7;pointer-events:auto;width:34px;height:30px;border:1px solid var(--panel-edge);background:rgba(20,26,24,.7);color:var(--bone-dim);font-family:var(--mono);font-size:14px;cursor:pointer}
+#muteBtn:hover{color:var(--bone);border-color:var(--steel)}
+
+#overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
+#overlay.hidden{display:none}
+.card{width:min(560px,92vw);max-height:92vh;overflow:auto;border:1px solid var(--panel-edge);background:linear-gradient(180deg,var(--panel),var(--gunmetal));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.eyebrow{font-size:11px;letter-spacing:.34em;color:var(--toxic);margin:0 0 6px}
+h1{font-size:40px;letter-spacing:.04em;margin:0 0 4px;line-height:.96}
+h1 .acc{color:var(--plasma)}
+.lede{color:var(--bone-dim);font-size:13.5px;line-height:1.55;margin:0 0 14px}
+.lede b{color:var(--bone)}
+.phones{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--rail);border:1px solid rgba(67,217,255,.3);background:rgba(67,217,255,.06);padding:9px 12px;margin:0 0 18px}
+.keys{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 20px;font-size:12px;color:var(--bone-dim)}
+.keys b{color:var(--bone);background:#0d110f;border:1px solid var(--panel-edge);padding:2px 7px;margin-right:6px}
+.primary{pointer-events:auto;width:100%;padding:14px;border:1px solid var(--toxic);background:rgba(116,232,74,.10);color:var(--toxic);font-family:var(--mono);font-size:15px;letter-spacing:.18em;cursor:pointer;transition:background .15s}
+.primary:hover{background:rgba(116,232,74,.20)}
+.primary:focus-visible,.ghost:focus-visible,#muteBtn:focus-visible,.seg button:focus-visible,.primary:focus,.ghost:focus{outline:2px solid var(--rail);outline-offset:2px}
+
+.settings{margin-top:20px;border-top:1px solid var(--panel-edge);padding-top:16px}
+.settings h2{font-size:11px;letter-spacing:.24em;color:var(--bone-dim);margin:0 0 14px}
+.row{display:grid;grid-template-columns:140px 1fr 56px;align-items:center;gap:12px;margin-bottom:13px}
+.row label{font-size:12px;color:var(--bone)}
+.row .hint{grid-column:1 / -1;font-size:10.5px;color:var(--bone-dim);margin:-7px 0 4px;line-height:1.4}
+.row.rhythm-only,.row.hunt-only{transition:opacity .2s}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:var(--steel);border-radius:2px;outline:none}
+input[type=range]:disabled{opacity:.35}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:var(--rail);box-shadow:0 0 6px rgba(67,217,255,.7);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-radius:50%;background:var(--rail);cursor:pointer}
+.row .out{font-size:13px;color:var(--bone-dim);text-align:right}
+.seg{display:flex;border:1px solid var(--panel-edge)}
+.seg button{flex:1;background:transparent;color:var(--bone-dim);border:none;border-right:1px solid var(--panel-edge);padding:7px 0;font-family:var(--mono);font-size:11px;letter-spacing:.1em;cursor:pointer}
+.seg button:last-child{border-right:none}
+.seg button.on{background:rgba(67,217,255,.14);color:var(--rail)}
+.dualcols{display:flex;gap:12px;margin-top:18px}
+.ghost{flex:1;pointer-events:auto;padding:12px;border:1px solid var(--panel-edge);background:transparent;color:var(--bone-dim);font-family:var(--mono);font-size:12px;letter-spacing:.16em;cursor:pointer;transition:.15s}
+.ghost:hover{color:var(--bone);border-color:var(--steel)}
+
+#pauseStats{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+.chip{flex:1;min-width:120px;border:1px solid var(--panel-edge);background:#0d110f;padding:10px 12px}
+.chip .ck{font-size:10px;letter-spacing:.16em;color:var(--bone-dim)}
+.chip .cv{font-size:22px;color:var(--bone);margin-top:3px}
+.chip .cv.green{color:var(--toxic)}.chip .cv.amber{color:var(--plasma)}
+
+@media (max-width:520px){ h1{font-size:30px} #speedVal{font-size:44px} .row{grid-template-columns:118px 1fr 48px} }
+@media (prefers-reduced-motion: reduce){ #fill{transition:none} #speedVal{transition:none;animation:none!important} #hitmark.fire{animation-duration:.001s} #beatRing.pulse{animation:none} }
+
+/* ---- share modal ---- */
+#shareOverlay{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.82),rgba(8,11,10,.96));backdrop-filter:blur(4px)}
+#shareOverlay.hidden{display:none}
+.share-card{text-align:center}
+.share-card .lede{margin-bottom:4px}
+.qr{width:212px;height:212px;margin:18px auto 14px;padding:12px;background:var(--bone);border:1px solid var(--panel-edge);box-shadow:0 0 0 1px rgba(67,217,255,.25),0 16px 40px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+.qr canvas,.qr img{display:block;width:188px;height:188px;image-rendering:pixelated}
+.share-url{display:flex;gap:10px;margin-top:4px}
+.share-url input{flex:1;min-width:0;background:#0d110f;border:1px solid var(--panel-edge);color:var(--bone);font-family:var(--mono);font-size:12px;letter-spacing:.03em;padding:11px 12px}
+.share-url input:focus{outline:2px solid var(--rail);outline-offset:1px}
+.share-url .ghost{flex:0 0 auto;padding:11px 16px}
+.copy-msg{font-size:11px;letter-spacing:.18em;color:var(--toxic);height:15px;margin-top:9px}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="beatRing" aria-hidden="true"></div>
+
+<div id="reticle" aria-hidden="true">
+  <div class="arm h l"></div><div class="arm h r"></div>
+  <div class="arm v t"></div><div class="arm v b"></div>
+  <div class="dot"></div>
+</div>
+<div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+<div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div></div>
+<div id="assist" aria-hidden="true"></div>
+
+<div id="statBox" class="hud">
+  <div class="stat"><span class="k">TARGETS</span><span class="v" id="sTargets">0</span></div>
+  <div class="stat"><span class="k">STREAK</span><span class="v green" id="sStreak">0</span><span class="sub" id="sStreakBest">best 0</span></div>
+  <div class="stat"><span class="k" id="reactLabel">TIMING</span><span class="v" id="sReact">— ms</span></div>
+  <div class="stat"><span class="k">CLICK&nbsp;%</span><span class="v" id="sClick">—</span></div>
+</div>
+
+<div id="speedBox" class="hud">
+  <div id="speedLabel">TEMPO</div>
+  <div id="speedVal">76<span class="x">bpm</span></div>
+</div>
+
+<button id="muteBtn" title="Toggle sound" aria-label="Toggle sound">♪</button>
+
+<div id="gauge" class="hud" role="meter" aria-label="Accuracy pressure">
+  <div id="gaugeHead"><span id="verdict" class="warm">WARMING UP</span><span id="accVal">—%</span></div>
+  <div id="bar">
+    <div id="fill"></div>
+    <div class="gate" id="gateDown" data-l="SLOW ↓"></div>
+    <div class="gate" id="gateUp" data-l="↑ FASTER"></div>
+  </div>
+  <div id="gaugeFoot"><span>0%</span><span id="gaugeLegend">on-beat hits vs. misses</span><span>100%</span></div>
+</div>
+
+<div id="overlay">
+  <div class="card">
+    <p class="eyebrow" id="ovEyebrow">QUAKE&nbsp;III&nbsp;·&nbsp;RHYTHM&nbsp;TRAINER</p>
+    <h1 id="ovTitle">AIM <span class="acc">DOJO</span></h1>
+    <p class="lede" id="ovLede">A slow groove sets the pulse, with a <b>woodblock tick on every beat</b> to count by. An orb appears on a beat, somewhere around you — <b>beat 1 you find it, beat 2 you track it, beat 3 you fire</b>. Killing it within 3 beats is <b>Excellent</b>; faster is better still. The ring sweeping the floor marks each 8-beat phrase. Distance is in the sound: close orbs are dry and loud, far ones quiet and washed in reverb.</p>
+    <div class="phones" id="phonesNote">🎧 Headphones help, but laptop speakers work too. Sound on.</div>
+
+    <div class="keys">
+      <span><b>MOUSE</b>turn &amp; aim</span>
+      <span><b>L-CLICK</b>fire on the beat</span>
+      <span><b>ESC</b>pause &amp; settings</span>
+    </div>
+
+    <div id="pauseStats" style="display:none"></div>
+
+    <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
+    <div class="dualcols"><button class="ghost" id="shareBtn">⧉ SHARE THIS DOJO</button></div>
+
+    <div class="settings">
+      <h2 id="setHead">— RANGE SETTINGS —</h2>
+
+      <div class="row">
+        <label>Mode</label>
+        <div class="seg" id="modeSeg"><button data-v="rhythm" class="on">RHYTHM</button><button data-v="hunt">FREE HUNT</button></div>
+        <span class="out"></span>
+      </div>
+      <div class="hint">Rhythm: orbs spawn on the beat and you fire in time, tempo adapts. Free hunt: orbs stream continuously, world speed adapts. (Switching applies on restart.)</div>
+
+      <div class="row rhythm-only">
+        <label for="startBpm">Start tempo</label>
+        <input type="range" id="startBpm" min="20" max="150" step="2" value="20">
+        <span class="out" id="startBpmOut">20</span>
+      </div>
+
+      <div class="row rhythm-only">
+        <label for="density">Orb density</label>
+        <input type="range" id="density" min="0.25" max="1.3" step="0.05" value="0.55">
+        <span class="out" id="densityOut">0.55×</span>
+      </div>
+      <div class="hint">How busy the beat patterns are. Lower = more rests between orbs; higher = more onsets. A cooldown keeps orbs from ever clustering. Applies live.</div>
+
+      <div class="row hunt-only">
+        <label for="startSpd">Start speed</label>
+        <input type="range" id="startSpd" min="1" max="8" step="0.5" value="2">
+        <span class="out" id="startSpdOut">2.0×</span>
+      </div>
+
+      <div class="row">
+        <label>Spawn field</label>
+        <div class="seg" id="fieldSeg"><button data-v="full" class="on">360° AROUND</button><button data-v="front">FRONT ONLY</button></div>
+        <span class="out"></span>
+      </div>
+      <div class="hint">360° makes you localize and turn to orbs behind you. Front-only keeps every orb in view.</div>
+
+      <div class="row">
+        <label>Assist arrows</label>
+        <div class="seg" id="assistSeg"><button data-v="off" class="on">OFF</button><button data-v="on">ON</button></div>
+        <span class="out"></span>
+      </div>
+
+      <div class="row">
+        <label for="sens">Sensitivity</label>
+        <input type="range" id="sens" min="0.2" max="3" step="0.05" value="1">
+        <span class="out" id="sensOut">1.00×</span>
+      </div>
+      <div class="row">
+        <label for="fov">Field of view</label>
+        <input type="range" id="fov" min="70" max="110" step="1" value="95">
+        <span class="out" id="fovOut">95°</span>
+      </div>
+
+      <div class="row">
+        <label for="upTh">Speed-up at</label>
+        <input type="range" id="upTh" min="0.6" max="0.95" step="0.01" value="0.80">
+        <span class="out" id="upThOut">80%</span>
+      </div>
+      <div class="row">
+        <label for="downTh">Slow-down at</label>
+        <input type="range" id="downTh" min="0.3" max="0.75" step="0.01" value="0.5">
+        <span class="out" id="downThOut">50%</span>
+      </div>
+      <div class="hint">The gap between these is the dead-band: while accuracy sits between them the tempo holds steady.</div>
+
+      <div class="row">
+        <label for="win">Window size</label>
+        <input type="range" id="win" min="5" max="25" step="1" value="10">
+        <span class="out" id="winOut">10</span>
+      </div>
+
+      <div class="dualcols"><button class="ghost" id="applyBtn">APPLY &amp; RESTART</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="shareOverlay" class="hidden">
+  <div class="card share-card">
+    <p class="eyebrow">SHARE&nbsp;·&nbsp;RUNS&nbsp;IN&nbsp;ANY&nbsp;BROWSER</p>
+    <h1>SHARE THE <span class="acc">DOJO</span></h1>
+    <p class="lede">Send this link to anyone — the dojo runs instantly in the browser, nothing to install. <b>Scan the code</b> with a phone camera, or copy the link.</p>
+    <div class="qr" id="qrcode" aria-label="QR code linking to this page"></div>
+    <div class="share-url">
+      <input id="shareUrl" type="text" readonly aria-label="Shareable link">
+      <button class="ghost" id="copyBtn">COPY</button>
+    </div>
+    <div class="copy-msg" id="copyMsg" role="status" aria-live="polite"></div>
+    <div class="dualcols"><button class="ghost" id="shareClose">← BACK</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ========================= TUNABLES ========================= */
+const CFG = {
+  mode:'rhythm',
+  // free-hunt world speed
+  startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
+  // rhythm tempo
+  startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:5,
+  // shared adaptive law
+  upThreshold:0.80, downThreshold:0.50, windowSize:10, warmEvents:6,
+  // difficulty mapping
+  lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
+  gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
+  yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
+  // rhythm timing windows (ms to nearest beat)
+  perfectMs:55, goodMs:110,
+  spawnField:'full', audioAssist:false, baseRadPerPx:0.0022,
+  // juice
+  recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
+  hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
+  // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
+  densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
+};
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ========================= SCENE ========================= */
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.setSize(innerWidth, innerHeight);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0d0c);
+scene.fog = new THREE.FogExp2(0x0b0d0c, 0.012);
+const EYE = 4;
+const camera = new THREE.PerspectiveCamera(95, innerWidth/innerHeight, 0.1, 400);
+camera.position.set(0, EYE, 0);
+scene.add(new THREE.AmbientLight(0x35423c, 1.0));
+scene.add(new THREE.HemisphereLight(0x96b0a4, 0x0a0c0b, 0.55));
+const dLight = new THREE.DirectionalLight(0xbfe6c8, 0.6); dLight.position.set(6,14,4); scene.add(dLight);
+
+const ROOM = {w:64, h:28, d:64};
+(function buildArena(){
+  const wallMat = new THREE.MeshStandardMaterial({color:0x141816, roughness:0.95, metalness:0.05, side:THREE.BackSide});
+  const room = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w, ROOM.h, ROOM.d), wallMat);
+  room.position.y = ROOM.h/2 - 0.01; scene.add(room);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w, ROOM.d), new THREE.MeshStandardMaterial({color:0x0e110f, roughness:1, metalness:0}));
+  floor.rotation.x = -Math.PI/2; scene.add(floor);
+  const grid = new THREE.GridHelper(ROOM.w, 32, 0x2a3a33, 0x18221e); grid.position.y = 0.02; scene.add(grid);
+  function strip(w,h,c,x,y,z,ry){ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.5})); m.position.set(x,y,z); if(ry)m.rotation.y=ry; scene.add(m); }
+  strip(ROOM.w*0.9,0.18,0x74e84a,0,8.5,-ROOM.d/2+0.05,0); strip(ROOM.w*0.9,0.18,0x74e84a,0,8.5,ROOM.d/2-0.05,Math.PI);
+  strip(ROOM.w*0.9,0.10,0xff8a2b,0,3.0,-ROOM.d/2+0.05,0); strip(ROOM.w*0.9,0.10,0xff8a2b,0,3.0,ROOM.d/2-0.05,Math.PI);
+  strip(ROOM.d*0.9,0.14,0x2c4f46,-ROOM.w/2+0.05,9.5,0,Math.PI/2); strip(ROOM.d*0.9,0.14,0x2c4f46,ROOM.w/2-0.05,9.5,0,Math.PI/2);
+})();
+
+// floor beat-ring: a circle expanding from under the player to beyond the walls over each 8-beat phrase
+const floorRing = new THREE.Mesh(new THREE.RingGeometry(0.95,1.0,64),
+  new THREE.MeshBasicMaterial({color:0x43d9ff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false}));
+floorRing.rotation.x=-Math.PI/2; floorRing.position.set(0,0.06,0); floorRing.visible=false; scene.add(floorRing);
+
+/* ========================= LOOK ========================= */
+let yaw=0, pitch=0, radPerPx=CFG.baseRadPerPx;
+const PITCH_LIMIT = THREE.MathUtils.degToRad(88);
+document.addEventListener('mousemove', e=>{
+  if(!state.running) return;
+  yaw -= e.movementX*radPerPx; pitch -= e.movementY*radPerPx;
+  pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
+});
+
+/* ========================= JUICE (recoil, shake, explosions) ========================= */
+const PLAYER_POS = new THREE.Vector3(0, EYE, 0);
+let recoilPitch=0, recoilYaw=0, trauma=0;
+const explosions=[];
+function addRecoil(){ if(reduceMotion) return; recoilPitch=Math.min(recoilPitch+CFG.recoilKick, CFG.recoilMax); recoilYaw += (Math.random()*2-1)*CFG.recoilYaw; }
+function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt); }
+function explodeAt(pos, radius, color){
+  color=color||TOXIC;
+  const flash=new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.3,radius*1.1),16,12), new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));
+  flash.position.copy(pos); scene.add(flash);
+  let pts=null,geo=null,mat=null,vels=null;
+  if(!reduceMotion){
+    const N=CFG.shards; geo=new THREE.BufferGeometry();
+    const positions=new Float32Array(N*3); vels=[];
+    for(let i=0;i<N;i++){ positions[i*3]=pos.x; positions[i*3+1]=pos.y; positions[i*3+2]=pos.z;
+      const d=new THREE.Vector3(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1).normalize(); vels.push(d.multiplyScalar(5+Math.random()*9)); }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    mat=new THREE.PointsMaterial({color,size:0.26,transparent:true,opacity:1,blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true});
+    pts=new THREE.Points(geo,mat); scene.add(pts);
+  }
+  explosions.push({pts,geo,mat,vels,flash,age:0,life:0.55});
+}
+function killTarget(tg){ const idx=targets.indexOf(tg); if(idx>=0) targets.splice(idx,1); explodeAt(tg.mesh.position.clone(), tg.radius); removeTarget(tg); }
+
+/* ========================= AUDIO ========================= */
+let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
+let reverbInput=null;
+let kick=null, snare=null, hat=null, tick=null, drumBus=null, drumsBuilt=false;
+let gridId=null, grid8=0, cd=0, restSlots=0;
+let synthHit, synthLow, synthLvl, noiseFire;
+const PENTA=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
+function pickPenta(){ return PENTA[(Math.random()*PENTA.length)|0]; }
+
+function makeIR(ctx, dur, decay){
+  const rate=ctx.sampleRate, len=Math.max(1,Math.floor(rate*dur));
+  const buf=ctx.createBuffer(2,len,rate);
+  for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch); for(let i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); } }
+  return buf;
+}
+function buildReverb(){
+  if(!listener || reverbInput) return;
+  const ctx=listener.context;
+  const conv=ctx.createConvolver(); conv.buffer=makeIR(ctx,2.2,2.4);
+  reverbInput=ctx.createGain(); reverbInput.gain.value=1.0;
+  const wet=ctx.createGain(); wet.gain.value=0.55;
+  reverbInput.connect(conv); conv.connect(wet); wet.connect(listener.getInput());
+}
+function buildDrums(){
+  if(drumsBuilt || !toneReady) return;
+  try{
+    drumBus=new Tone.Volume(-5).toDestination();
+    kick=new Tone.MembraneSynth({pitchDecay:0.03,octaves:6,envelope:{attack:0.001,decay:0.22,sustain:0}}).connect(drumBus);
+    const snFilt=new Tone.Filter(1800,'bandpass').connect(drumBus);
+    snare=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.16,sustain:0}}).connect(snFilt);
+    const hatFilt=new Tone.Filter(8000,'highpass').connect(drumBus);
+    hat=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0}}).connect(hatFilt);
+    tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(new Tone.Volume(3).connect(drumBus));
+    drumsBuilt=true;
+  }catch(e){ drumsBuilt=false; }
+}
+function initAudio(){
+  if(audioInit) return; audioInit=true;
+  try{
+    Tone.start();
+    rawCtx = (Tone.getContext && Tone.getContext().rawContext) ? Tone.getContext().rawContext : null;
+    const out=new Tone.Volume(-6).toDestination();
+    synthHit=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.09,sustain:0,release:0.02}}).connect(out);
+    synthLow=new Tone.Synth({oscillator:{type:'square'},envelope:{attack:0.001,decay:0.14,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination());
+    synthLvl=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.002,decay:0.12,sustain:0,release:0.05}}).connect(out);
+    noiseFire=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.05,sustain:0}}).connect(new Tone.Volume(-16).toDestination());
+    toneReady=true;
+  }catch(e){ toneReady=false; }
+  try{
+    listener=new THREE.AudioListener(); camera.add(listener);
+    if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume();
+    buildReverb();
+  }catch(e){ listener=null; }
+  applyAudioState();
+}
+function sfx(kind){
+  if(!soundOn || !toneReady) return;
+  try{
+    const now=Tone.now();
+    if(kind==='hit'){ synthHit.triggerAttackRelease(880*Math.pow(2,Math.min(state.streak,12)/24),0.06,now); }
+    else if(kind==='whiff'){ noiseFire.triggerAttackRelease(0.04,now); }
+    else if(kind==='offbeat'){ synthLow.triggerAttackRelease(180,0.07,now); }
+    else if(kind==='expire'){ synthLow.triggerAttackRelease(120,0.12,now); }
+    else if(kind==='levelUp'){ synthLvl.triggerAttackRelease(523,0.08,now); synthLvl.triggerAttackRelease(784,0.10,now+0.09); }
+    else if(kind==='levelDown'){ synthLvl.triggerAttackRelease(392,0.08,now); synthLvl.triggerAttackRelease(262,0.12,now+0.09); }
+  }catch(e){}
+}
+function applyAudioState(){
+  if(listener) listener.setMasterVolume((state.running && soundOn)?1:0);
+  if(drumBus) drumBus.mute = !(state.running && soundOn);
+}
+
+// continuous, position-aware hum: osc -> tremolo -> lowpass -> [dry: panner] + [wet send -> reverb]
+function makeTargetSound(mesh){
+  if(!listener) return null;
+  const ctx=listener.context;
+  try{
+    const pa=new THREE.PositionalAudio(listener);
+    pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
+    const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=pickPenta();
+    const ampGain=ctx.createGain(); ampGain.gain.value=0.55;
+    const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2;
+    const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
+    const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=7000;
+    const outGain=ctx.createGain(); outGain.gain.value=0.0001;
+    osc.connect(ampGain); lfo.connect(lfoGain); lfoGain.connect(ampGain.gain);
+    ampGain.connect(lowpass); lowpass.connect(outGain);
+    pa.setNodeSource(outGain); mesh.add(pa);
+    // reverb send (rises with distance for the "far = washy" cue)
+    let send=null;
+    if(reverbInput){ send=ctx.createGain(); send.gain.value=0.12; lowpass.connect(send); send.connect(reverbInput); }
+    osc.start(); lfo.start();
+    const now=ctx.currentTime;
+    outGain.gain.setValueAtTime(0.0001, now);
+    outGain.gain.exponentialRampToValueAtTime(0.8, now+0.12);
+    return {pa, osc, lfo, lowpass, outGain, send, stopped:false};
+  }catch(e){ return null; }
+}
+function stopTargetSound(snd){
+  if(!snd || snd.stopped || !listener) return; snd.stopped=true;
+  try{
+    const now=listener.context.currentTime;
+    snd.outGain.gain.cancelScheduledValues(now);
+    snd.outGain.gain.setValueAtTime(Math.max(0.0001,snd.outGain.gain.value),now);
+    snd.outGain.gain.exponentialRampToValueAtTime(0.0001, now+0.06);
+    snd.osc.stop(now+0.09); snd.lfo.stop(now+0.09);
+  }catch(e){}
+  try{ if(snd.send) snd.send.disconnect(); }catch(e){}
+}
+
+/* ---- rhythm scheduling ---- */
+function rhythmLevel(){ const b=state.bpm; return b<90?1:(b<115?2:(b<140?3:4)); }
+function eighthSec(){ return (60/state.bpm)/2; }
+function timingErrorMs(){
+  if(state.mode!=='rhythm' || !toneReady) return 0;
+  const e=60/state.bpm; let pos=Tone.Transport.seconds;   // grade against the beat (quarter note) = the tick
+  const lat=(rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0; pos-=lat;
+  const k=Math.round(pos/e); return (pos - k*e)*1000;   // + = late, - = early
+}
+function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||i===6) return 0.62; return 0.45; }
+function onGrid(time){
+  if(!state.running){ grid8++; return; }
+  const i=grid8%8;
+  try{
+    if(i===0||i===4) kick.triggerAttackRelease('C1','8n',time);
+    if(i===2||i===6) snare.triggerAttackRelease('16n',time);
+    if(hat) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);
+    if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker on every beat
+  }catch(e){}
+  if(i%2===0){ try{ Tone.Draw.schedule(()=>pulseBeat(i===0), time); }catch(e){} }
+  // sparse, spaced groove — a cooldown after each orb forbids clustering; density sets the rate
+  const active=targets.filter(t=>!t.dead).length;
+  let spawned=false;
+  if(cd>0){ cd--; }
+  else if(active<CFG.patternConcurrency){
+    const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only
+    if(elig){
+      let p = CFG.densityScale*metricWeight(i);
+      if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
+      if(Math.random()<p){
+        try{ Tone.Draw.schedule(()=>{ if(state.running) spawnRhythmOrb(); }, time); }catch(e){ if(state.running) spawnRhythmOrb(); }
+        spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
+      }
+    }
+  }
+  restSlots = spawned ? 0 : restSlots+1;
+  grid8++;
+}
+function ensureRhythm(){
+  if(!toneReady) return;
+  buildDrums();
+  Tone.Transport.bpm.value = state.bpm;
+  if(gridId==null){ gridId = Tone.Transport.scheduleRepeat(onGrid, '8n'); }
+}
+function syncTransport(){
+  if(state.mode!=='rhythm' || !toneReady) return;
+  if(state.running){ if(Tone.Transport.state!=='started') Tone.Transport.start('+0.05'); }
+  else { if(Tone.Transport.state==='started') Tone.Transport.pause(); }
+}
+function teardownTransport(){
+  if(!toneReady) return;
+  try{ if(gridId!=null){ Tone.Transport.clear(gridId); gridId=null; } Tone.Transport.stop(); Tone.Transport.cancel(); Tone.Transport.position=0; }catch(e){}
+  grid8=0; cd=0; restSlots=0;
+}
+
+/* ========================= TARGETS ========================= */
+const raycaster=new THREE.Raycaster();
+const CENTER=new THREE.Vector2(0,0);
+const targets=[]; let nextSpawnAt=0; const TOXIC=0x74e84a;
+function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
+function diffT(){ return state.mode==='rhythm' ? Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))) : (state.speed-CFG.minSpeed)/(CFG.maxSpeed-CFG.minSpeed); }
+function targetRadius(){ const f = state.mode==='rhythm' ? 0.62 : CFG.radFast; return lerp(CFG.radSlow, f, diffT()); }
+function targetLife(){ return lerp(CFG.lifeSlow, CFG.lifeFast, diffT()); }
+function spawnGap(){ return lerp(CFG.gapSlow, CFG.gapFast, diffT()); }
+function desiredCount(){ return state.speed<5?1:(state.speed<9?2:3); }
+function spawnRhythmOrb(){ spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats}); }
+
+function spawnTarget(opts){
+  opts=opts||{};
+  const r=targetRadius();
+  const core=new THREE.Mesh(new THREE.SphereGeometry(r,24,18),
+    new THREE.MeshStandardMaterial({color:TOXIC,emissive:TOXIC,emissiveIntensity:0.95,roughness:0.4,metalness:0.1}));
+  const shell=new THREE.Mesh(new THREE.SphereGeometry(r*1.55,16,12),
+    new THREE.MeshBasicMaterial({color:TOXIC,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false}));
+  core.add(shell);
+  const up=new THREE.Vector3(0,1,0); let dir3;
+  if(CFG.spawnField==='full'){
+    const az=Math.random()*Math.PI*2, pit=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
+    dir3=new THREE.Vector3(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit)).normalize();
+  }else{
+    const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
+    const flat=new THREE.Vector3(fwd.x,0,fwd.z).normalize();
+    const right=new THREE.Vector3().crossVectors(flat,up).normalize();
+    const yawOff=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.yawSpreadDeg);
+    const pitOff=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
+    dir3=flat.clone().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(up,yawOff)).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(right,pitOff)).normalize();
+  }
+  const dist=lerp(CFG.spawnDist[0],CFG.spawnDist[1],Math.random());
+  const pos=PLAYER_POS.clone().add(dir3.multiplyScalar(dist));
+  pos.y=Math.max(2.2,Math.min(ROOM.h-2.5,pos.y)); core.position.copy(pos);
+  const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*(state.mode==='rhythm'?0.7:1);
+  const vel=new THREE.Vector3(Math.random()*2-1,(Math.random()*2-1)*0.35,Math.random()*2-1).normalize().multiplyScalar(dmag);
+  if(!reduceMotion) core.scale.setScalar(0.01);
+  scene.add(core);
+  const snd=makeTargetSound(core);
+  const life=opts.life!=null?opts.life:targetLife();
+  targets.push({mesh:core, shell, born:state.t, expireAt:state.t+life, vel, radius:r, dead:false, sc:reduceMotion?1:0.01, snd});
+}
+function removeTarget(tg){ stopTargetSound(tg.snd); scene.remove(tg.mesh); tg.mesh.geometry.dispose(); tg.mesh.material.dispose(); tg.shell.geometry.dispose(); tg.shell.material.dispose(); }
+
+/* ========================= TRACER ========================= */
+const beams=[];
+function fireBeam(end, hit){
+  if(reduceMotion) return;
+  const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
+  const up=new THREE.Vector3(0,1,0); const right=new THREE.Vector3().crossVectors(fwd,up).normalize();
+  const origin=PLAYER_POS.clone().add(right.multiplyScalar(0.7)).add(up.clone().multiplyScalar(-0.55)).add(fwd.clone().multiplyScalar(0.9));
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([origin,end]), new THREE.LineBasicMaterial({color:hit?TOXIC:0x43d9ff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending}));
+  scene.add(line); beams.push({line,life:0.12,age:0});
+}
+
+/* ========================= ADAPTIVE ENGINE ========================= */
+const events=[]; let sinceAdjust=0;
+function windowAccuracy(){ if(!events.length) return null; let g=0; for(const e of events) if(e) g++; return g/events.length; }
+function pushEvent(good){ events.push(good); if(events.length>CFG.windowSize) events.shift(); sinceAdjust++; maybeAdjust(); renderGauge(); }
+function maybeAdjust(){
+  if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
+  if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
+  const acc=windowAccuracy();
+  if(state.mode==='rhythm'){ if(acc>=CFG.upThreshold) changeBpm(+CFG.bpmUp,true); else if(acc<=CFG.downThreshold) changeBpm(-CFG.bpmDown,false); }
+  else { if(acc>=CFG.upThreshold) changeSpeed(+CFG.upStep,true); else if(acc<=CFG.downThreshold) changeSpeed(-CFG.downStep,false); }
+}
+function changeSpeed(delta,up){
+  const prev=state.speed; state.speed=Math.max(CFG.minSpeed,Math.min(CFG.maxSpeed,state.speed+delta));
+  if(state.speed===prev) return; sinceAdjust=0; state.maxReached=Math.max(state.maxReached,state.speed);
+  renderPrimary(up,true); sfx(up?'levelUp':'levelDown');
+}
+function changeBpm(delta,up){
+  const prev=state.bpm; state.bpm=Math.max(CFG.minBpm,Math.min(CFG.maxBpm,state.bpm+delta));
+  if(state.bpm===prev) return; sinceAdjust=0; state.maxBpm=Math.max(state.maxBpm,state.bpm);
+  if(toneReady){ try{ Tone.Transport.bpm.rampTo(state.bpm,0.3); }catch(e){} }
+  renderPrimary(up,true); sfx(up?'levelUp':'levelDown');
+}
+
+/* ========================= STATE + OUTCOMES ========================= */
+const state={ running:false, started:false, t:0, mode:CFG.mode,
+  speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm,
+  hits:0, shots:0, streak:0, bestStreak:0, reactions:[] };
+
+function onHit(tg, point){ // free-hunt
+  if(tg.dead) return; tg.dead=true;
+  state.hits++; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
+  state.reactions.push((state.t-tg.born)*1000); if(state.reactions.length>12) state.reactions.shift();
+  pushEvent(true); fireBeam(point,true); popHitMarker(); addTrauma(CFG.hitTrauma); sfx('hit'); killTarget(tg); renderStats();
+}
+function gradeRhythmHit(tg, point){
+  if(tg.dead) return; tg.dead=true; state.shots++;
+  const beats=(state.t - tg.born)/(60/state.bpm);
+  let grade, good=true;
+  if(beats<=1.0) grade='FLAWLESS';
+  else if(beats<=2.0) grade='PERFECT';
+  else if(beats<=3.0) grade='EXCELLENT';
+  else { grade='GOOD'; good=false; }            // got it, but past the 3-beat target
+  if(good){ state.hits++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }
+  else state.streak=0;
+  state.reactions.push(beats); if(state.reactions.length>12) state.reactions.shift();
+  pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good');
+  fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
+  sfx(good?'hit':'offbeat'); killTarget(tg); renderStats();
+}
+function onWhiff(){
+  state.shots++; state.streak=0; pushEvent(false);
+  const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
+  fireBeam(PLAYER_POS.clone().add(fwd.multiplyScalar(60)),false);
+  flashReticleBad(); sfx('whiff'); renderStats();
+}
+function onExpire(tg){ removeTarget(tg); state.streak=0; pushEvent(false); if(state.mode==='rhythm') showTiming('MISS','too slow','off'); sfx('expire'); renderStats(); }
+function fire(){
+  if(!state.running) return;
+  addRecoil();
+  raycaster.setFromCamera(CENTER,camera);
+  const meshes=targets.filter(t=>!t.dead).map(t=>t.mesh);
+  const hits=raycaster.intersectObjects(meshes,false);
+  if(hits.length){ const tg=targets.find(t=>t.mesh===hits[0].object); if(tg){ state.mode==='rhythm'?gradeRhythmHit(tg,hits[0].point):onHit(tg,hits[0].point); } }
+  else onWhiff();
+}
+canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); });
+canvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+/* ========================= HUD ========================= */
+function gid(id){ return document.getElementById(id); }
+const el={ speedVal:gid('speedVal'), speedLabel:gid('speedLabel'), sTargets:gid('sTargets'), sStreak:gid('sStreak'),
+  sStreakBest:gid('sStreakBest'), sReact:gid('sReact'), reactLabel:gid('reactLabel'), sClick:gid('sClick'),
+  verdict:gid('verdict'), accVal:gid('accVal'), fill:gid('fill'), gateUp:gid('gateUp'), gateDown:gid('gateDown'),
+  gaugeLegend:gid('gaugeLegend'), reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
+
+function renderPrimary(up, flash){
+  if(state.mode==='rhythm') el.speedVal.innerHTML=Math.round(state.bpm)+'<span class="x">bpm</span>';
+  else el.speedVal.innerHTML=state.speed.toFixed(1)+'<span class="x">×</span>';
+  if(flash && !reduceMotion){ el.speedVal.classList.remove('up','down'); void el.speedVal.offsetWidth; el.speedVal.classList.add(up?'up':'down'); }
+}
+function renderStats(){
+  el.sTargets.textContent=state.hits; el.sStreak.textContent=state.streak; el.sStreakBest.textContent='best '+state.bestStreak;
+  const avg=state.reactions.length?(state.reactions.reduce((a,b)=>a+b,0)/state.reactions.length):null;
+  if(state.mode==='rhythm') el.sReact.textContent = avg!=null?avg.toFixed(1):'—';
+  else el.sReact.textContent = avg!=null?Math.round(avg)+' ms':'— ms';
+  el.sClick.textContent=state.shots?Math.round(state.hits/state.shots*100)+'%':'—';
+}
+function renderGauge(){
+  el.gateDown.style.left=(CFG.downThreshold*100)+'%'; el.gateUp.style.left=(CFG.upThreshold*100)+'%';
+  const acc=windowAccuracy();
+  if(acc===null){ el.fill.style.width='0%'; el.accVal.textContent='—%'; el.verdict.textContent='WARMING UP'; el.verdict.className='warm'; return; }
+  el.fill.style.width=(acc*100)+'%'; el.accVal.textContent=Math.round(acc*100)+'%';
+  el.fill.classList.remove('go','hold','slow');
+  if(acc>=CFG.upThreshold){ el.fill.classList.add('go'); el.verdict.textContent=state.mode==='rhythm'?'SPEEDING UP':'SPEEDING UP'; el.verdict.className='go'; }
+  else if(acc<=CFG.downThreshold){ el.fill.classList.add('slow'); el.verdict.textContent='SLOWING DOWN'; el.verdict.className='slow'; }
+  else { el.fill.classList.add('hold'); el.verdict.textContent='HOLDING'; el.verdict.className='hold'; }
+}
+function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('fire'); void el.hitmark.offsetWidth; el.hitmark.classList.add('fire'); }
+let reticleBadT=0;
+function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
+function showTiming(grade, sub, cls){
+  if(!el.timing) return;
+  el.timing.classList.remove('show','perfect','good','off'); void el.timing.offsetWidth;
+  el.timing.querySelector('.g').textContent=grade; el.timing.querySelector('.s').textContent=sub||'';
+  el.timing.classList.add(cls||'good','show');
+}
+function pulseBeat(downbeat){
+  if(reduceMotion) return;
+  el.reticle.classList.add('beat'); setTimeout(()=>el.reticle.classList.remove('beat'),100);
+  if(downbeat && el.beatRing){ el.beatRing.classList.remove('pulse'); void el.beatRing.offsetWidth; el.beatRing.classList.add('pulse'); }
+}
+
+/* ========================= ASSIST ARROWS ========================= */
+const assistWrap=gid('assist'); const arrowPool=[];
+function getArrow(i){ while(arrowPool.length<=i){ const a=document.createElement('div'); a.className='arrow'; a.innerHTML='<span></span>'; assistWrap.appendChild(a); arrowPool.push(a);} return arrowPool[i]; }
+function updateAssist(){
+  if(!CFG.audioAssist || !state.running){ for(const a of arrowPool) a.style.display='none'; return; }
+  const W=innerWidth,H=innerHeight,cx=W/2,cy=H/2; let idx=0;
+  for(const tg of targets){
+    if(tg.dead) continue;
+    const local=tg.mesh.position.clone(); camera.worldToLocal(local); const behind=local.z>0;
+    const ndc=tg.mesh.position.clone().project(camera); let x=ndc.x,y=ndc.y;
+    if(!behind && Math.abs(x)<=1 && Math.abs(y)<=1) continue;
+    if(behind){ x=-x; y=-y; }
+    const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.86/Math.max(ax,ay); x*=s; y*=s;
+    const sx=cx+x*cx, sy=cy-y*cy, ang=Math.atan2(-y,x), d=tg.mesh.position.distanceTo(camera.position);
+    const a=getArrow(idx++); a.style.display='block'; a.style.left=sx+'px'; a.style.top=sy+'px';
+    a.style.transform='translate(-50%,-50%) rotate('+ang+'rad)';
+    a.style.setProperty('--c', d<14?'var(--blood)':'var(--plasma)');
+    a.style.opacity=String(Math.max(0.35,Math.min(1,1-(d-8)/40)));
+  }
+  for(let j=idx;j<arrowPool.length;j++) arrowPool[j].style.display='none';
+}
+
+/* ========================= LOOP ========================= */
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),0.05);
+
+  // camera = aim base + recoil kick + trauma shake (all decay back to the true aim)
+  const rf=Math.exp(-dt*CFG.recoilReturn); recoilPitch*=rf; recoilYaw*=rf;
+  if(trauma>0) trauma=Math.max(0, trauma - dt*CFG.traumaDecay);
+  const s=trauma*trauma;
+  const shP=(Math.random()*2-1)*CFG.shakeAng*s, shY=(Math.random()*2-1)*CFG.shakeAng*s, shR=(Math.random()*2-1)*CFG.shakeRoll*s;
+  camera.rotation.set(pitch+recoilPitch+shP, yaw+recoilYaw+shY, shR, 'YXZ');
+  camera.position.set((Math.random()*2-1)*CFG.shakePos*s, EYE+(Math.random()*2-1)*CFG.shakePos*s, (Math.random()*2-1)*CFG.shakePos*s);
+
+  if(state.running){
+    state.t+=dt;
+    if(state.mode==='hunt'){
+      if(targets.filter(t=>!t.dead).length<desiredCount() && state.t>=nextSpawnAt){ spawnTarget(); nextSpawnAt=state.t+spawnGap(); }
+    }
+    for(let i=targets.length-1;i>=0;i--){
+      const tg=targets[i];
+      if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.sc); }
+      if(!reduceMotion) tg.shell.material.opacity=0.13+0.06*Math.sin(state.t*4+i);
+      tg.mesh.position.addScaledVector(tg.vel,dt);
+      const p=tg.mesh.position, bx=ROOM.w/2-3, bz=ROOM.d/2-3;
+      if(p.x<-bx||p.x>bx) tg.vel.x*=-1; if(p.z<-bz||p.z>bz) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM.h-2.5) tg.vel.y*=-1;
+      if(tg.snd){ const d=p.distanceTo(PLAYER_POS); tg.snd.lowpass.frequency.value=lerp(7000,1200,(d-6)/22); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,(d-6)/22); }
+      if(state.t>=tg.expireAt){ targets.splice(i,1); onExpire(tg); }
+    }
+    if(reticleBadT>0){ reticleBadT-=dt; if(reticleBadT<=0) el.reticle.classList.remove('bad'); }
+  }
+
+  // explosions (shards fly out + a flash); run regardless so they finish across a pause
+  for(let i=explosions.length-1;i>=0;i--){
+    const e=explosions[i]; e.age+=dt; const k=e.age/e.life;
+    if(e.geo){ const arr=e.geo.attributes.position.array;
+      for(let j=0;j<e.vels.length;j++){ e.vels[j].y-=9.8*dt*0.5; e.vels[j].multiplyScalar(Math.max(0,1-1.6*dt)); arr[j*3]+=e.vels[j].x*dt; arr[j*3+1]+=e.vels[j].y*dt; arr[j*3+2]+=e.vels[j].z*dt; }
+      e.geo.attributes.position.needsUpdate=true; e.mat.opacity=Math.max(0,1-k);
+    }
+    const fk=Math.min(1,e.age/0.18); e.flash.scale.setScalar(1+fk*2.4); e.flash.material.opacity=Math.max(0,0.95*(1-fk));
+    if(e.age>=e.life){ if(e.pts){ scene.remove(e.pts); e.geo.dispose(); e.mat.dispose(); } scene.remove(e.flash); e.flash.geometry.dispose(); e.flash.material.dispose(); explosions.splice(i,1); }
+  }
+
+  for(let i=beams.length-1;i>=0;i--){ const b=beams[i]; b.age+=dt; b.line.material.opacity=Math.max(0,0.9*(1-b.age/b.life)); if(b.age>=b.life){ scene.remove(b.line); b.line.geometry.dispose(); b.line.material.dispose(); beams.splice(i,1);} }
+  // floor beat-ring: expand from a dot under the player to beyond the walls over an 8-beat phrase
+  if(state.mode==='rhythm' && state.running && toneReady){
+    const cyc=8*(60/state.bpm), phase=(Tone.Transport.seconds % cyc)/cyc, R=0.4+phase*40;
+    floorRing.scale.set(R,R,1); floorRing.material.opacity=0.5*(1-phase); floorRing.visible=true;
+  } else if(floorRing.visible){ floorRing.visible=false; }
+  updateAssist();
+  renderer.render(scene,camera);
+}
+animate();
+window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+/* ========================= OVERLAY / SETTINGS ========================= */
+const overlay=gid('overlay'), beginBtn=gid('beginBtn'), applyBtn=gid('applyBtn');
+const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
+const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
+
+function startRun(){ initAudio(); canvas.requestPointerLock(); }
+beginBtn.addEventListener('click', startRun);
+
+function configureMode(){
+  const rhythm = CFG.mode==='rhythm';
+  el.speedLabel.textContent = rhythm ? 'TEMPO' : 'WORLD SPEED';
+  el.reactLabel.textContent = rhythm ? 'BEATS' : 'REACTION';
+  el.gaugeLegend.textContent = rhythm ? 'kills within 3 beats vs. slow & missed' : 'hits vs. whiffs & expired';
+  el.beatRing.style.display = rhythm ? 'block' : 'none';
+  el.timing.style.display = rhythm ? 'block' : 'none';
+  document.querySelectorAll('.rhythm-only').forEach(r=>r.style.opacity = rhythm?'1':'0.4');
+  document.querySelectorAll('.hunt-only').forEach(r=>r.style.opacity = rhythm?'0.4':'1');
+  startBpm.disabled = !rhythm; density.disabled = !rhythm; startSpd.disabled = rhythm;
+  renderPrimary(false,false);
+}
+function resetSession(){
+  for(const t of targets) removeTarget(t); targets.length=0;
+  events.length=0; sinceAdjust=0;
+  teardownTransport();
+  state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
+  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,hits:0,shots:0,streak:0,bestStreak:0,reactions:[]});
+  nextSpawnAt=0;
+  if(state.mode==='rhythm') ensureRhythm();
+  configureMode(); renderStats(); renderGauge();
+}
+function applySettings(){
+  CFG.upThreshold=parseFloat(upTh.value);
+  CFG.downThreshold=Math.min(parseFloat(downTh.value),CFG.upThreshold-0.02);
+  CFG.windowSize=parseInt(win.value,10);
+  CFG.startSpeed=parseFloat(startSpd.value);
+  CFG.startBpm=parseInt(startBpm.value,10);
+  CFG.densityScale=parseFloat(density.value);
+  radPerPx=CFG.baseRadPerPx*parseFloat(sens.value);
+  camera.fov=parseInt(fov.value,10); camera.updateProjectionMatrix();
+  resetSession();
+}
+applyBtn.addEventListener('click',()=>{ applySettings(); startRun(); });
+
+document.addEventListener('pointerlockchange',()=>{
+  if(document.pointerLockElement===canvas){
+    if(!state.started){ state.started=true; resetSession(); }
+    state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
+  }else{
+    state.running=false; applyAudioState(); syncTransport(); showPause();
+  }
+});
+function showPause(){
+  if(!state.started) return;
+  ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
+  ovLede.style.display='none'; keysRow.style.display='none'; phonesNote.style.display='none';
+  beginBtn.textContent='▶ RESUME'; gid('setHead').textContent='— ADJUST (mode/sliders apply on restart) —';
+  const clickPct=state.shots?Math.round(state.hits/state.shots*100)+'%':'—';
+  const avgNum=state.reactions.length?(state.reactions.reduce((a,b)=>a+b,0)/state.reactions.length):null;
+  const avgR = avgNum==null?'—':(state.mode==='rhythm'?avgNum.toFixed(1)+' beats':Math.round(avgNum)+' ms');
+  const peakK = state.mode==='rhythm' ? 'PEAK TEMPO' : 'PEAK SPEED';
+  const peakV = state.mode==='rhythm' ? Math.round(state.maxBpm)+' bpm' : state.maxReached.toFixed(1)+'×';
+  const timeK = state.mode==='rhythm' ? 'AVG BEATS/KILL' : 'AVG REACTION';
+  pauseStats.style.display='flex';
+  pauseStats.innerHTML=
+    '<div class="chip"><div class="ck">'+peakK+'</div><div class="cv amber">'+peakV+'</div></div>'+
+    '<div class="chip"><div class="ck">'+(state.mode==='rhythm'?'GOOD KILLS':'TARGETS HIT')+'</div><div class="cv">'+state.hits+'</div></div>'+
+    '<div class="chip"><div class="ck">BEST STREAK</div><div class="cv green">'+state.bestStreak+'</div></div>'+
+    '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
+    '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
+  overlay.classList.remove('hidden');
+}
+
+const sens=gid('sens'),sensOut=gid('sensOut'),fov=gid('fov'),fovOut=gid('fovOut');
+const startSpd=gid('startSpd'),startSpdOut=gid('startSpdOut'),startBpm=gid('startBpm'),startBpmOut=gid('startBpmOut');
+const upTh=gid('upTh'),upThOut=gid('upThOut'),downTh=gid('downTh'),downThOut=gid('downThOut'),win=gid('win'),winOut=gid('winOut');
+function bind(input,out,fmt){ const f=()=>out.textContent=fmt(input.value); input.addEventListener('input',f); f(); }
+bind(sens,sensOut,v=>parseFloat(v).toFixed(2)+'×'); bind(fov,fovOut,v=>v+'°');
+bind(startSpd,startSpdOut,v=>parseFloat(v).toFixed(1)+'×'); bind(startBpm,startBpmOut,v=>v);
+const density=gid('density'),densityOut=gid('densityOut');
+bind(density,densityOut,v=>parseFloat(v).toFixed(2)+'×');
+density.addEventListener('input',()=>{ CFG.densityScale=parseFloat(density.value); });
+bind(upTh,upThOut,v=>Math.round(v*100)+'%'); bind(downTh,downThOut,v=>Math.round(v*100)+'%'); bind(win,winOut,v=>v);
+function clampThresholds(){ if(parseFloat(downTh.value)>parseFloat(upTh.value)-0.02){ downTh.value=(parseFloat(upTh.value)-0.02).toFixed(2); downThOut.textContent=Math.round(downTh.value*100)+'%'; } }
+upTh.addEventListener('input',clampThresholds); downTh.addEventListener('input',clampThresholds);
+
+function wireSeg(id,cb){ const seg=gid(id); seg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; [...seg.children].forEach(x=>x.classList.remove('on')); b.classList.add('on'); cb(b.dataset.v); }); }
+wireSeg('modeSeg', v=>{ CFG.mode=v; configureMode(); });
+wireSeg('fieldSeg', v=> CFG.spawnField=v);
+wireSeg('assistSeg', v=> CFG.audioAssist=(v==='on'));
+
+gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); });
+
+/* ========================= SHARE MODAL ========================= */
+(function(){
+  const shareOverlay=gid('shareOverlay'), shareBtn=gid('shareBtn'), shareClose=gid('shareClose');
+  const copyBtn=gid('copyBtn'), shareUrlInput=gid('shareUrl'), copyMsg=gid('copyMsg'), qrBox=gid('qrcode');
+  if(!shareOverlay || !shareBtn) return;
+  function linkUrl(){ return (location.protocol==='file:') ? location.href : (location.origin+location.pathname); }
+  function buildQR(){
+    const url=linkUrl(); shareUrlInput.value=url; qrBox.innerHTML='';
+    if(window.QRCode){
+      try{ new QRCode(qrBox,{text:url,width:188,height:188,colorDark:'#0b0d0c',colorLight:'#d8e0d4',correctLevel:QRCode.CorrectLevel.M}); return; }catch(e){}
+    }
+    const img=document.createElement('img');                 // fallback if the QR lib didn't load
+    img.alt='QR code for '+url;
+    img.src='https://api.qrserver.com/v1/create-qr-code/?size=188x188&margin=0&data='+encodeURIComponent(url);
+    qrBox.appendChild(img);
+  }
+  function openShare(){ buildQR(); copyMsg.textContent=''; shareOverlay.classList.remove('hidden'); }
+  function closeShare(){ shareOverlay.classList.add('hidden'); }
+  shareBtn.addEventListener('click', openShare);
+  shareClose.addEventListener('click', closeShare);
+  shareOverlay.addEventListener('click', e=>{ if(e.target===shareOverlay) closeShare(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !shareOverlay.classList.contains('hidden')) closeShare(); });
+  copyBtn.addEventListener('click', async ()=>{
+    const url=shareUrlInput.value;
+    try{ await navigator.clipboard.writeText(url); copyMsg.textContent='LINK COPIED ✓'; }
+    catch(e){
+      try{ shareUrlInput.focus(); shareUrlInput.select(); document.execCommand('copy'); copyMsg.textContent='LINK COPIED ✓'; }
+      catch(_){ copyMsg.textContent='PRESS ⌘/CTRL+C TO COPY'; shareUrlInput.focus(); shareUrlInput.select(); }
+    }
+  });
+})();
+
+configureMode(); renderGauge(); renderStats();
+})();
+</script>
+</body>
+</html>
