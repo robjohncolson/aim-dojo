@@ -26,6 +26,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-family:var(--mono);color:var(--bone);-webkit-font-smoothing:antialiased}
 #scene{position:fixed;inset:0;display:block;touch-action:none;-webkit-user-select:none;user-select:none}
+#ink{position:fixed;inset:0;z-index:2;pointer-events:none}
 
 #beatRing{position:fixed;left:50%;top:50%;width:60px;height:60px;border:2px solid var(--rail);border-radius:50%;transform:translate(-50%,-50%) scale(.4);z-index:3;pointer-events:none;opacity:0}
 #beatRing.pulse{animation:ring .35s ease-out}
@@ -160,6 +161,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </head>
 <body>
 <canvas id="scene"></canvas>
+<canvas id="ink" aria-hidden="true"></canvas>
 <div id="beatRing" aria-hidden="true"></div>
 
 <div id="reticle" aria-hidden="true">
@@ -408,12 +410,13 @@ let skyT=0;
 
 /* ---- expanding ground rings = the beat pulse. A fresh ring every couple beats; on a streak they fire
        every beat and warm from rail-blue toward toxic-green. ---- */
-const RING_POOL=[], RING_SPEED=5, RING_LIFE=9;
+const RING_POOL=[], RING_SPEED=4, RING_LIFE=7, RING_CELL=2;   // expansion snaps to the 2-unit grid → square steps out along grid lines
 const RING_COOL=new THREE.Color(0x43d9ff), RING_HOT=new THREE.Color(0x74e84a);
+const SQUARE=new THREE.BufferGeometry().setFromPoints([       // unit square in the floor plane; scaled out, its edges land on grid lines
+  new THREE.Vector3(-1,0,-1), new THREE.Vector3(1,0,-1), new THREE.Vector3(1,0,1), new THREE.Vector3(-1,0,1)]);
 for(let k=0;k<12;k++){
-  const m=new THREE.Mesh(new THREE.RingGeometry(0.95,1.0,72),
-    new THREE.MeshBasicMaterial({color:0x43d9ff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false}));
-  m.rotation.x=-Math.PI/2; m.position.set(0,0.06,0); m.visible=false; scene.add(m);
+  const m=new THREE.LineLoop(SQUARE, new THREE.LineBasicMaterial({color:0x43d9ff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false}));
+  m.position.set(0,0.04,0); m.visible=false; scene.add(m);
   RING_POOL.push({mesh:m, active:false, t0:0, intensity:0.5});
 }
 function emitRing(){
@@ -421,7 +424,7 @@ function emitRing(){
   const heat=Math.min(1, state.streak/18);
   r.active=true; r.t0=state.t; r.intensity=0.42+Math.min(0.45, state.streak*0.02);
   r.mesh.material.color.copy(RING_COOL).lerp(RING_HOT, heat);
-  r.mesh.visible=true; r.mesh.scale.set(0.5,0.5,1); r.mesh.material.opacity=r.intensity;
+  r.mesh.visible=true; r.mesh.material.opacity=r.intensity;
 }
 
 /* ========================= LOOK ========================= */
@@ -842,6 +845,48 @@ function updateAssist(){
   for(let j=idx;j<arrowPool.length;j++) arrowPool[j].style.display='none';
 }
 
+/* ========================= INK TRAILS ========================= */
+// A line of "ink" runs from the cursor to each live orb. It starts white, ripens to red by the
+// optimal click time (~3 beats), then fades back to white — so a target glowing red is the one to take.
+const inkCanvas=gid('ink'), ictx=inkCanvas&&inkCanvas.getContext('2d');
+const INK_OPT=3;                                       // beats to "absolutely red"
+function sizeInk(){
+  if(!inkCanvas) return;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  inkCanvas.width=innerWidth*dpr; inkCanvas.height=innerHeight*dpr;
+  inkCanvas.style.width=innerWidth+'px'; inkCanvas.style.height=innerHeight+'px';
+  ictx.setTransform(dpr,0,0,dpr,0,0);
+}
+if(inkCanvas) sizeInk();
+function drawInk(){
+  if(!ictx) return;
+  ictx.clearRect(0,0,innerWidth,innerHeight);
+  if(!state.running || state.mode!=='rhythm' || reduceMotion) return;
+  const cx=innerWidth/2, cy=innerHeight/2, spb=60/state.bpm, maxB=CFG.rhythmLifeBeats;
+  ictx.lineCap='round';
+  for(const tg of targets){
+    if(tg.dead) continue;
+    const ageB=(state.t-tg.born)/spb;
+    let red = ageB<=INK_OPT ? ageB/INK_OPT : Math.max(0, 1-(ageB-INK_OPT)/Math.max(0.5,maxB-INK_OPT));
+    red=Math.max(0,Math.min(1,red));
+    // project the orb to the screen; clamp behind/off-screen orbs to the edge so the line still points the way
+    const local=tg.mesh.position.clone(); camera.worldToLocal(local); const behind=local.z>0;
+    const ndc=tg.mesh.position.clone().project(camera); let x=ndc.x, y=ndc.y;
+    if(behind || Math.abs(x)>1 || Math.abs(y)>1){
+      if(behind){ x=-x; y=-y; }
+      const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.9/Math.max(ax,ay); x*=s; y*=s;
+    }
+    const sx=cx+x*cx, sy=cy-y*cy;
+    const cr=Math.round(232+( 255-232)*red), cg=Math.round(238+(38-238)*red), cb=Math.round(232+(48-232)*red);
+    const col='rgb('+cr+','+cg+','+cb+')';
+    ictx.globalAlpha=0.28+0.6*red; ictx.strokeStyle=col; ictx.shadowColor=col; ictx.shadowBlur=4+12*red; ictx.lineWidth=1.4+2.8*red;
+    ictx.beginPath(); ictx.moveTo(cx,cy); ictx.lineTo(sx,sy); ictx.stroke();
+    ictx.globalAlpha=Math.min(1,0.4+0.6*red);
+    ictx.beginPath(); ictx.arc(sx,sy,2+3*red,0,6.2832); ictx.fillStyle=col; ictx.fill();
+  }
+  ictx.globalAlpha=1; ictx.shadowBlur=0;
+}
+
 /* ========================= LOOP ========================= */
 const clock=new THREE.Clock();
 function animate(){
@@ -894,17 +939,18 @@ function animate(){
       if(!r.active) continue;
       const ageB=(state.t-r.t0)/spb;
       if(ageB>=RING_LIFE){ r.active=false; r.mesh.visible=false; continue; }
-      const R=0.5+ageB*RING_SPEED;
-      r.mesh.scale.set(R,R,1); r.mesh.material.opacity=r.intensity*Math.max(0,1-ageB/RING_LIFE);
+      const Rq=Math.max(RING_CELL, Math.round((ageB*RING_SPEED)/RING_CELL)*RING_CELL);  // quantize: snap out to the next grid line
+      r.mesh.scale.set(Rq,1,Rq); r.mesh.material.opacity=r.intensity*Math.max(0,1-ageB/RING_LIFE);
     }
   } else {
     for(const r of RING_POOL){ if(r.active){ r.active=false; r.mesh.visible=false; } }
   }
   updateAssist();
+  drawInk();
   renderer.render(scene,camera);
 }
 animate();
-window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); sizeInk(); });
 
 /* ========================= OVERLAY / SETTINGS ========================= */
 const overlay=gid('overlay'), beginBtn=gid('beginBtn'), applyBtn=gid('applyBtn');
