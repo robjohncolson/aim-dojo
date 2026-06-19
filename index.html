@@ -142,6 +142,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 .chip .ck{font-size:10px;letter-spacing:.16em;color:var(--bone-dim)}
 .chip .cv{font-size:22px;color:var(--bone);margin-top:3px}
 .chip .cv.green{color:var(--toxic)}.chip .cv.amber{color:var(--plasma)}
+.histbox{margin:2px 0 16px;border:1px solid var(--panel-edge);background:#0d110f;padding:9px 11px}
+.histhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:9.5px;letter-spacing:.16em;color:var(--bone-dim);margin-bottom:6px}
+.histsub{color:var(--rail);letter-spacing:.06em;white-space:nowrap}
+#histChart{display:block;width:100%;height:84px}
 
 @media (max-width:520px){ h1{font-size:30px} #speedVal{font-size:44px} .row{grid-template-columns:118px 1fr 48px} }
 @media (prefers-reduced-motion: reduce){ #fill{transition:none} #speedVal{transition:none;animation:none!important} #hitmark.fire{animation-duration:.001s} #beatRing.pulse{animation:none} }
@@ -213,6 +217,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       <span><b>MOUSE</b>turn &amp; aim</span>
       <span><b>L-CLICK</b>fire on the beat</span>
       <span><b>ESC</b>pause &amp; settings</span>
+    </div>
+
+    <div id="histBox" class="histbox" style="display:none">
+      <div class="histhead"><span>PATH EFFICIENCY · RECENT RUNS</span><span id="histSub" class="histsub"></span></div>
+      <canvas id="histChart"></canvas>
     </div>
 
     <div id="pauseStats" style="display:none"></div>
@@ -331,6 +340,7 @@ const CFG = {
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
+  brownian:8, brownianMax:7, brownianDamp:1.6,           // random-walk wander on targets (intensity scales with difficulty)
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   spawnField:'full', audioAssist:false, baseRadPerPx:0.0022,
@@ -489,8 +499,14 @@ let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
 let reverbInput=null;
 let kick=null, snare=null, hat=null, tick=null, drumBus=null, drumsBuilt=false;
 let gridId=null, grid8=0, cd=0, restSlots=0;
-let synthHit, synthLow, synthLvl, noiseFire;
+let synthHit, synthLow, synthLvl, noiseFire, chordSynth;
 const PENTA=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
+function chordHit(streak){                               // a major chord a 1/4-beat after a hit, rising with the streak
+  if(!soundOn || !toneReady || !chordSynth) return;
+  try{ const root=PENTA[Math.min(streak, PENTA.length-1)];
+    chordSynth.triggerAttackRelease([root, root*1.25, root*1.5, root*2], '8n', Tone.now()+(60/state.bpm)*0.25, 0.5);
+  }catch(e){}
+}
 function pickPenta(){ return PENTA[(Math.random()*PENTA.length)|0]; }
 
 function makeIR(ctx, dur, decay){
@@ -530,6 +546,7 @@ function initAudio(){
     synthLow=new Tone.Synth({oscillator:{type:'square'},envelope:{attack:0.001,decay:0.14,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination());
     synthLvl=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.002,decay:0.12,sustain:0,release:0.05}}).connect(out);
     noiseFire=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.05,sustain:0}}).connect(new Tone.Volume(-16).toDestination());
+    try{ chordSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.3,sustain:0.05,release:0.5}}).connect(new Tone.Volume(-13).toDestination()); }catch(e){ chordSynth=null; }
     toneReady=true;
   }catch(e){ toneReady=false; }
   try{
@@ -739,7 +756,7 @@ function changeBpm(delta,up){
 /* ========================= STATE + OUTCOMES ========================= */
 const state={ running:false, started:false, t:0, mode:CFG.mode,
   speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm,
-  hits:0, shots:0, streak:0, bestStreak:0, reactions:[], pathScores:[] };
+  hits:0, shots:0, streak:0, bestStreak:0, reactions:[], pathScores:[], sessEffs:[], sessBpms:[] };
 
 function onHit(tg, point){ // free-hunt
   if(tg.dead) return; tg.dead=true;
@@ -759,9 +776,10 @@ function gradeRhythmHit(tg, point){
   else state.streak=0;
   state.reactions.push(beats); if(state.reactions.length>12) state.reactions.shift();
   const ps=pathScoreOf(tg); state.pathScores.push(ps); if(state.pathScores.length>20) state.pathScores.shift();
+  state.sessEffs.push(ps); state.sessBpms.push(state.bpm);   // full-session record (for the startup chart)
   pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good', pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
   fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
-  sfx(good?'hit':'offbeat'); retireTrail(tg, 0.55); killTarget(tg); renderStats();
+  sfx(good?'hit':'offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg); renderStats();
 }
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
@@ -927,6 +945,12 @@ function animate(){
       const tg=targets[i];
       if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.sc); }
       if(!reduceMotion) tg.shell.material.opacity=0.13+0.06*Math.sin(state.t*4+i);
+      if(CFG.brownian>0){                                  // brownian wander: random velocity kicks, damped + speed-capped
+        const j=CFG.brownian*(0.5+0.8*diffT())*Math.sqrt(dt);
+        tg.vel.x+=(Math.random()*2-1)*j; tg.vel.y+=(Math.random()*2-1)*j*0.5; tg.vel.z+=(Math.random()*2-1)*j;
+        tg.vel.multiplyScalar(1-CFG.brownianDamp*dt);
+        const sp=tg.vel.length(); if(sp>CFG.brownianMax) tg.vel.multiplyScalar(CFG.brownianMax/sp);
+      }
       tg.mesh.position.addScaledVector(tg.vel,dt);
       const p=tg.mesh.position, bx=ROOM.w/2-3, bz=ROOM.d/2-3;
       if(p.x<-bx||p.x>bx) tg.vel.x*=-1; if(p.z<-bz||p.z>bz) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM.h-2.5) tg.vel.y*=-1;
@@ -1011,7 +1035,7 @@ function resetSession(){
   events.length=0; sinceAdjust=0;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
-  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],pathScores:[]});
+  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],pathScores:[],sessEffs:[],sessBpms:[]});
   nextSpawnAt=0;
   if(state.mode==='rhythm') ensureRhythm();
   configureMode(); renderStats(); renderGauge();
@@ -1033,6 +1057,35 @@ document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement===canvas){ enterRunning(); }
   else { exitRunning(); }
 });
+function loadSessions(){ try{ return JSON.parse(localStorage.getItem('aimdojo.sessions')||'[]'); }catch(e){ return []; } }
+function saveSession(){                                   // finalize the current run into localStorage history
+  if(!state.sessEffs || state.sessEffs.length<3) return;
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  const s={t:Date.now(), n:state.sessEffs.length, eff:mean(state.sessEffs), bpm:mean(state.sessBpms), peak:state.maxBpm};
+  let h=loadSessions(); h.push(s); if(h.length>60) h=h.slice(-60);
+  try{ localStorage.setItem('aimdojo.sessions', JSON.stringify(h)); }catch(e){}
+  state.sessEffs=[]; state.sessBpms=[];
+}
+function renderHistory(){                                 // startup/pause chart: per-run path efficiency over time, points coloured by BPM
+  const box=gid('histBox'), cv=gid('histChart'); if(!box||!cv) return;
+  const h=loadSessions();
+  if(!h.length){ box.style.display='none'; return; }
+  box.style.display='block';
+  const last=h[h.length-1], sub=gid('histSub');
+  if(sub) sub.textContent=h.length+' run'+(h.length>1?'s':'')+' · last '+Math.round(last.eff*100)+'% @ '+Math.round(last.bpm)+' bpm';
+  const data=h.slice(-40), W=cv.clientWidth||300, H=84, dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=W*dpr; cv.height=H*dpr; const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+  const pL=6,pR=6,pT=8,pB=12, pw=W-pL-pR, ph=H-pT-pB, yMin=0.4, yMax=1.0;
+  const xAt=i=> data.length<2 ? pL+pw/2 : pL+(i/(data.length-1))*pw;
+  const yAt=e=> pT+(1-(Math.max(yMin,Math.min(yMax,e))-yMin)/(yMax-yMin))*ph;
+  c.font='9px monospace';
+  for(const gy of [0.5,0.75,1.0]){ const y=yAt(gy); c.strokeStyle='rgba(140,150,143,0.16)'; c.lineWidth=1; c.beginPath(); c.moveTo(pL,y); c.lineTo(W-pR,y); c.stroke();
+    c.fillStyle='rgba(140,150,143,0.55)'; c.fillText(Math.round(gy*100)+'%', pL, y-2); }
+  c.strokeStyle='rgba(67,217,255,0.30)'; c.lineWidth=1.5; c.beginPath();
+  data.forEach((d,i)=>{ const x=xAt(i),y=yAt(d.eff); i?c.lineTo(x,y):c.moveTo(x,y); }); c.stroke();
+  const bpmCol=b=>{ const t=Math.max(0,Math.min(1,(b-30)/142)); return 'rgb('+Math.round(67+188*t)+','+Math.round(217-150*t)+','+Math.round(255-200*t)+')'; };
+  data.forEach((d,i)=>{ c.fillStyle=bpmCol(d.bpm); c.beginPath(); c.arc(xAt(i),yAt(d.eff),2.7,0,6.2832); c.fill(); });
+}
 function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
@@ -1052,6 +1105,7 @@ function showPause(){
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
     (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(state.pathScores.reduce((a,b)=>a+b,0)/state.pathScores.length*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
+  saveSession(); renderHistory();
   overlay.classList.remove('hidden');
 }
 
@@ -1107,7 +1161,8 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
   });
 })();
 
-configureMode(); renderGauge(); renderStats();
+configureMode(); renderGauge(); renderStats(); renderHistory();
+window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
 </body>
