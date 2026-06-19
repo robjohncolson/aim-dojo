@@ -890,20 +890,19 @@ function drawInk(){
     if(!ik){ ik=tg.ink={pts:[sx,sy], x0:sx, y0:sy, lx:sx, ly:sy, len:0}; }
     else { ik.len+=Math.hypot(sx-ik.lx, sy-ik.ly); ik.lx=sx; ik.ly=sy; ik.pts.push(sx,sy); if(ik.pts.length>INK_TRAIL*2) ik.pts.splice(0,2); }
     const R=Math.round(232+23*red), G=Math.round(238-200*red), B=Math.round(232-184*red), col='rgb('+R+','+G+','+B+')';
-    // faint straight "best line" — the direct path cursor → orb
-    ictx.globalAlpha=0.20+0.20*red; ictx.strokeStyle='rgb(67,217,255)'; ictx.shadowBlur=0; ictx.lineWidth=1;
-    ictx.beginPath(); ictx.moveTo(cx,cy); ictx.lineTo(sx,sy); ictx.stroke();
-    // the actual ink you drew: one stroke, faded from tail→head via a gradient
-    const p=ik.pts, n=p.length;
+    // Ink streaks OUT of the crosshair. The recorded path is translated so its newest point lands on the
+    // cursor (dx,dy), so the comet trails behind your aim — no straight guide line to the target.
+    const p=ik.pts, n=p.length, dx=cx-sx, dy=cy-sy;
     if(n>=4){
-      const grad=ictx.createLinearGradient(p[0],p[1],sx,sy);
-      grad.addColorStop(0,'rgba('+R+','+G+','+B+',0)'); grad.addColorStop(1,'rgba('+R+','+G+','+B+','+(0.32+0.6*red)+')');
+      const tailX=p[0]+dx, tailY=p[1]+dy;
+      const grad=ictx.createLinearGradient(tailX,tailY,cx,cy);
+      grad.addColorStop(0,'rgba('+R+','+G+','+B+',0)'); grad.addColorStop(1,'rgba('+R+','+G+','+B+','+(0.35+0.6*red)+')');
       ictx.globalAlpha=1; ictx.strokeStyle=grad; ictx.shadowColor=col; ictx.shadowBlur=5+12*red; ictx.lineWidth=3+4*red;
-      ictx.beginPath(); ictx.moveTo(p[0],p[1]); for(let k=2;k<n;k+=2) ictx.lineTo(p[k],p[k+1]); ictx.stroke();
+      ictx.beginPath(); ictx.moveTo(tailX,tailY); for(let k=2;k<n;k+=2) ictx.lineTo(p[k]+dx, p[k+1]+dy); ictx.stroke();
     }
-    // node on the orb
-    ictx.globalAlpha=Math.min(1,0.45+0.55*red); ictx.shadowBlur=4+8*red;
-    ictx.beginPath(); ictx.arc(sx,sy,2.5+3.5*red,0,6.2832); ictx.fillStyle=col; ictx.fill();
+    // bright pen-tip on the cursor (reddens at the optimal click time)
+    ictx.globalAlpha=Math.min(1,0.5+0.5*red); ictx.shadowColor=col; ictx.shadowBlur=4+8*red;
+    ictx.beginPath(); ictx.arc(cx,cy,2+3*red,0,6.2832); ictx.fillStyle=col; ictx.fill();
   }
   ictx.globalAlpha=1; ictx.shadowBlur=0;
 }
