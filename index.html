@@ -737,7 +737,7 @@ function changeBpm(delta,up){
 /* ========================= STATE + OUTCOMES ========================= */
 const state={ running:false, started:false, t:0, mode:CFG.mode,
   speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm,
-  hits:0, shots:0, streak:0, bestStreak:0, reactions:[] };
+  hits:0, shots:0, streak:0, bestStreak:0, reactions:[], pathScores:[] };
 
 function onHit(tg, point){ // free-hunt
   if(tg.dead) return; tg.dead=true;
@@ -756,7 +756,8 @@ function gradeRhythmHit(tg, point){
   if(good){ state.hits++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }
   else state.streak=0;
   state.reactions.push(beats); if(state.reactions.length>12) state.reactions.shift();
-  pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good');
+  const ps=inkScore(tg.ink); state.pathScores.push(ps); if(state.pathScores.length>20) state.pathScores.shift();
+  pushEvent(good); showTiming(grade, beats.toFixed(1)+'b · path '+Math.round(ps*100)+'%', good?'perfect':'good');
   fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   sfx(good?'hit':'offbeat'); killTarget(tg); renderStats();
 }
@@ -846,10 +847,11 @@ function updateAssist(){
 }
 
 /* ========================= INK TRAILS ========================= */
-// A line of "ink" runs from the cursor to each live orb. It starts white, ripens to red by the
-// optimal click time (~3 beats), then fades back to white — so a target glowing red is the one to take.
+// As you flick toward an orb it slides to center, so the streak it leaves IS your aim path. Each orb keeps
+// its own trail — thick ink ripening white→red by the optimal click time (~3 beats) — over a faint straight
+// "best line" guide. Path score = chord / actual length (1.0 = a perfectly direct flick).
 const inkCanvas=gid('ink'), ictx=inkCanvas&&inkCanvas.getContext('2d');
-const INK_OPT=3;                                       // beats to "absolutely red"
+const INK_OPT=3, INK_MINLEN=55, INK_TRAIL=64;          // beats-to-red; min flick (px) worth scoring; trail samples kept
 function sizeInk(){
   if(!inkCanvas) return;
   const dpr=Math.min(window.devicePixelRatio||1,2);
@@ -858,31 +860,50 @@ function sizeInk(){
   ictx.setTransform(dpr,0,0,dpr,0,0);
 }
 if(inkCanvas) sizeInk();
+function inkScore(ik){
+  if(!ik || ik.len<INK_MINLEN) return 1;               // barely moved → nothing meaningful to grade
+  return Math.max(0, Math.min(1, Math.hypot(ik.lx-ik.x0, ik.ly-ik.y0)/ik.len));  // straight chord ÷ path walked
+}
+function orbScreen(tg){                                 // project orb; clamp behind/off-screen to the edge
+  const local=tg.mesh.position.clone(); camera.worldToLocal(local); const behind=local.z>0;
+  const ndc=tg.mesh.position.clone().project(camera); let x=ndc.x, y=ndc.y;
+  if(behind || Math.abs(x)>1 || Math.abs(y)>1){
+    if(behind){ x=-x; y=-y; }
+    const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.9/Math.max(ax,ay); x*=s; y*=s;
+  }
+  return [innerWidth/2 + x*(innerWidth/2), innerHeight/2 - y*(innerHeight/2)];
+}
 function drawInk(){
   if(!ictx) return;
   ictx.clearRect(0,0,innerWidth,innerHeight);
   if(!state.running || state.mode!=='rhythm' || reduceMotion) return;
   const cx=innerWidth/2, cy=innerHeight/2, spb=60/state.bpm, maxB=CFG.rhythmLifeBeats;
-  ictx.lineCap='round';
+  ictx.lineCap='round'; ictx.lineJoin='round';
   for(const tg of targets){
     if(tg.dead) continue;
     const ageB=(state.t-tg.born)/spb;
     let red = ageB<=INK_OPT ? ageB/INK_OPT : Math.max(0, 1-(ageB-INK_OPT)/Math.max(0.5,maxB-INK_OPT));
     red=Math.max(0,Math.min(1,red));
-    // project the orb to the screen; clamp behind/off-screen orbs to the edge so the line still points the way
-    const local=tg.mesh.position.clone(); camera.worldToLocal(local); const behind=local.z>0;
-    const ndc=tg.mesh.position.clone().project(camera); let x=ndc.x, y=ndc.y;
-    if(behind || Math.abs(x)>1 || Math.abs(y)>1){
-      if(behind){ x=-x; y=-y; }
-      const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.9/Math.max(ax,ay); x*=s; y*=s;
-    }
-    const sx=cx+x*cx, sy=cy-y*cy;
-    const cr=Math.round(232+( 255-232)*red), cg=Math.round(238+(38-238)*red), cb=Math.round(232+(48-232)*red);
-    const col='rgb('+cr+','+cg+','+cb+')';
-    ictx.globalAlpha=0.28+0.6*red; ictx.strokeStyle=col; ictx.shadowColor=col; ictx.shadowBlur=4+12*red; ictx.lineWidth=1.4+2.8*red;
+    const sc=orbScreen(tg), sx=sc[0], sy=sc[1];
+    // accumulate the trail — full length kept for scoring, drawn point list capped
+    let ik=tg.ink;
+    if(!ik){ ik=tg.ink={pts:[sx,sy], x0:sx, y0:sy, lx:sx, ly:sy, len:0}; }
+    else { ik.len+=Math.hypot(sx-ik.lx, sy-ik.ly); ik.lx=sx; ik.ly=sy; ik.pts.push(sx,sy); if(ik.pts.length>INK_TRAIL*2) ik.pts.splice(0,2); }
+    const R=Math.round(232+23*red), G=Math.round(238-200*red), B=Math.round(232-184*red), col='rgb('+R+','+G+','+B+')';
+    // faint straight "best line" — the direct path cursor → orb
+    ictx.globalAlpha=0.20+0.20*red; ictx.strokeStyle='rgb(67,217,255)'; ictx.shadowBlur=0; ictx.lineWidth=1;
     ictx.beginPath(); ictx.moveTo(cx,cy); ictx.lineTo(sx,sy); ictx.stroke();
-    ictx.globalAlpha=Math.min(1,0.4+0.6*red);
-    ictx.beginPath(); ictx.arc(sx,sy,2+3*red,0,6.2832); ictx.fillStyle=col; ictx.fill();
+    // the actual ink you drew: one stroke, faded from tail→head via a gradient
+    const p=ik.pts, n=p.length;
+    if(n>=4){
+      const grad=ictx.createLinearGradient(p[0],p[1],sx,sy);
+      grad.addColorStop(0,'rgba('+R+','+G+','+B+',0)'); grad.addColorStop(1,'rgba('+R+','+G+','+B+','+(0.32+0.6*red)+')');
+      ictx.globalAlpha=1; ictx.strokeStyle=grad; ictx.shadowColor=col; ictx.shadowBlur=5+12*red; ictx.lineWidth=3+4*red;
+      ictx.beginPath(); ictx.moveTo(p[0],p[1]); for(let k=2;k<n;k+=2) ictx.lineTo(p[k],p[k+1]); ictx.stroke();
+    }
+    // node on the orb
+    ictx.globalAlpha=Math.min(1,0.45+0.55*red); ictx.shadowBlur=4+8*red;
+    ictx.beginPath(); ictx.arc(sx,sy,2.5+3.5*red,0,6.2832); ictx.fillStyle=col; ictx.fill();
   }
   ictx.globalAlpha=1; ictx.shadowBlur=0;
 }
@@ -993,7 +1014,7 @@ function resetSession(){
   events.length=0; sinceAdjust=0;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
-  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,hits:0,shots:0,streak:0,bestStreak:0,reactions:[]});
+  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],pathScores:[]});
   nextSpawnAt=0;
   if(state.mode==='rhythm') ensureRhythm();
   configureMode(); renderStats(); renderGauge();
@@ -1032,6 +1053,7 @@ function showPause(){
     '<div class="chip"><div class="ck">'+(state.mode==='rhythm'?'GOOD KILLS':'TARGETS HIT')+'</div><div class="cv">'+state.hits+'</div></div>'+
     '<div class="chip"><div class="ck">BEST STREAK</div><div class="cv green">'+state.bestStreak+'</div></div>'+
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
+    (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(state.pathScores.reduce((a,b)=>a+b,0)/state.pathScores.length*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
   overlay.classList.remove('hidden');
 }
