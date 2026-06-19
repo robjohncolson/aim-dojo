@@ -25,7 +25,7 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-family:var(--mono);color:var(--bone);-webkit-font-smoothing:antialiased}
-#scene{position:fixed;inset:0;display:block}
+#scene{position:fixed;inset:0;display:block;touch-action:none;-webkit-user-select:none;user-select:none}
 
 #beatRing{position:fixed;left:50%;top:50%;width:60px;height:60px;border:2px solid var(--rail);border-radius:50%;transform:translate(-50%,-50%) scale(.4);z-index:3;pointer-events:none;opacity:0}
 #beatRing.pulse{animation:ring .35s ease-out}
@@ -91,6 +91,15 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 
 #muteBtn{position:fixed;right:18px;top:96px;z-index:7;pointer-events:auto;width:34px;height:30px;border:1px solid var(--panel-edge);background:rgba(20,26,24,.7);color:var(--bone-dim);font-family:var(--mono);font-size:14px;cursor:pointer}
 #muteBtn:hover{color:var(--bone);border-color:var(--steel)}
+
+/* ---- touch controls (phones / tablets) ---- */
+#touch{position:fixed;inset:0;z-index:8;pointer-events:none;display:none}
+#touch.show{display:block}
+#fireBtn,#pauseBtn{position:fixed;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+#fireBtn{right:22px;bottom:calc(env(safe-area-inset-bottom, 0px) + 96px);width:94px;height:94px;border-radius:50%;border:2px solid var(--toxic);background:rgba(116,232,74,.12);color:var(--toxic);font-size:15px;letter-spacing:.1em;box-shadow:0 0 18px rgba(116,232,74,.25)}
+#fireBtn:active{background:rgba(116,232,74,.32);transform:scale(.93)}
+#pauseBtn{right:18px;top:calc(env(safe-area-inset-top, 0px) + 132px);width:46px;height:40px;border:1px solid var(--panel-edge);background:rgba(20,26,24,.72);color:var(--bone-dim);font-size:14px;letter-spacing:.06em}
+#pauseBtn:active{color:var(--bone);border-color:var(--steel)}
 
 #overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
 #overlay.hidden{display:none}
@@ -175,6 +184,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </div>
 
 <button id="muteBtn" title="Toggle sound" aria-label="Toggle sound">♪</button>
+
+<div id="touch">
+  <button id="pauseBtn" aria-label="Pause">❙❙</button>
+  <button id="fireBtn" aria-label="Fire">FIRE</button>
+</div>
 
 <div id="gauge" class="hud" role="meter" aria-label="Accuracy pressure">
   <div id="gaugeHead"><span id="verdict" class="warm">WARMING UP</span><span id="accVal">—%</span></div>
@@ -325,6 +339,8 @@ const CFG = {
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const HAS_TOUCH = (navigator.maxTouchPoints||0) > 0 || ('ontouchstart' in window);
+const MOBILE = window.matchMedia('(pointer: coarse)').matches && HAS_TOUCH;
 
 /* ========================= SCENE ========================= */
 const canvas = document.getElementById('scene');
@@ -368,6 +384,30 @@ document.addEventListener('mousemove', e=>{
   yaw -= e.movementX*radPerPx; pitch -= e.movementY*radPerPx;
   pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
 });
+
+/* ---- touch look + fire (drag to aim, button to fire) ---- */
+const touchUI=document.getElementById('touch'), fireBtnT=document.getElementById('fireBtn'), pauseBtnT=document.getElementById('pauseBtn');
+let lookId=null, lastTX=0, lastTY=0; const TOUCH_FACTOR=1.8;
+canvas.addEventListener('touchstart', e=>{
+  if(!state.running) return;
+  if(lookId===null){ const t=e.changedTouches[0]; lookId=t.identifier; lastTX=t.clientX; lastTY=t.clientY; }
+  e.preventDefault();                                   // also suppresses the synthetic mousedown so taps don't fire
+}, {passive:false});
+canvas.addEventListener('touchmove', e=>{
+  if(!state.running || lookId===null) return;
+  for(const t of e.changedTouches){ if(t.identifier===lookId){
+    yaw   -= (t.clientX-lastTX)*radPerPx*TOUCH_FACTOR;
+    pitch -= (t.clientY-lastTY)*radPerPx*TOUCH_FACTOR;
+    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
+    lastTX=t.clientX; lastTY=t.clientY;
+  }}
+  e.preventDefault();
+}, {passive:false});
+function endLook(e){ for(const t of e.changedTouches){ if(t.identifier===lookId) lookId=null; } }
+canvas.addEventListener('touchend', endLook);
+canvas.addEventListener('touchcancel', endLook);
+if(fireBtnT) fireBtnT.addEventListener('touchstart', e=>{ e.preventDefault(); e.stopPropagation(); if(state.running) fire(); }, {passive:false});
+if(pauseBtnT) pauseBtnT.addEventListener('touchstart', e=>{ e.preventDefault(); e.stopPropagation(); if(state.running) exitRunning(); }, {passive:false});
 
 /* ========================= JUICE (recoil, shake, explosions) ========================= */
 const PLAYER_POS = new THREE.Vector3(0, EYE, 0);
@@ -807,9 +847,25 @@ window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; cam
 const overlay=gid('overlay'), beginBtn=gid('beginBtn'), applyBtn=gid('applyBtn');
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
+if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>tap to shoot on the beat</span><span><b>❙❙</b>pause &amp; settings</span>'; }
 
-function startRun(){ initAudio(); canvas.requestPointerLock(); }
+function enterRunning(){
+  if(!state.started){ state.started=true; resetSession(); }
+  state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
+  if(MOBILE) touchUI.classList.add('show');
+}
+function exitRunning(){
+  state.running=false; applyAudioState(); syncTransport();
+  if(MOBILE) touchUI.classList.remove('show');
+  showPause();
+}
+function startRun(){
+  initAudio();
+  if(MOBILE || !canvas.requestPointerLock){ enterRunning(); }   // touch devices: no pointer lock
+  else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
+}
 beginBtn.addEventListener('click', startRun);
+document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
 
 function configureMode(){
   const rhythm = CFG.mode==='rhythm';
@@ -847,12 +903,8 @@ function applySettings(){
 applyBtn.addEventListener('click',()=>{ applySettings(); startRun(); });
 
 document.addEventListener('pointerlockchange',()=>{
-  if(document.pointerLockElement===canvas){
-    if(!state.started){ state.started=true; resetSession(); }
-    state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
-  }else{
-    state.running=false; applyAudioState(); syncTransport(); showPause();
-  }
+  if(document.pointerLockElement===canvas){ enterRunning(); }
+  else { exitRunning(); }
 });
 function showPause(){
   if(!state.started) return;
