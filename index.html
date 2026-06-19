@@ -694,10 +694,11 @@ function spawnTarget(opts){
   scene.add(core);
   const snd=makeTargetSound(core);
   const life=opts.life!=null?opts.life:targetLife();
-  const a0=aimDir();
-  targets.push({mesh:core, shell, born:state.t, expireAt:state.t+life, vel, radius:r, dead:false, sc:reduceMotion?1:0.01, snd, aim0:a0, angPath:0, lastAim:a0.clone()});
+  const a0=aimDir(), rhythm=(state.mode==='rhythm');
+  targets.push({mesh:core, shell, born:state.t, expireAt:state.t+life, vel, radius:r, dead:false, sc:reduceMotion?1:0.01, snd,
+    aim0:a0, angPath:0, lastAim:a0.clone(), trail:rhythm?[aimPoint(a0)]:null, trailMesh:rhythm?newTrailMesh():null});
 }
-function removeTarget(tg){ stopTargetSound(tg.snd); scene.remove(tg.mesh); tg.mesh.geometry.dispose(); tg.mesh.material.dispose(); tg.shell.geometry.dispose(); tg.shell.material.dispose(); }
+function removeTarget(tg){ stopTargetSound(tg.snd); scene.remove(tg.mesh); tg.mesh.geometry.dispose(); tg.mesh.material.dispose(); tg.shell.geometry.dispose(); tg.shell.material.dispose(); if(tg.trailMesh){ scene.remove(tg.trailMesh); tg.trailMesh.geometry.dispose(); tg.trailMesh.material.dispose(); tg.trailMesh=null; } }
 
 /* ========================= TRACER ========================= */
 const beams=[];
@@ -756,9 +757,9 @@ function gradeRhythmHit(tg, point){
   else state.streak=0;
   state.reactions.push(beats); if(state.reactions.length>12) state.reactions.shift();
   const ps=pathScoreOf(tg); state.pathScores.push(ps); if(state.pathScores.length>20) state.pathScores.shift();
-  pushEvent(good); showTiming(grade, beats.toFixed(1)+'b · path '+Math.round(ps*100)+'%', good?'perfect':'good');
+  pushEvent(good); showTiming(grade, beats.toFixed(1)+'b · '+pathGrade(ps)+' '+Math.round(ps*100)+'%', good?'perfect':'good');
   fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
-  sfx(good?'hit':'offbeat'); killTarget(tg); renderStats();
+  sfx(good?'hit':'offbeat'); retireTrail(tg, 0.55); killTarget(tg); renderStats();
 }
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
@@ -766,7 +767,7 @@ function onWhiff(){
   fireBeam(PLAYER_POS.clone().add(fwd.multiplyScalar(60)),false);
   flashReticleBad(); sfx('whiff'); renderStats();
 }
-function onExpire(tg){ removeTarget(tg); state.streak=0; pushEvent(false); if(state.mode==='rhythm') showTiming('MISS','too slow','off'); sfx('expire'); renderStats(); }
+function onExpire(tg){ retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); if(state.mode==='rhythm') showTiming('MISS','too slow','off'); sfx('expire'); renderStats(); }
 function fire(){
   if(!state.running) return;
   addRecoil();
@@ -845,46 +846,57 @@ function updateAssist(){
   for(let j=idx;j<arrowPool.length;j++) arrowPool[j].style.display='none';
 }
 
-/* ========================= AIM TRAIL (3D) ========================= */
-// The crosshair paints onto an invisible sphere around the player: a real 3D trail of where you've aimed, so
-// off-screen / behind-you directions just live in 3D (no screen clamping). It ripens white→red toward the
-// optimal click time. Path score per orb = how directly you swept to it (great-circle angle ÷ angle travelled).
-const INK_OPT=3, TRAIL_N=46, TRAIL_R=12, TRAIL_TUBE=0.16;   // beats-to-red; samples kept; sphere radius; tube thickness
-const aimHist=[];
-const trailMat=new THREE.MeshBasicMaterial({vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false});
-const trailMesh=new THREE.Mesh(new THREE.BufferGeometry(), trailMat);
-trailMesh.frustumCulled=false; trailMesh.renderOrder=999; trailMesh.visible=false; scene.add(trailMesh);
+/* ========================= AIM TRAIL (3D, per target) ========================= */
+// Each target paints its OWN trail: when it spawns the crosshair starts drawing on an invisible sphere; the
+// tube ripens white→red toward the optimal click time, then detaches and fades for a moment after the orb
+// dies. Path score per orb = great-circle angle to where you started ÷ angle actually travelled.
+const INK_OPT=3, TRAIL_R=12, TRAIL_TUBE=0.16, TRAIL_MAX=90;  // beats-to-red; sphere radius; thickness; max samples/trail
+const ghosts=[];
 function aimDir(){ return new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ')); }
-function curUrgency(){                                   // redness of the most time-pressed orb (0..1)
-  if(state.mode!=='rhythm') return 0;
-  let red=0; const spb=60/state.bpm, maxB=CFG.rhythmLifeBeats;
-  for(const tg of targets){ if(tg.dead) continue; const a=(state.t-tg.born)/spb;
-    const r=a<=INK_OPT?a/INK_OPT:Math.max(0,1-(a-INK_OPT)/Math.max(0.5,maxB-INK_OPT)); if(r>red) red=r; }
-  return red;
+function aimPoint(d){ return PLAYER_POS.clone().addScaledVector(d, TRAIL_R); }
+function orbRed(tg){ const spb=60/state.bpm, maxB=CFG.rhythmLifeBeats, a=(state.t-tg.born)/spb;
+  return Math.max(0, Math.min(1, a<=INK_OPT ? a/INK_OPT : 1-(a-INK_OPT)/Math.max(0.5,maxB-INK_OPT))); }
+function newTrailMesh(){
+  const m=new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false}));
+  m.frustumCulled=false; m.renderOrder=999; m.visible=false; scene.add(m); return m;
 }
-function updateTrail(){
-  const cur=aimDir();
-  if(state.running){                                    // accumulate each orb's angular path for its score
-    for(const tg of targets){ if(tg.dead||!tg.lastAim) continue; tg.angPath+=tg.lastAim.angleTo(cur); tg.lastAim.copy(cur); }
-  }
-  if(!state.running || reduceMotion){ if(aimHist.length){ aimHist.length=0; trailMesh.visible=false; } return; }
-  aimHist.push(PLAYER_POS.clone().addScaledVector(cur, TRAIL_R));
-  if(aimHist.length>TRAIL_N) aimHist.shift();
-  const pts=[];                                          // drop near-duplicates: a still aim would make a degenerate (NaN) tube
-  for(const q of aimHist){ if(!pts.length || q.distanceTo(pts[pts.length-1])>0.04) pts.push(q); }
-  if(pts.length<2){ trailMesh.visible=false; return; }
-  const red=curUrgency(), cr=(232+23*red)/255, cg=(238-200*red)/255, cb=(232-184*red)/255;
-  const ts=Math.min(72, pts.length*3), rs=6;
-  const geo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), ts, TRAIL_TUBE, rs, false);
+function buildTube(mesh, pts, cr, cg, cb){
+  const dp=[]; for(const q of pts){ if(!dp.length || q.distanceTo(dp[dp.length-1])>0.04) dp.push(q); }  // drop near-dups (a still aim → degenerate tube)
+  if(dp.length<2){ mesh.visible=false; return; }
+  const ts=Math.min(72, dp.length*3), rs=6;
+  const geo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dp), ts, TRAIL_TUBE, rs, false);
   const pc=geo.attributes.position.count, col=new Float32Array(pc*3);
-  for(let v=0;v<pc;v++){ const f=Math.floor(v/(rs+1))/ts, b=f*f;   // fade tail(0)→head(1); additive black = invisible
-    col[v*3]=cr*b; col[v*3+1]=cg*b; col[v*3+2]=cb*b; }
+  for(let v=0;v<pc;v++){ const f=Math.floor(v/(rs+1))/ts, b=f*f; col[v*3]=cr*b; col[v*3+1]=cg*b; col[v*3+2]=cb*b; }  // fade tail→head
   geo.setAttribute('color', new THREE.BufferAttribute(col,3));
-  trailMesh.geometry.dispose(); trailMesh.geometry=geo; trailMesh.visible=true;
+  mesh.geometry.dispose(); mesh.geometry=geo; mesh.visible=true;
+}
+function retireTrail(tg, life){                          // hand the orb's trail off to a fading ghost
+  if(!tg.trailMesh) return;
+  ghosts.push({mesh:tg.trailMesh, mat:tg.trailMesh.material, age:0, life});
+  tg.trailMesh=null;
 }
 function pathScoreOf(tg){
   if(!tg || !tg.aim0 || tg.angPath<=0.15) return 1;     // barely moved → nothing meaningful to grade
   return Math.max(0, Math.min(1, aimDir().angleTo(tg.aim0)/tg.angPath));  // great-circle chord ÷ angle travelled
+}
+function pathGrade(s){ return s>=0.93?'DIRECT':s>=0.82?'CLEAN':s>=0.66?'STEADY':'LOOSE'; }
+function updateTrail(dt){
+  const cur=aimDir();
+  if(state.running){
+    for(const tg of targets){
+      if(tg.dead || !tg.trailMesh) continue;
+      tg.angPath+=tg.lastAim.angleTo(cur); tg.lastAim.copy(cur);
+      const np=aimPoint(cur), last=tg.trail[tg.trail.length-1];
+      if(np.distanceTo(last)>0.04){ tg.trail.push(np); if(tg.trail.length>TRAIL_MAX) tg.trail.shift(); }
+      const red=orbRed(tg);
+      buildTube(tg.trailMesh, tg.trail, (232+23*red)/255, (238-200*red)/255, (232-184*red)/255);
+      tg.trailMesh.material.opacity=1;
+    }
+  }
+  for(let i=ghosts.length-1;i>=0;i--){ const g=ghosts[i]; g.age+=dt; const k=1-g.age/g.life;
+    if(k<=0){ scene.remove(g.mesh); g.mesh.geometry.dispose(); g.mat.dispose(); ghosts.splice(i,1); }
+    else g.mat.opacity=k;
+  }
 }
 
 /* ========================= LOOP ========================= */
@@ -946,7 +958,7 @@ function animate(){
     for(const r of RING_POOL){ if(r.active){ r.active=false; r.mesh.visible=false; } }
   }
   updateAssist();
-  updateTrail();
+  updateTrail(dt);
   renderer.render(scene,camera);
 }
 animate();
@@ -990,6 +1002,7 @@ function configureMode(){
 }
 function resetSession(){
   for(const t of targets) removeTarget(t); targets.length=0;
+  for(const g of ghosts){ scene.remove(g.mesh); g.mesh.geometry.dispose(); g.mat.dispose(); } ghosts.length=0;
   events.length=0; sinceAdjust=0;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
