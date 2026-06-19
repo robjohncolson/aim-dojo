@@ -52,7 +52,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #timing{position:fixed;left:50%;top:37%;transform:translate(-50%,-50%);z-index:6;text-align:center;pointer-events:none;opacity:0}
 #timing .g{font-size:30px;letter-spacing:.18em}
 #timing .s{font-size:12px;letter-spacing:.18em;color:var(--bone-dim);margin-top:3px}
-#timing.show{animation:timingPop .5s ease-out}
+#timing .p{font-size:21px;letter-spacing:.16em;margin-top:7px;text-shadow:0 0 12px currentColor}
+#timing .p.t4{color:var(--toxic)} #timing .p.t3{color:var(--rail)} #timing .p.t2{color:var(--plasma)} #timing .p.t1{color:var(--blood)}
+#timing.show{animation:timingPop .62s ease-out}
 #timing.perfect .g{color:var(--toxic)} #timing.good .g{color:var(--plasma)} #timing.off .g{color:var(--blood)}
 @keyframes timingPop{0%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
 
@@ -168,7 +170,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
   <div class="dot"></div>
 </div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-<div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div></div>
+<div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
 <div id="assist" aria-hidden="true"></div>
 
 <div id="statBox" class="hud">
@@ -757,7 +759,7 @@ function gradeRhythmHit(tg, point){
   else state.streak=0;
   state.reactions.push(beats); if(state.reactions.length>12) state.reactions.shift();
   const ps=pathScoreOf(tg); state.pathScores.push(ps); if(state.pathScores.length>20) state.pathScores.shift();
-  pushEvent(good); showTiming(grade, beats.toFixed(1)+'b · '+pathGrade(ps)+' '+Math.round(ps*100)+'%', good?'perfect':'good');
+  pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good', pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
   fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   sfx(good?'hit':'offbeat'); retireTrail(tg, 0.55); killTarget(tg); renderStats();
 }
@@ -812,10 +814,12 @@ function renderGauge(){
 function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('fire'); void el.hitmark.offsetWidth; el.hitmark.classList.add('fire'); }
 let reticleBadT=0;
 function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
-function showTiming(grade, sub, cls){
+function showTiming(grade, sub, cls, pathTxt, pathCls){
   if(!el.timing) return;
   el.timing.classList.remove('show','perfect','good','off'); void el.timing.offsetWidth;
   el.timing.querySelector('.g').textContent=grade; el.timing.querySelector('.s').textContent=sub||'';
+  const pe=el.timing.querySelector('.p');
+  if(pe){ pe.textContent=pathTxt||''; pe.className='p '+(pathCls||''); pe.style.display=pathTxt?'':'none'; }
   el.timing.classList.add(cls||'good','show');
 }
 function pulseBeat(downbeat){
@@ -853,12 +857,12 @@ function updateAssist(){
 const INK_OPT=3, TRAIL_R=12, TRAIL_TUBE=0.16, TRAIL_MAX=90;  // beats-to-red; sphere radius; thickness; max samples/trail
 const ghosts=[];
 function aimDir(){ return new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ')); }
-function aimPoint(d){ return PLAYER_POS.clone().addScaledVector(d, TRAIL_R); }
+function aimPoint(d){ return d.clone().multiplyScalar(TRAIL_R); }   // player-local: mesh sits at PLAYER_POS so a ghost can scale out from you
 function orbRed(tg){ const spb=60/state.bpm, maxB=CFG.rhythmLifeBeats, a=(state.t-tg.born)/spb;
   return Math.max(0, Math.min(1, a<=INK_OPT ? a/INK_OPT : 1-(a-INK_OPT)/Math.max(0.5,maxB-INK_OPT))); }
 function newTrailMesh(){
   const m=new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false}));
-  m.frustumCulled=false; m.renderOrder=999; m.visible=false; scene.add(m); return m;
+  m.frustumCulled=false; m.renderOrder=999; m.visible=false; m.position.copy(PLAYER_POS); scene.add(m); return m;
 }
 function buildTube(mesh, pts, cr, cg, cb){
   const dp=[]; for(const q of pts){ if(!dp.length || q.distanceTo(dp[dp.length-1])>0.04) dp.push(q); }  // drop near-dups (a still aim → degenerate tube)
@@ -880,6 +884,7 @@ function pathScoreOf(tg){
   return Math.max(0, Math.min(1, aimDir().angleTo(tg.aim0)/tg.angPath));  // great-circle chord ÷ angle travelled
 }
 function pathGrade(s){ return s>=0.93?'DIRECT':s>=0.82?'CLEAN':s>=0.66?'STEADY':'LOOSE'; }
+function pathTier(s){ return s>=0.93?'t4':s>=0.82?'t3':s>=0.66?'t2':'t1'; }
 function updateTrail(dt){
   const cur=aimDir();
   if(state.running){
@@ -895,7 +900,7 @@ function updateTrail(dt){
   }
   for(let i=ghosts.length-1;i>=0;i--){ const g=ghosts[i]; g.age+=dt; const k=1-g.age/g.life;
     if(k<=0){ scene.remove(g.mesh); g.mesh.geometry.dispose(); g.mat.dispose(); ghosts.splice(i,1); }
-    else g.mat.opacity=k;
+    else { g.mat.opacity=k; g.mesh.scale.setScalar(1+(1-k)*0.7); }   // bloom outward as it fades
   }
 }
 
