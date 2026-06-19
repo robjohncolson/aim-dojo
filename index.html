@@ -26,7 +26,6 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-family:var(--mono);color:var(--bone);-webkit-font-smoothing:antialiased}
 #scene{position:fixed;inset:0;display:block;touch-action:none;-webkit-user-select:none;user-select:none}
-#ink{position:fixed;inset:0;z-index:2;pointer-events:none}
 
 #beatRing{position:fixed;left:50%;top:50%;width:60px;height:60px;border:2px solid var(--rail);border-radius:50%;transform:translate(-50%,-50%) scale(.4);z-index:3;pointer-events:none;opacity:0}
 #beatRing.pulse{animation:ring .35s ease-out}
@@ -161,7 +160,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </head>
 <body>
 <canvas id="scene"></canvas>
-<canvas id="ink" aria-hidden="true"></canvas>
 <div id="beatRing" aria-hidden="true"></div>
 
 <div id="reticle" aria-hidden="true">
@@ -696,7 +694,8 @@ function spawnTarget(opts){
   scene.add(core);
   const snd=makeTargetSound(core);
   const life=opts.life!=null?opts.life:targetLife();
-  targets.push({mesh:core, shell, born:state.t, expireAt:state.t+life, vel, radius:r, dead:false, sc:reduceMotion?1:0.01, snd});
+  const a0=aimDir();
+  targets.push({mesh:core, shell, born:state.t, expireAt:state.t+life, vel, radius:r, dead:false, sc:reduceMotion?1:0.01, snd, aim0:a0, angPath:0, lastAim:a0.clone()});
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); scene.remove(tg.mesh); tg.mesh.geometry.dispose(); tg.mesh.material.dispose(); tg.shell.geometry.dispose(); tg.shell.material.dispose(); }
 
@@ -756,7 +755,7 @@ function gradeRhythmHit(tg, point){
   if(good){ state.hits++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }
   else state.streak=0;
   state.reactions.push(beats); if(state.reactions.length>12) state.reactions.shift();
-  const ps=inkScore(tg.ink); state.pathScores.push(ps); if(state.pathScores.length>20) state.pathScores.shift();
+  const ps=pathScoreOf(tg); state.pathScores.push(ps); if(state.pathScores.length>20) state.pathScores.shift();
   pushEvent(good); showTiming(grade, beats.toFixed(1)+'b · path '+Math.round(ps*100)+'%', good?'perfect':'good');
   fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   sfx(good?'hit':'offbeat'); killTarget(tg); renderStats();
@@ -846,66 +845,46 @@ function updateAssist(){
   for(let j=idx;j<arrowPool.length;j++) arrowPool[j].style.display='none';
 }
 
-/* ========================= INK TRAILS ========================= */
-// As you flick toward an orb it slides to center, so the streak it leaves IS your aim path. Each orb keeps
-// its own trail — thick ink ripening white→red by the optimal click time (~3 beats) — over a faint straight
-// "best line" guide. Path score = chord / actual length (1.0 = a perfectly direct flick).
-const inkCanvas=gid('ink'), ictx=inkCanvas&&inkCanvas.getContext('2d');
-const INK_OPT=3, INK_MINLEN=55, INK_TRAIL=64;          // beats-to-red; min flick (px) worth scoring; trail samples kept
-function sizeInk(){
-  if(!inkCanvas) return;
-  const dpr=Math.min(window.devicePixelRatio||1,2);
-  inkCanvas.width=innerWidth*dpr; inkCanvas.height=innerHeight*dpr;
-  inkCanvas.style.width=innerWidth+'px'; inkCanvas.style.height=innerHeight+'px';
-  ictx.setTransform(dpr,0,0,dpr,0,0);
+/* ========================= AIM TRAIL (3D) ========================= */
+// The crosshair paints onto an invisible sphere around the player: a real 3D trail of where you've aimed, so
+// off-screen / behind-you directions just live in 3D (no screen clamping). It ripens white→red toward the
+// optimal click time. Path score per orb = how directly you swept to it (great-circle angle ÷ angle travelled).
+const INK_OPT=3, TRAIL_N=46, TRAIL_R=12, TRAIL_TUBE=0.16;   // beats-to-red; samples kept; sphere radius; tube thickness
+const aimHist=[];
+const trailMat=new THREE.MeshBasicMaterial({vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false});
+const trailMesh=new THREE.Mesh(new THREE.BufferGeometry(), trailMat);
+trailMesh.frustumCulled=false; trailMesh.renderOrder=999; trailMesh.visible=false; scene.add(trailMesh);
+function aimDir(){ return new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ')); }
+function curUrgency(){                                   // redness of the most time-pressed orb (0..1)
+  if(state.mode!=='rhythm') return 0;
+  let red=0; const spb=60/state.bpm, maxB=CFG.rhythmLifeBeats;
+  for(const tg of targets){ if(tg.dead) continue; const a=(state.t-tg.born)/spb;
+    const r=a<=INK_OPT?a/INK_OPT:Math.max(0,1-(a-INK_OPT)/Math.max(0.5,maxB-INK_OPT)); if(r>red) red=r; }
+  return red;
 }
-if(inkCanvas) sizeInk();
-function inkScore(ik){
-  if(!ik || ik.len<INK_MINLEN) return 1;               // barely moved → nothing meaningful to grade
-  return Math.max(0, Math.min(1, Math.hypot(ik.lx-ik.x0, ik.ly-ik.y0)/ik.len));  // straight chord ÷ path walked
-}
-function orbScreen(tg){                                 // project orb; clamp behind/off-screen to the edge
-  const local=tg.mesh.position.clone(); camera.worldToLocal(local); const behind=local.z>0;
-  const ndc=tg.mesh.position.clone().project(camera); let x=ndc.x, y=ndc.y;
-  if(behind || Math.abs(x)>1 || Math.abs(y)>1){
-    if(behind){ x=-x; y=-y; }
-    const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.9/Math.max(ax,ay); x*=s; y*=s;
+function updateTrail(){
+  const cur=aimDir();
+  if(state.running){                                    // accumulate each orb's angular path for its score
+    for(const tg of targets){ if(tg.dead||!tg.lastAim) continue; tg.angPath+=tg.lastAim.angleTo(cur); tg.lastAim.copy(cur); }
   }
-  return [innerWidth/2 + x*(innerWidth/2), innerHeight/2 - y*(innerHeight/2)];
+  if(!state.running || reduceMotion){ if(aimHist.length){ aimHist.length=0; trailMesh.visible=false; } return; }
+  aimHist.push(PLAYER_POS.clone().addScaledVector(cur, TRAIL_R));
+  if(aimHist.length>TRAIL_N) aimHist.shift();
+  const pts=[];                                          // drop near-duplicates: a still aim would make a degenerate (NaN) tube
+  for(const q of aimHist){ if(!pts.length || q.distanceTo(pts[pts.length-1])>0.04) pts.push(q); }
+  if(pts.length<2){ trailMesh.visible=false; return; }
+  const red=curUrgency(), cr=(232+23*red)/255, cg=(238-200*red)/255, cb=(232-184*red)/255;
+  const ts=Math.min(72, pts.length*3), rs=6;
+  const geo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), ts, TRAIL_TUBE, rs, false);
+  const pc=geo.attributes.position.count, col=new Float32Array(pc*3);
+  for(let v=0;v<pc;v++){ const f=Math.floor(v/(rs+1))/ts, b=f*f;   // fade tail(0)→head(1); additive black = invisible
+    col[v*3]=cr*b; col[v*3+1]=cg*b; col[v*3+2]=cb*b; }
+  geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+  trailMesh.geometry.dispose(); trailMesh.geometry=geo; trailMesh.visible=true;
 }
-function drawInk(){
-  if(!ictx) return;
-  ictx.clearRect(0,0,innerWidth,innerHeight);
-  if(!state.running || state.mode!=='rhythm' || reduceMotion) return;
-  const cx=innerWidth/2, cy=innerHeight/2, spb=60/state.bpm, maxB=CFG.rhythmLifeBeats;
-  ictx.lineCap='round'; ictx.lineJoin='round';
-  for(const tg of targets){
-    if(tg.dead) continue;
-    const ageB=(state.t-tg.born)/spb;
-    let red = ageB<=INK_OPT ? ageB/INK_OPT : Math.max(0, 1-(ageB-INK_OPT)/Math.max(0.5,maxB-INK_OPT));
-    red=Math.max(0,Math.min(1,red));
-    const sc=orbScreen(tg), sx=sc[0], sy=sc[1];
-    // accumulate the trail — full length kept for scoring, drawn point list capped
-    let ik=tg.ink;
-    if(!ik){ ik=tg.ink={pts:[sx,sy], x0:sx, y0:sy, lx:sx, ly:sy, len:0}; }
-    else { ik.len+=Math.hypot(sx-ik.lx, sy-ik.ly); ik.lx=sx; ik.ly=sy; ik.pts.push(sx,sy); if(ik.pts.length>INK_TRAIL*2) ik.pts.splice(0,2); }
-    const R=Math.round(232+23*red), G=Math.round(238-200*red), B=Math.round(232-184*red), col='rgb('+R+','+G+','+B+')';
-    // Ink streaks OUT of the crosshair. The orb's screen motion is the inverse of your aim, so we REFLECT
-    // the recorded path through the cursor (ex-p, ey-p): the newest point lands on the crosshair and the
-    // comet streams behind your aim (opposite the orb), like a real trail.
-    const p=ik.pts, n=p.length, ex=cx+sx, ey=cy+sy;
-    if(n>=4){
-      const tailX=ex-p[0], tailY=ey-p[1];
-      const grad=ictx.createLinearGradient(tailX,tailY,cx,cy);
-      grad.addColorStop(0,'rgba('+R+','+G+','+B+',0)'); grad.addColorStop(1,'rgba('+R+','+G+','+B+','+(0.35+0.6*red)+')');
-      ictx.globalAlpha=1; ictx.strokeStyle=grad; ictx.shadowColor=col; ictx.shadowBlur=5+12*red; ictx.lineWidth=3+4*red;
-      ictx.beginPath(); ictx.moveTo(tailX,tailY); for(let k=2;k<n;k+=2) ictx.lineTo(ex-p[k], ey-p[k+1]); ictx.stroke();
-    }
-    // bright pen-tip on the cursor (reddens at the optimal click time)
-    ictx.globalAlpha=Math.min(1,0.5+0.5*red); ictx.shadowColor=col; ictx.shadowBlur=4+8*red;
-    ictx.beginPath(); ictx.arc(cx,cy,2+3*red,0,6.2832); ictx.fillStyle=col; ictx.fill();
-  }
-  ictx.globalAlpha=1; ictx.shadowBlur=0;
+function pathScoreOf(tg){
+  if(!tg || !tg.aim0 || tg.angPath<=0.15) return 1;     // barely moved → nothing meaningful to grade
+  return Math.max(0, Math.min(1, aimDir().angleTo(tg.aim0)/tg.angPath));  // great-circle chord ÷ angle travelled
 }
 
 /* ========================= LOOP ========================= */
@@ -967,11 +946,11 @@ function animate(){
     for(const r of RING_POOL){ if(r.active){ r.active=false; r.mesh.visible=false; } }
   }
   updateAssist();
-  drawInk();
+  updateTrail();
   renderer.render(scene,camera);
 }
 animate();
-window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); sizeInk(); });
+window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 
 /* ========================= OVERLAY / SETTINGS ========================= */
 const overlay=gid('overlay'), beginBtn=gid('beginBtn'), applyBtn=gid('applyBtn');
