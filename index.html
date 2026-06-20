@@ -45,6 +45,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 @keyframes ghosthit{0%{transform:scale(1.7);border-color:rgba(255,255,255,.95)}100%{transform:scale(1)}}
 #ghostName{left:50%;top:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;color:rgba(200,150,255,.9);display:none;white-space:nowrap}
 #ghostName.on{display:block}
+.liveRet{position:fixed;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(116,232,74,.55);border-radius:50%;box-shadow:0 0 6px rgba(116,232,74,.35);pointer-events:none;z-index:5;display:none}
+.liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
+#presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
+#presence.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
@@ -194,6 +198,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </div>
 <div id="ghostRet" aria-hidden="true"></div>
 <div id="ghostName" class="hud" aria-hidden="true"></div>
+<div id="presence" class="hud" aria-hidden="true"></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
 <div id="assist" aria-hidden="true"></div>
@@ -360,6 +365,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
 "use strict";
@@ -1180,6 +1186,8 @@ function animate(){
   }
   updateAssist();
   updateTrail(dt);
+  if(state.running) broadcastAim();                          // share my aim with others in the room
+  updateRemotes();                                           // draw their live reticles
   renderer.render(scene,camera);
 }
 animate();
@@ -1328,6 +1336,35 @@ async function loadGhost(){
     if(rows && rows[0] && rows[0].replay){ const r=JSON.parse(rows[0].replay); if(r && r.a && r.a.length){ ghost={a:r.a, h:r.h||[], name:rows[0].name, hi:0}; if(lbl){ lbl.textContent='👻 racing '+(rows[0].name||'?')+' · '+rows[0].score+' kills'; lbl.classList.add('on'); } } }
   }catch(e){}
 }
+/* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
+let rtCh=null, lastBcast=0; const remotes=new Map();
+function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
+function showPresence(){ const el=gid('presence'); if(!el) return; const n=liveCount(); el.textContent=n>0?(n+' in the dojo'):''; el.classList.toggle('on', n>0); }
+function newRemoteEl(){ const d=document.createElement('div'); d.className='liveRet'; document.body.appendChild(d); return d; }
+function initRealtime(){
+  if(rtCh || !window.supabase) return;
+  try{
+    const sb=window.supabase.createClient(SB_URL, SB_KEY, {realtime:{params:{eventsPerSecond:14}}});
+    rtCh=sb.channel('aimdojo-room', {config:{presence:{key:clientId()}, broadcast:{self:false}}});
+    rtCh.on('presence',{event:'sync'}, showPresence);
+    rtCh.on('broadcast',{event:'aim'}, ({payload})=>{ if(!payload || payload.id===clientId()) return;
+      let r=remotes.get(payload.id); if(!r){ if(remotes.size>=10) return; r={el:newRemoteEl()}; remotes.set(payload.id,r); }
+      r.y=payload.y; r.p=payload.p; r.name=payload.n; r.last=performance.now(); });
+    rtCh.subscribe(async (st)=>{ if(st==='SUBSCRIBED'){ try{ await rtCh.track({name:playerName()}); }catch(e){} showPresence(); } });
+  }catch(e){ rtCh=null; }
+}
+function broadcastAim(){ if(!rtCh) return; const now=performance.now(); if(now-lastBcast<85) return; lastBcast=now;
+  try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch}}); }catch(e){} }
+function updateRemotes(){
+  const now=performance.now();
+  for(const [id,r] of remotes){
+    if(now-r.last>2600){ r.el.remove(); remotes.delete(id); continue; }
+    if(!state.running){ r.el.style.display='none'; continue; }
+    const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(r.p, r.y, 0, 'YXZ'));
+    const sc=projectDir(dir); r.el.style.display='block'; r.el.style.left=sc[0]+'px'; r.el.style.top=sc[1]+'px';
+    if(r.el.getAttribute('data-name')!==r.name) r.el.setAttribute('data-name', r.name||'');
+  }
+}
 /* ---- daily seeded challenge ---- */
 function startChallenge(){
   challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
@@ -1473,7 +1510,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
   });
 })();
 
-configureMode(); renderGauge(); renderStats(); renderHistory(); loadBoard(); loadDailyBoard();
+configureMode(); renderGauge(); renderStats(); renderHistory(); loadBoard(); loadDailyBoard(); initRealtime();
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
