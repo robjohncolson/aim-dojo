@@ -163,8 +163,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 @media (prefers-reduced-motion: reduce){ #fill{transition:none} #speedVal{transition:none;animation:none!important} #hitmark.fire{animation-duration:.001s} #beatRing.pulse{animation:none} }
 
 /* ---- share modal ---- */
-#shareOverlay{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.82),rgba(8,11,10,.96));backdrop-filter:blur(4px)}
-#shareOverlay.hidden{display:none}
+#shareOverlay,#settingsOverlay{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.82),rgba(8,11,10,.96));backdrop-filter:blur(4px)}
+#shareOverlay.hidden,#settingsOverlay.hidden{display:none}
 .share-card{text-align:center}
 .share-card .lede{margin-bottom:4px}
 .qr{width:212px;height:212px;margin:18px auto 14px;padding:12px;background:var(--bone);border:1px solid var(--panel-edge);box-shadow:0 0 0 1px rgba(67,217,255,.25),0 16px 40px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
@@ -244,9 +244,14 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     <div id="pauseStats" style="display:none"></div>
 
     <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
-    <div class="dualcols"><button class="ghost" id="shareBtn">⧉ SHARE THIS DOJO</button></div>
+    <div class="dualcols"><button class="ghost" id="advBtn">⚙ ADVANCED</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
+  </div>
+</div>
 
-    <div class="settings">
+<div id="settingsOverlay" class="hidden">
+  <div class="card">
+    <p class="eyebrow">ADVANCED&nbsp;·&nbsp;RANGE&nbsp;SETTINGS</p>
+    <div class="settings" style="margin-top:6px">
       <h2 id="setHead">— RANGE SETTINGS —</h2>
 
       <div class="row">
@@ -258,8 +263,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 
       <div class="row rhythm-only">
         <label for="startBpm">Start tempo</label>
-        <input type="range" id="startBpm" min="20" max="150" step="2" value="20">
-        <span class="out" id="startBpmOut">20</span>
+        <input type="range" id="startBpm" min="20" max="150" step="2" value="35">
+        <span class="out" id="startBpmOut">35</span>
       </div>
 
       <div class="row rhythm-only">
@@ -284,14 +289,14 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 
       <div class="row">
         <label>Assist arrows</label>
-        <div class="seg" id="assistSeg"><button data-v="off" class="on">OFF</button><button data-v="on">ON</button></div>
+        <div class="seg" id="assistSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
         <span class="out"></span>
       </div>
 
       <div class="row">
         <label for="sens">Sensitivity</label>
-        <input type="range" id="sens" min="0.2" max="3" step="0.05" value="1">
-        <span class="out" id="sensOut">1.00×</span>
+        <input type="range" id="sens" min="0.2" max="3" step="0.05" value="3">
+        <span class="out" id="sensOut">3.00×</span>
       </div>
       <div class="row">
         <label for="fov">Field of view</label>
@@ -317,7 +322,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
         <span class="out" id="winOut">10</span>
       </div>
 
-      <div class="dualcols"><button class="ghost" id="applyBtn">APPLY &amp; RESTART</button></div>
+      <div class="dualcols"><button class="ghost" id="applyBtn">APPLY &amp; RESTART</button><button class="ghost" id="settingsClose">← BACK</button></div>
     </div>
   </div>
 </div>
@@ -350,7 +355,7 @@ const CFG = {
   // free-hunt world speed
   startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
-  startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:5,
+  startBpm:35, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:5,
   // shared adaptive law
   upThreshold:0.80, downThreshold:0.50, windowSize:10, warmEvents:6,
   // difficulty mapping
@@ -362,7 +367,7 @@ const CFG = {
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
-  spawnField:'full', audioAssist:false, baseRadPerPx:0.0022,
+  spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   // juice
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
@@ -408,6 +413,12 @@ let nightGrid=null, dayFloor=null;
   checkerTexes = TILE_SETS.map(s=>{ const t=makeCheckerTex(s[0],s[1]); t.repeat.set(FLOOR/16, FLOOR/16); return t; });  // each square = 2 units = one grid cell
   dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshStandardMaterial({map:checkerTexes[dayTileIdx], transparent:true, opacity:0, depthWrite:false, roughness:0.85, metalness:0}));
   dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day
+  dayFloor.material.onBeforeCompile=(sh)=>{                  // MIRAGE: fade the far floor into the sky colour so the checker dissolves instead of moiré-ing at the horizon
+    sh.uniforms.uMirN={value:42}; sh.uniforms.uMirF={value:118}; sh.uniforms.uMirC={value:new THREE.Color(0x5e93cf)};
+    sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
+    sh.fragmentShader='uniform float uMirN,uMirF; uniform vec3 uMirC; varying float vMirD;\n'+sh.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\n gl_FragColor.rgb=mix(gl_FragColor.rgb, uMirC, smoothstep(uMirN,uMirF,vMirD));');
+    dayFloor.material.userData.sh=sh;
+  };
   nightGrid = new THREE.GridHelper(FLOOR, FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;
   nightGrid.material.transparent = true; nightGrid.material.depthWrite = false; nightGrid.material.opacity = 0.55; scene.add(nightGrid);
 })();
@@ -484,6 +495,7 @@ const cloudGroup=new THREE.Group(); scene.add(cloudGroup); const clouds=[];
 
 // --- day/night driver ---
 let dayPhase=0.82;                                            // 0=sunrise, .25=noon, .5=sunset, .75=midnight; start in deep night
+const DAY_SLOW=0.38, DAY_FAST=1.55;                          // ease time: linger at dawn/dusk, hurry through deep day/night
 const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  // night grid: green, amber, red ([line,cell])
 let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
 function setNightGrid(lineCol, cellCol){                      // recreate the grid lines in a new colour
@@ -498,7 +510,9 @@ const CLOUD_WHITE=new THREE.Color(0xeef3fb);
 const _sky=new THREE.Color(), _amb=new THREE.Color(), _lite=new THREE.Color(), _cloud=new THREE.Color(), sunDir=new THREE.Vector3();
 function smooth(a,b,x){ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); }
 function updateSky(dt){
-  dayPhase=(dayPhase + dt/CFG.dayCycleSec) % 1;
+  const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
+  const tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*Math.pow(Math.abs(curY),0.7);   // slow near twilight, fast at the extremes
+  dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1;
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // carries stars + sun + moon around the orbit
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
@@ -506,7 +520,7 @@ function updateSky(dt){
   _sky.copy(SKY_NIGHT).lerp(SKY_DAY, day).lerp(SKY_DUSK, tw*0.55);
   scene.background.copy(_sky); scene.fog.color.copy(_sky); scene.fog.density=0.012-0.005*day;
   if(starPts) starPts.material.opacity=Math.max(0,1-day*1.15);
-  if(dayFloor) dayFloor.material.opacity=day;                // floor: teal grid (night) → black & white tiles (day)
+  if(dayFloor){ dayFloor.material.opacity=day; if(dayFloor.material.userData.sh) dayFloor.material.userData.sh.uniforms.uMirC.value.copy(_sky); }  // tiles fade in; mirage tracks the sky colour
   const deepNight=day<0.04;                                  // each new night: roll a grid colour ≠ last, and flip the next day's tile set (hidden while invisible)
   if(deepNight && !wasNight){
     let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]);
@@ -546,7 +560,7 @@ function emitRing(){
 }
 
 /* ========================= LOOK ========================= */
-let yaw=0, pitch=0, radPerPx=CFG.baseRadPerPx;
+let yaw=0, pitch=0, radPerPx=CFG.baseRadPerPx*3;   // default sensitivity 3×
 const PITCH_LIMIT = THREE.MathUtils.degToRad(88);
 document.addEventListener('mousemove', e=>{
   if(!state.running) return;
@@ -1164,7 +1178,14 @@ function applySettings(){
   camera.fov=parseInt(fov.value,10); camera.updateProjectionMatrix();
   resetSession();
 }
-applyBtn.addEventListener('click',()=>{ applySettings(); startRun(); });
+/* advanced settings modal */
+const settingsOverlay=gid('settingsOverlay'), advBtn=gid('advBtn'), settingsClose=gid('settingsClose');
+function closeSettings(){ if(settingsOverlay) settingsOverlay.classList.add('hidden'); }
+if(advBtn) advBtn.addEventListener('click', ()=>{ if(settingsOverlay) settingsOverlay.classList.remove('hidden'); });
+if(settingsClose) settingsClose.addEventListener('click', closeSettings);
+if(settingsOverlay) settingsOverlay.addEventListener('click', e=>{ if(e.target===settingsOverlay) closeSettings(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && settingsOverlay && !settingsOverlay.classList.contains('hidden')) closeSettings(); });
+applyBtn.addEventListener('click',()=>{ applySettings(); closeSettings(); startRun(); });
 
 document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement===canvas){ enterRunning(); }
