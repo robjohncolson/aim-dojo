@@ -413,10 +413,18 @@ let nightGrid=null, dayFloor=null;
   checkerTexes = TILE_SETS.map(s=>{ const t=makeCheckerTex(s[0],s[1]); t.repeat.set(FLOOR/16, FLOOR/16); return t; });  // each square = 2 units = one grid cell
   dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshStandardMaterial({map:checkerTexes[dayTileIdx], transparent:true, opacity:0, depthWrite:false, roughness:0.85, metalness:0}));
   dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day
-  dayFloor.material.onBeforeCompile=(sh)=>{                  // MIRAGE: fade the far floor into the sky colour so the checker dissolves instead of moiré-ing at the horizon
-    sh.uniforms.uMirN={value:42}; sh.uniforms.uMirF={value:118}; sh.uniforms.uMirC={value:new THREE.Color(0x5e93cf)};
-    sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
-    sh.fragmentShader='uniform float uMirN,uMirF; uniform vec3 uMirC; varying float vMirD;\n'+sh.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\n gl_FragColor.rgb=mix(gl_FragColor.rgb, uMirC, smoothstep(uMirN,uMirF,vMirD));');
+  dayFloor.material.onBeforeCompile=(sh)=>{                  // MIRAGE: far floor dissolves into the sky colour (kills moiré) + a reflected-sun glint that streaks near the horizon at sunrise/sunset
+    sh.uniforms.uMirN={value:30}; sh.uniforms.uMirF={value:135}; sh.uniforms.uMirC={value:new THREE.Color(0x5e93cf)};
+    sh.uniforms.uSunDir={value:new THREE.Vector3(0,1,0)}; sh.uniforms.uSunCol={value:new THREE.Color(0xffd8a0)}; sh.uniforms.uSunGlow={value:0};
+    sh.vertexShader='varying float vMirD; varying vec3 vMirW;\n'+sh.vertexShader.replace(
+      '#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z; vMirW=(modelMatrix*vec4(transformed,1.0)).xyz;');
+    sh.fragmentShader='uniform float uMirN,uMirF,uSunGlow; uniform vec3 uMirC,uSunDir,uSunCol; varying float vMirD; varying vec3 vMirW;\n'+sh.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      '#include <dithering_fragment>\n'+
+      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, uMirC, smoothstep(uMirN,uMirF,vMirD));\n'+
+      ' vec3 Rr=reflect(normalize(vMirW-cameraPosition), vec3(0.0,1.0,0.0));\n'+
+      ' float sunGlint=pow(max(0.0,dot(Rr,uSunDir)),90.0)*uSunGlow*smoothstep(14.0,55.0,vMirD);\n'+
+      ' gl_FragColor.rgb+=uSunCol*sunGlint;');
     dayFloor.material.userData.sh=sh;
   };
   nightGrid = new THREE.GridHelper(FLOOR, FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;
@@ -495,7 +503,7 @@ const cloudGroup=new THREE.Group(); scene.add(cloudGroup); const clouds=[];
 
 // --- day/night driver ---
 let dayPhase=0.82;                                            // 0=sunrise, .25=noon, .5=sunset, .75=midnight; start in deep night
-const DAY_SLOW=0.38, DAY_FAST=1.55;                          // ease time: linger at dawn/dusk, hurry through deep day/night
+const DAY_SLOW=0.2, DAY_FAST=1.7;                            // ease time: crawl at dawn/dusk, hurry through deep day/night
 const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  // night grid: green, amber, red ([line,cell])
 let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
 function setNightGrid(lineCol, cellCol){                      // recreate the grid lines in a new colour
@@ -511,7 +519,7 @@ const _sky=new THREE.Color(), _amb=new THREE.Color(), _lite=new THREE.Color(), _
 function smooth(a,b,x){ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); }
 function updateSky(dt){
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
-  const tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*Math.pow(Math.abs(curY),0.7);   // slow near twilight, fast at the extremes
+  const tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*curY*curY;     // sunY² → crawl through the wide twilight band, hurry at the extremes
   dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1;
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // carries stars + sun + moon around the orbit
@@ -520,7 +528,9 @@ function updateSky(dt){
   _sky.copy(SKY_NIGHT).lerp(SKY_DAY, day).lerp(SKY_DUSK, tw*0.55);
   scene.background.copy(_sky); scene.fog.color.copy(_sky); scene.fog.density=0.012-0.005*day;
   if(starPts) starPts.material.opacity=Math.max(0,1-day*1.15);
-  if(dayFloor){ dayFloor.material.opacity=day; if(dayFloor.material.userData.sh) dayFloor.material.userData.sh.uniforms.uMirC.value.copy(_sky); }  // tiles fade in; mirage tracks the sky colour
+  if(dayFloor){ dayFloor.material.opacity=day; const fsh=dayFloor.material.userData.sh;
+    if(fsh){ fsh.uniforms.uMirC.value.copy(_sky); fsh.uniforms.uSunDir.value.copy(sunDir);
+      fsh.uniforms.uSunGlow.value = smooth(-0.18,0.06,sunY) * (1-smooth(0.1,0.6,sunY)); } }  // mirage colour + reflected-sun glint (peaks at sunrise/sunset)
   const deepNight=day<0.04;                                  // each new night: roll a grid colour ≠ last, and flip the next day's tile set (hidden while invisible)
   if(deepNight && !wasNight){
     let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]);
