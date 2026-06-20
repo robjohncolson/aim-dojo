@@ -292,6 +292,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     <div id="pauseStats" style="display:none"></div>
 
     <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
+    <div class="dualcols"><button class="ghost" id="exitChallengeBtn" style="display:none">✕ EXIT DAILY → FREE PLAY</button></div>
     <div class="dualcols"><button class="ghost" id="dailyBtn">🏆 DAILY CHALLENGE</button></div>
     <div class="dualcols"><button class="ghost" id="advBtn">⚙ ADVANCED</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
   </div>
@@ -1657,6 +1658,8 @@ const overlay=gid('overlay'), beginBtn=gid('beginBtn'), applyBtn=gid('applyBtn')
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 const rhythmOnlyEls=[...document.querySelectorAll('.rhythm-only')], huntOnlyEls=[...document.querySelectorAll('.hunt-only')];
+const exitChallengeBtn=gid('exitChallengeBtn');
+const _startCard={ eyebrow:ovEyebrow.textContent, title:ovTitle.innerHTML, lede:ovLede.innerHTML, begin:beginBtn.textContent, setHead:(gid('setHead')?gid('setHead').textContent:'') };   // pristine start-card text, to restore on EXIT DAILY
 if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>tap to shoot on the beat</span><span><b>❙❙</b>pause &amp; settings</span>'; }
 
 function enterRunning(){
@@ -1977,7 +1980,8 @@ function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
   ovLede.style.display='none'; keysRow.style.display='none'; phonesNote.style.display='none';
-  beginBtn.textContent='▶ RESUME'; gid('setHead').textContent='— ADJUST (mode/sliders apply on restart) —';
+  beginBtn.textContent = state.challenge ? '▶ RESUME DAILY' : '▶ RESUME'; gid('setHead').textContent='— ADJUST (mode/sliders apply on restart) —';
+  if(exitChallengeBtn) exitChallengeBtn.style.display = state.challenge ? '' : 'none';   // offer a way out only while a daily is in progress
   const clickPct=state.shots?Math.round(state.hits/state.shots*100)+'%':'—';
   const avgNum=avgReaction();
   const avgR = avgNum==null?'—':(state.mode==='rhythm'?avgNum.toFixed(1)+' beats':Math.round(avgNum)+' ms');
@@ -1995,6 +1999,17 @@ function showPause(){
   submitScore(); saveSession(); renderHistory(); loadBoard(); loadDailyBoard();
   overlay.classList.remove('hidden');
 }
+function restoreStartCard(){                                  // revert the pause/report overlay back to the free-play start card
+  ovEyebrow.textContent=_startCard.eyebrow; ovTitle.innerHTML=_startCard.title;
+  ovLede.innerHTML=_startCard.lede; ovLede.style.display=''; keysRow.style.display=''; phonesNote.style.display='';
+  beginBtn.textContent=_startCard.begin; const sh=gid('setHead'); if(sh) sh.textContent=_startCard.setHead;
+  pauseStats.style.display='none'; if(exitChallengeBtn) exitChallengeBtn.style.display='none';
+}
+function exitChallenge(){                                     // bail out of an in-progress daily → free-play menu (next ENTER is a normal run; ghost/score-race auto-hide since state.challenge is false)
+  state.challenge=false; state.challengeOver=false; state.needsReset=true;
+  restoreStartCard();
+}
+if(exitChallengeBtn) exitChallengeBtn.addEventListener('click', exitChallenge);
 
 const sens=gid('sens'),sensOut=gid('sensOut'),fov=gid('fov'),fovOut=gid('fovOut');
 const startSpd=gid('startSpd'),startSpdOut=gid('startSpdOut'),startBpm=gid('startBpm'),startBpmOut=gid('startBpmOut');
