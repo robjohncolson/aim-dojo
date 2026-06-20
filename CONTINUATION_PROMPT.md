@@ -158,8 +158,11 @@ h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole 
   `maybeAdjust` is REQUIRED (else range ramps every event once bpm/speed is railed).
 - **Pace ghost (daily):** `PACE_STEP:1/6`, tier cutoffs 80/40, fetch `limit:120` (deduped). See the
   Percentile Pace Ghost section above.
-- **Beat-quantized target motion (FREE-PLAY RHYTHM only):** `beatQuant:true`, `beatQuantDivs:[4,8,16]`,
-  `beatQuantT:[0.40,0.75]`. The orb HOLDS position+velocity between beat-grid ticks then STEPS, so the
+- **Beat-quantized target motion (FREE-PLAY RHYTHM only):** `beatQuant:true`, `beatQuantDivs:[2,4,8]`
+  (1/2→1/4→1/8 beat), `beatQuantT:[0.40,0.75]`. **Wander SPEED is skill-scaled**: `velCap=lerp(brownianMaxSlow:1.4,
+  brownianMax:9, diffT())` (replaced the old fixed `BROWNIAN_MAX2`) so low-tempo orbs barely drift (small,
+  sedate steps) and only move fast at high skill — bpm sets the step *cadence*, velCap sets *how far* each
+  step travels. The orb HOLDS position+velocity between beat-grid ticks then STEPS, so the
   cursor + target-locked aim guides (scope aim-pip, lock box, lead, range, floor ring — all read
   `tg.mesh.position`+`tg.vel`) settle instead of fleeing. Phase-locked via `Tone.Transport.ticks/PPQ`;
   subdivision 1/4→1/8→1/16 beat by `diffT()`. Module state `_quantIdx`/`_quantT` (reset in resetSession).
