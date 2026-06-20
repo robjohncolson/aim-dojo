@@ -49,6 +49,18 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
 #presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
 #presence.on{display:block}
+#scoreRace{right:18px;top:88px;width:178px;display:none;flex-direction:column;gap:5px}
+#scoreRace.on{display:flex}
+#scoreRace .rr{display:flex;align-items:center;gap:7px;font:11px var(--mono);line-height:1;border-radius:4px;padding:1px 3px}
+#scoreRace .rr .nm{flex:0 0 44px;max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--bone-dim);letter-spacing:.04em}
+#scoreRace .rr.me .nm{color:var(--bone)}
+#scoreRace .rr .br{flex:1 1 auto;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+#scoreRace .rr .br i{display:block;height:100%;width:0;background:rgba(116,232,74,.45);transition:width .18s ease}
+#scoreRace .rr.me .br i{background:var(--toxic)}
+#scoreRace .rr .kc{flex:0 0 22px;text-align:right;color:var(--bone)}
+#scoreRace .rr.lead .kc{color:#ffd36b;text-shadow:0 0 6px rgba(255,211,107,.5)}
+@keyframes srflash{0%{background:rgba(255,211,107,.4)}100%{background:transparent}}
+#scoreRace .rr.flash{animation:srflash .55s ease-out}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
@@ -199,6 +211,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="ghostRet" aria-hidden="true"></div>
 <div id="ghostName" class="hud" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
+<div id="scoreRace" class="hud" aria-hidden="true"></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
 <div id="assist" aria-hidden="true"></div>
@@ -1349,12 +1362,12 @@ function initRealtime(){
     rtCh.on('presence',{event:'sync'}, showPresence);
     rtCh.on('broadcast',{event:'aim'}, ({payload})=>{ if(!payload || payload.id===clientId()) return;
       let r=remotes.get(payload.id); if(!r){ if(remotes.size>=10) return; r={el:newRemoteEl()}; remotes.set(payload.id,r); }
-      r.y=payload.y; r.p=payload.p; r.name=payload.n; r.last=performance.now(); });
+      r.y=payload.y; r.p=payload.p; r.name=payload.n; r.k=payload.k|0; r.s=payload.s|0; r.c=payload.c?1:0; r.last=performance.now(); });
     rtCh.subscribe(async (st)=>{ if(st==='SUBSCRIBED'){ try{ await rtCh.track({name:playerName()}); }catch(e){} showPresence(); } });
   }catch(e){ rtCh=null; }
 }
 function broadcastAim(){ if(!rtCh) return; const now=performance.now(); if(now-lastBcast<85) return; lastBcast=now;
-  try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch}}); }catch(e){} }
+  try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch, k:state.hits, s:state.streak, c:state.challenge?1:0}}); }catch(e){} }   // k/s/c ride the existing aim send (no new messages) → feeds the live score race
 function updateRemotes(){
   const now=performance.now();
   for(const [id,r] of remotes){
@@ -1363,6 +1376,46 @@ function updateRemotes(){
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(r.p, r.y, 0, 'YXZ'));
     const sc=projectDir(dir); r.el.style.display='block'; r.el.style.left=sc[0]+'px'; r.el.style.top=sc[1]+'px';
     if(r.el.getAttribute('data-name')!==r.name) r.el.setAttribute('data-name', r.name||'');
+  }
+  try{ renderScoreRace(); }catch(e){}                         // defensive: never let a render hiccup throw inside the animate loop
+}
+/* ---- live score race: a kill-ladder of everyone running TODAY'S seeded daily right now (kills only compare on the shared seed → gated to the challenge) ---- */
+const _srRows=new Map(); let _srLast=0;
+function renderScoreRace(){
+  const box=gid('scoreRace'); if(!box) return;
+  const now=performance.now(); if(now-_srLast<110) return; _srLast=now;          // ~9Hz, matches the broadcast cadence
+  let racers=null;
+  if(state.challenge && state.running){
+    racers=[];
+    for(const [id,r] of remotes){ if(r.c) racers.push({id, name:r.name||'rival', k:r.k|0, s:r.s|0, me:false}); }   // pruning above keeps these fresh; r.c ⇒ they're in the daily too
+    if(racers.length) racers.push({id:'__me', name:'YOU', k:state.hits, s:state.streak, me:true});                 // only show YOU once there's someone to race
+  }
+  if(!racers || !racers.length){                                                  // nobody else on today's seed → hide entirely (never an empty box)
+    if(box.classList.contains('on')){ box.classList.remove('on'); _srRows.forEach(rec=>rec.row.remove()); _srRows.clear(); }
+    return;
+  }
+  racers.sort((a,b)=> b.k-a.k || b.s-a.s || (a.me?1:-1));
+  const maxK=Math.max(1, racers[0].k), liveIds=new Set(racers.map(p=>p.id));
+  for(const [id,rec] of _srRows){ if(!liveIds.has(id)){ rec.row.remove(); _srRows.delete(id); } }   // drop racers who left
+  box.classList.add('on');
+  for(let i=0;i<racers.length;i++){ const p=racers[i];
+    let rec=_srRows.get(p.id);
+    if(!rec){                                                                     // build the row once, then mutate in place so the bar can transition + the flash can play
+      const row=document.createElement('div'); row.className='rr';
+      const nm=document.createElement('span'); nm.className='nm';
+      const br=document.createElement('span'); br.className='br'; const bi=document.createElement('i'); br.appendChild(bi);
+      const kc=document.createElement('span'); kc.className='kc';
+      row.appendChild(nm); row.appendChild(br); row.appendChild(kc);
+      rec={row, nm, bar:bi, kc, wasAhead:false}; _srRows.set(p.id, rec);
+    }
+    if(rec.nm.textContent!==p.name) rec.nm.textContent=p.name;
+    rec.row.classList.toggle('me', p.me); rec.row.classList.toggle('lead', i===0 && p.k>0);
+    rec.bar.style.width=Math.round(p.k/maxK*100)+'%';
+    const kt=String(p.k); if(rec.kc.textContent!==kt) rec.kc.textContent=kt;
+    const ahead=!p.me && p.k>state.hits;                                          // flash a rival's row the instant they pull ahead of you ("passed you!")
+    if(ahead && !rec.wasAhead && !reduceMotion){ rec.row.classList.remove('flash'); void rec.row.offsetWidth; rec.row.classList.add('flash'); }
+    rec.wasAhead=ahead;
+    box.appendChild(rec.row);                                                     // re-append in rank order (moves the existing node)
   }
 }
 /* ---- daily seeded challenge ---- */
