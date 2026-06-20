@@ -1282,7 +1282,7 @@ function spawnProjectile(){
   if(projectiles.length>40){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest
 }
 function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
-function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; if(arcLine) arcLine.visible=false; hideScope(); }
+function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
 function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
   const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
   let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
@@ -1303,20 +1303,41 @@ function updateProjectiles(dt){
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
-const ARC_UPDATE_STEP=1/20;
-let arcLine=null, arcAccum=ARC_UPDATE_STEP;
+const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_DROP_EVERY=6;
+let arcLine=null, arcShadow=null, arcDrops=null, arcLand=null, arcAccum=ARC_UPDATE_STEP;
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3();
-function updateArcPreview(dt){                                                               // faint live parabola from the muzzle — visualizes the drop so the arc is learnable
-  if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ if(arcLine) arcLine.visible=false; arcAccum=ARC_UPDATE_STEP; return; }   // never preview in the daily (it's hit-scan)
+const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){ const th=i/16*6.2831853; a[i*3]=Math.cos(th); a[i*3+2]=Math.sin(th); }   // unit ring in the XZ (floor) plane
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();
+function makeArcGeo(maxPts){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3)); return g; }
+function ensureArcObjs(){
+  if(arcLine) return;
+  const lm=(c,o)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,blending:THREE.AdditiveBlending});
+  arcLine  =new THREE.Line(makeArcGeo(ARC_MAX), lm(0x6fe0ff,0.70));             // the trajectory itself (bright)
+  arcShadow=new THREE.Line(makeArcGeo(ARC_MAX), lm(0x2f6f8f,0.50));             // floor shadow = horizontal path
+  arcDrops =new THREE.LineSegments(makeArcGeo(28), lm(0x46b6d8,0.34));          // droplines arc→floor (the head-on depth comb)
+  arcLand  =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.80));                 // landing ring
+  for(const o of [arcLine,arcShadow,arcDrops,arcLand]){ o.frustumCulled=false; scene.add(o); }
+}
+function hideArc(){ if(arcLine){ arcLine.visible=arcShadow.visible=arcDrops.visible=arcLand.visible=false; } }
+function updateArcPreview(dt){                                                               // live trajectory made legible head-on: parabola + floor shadow + droplines + landing ring
+  if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // never preview in the daily (it's hit-scan)
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
-  if(!arcLine){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(71*3),3));
-    arcLine=new THREE.Line(g, new THREE.LineBasicMaterial({color:0x43d9ff,transparent:true,opacity:0.3,blending:THREE.AdditiveBlending})); arcLine.frustumCulled=false; scene.add(arcLine); }
+  ensureArcObjs();
   camera.getWorldDirection(_arcDir);
   _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(CFG.projSpeed);
-  const arr=arcLine.geometry.attributes.position.array, step=1/30; let n=0;
-  for(; n<70; n++){ const k=n*3; arr[k]=_arcPos.x; arr[k+1]=_arcPos.y; arr[k+2]=_arcPos.z; _arcVel.y-=CFG.projGravity*step; _arcPos.addScaledVector(_arcVel,step);
-    if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ n++; const j=n*3; arr[j]=_arcPos.x; arr[j+1]=_arcPos.y; arr[j+2]=_arcPos.z; n++; break; } }
-  arcLine.geometry.setDrawRange(0, Math.min(n, 71)); arcLine.geometry.attributes.position.needsUpdate=true; arcLine.visible=true;
+  const ap=arcLine.geometry.attributes.position.array, sp=arcShadow.geometry.attributes.position.array, dp=arcDrops.geometry.attributes.position.array;
+  const step=1/30; let n=0, d=0, landed=false;
+  for(; n<ARC_MAX-1; n++){ const k=n*3;
+    ap[k]=_arcPos.x; ap[k+1]=_arcPos.y; ap[k+2]=_arcPos.z;                       // arc point
+    sp[k]=_arcPos.x; sp[k+1]=0.02; sp[k+2]=_arcPos.z;                            // shadow directly below it
+    if(n%ARC_DROP_EVERY===0 && d+6<=dp.length && _arcPos.y>0.25){ dp[d]=_arcPos.x;dp[d+1]=_arcPos.y;dp[d+2]=_arcPos.z; dp[d+3]=_arcPos.x;dp[d+4]=0.02;dp[d+5]=_arcPos.z; d+=6; }   // dropline
+    _arcVel.y-=CFG.projGravity*step; _arcPos.addScaledVector(_arcVel,step);
+    if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ landed=_arcPos.y<=0.04; n++; const j=n*3; ap[j]=_arcPos.x;ap[j+1]=_arcPos.y;ap[j+2]=_arcPos.z; sp[j]=_arcPos.x;sp[j+1]=0.02;sp[j+2]=_arcPos.z; n++; break; } }
+  const vN=Math.min(n,ARC_MAX);
+  arcLine.geometry.setDrawRange(0,vN); arcLine.geometry.attributes.position.needsUpdate=true; arcLine.visible=true;
+  arcShadow.geometry.setDrawRange(0,vN); arcShadow.geometry.attributes.position.needsUpdate=true; arcShadow.visible=true;
+  arcDrops.geometry.setDrawRange(0,d/3); arcDrops.geometry.attributes.position.needsUpdate=true; arcDrops.visible=d>0;
+  arcLand.position.set(_arcPos.x, 0.03, _arcPos.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=landed;   // ring only when it actually reaches the floor
 }
 
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
