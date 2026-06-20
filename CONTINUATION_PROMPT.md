@@ -158,6 +158,17 @@ h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole 
   `maybeAdjust` is REQUIRED (else range ramps every event once bpm/speed is railed).
 - **Pace ghost (daily):** `PACE_STEP:1/6`, tier cutoffs 80/40, fetch `limit:120` (deduped). See the
   Percentile Pace Ghost section above.
+- **Beat-quantized target motion (FREE-PLAY RHYTHM only):** `beatQuant:true`, `beatQuantDivs:[4,8,16]`,
+  `beatQuantT:[0.40,0.75]`. The orb HOLDS position+velocity between beat-grid ticks then STEPS, so the
+  cursor + target-locked aim guides (scope aim-pip, lock box, lead, range, floor ring — all read
+  `tg.mesh.position`+`tg.vel`) settle instead of fleeing. Phase-locked via `Tone.Transport.ticks/PPQ`;
+  subdivision 1/4→1/8→1/16 beat by `diffT()`. Module state `_quantIdx`/`_quantT` (reset in resetSession).
+  On a snap, `scopeAccum`/`arcAccum` are forced so the guides recompute the same frame. Strobe-path wall
+  bounce reflects POSITION (large steps); continuous bounce unchanged. **Daily + hunt untouched** (strobe
+  gated `mode==='rhythm' && !state.challenge`; continuous modes keep `doSnap=true` every frame → identical).
+  NOTE: the **trajectory ribbon is camera/crosshair-driven** (`updateArcPreview`), NOT target-driven — the
+  strobe does NOT calm it (it follows your aim by design). If ribbon scatter is ever the complaint, that's
+  a separate fix (smooth the crosshair / snap the ribbon's far end to the locked target).
 - **Difficulty/sky/spawn/trail:** as before (bpmUp/Down, thresholds, DAY_SLOW/FAST, spawnDist, etc.).
 
 ## Codex WebGL perf pass (a9e0cdd) — know this before editing render code
@@ -170,9 +181,11 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
 (can't profile blind) — a real device FPS capture is the outstanding validation.
 
 ## Outstanding / likely next
-- **Playtest tuning** of: the **skill-gated spawn distance** (does the close→far march feel right? knobs
-  above), the **pace ghost** (tier cutoffs, does the bar read well?), the trajectory viz, scope feel (lock
-  stickiness), floor HUD, marching dashes, ARC ballistics — the user iterates by eye.
+- **Playtest tuning** of: the **beat-quantized motion** (do the holds feel catchable? thresholds 0.40/0.75
+  and divs 4/8/16 in `beatQuantT`/`beatQuantDivs`; is the 1/16 end fluid enough?), the **skill-gated spawn
+  distance** (does the close→far march feel right? knobs above), the **pace ghost** (tier cutoffs, does the
+  bar read well?), the trajectory viz, scope feel (lock stickiness), floor HUD, marching dashes, ARC
+  ballistics — the user iterates by eye.
 - **Decide on the global board vs ARC-default:** ARC runs are excluded from `aimdojo_scores`, so with ARC
   default the peak-BPM board only fills from RAILGUN runs. Either accept (daily board is the real comp) or
   let ARC runs count (mixes difficulties).
