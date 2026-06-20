@@ -241,9 +241,15 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       <div id="boardList" class="boardlist"><div class="board-empty">loading…</div></div>
     </div>
 
+    <div id="dailyBox" class="boardbox">
+      <div class="histhead"><span>🏆 TODAY'S CHALLENGE · KILLS</span><span id="dailySub" class="histsub"></span></div>
+      <div id="dailyList" class="boardlist"><div class="board-empty">loading…</div></div>
+    </div>
+
     <div id="pauseStats" style="display:none"></div>
 
     <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
+    <div class="dualcols"><button class="ghost" id="dailyBtn">🏆 DAILY CHALLENGE</button></div>
     <div class="dualcols"><button class="ghost" id="advBtn">⚙ ADVANCED</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
   </div>
 </div>
@@ -356,6 +362,7 @@ const CFG = {
   startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
   startBpm:35, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // gentler slowdown so a few misses don't crater the tempo
+  challengeDur:75, challengeStartBpm:48, challengeMaxBpm:172,   // daily challenge: fixed-length seeded run with a fixed tempo ramp
   // shared adaptive law
   upThreshold:0.80, downThreshold:0.45, windowSize:10, warmEvents:6,   // wider dead-band: only slow down below 45% accuracy
   // difficulty mapping
@@ -375,6 +382,12 @@ const CFG = {
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* seeded RNG — gameplay randomness goes through rnd(); reseeded for the daily challenge so everyone gets the SAME run */
+let rng=Math.random; function rnd(){ return rng(); }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function strHash(s){ let h=1779033703^s.length; for(let i=0;i<s.length;i++){ h=Math.imul(h^s.charCodeAt(i),3432918353); h=(h<<13)|(h>>>19); } return (h^(h>>>16))>>>0; }
+function dayKey(){ const d=new Date(); return d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)+'-'+d.getUTCDate(); }
+let challengeSeed=0;
 const HAS_TOUCH = (navigator.maxTouchPoints||0) > 0 || ('ontouchstart' in window);
 const MOBILE = window.matchMedia('(pointer: coarse)').matches && HAS_TOUCH;
 
@@ -800,7 +813,7 @@ function onGrid(time){
     if(elig){
       let p = CFG.densityScale*metricWeight(i);
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
-      if(Math.random()<p){
+      if(rnd()<p){
         try{ Tone.Draw.schedule(()=>{ if(state.running) spawnRhythmOrb(); }, time); }catch(e){ if(state.running) spawnRhythmOrb(); }
         spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
       }
@@ -847,27 +860,27 @@ function spawnTarget(opts){
     new THREE.MeshBasicMaterial({color:TOXIC,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false}));
   core.add(shell);
   const up=new THREE.Vector3(0,1,0), a0=aimDir(); let dir3;
-  if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); only carve out a min-angle cone around your aim
+  if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)
     const minA=THREE.MathUtils.degToRad(lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT()));
     let tries=0;
     do{
-      const az=Math.random()*Math.PI*2, pit=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
+      const az=rnd()*Math.PI*2, pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
       dir3=new THREE.Vector3(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit)).normalize();
-    }while(dir3.angleTo(a0)<minA && ++tries<8);
+    }while(!state.challenge && dir3.angleTo(a0)<minA && ++tries<8);
   }else{
     const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
     const flat=new THREE.Vector3(fwd.x,0,fwd.z).normalize();
     const right=new THREE.Vector3().crossVectors(flat,up).normalize();
-    const yawOff=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.yawSpreadDeg);
-    const pitOff=(Math.random()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
+    const yawOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.yawSpreadDeg);
+    const pitOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
     dir3=flat.clone().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(up,yawOff)).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(right,pitOff)).normalize();
   }
   const d0=CFG.spawnDist[0], d1=CFG.spawnDist[1];          // cube-root warp → constant volumetric density (no bunching at the near edge)
-  const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, Math.random()));
+  const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd()));
   const pos=PLAYER_POS.clone().addScaledVector(dir3, dist);
   pos.y=Math.max(2.2,Math.min(ROOM.h-2.5,pos.y)); core.position.copy(pos);
   const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*(state.mode==='rhythm'?0.7:1);
-  const vel=new THREE.Vector3(Math.random()*2-1,(Math.random()*2-1)*0.35,Math.random()*2-1).normalize().multiplyScalar(dmag);
+  const vel=new THREE.Vector3(rnd()*2-1,(rnd()*2-1)*0.35,rnd()*2-1).normalize().multiplyScalar(dmag);
   if(!reduceMotion) core.scale.setScalar(0.01);
   scene.add(core);
   const snd=makeTargetSound(core);
@@ -894,6 +907,7 @@ const events=[]; let sinceAdjust=0;
 function windowAccuracy(){ if(!events.length) return null; let g=0; for(const e of events) if(e) g++; return g/events.length; }
 function pushEvent(good){ events.push(good); if(events.length>CFG.windowSize) events.shift(); sinceAdjust++; maybeAdjust(); renderGauge(); }
 function maybeAdjust(){
+  if(state.challenge) return;                                   // daily challenge uses a fixed tempo ramp, not the adaptive engine
   if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
   if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
   const acc=windowAccuracy();
@@ -913,7 +927,7 @@ function changeBpm(delta,up){
 }
 
 /* ========================= STATE + OUTCOMES ========================= */
-const state={ running:false, started:false, t:0, mode:CFG.mode,
+const state={ running:false, started:false, needsReset:false, challenge:false, challengeOver:false, t:0, mode:CFG.mode,
   speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm,
   hits:0, shots:0, streak:0, bestStreak:0, reactions:[], pathScores:[], sessEffs:[], sessBpms:[] };
 
@@ -1097,6 +1111,13 @@ function animate(){
 
   if(state.running){
     state.t+=dt;
+    if(state.challenge){                                    // fixed tempo ramp (same for everyone), then end after challengeDur
+      const f=Math.min(1, state.t/CFG.challengeDur);
+      state.bpm=lerp(CFG.challengeStartBpm, CFG.challengeMaxBpm, f); state.maxBpm=Math.max(state.maxBpm, state.bpm);
+      if(toneReady){ try{ Tone.Transport.bpm.value=state.bpm; }catch(e){} }
+      renderPrimary(false,false);
+      if(state.t>=CFG.challengeDur){ endChallenge(); }
+    }
     if(state.mode==='hunt'){
       if(targets.filter(t=>!t.dead).length<desiredCount() && state.t>=nextSpawnAt){ spawnTarget(); nextSpawnAt=state.t+spawnGap(); }
     }
@@ -1104,7 +1125,7 @@ function animate(){
       const tg=targets[i];
       if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.sc); }
       if(!reduceMotion) tg.shell.material.opacity=0.13+0.06*Math.sin(state.t*4+i);
-      if(CFG.brownian>0){                                  // brownian wander: sqrt(dt) kicks + LIGHT mean-reversion → orbs strafe/travel, base drift survives
+      if(CFG.brownian>0 && !state.challenge){              // brownian wander (off in the seeded challenge — it's frame-rate-dependent, would break determinism)
         const s=CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(dt);
         tg.vel.x+=(Math.random()*2-1)*s; tg.vel.y+=(Math.random()*2-1)*s*0.6; tg.vel.z+=(Math.random()*2-1)*s;
         tg.vel.multiplyScalar(Math.max(0,1-CFG.brownianDamp*dt));
@@ -1159,7 +1180,7 @@ const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>tap to shoot on the beat</span><span><b>❙❙</b>pause &amp; settings</span>'; }
 
 function enterRunning(){
-  if(!state.started){ state.started=true; resetSession(); }
+  if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); }
   state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   if(MOBILE) touchUI.classList.add('show');
 }
@@ -1189,6 +1210,7 @@ function configureMode(){
   renderPrimary(false,false);
 }
 function resetSession(){
+  state.challengeOver=false; rng = state.challenge ? mulberry32(challengeSeed) : Math.random;   // reseed for a reproducible challenge; plain random otherwise
   for(const t of targets) removeTarget(t); targets.length=0;
   for(const g of ghosts){ scene.remove(g.mesh); g.mesh.geometry.dispose(); g.mat.dispose(); } ghosts.length=0;
   events.length=0; sinceAdjust=0;
@@ -1260,11 +1282,41 @@ function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer 
 function clientId(){ let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return id; }
 function playerName(){ let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return n || ('Guest-'+clientId().slice(-4)); }
 function esc(s){ return String(s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+/* ---- daily seeded challenge ---- */
+function startChallenge(){
+  challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
+  CFG.mode='rhythm'; state.challenge=true; state.challengeOver=false; state.needsReset=true;
+  startRun();
+}
+function endChallenge(){
+  state.challenge=false; state.challengeOver=true; state.needsReset=true;
+  submitDaily();
+  if(document.pointerLockElement) document.exitPointerLock(); else exitRunning();
+}
+async function submitDaily(){
+  if(state.hits<1) return;
+  const row={client_id:clientId(), name:playerName().slice(0,24), day:dayKey(), score:state.hits,
+    accuracy: state.shots?Math.round(state.hits/state.shots*100):null, best_streak:state.bestStreak};
+  try{ await fetch(SB_URL+'/rest/v1/aimdojo_daily', {method:'POST', headers:sbH({Prefer:'return=minimal'}), body:JSON.stringify(row)}); loadDailyBoard(); }catch(e){}
+}
+async function loadDailyBoard(){
+  const list=gid('dailyList'); if(!list) return; const sub=gid('dailySub'); if(sub) sub.textContent=dayKey();
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=client_id,name,score,accuracy&day=eq.'+encodeURIComponent(dayKey())+'&order=score.desc&limit=200', {headers:sbH()});
+    if(!res.ok) throw 0;
+    const rows=await res.json(); const seen=new Set(), top=[];
+    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); top.push(r); if(top.length>=15) break; }
+    if(!top.length){ list.innerHTML='<div class="board-empty">no one has run today’s challenge yet — be first</div>'; return; }
+    const me=clientId();
+    list.innerHTML=top.map((r,i)=>'<div class="board-row'+(r.client_id===me?' me':'')+'"><span class="br-rank">'+(i+1)+'</span><span class="br-name">'+esc(r.name||'?')+'</span><span class="br-bpm">'+Math.round(r.score)+'</span><span class="br-acc">'+(r.accuracy!=null?r.accuracy+'%':'—')+'</span></div>').join('');
+  }catch(e){ list.innerHTML='<div class="board-empty">daily board offline (table not created yet)</div>'; }
+}
+const _dailyBtn=gid('dailyBtn'); if(_dailyBtn) _dailyBtn.addEventListener('click', startChallenge);
 async function submitScore(){
   if(state.mode!=='rhythm') return;
   const score=Math.round(state.maxBpm);
   let best=0; try{ best=+(localStorage.getItem('aimdojo.bestBpm')||0); }catch(e){}
-  if(state.hits<3 || score<=best || score<=CFG.startBpm) return;          // only a real, improved personal best
+  if(state.challengeOver || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip challenge runs (fixed tempo); else only a real improved best
   try{ localStorage.setItem('aimdojo.bestBpm', String(score)); }catch(e){}
   const acc=state.shots?Math.round(state.hits/state.shots*100):null;
   const ap=state.pathScores.length?Math.round(state.pathScores.reduce((a,b)=>a+b,0)/state.pathScores.length*100):null;
@@ -1312,7 +1364,7 @@ function showPause(){
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
     (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(state.pathScores.reduce((a,b)=>a+b,0)/state.pathScores.length*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
-  submitScore(); saveSession(); renderHistory(); loadBoard();
+  submitScore(); saveSession(); renderHistory(); loadBoard(); loadDailyBoard();
   overlay.classList.remove('hidden');
 }
 
@@ -1368,7 +1420,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
   });
 })();
 
-configureMode(); renderGauge(); renderStats(); renderHistory(); loadBoard();
+configureMode(); renderGauge(); renderStats(); renderHistory(); loadBoard(); loadDailyBoard();
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
