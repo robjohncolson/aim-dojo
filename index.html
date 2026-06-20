@@ -1304,25 +1304,22 @@ function updateProjectiles(dt){
   }
 }
 const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4;
-let arcLine=null, arcLeft=null, arcRight=null, arcLeaf=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false;
+let arcRight=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false;
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
 const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){ const th=i/16*6.2831853; a[i*3]=Math.cos(th); a[i*3+2]=Math.sin(th); }   // unit ring in the XZ (floor) plane
   const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();
 function makeArcGeo(maxPts){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3)); return g; }
 function ensureArcObjs(){
-  if(arcLine) return;
+  if(arcRight) return;
   const lm=(c,o)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,blending:THREE.AdditiveBlending});
-  arcLine =new THREE.Line(makeArcGeo(ARC_MAX), lm(0x6fe0ff,0.45));              // true path (eye→impact), faint reference
-  arcLeft =new THREE.Line(makeArcGeo(ARC_SAMP), lm(0x7fe8ff,0.75));            // left-muzzle parabola (blade edge)
-  arcRight=new THREE.Line(makeArcGeo(ARC_SAMP), lm(0x7fe8ff,0.75));            // right-muzzle parabola (blade edge)
-  arcLeaf =new THREE.Mesh(makeArcGeo((ARC_SAMP-1)*6), new THREE.MeshBasicMaterial({color:0x3aa8d8,transparent:true,opacity:0.13,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));   // shaded "blade" between the two arcs
+  arcRight=new THREE.Line(makeArcGeo(ARC_SAMP), new THREE.LineDashedMaterial({color:0x8fe8ff,transparent:true,opacity:0.9,dashSize:0.5,gapSize:0.34,blending:THREE.AdditiveBlending}));   // single dashed parabola from the right muzzle, converging at the impact
   arcLand =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.85));                 // static landing ring
   arcPulseA=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));               // beat-synced expanding pulse rings out of the impact
   arcPulseB=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));
-  for(const o of [arcLeaf,arcLine,arcLeft,arcRight,arcLand,arcPulseA,arcPulseB]){ o.frustumCulled=false; scene.add(o); }
+  for(const o of [arcRight,arcLand,arcPulseA,arcPulseB]){ o.frustumCulled=false; scene.add(o); }
 }
-function hideArc(){ if(arcLine){ arcLine.visible=arcLeft.visible=arcRight.visible=arcLeaf.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; } arcLanded=false; }
+function hideArc(){ if(arcRight){ arcRight.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; } arcLanded=false; }
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
   const beatLen=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5, period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
@@ -1340,29 +1337,17 @@ function updateArcPreview(dt){                                                  
   animateArcPulse();                                                                         // smooth every frame, off the last computed landing point
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
   camera.getWorldDirection(_arcDir);
-  // central (true) arc from the eye → find the impact _arcI and flight time T
+  // find the real impact (eye→crosshair parabola) + flight time, WITHOUT drawing it
   _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(CFG.projSpeed);
-  const ap=arcLine.geometry.attributes.position.array, step=1/30; let n=0, landed=false;
-  for(; n<ARC_MAX-1; n++){ const k=n*3; ap[k]=_arcPos.x; ap[k+1]=_arcPos.y; ap[k+2]=_arcPos.z;
-    _arcVel.y-=CFG.projGravity*step; _arcPos.addScaledVector(_arcVel,step);
-    if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ landed=_arcPos.y<=0.04; n++; const j=n*3; ap[j]=_arcPos.x;ap[j+1]=_arcPos.y;ap[j+2]=_arcPos.z; n++; break; } }
-  arcLine.geometry.setDrawRange(0,Math.min(n,ARC_MAX)); arcLine.geometry.attributes.position.needsUpdate=true; arcLine.visible=true;
-  _arcI.copy(_arcPos);                                                                       // impact point both side-arcs converge to
-  const T=Math.max(0.12, (n-1)*step);
-  // offset muzzles at the bottom-left / bottom-right of view (actual launch is still the eye)
+  const step=1/30; let n=0, landed=false;
+  for(; n<ARC_MAX; n++){ _arcVel.y-=CFG.projGravity*step; _arcPos.addScaledVector(_arcVel,step);
+    if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ landed=_arcPos.y<=0.04; n++; break; } }
+  _arcI.copy(_arcPos); const T=Math.max(0.12, n*step);
+  // ONE dashed parabola from the bottom-right muzzle, solved to converge at the impact (the real shot still launches from the eye)
   _arcRight.crossVectors(_arcDir, _ARC_UP); if(_arcRight.lengthSq()<1e-6) _arcRight.set(1,0,0); else _arcRight.normalize();
   const E=PLAYER_POS, fx=_arcDir.x*BLADE_DZ, fy=_arcDir.y*BLADE_DZ, fz=_arcDir.z*BLADE_DZ;
-  const la=arcLeft.geometry.attributes.position.array, ra=arcRight.geometry.attributes.position.array, lf=arcLeaf.geometry.attributes.position.array;
-  convergeArc(E.x - _arcRight.x*BLADE_DX + fx, E.y - BLADE_DY + fy, E.z - _arcRight.z*BLADE_DX + fz, T, ARC_SAMP, la);
-  convergeArc(E.x + _arcRight.x*BLADE_DX + fx, E.y - BLADE_DY + fy, E.z + _arcRight.z*BLADE_DX + fz, T, ARC_SAMP, ra);
-  // shaded blade = two triangles per segment spanning the left & right edge arcs
-  let o=0; for(let i=0;i<ARC_SAMP-1;i++){ const a0=i*3, a1=(i+1)*3;
-    lf[o++]=la[a0];lf[o++]=la[a0+1];lf[o++]=la[a0+2]; lf[o++]=ra[a0];lf[o++]=ra[a0+1];lf[o++]=ra[a0+2]; lf[o++]=la[a1];lf[o++]=la[a1+1];lf[o++]=la[a1+2];
-    lf[o++]=ra[a0];lf[o++]=ra[a0+1];lf[o++]=ra[a0+2]; lf[o++]=ra[a1];lf[o++]=ra[a1+1];lf[o++]=ra[a1+2]; lf[o++]=la[a1];lf[o++]=la[a1+1];lf[o++]=la[a1+2]; }
-  arcLeft.geometry.setDrawRange(0,ARC_SAMP); arcLeft.geometry.attributes.position.needsUpdate=true; arcLeft.visible=true;
-  arcRight.geometry.setDrawRange(0,ARC_SAMP); arcRight.geometry.attributes.position.needsUpdate=true; arcRight.visible=true;
-  arcLeaf.geometry.setDrawRange(0,(ARC_SAMP-1)*6); arcLeaf.geometry.attributes.position.needsUpdate=true; arcLeaf.visible=true;
-  // landing ring + beat-pulse origin at the impact
+  convergeArc(E.x + _arcRight.x*BLADE_DX + fx, E.y - BLADE_DY + fy, E.z + _arcRight.z*BLADE_DX + fz, T, ARC_SAMP, arcRight.geometry.attributes.position.array);
+  arcRight.geometry.setDrawRange(0,ARC_SAMP); arcRight.geometry.attributes.position.needsUpdate=true; arcRight.geometry.computeLineDistances(); arcRight.visible=true;   // computeLineDistances → the dash pattern
   arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=landed;
   arcLanded=landed; if(landed) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
 }
@@ -1693,7 +1678,7 @@ function animate(frameNow){
   updateAssist(dt);
   updateTrail(dt);
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ballistic free-play option + scope; guarded so a hiccup can't freeze the loop
-  else if(arcLine && arcLine.visible) arcLine.visible=false;
+  else if(arcRight && arcRight.visible) hideArc();
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
   if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
   renderer.render(scene,camera);
