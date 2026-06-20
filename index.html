@@ -362,7 +362,7 @@ const CFG = {
   startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
   startBpm:35, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // gentler slowdown so a few misses don't crater the tempo
-  challengeDur:75, challengeStartBpm:48, challengeMaxBpm:172,   // daily challenge: fixed-length seeded run with a fixed tempo ramp
+  challengeDur:90, challengeStartBpm:42, challengeMaxBpm:150, challengeEase:1.4,   // daily challenge: ease-in tempo ramp (lingers playable, hard finale)
   // shared adaptive law
   upThreshold:0.80, downThreshold:0.45, windowSize:10, warmEvents:6,   // wider dead-band: only slow down below 45% accuracy
   // difficulty mapping
@@ -1112,7 +1112,7 @@ function animate(){
   if(state.running){
     state.t+=dt;
     if(state.challenge){                                    // fixed tempo ramp (same for everyone), then end after challengeDur
-      const f=Math.min(1, state.t/CFG.challengeDur);
+      const f=Math.pow(Math.min(1, state.t/CFG.challengeDur), CFG.challengeEase);   // ease-in: stay playable, then spike for the finish
       state.bpm=lerp(CFG.challengeStartBpm, CFG.challengeMaxBpm, f); state.maxBpm=Math.max(state.maxBpm, state.bpm);
       if(toneReady){ try{ Tone.Transport.bpm.value=state.bpm; }catch(e){} }
       renderPrimary(false,false);
