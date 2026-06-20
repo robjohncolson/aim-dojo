@@ -1190,7 +1190,7 @@ function animate(){
   updateRemotes();                                           // draw their live reticles
   renderer.render(scene,camera);
 }
-animate();
+// NOTE: animate() is kicked off at the very end of the IIFE (after all module-scope const/let exist) — see bootstrap below.
 window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); sizeRefl(); });
 
 /* ========================= OVERLAY / SETTINGS ========================= */
@@ -1511,6 +1511,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
 })();
 
 configureMode(); renderGauge(); renderStats(); renderHistory(); loadBoard(); loadDailyBoard(); initRealtime();
+animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
