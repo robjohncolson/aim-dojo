@@ -1299,7 +1299,7 @@ function renderHistory(){                                 // startup/pause chart
 const SB_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
 const SB_TABLE='aimdojo_scores';
-const RAILWAY_URL='';   // set to your deployed verify-server URL to validate daily scores server-side; empty = submit straight to Supabase
+const RAILWAY_URL='https://aim-dojo-production.up.railway.app';   // verify-server (Railway): daily scores validated server-side before insert; empty = submit straight to Supabase
 function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'}, extra||{}); }
 function clientId(){ let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return id; }
 function playerName(){ let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return n || ('Guest-'+clientId().slice(-4)); }
