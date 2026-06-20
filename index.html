@@ -61,6 +61,20 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #scoreRace .rr.lead .kc{color:#ffd36b;text-shadow:0 0 6px rgba(255,211,107,.5)}
 @keyframes srflash{0%{background:rgba(255,211,107,.4)}100%{background:transparent}}
 #scoreRace .rr.flash{animation:srflash .55s ease-out}
+#paceGhost{left:50%;top:84px;transform:translateX(-50%);width:230px;display:none;flex-direction:column;gap:3px}
+#paceGhost.on{display:flex}
+#paceGhost .pg-top{display:flex;justify-content:space-between;align-items:baseline;font:10px var(--mono);letter-spacing:.18em;color:var(--bone-dim)}
+#paceGhost .pg-pct{font-size:13px;letter-spacing:.04em;color:var(--toxic)}
+#paceGhost.lo .pg-pct{color:#ff7a6b}
+#paceGhost.hi .pg-pct{color:#ffd36b;text-shadow:0 0 7px rgba(255,211,107,.5)}
+#paceGhost .pg-track{position:relative;width:100%;height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden}
+#paceGhost .pg-fill{position:absolute;left:0;top:0;height:100%;width:0;background:rgba(116,232,74,.5);transition:width .25s ease,background .25s ease}
+#paceGhost.lo .pg-fill{background:rgba(255,122,107,.5)}
+#paceGhost.hi .pg-fill{background:rgba(255,211,107,.6)}
+#paceGhost .pg-sub{font:10px var(--mono);letter-spacing:.06em;color:var(--bone-dim);text-align:center}
+@keyframes pgflash{0%{box-shadow:0 0 0 2px rgba(255,211,107,.55)}100%{box-shadow:0 0 0 0 rgba(255,211,107,0)}}
+#paceGhost.flash .pg-track{animation:pgflash .5s ease-out}
+@media (max-width:520px){#paceGhost{left:10px;right:auto;transform:none;width:min(230px,calc(100vw - 210px))}}   /* left-anchor + width-cap so the pace bar can never reach the right-anchored score race on a narrow phone */
 #scopeHud{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);font:11px var(--mono);color:var(--bone-dim);letter-spacing:.06em;line-height:1.6;display:none}
 #scopeHud.on{display:block}
 #scopeHud b{color:var(--rail);font-weight:400}
@@ -227,6 +241,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="ghostName" class="hud" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
+<div id="paceGhost" class="hud" aria-hidden="true"><div class="pg-top"><span>PACE</span><span class="pg-pct">—</span></div><div class="pg-track"><span class="pg-fill"></span></div><div class="pg-sub"></div></div>
 <div id="scopeAim" aria-hidden="true"></div>
 <div id="lockBox" aria-hidden="true"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
@@ -1227,14 +1242,13 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   else if(beats<=2.0) grade='PERFECT';
   else if(beats<=3.0) grade='EXCELLENT';
   else { grade='GOOD'; good=false; }            // got it, but past the 3-beat target
-  if(good){ state.hits++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }
+  if(good){ state.hits++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); if(ghostRec) ghostRec.h.push(Math.round(atT*100)); }   // record SCORING hits only → replay h = score-over-time (drives the ghost reticle flash + the daily pace percentile)
   else state.streak=0;
   pushReaction(beats);
   const ps=pathScoreOf(tg); pushPathScore(ps);
   state.sessEffs.push(ps); state.sessBpms.push(state.bpm); state.sessEffSum+=ps; state.sessBpmSum+=state.bpm;   // full-session record (for the startup chart)
   pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good', pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
-  if(ghostRec) ghostRec.h.push(Math.round(atT*100));         // record this hit for my ghost replay (at commit time)
   sfx(good?'hit':'offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg); renderStats();
 }
 function onWhiff(skipBeam, fwd){
@@ -1683,6 +1697,7 @@ function animate(frameNow){
       const rb=Math.round(state.bpm); if(rb!==challengeUiBpm){ challengeUiBpm=rb; renderPrimary(false,false); }
       if(ghostRec){ while(state.t>=ghostNextSample){ ghostRec.a.push(qYaw(yaw), qPit(pitch)); ghostNextSample+=1/GHOST_HZ; } }   // record my aim path
       updateGhost(dt);                                      // play the opponent's ghost reticle
+      updatePaceGhost(dt);                                  // live "ahead of X% of today" pace bar
       if(state.t>=CFG.challengeDur){ endChallenge(); }
     }
     if(state.mode==='hunt'){
@@ -1923,6 +1938,53 @@ async function loadGhost(){
     if(rows && rows[0] && rows[0].replay){ const r=JSON.parse(rows[0].replay); if(r && r.a && r.a.length){ ghost={a:r.a, h:r.h||[], name:rows[0].name, hi:0}; if(lbl){ lbl.textContent='👻 racing '+(rows[0].name||'?')+' · '+rows[0].score+' kills'; lbl.classList.add('on'); } } }
   }catch(e){}
 }
+/* ---- percentile pace ghost: live "you're ahead of X% of today's runs" — your kills-by-now vs the recorded pace of everyone else on today's seed. Works SOLO (no live opponents needed); complements the head-to-head score race. ---- */
+const PACE_STEP=1/6; let paceRuns=null, paceCursors=null, paceTotal=0, paceLastPct=-1, paceAccum=0, _paceTier='';
+const paceEl=gid('paceGhost'), pacePctEl=paceEl&&paceEl.querySelector('.pg-pct'), paceFillEl=paceEl&&paceEl.querySelector('.pg-fill'), paceSubEl=paceEl&&paceEl.querySelector('.pg-sub');
+function hidePace(){ paceRuns=null; paceCursors=null; paceTotal=0; paceLastPct=-1; _paceTier=''; if(paceEl) paceEl.classList.remove('on','lo','hi','flash'); }
+async function loadPaceField(){
+  hidePace();
+  try{
+    const me=clientId();
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=client_id,replay&day=eq.'+encodeURIComponent(dayKey())+'&order=score.desc&limit=120', {headers:sbH()});
+    const rows=await res.json(); const runs=[], seen=new Set();
+    for(const row of (rows||[])){
+      if(!row || !row.replay || row.client_id===me || seen.has(row.client_id)) continue;   // race the FIELD (everyone else on today's seed), not myself; one run per client — their best, since rows arrive score.desc (mirrors loadDailyBoard)
+      let h=null; try{ const r=JSON.parse(row.replay); h=r&&r.h; }catch(e){}
+      if(h && h.length){ seen.add(row.client_id); runs.push(h); }                          // h = ascending scoring-hit times in centiseconds
+    }
+    if(runs.length){ paceRuns=runs; paceCursors=new Int32Array(runs.length); paceTotal=runs.length; paceAccum=PACE_STEP; }   // prime the throttle so the bar appears on the first frame after load, not ~167ms later
+  }catch(e){}
+}
+function updatePaceGhost(dt){
+  if(!paceEl) return;
+  if(!paceRuns || !state.running || !state.challenge){ if(paceEl.classList.contains('on')) paceEl.classList.remove('on'); return; }
+  paceAccum+=dt; if(paceAccum<PACE_STEP) return; paceAccum=0;
+  const tc=state.t*100, mine=state.hits;
+  if(!paceEl.classList.contains('on')) paceEl.classList.add('on');
+  if(mine===0){                                                   // before you've scored, everyone's tied at 0 → don't flash a misleading 50%; show a neutral "warming up"
+    if(pacePctEl) setText(pacePctEl,'—');
+    if(paceFillEl && paceFillEl._w!==0){ paceFillEl.style.width='0%'; paceFillEl._w=0; }
+    if(paceSubEl) setText(paceSubEl,'warming up');
+    if(_paceTier!==''){ paceEl.classList.remove('lo','hi'); _paceTier=''; }
+    paceLastPct=-1; return;                                       // -1 → the first real percentile won't trigger a climb-flash
+  }
+  let below=0, ties=0;
+  for(let r=0;r<paceRuns.length;r++){                              // monotonic cursors: state.t only grows, so each run's "kills so far" advances cheaply (amortized O(total hits))
+    const h=paceRuns[r]; let c=paceCursors[r];
+    while(c<h.length && h[c]<=tc) c++;
+    paceCursors[r]=c;
+    if(mine>c) below++; else if(mine===c) ties++;                  // ties split → the bar doesn't jump a whole slot on equal kill counts
+  }
+  const pct=Math.round((below+ties*0.5)/paceTotal*100);
+  if(pacePctEl) setText(pacePctEl, pct+'%');
+  if(paceFillEl && paceFillEl._w!==pct){ paceFillEl.style.width=pct+'%'; paceFillEl._w=pct; }
+  if(paceSubEl) setText(paceSubEl, 'ahead of '+below+' / '+paceTotal+' today');
+  const tier = pct>=80?'hi' : (pct<40?'lo':'');
+  if(_paceTier!==tier){ paceEl.classList.remove('lo','hi'); if(tier) paceEl.classList.add(tier); _paceTier=tier; }
+  if(pct>paceLastPct && paceLastPct>=0 && !reduceMotion){ paceEl.classList.remove('flash'); void paceEl.offsetWidth; paceEl.classList.add('flash'); }   // flash when you climb the field
+  paceLastPct=pct;
+}
 /* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
 let rtCh=null, lastBcast=0; const remotes=new Map();
 function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
@@ -2011,6 +2073,7 @@ function startChallenge(){
   }
   challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
   loadGhost();                                                // fetch the top player's run to race (async; appears once loaded)
+  loadPaceField();                                            // fetch today's field for the live pace percentile (async; bar appears once loaded)
   CFG.mode='rhythm'; state.challenge=true; state.challengeOver=false; state.needsReset=true;
   startRun();
 }
@@ -2018,6 +2081,7 @@ function endChallenge(){
   state.challenge=false; state.challengeOver=true; state.needsReset=true;
   submitDaily();
   if(ghostRetEl) ghostRetEl.classList.remove('on'); const gn=gid('ghostName'); if(gn) gn.classList.remove('on');
+  hidePace();
   exitRunning();                                              // stop the run synchronously so state.running/challenge are consistent this frame (don't wait on async pointerlockchange)
   if(document.pointerLockElement) document.exitPointerLock();
 }
@@ -2109,6 +2173,7 @@ function restoreStartCard(){                                  // revert the paus
 }
 function exitChallenge(){                                     // bail out of an in-progress daily → free-play menu (next ENTER is a normal run; ghost/score-race auto-hide since state.challenge is false)
   state.challenge=false; state.challengeOver=false; state.needsReset=true;
+  hidePace();
   restoreStartCard();
 }
 if(exitChallengeBtn) exitChallengeBtn.addEventListener('click', exitChallenge);
