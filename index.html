@@ -142,6 +142,18 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 .chip .ck{font-size:10px;letter-spacing:.16em;color:var(--bone-dim)}
 .chip .cv{font-size:22px;color:var(--bone);margin-top:3px}
 .chip .cv.green{color:var(--toxic)}.chip .cv.amber{color:var(--plasma)}
+.boardbox{margin:2px 0 16px;border:1px solid var(--panel-edge);background:#0d110f;padding:9px 11px}
+#nameInput{background:#0d110f;border:1px solid var(--panel-edge);color:var(--rail);font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:3px 7px;width:128px;text-align:right}
+#nameInput:focus{outline:1px solid var(--rail);outline-offset:1px}
+.boardlist{display:flex;flex-direction:column;gap:1px;max-height:186px;overflow:auto;margin-top:2px}
+.board-row{display:grid;grid-template-columns:22px 1fr 52px 42px;align-items:center;gap:8px;font-size:12px;padding:3px 4px}
+.board-row:nth-child(odd){background:rgba(255,255,255,.025)}
+.board-row.me{background:rgba(67,217,255,.12);outline:1px solid rgba(67,217,255,.25)}
+.br-rank{color:var(--bone-dim);font-size:11px;text-align:right}
+.br-name{color:var(--bone);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.br-bpm{color:var(--plasma);text-align:right}
+.br-acc{color:var(--bone-dim);text-align:right;font-size:11px}
+.board-empty{color:var(--bone-dim);font-size:11px;letter-spacing:.1em;padding:6px 2px;text-align:center}
 .histbox{margin:2px 0 16px;border:1px solid var(--panel-edge);background:#0d110f;padding:9px 11px}
 .histhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:9.5px;letter-spacing:.16em;color:var(--bone-dim);margin-bottom:6px}
 .histsub{color:var(--rail);letter-spacing:.06em;white-space:nowrap}
@@ -222,6 +234,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     <div id="histBox" class="histbox" style="display:none">
       <div class="histhead"><span>PATH EFFICIENCY · RECENT RUNS</span><span id="histSub" class="histsub"></span></div>
       <canvas id="histChart"></canvas>
+    </div>
+
+    <div id="boardBox" class="boardbox">
+      <div class="histhead"><span>GLOBAL HI SCORES · PEAK BPM</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
+      <div id="boardList" class="boardlist"><div class="board-empty">loading…</div></div>
     </div>
 
     <div id="pauseStats" style="display:none"></div>
@@ -1177,6 +1194,47 @@ function renderHistory(){                                 // startup/pause chart
   const bpmCol=b=>{ const t=Math.max(0,Math.min(1,(b-30)/142)); return 'rgb('+Math.round(67+188*t)+','+Math.round(217-150*t)+','+Math.round(255-200*t)+')'; };
   data.forEach((d,i)=>{ c.fillStyle=bpmCol(d.bpm); c.beginPath(); c.arc(xAt(i),yAt(d.eff),2.7,0,6.2832); c.fill(); });
 }
+/* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
+const SB_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
+const SB_TABLE='aimdojo_scores';
+function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'}, extra||{}); }
+function clientId(){ let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return id; }
+function playerName(){ let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return n || ('Guest-'+clientId().slice(-4)); }
+function esc(s){ return String(s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+async function submitScore(){
+  if(state.mode!=='rhythm') return;
+  const score=Math.round(state.maxBpm);
+  let best=0; try{ best=+(localStorage.getItem('aimdojo.bestBpm')||0); }catch(e){}
+  if(state.hits<3 || score<=best || score<=CFG.startBpm) return;          // only a real, improved personal best
+  try{ localStorage.setItem('aimdojo.bestBpm', String(score)); }catch(e){}
+  const acc=state.shots?Math.round(state.hits/state.shots*100):null;
+  const ap=state.pathScores.length?Math.round(state.pathScores.reduce((a,b)=>a+b,0)/state.pathScores.length*100):null;
+  const row={client_id:clientId(), name:playerName().slice(0,24), score, hits:state.hits, accuracy:acc, avg_path:ap, best_streak:state.bestStreak, mode:'rhythm'};
+  try{ await fetch(SB_URL+'/rest/v1/'+SB_TABLE, {method:'POST', headers:sbH({Prefer:'return=minimal'}), body:JSON.stringify(row)}); loadBoard(); }catch(e){}
+}
+async function loadBoard(){
+  const list=gid('boardList'); if(!list) return;
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/'+SB_TABLE+'?select=client_id,name,score,accuracy&order=score.desc&limit=200', {headers:sbH()});
+    if(!res.ok) throw 0;
+    const rows=await res.json(); const seen=new Set(), top=[];               // dedupe to each player's best
+    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); top.push(r); if(top.length>=15) break; }
+    renderBoard(top);
+  }catch(e){ list.innerHTML='<div class="board-empty">leaderboard offline</div>'; }
+}
+function renderBoard(rows){
+  const list=gid('boardList'); if(!list) return;
+  if(!rows.length){ list.innerHTML='<div class="board-empty">no scores yet — be the first</div>'; return; }
+  const me=clientId();
+  list.innerHTML=rows.map((r,i)=>'<div class="board-row'+(r.client_id===me?' me':'')+'">'
+    +'<span class="br-rank">'+(i+1)+'</span><span class="br-name">'+esc(r.name||'?')+'</span>'
+    +'<span class="br-bpm">'+Math.round(r.score)+'</span><span class="br-acc">'+(r.accuracy!=null?r.accuracy+'%':'—')+'</span></div>').join('');
+}
+(function(){ const ni=gid('nameInput'); if(!ni) return;                      // persist the player name as it's typed
+  try{ ni.value=localStorage.getItem('aimdojo.name')||''; }catch(e){}
+  ni.addEventListener('input', ()=>{ try{ localStorage.setItem('aimdojo.name', ni.value.slice(0,24)); }catch(e){} });
+})();
 function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
@@ -1196,7 +1254,7 @@ function showPause(){
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
     (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(state.pathScores.reduce((a,b)=>a+b,0)/state.pathScores.length*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
-  saveSession(); renderHistory();
+  submitScore(); saveSession(); renderHistory(); loadBoard();
   overlay.classList.remove('hidden');
 }
 
@@ -1252,7 +1310,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
   });
 })();
 
-configureMode(); renderGauge(); renderStats(); renderHistory();
+configureMode(); renderGauge(); renderStats(); renderHistory(); loadBoard();
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
