@@ -453,6 +453,7 @@ const CFG = {
   // difficulty mapping
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
+  rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeStep:1.2, rangeStepDown:1.6,   // skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianDamp:0.35,          // wander: noise intensity, speed cap, LIGHT mean-reversion so orbs travel/strafe (not jitter in place)
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
@@ -1113,8 +1114,9 @@ function spawnTarget(opts){
     const pitOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
     dir3=_spawnDir.copy(_spawnFlat).applyQuaternion(_spawnQYaw.setFromAxisAngle(SPAWN_UP,yawOff)).applyQuaternion(_spawnQPit.setFromAxisAngle(_spawnRight,pitOff));
   }
-  const d0=CFG.spawnDist[0], d1=CFG.spawnDist[1];          // cube-root warp → constant volumetric density (no bunching at the near edge)
-  const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd()));
+  const far=state.challenge?CFG.spawnDist[1]:state.range;  // FREE-PLAY: skill-gated shell (state.range marches outward as you hit); the seeded daily stays on fixed spawnDist for a fair run
+  const d0=state.challenge?CFG.spawnDist[0]:Math.max(CFG.rangeNear, far-CFG.rangeBand), d1=far;
+  const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd()));   // cube-root warp → constant volumetric density (no bunching at the near edge)
   _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist);
   _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos);
   const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*(state.mode==='rhythm'?0.7:1);
@@ -1175,10 +1177,13 @@ function maybeAdjust(){
   if(state.challenge) return;                                   // daily challenge uses a fixed tempo ramp, not the adaptive engine
   if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
   if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
-  const acc=windowAccuracy();
-  if(state.mode==='rhythm'){ if(acc>=CFG.upThreshold) changeBpm(+CFG.bpmUp,true); else if(acc<=CFG.downThreshold) changeBpm(-CFG.bpmDown,false); }
-  else { if(acc>=CFG.upThreshold) changeSpeed(+CFG.upStep,true); else if(acc<=CFG.downThreshold) changeSpeed(-CFG.downStep,false); }
+  const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
+  if(state.mode==='rhythm'){ if(up) changeBpm(+CFG.bpmUp,true); else if(down) changeBpm(-CFG.bpmDown,false); }
+  else { if(up) changeSpeed(+CFG.upStep,true); else if(down) changeSpeed(-CFG.downStep,false); }
+  if(up) changeRange(+CFG.rangeStep); else if(down) changeRange(-CFG.rangeStepDown);   // skill-gated reach: sustained hits push the spawn shell outward; struggling pulls it back in
+  if(up||down) sinceAdjust=0;            // hold the adjust cadence even when bpm/speed is railed, so range ramps gradually (not every event)
 }
+function changeRange(delta){ state.range=Math.max(CFG.rangeStart,Math.min(CFG.rangeMax,state.range+delta)); }   // never closer than the start, never past the ballistically-reachable cap
 function changeSpeed(delta,up){
   const prev=state.speed; state.speed=Math.max(CFG.minSpeed,Math.min(CFG.maxSpeed,state.speed+delta));
   if(state.speed===prev) return; sinceAdjust=0; state.maxReached=Math.max(state.maxReached,state.speed);
@@ -1193,7 +1198,7 @@ function changeBpm(delta,up){
 
 /* ========================= STATE + OUTCOMES ========================= */
 const state={ running:false, started:false, needsReset:false, challenge:false, challengeOver:false, t:0, mode:CFG.mode,
-  speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm,
+  speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart,
   hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0, pathScores:[], pathScoreSum:0, pathScoreHead:0, sessEffs:[], sessBpms:[], sessEffSum:0, sessBpmSum:0 };
 function pushReaction(v){
   const a=state.reactions;
@@ -1813,7 +1818,7 @@ function resetSession(){
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
-  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
+  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
   challengeToneAccum=CHALLENGE_TONE_STEP; challengeUiBpm=-1;
   nextSpawnAt=0;
   if(state.mode==='rhythm') ensureRhythm();
