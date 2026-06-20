@@ -470,8 +470,8 @@ const CFG = {
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
   rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeStep:1.2, rangeStepDown:1.6,   // skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
-  brownian:7, brownianMax:9, brownianDamp:0.35,          // wander: noise intensity, speed cap, LIGHT mean-reversion so orbs travel/strafe (not jitter in place)
-  beatQuant:true, beatQuantDivs:[4,8,16], beatQuantT:[0.40,0.75],   // FREE-PLAY RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. coarse 1/4-beat steps when learning → 1/8 → 1/16 as diffT (skill) rises. (daily stays continuous for determinism; hunt has no beat)
+  brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
+  beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // FREE-PLAY RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (daily stays continuous for determinism; hunt has no beat)
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -519,7 +519,6 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
-const BROWNIAN_MAX2=CFG.brownianMax*CFG.brownianMax;
 let _quantIdx=-1, _quantT=0;   // beat-grid strobe: last snap index + state.t at last snap (free-play rhythm target motion)
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
@@ -1721,6 +1720,7 @@ function animate(frameNow){
       }
       const brownianStep=(CFG.brownian>0 && !state.challenge && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
+      const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
         if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
@@ -1729,7 +1729,7 @@ function animate(frameNow){
           if(brownianStep){                                  // brownian wander (off in the seeded challenge — frame-rate-dependent, would break determinism)
             tg.vel.x+=(Math.random()*2-1)*brownianStep; tg.vel.y+=(Math.random()*2-1)*brownianStep*0.6; tg.vel.z+=(Math.random()*2-1)*brownianStep;
             tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
-            const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>BROWNIAN_MAX2){ const f=CFG.brownianMax/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
+            const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>velCap2){ const f=velCap/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
           }
           p.x+=tg.vel.x*moveStep; p.y+=tg.vel.y*moveStep; p.z+=tg.vel.z*moveStep;
           if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
