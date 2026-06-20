@@ -1303,23 +1303,34 @@ function updateProjectiles(dt){
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
-const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4;
-let arcRight=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
+const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=0.22, DASH_PERIOD=1.7;
+let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
+const _arcPts=new Float32Array(ARC_SAMP*3), _ribTan=new THREE.Vector3(), _ribOff=new THREE.Vector3(), _ribToCam=new THREE.Vector3();
 const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){ const th=i/16*6.2831853; a[i*3]=Math.cos(th); a[i*3+2]=Math.sin(th); }   // unit ring in the XZ (floor) plane
   const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();
 function makeArcGeo(maxPts){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3)); return g; }
+function makeDashTex(){                                                       // soft glowing dash cell, repeated + scrolled along the ribbon
+  const c=document.createElement('canvas'); c.width=64; c.height=16; const x=c.getContext('2d'); x.clearRect(0,0,64,16);
+  for(let px=0;px<64;px++){ const dash=px<42 ? Math.min(1, Math.min(px,42-px)/6) : 0;   // dash 0..42 (soft ends), gap 42..64
+    for(let py=0;py<16;py++){ const a=dash*Math.max(0,1-Math.abs(py-7.5)/8); if(a>0){ x.fillStyle='rgba(255,255,255,'+a.toFixed(3)+')'; x.fillRect(px,py,1,1); } } }
+  const t=new THREE.CanvasTexture(c); t.wrapS=THREE.RepeatWrapping; t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
 function ensureArcObjs(){
-  if(arcRight) return;
+  if(arcRibbon) return;
   const lm=(c,o)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,blending:THREE.AdditiveBlending});
-  arcRight=new THREE.Line(makeArcGeo(ARC_SAMP), new THREE.LineDashedMaterial({color:0x8fe8ff,transparent:true,opacity:0.95,dashSize:1.1,gapSize:0.6,blending:THREE.AdditiveBlending}));   // single dashed parabola = the real shot's path (coarse dashes)
+  const rg=new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_SAMP*2*3),3));
+  const uv=new Float32Array(ARC_SAMP*2*2); for(let i=0;i<ARC_SAMP;i++){ const u=i/(ARC_SAMP-1); uv[i*4]=u; uv[i*4+1]=0; uv[i*4+2]=u; uv[i*4+3]=1; }
+  rg.setAttribute('uv', new THREE.BufferAttribute(uv,2));
+  const idx=[]; for(let i=0;i<ARC_SAMP-1;i++){ const aa=i*2; idx.push(aa,aa+1,aa+2, aa+1,aa+3,aa+2); } rg.setIndex(idx);
+  arcRibbon=new THREE.Mesh(rg, new THREE.MeshBasicMaterial({map:makeDashTex(), color:0x8fe8ff, transparent:true, opacity:0.33, side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending}));   // thick, low-opacity, animated-dash trajectory
   arcLand =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.85));                 // static landing ring
   arcPulseA=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));               // beat-synced expanding pulse rings out of the impact
   arcPulseB=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));
-  for(const o of [arcRight,arcLand,arcPulseA,arcPulseB]){ o.frustumCulled=false; scene.add(o); }
+  for(const o of [arcRibbon,arcLand,arcPulseA,arcPulseB]){ o.frustumCulled=false; scene.add(o); }
 }
-function hideArc(){ if(arcRight){ arcRight.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; } arcLanded=false; }
+function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; } arcLanded=false; }
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
   const beatLen=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5, period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
@@ -1349,14 +1360,23 @@ function simShotHits(M, V, T, tg){                                              
     const dx=px-(T0.x+Vt.x*t), dy=py-(T0.y+Vt.y*t), dz=pz-(T0.z+Vt.z*t); if(dx*dx+dy*dy+dz*dz<=rr2) return true; }
   return false;
 }
-function updateArcPreview(dt){                                                               // ONE dashed parabola from the bottom-right muzzle — and it IS the real shot's path (same plan spawnProjectile uses)
+function updateArcPreview(dt){                                                               // thick low-opacity ribbon with scrolling dashes — IS the real shot's path (same plan spawnProjectile uses)
   if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // never preview in the daily (it's hit-scan)
   ensureArcObjs();
   animateArcPulse();                                                                         // smooth every frame, off the last computed landing point
+  if(arcRibbon.visible){ const bl=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5; arcRibbon.material.map.offset.x=-(state.t/(bl/8)); }   // dashes flow forward, one cell per 1/8 beat
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
   const T=computeShotPlan(_arcM, _arcV);                                                     // right muzzle _arcM + launch velocity _arcV; sets _arcI + _planLanded
-  sampleArc(_arcM, _arcV, T, ARC_SAMP, arcRight.geometry.attributes.position.array);
-  arcRight.geometry.setDrawRange(0,ARC_SAMP); arcRight.geometry.attributes.position.needsUpdate=true; arcRight.geometry.computeLineDistances(); arcRight.visible=true;
+  sampleArc(_arcM, _arcV, T, ARC_SAMP, _arcPts);                                             // the shot path
+  const rp=arcRibbon.geometry.attributes.position.array, cam=camera.position; let arcLen=0;
+  for(let i=0;i<ARC_SAMP;i++){ const k=i*3, i0=Math.max(i-1,0)*3, i1=Math.min(i+1,ARC_SAMP-1)*3;   // ribbon edges, billboarded to face the camera
+    _ribTan.set(_arcPts[i1]-_arcPts[i0], _arcPts[i1+1]-_arcPts[i0+1], _arcPts[i1+2]-_arcPts[i0+2]);
+    _ribToCam.set(cam.x-_arcPts[k], cam.y-_arcPts[k+1], cam.z-_arcPts[k+2]);
+    _ribOff.crossVectors(_ribTan,_ribToCam); const L=_ribOff.length(); if(L>1e-5) _ribOff.multiplyScalar(RIB_HALF/L); else _ribOff.set(RIB_HALF,0,0);
+    const vi=i*6; rp[vi]=_arcPts[k]-_ribOff.x; rp[vi+1]=_arcPts[k+1]-_ribOff.y; rp[vi+2]=_arcPts[k+2]-_ribOff.z;
+    rp[vi+3]=_arcPts[k]+_ribOff.x; rp[vi+4]=_arcPts[k+1]+_ribOff.y; rp[vi+5]=_arcPts[k+2]+_ribOff.z;
+    if(i>0) arcLen+=Math.hypot(_arcPts[k]-_arcPts[k-3], _arcPts[k+1]-_arcPts[k-2], _arcPts[k+2]-_arcPts[k-1]); }
+  arcRibbon.geometry.attributes.position.needsUpdate=true; arcRibbon.material.map.repeat.x=Math.max(1, arcLen/DASH_PERIOD); arcRibbon.visible=true;
   arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=_planLanded;
   arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
 }
@@ -1365,7 +1385,7 @@ function updateArcPreview(dt){                                                  
 const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
 let scopeAccum=SCOPE_STEP;
 const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox');
-const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
+const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3(), _scQ=new THREE.Vector3();
 const _scScreen=[0,0,false];
 function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
@@ -1381,7 +1401,13 @@ function updateScope(dt){
   const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
   const flight=computeShotPlan(_scM, _scV);                   // the actual shot plan for the current aim (right muzzle → crosshair impact)
   const locked=simShotHits(_scM, _scV, flight, tg);           // does that real shot's path connect with the (moving) target?
-  scopeAimEl.classList.remove('on');                          // the dashed arc is the aiming aid now — no separate pip
+  // aim-pip: place your crosshair here so the arc lands on the target's lead (hidden once locked)
+  { const Vv=tg.vel, vv=CFG.projSpeed, gg=CFG.projGravity; let t2=slant/vv;
+    for(let k=0;k<4;k++){ const qx=Tt.x+Vv.x*t2,qy=Tt.y+Vv.y*t2,qz=Tt.z+Vv.z*t2; t2=Math.hypot(qx-P.x,qy-P.y,qz-P.z)/vv; }
+    _scQ.set(Tt.x+Vv.x*t2, Tt.y+Vv.y*t2, Tt.z+Vv.z*t2);
+    _scTo.set((_scQ.x-P.x)/t2, (_scQ.y-P.y)/t2 + 0.5*gg*t2, (_scQ.z-P.z)/t2).normalize(); }
+  if(locked) scopeAimEl.classList.remove('on');
+  else { const as=projectDir(_scTo); scopeAimEl.style.setProperty('--sx',as[0]+'px'); scopeAimEl.style.setProperty('--sy',as[1]+'px'); scopeAimEl.classList.add('on'); }
   // seeking → LOCK reticle around the target, sized to its on-screen radius
   const ts=projectPointScope(Tt);
   if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
@@ -1677,7 +1703,7 @@ function animate(frameNow){
   updateAssist(dt);
   updateTrail(dt);
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ballistic free-play option + scope; guarded so a hiccup can't freeze the loop
-  else if(arcRight && arcRight.visible) hideArc();
+  else if(arcRibbon && arcRibbon.visible) hideArc();
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
   if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
   renderer.render(scene,camera);
