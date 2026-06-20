@@ -38,6 +38,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #reticle .l{left:0;width:11px}#reticle .r{right:0;width:11px}
 #reticle .t{top:0;height:11px}#reticle .b{bottom:0;height:11px}
 #reticle .dot{position:absolute;left:50%;top:50%;width:3px;height:3px;border-radius:50%;background:var(--rail);transform:translate(-50%,-50%);box-shadow:0 0 6px var(--rail);transition:transform .08s ease, box-shadow .08s ease}
+#ghostRet{position:fixed;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border:2px solid rgba(190,120,255,.7);border-radius:50%;box-shadow:0 0 8px rgba(190,120,255,.5);pointer-events:none;z-index:5;display:none}
+#ghostRet::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px;border-radius:50%;background:rgba(200,150,255,.95)}
+#ghostRet.on{display:block}
+#ghostRet.hit{animation:ghosthit .26s ease-out}
+@keyframes ghosthit{0%{transform:scale(1.7);border-color:rgba(255,255,255,.95)}100%{transform:scale(1)}}
+#ghostName{left:50%;top:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;color:rgba(200,150,255,.9);display:none;white-space:nowrap}
+#ghostName.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
@@ -185,6 +192,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
   <div class="arm v t"></div><div class="arm v b"></div>
   <div class="dot"></div>
 </div>
+<div id="ghostRet" aria-hidden="true"></div>
+<div id="ghostName" class="hud" aria-hidden="true"></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
 <div id="assist" aria-hidden="true"></div>
@@ -952,6 +961,7 @@ function gradeRhythmHit(tg, point){
   state.sessEffs.push(ps); state.sessBpms.push(state.bpm);   // full-session record (for the startup chart)
   pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good', pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
   fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
+  if(ghostRec) ghostRec.h.push(Math.round(state.t*100));     // record this hit for my ghost replay
   sfx(good?'hit':'offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg); renderStats();
 }
 function onWhiff(){
@@ -1116,6 +1126,8 @@ function animate(){
       state.bpm=lerp(CFG.challengeStartBpm, CFG.challengeMaxBpm, f); state.maxBpm=Math.max(state.maxBpm, state.bpm);
       if(toneReady){ try{ Tone.Transport.bpm.value=state.bpm; }catch(e){} }
       renderPrimary(false,false);
+      if(ghostRec){ while(state.t>=ghostNextSample){ ghostRec.a.push(qYaw(yaw), qPit(pitch)); ghostNextSample+=1/GHOST_HZ; } }   // record my aim path
+      updateGhost();                                        // play the opponent's ghost reticle
       if(state.t>=CFG.challengeDur){ endChallenge(); }
     }
     if(state.mode==='hunt'){
@@ -1211,6 +1223,7 @@ function configureMode(){
 }
 function resetSession(){
   state.challengeOver=false; rng = state.challenge ? mulberry32(challengeSeed) : Math.random;   // reseed for a reproducible challenge; plain random otherwise
+  if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; if(ghost) ghost.hi=0; } else { ghostRec=null; const _gr=gid('ghostRet'); if(_gr) _gr.classList.remove('on'); }
   for(const t of targets) removeTarget(t); targets.length=0;
   for(const g of ghosts){ scene.remove(g.mesh); g.mesh.geometry.dispose(); g.mat.dispose(); } ghosts.length=0;
   events.length=0; sinceAdjust=0;
@@ -1282,21 +1295,56 @@ function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer 
 function clientId(){ let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return id; }
 function playerName(){ let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return n || ('Guest-'+clientId().slice(-4)); }
 function esc(s){ return String(s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+/* ---- ghost replays: record my aim path + hits at 20Hz; race the top player's ghost ---- */
+const GHOST_HZ=20, TAU=Math.PI*2;
+let ghostRec=null, ghost=null, ghostNextSample=0;
+function qYaw(y){ const w=((y%TAU)+TAU)%TAU; return Math.round(w/TAU*65535); }
+function qPit(p){ return Math.max(0,Math.min(65535, Math.round((p/PITCH_LIMIT*0.5+0.5)*65535))); }
+function dqYaw(q){ return q/65535*TAU; }
+function dqPit(q){ return (q/65535-0.5)*2*PITCH_LIMIT; }
+function lerpAngle(a,b,t){ let d=(b-a)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return a+d*t; }
+function projectDir(dir){
+  const wp=PLAYER_POS.clone().addScaledVector(dir,50), loc=wp.clone(); camera.worldToLocal(loc); const behind=loc.z>0;
+  const ndc=wp.project(camera); let x=ndc.x,y=ndc.y;
+  if(behind||Math.abs(x)>1||Math.abs(y)>1){ if(behind){x=-x;y=-y;} const ax=Math.abs(x)||1e-3,ay=Math.abs(y)||1e-3,s=0.92/Math.max(ax,ay); x*=s;y*=s; }
+  return [innerWidth/2 + x*innerWidth/2, innerHeight/2 - y*innerHeight/2];
+}
+function updateGhost(){
+  const gr=gid('ghostRet'); if(!gr) return;
+  if(!ghost || !ghost.a || ghost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
+  const n=ghost.a.length>>1; let i=Math.floor(state.t*GHOST_HZ); if(i>n-1)i=n-1; const i2=Math.min(i+1,n-1), fr=Math.max(0,Math.min(1,state.t*GHOST_HZ-i));
+  const gy=lerpAngle(dqYaw(ghost.a[i*2]), dqYaw(ghost.a[i2*2]), fr);
+  const p1=dqPit(ghost.a[i*2+1]), gp=p1+(dqPit(ghost.a[i2*2+1])-p1)*fr;
+  const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(gp,gy,0,'YXZ'));
+  const sc=projectDir(dir); gr.style.left=sc[0]+'px'; gr.style.top=sc[1]+'px'; gr.classList.add('on');
+  if(ghost.h){ const tc=state.t*100; while(ghost.hi<ghost.h.length && tc>=ghost.h[ghost.hi]){ gr.classList.remove('hit'); void gr.offsetWidth; gr.classList.add('hit'); ghost.hi++; } }
+}
+async function loadGhost(){
+  ghost=null; const lbl=gid('ghostName'); if(lbl){ lbl.textContent=''; lbl.classList.remove('on'); }
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=name,replay,score&day=eq.'+encodeURIComponent(dayKey())+'&order=score.desc&limit=1', {headers:sbH()});
+    const rows=await res.json();
+    if(rows && rows[0] && rows[0].replay){ const r=JSON.parse(rows[0].replay); if(r && r.a && r.a.length){ ghost={a:r.a, h:r.h||[], name:rows[0].name, hi:0}; if(lbl){ lbl.textContent='👻 racing '+(rows[0].name||'?')+' · '+rows[0].score+' kills'; lbl.classList.add('on'); } } }
+  }catch(e){}
+}
 /* ---- daily seeded challenge ---- */
 function startChallenge(){
   challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
+  loadGhost();                                                // fetch the top player's run to race (async; appears once loaded)
   CFG.mode='rhythm'; state.challenge=true; state.challengeOver=false; state.needsReset=true;
   startRun();
 }
 function endChallenge(){
   state.challenge=false; state.challengeOver=true; state.needsReset=true;
   submitDaily();
+  const gr=gid('ghostRet'); if(gr) gr.classList.remove('on'); const gn=gid('ghostName'); if(gn) gn.classList.remove('on');
   if(document.pointerLockElement) document.exitPointerLock(); else exitRunning();
 }
 async function submitDaily(){
   if(state.hits<1) return;
   const row={client_id:clientId(), name:playerName().slice(0,24), day:dayKey(), score:state.hits,
-    accuracy: state.shots?Math.round(state.hits/state.shots*100):null, best_streak:state.bestStreak};
+    accuracy: state.shots?Math.round(state.hits/state.shots*100):null, best_streak:state.bestStreak,
+    replay: ghostRec ? JSON.stringify(ghostRec) : null};
   try{ await fetch(SB_URL+'/rest/v1/aimdojo_daily', {method:'POST', headers:sbH({Prefer:'return=minimal'}), body:JSON.stringify(row)}); loadDailyBoard(); }catch(e){}
 }
 async function loadDailyBoard(){

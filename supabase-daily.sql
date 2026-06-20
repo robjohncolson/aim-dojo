@@ -9,8 +9,12 @@ create table if not exists public.aimdojo_daily (
   score       int  not null check (score between 0 and 5000),  -- kills in the fixed-length challenge
   accuracy    int,
   best_streak int,
+  replay      text,                                            -- compact ghost replay (quantized aim path + hit times)
   created_at  timestamptz not null default now()
 );
+
+-- if you created this table before ghosts existed, add the column:
+alter table public.aimdojo_daily add column if not exists replay text;
 
 create index if not exists aimdojo_daily_day_score_idx on public.aimdojo_daily (day, score desc);
 create index if not exists aimdojo_daily_client_idx     on public.aimdojo_daily (client_id);
