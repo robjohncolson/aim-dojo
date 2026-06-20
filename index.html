@@ -464,7 +464,7 @@ const CFG = {
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
   // projectile (ballistic free-play option — gravity arc; the seeded daily + both leaderboards stay hit-scan)
-  projectile:false, projArc:true, projSpeed:46, projGravity:9.0, projRadius:0.30, projLife:2.4,
+  projectile:false, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // lofted so the parabola is a VISIBLE arc (not a flat near-line); raise projSpeed / lower projGravity to flatten it again
   scope:true, scopeUnits:'m',   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft')
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1304,8 +1304,8 @@ function updateProjectiles(dt){
   }
 }
 const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_DROP_EVERY=6;
-let arcLine=null, arcShadow=null, arcDrops=null, arcLand=null, arcAccum=ARC_UPDATE_STEP;
-const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3();
+let arcLine=null, arcShadow=null, arcDrops=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false;
+const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3();
 const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){ const th=i/16*6.2831853; a[i*3]=Math.cos(th); a[i*3+2]=Math.sin(th); }   // unit ring in the XZ (floor) plane
   const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();
 function makeArcGeo(maxPts){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3)); return g; }
@@ -1315,14 +1315,23 @@ function ensureArcObjs(){
   arcLine  =new THREE.Line(makeArcGeo(ARC_MAX), lm(0x6fe0ff,0.70));             // the trajectory itself (bright)
   arcShadow=new THREE.Line(makeArcGeo(ARC_MAX), lm(0x2f6f8f,0.50));             // floor shadow = horizontal path
   arcDrops =new THREE.LineSegments(makeArcGeo(28), lm(0x46b6d8,0.34));          // droplines arc→floor (the head-on depth comb)
-  arcLand  =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.80));                 // landing ring
-  for(const o of [arcLine,arcShadow,arcDrops,arcLand]){ o.frustumCulled=false; scene.add(o); }
+  arcLand  =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.85));                 // static landing ring
+  arcPulseA=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));                 // beat-synced expanding pulse rings out of the impact point
+  arcPulseB=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));
+  for(const o of [arcLine,arcShadow,arcDrops,arcLand,arcPulseA,arcPulseB]){ o.frustumCulled=false; scene.add(o); }
 }
-function hideArc(){ if(arcLine){ arcLine.visible=arcShadow.visible=arcDrops.visible=arcLand.visible=false; } }
+function hideArc(){ if(arcLine){ arcLine.visible=arcShadow.visible=arcDrops.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; } arcLanded=false; }
+function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
+  if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
+  const beatLen=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5, period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
+  const setP=(ring,ph)=>{ const r=0.35+ph*1.9; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*0.55; ring.visible=true; };
+  const ph=(state.t % period)/period; setP(arcPulseA, ph); setP(arcPulseB, (ph+0.5)%1);
+}
 function updateArcPreview(dt){                                                               // live trajectory made legible head-on: parabola + floor shadow + droplines + landing ring
   if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // never preview in the daily (it's hit-scan)
-  arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
   ensureArcObjs();
+  animateArcPulse();                                                                         // smooth every frame, off the last computed landing point
+  arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
   camera.getWorldDirection(_arcDir);
   _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(CFG.projSpeed);
   const ap=arcLine.geometry.attributes.position.array, sp=arcShadow.geometry.attributes.position.array, dp=arcDrops.geometry.attributes.position.array;
@@ -1338,6 +1347,7 @@ function updateArcPreview(dt){                                                  
   arcShadow.geometry.setDrawRange(0,vN); arcShadow.geometry.attributes.position.needsUpdate=true; arcShadow.visible=true;
   arcDrops.geometry.setDrawRange(0,d/3); arcDrops.geometry.attributes.position.needsUpdate=true; arcDrops.visible=d>0;
   arcLand.position.set(_arcPos.x, 0.03, _arcPos.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=landed;   // ring only when it actually reaches the floor
+  arcLanded=landed; if(landed) _arcLandPos.set(_arcPos.x, 0.03, _arcPos.z);   // hand the impact point to the beat-pulse animation
 }
 
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
