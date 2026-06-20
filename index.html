@@ -1291,6 +1291,7 @@ function renderHistory(){                                 // startup/pause chart
 const SB_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
 const SB_TABLE='aimdojo_scores';
+const RAILWAY_URL='';   // set to your deployed verify-server URL to validate daily scores server-side; empty = submit straight to Supabase
 function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'}, extra||{}); }
 function clientId(){ let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return id; }
 function playerName(){ let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return n || ('Guest-'+clientId().slice(-4)); }
@@ -1345,7 +1346,11 @@ async function submitDaily(){
   const row={client_id:clientId(), name:playerName().slice(0,24), day:dayKey(), score:state.hits,
     accuracy: state.shots?Math.round(state.hits/state.shots*100):null, best_streak:state.bestStreak,
     replay: ghostRec ? JSON.stringify(ghostRec) : null};
-  try{ await fetch(SB_URL+'/rest/v1/aimdojo_daily', {method:'POST', headers:sbH({Prefer:'return=minimal'}), body:JSON.stringify(row)}); loadDailyBoard(); }catch(e){}
+  try{
+    const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/daily' : SB_URL+'/rest/v1/aimdojo_daily';
+    const hdr = RAILWAY_URL ? {'Content-Type':'application/json'} : sbH({Prefer:'return=minimal'});
+    await fetch(ep, {method:'POST', headers:hdr, body:JSON.stringify(row)}); loadDailyBoard();
+  }catch(e){}
 }
 async function loadDailyBoard(){
   const list=gid('dailyList'); if(!list) return; const sub=gid('dailySub'); if(sub) sub.textContent=dayKey();

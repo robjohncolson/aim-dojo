@@ -1,0 +1,10 @@
+{
+  "name": "aim-dojo-verify",
+  "version": "1.0.0",
+  "description": "Aim Dojo daily-challenge score verification + writer (anti-cheat).",
+  "type": "module",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^4.19.2" },
+  "engines": { "node": ">=18" }
+}
