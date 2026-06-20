@@ -120,11 +120,25 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
   rate-limit) → service-role insert. The **anon-insert policy was dropped** (`drop policy "aimdojo_daily
   insert"`), so the server is the sole writer to the daily board. Verified end-to-end this session.
 
-## Multiplayer roadmap — all stages + Live Score Race ✅
+## Multiplayer roadmap — all stages + Live Score Race + Percentile Pace Ghost ✅
 leaderboard → daily seeded challenge → ghosts → Railway-verified scores (DEPLOYED) → realtime presence +
-reticles → **Live Score Race**. Remaining roadmap ideas (from a design-exploration pass, not built):
-**Percentile Pace Ghost** (live "faster than X% of today" bar — top recommendation), Best-of-3 Duel
-brackets (needs a lobby), shareable result card + streak, weekly seasons.
+reticles → **Live Score Race** → **Percentile Pace Ghost** (live "DAILY PACE — ahead of X% of today's
+field" bar; `loadPaceField`/`updatePaceGhost`, top-center HUD, works SOLO since it races the *recorded*
+field). Remaining roadmap ideas (from a design-exploration pass, not built): Best-of-3 Duel brackets
+(needs a lobby), shareable result card + streak, weekly seasons.
+
+### Percentile Pace Ghost — how it works (built)
+`updatePaceGhost` (daily branch, throttled ~6Hz via `PACE_STEP`) sweeps a monotonic `Int32Array` cursor
+per opponent run through that run's recorded **scoring-hit times** (`replay.h`, centiseconds) vs `state.t`,
+then renders `pct=round((below+ties*0.5)/paceTotal)`. `loadPaceField` fetches today's runs (deduped to each
+client's best, like `loadDailyBoard`) on `startChallenge`; `hidePace` clears it on every exit. Tiers: gold
+≥80% / red <40%; flash on climb (reduced-motion gated); "warming up" before your first kill (no false 50%).
+**Replay `h` now records SCORING hits only** (the `h.push` moved into the `if(good)` branch of
+`gradeRhythmHit`), so `h.length === score` and pace matches the board exactly — and the ghost reticle now
+flashes on scoring hits. Server `score≤h.length` / hit-rate checks still pass (h only got smaller).
+**Scaling note (not built):** `loadPaceField` downloads up to 120 FULL replays and parses each just to read
+`h` (the big `a[] aim path is wasted). If a single day's field ever gets large, add a server/Supabase
+h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole replays.
 
 ## Key tunables (in `CFG` unless noted)
 - **Ballistics:** `projSpeed:24`, `projGravity:16` (lofted for a visible arc; raise speed / lower gravity
@@ -136,6 +150,14 @@ brackets (needs a lobby), shareable result card + streak, weekly seasons.
 - **Floor HUD (`updateTargetMarks`):** ring radius `0.5+beat*0.38`, `Math.pow(...,1.6)` beat envelope,
   marker color `0xffce5c`. **Land ring (`updateLandRings`):** `0.5+k*3.4` radius, `0.55s` life.
 - **Scope lock:** `simShotHits` radius margin (`+0.12`), lock cone in `scopeLockTarget` (`bestDot 0.72`).
+- **Skill-gated spawn distance (FREE-PLAY only):** `rangeStart:11`, `rangeMax:28`, `rangeNear:8`,
+  `rangeBand:8`, `rangeStep:1.2`, `rangeStepDown:1.6`. `state.range` is the spawn shell's far edge; it
+  marches outward (`changeRange` in `maybeAdjust`) on sustained ≥80% accuracy and pulls back ≤45% — the SAME
+  signal as the tempo ramp. `spawnTarget` draws from `[max(rangeNear, range-rangeBand) .. range]`. The daily
+  stays on fixed `spawnDist` (branch on `state.challenge`). NOTE the `if(up||down) sinceAdjust=0` line in
+  `maybeAdjust` is REQUIRED (else range ramps every event once bpm/speed is railed).
+- **Pace ghost (daily):** `PACE_STEP:1/6`, tier cutoffs 80/40, fetch `limit:120` (deduped). See the
+  Percentile Pace Ghost section above.
 - **Difficulty/sky/spawn/trail:** as before (bpmUp/Down, thresholds, DAY_SLOW/FAST, spawnDist, etc.).
 
 ## Codex WebGL perf pass (a9e0cdd) — know this before editing render code
@@ -148,11 +170,17 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
 (can't profile blind) — a real device FPS capture is the outstanding validation.
 
 ## Outstanding / likely next
-- **Playtest tuning** of the trajectory viz, scope feel (lock stickiness), floor HUD, marching dashes,
-  ARC ballistics — the user iterates by eye.
+- **Playtest tuning** of: the **skill-gated spawn distance** (does the close→far march feel right? knobs
+  above), the **pace ghost** (tier cutoffs, does the bar read well?), the trajectory viz, scope feel (lock
+  stickiness), floor HUD, marching dashes, ARC ballistics — the user iterates by eye.
 - **Decide on the global board vs ARC-default:** ARC runs are excluded from `aimdojo_scores`, so with ARC
   default the peak-BPM board only fills from RAILGUN runs. Either accept (daily board is the real comp) or
   let ARC runs count (mixes difficulties).
-- **Percentile Pace Ghost** is the queued multiplayer feature.
+- **Pace ghost scaling (if a day's field gets big):** swap the full-replay fetch for a server/Supabase
+  h-only aggregate (see the Percentile Pace Ghost section). Not needed at current scale.
+- **Known pre-existing ARC nuance (not fixed):** a perfectly-aimed point-blank lofted shot can miss because
+  `computeShotPlan` solves the eye→crosshair parabola from PLAYER_POS/eye, ignoring the down-right muzzle
+  offset (`BLADE_DX/DY`). The scope LOCK accounts for it; only matters if you ignore the firing computer.
+  Fixing it means touching `computeShotPlan` (risks the "bullet flies down the ribbon" invariant).
 - Possible: device perf capture; make the floor HUD distance show ground vs slant; railgun θ/range readouts;
   a wiki/memory note (aim-dojo still isn't in workspace memory).
