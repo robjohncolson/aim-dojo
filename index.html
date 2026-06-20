@@ -1264,7 +1264,7 @@ applyBtn.addEventListener('click',()=>{ applySettings(); closeSettings(); startR
 
 document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement===canvas){ enterRunning(); }
-  else { exitRunning(); }
+  else { if(state.running) exitRunning(); }                  // guard: endChallenge already stopped the run synchronously — don't double-fire showPause
 });
 function loadSessions(){ try{ return JSON.parse(localStorage.getItem('aimdojo.sessions')||'[]'); }catch(e){ return []; } }
 function saveSession(){                                   // finalize the current run into localStorage history
@@ -1367,6 +1367,11 @@ function updateRemotes(){
 }
 /* ---- daily seeded challenge ---- */
 function startChallenge(){
+  initAudio();                                                // the challenge is rhythm-only (orbs come off Tone.Transport) — make sure audio is up first
+  if(!toneReady){                                             // audio unavailable (e.g. Tone CDN blocked) → refuse, else we'd run a beatless free-hunt that STILL submits a daily score
+    const l=gid('ovLede'); if(l) l.innerHTML='<b>The daily challenge needs sound.</b> Audio didn’t start — reload the page, and if it keeps failing try another browser or unblock the audio library.';
+    return;
+  }
   challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
   loadGhost();                                                // fetch the top player's run to race (async; appears once loaded)
   CFG.mode='rhythm'; state.challenge=true; state.challengeOver=false; state.needsReset=true;
@@ -1376,7 +1381,8 @@ function endChallenge(){
   state.challenge=false; state.challengeOver=true; state.needsReset=true;
   submitDaily();
   const gr=gid('ghostRet'); if(gr) gr.classList.remove('on'); const gn=gid('ghostName'); if(gn) gn.classList.remove('on');
-  if(document.pointerLockElement) document.exitPointerLock(); else exitRunning();
+  exitRunning();                                              // stop the run synchronously so state.running/challenge are consistent this frame (don't wait on async pointerlockchange)
+  if(document.pointerLockElement) document.exitPointerLock();
 }
 async function submitDaily(){
   if(state.hits<1) return;
