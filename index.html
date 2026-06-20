@@ -471,6 +471,7 @@ const CFG = {
   rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeStep:1.2, rangeStepDown:1.6,   // skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianDamp:0.35,          // wander: noise intensity, speed cap, LIGHT mean-reversion so orbs travel/strafe (not jitter in place)
+  beatQuant:true, beatQuantDivs:[4,8,16], beatQuantT:[0.40,0.75],   // FREE-PLAY RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. coarse 1/4-beat steps when learning → 1/8 → 1/16 as diffT (skill) rises. (daily stays continuous for determinism; hunt has no beat)
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -519,6 +520,7 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 const BROWNIAN_MAX2=CFG.brownianMax*CFG.brownianMax;
+let _quantIdx=-1, _quantT=0;   // beat-grid strobe: last snap index + state.t at last snap (free-play rhythm target motion)
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
 const FLOOR_SIZE=620;
@@ -1705,19 +1707,39 @@ function animate(frameNow){
     }
     if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ TARGET_SHELL_MAT.opacity=0.13+0.06*Math.sin(state.t*4); shellAccum=0; } }
     if(targets.length){
-      const brownianStep=(CFG.brownian>0 && !state.challenge) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(dt) : 0;
-      const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*dt) : 1;
+      // beat-quantized motion (free-play rhythm): the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle. Continuous modes (hunt/daily) keep doSnap=true every frame → unchanged.
+      const wantStrobe=(state.mode==='rhythm' && !state.challenge && CFG.beatQuant && toneReady);
+      const strobe=wantStrobe && Tone.Transport.state==='started';
+      let doSnap=true, moveStep=dt;
+      if(wantStrobe && !strobe){ doSnap=false; }               // transport not ticking yet (e.g. the brief window after a resume) → HOLD, don't revert to per-frame scatter
+      else if(strobe){
+        const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/4 → 1/8 → 1/16 beat as skill (diffT) rises
+        let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}                     // beats elapsed (tempo-ramp-robust)
+        const qi=Math.floor(beats*spb);
+        doSnap = qi!==_quantIdx;
+        if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
+      }
+      const brownianStep=(CFG.brownian>0 && !state.challenge && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
+      const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
-        if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }
-        if(brownianStep){                                    // brownian wander (off in the seeded challenge — it's frame-rate-dependent, would break determinism)
-          tg.vel.x+=(Math.random()*2-1)*brownianStep; tg.vel.y+=(Math.random()*2-1)*brownianStep*0.6; tg.vel.z+=(Math.random()*2-1)*brownianStep;
-          tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
-          const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>BROWNIAN_MAX2){ const f=CFG.brownianMax/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
-        }
+        if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
         const p=tg.mesh.position;
-        p.x+=tg.vel.x*dt; p.y+=tg.vel.y*dt; p.z+=tg.vel.z*dt;
-        if(p.x<-ROOM_BX||p.x>ROOM_BX) tg.vel.x*=-1; if(p.z<-ROOM_BZ||p.z>ROOM_BZ) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM_BY) tg.vel.y*=-1;
+        if(doSnap){                                          // strobe: step only on a beat-grid tick (continuous modes step every frame)
+          if(brownianStep){                                  // brownian wander (off in the seeded challenge — frame-rate-dependent, would break determinism)
+            tg.vel.x+=(Math.random()*2-1)*brownianStep; tg.vel.y+=(Math.random()*2-1)*brownianStep*0.6; tg.vel.z+=(Math.random()*2-1)*brownianStep;
+            tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
+            const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>BROWNIAN_MAX2){ const f=CFG.brownianMax/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
+          }
+          p.x+=tg.vel.x*moveStep; p.y+=tg.vel.y*moveStep; p.z+=tg.vel.z*moveStep;
+          if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
+            if(p.x<-ROOM_BX){ p.x=-2*ROOM_BX-p.x; tg.vel.x=Math.abs(tg.vel.x); } else if(p.x>ROOM_BX){ p.x=2*ROOM_BX-p.x; tg.vel.x=-Math.abs(tg.vel.x); }
+            if(p.z<-ROOM_BZ){ p.z=-2*ROOM_BZ-p.z; tg.vel.z=Math.abs(tg.vel.z); } else if(p.z>ROOM_BZ){ p.z=2*ROOM_BZ-p.z; tg.vel.z=-Math.abs(tg.vel.z); }
+            if(p.y<2.2){ p.y=4.4-p.y; tg.vel.y=Math.abs(tg.vel.y); } else if(p.y>ROOM_BY){ p.y=2*ROOM_BY-p.y; tg.vel.y=-Math.abs(tg.vel.y); }
+          }else{
+            if(p.x<-ROOM_BX||p.x>ROOM_BX) tg.vel.x*=-1; if(p.z<-ROOM_BZ||p.z>ROOM_BZ) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM_BY) tg.vel.y*=-1;
+          }
+        }
         if(tg.snd){ tg.sndAccum+=dt; if(tg.sndAccum>=TARGET_AUDIO_STEP){ tg.sndAccum=0; const dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d2=dx*dx+dy*dy+dz*dz;
           const db=Math.max(0,Math.min(TARGET_AUDIO_BUCKETS, Math.round((d2-TARGET_AUDIO_NEAR2)*TARGET_AUDIO_BUCKET_SCALE)));
           if(db!==tg.snd.dBucket){ tg.snd.dBucket=db; const d=Math.sqrt(d2), t=(d-6)/22; tg.snd.lowpass.frequency.value=lerp(7000,1200,t); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,t); }
@@ -1830,7 +1852,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0;
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
   Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
