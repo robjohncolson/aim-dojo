@@ -327,6 +327,18 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       </div>
 
       <div class="row">
+        <label>Shot type</label>
+        <div class="seg" id="projSeg"><button data-v="off" class="on">RAILGUN</button><button data-v="on">ARC (gravity)</button></div>
+        <span class="out"></span>
+      </div>
+      <div class="row">
+        <label>Trajectory arc</label>
+        <div class="seg" id="arcSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
+        <span class="out"></span>
+      </div>
+      <div class="hint">RAILGUN is instant hit-scan. ARC fires a real projectile that travels and drops under gravity — lead moving targets and aim a touch high. Free-play only; the daily challenge &amp; leaderboards always use hit-scan. The trajectory arc previews where your shot will fly.</div>
+
+      <div class="row">
         <label for="sens">Sensitivity</label>
         <input type="range" id="sens" min="0.2" max="3" step="0.05" value="3">
         <span class="out" id="sensOut">3.00×</span>
@@ -408,6 +420,8 @@ const CFG = {
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
+  // projectile (ballistic free-play option — gravity arc; the seeded daily + both leaderboards stay hit-scan)
+  projectile:false, projArc:true, projSpeed:46, projGravity:9.0, projRadius:0.30, projLife:2.4,
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* seeded RNG — gameplay randomness goes through rnd(); reseeded for the daily challenge so everyone gets the SAME run */
@@ -959,15 +973,15 @@ const state={ running:false, started:false, needsReset:false, challenge:false, c
   speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm,
   hits:0, shots:0, streak:0, bestStreak:0, reactions:[], pathScores:[], sessEffs:[], sessBpms:[] };
 
-function onHit(tg, point){ // free-hunt
-  if(tg.dead) return; tg.dead=true;
+function onHit(tg, point, atT){ // free-hunt   (atT = when the shot was committed; defaults to now for hit-scan, = fire-time for a projectile)
+  if(tg.dead) return; tg.dead=true; if(atT==null) atT=state.t;
   state.hits++; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
-  state.reactions.push((state.t-tg.born)*1000); if(state.reactions.length>12) state.reactions.shift();
-  pushEvent(true); fireBeam(point,true); popHitMarker(); addTrauma(CFG.hitTrauma); sfx('hit'); killTarget(tg); renderStats();
+  state.reactions.push((atT-tg.born)*1000); if(state.reactions.length>12) state.reactions.shift();
+  pushEvent(true); popHitMarker(); addTrauma(CFG.hitTrauma); sfx('hit'); killTarget(tg); renderStats();
 }
-function gradeRhythmHit(tg, point){
-  if(tg.dead) return; tg.dead=true; state.shots++;
-  const beats=(state.t - tg.born)/(60/state.bpm);
+function gradeRhythmHit(tg, point, atT, atBpm){
+  if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
+  const beats=(atT - tg.born)/(60/(atBpm!=null?atBpm:state.bpm));               // grade against the tempo at commit time too (it can step mid-flight in free-play)
   let grade, good=true;
   if(beats<=1.0) grade='FLAWLESS';
   else if(beats<=2.0) grade='PERFECT';
@@ -979,28 +993,76 @@ function gradeRhythmHit(tg, point){
   const ps=pathScoreOf(tg); state.pathScores.push(ps); if(state.pathScores.length>20) state.pathScores.shift();
   state.sessEffs.push(ps); state.sessBpms.push(state.bpm);   // full-session record (for the startup chart)
   pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good', pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
-  fireBeam(point,true); popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
-  if(ghostRec) ghostRec.h.push(Math.round(state.t*100));     // record this hit for my ghost replay
+  popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
+  if(ghostRec) ghostRec.h.push(Math.round(atT*100));         // record this hit for my ghost replay (at commit time)
   sfx(good?'hit':'offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg); renderStats();
 }
-function onWhiff(){
+function onWhiff(skipBeam){
   state.shots++; state.streak=0; pushEvent(false);
-  const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
-  fireBeam(PLAYER_POS.clone().add(fwd.multiplyScalar(60)),false);
+  if(!skipBeam){ const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);   // a projectile miss passes skipBeam — the bullet itself was the visual, no railgun tracer
+    fireBeam(PLAYER_POS.clone().add(fwd.multiplyScalar(60)),false); }
   flashReticleBad(); sfx('whiff'); renderStats();
 }
 function onExpire(tg){ retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); if(state.mode==='rhythm') showTiming('MISS','too slow','off'); sfx('expire'); renderStats(); }
 function fire(){
   if(!state.running) return;
   addRecoil();
+  if(CFG.projectile && !state.challenge){ spawnProjectile(); return; }   // ballistic FREE-PLAY only — the seeded daily ALWAYS uses hit-scan regardless of this toggle (fairness + a comparable board + valid ghosts)
   raycaster.setFromCamera(CENTER,camera);
   const meshes=targets.filter(t=>!t.dead).map(t=>t.mesh);
   const hits=raycaster.intersectObjects(meshes,false);
-  if(hits.length){ const tg=targets.find(t=>t.mesh===hits[0].object); if(tg){ state.mode==='rhythm'?gradeRhythmHit(tg,hits[0].point):onHit(tg,hits[0].point); } }
+  if(hits.length){ const tg=targets.find(t=>t.mesh===hits[0].object); if(tg){ state.mode==='rhythm'?gradeRhythmHit(tg,hits[0].point):onHit(tg,hits[0].point); fireBeam(hits[0].point,true); } }
   else onWhiff();
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); });
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+/* ========================= PROJECTILE (ballistic free-play option — true gravity arc; aim above + lead. Daily/boards stay hit-scan, so no determinism needed here.) ========================= */
+const projectiles=[];
+const PROJ_GEO=new THREE.SphereGeometry(0.17,10,10);
+const PROJ_MAT=new THREE.MeshBasicMaterial({color:0x9fe8ff});
+function spawnProjectile(){
+  const dir=new THREE.Vector3(); camera.getWorldDirection(dir); dir.normalize();        // launch along the true aim BEFORE this shot's recoil lands (matches the railgun)
+  const pr={ pos:PLAYER_POS.clone(), vel:dir.multiplyScalar(CFG.projSpeed), fireT:state.t, fireBpm:state.bpm, mode:state.mode, life:0, mesh:null };   // capture tempo too — it can step mid-flight (free-play adaptive engine)
+  pr.mesh=new THREE.Mesh(PROJ_GEO, PROJ_MAT); pr.mesh.position.copy(pr.pos); scene.add(pr.mesh);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
+  projectiles.push(pr);
+  if(projectiles.length>40){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest
+}
+function retireProjectile(i){ const pr=projectiles[i]; if(pr.mesh) scene.remove(pr.mesh); projectiles.splice(i,1); }
+function clearProjectiles(){ for(const pr of projectiles){ if(pr.mesh) scene.remove(pr.mesh); } projectiles.length=0; if(arcLine) arcLine.visible=false; }
+const _seg=new THREE.Vector3();
+function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
+  _seg.subVectors(b,a); const l2=_seg.lengthSq();
+  let t = l2>0 ? ((c.x-a.x)*_seg.x+(c.y-a.y)*_seg.y+(c.z-a.z)*_seg.z)/l2 : 0;
+  t = t<0?0 : t>1?1 : t;
+  const dx=c.x-(a.x+_seg.x*t), dy=c.y-(a.y+_seg.y*t), dz=c.z-(a.z+_seg.z*t);
+  return dx*dx+dy*dy+dz*dz;
+}
+const _prev=new THREE.Vector3();
+function updateProjectiles(dt){
+  for(let i=projectiles.length-1;i>=0;i--){
+    const pr=projectiles[i];
+    pr.vel.y-=CFG.projGravity*dt; _prev.copy(pr.pos); pr.pos.addScaledVector(pr.vel,dt); pr.life+=dt;
+    let hit=null;
+    for(const tg of targets){ if(tg.dead) continue; const rr=(tg.radius||0.6)+CFG.projRadius;
+      if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
+    if(hit){ if(pr.mode==='rhythm') gradeRhythmHit(hit, pr.pos.clone(), pr.fireT, pr.fireBpm); else onHit(hit, pr.pos.clone(), pr.fireT); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
+    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM.w/2 || Math.abs(pr.pos.z)>ROOM.d/2){ onWhiff(true); retireProjectile(i); continue; }   // flew past everything → a missed shot
+    if(pr.mesh) pr.mesh.position.copy(pr.pos);
+  }
+}
+let arcLine=null;
+function updateArcPreview(){                                                               // faint live parabola from the muzzle — visualizes the drop so the arc is learnable
+  if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ if(arcLine) arcLine.visible=false; return; }   // never preview in the daily (it's hit-scan)
+  const dir=new THREE.Vector3(); camera.getWorldDirection(dir); dir.normalize();
+  const p=PLAYER_POS.clone(), v=dir.multiplyScalar(CFG.projSpeed), step=1/30; let n=0; const pts=[];
+  for(; n<70; n++){ pts.push(p.x,p.y,p.z); v.y-=CFG.projGravity*step; p.x+=v.x*step; p.y+=v.y*step; p.z+=v.z*step;
+    if(p.y<=0.04 || n*step>=CFG.projLife){ pts.push(p.x,p.y,p.z); n++; break; } }
+  if(!arcLine){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(71*3),3));
+    arcLine=new THREE.Line(g, new THREE.LineBasicMaterial({color:0x43d9ff,transparent:true,opacity:0.3,blending:THREE.AdditiveBlending})); arcLine.frustumCulled=false; scene.add(arcLine); }
+  const arr=arcLine.geometry.attributes.position.array; for(let k=0;k<pts.length && k<arr.length;k++) arr[k]=pts[k];
+  arcLine.geometry.setDrawRange(0, Math.min(pts.length/3, 71)); arcLine.geometry.attributes.position.needsUpdate=true; arcLine.visible=true;
+}
 
 /* ========================= HUD ========================= */
 function gid(id){ return document.getElementById(id); }
@@ -1199,6 +1261,7 @@ function animate(){
   }
   updateAssist();
   updateTrail(dt);
+  try{ if(state.running) updateProjectiles(dt); updateArcPreview(); }catch(e){}   // ballistic free-play option (no-op unless CFG.projectile); guarded so a hiccup can't freeze the loop
   if(state.running) broadcastAim();                          // share my aim with others in the room
   updateRemotes();                                           // draw their live reticles
   renderer.render(scene,camera);
@@ -1246,6 +1309,7 @@ function resetSession(){
   state.challengeOver=false; rng = state.challenge ? mulberry32(challengeSeed) : Math.random;   // reseed for a reproducible challenge; plain random otherwise
   if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; if(ghost) ghost.hi=0; } else { ghostRec=null; const _gr=gid('ghostRet'); if(_gr) _gr.classList.remove('on'); }
   for(const t of targets) removeTarget(t); targets.length=0;
+  clearProjectiles();
   for(const g of ghosts){ scene.remove(g.mesh); g.mesh.geometry.dispose(); g.mat.dispose(); } ghosts.length=0;
   events.length=0; sinceAdjust=0;
   teardownTransport();
@@ -1465,7 +1529,7 @@ async function submitScore(){
   if(state.mode!=='rhythm') return;
   const score=Math.round(state.maxBpm);
   let best=0; try{ best=+(localStorage.getItem('aimdojo.bestBpm')||0); }catch(e){}
-  if(state.challengeOver || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip challenge runs (fixed tempo); else only a real improved best
+  if(CFG.projectile || state.challengeOver || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip ballistic + challenge runs; else only a real improved best (keeps the peak-BPM board hit-scan-pure)
   try{ localStorage.setItem('aimdojo.bestBpm', String(score)); }catch(e){}
   const acc=state.shots?Math.round(state.hits/state.shots*100):null;
   const ap=state.pathScores.length?Math.round(state.pathScores.reduce((a,b)=>a+b,0)/state.pathScores.length*100):null;
@@ -1534,6 +1598,8 @@ function wireSeg(id,cb){ const seg=gid(id); seg.addEventListener('click',e=>{ co
 wireSeg('modeSeg', v=>{ CFG.mode=v; configureMode(); });
 wireSeg('fieldSeg', v=> CFG.spawnField=v);
 wireSeg('assistSeg', v=> CFG.audioAssist=(v==='on'));
+wireSeg('projSeg', v=>{ CFG.projectile=(v==='on'); });        // RAILGUN (hit-scan) ↔ ARC (ballistic). Applies on APPLY & RESTART
+wireSeg('arcSeg', v=>{ CFG.projArc=(v==='on'); });            // show/hide the trajectory-arc preview
 
 gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); });
 
