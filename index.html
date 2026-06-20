@@ -67,8 +67,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #scopeAim{position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid rgba(255,205,90,.85);border-radius:50%;box-shadow:0 0 9px rgba(255,205,90,.5);pointer-events:none;z-index:5;display:none;transform:translate(var(--sx,50vw),var(--sy,50vh));will-change:transform}
 #scopeAim::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:rgba(255,230,160,.95)}
 #scopeAim.on{display:block}
-#rangeLbl{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(67,217,255,.92);text-shadow:0 0 4px rgba(0,0,0,.85);pointer-events:none;z-index:5;display:none;transform:translate(var(--rx,50vw),var(--ry,50vh)) translate(-50%,-50%);white-space:nowrap;will-change:transform}
-#rangeLbl.on{display:block}
+#lockBox{position:fixed;left:0;top:0;box-sizing:border-box;border:1.5px solid rgba(150,190,230,.45);border-radius:3px;pointer-events:none;z-index:5;display:none;transform:translate(var(--lx,50vw),var(--ly,50vh)) translate(-50%,-50%);will-change:transform,width,height}
+#lockBox.on{display:block}
+#lockBox.lock{border-color:rgba(255,205,90,.95);box-shadow:0 0 12px rgba(255,205,90,.55),inset 0 0 8px rgba(255,205,90,.22)}
+#lockBox::after{content:'LOCK';position:absolute;left:50%;top:-13px;transform:translateX(-50%);font:9px var(--mono);letter-spacing:.22em;color:rgba(255,205,90,.95);opacity:0;white-space:nowrap}
+#lockBox.lock::after{opacity:1}
+#scopeHud .lk{color:#ffd36b}
+#scopeHud .sk{color:var(--bone-dim)}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
@@ -221,7 +226,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
 <div id="scopeAim" aria-hidden="true"></div>
-<div id="rangeLbl" aria-hidden="true"></div>
+<div id="lockBox" aria-hidden="true"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -359,7 +364,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
         <div class="seg" id="unitsSeg"><button data-v="m" class="on">METERS</button><button data-v="ft">FEET</button></div>
         <span class="out"></span>
       </div>
-      <div class="hint">In ARC mode the scope draws a firing solution for the target nearest your crosshair: the gold aim-pip shows where to point, the gold arc is the ideal shot, the ring is the ≈95% wander zone where it'll be, plus a floor rangefinder and θ / range / flight-time / lead readouts.</div>
+      <div class="hint">In ARC mode the scope solves the shot for the target nearest your crosshair: a gold aim-pip shows where to point, and the reticle around the target snaps to <b>LOCK</b> the moment your current aim would actually hit it (accounting for its motion, drop, and range). HUD shows θ / range / flight-time / lead.</div>
 
       <div class="row">
         <label for="sens">Sensitivity</label>
@@ -1313,27 +1318,14 @@ function updateArcPreview(dt){                                                  
   arcLine.geometry.setDrawRange(0, Math.min(n, 71)); arcLine.geometry.attributes.position.needsUpdate=true; arcLine.visible=true;
 }
 
-/* ========================= BALLISTIC SCOPE (ARC free-play firing computer — lead solution, wander zone, rangefinder, θ/range/flight readouts) ========================= */
+/* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
 const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
-let scopeAccum=SCOPE_STEP, solArc=null, leadLine=null, floorLine=null, confRing=null;
-const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), rangeLblEl=gid('rangeLbl');
+let scopeAccum=SCOPE_STEP;
+const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox');
 const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scQ=new THREE.Vector3(), _scVel=new THREE.Vector3(),
-      _scPos=new THREE.Vector3(), _scWork=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scMid=new THREE.Vector3();
+      _scWork=new THREE.Vector3(), _scPP=new THREE.Vector3();
 const _scScreen=[0,0,false];
-function makeCircleGeo(segs){ const a=new Float32Array((segs+1)*3); for(let i=0;i<=segs;i++){ const th=i/segs*6.2831853; a[i*3]=Math.cos(th); a[i*3+1]=Math.sin(th); }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; }
-function makeScopeLine(maxPts,color,opacity){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3));
-  const l=new THREE.Line(g, new THREE.LineBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending})); l.frustumCulled=false; scene.add(l); return l; }
-function ensureScopeObjs(){
-  if(solArc) return;
-  solArc=makeScopeLine(64,0xffcd5a,0.55);                     // ideal launch arc
-  leadLine=makeScopeLine(2,0xffcd5a,0.45);                    // target → intercept (momentum lead)
-  floorLine=makeScopeLine(2,0x43d9ff,0.40);                   // ground rangefinder
-  confRing=new THREE.LineLoop(makeCircleGeo(40), new THREE.LineBasicMaterial({color:0xffd36b,transparent:true,opacity:0.42,blending:THREE.AdditiveBlending}));
-  confRing.frustumCulled=false; scene.add(confRing);
-}
-function hideScope(){ if(solArc){ solArc.visible=false; leadLine.visible=false; floorLine.visible=false; confRing.visible=false; }
-  if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(rangeLblEl) rangeLblEl.classList.remove('on'); }
+function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
@@ -1344,38 +1336,29 @@ function updateScope(dt){
   if(!(CFG.projectile && CFG.scope && state.running && !state.challenge)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
   scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
   const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
-  ensureScopeObjs();
-  const T=tg.mesh.position, V=tg.vel, P=PLAYER_POS, v=CFG.projSpeed, g=CFG.projGravity;
-  let t=T.distanceTo(P)/v;                                    // iterate flight time against the moving intercept (V small vs v → converges fast)
+  const T=tg.mesh.position, V=tg.vel, P=PLAYER_POS, v=CFG.projSpeed, g=CFG.projGravity, slant=T.distanceTo(P);
+  let t=slant/v;                                              // flight time vs the moving intercept (V≪v → converges in a few iters)
   for(let k=0;k<5;k++){ const qx=T.x+V.x*t, qy=T.y+V.y*t, qz=T.z+V.z*t; t=Math.hypot(qx-P.x,qy-P.y,qz-P.z)/v; }
   if(!(t>0) || t>8){ hideScope(); return; }
-  _scQ.set(T.x+V.x*t, T.y+V.y*t, T.z+V.z*t);                  // predicted intercept point
-  _scVel.set((_scQ.x-P.x)/t, (_scQ.y-P.y)/t + 0.5*g*t, (_scQ.z-P.z)/t);   // launch velocity that reaches Q at t under gravity (drop-compensated)
-  // ideal launch arc: integrate P with _scVel for t
-  _scPos.copy(P); _scWork.copy(_scVel); const sa=solArc.geometry.attributes.position.array, step=t/60; let n=0;
-  for(; n<=60; n++){ const k=n*3; if(k+2>=sa.length) break; sa[k]=_scPos.x; sa[k+1]=_scPos.y; sa[k+2]=_scPos.z;
-    _scWork.y-=g*step; _scPos.x+=_scWork.x*step; _scPos.y+=_scWork.y*step; _scPos.z+=_scWork.z*step; if(_scPos.y<=0.02){ n++; break; } }
-  solArc.geometry.setDrawRange(0,n); solArc.geometry.attributes.position.needsUpdate=true; solArc.visible=true;
-  // lead line (target → intercept) + floor rangefinder (player ground → target ground)
-  const la=leadLine.geometry.attributes.position.array; la[0]=T.x;la[1]=T.y;la[2]=T.z; la[3]=_scQ.x;la[4]=_scQ.y;la[5]=_scQ.z;
-  leadLine.geometry.attributes.position.needsUpdate=true; leadLine.visible=true;
-  const fl=floorLine.geometry.attributes.position.array; fl[0]=P.x;fl[1]=0.02;fl[2]=P.z; fl[3]=T.x;fl[4]=0.02;fl[5]=T.z;
-  floorLine.geometry.attributes.position.needsUpdate=true; floorLine.visible=true;
-  // wander zone (≈95%) at the intercept — grows with target speed, brownian intensity, flight time
-  const speed=V.length(), sigma=(speed*0.45 + CFG.brownian*0.05)*t, rad=Math.max(tg.radius*0.8, Math.min(7, 2.45*sigma));
-  confRing.position.copy(_scQ); confRing.scale.setScalar(rad); confRing.quaternion.copy(camera.quaternion); confRing.visible=true;
-  // aim pip: where to point the crosshair (project the launch direction)
-  _scWork.copy(_scVel).normalize(); const as=projectDir(_scWork);
-  scopeAimEl.style.setProperty('--sx', as[0]+'px'); scopeAimEl.style.setProperty('--sy', as[1]+'px'); scopeAimEl.classList.add('on');
-  // floor range label at the line midpoint
-  _scMid.set((P.x+T.x)/2, 0.02, (P.z+T.z)/2); const groundDist=Math.hypot(T.x-P.x, T.z-P.z); const ms=projectPointScope(_scMid);
-  if(ms[2]){ rangeLblEl.style.setProperty('--rx', ms[0]+'px'); rangeLblEl.style.setProperty('--ry', ms[1]+'px'); setText(rangeLblEl, fmtDist(groundDist)); rangeLblEl.classList.add('on'); }
-  else rangeLblEl.classList.remove('on');
+  _scQ.set(T.x+V.x*t, T.y+V.y*t, T.z+V.z*t);                  // predicted intercept
+  _scVel.set((_scQ.x-P.x)/t, (_scQ.y-P.y)/t + 0.5*g*t, (_scQ.z-P.z)/t);   // drop-compensated launch velocity that reaches Q
+  _scWork.copy(_scVel).normalize();                          // ideal aim direction
+  // LOCK = current aim within the target's angular radius of the firing solution → your shot would actually connect
+  let cosang=_scAim.x*_scWork.x+_scAim.y*_scWork.y+_scAim.z*_scWork.z; cosang=cosang>1?1:cosang<-1?-1:cosang;
+  const angRad=Math.atan2((tg.radius*tg.sc)+CFG.projRadius, slant), locked=Math.acos(cosang)<=angRad*1.25;   // small margin so it's achievable, not pixel-perfect
+  // aim-pip (where to point) — shown only while seeking; once locked your crosshair is already there
+  if(locked) scopeAimEl.classList.remove('on');
+  else { const as=projectDir(_scWork); scopeAimEl.style.setProperty('--sx', as[0]+'px'); scopeAimEl.style.setProperty('--sy', as[1]+'px'); scopeAimEl.classList.add('on'); }
+  // seeking → LOCK reticle around the target, sized to its on-screen radius
+  const ts=projectPointScope(T);
+  if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
+    lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
+    lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px');
+    lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('lock', locked); }
+  else lockBoxEl.classList.remove('on','lock');
   // HUD readouts
-  const slant=T.distanceTo(P), aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG,
-        tgtElev=Math.asin(Math.max(-1,Math.min(1,(T.y-P.y)/slant)))*RAD2DEG, lead=_scQ.distanceTo(T),
-        vU=CFG.scopeUnits==='ft'?(v*M2FT).toFixed(0)+' ft/s':v+' m/s', gU=CFG.scopeUnits==='ft'?(g*M2FT).toFixed(1):g.toFixed(1);
-  const html='θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+t.toFixed(2)+'s</b><br>LEAD <b>'+fmtDist(lead)+'</b> · v '+vU+' · g '+gU;
+  const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(T.y-P.y)/slant)))*RAD2DEG, lead=_scQ.distanceTo(T);
+  const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+t.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>';
   if(scopeHudEl._html!==html){ scopeHudEl.innerHTML=html; scopeHudEl._html=html; }
   scopeHudEl.classList.add('on');
 }
