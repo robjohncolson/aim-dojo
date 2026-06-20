@@ -4,21 +4,23 @@ Paste-in context for resuming work on **aim-dojo** in a new session.
 
 ## What it is
 A single-file, browser-based **rhythm + spatial-audio aim trainer** with a full day/night sky,
-adaptive difficulty, and a multiplayer stack. Built for the user (high-school math teacher,
-robjohncolson) over one long session. Everything lives in **`index.html`** — no build step.
+adaptive difficulty, a multiplayer stack, and a **ballistic (projectile) shot mode with a firing-computer
+scope**. Built for the user (high-school math teacher, robjohncolson). Everything lives in **`index.html`**
+— no build step (~2180 lines; ~110K of JS in one IIFE after a Codex perf pass).
 
-- **Repo:** `github.com/robjohncolson/aim-dojo` (public). `gh` is authed as **robjohncolson** (repo+workflow scopes).
+- **Repo:** `github.com/robjohncolson/aim-dojo` (public). `gh` is authed as **robjohncolson**.
 - **Live:** https://robjohncolson.github.io/aim-dojo/ (GitHub Pages, deploys from `main` root).
 - **Tech (all CDN, no bundler):** Three.js r128, Tone.js 14.8.49, qrcodejs 1.0.0, @supabase/supabase-js@2.
-- **Working dir:** `C:\Users\rober\Downloads\Projects\aim-dojo` (its own git repo, nested in the parent Projects repo).
+  (Tone.js + Supabase are now **lazy-loaded**; only Three.js loads eagerly — see the perf pass.)
+- **Working dir:** `C:\Users\rober\Downloads\Projects\aim-dojo` (its own git repo, nested in parent Projects).
 
 ## ⚠️ Critical working constraints (read first)
-1. **BUILDING BLIND.** The browser-harness can't attach — Chrome's `chrome://inspect/#remote-debugging`
-   needs a one-time manual **Allow** the user hasn't done. So **every feature was verified by syntax +
-   logic only, never seen running.** The user playtests and reports back. If they enable remote-debugging
-   and say "go", you can screenshot/verify via `browser-harness`.
-2. **Validation pattern** (use after every edit): extract the inline `<script>` to a temp file and
-   `node --check` it. Snippet:
+1. **BUILDING BLIND.** The browser-harness can't attach (Chrome's `chrome://inspect/#remote-debugging`
+   needs a one-time manual **Allow** the user hasn't done). **Every feature is verified by syntax + logic
+   only, never seen running.** The user playtests and reports back. Visual features (the trajectory viz,
+   scope, floor HUD) are tuned iteratively by eye — expect several round-trips.
+2. **Validation pattern** (use after EVERY edit): extract the inline `<script>` to a temp file and
+   `node --check` it:
    ```bash
    python - <<'PY'
    s=open(r"C:\Users\rober\Downloads\Projects\aim-dojo\index.html",encoding="utf-8").read()
@@ -27,68 +29,130 @@ robjohncolson) over one long session. Everything lives in **`index.html`** — n
    PY
    node --check "C:/Users/rober/AppData/Local/Temp/chk.js"
    ```
-3. **Deploy loop:** edit `index.html` → `git add -A && git commit` (end msg with the Co-Authored-By line)
-   → `git push origin main` → Pages rebuilds in ~40–90s. Poll:
+3. **ALSO grep for dangling refs after removing/renaming a symbol.** `node --check` only catches syntax,
+   NOT runtime `ReferenceError`. Removing a `const`/`let` while a reference survives = a freeze that passes
+   syntax check. This bit us TWICE (`arcLine`, `remotes`). After any rename/removal:
+   `python - <<'PY' ... re.findall(r'\bSYMBOL\b', js) ...` and confirm 0 stray uses.
+4. **Deploy loop:** edit `index.html` → `git add -A && git commit` (end msg with the Co-Authored-By line)
+   → `git push origin main` → Pages rebuilds in ~40–90s. Poll for a unique new string:
    ```bash
-   for i in $(seq 1 18); do st=$(gh api repos/robjohncolson/aim-dojo/pages/builds/latest --jq .status);
-   has=$(curl -s https://robjohncolson.github.io/aim-dojo/ | grep -c 'SOME_NEW_STRING');
+   for i in $(seq 1 12); do st=$(gh api repos/robjohncolson/aim-dojo/pages/builds/latest --jq .status);
+   has=$(curl -s "https://robjohncolson.github.io/aim-dojo/?cb=$RANDOM" | grep -c 'SOME_NEW_STRING');
    echo "$st $has"; [ "$st" = built ] && [ "$has" -ge 1 ] && break; sleep 8; done
    ```
-4. **Edits:** the user iterates fast and visually; match the existing terse code style. Push after each change.
+5. **Line numbers drift** (the Codex perf pass renumbered everything; we add code constantly). **Match by
+   text, not line number** when editing.
+6. **Review risky changes before pushing.** Pattern used this session: for large/gameplay-touching diffs,
+   run an adversarial review (multi-agent workflow, or a single Explore/general-purpose agent) over the
+   diff + file, verify each finding, fix, THEN push. Caught a real daily-leak bug and a reflection
+   regression before they shipped.
 
 ## Files
-- `index.html` — the entire game (HTML + CSS + one big IIFE of JS). ~everything.
+- `index.html` — the entire game (HTML + CSS + one big IIFE of JS).
 - `README.md`, `LICENSE` (MIT), `.gitignore`.
-- `supabase-leaderboard.sql` — creates `aimdojo_scores` (global peak-BPM board). **Already run by user** (global board works).
-- `supabase-daily.sql` — creates `aimdojo_daily` (daily challenge + `replay` column for ghosts). **User must run this** (includes an `ALTER ... add column replay` for the already-created case).
-- `server/` — Railway anti-cheat scaffold (`server.js` Express, `package.json`, `.env.example`, `README.md`). **Not deployed.**
+- `supabase-leaderboard.sql` — `aimdojo_scores` (global peak-BPM board). **Run.** ✅
+- `supabase-daily.sql` — `aimdojo_daily` (daily challenge + `replay` ghost column). **Run.** ✅
+- `server/` — Railway anti-cheat (`server.js` Express, `package.json`, `.env.example`, `README.md`).
+  **DEPLOYED + live + locked down.** ✅ (see Supabase/Railway).
 
 ## Architecture of `index.html` (mental map)
-One IIFE. Major systems, roughly in order:
-- **Seeded RNG:** `rng`/`rnd()`, `mulberry32`, `strHash`, `dayKey`. Gameplay randomness goes through `rnd()`; reseeded for the daily challenge so everyone gets the same run. `Math.random` otherwise.
-- **CFG** object — all tunables (see below).
-- **Scene/renderer/camera**, `PLAYER_POS=(0,4,0)` (player only rotates via `yaw`/`pitch`; `PITCH_LIMIT`).
-- **Sky dome** (`skyDomeMat`, ShaderMaterial, BackSide, radius 480): elevation gradient horizon→zenith `pow(dir.y,0.30)` + a horizon **haze** band + **procedural FBM clouds** (4-octave noise projected by `vDir.xz/el`, drift via `uTime`, fade with `uCloud=day`). On layer 1 (reflected).
-- **Day/night:** `updateSky(dt)`. `dayPhase` advances eased — `tSpeed = DAY_SLOW(0.32) + (DAY_FAST(4.2)-..)*|sunY|^2.5` → **~50% of the cycle in dawn/dusk**, period preserved (`dayCycleSec=200`). Colors `SKY_*` (lights), `HOR_*`/`ZEN_*` (dome) for night/day/dusk; `_haze` (horizon, scales with `day` so night is dark). `scene.background = _hor` each frame (fixes the black horizon seam). Fog color = `_hor`.
-- **Sun + moon** sprites on a tilted circular orbit 180° apart, carried by `skyGroup` rotation (which also spins the **starfield**, 560 full-sphere twinkling points).
-- **Planar reflection:** `renderReflection()` renders the sky (layer 1) from a mirror camera (`REFL_M` reflect about y=0) into `reflRT` (half-res); the **day checker floor** shader samples it (`uRefl` at `gl_FragCoord/uRes`) so the **actual sun disc reflects** at the horizon (omega effect). `uMirN=18 / uMirF=140` (band thickness).
-- **Floor:** base dark plane + **day checker** (`dayFloor`, alternates B/W ↔ pink/brown each day via `TILE_SETS`, max-anisotropy + mips to kill moiré, mirage+reflection in its `onBeforeCompile` shader) + **night grid** (`nightGrid`, GridHelper, cycles green/amber/red each night, never repeating). Crossfade by `day`.
-- **Targets:** `spawnTarget` (uniform 360° azimuth + pitch band, min-angle-from-aim cone via rejection [skipped in challenge], cube-root distance, drift `vel`). `onGrid` (Tone.Transport `8n` beat-locked spawn probability). **Brownian** wander in the animate move loop (off in challenge). Expanding square ground-ring beat pulse.
-- **Aim trail (3D):** per-orb tube (`buildTube`) painted along your aim on a sphere, white→red by timing (`INK_OPT=3` beats), detaches into a **bloom-fading ghost** on death. **Path-efficiency score** `pathScoreOf` (great-circle ÷ angle travelled) → grade DIRECT/CLEAN/STEADY/LOOSE shown in the timing popup.
-- **Adaptive engine:** `maybeAdjust` → `changeBpm` (rhythm) / `changeSpeed` (hunt). Softened: `bpmUp:2, bpmDown:3, downThreshold:0.45`. **Skipped during the daily challenge.**
-- **Audio:** Tone synths + a `chordSynth` (PolySynth) that plays a rising major chord ¼-beat after each hit.
-- **Leaderboards (Supabase, raw fetch, anon key embedded):** global `aimdojo_scores` (peak BPM, `submitScore`/`loadBoard`) + daily `aimdojo_daily` (kills, `submitDaily`/`loadDailyBoard`). `clientId()` (localStorage uuid), `playerName()` (editable name field), `esc()` (XSS-safe render).
-- **Daily challenge:** `startChallenge` (seed from `dayKey`), fixed **ease-in** tempo ramp in the animate running block (`f=min(1,t/dur)^challengeEase`, 42→150 over 90s), `endChallenge` (submit + exit). Flags `state.challenge/challengeOver/needsReset`.
-- **Ghosts:** record aim @20Hz (`qYaw/qPit` → uint16) + hit times into `ghostRec`; submit as JSON `replay`. `loadGhost` fetches the top scorer's replay; `updateGhost` draws a purple `#ghostRet` reticle at their aim (`projectDir`), flashing on their hits. `#ghostName` banner.
-- **Realtime (Supabase Realtime, ephemeral, no SQL):** `initRealtime` → `aimdojo-room` channel. Presence → `#presence` "N in the dojo". `broadcastAim` (throttled ~12Hz when running) + `updateRemotes` → up to 10 green `.liveRet` opponent reticles. Graceful no-op if unavailable.
-- **UI:** simplified start card = **ENTER / 🏆 DAILY CHALLENGE / ⚙ ADVANCED (modal) / ⧉ SHARE (modal w/ QR)** + history chart (`#histBox`) + two boards (`#boardBox`, `#dailyBox`) + name input. **Mobile touch controls** (`#touch`: drag-look, FIRE, PAUSE; `MOBILE`/`HAS_TOUCH` detection; pointer-lock skipped on touch). Reduced-motion respected for flashy bits.
-- **Defaults baked in:** start tempo **35 bpm**, sensitivity **3×** (`radPerPx=baseRadPerPx*3`), assist arrows **ON**.
+One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap** (after all module-scope
+`const`/`let` exist) — do NOT move it earlier (that caused the original total-freeze TDZ). Major systems:
 
-## Supabase / Railway
-- **Project:** `hgvnytaqmuybzbotosyj` (the user's *browser-side* project). Anon key is embedded in `index.html` (public by design; protected by RLS). Do **not** use the other project's service-role key client-side.
-- `aimdojo_scores`: **created** (global board live).
-- `aimdojo_daily`: **user must run `supabase-daily.sql`** (else daily board + ghosts show "offline").
-- **Realtime:** presence/broadcast need Realtime enabled on the project (default on).
-- **Railway:** `RAILWAY_URL=''` in `index.html` (empty → submits straight to Supabase). To enable anti-cheat: deploy `server/` (root dir `server`, env from `.env.example` incl. the **service_role** key), set `RAILWAY_URL`, then run the RLS lockdown SQL in `server/README.md`. The server validates each submission's replay (score≤hits, hit-rate≤8/s, etc.) before writing.
+- **Seeded RNG:** `rng`/`rnd()`, `mulberry32`, `strHash`, `dayKey` (UTC). Daily challenge reseeds so
+  everyone gets the same run. `Math.random` elsewhere.
+- **CFG** object — all tunables. **`projectile:true` (ARC is the DEFAULT shot type now), scope:true.**
+- **Scene/renderer/camera**, `PLAYER_POS=(0,EYE=4,0)` (player rotates via yaw/pitch).
+- **Sky/day-night/reflection/floor:** dome shader, `updateSky`, sun+moon orbit, planar sky reflection
+  (`reflRT`, `syncReflUniformSize`/`reflResDirty`), day checker floor + night grid. Largely as before;
+  the perf pass made textures **deferred** (`buildStars`, checker map built at idle).
+- **Targets:** pooled (`acquireTargetMesh`/`acquireTargetRecord`); `spawnTarget`; beat-locked `onGrid`;
+  brownian wander (off in the seeded challenge). Each `tg` has `.mesh/.shell/.vel/.radius/.born/.dead/.sc`.
+- **Firing:**
+  - **Railgun (hit-scan):** `fire()` → manual ray-sphere (the perf pass replaced `THREE.Raycaster`).
+  - **Ballistic (ARC, free-play only):** `fire()` → `spawnProjectile()` when `CFG.projectile &&
+    !state.challenge`. Pooled projectiles, gravity-integrated, swept segment-vs-sphere collision.
+    **Rhythm graded by FIRE-TIME** (`atT` threaded into `gradeRhythmHit`/`onHit`), so "fire on the beat"
+    holds; the projectile adds the spatial lead+drop skill. A shot counts ONCE (hit XOR expire).
+- **`computeShotPlan(M,V)` — THE shared shot helper (ARC section).** Launches from the **bottom-right
+  muzzle** (`BLADE_DX/DY/DZ`) with a velocity solved to land where the eye→crosshair parabola lands
+  (`_arcI`). Used by: `spawnProjectile` (real bullet), `updateArcPreview` (the dashed ribbon), and the
+  scope lock (`simShotHits`). So the **bullet flies exactly down the drawn ribbon.**
+- **Trajectory viz (`updateArcPreview`, ARC only, throttled ~20Hz):** a **thick, low-opacity camera-facing
+  ribbon** (`arcRibbon`, a billboarded quad strip) carrying a **scrolling dash texture** (`makeDashTex`,
+  marches forward 1 cell/beat in quantized steps). Plus `arcLand` (landing ring) + `arcPulseA/B`
+  (beat-pulsed rings at the impact). Lofted ballistics (`projSpeed:24, projGravity:16`) make the parabola
+  visibly curved. `animateArcPulse` + the dash scroll run every frame; geometry rebuild is throttled.
+- **Ballistic scope (`updateScope`, ARC only, throttled ~30Hz):** `scopeLockTarget` (nearest to crosshair)
+  → `simShotHits` (marches the REAL shot vs the moving target → **path-accurate LOCK**). Renders: a gold
+  **aim-pip** (`#scopeAim`, where to point — hidden when locked), a **seeking→LOCK reticle** (`#lockBox`,
+  bracket around the target, gold "LOCK" when your shot would connect), and a HUD (`#scopeHud`:
+  θ→TGT / AIM elevation / RANGE / FLIGHT / LEAD; m/ft via `CFG.scopeUnits`). `projectPointScope` projects
+  world points to screen (mirrors `projectDir`).
+- **Floor HUD (`updateTargetMarks`, ALL modes, every frame):** under every live target — a **beat-synced
+  pulsing ring** on the floor + a **vertical dropline** + a floating **distance label** (`.tgtDist`, slant
+  range in m/ft). Pooled (`targetMarks`). `updateLandRings` + `spawnLandRing`: a big ring radiates out
+  where a ballistic shot hits the floor.
+- **Adaptive engine:** `maybeAdjust`→`changeBpm`/`changeSpeed`. Skipped in the daily.
+- **Audio:** lazy Tone.js; synths + chord on hit. The daily refuses to start without audio (`startChallenge`
+  gates on `toneReady`).
+- **Leaderboards (Supabase, raw fetch, anon key embedded, RLS-protected):** global `aimdojo_scores`
+  (peak BPM; `submitScore` **skips ARC + challenge runs** to keep the board hit-scan-pure) + daily
+  `aimdojo_daily` (kills + `replay` ghost; `submitDaily` routes through Railway).
+- **Daily challenge:** `startChallenge` (seed from `dayKey`), fixed ease-in tempo ramp, `endChallenge`
+  (stops the run SYNCHRONOUSLY then releases pointer lock). **`EXIT DAILY → FREE PLAY` button** on the
+  pause overlay clears `state.challenge` and restores the start card (`exitChallenge`/`restoreStartCard`).
+  ARC/scope/projectile are all force-disabled in the daily via `!state.challenge` guards.
+- **Ghosts:** record aim @20Hz + hits → JSON `replay`; `loadGhost`/`updateGhost` draw the top scorer's
+  purple reticle.
+- **Realtime (Supabase Realtime):** `initRealtime` → presence ("N in the dojo") + `broadcastAim` (rides
+  k/s/c too) + green opponent reticles. **Live Score Race** (`renderScoreRace`): a kill ladder of everyone
+  on today's seed, gated to the challenge, "passed you!" flash. Gated so solo frames skip the work.
+- **Mobile:** touch controls; FIRE routes through `fire()`. Reduced-motion respected (gates the flashy bits
+  incl. the trajectory viz + floor HUD pulses).
 
-## Outstanding USER action items
-1. **Run `supabase-daily.sql`** in Supabase SQL editor → lights up the daily board + ghosts.
-2. **Enable Realtime** for the project if presence/reticles don't show.
-3. **(Optional) Deploy `server/` to Railway** + set `RAILWAY_URL` + run the RLS lockdown → trustworthy daily board.
-4. **Playtest the blind-built features** and report: daily-challenge end flow, ghost reticle, realtime presence/reticles, planar sun reflection at sunrise.
+## Supabase / Railway — ALL DONE ✅
+- **Project:** `hgvnytaqmuybzbotosyj`. Anon key embedded (public by design, RLS-protected).
+- `aimdojo_scores` + `aimdojo_daily`: created.
+- **Railway verify server: deployed + wired + locked down.** `RAILWAY_URL =
+  'https://aim-dojo-production.up.railway.app'` (index.html). `/health` returns `{ok:true,configured:true}`.
+  Daily scores POST to `/daily` → server validates (replay parse, score≤hits, hit-rate≤8/s, UTC-day,
+  rate-limit) → service-role insert. The **anon-insert policy was dropped** (`drop policy "aimdojo_daily
+  insert"`), so the server is the sole writer to the daily board. Verified end-to-end this session.
 
-## Multiplayer roadmap status
-leaderboard ✅ → daily seeded challenge ✅ → ghost replays ✅ → Railway-verified scores ✅ (scaffold; needs deploy) → realtime presence + live reticles ✅. **All built.** Remaining is hardening/tuning after playtest, and (if wanted) true server-side re-simulation anti-cheat and live head-to-head racing.
+## Multiplayer roadmap — all stages + Live Score Race ✅
+leaderboard → daily seeded challenge → ghosts → Railway-verified scores (DEPLOYED) → realtime presence +
+reticles → **Live Score Race**. Remaining roadmap ideas (from a design-exploration pass, not built):
+**Percentile Pace Ghost** (live "faster than X% of today" bar — top recommendation), Best-of-3 Duel
+brackets (needs a lobby), shareable result card + streak, weekly seasons.
 
 ## Key tunables (in `CFG` unless noted)
-- Difficulty: `bpmUp/bpmDown` (2/3), `upThreshold/downThreshold` (0.80/0.45), `windowSize`.
-- Challenge: `challengeDur(90)/challengeStartBpm(42)/challengeMaxBpm(150)/challengeEase(1.4)`.
-- Sky time: `DAY_SLOW/DAY_FAST` + `|sunY|^2.5` exponent (in `updateSky`), `dayCycleSec(200)`.
-- Sky look: dome `pow(...,0.30)` steepness, haze (`exp(-|el|/0.05)*0.55` + `_haze` lerp `0.03+0.25*day`), `HOR_*`/`ZEN_*` colors, cloud FBM (`smoothstep(0.50,0.72,n)`, `vDir.xz/el*0.55`, drift `0.006/0.004`).
-- Reflection band: `uMirN(18)/uMirF(140)`.
-- Brownian: `brownian(7)/brownianMax(9)/brownianDamp(0.35)`.
-- Spawn: `spawnMinDeg(16)/spawnMinHiDeg(40)`, `spawnDist([12,26])`, `pitchSpreadDeg(16)`.
-- Trail: `TRAIL_R(12)/TRAIL_TUBE(0.16)/TRAIL_MAX(90)`, `INK_OPT(3)`.
+- **Ballistics:** `projSpeed:24`, `projGravity:16` (lofted for a visible arc; raise speed / lower gravity
+  to flatten — keep `projSpeed²/projGravity ≥ ~30` so far targets stay reachable), `projRadius`, `projLife`.
+  `projectile:true` (ARC default), `projArc:true`, `scope:true`, `scopeUnits:'m'`.
+- **Trajectory ribbon (ARC section consts):** `RIB_HALF:0.11` (width), `DASH_PERIOD:1.7` (dash size),
+  `BLADE_DX/DY/DZ` (muzzle offset, bottom-right), dash march rate (`bl/4` + `/4` in the scroll line),
+  `ARC_SAMP:30`.
+- **Floor HUD (`updateTargetMarks`):** ring radius `0.5+beat*0.38`, `Math.pow(...,1.6)` beat envelope,
+  marker color `0xffce5c`. **Land ring (`updateLandRings`):** `0.5+k*3.4` radius, `0.55s` life.
+- **Scope lock:** `simShotHits` radius margin (`+0.12`), lock cone in `scopeLockTarget` (`bestDot 0.72`).
+- **Difficulty/sky/spawn/trail:** as before (bpmUp/Down, thresholds, DAY_SLOW/FAST, spawnDist, etc.).
 
-## Likely next requests (from the session's trajectory)
-Tuning after playtest (cloud look, reflection brightness, ghost smoothness — can interpolate remote/ghost between samples); challenge progress bar + result-vs-rank screen; sphere-size/precision tweaks; possibly a wiki/memory note (aim-dojo isn't in the workspace memory yet).
+## Codex WebGL perf pass (a9e0cdd) — know this before editing render code
+Lazy startup (only Three.js eager), deferred stars/checker/reflection textures, **adaptive DPR**
+(`setRenderDpr`/`updateRenderQuality`), throttled reflection/sky/realtime updates, **pooled**
+targets/beams/projectiles/explosions/trails, **manual ray-sphere hit-scan** (replaced `THREE.Raycaster`),
+cached DOM writes (`setText`/`setClassName`/`setStyle` with `._cache`), realtime work gated on solo frames.
+Reviewed clean (0 regressions) except one fixed: deferred checker map recompiled the floor shader and reset
+the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf gains are unverified at runtime**
+(can't profile blind) — a real device FPS capture is the outstanding validation.
+
+## Outstanding / likely next
+- **Playtest tuning** of the trajectory viz, scope feel (lock stickiness), floor HUD, marching dashes,
+  ARC ballistics — the user iterates by eye.
+- **Decide on the global board vs ARC-default:** ARC runs are excluded from `aimdojo_scores`, so with ARC
+  default the peak-BPM board only fills from RAILGUN runs. Either accept (daily board is the real comp) or
+  let ARC runs count (mixes difficulties).
+- **Percentile Pace Ghost** is the queued multiplayer feature.
+- Possible: device perf capture; make the floor HUD distance show ground vs slant; railgun θ/range readouts;
+  a wiki/memory note (aim-dojo still isn't in workspace memory).
