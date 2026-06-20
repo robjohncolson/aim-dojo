@@ -74,6 +74,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock::after{opacity:1}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
+.tgtDist{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,206,92,.92);text-shadow:0 0 4px rgba(0,0,0,.9);pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
+.tgtDist.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
@@ -345,7 +347,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 
       <div class="row">
         <label>Shot type</label>
-        <div class="seg" id="projSeg"><button data-v="off" class="on">RAILGUN</button><button data-v="on">ARC (gravity)</button></div>
+        <div class="seg" id="projSeg"><button data-v="off">RAILGUN</button><button data-v="on" class="on">ARC (gravity)</button></div>
         <span class="out"></span>
       </div>
       <div class="row">
@@ -464,7 +466,7 @@ const CFG = {
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
   // projectile (ballistic free-play option — gravity arc; the seeded daily + both leaderboards stay hit-scan)
-  projectile:false, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // lofted so the parabola is a VISIBLE arc (not a flat near-line); raise projSpeed / lower projGravity to flatten it again
+  projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
   scope:true, scopeUnits:'m',   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft')
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1299,7 +1301,7 @@ function updateProjectiles(dt){
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){ if(pr.mode==='rhythm') gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); else onHit(hit, pr.pos, pr.fireT); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
-    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ onWhiff(true); retireProjectile(i); continue; }   // flew past everything → a missed shot
+    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
@@ -1364,7 +1366,7 @@ function updateArcPreview(dt){                                                  
   if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // never preview in the daily (it's hit-scan)
   ensureArcObjs();
   animateArcPulse();                                                                         // smooth every frame, off the last computed landing point
-  if(arcRibbon.visible){ const bl=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5; arcRibbon.material.map.offset.x=-(state.t/(bl/8)); }   // dashes flow forward, one cell per 1/8 beat
+  if(arcRibbon.visible){ const bl=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5; arcRibbon.material.map.offset.x=-Math.floor(state.t/(bl/4))/4; }   // dashes MARCH forward (quantized like the grid): 1 cell/beat in 4 stepped jumps
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
   const T=computeShotPlan(_arcM, _arcV);                                                     // right muzzle _arcM + launch velocity _arcV; sets _arcI + _planLanded
   sampleArc(_arcM, _arcV, T, ARC_SAMP, _arcPts);                                             // the shot path
@@ -1380,24 +1382,40 @@ function updateArcPreview(dt){                                                  
   arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=_planLanded;
   arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
 }
-/* ---- floor HUD under each target: a pulsing ring + dropline directly below, so you can read its ground position / distance ---- */
-const targetMarks=[];
+/* ---- floor HUD under each target: beat-pulsed ring + dropline + distance label (all modes) ---- */
+const targetMarks=[]; const _tmFloor=new THREE.Vector3();
 function ensureTargetMark(i){
   let m=targetMarks[i]; if(m) return m;
   const ring=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending})); ring.frustumCulled=false; scene.add(ring);
   const dg=new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
   const drop=new THREE.Line(dg, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.25,blending:THREE.AdditiveBlending})); drop.frustumCulled=false; scene.add(drop);
-  return targetMarks[i]={ring,drop};
+  const label=document.createElement('div'); label.className='tgtDist'; document.body.appendChild(label);
+  return targetMarks[i]={ring,drop,label};
 }
-function updateTargetMarks(){                                                 // runs every frame; self-gates so it cleans up when ARC mode is off
-  if(!(CFG.projectile && state.running && !state.challenge && !reduceMotion)){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; } return; }
+function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
+  if(!(state.running && !reduceMotion)){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); } return; }
+  const bl=60/Math.max(20,state.bpm), beat=Math.pow(1-(state.t%bl)/bl, 1.6);   // pulse on the beat
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
-    const pulse=0.5+0.5*Math.sin(state.t*5 + p.x*0.7), r=0.5+pulse*0.22;       // gentle breathing ring on the floor
-    m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.35+pulse*0.3; m.ring.visible=true;
-    const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;   // vertical drop ball→floor
-    m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true; }
-  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; }
+    const r=0.5+beat*0.38; m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.3+beat*0.45; m.ring.visible=true;
+    const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;
+    m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true;
+    _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // distance label floating at the floor ring
+    if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
+    else m.label.classList.remove('on'); }
+  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); }
+}
+/* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
+const landRingPool=[];
+function spawnLandRing(x,z){
+  let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
+  if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
+  lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
+}
+function updateLandRings(dt){
+  for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
+    if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
+    const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
 }
 
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
@@ -1723,7 +1741,8 @@ function animate(frameNow){
   updateTrail(dt);
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ballistic free-play option + scope; guarded so a hiccup can't freeze the loop
   else if(arcRibbon && arcRibbon.visible) hideArc();
-  try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (self-gates to ARC mode)
+  try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (all modes)
+  try{ updateLandRings(dt); }catch(e){}                       // expanding ring where a shot hits the ground
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
   if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
   renderer.render(scene,camera);
