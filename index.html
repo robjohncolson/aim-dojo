@@ -1303,7 +1303,7 @@ function updateProjectiles(dt){
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
-const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=0.22, DASH_PERIOD=1.7;
+const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=0.11, DASH_PERIOD=1.7;
 let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
@@ -1379,6 +1379,25 @@ function updateArcPreview(dt){                                                  
   arcRibbon.geometry.attributes.position.needsUpdate=true; arcRibbon.material.map.repeat.x=Math.max(1, arcLen/DASH_PERIOD); arcRibbon.visible=true;
   arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=_planLanded;
   arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
+}
+/* ---- floor HUD under each target: a pulsing ring + dropline directly below, so you can read its ground position / distance ---- */
+const targetMarks=[];
+function ensureTargetMark(i){
+  let m=targetMarks[i]; if(m) return m;
+  const ring=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending})); ring.frustumCulled=false; scene.add(ring);
+  const dg=new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
+  const drop=new THREE.Line(dg, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.25,blending:THREE.AdditiveBlending})); drop.frustumCulled=false; scene.add(drop);
+  return targetMarks[i]={ring,drop};
+}
+function updateTargetMarks(){                                                 // runs every frame; self-gates so it cleans up when ARC mode is off
+  if(!(CFG.projectile && state.running && !state.challenge && !reduceMotion)){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; } return; }
+  let i=0;
+  for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
+    const pulse=0.5+0.5*Math.sin(state.t*5 + p.x*0.7), r=0.5+pulse*0.22;       // gentle breathing ring on the floor
+    m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.35+pulse*0.3; m.ring.visible=true;
+    const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;   // vertical drop ball→floor
+    m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true; }
+  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; }
 }
 
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
@@ -1704,6 +1723,7 @@ function animate(frameNow){
   updateTrail(dt);
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ballistic free-play option + scope; guarded so a hiccup can't freeze the loop
   else if(arcRibbon && arcRibbon.visible) hideArc();
+  try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (self-gates to ARC mode)
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
   if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
   renderer.render(scene,camera);
