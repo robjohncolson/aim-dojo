@@ -1275,7 +1275,7 @@ function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
 function spawnProjectile(){
   const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, mode:'hunt', life:0, mesh:null};
-  pr.pos.copy(PLAYER_POS); camera.getWorldDirection(pr.vel).multiplyScalar(CFG.projSpeed); // launch along the true aim BEFORE this shot's recoil lands (matches the railgun)
+  computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows (set before this shot's recoil lands)
   pr.fireT=state.t; pr.fireBpm=state.bpm; pr.mode=state.mode; pr.life=0;                 // capture tempo too — it can step mid-flight (free-play adaptive engine)
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
@@ -1304,16 +1304,16 @@ function updateProjectiles(dt){
   }
 }
 const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4;
-let arcRight=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false;
+let arcRight=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
-      _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
+      _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
 const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){ const th=i/16*6.2831853; a[i*3]=Math.cos(th); a[i*3+2]=Math.sin(th); }   // unit ring in the XZ (floor) plane
   const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();
 function makeArcGeo(maxPts){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3)); return g; }
 function ensureArcObjs(){
   if(arcRight) return;
   const lm=(c,o)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,blending:THREE.AdditiveBlending});
-  arcRight=new THREE.Line(makeArcGeo(ARC_SAMP), new THREE.LineDashedMaterial({color:0x8fe8ff,transparent:true,opacity:0.9,dashSize:0.5,gapSize:0.34,blending:THREE.AdditiveBlending}));   // single dashed parabola from the right muzzle, converging at the impact
+  arcRight=new THREE.Line(makeArcGeo(ARC_SAMP), new THREE.LineDashedMaterial({color:0x8fe8ff,transparent:true,opacity:0.95,dashSize:1.1,gapSize:0.6,blending:THREE.AdditiveBlending}));   // single dashed parabola = the real shot's path (coarse dashes)
   arcLand =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.85));                 // static landing ring
   arcPulseA=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));               // beat-synced expanding pulse rings out of the impact
   arcPulseB=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));
@@ -1326,38 +1326,46 @@ function animateArcPulse(){                                                     
   const setP=(ring,ph)=>{ const r=0.35+ph*1.9; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*0.55; ring.visible=true; };
   const ph=(state.t % period)/period; setP(arcPulseA, ph); setP(arcPulseB, (ph+0.5)%1);
 }
-function convergeArc(mx,my,mz, T, samples, outArr){                                          // ballistic arc from a muzzle (mx,my,mz) to the impact _arcI over flight time T (purely visual; the real shot still launches from the eye)
-  const g=CFG.projGravity, sdt=T/(samples-1);
-  let vx=(_arcI.x-mx)/T, vy=(_arcI.y-my)/T + 0.5*g*T, vz=(_arcI.z-mz)/T, px=mx, py=my, pz=mz;
+function computeShotPlan(M, V){                                                              // shared by the dashed arc, the REAL projectile, and the lock: launch from the bottom-right muzzle, solved to land where the eye→crosshair parabola lands. Fills M (muzzle) + V (launch velocity), sets _arcI (impact) + _planLanded, returns flight time T.
+  camera.getWorldDirection(_arcDir);
+  _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(CFG.projSpeed);
+  const step=1/30, g=CFG.projGravity; let n=0; _planLanded=false;
+  for(; n<ARC_MAX; n++){ _arcVel.y-=g*step; _arcPos.addScaledVector(_arcVel,step);
+    if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ _planLanded=_arcPos.y<=0.04; n++; break; } }
+  _arcI.copy(_arcPos); const T=Math.max(0.12, n*step);
+  _arcRight.crossVectors(_arcDir, _ARC_UP); if(_arcRight.lengthSq()<1e-6) _arcRight.set(1,0,0); else _arcRight.normalize();
+  M.set(PLAYER_POS.x + _arcRight.x*BLADE_DX + _arcDir.x*BLADE_DZ, PLAYER_POS.y - BLADE_DY + _arcDir.y*BLADE_DZ, PLAYER_POS.z + _arcRight.z*BLADE_DX + _arcDir.z*BLADE_DZ);
+  V.set((_arcI.x-M.x)/T, (_arcI.y-M.y)/T + 0.5*g*T, (_arcI.z-M.z)/T);
+  return T;
+}
+function sampleArc(M, V, T, samples, outArr){                                                // integrate the parabola (M, V, gravity) — exactly the path the real projectile flies
+  const g=CFG.projGravity, sdt=T/(samples-1); let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
   for(let i=0;i<samples;i++){ const k=i*3; outArr[k]=px; outArr[k+1]=py; outArr[k+2]=pz; vy-=g*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt; }
 }
-function updateArcPreview(dt){                                                               // converging-blade trajectory viz: two side-muzzle parabolas + a shaded leaf, so the curve reads off the view axis
+function simShotHits(M, V, T, tg){                                                           // march the actual shot vs the target's predicted motion → does it connect? (path-accurate lock)
+  const g=CFG.projGravity, sdt=1/90; let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
+  const T0=tg.mesh.position, Vt=tg.vel, rr=(tg.radius*tg.sc)+CFG.projRadius+0.12, rr2=rr*rr;
+  for(let t=0; t<=T+0.15 && py>-1; t+=sdt){ vy-=g*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt;
+    const dx=px-(T0.x+Vt.x*t), dy=py-(T0.y+Vt.y*t), dz=pz-(T0.z+Vt.z*t); if(dx*dx+dy*dy+dz*dz<=rr2) return true; }
+  return false;
+}
+function updateArcPreview(dt){                                                               // ONE dashed parabola from the bottom-right muzzle — and it IS the real shot's path (same plan spawnProjectile uses)
   if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // never preview in the daily (it's hit-scan)
   ensureArcObjs();
   animateArcPulse();                                                                         // smooth every frame, off the last computed landing point
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
-  camera.getWorldDirection(_arcDir);
-  // find the real impact (eye→crosshair parabola) + flight time, WITHOUT drawing it
-  _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(CFG.projSpeed);
-  const step=1/30; let n=0, landed=false;
-  for(; n<ARC_MAX; n++){ _arcVel.y-=CFG.projGravity*step; _arcPos.addScaledVector(_arcVel,step);
-    if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ landed=_arcPos.y<=0.04; n++; break; } }
-  _arcI.copy(_arcPos); const T=Math.max(0.12, n*step);
-  // ONE dashed parabola from the bottom-right muzzle, solved to converge at the impact (the real shot still launches from the eye)
-  _arcRight.crossVectors(_arcDir, _ARC_UP); if(_arcRight.lengthSq()<1e-6) _arcRight.set(1,0,0); else _arcRight.normalize();
-  const E=PLAYER_POS, fx=_arcDir.x*BLADE_DZ, fy=_arcDir.y*BLADE_DZ, fz=_arcDir.z*BLADE_DZ;
-  convergeArc(E.x + _arcRight.x*BLADE_DX + fx, E.y - BLADE_DY + fy, E.z + _arcRight.z*BLADE_DX + fz, T, ARC_SAMP, arcRight.geometry.attributes.position.array);
-  arcRight.geometry.setDrawRange(0,ARC_SAMP); arcRight.geometry.attributes.position.needsUpdate=true; arcRight.geometry.computeLineDistances(); arcRight.visible=true;   // computeLineDistances → the dash pattern
-  arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=landed;
-  arcLanded=landed; if(landed) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
+  const T=computeShotPlan(_arcM, _arcV);                                                     // right muzzle _arcM + launch velocity _arcV; sets _arcI + _planLanded
+  sampleArc(_arcM, _arcV, T, ARC_SAMP, arcRight.geometry.attributes.position.array);
+  arcRight.geometry.setDrawRange(0,ARC_SAMP); arcRight.geometry.attributes.position.needsUpdate=true; arcRight.geometry.computeLineDistances(); arcRight.visible=true;
+  arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=_planLanded;
+  arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
 }
 
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
 const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
 let scopeAccum=SCOPE_STEP;
 const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox');
-const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scQ=new THREE.Vector3(), _scVel=new THREE.Vector3(),
-      _scWork=new THREE.Vector3(), _scPP=new THREE.Vector3();
+const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
 const _scScreen=[0,0,false];
 function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
@@ -1370,29 +1378,20 @@ function updateScope(dt){
   if(!(CFG.projectile && CFG.scope && state.running && !state.challenge)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
   scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
   const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
-  const T=tg.mesh.position, V=tg.vel, P=PLAYER_POS, v=CFG.projSpeed, g=CFG.projGravity, slant=T.distanceTo(P);
-  let t=slant/v;                                              // flight time vs the moving intercept (V≪v → converges in a few iters)
-  for(let k=0;k<5;k++){ const qx=T.x+V.x*t, qy=T.y+V.y*t, qz=T.z+V.z*t; t=Math.hypot(qx-P.x,qy-P.y,qz-P.z)/v; }
-  if(!(t>0) || t>8){ hideScope(); return; }
-  _scQ.set(T.x+V.x*t, T.y+V.y*t, T.z+V.z*t);                  // predicted intercept
-  _scVel.set((_scQ.x-P.x)/t, (_scQ.y-P.y)/t + 0.5*g*t, (_scQ.z-P.z)/t);   // drop-compensated launch velocity that reaches Q
-  _scWork.copy(_scVel).normalize();                          // ideal aim direction
-  // LOCK = current aim within the target's angular radius of the firing solution → your shot would actually connect
-  let cosang=_scAim.x*_scWork.x+_scAim.y*_scWork.y+_scAim.z*_scWork.z; cosang=cosang>1?1:cosang<-1?-1:cosang;
-  const angRad=Math.atan2((tg.radius*tg.sc)+CFG.projRadius, slant), locked=Math.acos(cosang)<=angRad*1.25;   // small margin so it's achievable, not pixel-perfect
-  // aim-pip (where to point) — shown only while seeking; once locked your crosshair is already there
-  if(locked) scopeAimEl.classList.remove('on');
-  else { const as=projectDir(_scWork); scopeAimEl.style.setProperty('--sx', as[0]+'px'); scopeAimEl.style.setProperty('--sy', as[1]+'px'); scopeAimEl.classList.add('on'); }
+  const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
+  const flight=computeShotPlan(_scM, _scV);                   // the actual shot plan for the current aim (right muzzle → crosshair impact)
+  const locked=simShotHits(_scM, _scV, flight, tg);           // does that real shot's path connect with the (moving) target?
+  scopeAimEl.classList.remove('on');                          // the dashed arc is the aiming aid now — no separate pip
   // seeking → LOCK reticle around the target, sized to its on-screen radius
-  const ts=projectPointScope(T);
+  const ts=projectPointScope(Tt);
   if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
     lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
     lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px');
     lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('lock', locked); }
   else lockBoxEl.classList.remove('on','lock');
   // HUD readouts
-  const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(T.y-P.y)/slant)))*RAD2DEG, lead=_scQ.distanceTo(T);
-  const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+t.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>';
+  const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(Tt.y-P.y)/slant)))*RAD2DEG, lead=tg.vel.length()*flight;
+  const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>';
   if(scopeHudEl._html!==html){ scopeHudEl.innerHTML=html; scopeHudEl._html=html; }
   scopeHudEl.classList.add('on');
 }
