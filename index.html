@@ -390,9 +390,11 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 
 const ROOM = {w:64, h:28, d:64};
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
-function makeCheckerTex(){                                    // 8×8 black/white checker, tiled across the floor for daytime
+const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
+let checkerTexes=[], dayTileIdx=(Math.random()*2)|0;
+function makeCheckerTex(dark, light){                        // 8×8 checker, tiled across the floor for daytime
   const N=512, sq=N/8; const c=document.createElement('canvas'); c.width=c.height=N; const g=c.getContext('2d');
-  for(let y=0;y<8;y++) for(let x=0;x<8;x++){ g.fillStyle=((x+y)&1)?'#0c0e14':'#e6eaef'; g.fillRect(x*sq,y*sq,sq,sq); }
+  for(let y=0;y<8;y++) for(let x=0;x<8;x++){ g.fillStyle=((x+y)&1)?dark:light; g.fillRect(x*sq,y*sq,sq,sq); }
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping;
   t.magFilter=THREE.NearestFilter; t.minFilter=THREE.LinearMipmapLinearFilter; t.generateMipmaps=true;
   t.anisotropy=renderer.capabilities.getMaxAnisotropy();     // max anisotropy + trilinear mips → kills the horizon moiré
@@ -403,9 +405,9 @@ let nightGrid=null, dayFloor=null;
   const FLOOR=620;                                            // floor stretches well past the fog → reads as a horizon
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshStandardMaterial({color:0x0c0a14, roughness:1, metalness:0}));
   floor.rotation.x = -Math.PI/2; scene.add(floor);
-  const ctex=makeCheckerTex(); ctex.repeat.set(FLOOR/16, FLOOR/16);   // each checker square = 2 units = one grid cell
-  dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshStandardMaterial({map:ctex, transparent:true, opacity:0, depthWrite:false, roughness:0.85, metalness:0}));
-  dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // black & white tiles, faded in during day
+  checkerTexes = TILE_SETS.map(s=>{ const t=makeCheckerTex(s[0],s[1]); t.repeat.set(FLOOR/16, FLOOR/16); return t; });  // each square = 2 units = one grid cell
+  dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshStandardMaterial({map:checkerTexes[dayTileIdx], transparent:true, opacity:0, depthWrite:false, roughness:0.85, metalness:0}));
+  dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day
   nightGrid = new THREE.GridHelper(FLOOR, FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;
   nightGrid.material.transparent = true; nightGrid.material.depthWrite = false; nightGrid.material.opacity = 0.55; scene.add(nightGrid);
 })();
@@ -505,8 +507,11 @@ function updateSky(dt){
   scene.background.copy(_sky); scene.fog.color.copy(_sky); scene.fog.density=0.012-0.005*day;
   if(starPts) starPts.material.opacity=Math.max(0,1-day*1.15);
   if(dayFloor) dayFloor.material.opacity=day;                // floor: teal grid (night) → black & white tiles (day)
-  const deepNight=day<0.04;                                  // on each new night, roll a grid colour different from last
-  if(deepNight && !wasNight){ let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]); }
+  const deepNight=day<0.04;                                  // each new night: roll a grid colour ≠ last, and flip the next day's tile set (hidden while invisible)
+  if(deepNight && !wasNight){
+    let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]);
+    dayTileIdx=1-dayTileIdx; if(dayFloor){ dayFloor.material.map=checkerTexes[dayTileIdx]; dayFloor.material.needsUpdate=true; }
+  }
   wasNight=deepNight;
   if(nightGrid) nightGrid.material.opacity=0.55*(1-day);
   sun.material.opacity=smooth(-0.18,0.06,sunY);              // visible from just below the horizon up
