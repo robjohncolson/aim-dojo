@@ -61,6 +61,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #scoreRace .rr.lead .kc{color:#ffd36b;text-shadow:0 0 6px rgba(255,211,107,.5)}
 @keyframes srflash{0%{background:rgba(255,211,107,.4)}100%{background:transparent}}
 #scoreRace .rr.flash{animation:srflash .55s ease-out}
+#scopeHud{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);font:11px var(--mono);color:var(--bone-dim);letter-spacing:.06em;line-height:1.6;display:none}
+#scopeHud.on{display:block}
+#scopeHud b{color:var(--rail);font-weight:400}
+#scopeAim{position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid rgba(255,205,90,.85);border-radius:50%;box-shadow:0 0 9px rgba(255,205,90,.5);pointer-events:none;z-index:5;display:none;transform:translate(var(--sx,50vw),var(--sy,50vh));will-change:transform}
+#scopeAim::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:rgba(255,230,160,.95)}
+#scopeAim.on{display:block}
+#rangeLbl{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(67,217,255,.92);text-shadow:0 0 4px rgba(0,0,0,.85);pointer-events:none;z-index:5;display:none;transform:translate(var(--rx,50vw),var(--ry,50vh)) translate(-50%,-50%);white-space:nowrap;will-change:transform}
+#rangeLbl.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
@@ -212,6 +220,9 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="ghostName" class="hud" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
+<div id="scopeAim" aria-hidden="true"></div>
+<div id="rangeLbl" aria-hidden="true"></div>
+<div id="scopeHud" class="hud" aria-hidden="true"></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
 <div id="assist" aria-hidden="true"></div>
@@ -339,6 +350,18 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       <div class="hint">RAILGUN is instant hit-scan. ARC fires a real projectile that travels and drops under gravity — lead moving targets and aim a touch high. Free-play only; the daily challenge &amp; leaderboards always use hit-scan. The trajectory arc previews where your shot will fly.</div>
 
       <div class="row">
+        <label>Ballistic scope</label>
+        <div class="seg" id="scopeSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
+        <span class="out"></span>
+      </div>
+      <div class="row">
+        <label>Scope units</label>
+        <div class="seg" id="unitsSeg"><button data-v="m" class="on">METERS</button><button data-v="ft">FEET</button></div>
+        <span class="out"></span>
+      </div>
+      <div class="hint">In ARC mode the scope draws a firing solution for the target nearest your crosshair: the gold aim-pip shows where to point, the gold arc is the ideal shot, the ring is the ≈95% wander zone where it'll be, plus a floor rangefinder and θ / range / flight-time / lead readouts.</div>
+
+      <div class="row">
         <label for="sens">Sensitivity</label>
         <input type="range" id="sens" min="0.2" max="3" step="0.05" value="3">
         <span class="out" id="sensOut">3.00×</span>
@@ -436,6 +459,7 @@ const CFG = {
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
   // projectile (ballistic free-play option — gravity arc; the seeded daily + both leaderboards stay hit-scan)
   projectile:false, projArc:true, projSpeed:46, projGravity:9.0, projRadius:0.30, projLife:2.4,
+  scope:true, scopeUnits:'m',   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft')
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* seeded RNG — gameplay randomness goes through rnd(); reseeded for the daily challenge so everyone gets the SAME run */
@@ -1252,7 +1276,7 @@ function spawnProjectile(){
   if(projectiles.length>40){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest
 }
 function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
-function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; if(arcLine) arcLine.visible=false; }
+function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; if(arcLine) arcLine.visible=false; hideScope(); }
 function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
   const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
   let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
@@ -1287,6 +1311,73 @@ function updateArcPreview(dt){                                                  
   for(; n<70; n++){ const k=n*3; arr[k]=_arcPos.x; arr[k+1]=_arcPos.y; arr[k+2]=_arcPos.z; _arcVel.y-=CFG.projGravity*step; _arcPos.addScaledVector(_arcVel,step);
     if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ n++; const j=n*3; arr[j]=_arcPos.x; arr[j+1]=_arcPos.y; arr[j+2]=_arcPos.z; n++; break; } }
   arcLine.geometry.setDrawRange(0, Math.min(n, 71)); arcLine.geometry.attributes.position.needsUpdate=true; arcLine.visible=true;
+}
+
+/* ========================= BALLISTIC SCOPE (ARC free-play firing computer — lead solution, wander zone, rangefinder, θ/range/flight readouts) ========================= */
+const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
+let scopeAccum=SCOPE_STEP, solArc=null, leadLine=null, floorLine=null, confRing=null;
+const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), rangeLblEl=gid('rangeLbl');
+const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scQ=new THREE.Vector3(), _scVel=new THREE.Vector3(),
+      _scPos=new THREE.Vector3(), _scWork=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scMid=new THREE.Vector3();
+const _scScreen=[0,0,false];
+function makeCircleGeo(segs){ const a=new Float32Array((segs+1)*3); for(let i=0;i<=segs;i++){ const th=i/segs*6.2831853; a[i*3]=Math.cos(th); a[i*3+1]=Math.sin(th); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; }
+function makeScopeLine(maxPts,color,opacity){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3));
+  const l=new THREE.Line(g, new THREE.LineBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending})); l.frustumCulled=false; scene.add(l); return l; }
+function ensureScopeObjs(){
+  if(solArc) return;
+  solArc=makeScopeLine(64,0xffcd5a,0.55);                     // ideal launch arc
+  leadLine=makeScopeLine(2,0xffcd5a,0.45);                    // target → intercept (momentum lead)
+  floorLine=makeScopeLine(2,0x43d9ff,0.40);                   // ground rangefinder
+  confRing=new THREE.LineLoop(makeCircleGeo(40), new THREE.LineBasicMaterial({color:0xffd36b,transparent:true,opacity:0.42,blending:THREE.AdditiveBlending}));
+  confRing.frustumCulled=false; scene.add(confRing);
+}
+function hideScope(){ if(solArc){ solArc.visible=false; leadLine.visible=false; floorLine.visible=false; confRing.visible=false; }
+  if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(rangeLblEl) rangeLblEl.classList.remove('on'); }
+function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
+  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
+function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
+function scopeLockTarget(){ camera.getWorldDirection(_scAim); let best=null, bestDot=0.72;   // target nearest the crosshair, within ~44°
+  for(const tg of targets){ if(tg.dead) continue; _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;
+    const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d; if(dot>bestDot){ bestDot=dot; best=tg; } } return best; }
+function updateScope(dt){
+  if(!(CFG.projectile && CFG.scope && state.running && !state.challenge)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
+  scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
+  const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
+  ensureScopeObjs();
+  const T=tg.mesh.position, V=tg.vel, P=PLAYER_POS, v=CFG.projSpeed, g=CFG.projGravity;
+  let t=T.distanceTo(P)/v;                                    // iterate flight time against the moving intercept (V small vs v → converges fast)
+  for(let k=0;k<5;k++){ const qx=T.x+V.x*t, qy=T.y+V.y*t, qz=T.z+V.z*t; t=Math.hypot(qx-P.x,qy-P.y,qz-P.z)/v; }
+  if(!(t>0) || t>8){ hideScope(); return; }
+  _scQ.set(T.x+V.x*t, T.y+V.y*t, T.z+V.z*t);                  // predicted intercept point
+  _scVel.set((_scQ.x-P.x)/t, (_scQ.y-P.y)/t + 0.5*g*t, (_scQ.z-P.z)/t);   // launch velocity that reaches Q at t under gravity (drop-compensated)
+  // ideal launch arc: integrate P with _scVel for t
+  _scPos.copy(P); _scWork.copy(_scVel); const sa=solArc.geometry.attributes.position.array, step=t/60; let n=0;
+  for(; n<=60; n++){ const k=n*3; if(k+2>=sa.length) break; sa[k]=_scPos.x; sa[k+1]=_scPos.y; sa[k+2]=_scPos.z;
+    _scWork.y-=g*step; _scPos.x+=_scWork.x*step; _scPos.y+=_scWork.y*step; _scPos.z+=_scWork.z*step; if(_scPos.y<=0.02){ n++; break; } }
+  solArc.geometry.setDrawRange(0,n); solArc.geometry.attributes.position.needsUpdate=true; solArc.visible=true;
+  // lead line (target → intercept) + floor rangefinder (player ground → target ground)
+  const la=leadLine.geometry.attributes.position.array; la[0]=T.x;la[1]=T.y;la[2]=T.z; la[3]=_scQ.x;la[4]=_scQ.y;la[5]=_scQ.z;
+  leadLine.geometry.attributes.position.needsUpdate=true; leadLine.visible=true;
+  const fl=floorLine.geometry.attributes.position.array; fl[0]=P.x;fl[1]=0.02;fl[2]=P.z; fl[3]=T.x;fl[4]=0.02;fl[5]=T.z;
+  floorLine.geometry.attributes.position.needsUpdate=true; floorLine.visible=true;
+  // wander zone (≈95%) at the intercept — grows with target speed, brownian intensity, flight time
+  const speed=V.length(), sigma=(speed*0.45 + CFG.brownian*0.05)*t, rad=Math.max(tg.radius*0.8, Math.min(7, 2.45*sigma));
+  confRing.position.copy(_scQ); confRing.scale.setScalar(rad); confRing.quaternion.copy(camera.quaternion); confRing.visible=true;
+  // aim pip: where to point the crosshair (project the launch direction)
+  _scWork.copy(_scVel).normalize(); const as=projectDir(_scWork);
+  scopeAimEl.style.setProperty('--sx', as[0]+'px'); scopeAimEl.style.setProperty('--sy', as[1]+'px'); scopeAimEl.classList.add('on');
+  // floor range label at the line midpoint
+  _scMid.set((P.x+T.x)/2, 0.02, (P.z+T.z)/2); const groundDist=Math.hypot(T.x-P.x, T.z-P.z); const ms=projectPointScope(_scMid);
+  if(ms[2]){ rangeLblEl.style.setProperty('--rx', ms[0]+'px'); rangeLblEl.style.setProperty('--ry', ms[1]+'px'); setText(rangeLblEl, fmtDist(groundDist)); rangeLblEl.classList.add('on'); }
+  else rangeLblEl.classList.remove('on');
+  // HUD readouts
+  const slant=T.distanceTo(P), aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG,
+        tgtElev=Math.asin(Math.max(-1,Math.min(1,(T.y-P.y)/slant)))*RAD2DEG, lead=_scQ.distanceTo(T),
+        vU=CFG.scopeUnits==='ft'?(v*M2FT).toFixed(0)+' ft/s':v+' m/s', gU=CFG.scopeUnits==='ft'?(g*M2FT).toFixed(1):g.toFixed(1);
+  const html='θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+t.toFixed(2)+'s</b><br>LEAD <b>'+fmtDist(lead)+'</b> · v '+vU+' · g '+gU;
+  if(scopeHudEl._html!==html){ scopeHudEl.innerHTML=html; scopeHudEl._html=html; }
+  scopeHudEl.classList.add('on');
 }
 
 /* ========================= HUD ========================= */
@@ -1569,7 +1660,7 @@ function animate(frameNow){
   } else clearRings();
   updateAssist(dt);
   updateTrail(dt);
-  if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); }catch(e){}   // ballistic free-play option; guarded so a hiccup can't freeze the loop
+  if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ballistic free-play option + scope; guarded so a hiccup can't freeze the loop
   else if(arcLine && arcLine.visible) arcLine.visible=false;
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
   if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
@@ -1941,6 +2032,8 @@ wireSeg('fieldSeg', v=> CFG.spawnField=v);
 wireSeg('assistSeg', v=> CFG.audioAssist=(v==='on'));
 wireSeg('projSeg', v=>{ CFG.projectile=(v==='on'); });        // RAILGUN (hit-scan) ↔ ARC (ballistic). Applies on APPLY & RESTART
 wireSeg('arcSeg', v=>{ CFG.projArc=(v==='on'); });            // show/hide the trajectory-arc preview
+wireSeg('scopeSeg', v=>{ CFG.scope=(v==='on'); });            // ballistic firing-computer overlay (ARC only)
+wireSeg('unitsSeg', v=>{ CFG.scopeUnits=v; });                // 'm' | 'ft' — applies live
 
 gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); reconcileTargetSounds(); });
 
