@@ -508,7 +508,7 @@ const CFG = {
   // difficulty mapping
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
-  rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeStep:1.2, rangeStepDown:1.6,   // skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
+  rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeHitStep:0.08, rangeMissStep:0.20, rangeStep:1.2, rangeStepDown:1.6,   // DISTANCE TRAINER (free-play): state.range (spawn shell far edge) now creeps SUB-PERCEPTUALLY per event — +rangeHitStep on a hit, -rangeMissStep on a miss (converges ~71% reach). rangeStep/rangeStepDown = the old CHUNKED march, now vestigial. -- skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM (free-play + the ARC daily): strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. The daily strobes too now (off Tone.Transport.ticks, same as spawns); hunt has no beat.
@@ -1292,6 +1292,7 @@ function pushEvent(good){
   good=!!good;
   if(events.length<CFG.windowSize){ events.push(good); if(good) eventsGood++; }
   else { if(events[eventsHead]) eventsGood--; events[eventsHead]=good; if(good) eventsGood++; eventsHead=(eventsHead+1)%CFG.windowSize; }
+  if(!state.challenge) changeRange(good ? CFG.rangeHitStep : -CFG.rangeMissStep);   // DISTANCE TRAINER (free-play): the spawn shell creeps sub-perceptually FARTHER on each hit, eases back on a miss -> converges on your reliable reach. (daily uses fixed spawnDist)
   sinceAdjust++; maybeAdjust(); renderGauge();
 }
 function maybeAdjust(){
@@ -1301,8 +1302,7 @@ function maybeAdjust(){
   const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
   if(state.mode==='rhythm'){ if(up) changeBpm(+CFG.bpmUp,true); else if(down) changeBpm(-CFG.bpmDown,false); }
   else { if(up) changeSpeed(+CFG.upStep,true); else if(down) changeSpeed(-CFG.downStep,false); }
-  if(up) changeRange(+CFG.rangeStep); else if(down) changeRange(-CFG.rangeStepDown);   // skill-gated reach: sustained hits push the spawn shell outward; struggling pulls it back in
-  if(up||down) sinceAdjust=0;            // hold the adjust cadence even when bpm/speed is railed, so range ramps gradually (not every event)
+  if(up||down) sinceAdjust=0;            // hold the bpm/speed adjust cadence even when railed (range is now a per-hit micro-creep in pushEvent, not a chunked march here)
 }
 function changeRange(delta){ state.range=Math.max(CFG.rangeStart,Math.min(CFG.rangeMax,state.range+delta)); }   // never closer than the start, never past the ballistically-reachable cap
 function changeSpeed(delta,up){
