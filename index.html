@@ -470,7 +470,7 @@ const CFG = {
   startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
   startBpm:35, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // gentler slowdown so a few misses don't crater the tempo
-  challengeDur:90, challengeStartBpm:40, challengeMaxBpm:128, challengeEase:1.5,   // daily challenge: ease-in tempo ramp (lingers playable, hard finale). Tuned DOWN for the ARC daily — flight + lead need more time per shot than hit-scan.
+  challengeDur:90, challengeStartBpm:40, challengeMaxBpm:110, challengeEase:1.9,   // daily ARC tempo ramp — eased BOTH ways: lower peak (128→110) + steeper ease (1.5→1.9 → stays in the playable low range longer, spike lands later). bpm(t)=lerp(40,110,(t/90)^1.9).
   // shared adaptive law
   upThreshold:0.80, downThreshold:0.20, windowSize:10, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Sliders now span 0–95% (up) / 0–75% (down); slow-down default 20%.
   // difficulty mapping
