@@ -296,11 +296,16 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
 16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
-    (a) **Arc-delta gauge:** a self-contained **seven-segment LED** (rectangular `|`/`-` bars, NO webfont — DSEG's
-    CDN only ships `.sfd` sources, and a school-network font fallback was unacceptable) nested as a child of
-    `#lockBox`, pinned to its **top-right corner** (`left:100%;top:0;translateY(-50%)`). Shows the **signed VERTICAL
-    MISS of your actual shot vs the locked orb** at closest approach (`_scVMiss`, set by `simShotHits`): **0 at a
-    hit, grows smoothly as you deviate**; `+`=arc passes BELOW the orb (loft higher), `-`=ABOVE (loft lower).
+    (a) **Arc-delta gauges (TWO, `999bda8`):** self-contained **seven-segment LEDs** (rectangular `|`/`-` bars, NO
+    webfont — DSEG's CDN only ships `.sfd` sources, and a school-network font fallback was unacceptable), children of
+    `#lockBox`, shared look via class `.led7`. **`gaugeY` = `#arcDelta`, top-right** (`left:100%;top:0`) = signed
+    **VERTICAL miss** (`+`=arc passes BELOW the orb → loft higher, `-`=ABOVE → loft lower). **`gaugeX` = `#arcDeltaX`,
+    bottom-center** (`left:50%;top:100%`) = signed **LATERAL miss** (`+`=passes RIGHT, `-`=LEFT; user wanted left
+    negative). Both are the closest-approach miss of your real shot vs the locked orb from `simShotHits` (`_scVMiss`
+    vertical; `_scMissX/_scMissZ` horizontal → projected onto screen-right `(-fz,fx)` in `updateScope` for the lateral
+    value): **0 at a hit, grow as you deviate**. Renderer is parameterized into gauge objects
+    (`makeLed/buildLed/renderLed/hideLed/driveLed`) so both reuse one seven-seg implementation. The font sizes:
+    gauges `scale(0.82)`; the floating `▲apex` label is `.arcInfo` 12px; the landing `◎` label is `#arcLandInfo` 14px.
     **RED** while off → **GREEN, double-blink, vanish** on **LOCK** (`locked`/`simShotHits` — same signal as the
     gold box, so they can't disagree; `@keyframes ledMatch` `forwards`→opacity 0; reappears red off-lock).
     **METRIC HISTORY (important — don't regress):** v1 showed "your apex − the LOBBED ideal apex" — but you hit via
