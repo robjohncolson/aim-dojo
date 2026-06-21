@@ -78,17 +78,19 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
   muzzle** (`BLADE_DX/DY/DZ`) with a velocity solved to land where the eye→crosshair parabola lands
   (`_arcI`). Used by: `spawnProjectile` (real bullet), `updateArcPreview` (the dashed ribbon), and the
   scope lock (`simShotHits`). So the **bullet flies exactly down the drawn ribbon.**
-- **Trajectory viz (`updateArcPreview`, ARC only, throttled ~20Hz):** a **thick, low-opacity camera-facing
-  ribbon** (`arcRibbon`, a billboarded quad strip) carrying a **scrolling dash texture** (`makeDashTex`,
-  marches forward 1 cell/beat in quantized steps). Plus `arcLand` (landing ring) + `arcPulseA/B`
-  (beat-pulsed rings at the impact). Lofted ballistics (`projSpeed:24, projGravity:16`) make the parabola
-  visibly curved. `animateArcPulse` + the dash scroll run every frame; geometry rebuild is throttled.
+- **Trajectory viz (`updateArcPreview`, ARC only, throttled ~20Hz):** a **thin, faint, SOLID camera-facing
+  ribbon** (`arcRibbon`, billboarded quad strip; `RIB_HALF:0.045`, opacity 0.16). The old scrolling
+  marching-dash texture was RETIRED (slimmed per playtest — `makeDashTex`/`DASH_PERIOD`/`arcLen` gone, no
+  `.material.map`). Plus `arcLand` (static landing ring) + `arcPulseA/B` (beat-pulsed rings at the impact,
+  still present). Lofted ballistics (`projSpeed:24, projGravity:16`) make the parabola visibly curved.
+  `animateArcPulse` runs every frame; geometry rebuild is throttled.
 - **Ballistic scope (`updateScope`, ARC only, throttled ~30Hz):** `scopeLockTarget` (nearest to crosshair)
-  → `simShotHits` (marches the REAL shot vs the moving target → **path-accurate LOCK**). Renders: a gold
-  **aim-pip** (`#scopeAim`, where to point — hidden when locked), a **seeking→LOCK reticle** (`#lockBox`,
+  → `simShotHits` (marches the REAL shot vs the moving target → **path-accurate LOCK**). Renders: a
+  **seeking→LOCK reticle** (`#lockBox`,
   bracket around the target, gold "LOCK" when your shot would connect), and a HUD (`#scopeHud`:
   θ→TGT / AIM elevation / RANGE / FLIGHT / LEAD; m/ft via `CFG.scopeUnits`). `projectPointScope` projects
-  world points to screen (mirrors `projectDir`).
+  world points to screen (mirrors `projectDir`). The gold **aim-pip** (`#scopeAim`) is **RETIRED** (element
+  + CSS kept, `scopeAimEl` never gets `.on`) — redundant once the orb holds still + the lock box exists.
 - **Floor HUD (`updateTargetMarks`, ALL modes, every frame):** under every live target — a **beat-synced
   pulsing ring** on the floor + a **vertical dropline** + a floating **distance label** (`.tgtDist`, slant
   range in m/ft). Pooled (`targetMarks`). `updateLandRings` + `spawnLandRing`: a big ring radiates out
@@ -144,9 +146,8 @@ h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole 
 - **Ballistics:** `projSpeed:24`, `projGravity:16` (lofted for a visible arc; raise speed / lower gravity
   to flatten — keep `projSpeed²/projGravity ≥ ~30` so far targets stay reachable), `projRadius`, `projLife`.
   `projectile:true` (ARC default), `projArc:true`, `scope:true`, `scopeUnits:'m'`.
-- **Trajectory ribbon (ARC section consts):** `RIB_HALF:0.11` (width), `DASH_PERIOD:1.7` (dash size),
-  `BLADE_DX/DY/DZ` (muzzle offset, bottom-right), dash march rate (`bl/4` + `/4` in the scroll line),
-  `ARC_SAMP:30`.
+- **Trajectory ribbon (ARC section consts):** `RIB_HALF:0.045` (thin), ribbon material opacity `0.16`
+  (faint, SOLID — dashes retired), `BLADE_DX/DY/DZ` (muzzle offset, bottom-right), `ARC_SAMP:30`.
 - **Floor HUD (`updateTargetMarks`):** ring radius `0.5+beat*0.38`, `Math.pow(...,1.6)` beat envelope,
   marker color `0xffce5c`. **Land ring (`updateLandRings`):** `0.5+k*3.4` radius, `0.55s` life.
 - **Scope lock:** `simShotHits` radius margin (`+0.12`), lock cone in `scopeLockTarget` (`bestDot 0.72`).
@@ -163,7 +164,7 @@ h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole 
   brownianMax:9, diffT())` (replaced the old fixed `BROWNIAN_MAX2`) so low-tempo orbs barely drift (small,
   sedate steps) and only move fast at high skill — bpm sets the step *cadence*, velCap sets *how far* each
   step travels. The orb HOLDS position+velocity between beat-grid ticks then STEPS, so the
-  cursor + target-locked aim guides (scope aim-pip, lock box, lead, range, floor ring — all read
+  cursor + target-locked aim guides (lock box, lead, range, floor ring — all read
   `tg.mesh.position`+`tg.vel`) settle instead of fleeing. Phase-locked via `Tone.Transport.ticks/PPQ`;
   subdivision 1/4→1/8→1/16 beat by `diffT()`. Module state `_quantIdx`/`_quantT` (reset in resetSession).
   On a snap, `scopeAccum`/`arcAccum` are forced so the guides recompute the same frame. Strobe-path wall
