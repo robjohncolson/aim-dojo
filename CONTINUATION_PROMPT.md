@@ -310,19 +310,16 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
 16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
-    (a) **Arc-deviation arrows (TWO, `1b1adcb`→`53732b8`):** the seven-seg LED numbers were retired (user: "too
-    gaudy"). Each gauge is a **single directional triangle glyph in the HUD mono font**: `gaugeY` (`#arcDelta`) =
-    VERTICAL (arc below the orb → `▲` aim up, above → `▼`); `gaugeX` (`#arcDeltaX`) = LATERAL (arc left → `▶` aim
-    right, right → `◀`). **Points TOWARD the orb (which way to nudge your aim)**; within `ARC_CENTER_TOL` (0.5m) that
-    axis is "centered" → green **`●`**. Red off-center, green centered (CSS `.led7.centered`). `driveGlyph(el, miss,
-    negGlyph, posGlyph)` (miss<0→neg) / `hideGlyph`. Miss from `simShotHits` closest-approach tracking: `_scVMiss`
-    (vertical) + `_scMissX/_scMissZ` (horizontal → screen-right `(-fz,fx)` in `updateScope`, `<0`=left). 0 at a hit.
-    **If left/right or up/down feels inverted, swap the two glyph args in the `driveGlyph` call.** **LOCATION
-    (`53732b8`):** the two arrows are now **inline at the apex label**, replacing its old static `▲` marker — the
-    label renders `[Δy][Δx] <height>` (e.g. `▲◀ 14.0`) floating at your shot's apex. `#arcDelta`/`#arcDeltaX` are
-    inline `<span class="led7">`s inside `#arcApexInfo`; `#arcApexNum` holds the height (set in `updateArcPreview`);
-    the arrows are driven by `updateScope`. So they show only when an apex exists AND a (non-decoy) orb is locked.
-    Lock box is just the gold/red reticle. Sizes: glyphs inherit `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
+    (a) **Deviation arrows on the LOCK-RETICLE SIDES (`1b1adcb`→`1a37bc1`):** four arrow+number elements on the four
+    sides of `#lockBox` (`#devTop/#devBot/#devLeft/#devRight`, class `.devarr`), each showing its axis's arrow + the
+    **live |delta|** when off-center: **Δy<0** (arc below orb) → **`▲` above** (aim up), **Δy>0** → **`▼` below**;
+    **Δx>0** (arc right) → **`◀` left** (aim left), **Δx<0** → **`▶` right**. An axis within `ARC_CENTER_TOL` (0.5m) =
+    centered → no arrow on that axis. `driveDevArrows(vMiss, lat)` / `setDevArrow` / `hideDevArrows`; miss from
+    `simShotHits` (`_scVMiss` vertical, `_scMissX/_scMissZ` → screen-right `(-fz,fx)` lateral in `updateScope`). Red
+    (`--blood`), shown only when a non-decoy orb is locked/seeking. **If a direction feels inverted, swap the side
+    element or the sign in the `setDevArrow` call.** **DESIGN HISTORY:** seven-seg LED numbers (user: "too gaudy")
+    → single triangle glyphs → inline at the apex label → these per-side arrows (current). The apex label is back to
+    just `▲ <height>` (`#arcApexNum`, set in `updateArcPreview`). Sizes: `.devarr` 13px; landing `◎` `#arcLandInfo` 16px.
     **LOCK-ON — SIMPLIFIED (`0778c90`):** a 3D lock-on viz was tried and SCRAPPED (user: "messy squiggles…
     overcomplicating"). Dead-ends, do NOT resurrect: two great circles at orb distance (`e0b5781`) → projected on the
     SKY (radius 470, aim-oriented, `24e3dde`; read as a flat `+` because a huge circle is locally straight at the
