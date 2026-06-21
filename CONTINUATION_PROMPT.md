@@ -296,19 +296,19 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
 16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
-    (a) **Arc-deviation glyphs (TWO, `1b1adcb`):** the seven-seg LED numbers were retired (user: "too gaudy / too
-    big"). Now each gauge is a **single directional triangle glyph in the HUD mono font** (matching the `▲apex`
-    label), children of `#lockBox`, class `.led7`. **`gaugeY` = `#arcDelta`, top-right** = VERTICAL: arc below the orb
-    → `▲` (aim up), above → `▼`. **`gaugeX` = `#arcDeltaX`, bottom-center** = LATERAL: arc left → `▶` (aim right),
-    right → `◀`. **The triangle points TOWARD the orb (which way to nudge your aim)**; within `ARC_CENTER_TOL` (0.5m)
-    that axis is "centered" → a green **`●`** circle. Red off-center, green centered (CSS `.led7.centered`). Driven by
-    `driveGlyph(el, miss, negGlyph, posGlyph)` (miss<0→neg, >0→pos) / `hideGlyph`. The miss comes from `simShotHits`'s
-    closest-approach tracking: `_scVMiss` (vertical = shot.y−target.y) + `_scMissX/_scMissZ` (horizontal → projected
-    onto screen-right `(-fz,fx)` in `updateScope` → signed lateral, `<0`=left per the user). 0 at a hit, grows as you
-    deviate. **If left/right or up/down feels inverted, the fix is swapping the two glyph args in the `driveGlyph`
-    call** (the triangle currently points toward the orb = correction direction). The `▼` axis stays top-right; the
-    `◀/▶` axis is at the reticle's **lower-left** (`#arcDeltaX right:100%;top:100%`). Sizes: glyphs `.led7` 12px;
-    `▲apex` label `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
+    (a) **Arc-deviation arrows (TWO, `1b1adcb`→`53732b8`):** the seven-seg LED numbers were retired (user: "too
+    gaudy"). Each gauge is a **single directional triangle glyph in the HUD mono font**: `gaugeY` (`#arcDelta`) =
+    VERTICAL (arc below the orb → `▲` aim up, above → `▼`); `gaugeX` (`#arcDeltaX`) = LATERAL (arc left → `▶` aim
+    right, right → `◀`). **Points TOWARD the orb (which way to nudge your aim)**; within `ARC_CENTER_TOL` (0.5m) that
+    axis is "centered" → green **`●`**. Red off-center, green centered (CSS `.led7.centered`). `driveGlyph(el, miss,
+    negGlyph, posGlyph)` (miss<0→neg) / `hideGlyph`. Miss from `simShotHits` closest-approach tracking: `_scVMiss`
+    (vertical) + `_scMissX/_scMissZ` (horizontal → screen-right `(-fz,fx)` in `updateScope`, `<0`=left). 0 at a hit.
+    **If left/right or up/down feels inverted, swap the two glyph args in the `driveGlyph` call.** **LOCATION
+    (`53732b8`):** the two arrows are now **inline at the apex label**, replacing its old static `▲` marker — the
+    label renders `[Δy][Δx] <height>` (e.g. `▲◀ 14.0`) floating at your shot's apex. `#arcDelta`/`#arcDeltaX` are
+    inline `<span class="led7">`s inside `#arcApexInfo`; `#arcApexNum` holds the height (set in `updateArcPreview`);
+    the arrows are driven by `updateScope`. So they show only when an apex exists AND a (non-decoy) orb is locked.
+    Lock box is just the gold/red reticle. Sizes: glyphs inherit `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
     **LOCK-ON — SIMPLIFIED (`0778c90`):** a 3D lock-on viz was tried and SCRAPPED (user: "messy squiggles…
     overcomplicating"). Dead-ends, do NOT resurrect: two great circles at orb distance (`e0b5781`) → projected on the
     SKY (radius 470, aim-oriented, `24e3dde`; read as a flat `+` because a huge circle is locally straight at the
