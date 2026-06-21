@@ -538,7 +538,7 @@ const CFG = {
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
   goldDistMul:1.35, goldSizeMul:0.7, decoyDistMul:0.6,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward), DECOYS lunge closer (bait). Deterministic given the seeded kind; the daily is left untouched.
-  grooveCut:[1,2,4],   // streak thresholds where the adaptive groove steps up a tier (target = streak<cut0?0 : <cut1?1 : <cut2?2 : 3). Eager: tier 1 on the first hit, tier 2 at a 2-streak, FULL groove at a 4-streak (was [2,6,12]). Audio only.
+  grooveStreakFull:4, grooveHitsFull:25, grooveAccLo:0.4, grooveAccHi:0.9, grooveW:[0.35,0.3,0.35],   // adaptive-groove TARGET tier (0..3) = a COMPOSITE: streak/grooveStreakFull + click% mapped grooveAccLo..Hi→0..1 + totalHits/grooveHitsFull, weighted by grooveW (sum 1). Click% (rolling) + total hits PERSIST through a miss, so the groove builds + holds instead of tanking on a broken streak. Audio only.
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
@@ -1103,8 +1103,10 @@ function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||
 function onGrid(time){
   if(!state.running){ grid8++; return; }
   const i=grid8%8;
-  const gc=CFG.grooveCut, gt = (state.streak<gc[0]?0 : state.streak<gc[1]?1 : state.streak<gc[2]?2 : 3);   // groove intensity TARGET by streak (thresholds tunable via CFG.grooveCut)
-  grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly on a miss (no jarring collapse)
+  const _acc=windowAccuracy(), accN=_acc==null?0:Math.max(0,Math.min(1,(_acc-CFG.grooveAccLo)/(CFG.grooveAccHi-CFG.grooveAccLo)));   // groove TARGET = composite of streak + click% + total hits (acc + hits persist through a miss, so it doesn't tank)
+  const streakN=Math.min(1,state.streak/CFG.grooveStreakFull), hitsN=Math.min(1,state.hits/CFG.grooveHitsFull), gw=CFG.grooveW;
+  const gt=3*(gw[0]*streakN + gw[1]*accN + gw[2]*hitsN);                            // 0..3 target tier
+  grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly (no jarring collapse)
   const tier = grooveI<0.5?0 : grooveI<1.5?1 : grooveI<2.5?2 : 3;
   try{
     if(kick && (i===0||i===4)) kick.triggerAttackRelease('C1','8n',time);
