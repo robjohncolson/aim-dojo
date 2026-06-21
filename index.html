@@ -309,6 +309,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       <div id="dailyList" class="boardlist"><div class="board-empty">loading…</div></div>
     </div>
 
+    <div id="seasonBox" class="boardbox">
+      <div class="histhead"><span>📅 SEASON · BEST/DAY THIS WEEK</span><span id="seasonSub" class="histsub"></span></div>
+      <div id="seasonList" class="boardlist"><div class="board-empty">loading…</div></div>
+    </div>
+
     <div id="pauseStats" style="display:none"></div>
 
     <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
@@ -2108,7 +2113,7 @@ async function submitDaily(){
   try{
     const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/daily' : SB_URL+'/rest/v1/aimdojo_daily';
     const hdr = RAILWAY_URL ? {'Content-Type':'application/json'} : sbH({Prefer:'return=minimal'});
-    await fetch(ep, {method:'POST', headers:hdr, body:JSON.stringify(row)}); loadDailyBoard();
+    await fetch(ep, {method:'POST', headers:hdr, body:JSON.stringify(row)}); loadDailyBoard(); loadSeasonBoard();
   }catch(e){}
 }
 async function loadDailyBoard(){
@@ -2122,6 +2127,29 @@ async function loadDailyBoard(){
     const me=clientId();
     list.innerHTML=top.map((r,i)=>'<div class="board-row'+(r.client_id===me?' me':'')+'"><span class="br-rank">'+(i+1)+'</span><span class="br-name">'+esc(r.name||'?')+'</span><span class="br-bpm">'+Math.round(r.score)+'</span><span class="br-acc">'+(r.accuracy!=null?r.accuracy+'%':'—')+'</span></div>').join('');
   }catch(e){ list.innerHTML='<div class="board-empty">daily board offline (table not created yet)</div>'; }
+}
+/* ---- weekly season: aggregate this UTC week's daily runs (sum of each day's best score) → a standings board. Reuses aimdojo_daily; no new table/server. ---- */
+const _SEASON_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function dayKeyOf(d){ return d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)+'-'+d.getUTCDate(); }   // matches dayKey()'s NON-padded format, so it joins the stored day strings
+function seasonDays(){ const now=new Date(), dow=(now.getUTCDay()+6)%7;                          // dow: 0=Mon .. 6=Sun
+  const mon=new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()-dow));    // Monday 00:00 UTC of this week
+  const days=[]; for(let i=0;i<7;i++) days.push(dayKeyOf(new Date(mon.getTime()+i*86400000)));
+  return {days, mon}; }
+async function loadSeasonBoard(){
+  const list=gid('seasonList'); if(!list) return;
+  const sd=seasonDays(); const sub=gid('seasonSub'); if(sub) sub.textContent='wk of '+_SEASON_MON[sd.mon.getUTCMonth()]+' '+sd.mon.getUTCDate();
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=client_id,name,score,day&day=in.('+sd.days.join(',')+')&limit=2000', {headers:sbH()});
+    if(!res.ok) throw 0;
+    const rows=await res.json(), agg={};
+    for(const r of rows){ const cid=r.client_id; if(!cid) continue; let e=agg[cid]; if(!e) e=agg[cid]={name:r.name||'?', day:{}}; if(r.name) e.name=r.name;
+      const sc=r.score|0, d=r.day; if(e.day[d]==null || sc>e.day[d]) e.day[d]=sc; }                // best score per (player, day)
+    const me=clientId(), standings=Object.keys(agg).map(cid=>{ const e=agg[cid], v=Object.values(e.day); let total=0; for(const x of v) total+=x; return {cid, name:e.name, total, played:v.length}; });
+    standings.sort((a,b)=> b.total-a.total || b.played-a.played);
+    const top=standings.slice(0,15);
+    if(!top.length){ list.innerHTML='<div class="board-empty">no challenge runs yet this week — start the season</div>'; return; }
+    list.innerHTML=top.map((r,i)=>'<div class="board-row'+(r.cid===me?' me':'')+'"><span class="br-rank">'+(i+1)+'</span><span class="br-name">'+esc(r.name||'?')+'</span><span class="br-bpm">'+r.total+'</span><span class="br-acc">'+r.played+'d</span></div>').join('');
+  }catch(e){ list.innerHTML='<div class="board-empty">season board offline</div>'; }
 }
 const _dailyBtn=gid('dailyBtn'); if(_dailyBtn) _dailyBtn.addEventListener('click', startChallenge);
 async function submitScore(){
@@ -2177,7 +2205,7 @@ function showPause(){
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
     (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(avgPathScore()*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
-  submitScore(); saveSession(); renderHistory(); loadBoard(); loadDailyBoard();
+  submitScore(); saveSession(); renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard();
   overlay.classList.remove('hidden');
 }
 function restoreStartCard(){                                  // revert the pause/report overlay back to the free-play start card
@@ -2261,7 +2289,7 @@ const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.reques
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
 const preloadTone=()=>{ loadToneOnce().catch(()=>{}); };
 runIdle(preloadTone,700,1800);
-setTimeout(()=>{ renderHistory(); loadBoard(); loadDailyBoard(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
+setTimeout(()=>{ renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
