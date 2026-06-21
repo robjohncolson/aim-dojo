@@ -98,7 +98,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox::after{content:'LOCK';position:absolute;left:50%;top:-13px;transform:translateX(-50%);font:9px var(--mono);letter-spacing:.22em;color:rgba(255,205,90,.95);opacity:0;white-space:nowrap}
 #lockBox.lock::after{opacity:1}
 /* arc-delta LED gauge: signed delta from your shot's apex to the locked target's IDEAL apex, pinned to the lock box's top-right corner. Seven-segment (rectangular |/- bars); RED while off -> GREEN double-blink then vanish at match. */
-#arcDelta{position:absolute;left:100%;top:0;margin-left:8px;transform:translateY(-50%);display:none;align-items:center;padding:0 2px;color:var(--blood);white-space:nowrap;line-height:0;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))}
+#arcDelta{position:absolute;left:100%;top:0;margin-left:7px;transform:translateY(-50%) scale(0.82);transform-origin:left center;display:none;align-items:center;padding:0 2px;color:var(--blood);white-space:nowrap;line-height:0;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))}
 #arcDelta.on{display:inline-flex}
 #arcDelta.matched{color:var(--toxic);animation:ledMatch .64s ease-out forwards}
 @keyframes ledMatch{0%{opacity:1}14%{opacity:.12}28%{opacity:1}42%{opacity:.12}56%{opacity:1}100%{opacity:0}}
@@ -131,7 +131,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #windHud .wh-mag::before{content:'WIND '}
 .tgtDist{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,214,120,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 .tgtDist.on{display:block}
-.arcInfo{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
+.arcInfo{position:fixed;left:0;top:0;font:12px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
+#arcLandInfo{font-size:14px}   /* distance to the end of the parabola (the landing ring) — larger per playtest */
 .arcInfo.on{display:block}
 #fps{position:fixed;left:8px;top:8px;font:11px var(--mono);color:#9fe8ff;letter-spacing:.04em;text-shadow:0 0 5px rgba(0,0,0,.9);z-index:30;pointer-events:none;display:none}
 #fps.on{display:block}
