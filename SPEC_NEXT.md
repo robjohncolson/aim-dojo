@@ -117,13 +117,14 @@ remaining open work is the **promotions / deferrals** below — none are roadmap
 >
 > 🔁 **REDESIGNED post-playtest (`ee2f662`):** user found the readout worked but the numbers crowded the cursor
 > (the constantly-shown apex height vs the ideal competing). The peak readout moved OUT of `#scopeHud` into a
-> **seven-segment LED "delta-to-ideal-apex" gauge pinned to the lock box's top-right corner** — shows the SIGNED
-> delta (`+`=loft higher / `-`=lower), RED while off → GREEN double-blink then vanish **on LOCK** (your shot would
-> connect — `simShotHits`, the same signal as the gold lock box; NOT an apex window — that earlier version read
-> red-while-locked because a target has two flat/lobbed firing solutions, fixed `3467cf8`).
-> `#scopeHud` keeps only `IDEAL <loft>°`. The floating `▲apex` number + per-target orb-top `↑height` labels were
-> RETIRED (the gauge subsumes them). Apex is derived from the scope's own shot plan so it needs no ribbon. See
-> CONTINUATION_PROMPT.md Shipped #16. **Playtest:** does the LED gauge read well? want the floating apex number back?
+> **seven-segment LED gauge pinned to the lock box's top-right corner**. After two playtest iterations the metric
+> is the **signed VERTICAL MISS of your shot vs the orb** (`_scVMiss` from `simShotHits`): 0 at a hit, grows as you
+> deviate, `+`=arc passes low (loft higher) / `-`=high (loft lower); RED while off → GREEN double-blink then vanish
+> **on LOCK**. (v1 was "your apex − the LOBBED ideal apex" but that read ≈ the ideal HEIGHT ~17 even when locked and
+> jumped 0→17 off-lock, since you hit via flatter arcs — `8e0eb30`; an apex-match green trigger also read
+> red-while-locked, `3467cf8`. `CFG.arcMatchTol` is vestigial.) `#scopeHud` keeps only `IDEAL <loft>°`. The floating
+> `▲apex` height number was retired then **RESTORED** (`cb25994`, gives context); orb-top `↑height` labels stay
+> retired. The gauge backdrop is transparent (lit lettering only). See CONTINUATION_PROMPT.md Shipped #16.
 
 - TODAY: the target height label gates on `_arcApexY` = the apex of YOUR CURRENT aim's parabola (one
   value vs every target). User is curious about a PER-TARGET ideal arc instead.

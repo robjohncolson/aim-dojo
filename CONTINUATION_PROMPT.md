@@ -13,7 +13,7 @@ the **CFG tunables to adjust by ear/eye**, and the playtest questions.
 (no change); **daily endgame is too fast at high BPM but that's ACCEPTED ("which is fine")** — do NOT ease the
 ramp unless asked; **daily felt overwhelming — "two cursors from two ghosts"** → FIXED with a **G-key ghost
 toggle** (none / your-best / top-scorer, default your-best); **per-target ideal arc worked but the numbers
-crowded the cursor** → REDESIGNED into a **seven-segment LED "delta-to-ideal-apex" gauge on the lock box**
+crowded the cursor** → REDESIGNED into a **seven-segment LED vertical-miss gauge on the lock box**
 (see Shipped #16). **STILL needs the user's feel feedback (not yet given): clutch (freq/zoom/slow), combo
 glow, wind, the self-ghost loop.** **Next session: ask about those + how the new LED gauge / ghost toggle feel.**
 Per playtest the floating **▲apex height number was RESTORED** (`cb25994`, user liked it — it gives context to
@@ -298,16 +298,17 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
 16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
     (a) **Arc-delta gauge:** a self-contained **seven-segment LED** (rectangular `|`/`-` bars, NO webfont — DSEG's
     CDN only ships `.sfd` sources, and a school-network font fallback was unacceptable) nested as a child of
-    `#lockBox`, pinned to its **top-right corner** (`left:100%;top:0;translateY(-50%)`). Shows the **signed delta
-    from YOUR shot's apex to the locked target's IDEAL apex** (`+`=under-arc/loft higher, `-`=over; user picked
-    "delta" over absolute peak): **RED** while off → **GREEN, double-blink, vanish** when your shot would CONNECT
-    (`locked`/`simShotHits` — the SAME signal as the gold lock box, so the gauge can't disagree with it;
-    `@keyframes ledMatch` `forwards`→opacity 0; reappears red off-lock; reflow-restart on re-lock). **The green
-    trigger is LOCK, not an apex window** — `CFG.arcMatchTol` is now VESTIGIAL. (An earlier apex-window version
-    read red-WHILE-locked because a target has TWO firing solutions — flat + lobbed — and `_apex` is the lobbed
-    one, so a flat-arc hit showed a stale red `+`; fixed `3467cf8`.) Apex is
-    derived from the **scope's own shot plan** (`_scM/_scV` in `updateScope`), NOT `_arcApexY/_arcApexOn` — so it
-    tracks the SCOPE (works even with the Trajectory-arc ribbon OFF; a review-confirmed fix). `!reduceMotion`-gated.
+    `#lockBox`, pinned to its **top-right corner** (`left:100%;top:0;translateY(-50%)`). Shows the **signed VERTICAL
+    MISS of your actual shot vs the locked orb** at closest approach (`_scVMiss`, set by `simShotHits`): **0 at a
+    hit, grows smoothly as you deviate**; `+`=arc passes BELOW the orb (loft higher), `-`=ABOVE (loft lower).
+    **RED** while off → **GREEN, double-blink, vanish** on **LOCK** (`locked`/`simShotHits` — same signal as the
+    gold box, so they can't disagree; `@keyframes ledMatch` `forwards`→opacity 0; reappears red off-lock).
+    **METRIC HISTORY (important — don't regress):** v1 showed "your apex − the LOBBED ideal apex" — but you hit via
+    flatter arcs, so that read ≈ the ideal HEIGHT (~17) even when locked, and jumped 0→17 off-lock (the 0 was the
+    green-at-lock mask). `8e0eb30` switched to the vertical miss, which is 0 exactly where the arc crosses the orb.
+    `CFG.arcMatchTol` is VESTIGIAL (green = LOCK, not an apex window — that also fixed an earlier red-WHILE-locked
+    bug from the two flat/lobbed firing solutions, `3467cf8`). `simShotHits` now tracks closest-horizontal-approach
+    `dy` into `_scVMiss`/`_scVMissOn`; its hit-detection return is UNCHANGED (lock identical). `!reduceMotion`-gated.
     State machine: module `_arcDeltaState` (0 hidden/1 red/2 matched-latched-hidden); `renderArcDelta`/`_setDigit`/
     `_setSign` cache by `_v` (cheap at 30Hz). **Gauge is TRANSPARENT** (`cb25994`): no dark box, unlit ghost
     segments hidden, only the lit red/green lettering + a dark drop-shadow halo. **Decluttered:** the floating
