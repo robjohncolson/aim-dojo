@@ -210,12 +210,15 @@ if a week's field gets large, move to a server aggregate (same path as the pace 
   floating apex number, un-retire the `#arcApexInfo` block in `updateArcPreview`.
 - **Daily ghost toggle:** `ghostMode` (0/1/2, default 1), key `G`, persisted `aimdojo.ghostmode`. To change the
   default, edit `let ghostMode=1`. The cycle order is `(ghostMode+1)%3` → none→self→top.
-- **Skill-gated spawn distance (FREE-PLAY only):** `rangeStart:11`, `rangeMax:28`, `rangeNear:8`,
-  `rangeBand:8`, `rangeStep:1.2`, `rangeStepDown:1.6`. `state.range` is the spawn shell's far edge; it
-  marches outward (`changeRange` in `maybeAdjust`) on sustained ≥80% accuracy and pulls back ≤45% — the SAME
-  signal as the tempo ramp. `spawnTarget` draws from `[max(rangeNear, range-rangeBand) .. range]`. The daily
-  stays on fixed `spawnDist` (branch on `state.challenge`). NOTE the `if(up||down) sinceAdjust=0` line in
-  `maybeAdjust` is REQUIRED (else range ramps every event once bpm/speed is railed).
+- **DISTANCE TRAINER — spawn distance (FREE-PLAY only, `b44a40a`):** `state.range` (spawn shell far edge,
+  `rangeStart:11`→`rangeMax:28`) now creeps **SUB-PERCEPTUALLY PER EVENT** in `pushEvent`: `+rangeHitStep:0.08`
+  on each hit, `-rangeMissStep:0.20` on a miss → drifts farther imperceptibly as you land shots, eases back when
+  you struggle (converges ~71% reach; equilibrium = `missStep/(missStep+hitStep)`). This REPLACED the old chunked
+  march (`rangeStep:1.2`/`rangeStepDown:1.6` via `changeRange` in `maybeAdjust` on sustained ≥80%/≤45% accuracy) —
+  those two CFG are now **vestigial**. `spawnTarget` still draws from `[max(rangeNear:8, range-rangeBand:8) .. range]`.
+  The daily stays on fixed `spawnDist` (`!state.challenge` gate in pushEvent + `maybeAdjust` returns early in the
+  daily). NOTE the `if(up||down) sinceAdjust=0` in `maybeAdjust` is still there for the bpm/speed cadence. The user
+  framed this as "the orbs move sub-perceptually further with successful hits" — a stealth distance trainer.
 - **Pace ghost (daily):** `PACE_STEP:1/6`, tier cutoffs 80/40, fetch `limit:120` (deduped). See the
   Percentile Pace Ghost section above.
 - **Beat-quantized target motion (FREE-PLAY RHYTHM only):** `beatQuant:true`, `beatQuantDivs:[2,4,8]`
