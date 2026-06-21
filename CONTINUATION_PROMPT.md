@@ -349,6 +349,13 @@ special orbs, wind) got multi-agent adversarial reviews (0 confirmed findings on
 - **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build pacing (streak cutoffs
   `<2/<6/<12`, ease 0.5/0.1), levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
   miss notes (220/110), the whoosh sweep (260→560) + impact thud. The user listens & reports.
+- **Target-tone gate (`538a6fd`):** the per-target spatial tone is no longer continuous — it's GATED to a 16th-note
+  rhythm (`CFG.targetPulse:true`, `targetPulseOn:1`/`targetPulsePeriod:4` = a 16th note + 3 16ths rest), beat-synced
+  to `state.bpm`, all targets in unison. Impl: a `gateGain` node per sound (reverb send tapped post-gate so tails
+  fill the rests); a global gate computed each frame in `animate` (inside `if(targets.length)`, `_gatePhase`/`_gateOn`)
+  ramps every target's `gateGain` via `setTargetAtTime` (5ms attack / 60ms release). `targetPulse:false` → continuous.
+  Audio only → daily-safe. **Possible tuning:** pattern (`targetPulseOn`/`Period`), phase-lock to Tone.Transport's
+  downbeat (currently free-runs at the bpm rate), or per-target phase offsets for a polyrhythmic texture vs unison.
 - **Capture real-device FPS/DPR** at `…/?fps` (phones/school machines) → finally validate the perf pass.
 - **Scope LOCK vs strobe (low, approximate):** `simShotHits`/lead predict LINEAR target motion, but targets
   now STROBE (hold→jump) in ARC free-play AND the ARC daily — so LOCK can read true while a shot crosses a
