@@ -533,6 +533,7 @@ const CFG = {
   // special orbs (variety): rare GOLD bonus (worth goldScore kills, pushes matching ghost-hit entries so score===h.length holds) + DON'T-HIT DECOY (hitting breaks streak + costs a shot; dodging is free). Kind is rolled from rng ONLY when live → free-play now, daily from the next UTC midnight (fresh seed, clean cutover; today's stream untouched).
   specialOrbs:true, goldChance:0.06, decoyChance:0.10, goldScore:2, specialDailyTs:Date.UTC(2026,5,22),
   goldDistMul:1.35, goldSizeMul:0.7, decoyDistMul:0.6,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward), DECOYS lunge closer (bait). Deterministic given the seeded kind; the daily is left untouched.
+  targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
 };
@@ -1054,17 +1055,18 @@ function makeTargetSound(mesh){
     const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=7000;
     const outGain=ctx.createGain(); outGain.gain.value=0.0001;
+    const gateGain=ctx.createGain(); gateGain.gain.value = CFG.targetPulse ? (_gateOn?1:0.0001) : 1;   // rhythmic 16th-note gate (driven each frame in animate); 1 = continuous when targetPulse is off
     osc.connect(ampGain); lfo.connect(lfoGain); lfoGain.connect(ampGain.gain);
-    ampGain.connect(lowpass); lowpass.connect(outGain);
+    ampGain.connect(lowpass); lowpass.connect(gateGain); gateGain.connect(outGain);
     pa.setNodeSource(outGain); mesh.add(pa);
-    // reverb send (rises with distance for the "far = washy" cue)
+    // reverb send (rises with distance for the "far = washy" cue) — tapped POST-gate so the reverb tail fills the rests between blips
     let send=null;
-    if(reverbInput){ send=ctx.createGain(); send.gain.value=0.12; lowpass.connect(send); send.connect(reverbInput); }
+    if(reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
     osc.start(); lfo.start();
     const now=ctx.currentTime;
     outGain.gain.setValueAtTime(0.0001, now);
     outGain.gain.exponentialRampToValueAtTime(0.8, now+0.12);
-    return {pa, osc, lfo, lowpass, outGain, send, dBucket:-1, stopped:false};
+    return {pa, osc, lfo, lowpass, gateGain, outGain, send, dBucket:-1, stopped:false};
   }catch(e){ return null; }
 }
 function stopTargetSound(snd){
@@ -1836,6 +1838,7 @@ function updateTrail(dt){
 const clock=new THREE.Clock();
 const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30, CHALLENGE_TONE_STEP=1/20;
 const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
+let _gatePhase=0, _gateOn=true;   // beat-synced 16th-note gate phase (sixteenths) for the target tones + current on/off state
 let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999, challengeToneAccum=CHALLENGE_TONE_STEP, challengeUiBpm=-1;
 const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
 function animate(frameNow){
@@ -1888,6 +1891,8 @@ function animate(frameNow){
     }
     if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
+      let _gateChanged=false; const _actx=listener&&listener.context;   // 16th-note target-tone gate: ON for targetPulseOn sixteenths then rest, beat-synced to state.bpm (audio only)
+      if(CFG.targetPulse){ _gatePhase=(_gatePhase + dt*(state.bpm/60)*4) % CFG.targetPulsePeriod; const _go=_gatePhase<CFG.targetPulseOn; _gateChanged=_go!==_gateOn; _gateOn=_go; }
       // beat-quantized motion (free-play rhythm): the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle. Continuous modes (hunt/daily) keep doSnap=true every frame → unchanged.
       const wantStrobe=(state.mode==='rhythm' && CFG.beatQuant && toneReady);   // free-play AND the (now ARC) daily — both strobe
       const strobe=wantStrobe && Tone.Transport.state==='started';
@@ -1922,7 +1927,9 @@ function animate(frameNow){
             if(p.x<-ROOM_BX||p.x>ROOM_BX) tg.vel.x*=-1; if(p.z<-ROOM_BZ||p.z>ROOM_BZ) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM_BY) tg.vel.y*=-1;
           }
         }
-        if(tg.snd){ tg.sndAccum+=dt; if(tg.sndAccum>=TARGET_AUDIO_STEP){ tg.sndAccum=0; const dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d2=dx*dx+dy*dy+dz*dz;
+        if(tg.snd){
+          if(_gateChanged && tg.snd.gateGain && _actx){ tg.snd.gateGain.gain.setTargetAtTime(_gateOn?1:0.0001, _actx.currentTime, _gateOn?0.005:0.06); }   // open fast on the 16th, release with a short tail into the rest
+          tg.sndAccum+=dt; if(tg.sndAccum>=TARGET_AUDIO_STEP){ tg.sndAccum=0; const dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d2=dx*dx+dy*dy+dz*dz;
           const db=Math.max(0,Math.min(TARGET_AUDIO_BUCKETS, Math.round((d2-TARGET_AUDIO_NEAR2)*TARGET_AUDIO_BUCKET_SCALE)));
           if(db!==tg.snd.dBucket){ tg.snd.dBucket=db; const d=Math.sqrt(d2), t=(d-6)/22; tg.snd.lowpass.frequency.value=lerp(7000,1200,t); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,t); }
         } }
