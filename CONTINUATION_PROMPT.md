@@ -315,7 +315,7 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     **Δy<0** (arc below orb → aim up) → **TOP**; **Δy>0** → **BOTTOM**; **Δx>0** (arc right → aim left) → **LEFT**;
     **Δx<0** → **RIGHT**. Bands are `5vh` (top/bottom) / `3.34vw` (sides), red→transparent gradient fading inward,
     `z-index:3` (below the HUD so text stays readable). `driveEdgeTints(vMiss, lat)`/`hideEdgeTints`/`edgeOp(mag)`
-    (`EDGE_TOL:0.4` deadzone, `EDGE_K:0.14`, `EDGE_MAX:0.5` cap → full tint ~4m miss). Miss from `simShotHits`
+    (`EDGE_TOL:0.3` deadzone, `EDGE_K:0.30`, `EDGE_MAX:0.85` cap, gradient `rgba(255,60,60,1)` → punchy, full tint ~3m miss; `6b586ec` made it more visible). Miss from `simShotHits`
     (`_scVMiss` vertical, `_scMissX/_scMissZ` → screen-right lateral in `updateScope`); `!reduceMotion`, non-decoy lock.
     **DESIGN HISTORY (all superseded):** seven-seg LED numbers ("too gaudy") → triangle glyphs → inline-at-apex → arrows
     on the lock-reticle sides (`.devarr`/`driveDevArrows`, GONE) → these edge tints. Apex label is back to just
