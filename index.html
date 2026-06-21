@@ -90,6 +90,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #scopeHud .sk{color:var(--bone-dim)}
 .tgtDist{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,206,92,.92);text-shadow:0 0 4px rgba(0,0,0,.9);pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 .tgtDist.on{display:block}
+.arcInfo{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(159,232,255,.95);text-shadow:0 0 4px rgba(0,0,0,.9);pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
+.arcInfo.on{display:block}
 #fps{position:fixed;left:8px;top:8px;font:11px var(--mono);color:#9fe8ff;letter-spacing:.04em;text-shadow:0 0 5px rgba(0,0,0,.9);z-index:30;pointer-events:none;display:none}
 #fps.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
@@ -234,6 +236,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <canvas id="scene"></canvas>
 <div id="beatRing" aria-hidden="true"></div>
 <div id="fps" aria-hidden="true"></div>
+<div id="arcLandInfo" class="arcInfo" aria-hidden="true"></div>
+<div id="arcApexInfo" class="arcInfo" aria-hidden="true"></div>
 
 <div id="reticle" aria-hidden="true">
   <div class="arm h l"></div><div class="arm h r"></div>
@@ -1351,7 +1355,8 @@ function updateProjectiles(dt){
   }
 }
 const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=0.045;   // thin ribbon
-let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
+let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
+const arcLandInfoEl=gid('arcLandInfo'), arcApexInfoEl=gid('arcApexInfo'), _arcApexP=new THREE.Vector3();   // ARC readouts: landing-distance label, apex tangent line + height label
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
 const _arcPts=new Float32Array(ARC_SAMP*3), _ribTan=new THREE.Vector3(), _ribOff=new THREE.Vector3(), _ribToCam=new THREE.Vector3();
@@ -1369,9 +1374,10 @@ function ensureArcObjs(){
   arcLand =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.85));                 // static landing ring
   arcPulseA=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));               // beat-synced expanding pulse rings out of the impact
   arcPulseB=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));
-  for(const o of [arcRibbon,arcLand,arcPulseA,arcPulseB]){ o.frustumCulled=false; scene.add(o); }
+  arcApex=new THREE.Line(makeArcGeo(2), lm(0xbfeeff,0.7));                    // horizontal tangent line at the parabola's apex (max height)
+  for(const o of [arcRibbon,arcLand,arcPulseA,arcPulseB,arcApex]){ o.frustumCulled=false; scene.add(o); }
 }
-function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; } arcLanded=false; }
+function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } if(arcLandInfoEl) arcLandInfoEl.classList.remove('on'); if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); arcLanded=false; }
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
   const beatLen=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5, period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
@@ -1419,6 +1425,23 @@ function updateArcPreview(dt){                                                  
   arcRibbon.geometry.attributes.position.needsUpdate=true; arcRibbon.visible=true;
   arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=_planLanded;
   arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
+  // landing-distance label (ground range from the player to the impact ring)
+  if(_planLanded && arcLandInfoEl){ const ls=projectPointScope(_arcLandPos);
+    if(ls[2]){ arcLandInfoEl.style.setProperty('--tx',ls[0]+'px'); arcLandInfoEl.style.setProperty('--ty',ls[1]+'px'); setText(arcLandInfoEl, '◎ '+fmtDist(Math.hypot(_arcI.x-PLAYER_POS.x, _arcI.z-PLAYER_POS.z))); arcLandInfoEl.classList.add('on'); }
+    else arcLandInfoEl.classList.remove('on'); }
+  else if(arcLandInfoEl) arcLandInfoEl.classList.remove('on');
+  // apex: a horizontal tangent line at the parabola's peak + its height
+  const _g=CFG.projGravity, _tA=_arcV.y>0 ? _arcV.y/_g : 0;
+  if(_tA>0.05 && arcApex){
+    const apX=_arcM.x+_arcV.x*_tA, apY=_arcM.y+_arcV.y*_tA-0.5*_g*_tA*_tA, apZ=_arcM.z+_arcV.z*_tA;
+    const _hl=Math.hypot(_arcV.x,_arcV.z)||1, _ux=_arcV.x/_hl, _uz=_arcV.z/_hl, _half=1.6;   // tangent runs horizontally, along the shot's down-range direction
+    const ap=arcApex.geometry.attributes.position.array;
+    ap[0]=apX-_ux*_half; ap[1]=apY; ap[2]=apZ-_uz*_half; ap[3]=apX+_ux*_half; ap[4]=apY; ap[5]=apZ+_uz*_half;
+    arcApex.geometry.attributes.position.needsUpdate=true; arcApex.visible=true;
+    if(arcApexInfoEl){ _arcApexP.set(apX,apY,apZ); const as=projectPointScope(_arcApexP);
+      if(as[2]){ arcApexInfoEl.style.setProperty('--tx',as[0]+'px'); arcApexInfoEl.style.setProperty('--ty',as[1]+'px'); setText(arcApexInfoEl, '▲ '+fmtDist(apY)); arcApexInfoEl.classList.add('on'); }
+      else arcApexInfoEl.classList.remove('on'); }
+  } else { if(arcApex) arcApex.visible=false; if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); }
 }
 /* ---- floor HUD under each target: beat-pulsed ring + dropline + distance label (all modes) ---- */
 const targetMarks=[]; const _tmFloor=new THREE.Vector3();
@@ -1439,7 +1462,7 @@ function updateTargetMarks(){                                                 //
     const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;
     m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true;
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // distance label floating at the floor ring
-    if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
+    if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))+'  ↑'+fmtDist(p.y)); m.label.classList.add('on'); }   // slant range + height (altitude above the floor)
     else m.label.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); }
 }
