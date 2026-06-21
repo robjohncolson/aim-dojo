@@ -357,9 +357,11 @@ for seasons executed in node); the larger/risky features (pace ghost, beat-quant
 special orbs, wind) got multi-agent adversarial reviews (0 confirmed findings on the recent batch).
 
 ## Outstanding / likely next
-- **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build pacing — streak cutoffs now
-  `CFG.grooveCut:[1,2,4]` (`c7a5742`→`69462ff`, loosened from `[2,6,12]` per playtest "too strict/build more eagerly";
-  full groove at a 4-streak, tier 1 on the first hit; build/strip ease 0.5/0.1), levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
+- **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build — the TARGET tier (0..3) is now a
+  **COMPOSITE** (`355444c`, in `onGrid`): `3*(grooveW·[streak/grooveStreakFull, click%→0..1 over grooveAccLo..Hi,
+  totalHits/grooveHitsFull])` with `grooveW:[.35,.3,.35]`, `grooveStreakFull:4`, `grooveHitsFull:25`, acc 0.4..0.9.
+  Replaced the streak-only `grooveCut` (was tough — one miss tanked it); click% + total-hits persist so a broken
+  streak holds ~tier 1-2. (Earlier: `[2,6,12]`→`[1,3,6]`→`[1,2,4]`→composite.) build/strip ease 0.5/0.1; levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
   miss notes (220/110), the whoosh sweep (260→560) + impact thud. The user listens & reports.
 - **Target-tone gate (`538a6fd`→`e172584`):** the per-target spatial tone is no longer continuous — it's GATED to a
   16th-note rhythm (`CFG.targetPulse:true`, `targetPulseOn:1`/`targetPulsePeriod:4` = a 16th note + 3 16ths rest) at
