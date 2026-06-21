@@ -16,8 +16,10 @@ toggle** (none / your-best / top-scorer, default your-best); **per-target ideal 
 crowded the cursor** → REDESIGNED into a **seven-segment LED "delta-to-ideal-apex" gauge on the lock box**
 (see Shipped #16). **STILL needs the user's feel feedback (not yet given): clutch (freq/zoom/slow), combo
 glow, wind, the self-ghost loop.** **Next session: ask about those + how the new LED gauge / ghost toggle feel.**
-One judgment call to surface: I **retired the floating ▲apex number + the orb-top ↑height labels** (the LED
-gauge subsumes them) — user may want the apex number back; ask. Then the open work is the **promotions /
+Per playtest the floating **▲apex height number was RESTORED** (`cb25994`, user liked it — it gives context to
+the delta gauge); the **orb-top ↑height labels stay retired**. The delta gauge backdrop was also made
+**transparent** (`cb25994`) — dark LED-screen box + faint unlit ghost segments removed, only the lit red/green
+lettering shows (with a thin dark drop-shadow halo for legibility). Then the open work is the **promotions /
 deferrals** (none roadmap-blocking; see SPEC_NEXT "Open follow-ups"): promote **wind to the daily** (needs
 seeded wind + a clean cutover — user must greenlight), and the deferred **free-play self-ghost**.
 **Key gotchas that held (keep holding them):**
@@ -307,9 +309,11 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     derived from the **scope's own shot plan** (`_scM/_scV` in `updateScope`), NOT `_arcApexY/_arcApexOn` — so it
     tracks the SCOPE (works even with the Trajectory-arc ribbon OFF; a review-confirmed fix). `!reduceMotion`-gated.
     State machine: module `_arcDeltaState` (0 hidden/1 red/2 matched-latched-hidden); `renderArcDelta`/`_setDigit`/
-    `_setSign` cache by `_v` (cheap at 30Hz). **Decluttered:** RETIRED the floating `▲apex` number (`#arcApexInfo`,
-    kept the tangent LINE), the per-target orb-top `↑height` labels (`m.hlabel`, element kept/hidden), and the HUD
-    `· peak ↑X` (kept `IDEAL <loft>°`). NOTE `_arcApexY/_arcApexOn` are now WRITE-ONLY in `updateArcPreview` (dead
+    `_setSign` cache by `_v` (cheap at 30Hz). **Gauge is TRANSPARENT** (`cb25994`): no dark box, unlit ghost
+    segments hidden, only the lit red/green lettering + a dark drop-shadow halo. **Decluttered:** the floating
+    `▲apex` number (`#arcApexInfo`) was retired then **RESTORED** (`cb25994`, user liked it — gives context to the
+    delta); the apex tangent LINE was always kept. The per-target orb-top `↑height` labels (`m.hlabel`, element
+    kept/hidden) STAY retired; dropped the HUD `· peak ↑X` (kept `IDEAL <loft>°`). NOTE `_arcApexY/_arcApexOn` are now WRITE-ONLY in `updateArcPreview` (dead
     state, harmless — left to avoid churning the hot path). Read-only → daily bit-identical.
     (b) **Daily ghost toggle:** `G` cycles `ghostMode` 0 none / 1 your-best (cyan) / 2 top-scorer (purple), default
     1 (one calm ghost, not two cursors), persisted `localStorage['aimdojo.ghostmode']`. `updateGhost` gated
