@@ -538,6 +538,7 @@ const CFG = {
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
   goldDistMul:1.35, goldSizeMul:0.7, decoyDistMul:0.6,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward), DECOYS lunge closer (bait). Deterministic given the seeded kind; the daily is left untouched.
+  grooveCut:[1,3,6],   // streak thresholds where the adaptive groove steps up a tier (target = streak<cut0?0 : <cut1?1 : <cut2?2 : 3). Loosened from [2,6,12] — the full groove now lands at a 6-streak, tier 1 on the first hit. Audio only. Lower these for an even easier build.
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
@@ -1102,7 +1103,7 @@ function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||
 function onGrid(time){
   if(!state.running){ grid8++; return; }
   const i=grid8%8;
-  const gt = (state.streak<2?0 : state.streak<6?1 : state.streak<12?2 : 3);         // groove intensity TARGET by streak
+  const gc=CFG.grooveCut, gt = (state.streak<gc[0]?0 : state.streak<gc[1]?1 : state.streak<gc[2]?2 : 3);   // groove intensity TARGET by streak (thresholds tunable via CFG.grooveCut)
   grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly on a miss (no jarring collapse)
   const tier = grooveI<0.5?0 : grooveI<1.5?1 : grooveI<2.5?2 : 3;
   try{
