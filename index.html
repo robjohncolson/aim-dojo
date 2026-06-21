@@ -1357,6 +1357,7 @@ function updateProjectiles(dt){
 const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=0.045;   // thin ribbon
 let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 const arcLandInfoEl=gid('arcLandInfo'), arcApexInfoEl=gid('arcApexInfo'), _arcApexP=new THREE.Vector3();   // ARC readouts: landing-distance label, apex tangent line + height label
+let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
 const _arcPts=new Float32Array(ARC_SAMP*3), _ribTan=new THREE.Vector3(), _ribOff=new THREE.Vector3(), _ribToCam=new THREE.Vector3();
@@ -1377,7 +1378,7 @@ function ensureArcObjs(){
   arcApex=new THREE.Line(makeArcGeo(2), lm(0xffd24a,0.9));                    // horizontal tangent line at the parabola's apex (max height)
   for(const o of [arcRibbon,arcLand,arcPulseA,arcPulseB,arcApex]){ o.frustumCulled=false; scene.add(o); }
 }
-function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } if(arcLandInfoEl) arcLandInfoEl.classList.remove('on'); if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); arcLanded=false; }
+function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } if(arcLandInfoEl) arcLandInfoEl.classList.remove('on'); if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); arcLanded=false; _arcApexOn=false; }
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
   const beatLen=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5, period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
@@ -1434,6 +1435,7 @@ function updateArcPreview(dt){                                                  
   const _g=CFG.projGravity, _tA=_arcV.y>0 ? _arcV.y/_g : 0;
   if(_tA>0.05 && arcApex){
     const apX=_arcM.x+_arcV.x*_tA, apY=_arcM.y+_arcV.y*_tA-0.5*_g*_tA*_tA, apZ=_arcM.z+_arcV.z*_tA;
+    _arcApexY=apY; _arcApexOn=true;                                                           // expose the apex height: target labels gate on it
     const _hl=Math.hypot(_arcV.x,_arcV.z)||1, _ux=_arcV.x/_hl, _uz=_arcV.z/_hl, _half=1.6;   // tangent runs horizontally, along the shot's down-range direction
     const ap=arcApex.geometry.attributes.position.array;
     ap[0]=apX-_ux*_half; ap[1]=apY; ap[2]=apZ-_uz*_half; ap[3]=apX+_ux*_half; ap[4]=apY; ap[5]=apZ+_uz*_half;
@@ -1441,10 +1443,10 @@ function updateArcPreview(dt){                                                  
     if(arcApexInfoEl){ _arcApexP.set(apX,apY,apZ); const as=projectPointScope(_arcApexP);
       if(as[2]){ arcApexInfoEl.style.setProperty('--tx',as[0]+'px'); arcApexInfoEl.style.setProperty('--ty',as[1]+'px'); setText(arcApexInfoEl, '▲ '+fmtDist(apY)); arcApexInfoEl.classList.add('on'); }
       else arcApexInfoEl.classList.remove('on'); }
-  } else { if(arcApex) arcApex.visible=false; if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); }
+  } else { if(arcApex) arcApex.visible=false; if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); _arcApexOn=false; }
 }
 /* ---- floor HUD under each target: beat-pulsed ring + dropline + distance label (all modes) ---- */
-const targetMarks=[]; const _tmFloor=new THREE.Vector3();
+const targetMarks=[]; const _tmFloor=new THREE.Vector3(), _tmH=new THREE.Vector3();
 function ensureTargetMark(i){
   let m=targetMarks[i]; if(m) return m;
   const ring=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.5})); ring.frustumCulled=false; scene.add(ring);   // NORMAL blend (additive washes out by day)
@@ -1465,8 +1467,10 @@ function updateTargetMarks(){                                                 //
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
-    const hs=projectPointScope(p);                                             // HEIGHT label floating AT the target itself (not the feet)
-    if(hs[2]){ m.hlabel.style.setProperty('--tx',hs[0]+'px'); m.hlabel.style.setProperty('--ty',hs[1]+'px'); setText(m.hlabel, '↑'+fmtDist(p.y)); m.hlabel.classList.add('on'); }
+    if(_arcApexOn && p.y > _arcApexY+0.4){                                     // HEIGHT label only when the orb sits ABOVE your shot's apex (you're under-arcing it); rides the TOP of the orb, not its middle
+      _tmH.set(p.x, p.y + tg.radius*tg.sc + 0.25, p.z); const hs=projectPointScope(_tmH);
+      if(hs[2]){ m.hlabel.style.setProperty('--tx',hs[0]+'px'); m.hlabel.style.setProperty('--ty',hs[1]+'px'); setText(m.hlabel, '↑'+fmtDist(p.y)); m.hlabel.classList.add('on'); }
+      else m.hlabel.classList.remove('on'); }
     else m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
