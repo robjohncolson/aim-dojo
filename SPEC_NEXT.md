@@ -4,15 +4,27 @@ Agreed direction after the session where the ARC daily landed and the game becam
 addicting." User wants **all of it**; build order below. Everything is build-blind (see
 CONTINUATION_PROMPT.md constraints) — verify by syntax + logic, user playtests.
 
-## Build order (recommended)
-1. ✅ **Juice pass** (color lift + clutch flourish) — SHIPPED (commit 368bd4f), awaiting playtest.
-2. ✅ **Self-ghost** (race your own best, DAILY only) — SHIPPED (commit 368bd4f), awaiting playtest.
-3. **Per-target ideal arc** — firing-computer depth (user is curious about this number). ← START HERE
-4. **Special orbs** — variety.
-5. **Wind** — LAST, free-play prototype first (user is cautious; must move the clouds too).
+## Build order — ALL FIVE SHIPPED ✅ (awaiting playtest + tuning)
+1. ✅ **Juice pass** (color lift + clutch flourish) — `368bd4f` (clutch burst color fixed in `503e9b6`).
+2. ✅ **Self-ghost** (race your own best, DAILY only) — `368bd4f`.
+3. ✅ **Per-target ideal arc** (scope HUD "IDEAL loft · peak") — `a5819f6`.
+4. ✅ **Special orbs** (gold bonus + don't-hit decoy) — `fa42b21`.
+5. ✅ **Wind** (free-play prototype, opt-in `?wind`) — `b517d4b`.
 
-1 + 2 shipped together (both low-risk, immediately felt). Next: 3, then 4, treat 5 as opt-in.
-Also parked: **free-play self-ghost** (deferred — free-play records no ghost + has no shared seed; see §2).
+**ALL ROADMAP FEATURES BUILT.** Every one is build-blind (verified by syntax + logic + numeric checks +
+multi-lens adversarial reviews; 0 confirmed findings each) — **the user playtests + tunes by ear/eye.**
+**START HERE next session:** ask the user how each feature FEELS and tune the CFG values (see each §). Then the
+remaining open work is the **promotions / deferrals** below — none are roadmap-blocking.
+
+### Open follow-ups (post-playtest, not roadmap-blocking)
+- **Tune by playtest:** clutch (freq/zoom/slow), combo glow, decoy/gold rates, wind feel — all CFG.
+- **Promote wind to the daily?** (currently free-play-only, opt-in). Needs SEEDED wind + a HUD strength shown to
+  all — same clean-cutover pattern as special orbs (a future `specialDailyTs`-style gate). User must greenlight.
+- **Free-play self-ghost** (deferred — free-play records no ghost + has no shared seed; see §2).
+- **Documented prototype gaps (low, accepted):** (a) the §3 IDEAL scope readout is WIND-NAIVE — only matters under
+  opt-in free-play wind; the ribbon + LOCK are wind-correct. (b) menu clouds keep the last free-play run's wind
+  drift until the next run resets it (cosmetic, opt-in, self-correcting; daily unaffected). (c) reduceMotion + `?wind`:
+  the arc ribbon is suppressed (pre-existing reduceMotion behavior) but wind is active + the wind HUD still shows.
 
 ---
 
@@ -96,6 +108,13 @@ Also parked: **free-play self-ghost** (deferred — free-play records no ghost +
 
 ## 3. Per-target ideal arc (firing-computer upgrade)
 
+> ✅ **SHIPPED (`a5819f6`) — as built:** in `updateScope`, for the LOCKED target, lead-iterate the intercept point
+> (`Q = Tt + vel*t`, 4×) then **closed-form solve the lofted launch ANGLE at the fixed `projSpeed`** (high-arc
+> root of the projectile-range discriminant) → `#scopeHud` shows `IDEAL <loft>° loft · peak <apex>` (or `out of
+> range` past `s²/g ≈ 36 m`). Read-only HUD; no rng/clock/scoring → daily deterministic. Solve verified numerically
+> (the parabola passes through the target at the solved angle). **Gap:** wind-naive (see §5 / follow-ups) — only
+> matters under opt-in free-play wind.
+
 - TODAY: the target height label gates on `_arcApexY` = the apex of YOUR CURRENT aim's parabola (one
   value vs every target). User is curious about a PER-TARGET ideal arc instead.
 - Per target, SOLVE the lob that hits it, show its ideal numbers ("this orb needs a peak of X m / Y°
@@ -110,6 +129,18 @@ Also parked: **free-play self-ghost** (deferred — free-play records no ghost +
 
 ## 4. Special orbs (variety)
 
+> ✅ **SHIPPED (`fa42b21`) — as built:** `tg.kind` 0=normal / 1=GOLD / 2=DECOY. Per-kind SHARED materials
+> (gold/decoy core+shell) swapped onto the pooled mesh each spawn; kind-colored bursts (`KIND_COLOR` hex →
+> `explodeAt`). **GOLD** = worth `goldScore` (2) kills; pushes `goldScore` matching `ghostRec.h` entries so
+> **`score === h.length` holds** (server-safe; verified against `server/server.js` `score≤h.length` + `h≤8/s`).
+> **DECOY** = hitting breaks streak + costs a shot (never scores; `gradeRhythmHit`/`onHit` short-circuit);
+> **dodging (expiry) is free** (`onExpire` neutral for kind 2); the firing computer (`scopeLockTarget`) ignores
+> decoys. **Determinism:** the kind roll consumes `rng` ONLY when special orbs are LIVE, **latched once per run**
+> in `resetSession` (`_specialLive`) → today's seeded daily stream is byte-identical; the daily gets special orbs
+> from the next UTC midnight (`specialDailyTs = Date.UTC(2026,5,22)` → fresh seed, clean cutover). Free-play: live
+> now. CFG: `specialOrbs`, `goldChance:.06`, `decoyChance:.10`, `goldScore:2`. **Playtest:** gold/decoy RATES + the
+> ×2 value; gold is same-size for now (could add smaller/faster per the original spec).
+
 - Add `tg.kind` in `spawnTarget` — **seeded via the existing `rng`** so the daily stays deterministic.
   - **Golden bonus orb** — rare, 2–3× score, maybe smaller / faster expiry. Pure upside.
   - **Decoy orb** (don't-hit) — hitting it breaks streak / costs. Adds target SELECTION.
@@ -120,6 +151,26 @@ Also parked: **free-play self-ghost** (deferred — free-play records no ghost +
 ---
 
 ## 5. Wind (LAST — cautious; must move clouds too)
+
+> ✅ **SHIPPED (`b517d4b`) — FREE-PLAY PROTOTYPE, OPT-IN** (`?wind`/`#wind` URL flag, or `CFG.wind:true`). A gentle
+> constant per-run horizontal wind (`windX/windZ`, `windMin:0.4`–`windMax:0.9` m/s²), set in `resetSession` for
+> free-play only. **The daily + any non-opted-in run keep `windX=windZ=0` → ballistics + clouds bit-identical**
+> (every added term is `+0`; verified). All four spec requirements done:
+> 1. **Projectile:** wind accel in `updateProjectiles`.
+> 2. **Clouds:** new `uWind` vec2 uniform in `skyDomeMat` (`uTime*uWind`); default `(0.006,0.004)` == the old
+>    hardcoded drift; `updateSky` sets it to `wind*windCloudK` when active → clouds drift along the wind.
+> 3. **Firing computer:** wind is in `computeShotPlan` (drifts the eye→crosshair impact `_arcI` so wind is FELT,
+>    AND compensates the muzzle back-solve `V.xz -= 0.5*wind*T`), `sampleArc` (ribbon), `simShotHits` (LOCK) →
+>    **the bullet still flies exactly down the ribbon** (numerically verified: wind adds ZERO ribbon-vs-bullet error
+>    vs the existing gravity discretization).
+> 4. **HUD:** `#windHud` — an arrow rotated to the wind direction relative to your view + the strength.
+>
+> **NOT in the daily yet** (the spec's recommendation: prototype free-play first). To promote to the daily: SEED the
+> wind (per-day, not `Math.random`), show the strength to everyone, and gate the cutover (a `specialDailyTs`-style
+> future-day gate) so today's board stays clean. **Playtest:** wind STRENGTH (`windMin/Max`), cloud drift speed
+> (`windCloudK`) + DIRECTION SIGN (flip `windCloudK` sign if clouds drift the wrong way), and whether the firing
+> computer makes it learnable. **Known gaps:** the §3 IDEAL readout is wind-naive; menu clouds keep the last run's
+> drift until reset (both low/cosmetic, opt-in).
 
 Feasible WITH cloud consistency, but the biggest because it must touch four things honestly:
 1. **Projectile:** wind accel in `updateProjectiles` (and the prediction below, or arc≠bullet).

@@ -3,18 +3,25 @@
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
 ## ▶ START HERE (next session)
-The game is in great shape and the user says it's **"genuinely addicting."** Roadmap lives in
-**`SPEC_NEXT.md`** (read it first). **Features 1 (Juice pass) + 2 (Self-ghost) are SHIPPED + LIVE**
-(commit `368bd4f`) and **awaiting the user's playtest** — see SPEC_NEXT §1/§2 for the as-built details +
-the **tunables to adjust by ear/eye** + the playtest questions. **Next build = (3) per-target ideal arc**
-(user is curious about the number), then (4) special orbs, (5) wind (free-play prototype, last). Also
-parked: a **free-play self-ghost** (deferred — free-play records no ghost + no shared seed).
-**FIRST: ask the user how features 1+2 felt** (clutch frequency/zoom/slow-mo, glow intensity, the cyan
-self-ghost reticle) and tune the CFG values before moving to feature 3.
-**Key gotcha that held (keep holding it):** the clutch "slow-mo" must NOT scale `dt`/the master clock —
-that would desync Tone.Transport (the beat). It's localized: a camera FOV punch + an explosion-only
-`rec.slow` factor (`edt=dt*slow` inside the explosion loop ONLY; `dt` is never reassigned).
-Follow the build-blind loop (validate → adversarial review for risky diffs → push → poll).
+The game is in great shape and the user says it's **"genuinely addicting."** **ALL FIVE `SPEC_NEXT.md`
+roadmap features are now SHIPPED + LIVE** — (1) juice pass, (2) self-ghost, (3) per-target ideal arc,
+(4) special orbs, (5) wind (free-play prototype) — plus a clutch-burst color bugfix. Each was built
+build-blind (syntax + logic + numeric checks + a multi-lens adversarial review with **0 confirmed findings**)
+and is **awaiting the user's playtest**. **Read `SPEC_NEXT.md` first** — every §1–§5 has the as-built notes,
+the **CFG tunables to adjust by ear/eye**, and the playtest questions.
+**FIRST next session: ask the user how each feature FEELS and tune the CFG values** (clutch freq/zoom/slow,
+combo glow, gold/decoy rates, wind strength + cloud sign). Then the only open work is the **promotions /
+deferrals** (none roadmap-blocking; see SPEC_NEXT "Open follow-ups"): promote **wind to the daily** (needs
+seeded wind + a clean cutover — user must greenlight), and the deferred **free-play self-ghost**.
+**Key gotchas that held (keep holding them):**
+- The clutch "slow-mo" must NOT scale `dt`/the master clock (would desync Tone.Transport). It's localized:
+  a camera FOV punch + an explosion-only `rec.slow` (`edt=dt*slow` inside the explosion loop ONLY).
+- **Daily determinism:** special orbs roll `rng` only when LIVE (latched per-run); wind is `0` in the daily.
+  Both keep the daily seeded-fair + bit-identical. Special orbs auto-cut into the daily at `specialDailyTs`
+  (`Date.UTC(2026,5,22)`); wind is NOT in the daily yet.
+- **Daily score invariant `score === h.length`** (server `score≤h.length`): gold pushes matching `h` entries;
+  decoys never score. Don't break this when touching scoring.
+Follow the build-blind loop (validate → dangling-ref grep → adversarial review for risky diffs → push → poll).
 
 ## What it is
 A single-file, browser-based **rhythm + spatial-audio aim trainer** with a full day/night sky,
@@ -262,9 +269,21 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     `aimdojo.selfghost`, daily-keyed, offline). New CFG: `comboGlow/glowMax/glowStreakFull/glowRiseK/glowFallK` +
     `clutch/clutchAnd/clutchRange/clutchLateBeats/clutchCooldown/clutchTime/clutchZoom/clutchSlow/clutchBurst/clutchRingTime`.
     **Tune by ear/eye + playtest; user not yet seen it run.**
+12. **Clutch-burst color fix (`503e9b6`)** — the shipped clutch explosion was rendering BLACK: `CLUTCH_COLOR` was a
+    `THREE.Color` object passed to `explodeAt`→`acquireFlash`/`acquireShards` which call `color.setHex(color)` (needs
+    an int → `Math.floor(obj)=NaN`→black). Made it a hex int. **Gotcha:** kill-burst colors MUST be hex ints, not `THREE.Color`.
+13. **Per-target ideal arc (`a5819f6`, LIVE)** — `#scopeHud` shows `IDEAL <loft>° loft · peak <apex>` for the locked
+    target (closed-form lofted-launch solve at `projSpeed`; lead-iterated intercept). Read-only; daily-deterministic. See SPEC_NEXT §3.
+14. **Special orbs (`fa42b21`, LIVE)** — gold bonus (×2, `score===h.length`-safe) + don't-hit decoy (penalty on hit,
+    free to dodge). `tg.kind` rolled from `rng` only when LIVE (latched per-run) → daily byte-identical; special orbs
+    enter the daily at `specialDailyTs`. See SPEC_NEXT §4. **Tune gold/decoy rates.**
+15. **Wind (`b517d4b`, LIVE) — FREE-PLAY PROTOTYPE, opt-in `?wind`/`CFG.wind`** — gentle per-run wind in all 4 ballistics
+    fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
+    NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
 
-All verified via the build-blind loop (node --check + dangling-ref greps; date logic for seasons executed in
-node); the larger/risky features (pace ghost, beat-quant, ARC daily, juice+self-ghost) got multi-agent adversarial reviews.
+All verified via the build-blind loop (node --check + dangling-ref/wiring greps + numeric ballistics checks; date logic
+for seasons executed in node); the larger/risky features (pace ghost, beat-quant, ARC daily, juice+self-ghost, ideal-arc,
+special orbs, wind) got multi-agent adversarial reviews (0 confirmed findings on the recent batch).
 
 ## Outstanding / likely next
 - **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build pacing (streak cutoffs
