@@ -874,9 +874,9 @@ function killTarget(tg){ dropTarget(tg); explodeAt(tg.mesh.position, tg.radius);
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
 let reverbInput=null, reverbQueued=false;
-let kick=null, snare=null, hat=null, tick=null, drumBus=null, drumsBuilt=false;
+let kick=null, snare=null, hat=null, tick=null, bass=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
 let gridId=null, grid8=0, cd=0, restSlots=0;
-let synthHit, synthLow, synthLvl, noiseFire, chordSynth;
+let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
 const PENTA=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
 function chordHit(streak){                               // a major chord a 1/4-beat after a hit, rising with the streak
   if(!soundOn || !toneReady || !chordSynth) return;
@@ -923,6 +923,7 @@ function buildDrums(){
     const hatFilt=new Tone.Filter(8000,'highpass').connect(drumBus);
     hat=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0}}).connect(hatFilt);
     tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(new Tone.Volume(3).connect(drumBus));
+    bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.004,decay:0.2,sustain:0.04,release:0.1}}).connect(new Tone.Filter(440,'lowpass').connect(new Tone.Volume(-9).connect(drumBus)));   // warm sub-bass for the higher groove tiers
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
 }
@@ -948,6 +949,7 @@ function initAudio(){
     synthLvl=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.002,decay:0.12,sustain:0,release:0.05}}).connect(out);
     noiseFire=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.05,sustain:0}}).connect(new Tone.Volume(-16).toDestination());
     try{ chordSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.3,sustain:0.05,release:0.5}}).connect(new Tone.Volume(-13).toDestination()); }catch(e){ chordSynth=null; }
+    try{ arcWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.01,decay:0.1,sustain:0.5,release:0.12}}).connect(new Tone.Volume(-19).toDestination()); }catch(e){ arcWhoosh=null; }   // ARC projectile flight whoosh (pitch sweeps up over the arc)
     toneReady=true;
   }catch(e){ toneReady=false; audioInit=false; }
   applyAudioState();
@@ -958,10 +960,17 @@ function sfx(kind){
     const now=Tone.now();
     if(kind==='hit'){ synthHit.triggerAttackRelease(880*Math.pow(2,Math.min(state.streak,12)/24),0.06,now); }
     else if(kind==='whiff'){ noiseFire.triggerAttackRelease(0.04,now); }
-    else if(kind==='offbeat'){ synthLow.triggerAttackRelease(180,0.07,now); }
-    else if(kind==='expire'){ synthLow.triggerAttackRelease(120,0.12,now); }
+    else if(kind==='offbeat'){ synthLow.triggerAttackRelease(220,0.08,now); }   // late hit → in-key (A3), plain (not a buzz)
+    else if(kind==='expire'){ synthLow.triggerAttackRelease(110,0.14,now); }     // missed entirely → low in-key (A2) drop
     else if(kind==='levelUp'){ synthLvl.triggerAttackRelease(523,0.08,now); synthLvl.triggerAttackRelease(784,0.10,now+0.09); }
     else if(kind==='levelDown'){ synthLvl.triggerAttackRelease(392,0.08,now); synthLvl.triggerAttackRelease(262,0.12,now+0.09); }
+  }catch(e){}
+}
+function playHit(gradeIdx){                               // graded hit tone: tighter timing (lower idx) → brighter/higher; streak still raises pitch
+  if(!soundOn || !toneReady || !synthHit) return;
+  try{ const now=Tone.now(), base=880*Math.pow(2,Math.min(state.streak,12)/24), mult=gradeIdx<=0?1.5:gradeIdx===1?1.25:1.0;
+    synthHit.triggerAttackRelease(base*mult, 0.06, now);
+    if(gradeIdx<=0) synthHit.triggerAttackRelease(base*mult*2, 0.05, now+0.045);   // FLAWLESS sparkle (octave up)
   }catch(e){}
 }
 function applyAudioState(){
@@ -1023,11 +1032,17 @@ function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||
 function onGrid(time){
   if(!state.running){ grid8++; return; }
   const i=grid8%8;
+  const gt = (state.streak<2?0 : state.streak<6?1 : state.streak<12?2 : 3);         // groove intensity TARGET by streak
+  grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly on a miss (no jarring collapse)
+  const tier = grooveI<0.5?0 : grooveI<1.5?1 : grooveI<2.5?2 : 3;
   try{
-    if(i===0||i===4) kick.triggerAttackRelease('C1','8n',time);
-    if(i===2||i===6) snare.triggerAttackRelease('16n',time);
-    if(hat) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);
-    if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker on every beat
+    if(kick && (i===0||i===4)) kick.triggerAttackRelease('C1','8n',time);
+    if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick
+    if(snare && tier>=1 && (i===2||i===6)) snare.triggerAttackRelease('16n',time, tier>=2?0.9:0.65);  // backbeat fades in
+    if(hat && (tier>=2 || i%2===0)) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);   // beat-hats → every-step hats as it builds
+    if(bass && tier>=2 && i===0) bass.triggerAttackRelease('A1','8n',time, 0.8);           // sub-bass root enters mid-intensity
+    if(bass && tier>=3 && i===4) bass.triggerAttackRelease('E2','8n',time, 0.55);          // a little movement at full
+    if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker ALWAYS (the gameplay metronome)
   }catch(e){}
   if(i%2===0){
     try{ Tone.Draw.schedule(()=>pulseBeat(i===0), time); }catch(e){}
@@ -1246,7 +1261,7 @@ function onHit(tg, point, atT){ // free-hunt   (atT = when the shot was committe
 function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
   const beats=(atT - tg.born)/(60/(atBpm!=null?atBpm:state.bpm));               // grade against the tempo at commit time too (it can step mid-flight in free-play)
-  let grade, good=true;
+  let grade, good=true; const gradeIdx = beats<=1?0 : beats<=2?1 : 2;   // 0=FLAWLESS,1=PERFECT,2=EXCELLENT → graded hit tone
   if(beats<=1.0) grade='FLAWLESS';
   else if(beats<=2.0) grade='PERFECT';
   else if(beats<=3.0) grade='EXCELLENT';
@@ -1258,7 +1273,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   state.sessEffs.push(ps); state.sessBpms.push(state.bpm); state.sessEffSum+=ps; state.sessBpmSum+=state.bpm;   // full-session record (for the startup chart)
   pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good', pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
-  sfx(good?'hit':'offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg); renderStats();
+  if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg); renderStats();
 }
 function onWhiff(skipBeam, fwd){
   state.shots++; state.streak=0; pushEvent(false);
@@ -1305,7 +1320,8 @@ function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
 function spawnProjectile(){
   const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, mode:'hunt', life:0, mesh:null};
-  computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows (set before this shot's recoil lands)
+  const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
+  if(soundOn && toneReady && arcWhoosh){ try{ const now=Tone.now(), ft=Math.max(0.2,Math.min(2.5,_T)); arcWhoosh.triggerAttackRelease(260, ft, now, 0.5); arcWhoosh.frequency.cancelScheduledValues(now); arcWhoosh.frequency.setValueAtTime(260, now); arcWhoosh.frequency.linearRampToValueAtTime(560, now+ft*0.9); }catch(e){} }   // rising flight whoosh over the arc
   pr.fireT=state.t; pr.fireBpm=state.bpm; pr.mode=state.mode; pr.life=0;                 // capture tempo too — it can step mid-flight (free-play adaptive engine)
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
@@ -1328,7 +1344,8 @@ function updateProjectiles(dt){
     let hit=null;
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
-    if(hit){ if(pr.mode==='rhythm') gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); else onHit(hit, pr.pos, pr.fireT); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
+    if(hit){ if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // ARC impact thud (weight on connect)
+      if(pr.mode==='rhythm') gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); else onHit(hit, pr.pos, pr.fireT); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
@@ -1850,7 +1867,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0;
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
   Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
