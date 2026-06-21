@@ -90,6 +90,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #scopeHud .sk{color:var(--bone-dim)}
 .tgtDist{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,206,92,.92);text-shadow:0 0 4px rgba(0,0,0,.9);pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 .tgtDist.on{display:block}
+#fps{position:fixed;left:8px;top:8px;font:11px var(--mono);color:#9fe8ff;letter-spacing:.04em;text-shadow:0 0 5px rgba(0,0,0,.9);z-index:30;pointer-events:none;display:none}
+#fps.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
@@ -231,6 +233,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <body>
 <canvas id="scene"></canvas>
 <div id="beatRing" aria-hidden="true"></div>
+<div id="fps" aria-hidden="true"></div>
 
 <div id="reticle" aria-hidden="true">
   <div class="arm h l"></div><div class="arm h r"></div>
@@ -297,7 +300,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     </div>
 
     <div id="boardBox" class="boardbox">
-      <div class="histhead"><span>GLOBAL HI SCORES · PEAK BPM</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
+      <div class="histhead"><span>GLOBAL HI · RAILGUN PEAK BPM</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
       <div id="boardList" class="boardlist"><div class="board-empty">loading…</div></div>
     </div>
 
@@ -1653,6 +1656,7 @@ const clock=new THREE.Clock();
 const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30, CHALLENGE_TONE_STEP=1/20;
 const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
 let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999, challengeToneAccum=CHALLENGE_TONE_STEP, challengeUiBpm=-1;
+const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
 function animate(frameNow){
   requestAnimationFrame(animate);
   if(document.hidden){ clock.getDelta(); return; }
@@ -1661,6 +1665,8 @@ function animate(frameNow){
   if(!state.running) lastIdleFrame=frameNow;
   const dt=Math.min(clock.getDelta(),0.05);
   updateRenderQuality(dt);
+  if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
+    fpsAccum+=dt; if(fpsAccum>=0.25){ fpsAccum=0; setText(fpsEl, Math.round(fpsEMA)+' fps · dpr '+renderer.getPixelRatio().toFixed(2)); if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on'); } }
 
   // camera = aim base + recoil kick + trauma shake (all decay back to the true aim)
   const rf=Math.exp(-dt*CFG.recoilReturn); recoilPitch*=rf; recoilYaw*=rf;
