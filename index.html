@@ -52,6 +52,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 @keyframes selfhit{0%{transform:translate(var(--sx,50vw),var(--sy,50vh)) scale(1.7);border-color:rgba(255,255,255,.95)}100%{transform:translate(var(--sx,50vw),var(--sy,50vh)) scale(1)}}
 #selfGhostName{left:50%;top:78px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;color:rgba(120,210,255,.9);display:none;white-space:nowrap}
 #selfGhostName.on{display:block}
+#ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
+#ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
+@keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
 #comboGlow{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:radial-gradient(125% 95% at 50% 50%, rgba(0,0,0,0) 54%, rgba(255,168,72,.18) 84%, rgba(255,120,44,.42) 100%);will-change:opacity}
 .liveRet{position:fixed;left:0;top:0;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(116,232,74,.55);border-radius:50%;box-shadow:0 0 6px rgba(116,232,74,.35);pointer-events:none;z-index:5;display:none;will-change:transform}
 .liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
@@ -94,6 +97,32 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock{border-color:rgba(255,205,90,.95);box-shadow:0 0 12px rgba(255,205,90,.55),inset 0 0 8px rgba(255,205,90,.22)}
 #lockBox::after{content:'LOCK';position:absolute;left:50%;top:-13px;transform:translateX(-50%);font:9px var(--mono);letter-spacing:.22em;color:rgba(255,205,90,.95);opacity:0;white-space:nowrap}
 #lockBox.lock::after{opacity:1}
+/* arc-delta LED gauge: signed delta from your shot's apex to the locked target's IDEAL apex, pinned to the lock box's top-right corner. Seven-segment (rectangular |/- bars); RED while off -> GREEN double-blink then vanish at match. */
+#arcDelta{position:absolute;left:100%;top:0;margin-left:8px;transform:translateY(-50%);display:none;align-items:center;padding:3px 5px;background:rgba(4,9,11,.62);border:1px solid rgba(120,140,150,.22);border-radius:3px;color:var(--blood);white-space:nowrap;line-height:0;box-shadow:0 0 10px rgba(0,0,0,.45)}
+#arcDelta.on{display:inline-flex}
+#arcDelta.matched{color:var(--toxic);border-color:rgba(116,232,74,.42);animation:ledMatch .64s ease-out forwards}
+@keyframes ledMatch{0%{opacity:1}14%{opacity:.12}28%{opacity:1}42%{opacity:.12}56%{opacity:1}100%{opacity:0}}
+#arcDelta .s7,#arcDelta .s7sign,#arcDelta .s7dot{position:relative;display:inline-block;height:20px}
+#arcDelta .s7{width:12px;margin:0 1px}
+#arcDelta .s7.blank{display:none}
+#arcDelta .s7sign{width:9px;margin:0 1px}
+#arcDelta .s7dot{width:5px}
+#arcDelta .s7 i,#arcDelta .s7sign i,#arcDelta .s7dot i{position:absolute;background:currentColor;opacity:.10;border-radius:1px}
+#arcDelta .s7 i.on{opacity:1;box-shadow:0 0 4px currentColor}
+#arcDelta .s7 i.a,#arcDelta .s7 i.g,#arcDelta .s7 i.d{left:2.5px;right:2.5px;height:2.5px}
+#arcDelta .s7 i.a{top:0}
+#arcDelta .s7 i.g{top:8.75px}
+#arcDelta .s7 i.d{bottom:0}
+#arcDelta .s7 i.f,#arcDelta .s7 i.b,#arcDelta .s7 i.e,#arcDelta .s7 i.c{width:2.5px;height:6.25px}
+#arcDelta .s7 i.f{top:2.5px;left:0}
+#arcDelta .s7 i.b{top:2.5px;right:0}
+#arcDelta .s7 i.e{bottom:2.5px;left:0}
+#arcDelta .s7 i.c{bottom:2.5px;right:0}
+#arcDelta .s7sign i.sh{left:0;right:0;top:8.75px;height:2.5px}
+#arcDelta .s7sign i.sv{top:4px;bottom:4px;left:50%;width:2.5px;margin-left:-1.25px}
+#arcDelta .s7sign.minus i.sh{opacity:1;box-shadow:0 0 4px currentColor}
+#arcDelta .s7sign.plus i.sh,#arcDelta .s7sign.plus i.sv{opacity:1;box-shadow:0 0 4px currentColor}
+#arcDelta .s7dot i{bottom:1px;left:0;width:2.5px;height:2.5px;opacity:1;box-shadow:0 0 4px currentColor}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
 #windHud{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font:11px var(--mono);color:#bfe9ff;letter-spacing:.12em;display:none;align-items:center;gap:7px;text-shadow:0 0 5px #000;z-index:5;pointer-events:none}
@@ -261,11 +290,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="ghostName" class="hud" aria-hidden="true"></div>
 <div id="selfGhostRet" aria-hidden="true"></div>
 <div id="selfGhostName" class="hud" aria-hidden="true"></div>
+<div id="ghostToast" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
 <div id="paceGhost" class="hud" aria-hidden="true"><div class="pg-top"><span>PACE</span><span class="pg-pct">—</span></div><div class="pg-track"><span class="pg-fill"></span></div><div class="pg-sub"></div></div>
 <div id="scopeAim" aria-hidden="true"></div>
-<div id="lockBox" aria-hidden="true"></div>
+<div id="lockBox" aria-hidden="true"><div id="arcDelta" aria-hidden="true"></div></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
@@ -512,7 +542,7 @@ const CFG = {
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
   // projectile (ballistic gravity arc — the DEFAULT and the daily now; railgun hit-scan kept as a free-play fallback via the projSeg toggle. global peak-BPM board stays hit-scan-pure.)
   projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
-  scope:true, scopeUnits:'m',   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft')
+  scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'); arcMatchTol = apex match window (m) at which the arc-delta LED gauge greens + vanishes
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
   // clutch flourish on a big ARC hit — RHYTHM-SAFE: a LOCALIZED camera FOV punch + explosion-only slow-mo + a shockwave ring. NEVER scales dt/Tone.Transport (that would desync the beat). Trigger = long-range OR last-second; clutchAnd:true → far AND late (rarer).
@@ -1512,9 +1542,7 @@ function updateArcPreview(dt){                                                  
     const ap=arcApex.geometry.attributes.position.array;
     ap[0]=apX-_ux*_half; ap[1]=apY; ap[2]=apZ-_uz*_half; ap[3]=apX+_ux*_half; ap[4]=apY; ap[5]=apZ+_uz*_half;
     arcApex.geometry.attributes.position.needsUpdate=true; arcApex.visible=true;
-    if(arcApexInfoEl){ _arcApexP.set(apX,apY,apZ); const as=projectPointScope(_arcApexP);
-      if(as[2]){ arcApexInfoEl.style.setProperty('--tx',as[0]+'px'); arcApexInfoEl.style.setProperty('--ty',as[1]+'px'); setText(arcApexInfoEl, '▲ '+fmtDist(apY)); arcApexInfoEl.classList.add('on'); }
-      else arcApexInfoEl.classList.remove('on'); }
+    if(arcApexInfoEl) arcApexInfoEl.classList.remove('on');   // floating ▲apex number retired -> the arc-delta LED gauge on the lock box is the single apex readout now (declutter); apex tangent LINE kept as the spatial cue
   } else { if(arcApex) arcApex.visible=false; if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); _arcApexOn=false; }
 }
 /* ---- floor HUD under each target: beat-pulsed ring + dropline + distance label (all modes) ---- */
@@ -1539,11 +1567,7 @@ function updateTargetMarks(){                                                 //
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
-    if(_arcApexOn && p.y > _arcApexY+0.4){                                     // HEIGHT label only when the orb sits ABOVE your shot's apex (you're under-arcing it); rides the TOP of the orb, not its middle
-      _tmH.set(p.x, p.y + tg.radius*tg.sc + 0.25, p.z); const hs=projectPointScope(_tmH);
-      if(hs[2]){ m.hlabel.style.setProperty('--tx',hs[0]+'px'); m.hlabel.style.setProperty('--ty',hs[1]+'px'); setText(m.hlabel, '↑'+fmtDist(p.y)); m.hlabel.classList.add('on'); }
-      else m.hlabel.classList.remove('on'); }
-    else m.hlabel.classList.remove('on'); }
+    m.hlabel.classList.remove('on'); }                                        // per-target orb-top height label retired -> superseded by the arc-delta LED gauge on the locked target (declutter near the cursor)
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
@@ -1565,7 +1589,24 @@ let scopeAccum=SCOPE_STEP;
 const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox');
 const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
 const _scScreen=[0,0,false];
-function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); }
+/* ---- seven-segment LED renderer for the arc-delta gauge: self-contained rectangular |/- bars (no webfont). Shows the signed delta from your shot's apex to the target's IDEAL apex; red seeking -> green double-blink -> vanish at match. ---- */
+const arcDeltaEl=gid('arcDelta'); let _arcDeltaState=0, _arcDeltaCells=null;   // 0 hidden/seeking · 1 showing-red · 2 matched (green, blinked, latched-hidden until off-match)
+const SEG7={'0':'abcdef','1':'bc','2':'abged','3':'abgcd','4':'fgbc','5':'afgcd','6':'afgedc','7':'abc','8':'abcdefg','9':'abcdfg'};
+function _mkDigit(){ const s=document.createElement('span'); s.className='s7'; s._segs={}; for(const c of 'abcdefg'){ const i=document.createElement('i'); i.className=c; s.appendChild(i); s._segs[c]=i; } s._v=undefined; return s; }
+function _mkSign(){ const s=document.createElement('span'); s.className='s7sign'; const h=document.createElement('i'); h.className='sh'; const v=document.createElement('i'); v.className='sv'; s.appendChild(h); s.appendChild(v); s._v=undefined; return s; }
+function _mkDot(){ const s=document.createElement('span'); s.className='s7dot'; s.appendChild(document.createElement('i')); return s; }
+function buildArcDelta(){ if(!arcDeltaEl || _arcDeltaCells) return; const sign=_mkSign(), d10=_mkDigit(), d1=_mkDigit(), dot=_mkDot(), d01=_mkDigit(); arcDeltaEl.appendChild(sign); arcDeltaEl.appendChild(d10); arcDeltaEl.appendChild(d1); arcDeltaEl.appendChild(dot); arcDeltaEl.appendChild(d01); _arcDeltaCells=[sign,d10,d1,d01]; }
+function _setDigit(cell, ch){ if(!cell || cell._v===ch) return; cell._v=ch; cell.classList.toggle('blank', ch==null); const lit=(ch==null?'':(SEG7[ch]||'')); for(const k in cell._segs) cell._segs[k].classList.toggle('on', lit.indexOf(k)>=0); }
+function _setSign(cell, s){ if(!cell || cell._v===s) return; cell._v=s; cell.classList.toggle('plus', s==='+'); cell.classList.toggle('minus', s==='-'); }
+function renderArcDelta(delta){   // delta = idealApex - yourApex (m): + = under-arcing (loft higher), - = over. null => matched 0.0, no sign.
+  buildArcDelta(); if(!_arcDeltaCells) return; const c=_arcDeltaCells;
+  const matched=(delta==null); let a=matched?0:Math.min(99.9, Math.abs(delta)); let w=Math.floor(a), f=Math.round((a-w)*10); if(f>=10){ f=0; w++; }
+  _setSign(c[0], matched?'':(delta>=0?'+':'-'));
+  _setDigit(c[1], w>=10 ? String((w/10|0)%10) : null);          // leading digit blanked (collapses) under 10
+  _setDigit(c[2], String(w%10)); _setDigit(c[3], String(f));
+}
+function hideArcDelta(){ if(arcDeltaEl && (arcDeltaEl.classList.contains('on')||arcDeltaEl.classList.contains('matched'))) arcDeltaEl.classList.remove('on','matched'); _arcDeltaState=0; }
+function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); hideArcDelta(); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
@@ -1598,7 +1639,17 @@ function updateScope(dt){
     if(disc<0){ _reach=false; break; }
     _reach=true; _loft=Math.atan((_is*_is+Math.sqrt(disc))/(_ig*ix)); _it=ix/(_is*Math.cos(_loft)); }   // high (lobbed) solution; refine flight time from the solved angle
   if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
-  const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b> · peak <b>↑'+fmtDist(_apex)+'</b>'
+  // arc-delta LED gauge (lock box top-right): signed delta from YOUR shot's apex to this target's IDEAL apex. red while off -> green double-blink then vanish at match. apex derived from the scope's OWN shot plan (_scM/_scV computed above) so the gauge tracks the SCOPE (not the Trajectory-arc toggle) + needs no ribbon. read-only (no rng/clock/scoring -> daily-deterministic).
+  if(arcDeltaEl){
+    const _gg=CFG.projGravity, _myTA=_scV.y>0?_scV.y/_gg:0;     // your current shot's time-to-apex from the muzzle launch velocity
+    if(ts[2] && _reach && _myTA>0.05 && !reduceMotion){
+      const dd=_apex-(_scM.y + _scV.y*_scV.y/(2*_gg));          // + = under-arcing (loft higher), - = over-arcing (loft lower); _scM.y cancels -> pure loft delta
+      if(Math.abs(dd)<=CFG.arcMatchTol){
+        if(_arcDeltaState!==2){ _arcDeltaState=2; renderArcDelta(null); arcDeltaEl.classList.add('on'); arcDeltaEl.classList.remove('matched'); void arcDeltaEl.offsetWidth; arcDeltaEl.classList.add('matched'); }   // crossed into match: 0.0 green, blink x2, vanish
+      } else { renderArcDelta(dd); if(_arcDeltaState===2) arcDeltaEl.classList.remove('matched'); _arcDeltaState=1; arcDeltaEl.classList.add('on'); }
+    } else hideArcDelta();
+  }
+  const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b>'
                            : '<br>IDEAL <b class="sk">out of range</b>';
   const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
   if(scopeHudEl._html!==html){ scopeHudEl.innerHTML=html; scopeHudEl._html=html; }
@@ -2095,6 +2146,16 @@ const GHOST_UPDATE_STEP=1/30;
 let ghostRec=null, ghost=null, ghostNextSample=0, ghostAccum=GHOST_UPDATE_STEP;
 const ghostRetEl=gid('ghostRet');
 let selfGhost=null, selfGhostAccum=GHOST_UPDATE_STEP; const selfGhostRetEl=gid('selfGhostRet');   // self-ghost: race YOUR best run on today's seed (localStorage, offline)
+let ghostMode=1; try{ const _gm=localStorage.getItem('aimdojo.ghostmode'); if(_gm!=null){ const _v=_gm|0; if(_v>=0&&_v<=2) ghostMode=_v; } }catch(e){}   // DAILY ghost display: 0 none · 1 your-best (cyan) · 2 top-scorer (purple). Toggle with G (persisted). Default 1 -> one calm ghost, not two cursors.
+const ghostToastEl=gid('ghostToast');
+function showGhostToast(txt){ if(!ghostToastEl) return; setText(ghostToastEl, txt); ghostToastEl.classList.remove('show'); void ghostToastEl.offsetWidth; ghostToastEl.classList.add('show'); }
+function applyGhostMode(){                                       // reconcile reticle + name-label visibility to the current mode (the per-frame updaters also self-gate)
+  const gn=gid('ghostName'), sgn=gid('selfGhostName');
+  if(ghostMode!==2){ if(ghostRetEl) ghostRetEl.classList.remove('on'); if(gn) gn.classList.remove('on'); } else if(gn && ghost) gn.classList.add('on');
+  if(ghostMode!==1){ if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); if(sgn) sgn.classList.remove('on'); } else if(sgn && selfGhost) sgn.classList.add('on');
+}
+function cycleGhostMode(){ ghostMode=(ghostMode+1)%3; try{ localStorage.setItem('aimdojo.ghostmode', String(ghostMode)); }catch(e){} applyGhostMode(); showGhostToast(ghostMode===0?'DAILY GHOST · OFF':ghostMode===1?'DAILY GHOST · YOUR BEST':'DAILY GHOST · TOP SCORER'); }
+document.addEventListener('keydown', e=>{ if(e.key!=='g'&&e.key!=='G') return; const tn=((e.target&&e.target.tagName)||'').toLowerCase(); if(tn==='input'||tn==='select'||tn==='textarea') return; if(settingsOverlay && !settingsOverlay.classList.contains('hidden')) return; cycleGhostMode(); });
 function qYaw(y){ const w=((y%TAU)+TAU)%TAU; return Math.round(w/TAU*65535); }
 function qPit(p){ return Math.max(0,Math.min(65535, Math.round((p/PITCH_LIMIT*0.5+0.5)*65535))); }
 function dqYaw(q){ return q/65535*TAU; }
@@ -2109,7 +2170,7 @@ function projectDir(dir){
 }
 function updateGhost(dt){
   const gr=ghostRetEl; if(!gr) return;
-  if(!ghost || !ghost.a || ghost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
+  if(ghostMode!==2 || !ghost || !ghost.a || ghost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
   ghostAccum+=dt; if(ghostAccum<GHOST_UPDATE_STEP) return; ghostAccum=0;
   const n=ghost.a.length>>1; let i=Math.floor(state.t*GHOST_HZ); if(i>n-1)i=n-1; const i2=Math.min(i+1,n-1), fr=Math.max(0,Math.min(1,state.t*GHOST_HZ-i));
   const gy=lerpAngle(dqYaw(ghost.a[i*2]), dqYaw(ghost.a[i2*2]), fr);
@@ -2119,7 +2180,7 @@ function updateGhost(dt){
 }
 function updateSelfGhost(dt){                                   // mirrors updateGhost, but for YOUR stored best (cyan reticle #selfGhostRet)
   const gr=selfGhostRetEl; if(!gr) return;
-  if(!selfGhost || !selfGhost.a || selfGhost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
+  if(ghostMode!==1 || !selfGhost || !selfGhost.a || selfGhost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
   selfGhostAccum+=dt; if(selfGhostAccum<GHOST_UPDATE_STEP) return; selfGhostAccum=0;
   const n=selfGhost.a.length>>1; let i=Math.floor(state.t*GHOST_HZ); if(i>n-1)i=n-1; const i2=Math.min(i+1,n-1), fr=Math.max(0,Math.min(1,state.t*GHOST_HZ-i));
   const gy=lerpAngle(dqYaw(selfGhost.a[i*2]), dqYaw(selfGhost.a[i2*2]), fr);
@@ -2131,7 +2192,7 @@ function loadSelfGhost(){                                       // load your sto
   selfGhost=null; const lbl=gid('selfGhostName'); if(lbl){ lbl.textContent=''; lbl.classList.remove('on'); }
   try{ const raw=localStorage.getItem('aimdojo.selfghost'); if(raw){ const o=JSON.parse(raw);
     if(o && o.day===dayKey() && o.rec && o.rec.a && o.rec.a.length){ selfGhost={a:o.rec.a, h:o.rec.h||[], hi:0, score:o.score|0};
-      if(lbl){ lbl.textContent='◆ your best · '+(o.score|0)+' kills'; lbl.classList.add('on'); } } } }catch(e){}
+      if(lbl){ lbl.textContent='◆ your best · '+(o.score|0)+' kills'; if(ghostMode===1) lbl.classList.add('on'); } } } }catch(e){}
 }
 function saveSelfGhost(){                                       // on run end: store the recorded run if it beat today's stored best
   if(!ghostRec || !ghostRec.a || !ghostRec.a.length) return;
@@ -2144,7 +2205,7 @@ async function loadGhost(){
   try{
     const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=name,replay,score&day=eq.'+encodeURIComponent(dayKey())+'&order=score.desc&limit=1', {headers:sbH()});
     const rows=await res.json();
-    if(rows && rows[0] && rows[0].replay){ const r=JSON.parse(rows[0].replay); if(r && r.a && r.a.length){ ghost={a:r.a, h:r.h||[], name:rows[0].name, hi:0}; if(lbl){ lbl.textContent='👻 racing '+(rows[0].name||'?')+' · '+rows[0].score+' kills'; lbl.classList.add('on'); } } }
+    if(rows && rows[0] && rows[0].replay){ const r=JSON.parse(rows[0].replay); if(r && r.a && r.a.length){ ghost={a:r.a, h:r.h||[], name:rows[0].name, hi:0}; if(lbl){ lbl.textContent='👻 racing '+(rows[0].name||'?')+' · '+rows[0].score+' kills'; if(ghostMode===2) lbl.classList.add('on'); } } }
   }catch(e){}
 }
 /* ---- percentile pace ghost: live "you're ahead of X% of today's runs" — your kills-by-now vs the recorded pace of everyone else on today's seed. Works SOLO (no live opponents needed); complements the head-to-head score race. ---- */
@@ -2409,6 +2470,7 @@ function restoreStartCard(){                                  // revert the paus
 function exitChallenge(){                                     // bail out of an in-progress daily → free-play menu (next ENTER is a normal run; ghost/score-race auto-hide since state.challenge is false)
   state.challenge=false; state.challengeOver=false; state.needsReset=true;
   hidePace();
+  if(ghostRetEl) ghostRetEl.classList.remove('on'); const gn=gid('ghostName'); if(gn) gn.classList.remove('on');   // clear the purple top-scorer ghost too (mode 2) — mirror endChallenge so exiting the daily never strands a frozen reticle/label
   if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); const sgn=gid('selfGhostName'); if(sgn) sgn.classList.remove('on');
   restoreStartCard();
 }
