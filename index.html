@@ -97,12 +97,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock{border-color:rgba(255,205,90,.95);box-shadow:0 0 12px rgba(255,205,90,.55),inset 0 0 8px rgba(255,205,90,.22)}
 #lockBox::after{content:'LOCK';position:absolute;left:50%;top:-13px;transform:translateX(-50%);font:9px var(--mono);letter-spacing:.22em;color:rgba(255,205,90,.95);opacity:0;white-space:nowrap}
 #lockBox.lock::after{opacity:1}
+#lockBox.decoy{border-color:rgba(255,59,110,.95);box-shadow:0 0 12px rgba(255,59,110,.5),inset 0 0 8px rgba(255,59,110,.2)}
+#lockBox.decoy::after{content:'AVOID';color:rgba(255,95,135,.97);opacity:1}
 /* arc-deviation glyphs (on the lock box): simple directional triangles in the HUD mono font. #arcDelta (top-right) = VERTICAL (▲ aim up / ▼ aim down); #arcDeltaX (bottom-center) = LATERAL (◀ aim left / ▶ aim right). Triangle points the way to nudge your aim; turns into a green ● when that axis is centered. */
 .led7{display:none;font:12px var(--mono);color:var(--blood);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;line-height:1}
 .led7.on{display:block}
 .led7.centered{color:var(--toxic)}
-.led7.lockflash{animation:ledLockFlash .34s ease-out forwards}
-@keyframes ledLockFlash{0%{opacity:1}22%{opacity:.15}48%{opacity:1;color:#fff}100%{opacity:0}}   /* both axes hit zero -> blink once then vanish (the 3D circles take over) */
 #arcDelta{position:absolute;left:100%;top:0;margin-left:6px;transform:translateY(-50%)}
 #arcDeltaX{position:absolute;right:100%;top:100%;margin-right:6px;transform:translateY(-2px)}   /* lower-left corner of the reticle */
 #scopeHud .lk{color:#ffd36b}
@@ -533,6 +533,7 @@ const CFG = {
   clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
   // special orbs (variety): rare GOLD bonus (worth goldScore kills, pushes matching ghost-hit entries so score===h.length holds) + DON'T-HIT DECOY (hitting breaks streak + costs a shot; dodging is free). Kind is rolled from rng ONLY when live → free-play now, daily from the next UTC midnight (fresh seed, clean cutover; today's stream untouched).
   specialOrbs:true, goldChance:0.06, decoyChance:0.10, goldScore:2, specialDailyTs:Date.UTC(2026,5,22),
+  goldDistMul:1.35, goldSizeMul:0.7, decoyDistMul:0.6,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward), DECOYS lunge closer (bait). Deterministic given the seeded kind; the daily is left untouched.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
 };
@@ -1243,6 +1244,11 @@ function spawnTarget(opts){
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll (and thus consume rng) ONLY when special orbs are live → today's seeded daily stream is byte-identical
   if(_specialLive){ const kr=rnd(); kind = kr<CFG.goldChance ? 1 : (kr<CFG.goldChance+CFG.decoyChance ? 2 : 0); }
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind];
+  if(kind && !state.challenge){                            // FREE-PLAY only (daily byte-identical): GOLD farther+smaller, DECOY closer. Deterministic given kind — no extra rnd().
+    const dmul = kind===1?CFG.goldDistMul:CFG.decoyDistMul, smul = kind===1?CFG.goldSizeMul:1;
+    if(dmul!==1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*dmul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); }
+    if(smul!==1){ tg.radius=r*smul; core.scale.setScalar(tg.radius*tg.sc); }
+  }
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); if(tg.trailMesh){ releaseTrailMesh(tg.trailMesh); tg.trailMesh=null; } releaseTargetRecord(tg); }
@@ -1586,47 +1592,13 @@ function driveGlyph(el, miss, negGlyph, posGlyph){   // miss<0 -> negGlyph, miss
   if(el._g!==ch){ el.textContent=ch; el._g=ch; }
   el.classList.toggle('centered', centered); el.classList.add('on');
 }
-function hideGlyph(el){ if(el && (el.classList.contains('on')||el.classList.contains('centered')||el.classList.contains('lockflash'))){ el.classList.remove('on','centered','lockflash'); el._g=undefined; } }
-/* ---- 3D lock-on: when the shot is dead-on (LOCK), the orb is shown sitting at the intersection of TWO perpendicular GREAT CIRCLES of a player-centred sphere (radius = orb distance). Both planes contain the player→orb direction, so both circles pass through the orb. Drawn in the gold LOCK colour, faded in. ---- */
-let lockSphere=null, lockLine=null, _sphereOpacity=0, _gaugeLocked=false, _lockSpin=0;
-const _lrSky=new THREE.Vector3();
-const _lockRingGeo=(()=>{ const N=80, a=new Float32Array(N*3); for(let i=0;i<N;i++){ const th=i/N*6.2831853; a[i*3]=Math.cos(th); a[i*3+1]=0; a[i*3+2]=Math.sin(th); } const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();   // unit ring in XZ (normal +Y)
-function ensureLockRings(){ if(lockSphere) return;
-  lockSphere=new THREE.Group(); lockSphere.frustumCulled=false; lockSphere.visible=false;                       // small wireframe sphere AROUND the locked orb: 3 perpendicular great circles (a globe) that tumble, gold like the LOCK box
-  const mk=()=>{ const m=new THREE.LineLoop(_lockRingGeo, new THREE.LineBasicMaterial({color:0xffcd5a, transparent:true, opacity:0, depthWrite:false, depthTest:false, fog:false})); m.renderOrder=5; m.frustumCulled=false; return m; };
-  const r1=mk(), r2=mk(), r3=mk(); r2.rotation.x=Math.PI/2; r3.rotation.z=Math.PI/2;                            // XZ / XY / YZ rings -> a wireframe sphere
-  lockSphere.add(r1); lockSphere.add(r2); lockSphere.add(r3); scene.add(lockSphere);
-  const lg=new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
-  lockLine=new THREE.Line(lg, new THREE.LineDashedMaterial({color:0xffcd5a, transparent:true, opacity:0, dashSize:0.45, gapSize:0.32, depthWrite:false, depthTest:false, fog:false}));   // dotted gold tether from the crosshair down to the orb
-  lockLine.frustumCulled=false; lockLine.renderOrder=6; lockLine.visible=false; lockLine.computeLineDistances(); scene.add(lockLine);
-}
-function setGaugeLocked(locked){ if(locked===_gaugeLocked) return; _gaugeLocked=locked;
-  for(const el of [gaugeY,gaugeX]){ if(!el) continue;
-    if(locked){ el.classList.remove('centered','lockflash'); void el.offsetWidth; el.classList.add('on','lockflash'); }   // both axes zero: blink once then hidden (CSS ends opacity:0)
-    else el.classList.remove('lockflash'); }                                                                            // off-lock: driveGlyph re-renders the triangle
-}
-function updateLockSphere(show, Tt, P, orbR){
-  const tgt=show?0.95:0; _sphereOpacity += (tgt-_sphereOpacity)*0.4;                    // smooth fade (per 30Hz scope tick)
-  if(_sphereOpacity<0.012){ _sphereOpacity=0; if(lockSphere){ lockSphere.visible=false; lockLine.visible=false; } return; }
-  ensureLockRings();
-  if(show && Tt){                                                                       // place + tumble the sphere on the orb only while locked; keep the last transform during fade-out
-    const R=Math.max(orbR*2.8, 1.0);                                                    // bigger than the orb so the curved rings clearly enclose it (and the curve is visible up close)
-    lockSphere.position.copy(Tt); lockSphere.scale.setScalar(R);
-    _lockSpin += 0.02; lockSphere.rotation.set(0.5, _lockSpin, 0.0);                    // slow tilted tumble so it reads unambiguously as a 3D sphere
-    _lrSky.copy(P).addScaledVector(_scAim, Tt.distanceTo(P));                           // tether far end: along the aim at the orb's range -> projects to the crosshair
-    const lp=lockLine.geometry.attributes.position.array; lp[0]=_lrSky.x;lp[1]=_lrSky.y;lp[2]=_lrSky.z; lp[3]=Tt.x;lp[4]=Tt.y;lp[5]=Tt.z;
-    lockLine.geometry.attributes.position.needsUpdate=true; lockLine.geometry.computeLineDistances();
-  }
-  const o=_sphereOpacity;
-  for(const r of lockSphere.children){ r.material.opacity=o; }
-  lockSphere.visible=true; lockLine.material.opacity=o; lockLine.visible=true;
-}
-function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); hideGlyph(gaugeY); hideGlyph(gaugeX); setGaugeLocked(false); updateLockSphere(false, null, null, 0); }
+function hideGlyph(el){ if(el && (el.classList.contains('on')||el.classList.contains('centered'))){ el.classList.remove('on','centered'); el._g=undefined; } }
+function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); hideGlyph(gaugeY); hideGlyph(gaugeX); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
 function scopeLockTarget(){ camera.getWorldDirection(_scAim); let best=null, bestDot=0.72;   // target nearest the crosshair, within ~44°
-  for(const tg of targets){ if(tg.dead || tg.kind===2) continue; _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // the firing computer ignores decoys (don't help you shoot one)
+  for(const tg of targets){ if(tg.dead) continue; _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included now -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
     const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d; if(dot>bestDot){ bestDot=dot; best=tg; } } return best; }
 function updateScope(dt){
   if(!((CFG.projectile||state.challenge) && CFG.scope && state.running)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
@@ -1641,8 +1613,8 @@ function updateScope(dt){
   if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
     lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
     lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px');
-    lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('lock', locked); }
-  else lockBoxEl.classList.remove('on','lock');
+    const isDecoy=tg.kind===2; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', locked && !isDecoy); }   // decoy -> red AVOID box, never the gold LOCK
+  else lockBoxEl.classList.remove('on','lock','decoy');
   // HUD readouts
   const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(Tt.y-P.y)/slant)))*RAD2DEG, lead=tg.vel.length()*flight;
   // PER-TARGET IDEAL LOB (firing-computer depth): lead-iterate the intercept point, then closed-form solve the lofted
@@ -1655,17 +1627,12 @@ function updateScope(dt){
     _reach=true; _loft=Math.atan((_is*_is+Math.sqrt(disc))/(_ig*ix)); _it=ix/(_is*Math.cos(_loft)); }   // high (lobbed) solution; refine flight time from the solved angle
   if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
   // arc-delta LED gauges (on the lock box): how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits), split into two axes vs the optimal shot. TOP (#arcDelta) = VERTICAL: + = arc passes low (loft higher), - = high (loft lower). BOTTOM (#arcDeltaX) = LATERAL: + = passes right, - = left. Both 0 at a hit; GREEN on LOCK. read-only -> daily-deterministic.
-  if(ts[2] && _scVMissOn && !reduceMotion){
-    if(locked){ setGaugeLocked(true); updateLockSphere(true, Tt, P, tg.radius*tg.sc); }   // LOCK (both axes zero): triangles blink once + vanish; a wireframe sphere wraps the orb
-    else {
-      setGaugeLocked(false);
-      const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;  // horizontal view forward
-      const lat=_scMissX*(-fz)+_scMissZ*fx;                                       // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
-      driveGlyph(gaugeY, _scVMiss, '▲', '▼');   // TOP vertical: arc below orb (vMiss<0) -> ▲ aim up ; above -> ▼
-      driveGlyph(gaugeX, lat, '▶', '◀');        // LOWER-LEFT lateral: arc left (lat<0) -> ▶ aim right ; right -> ◀
-      updateLockSphere(false, Tt, P, 0);
-    }
-  } else { setGaugeLocked(false); hideGlyph(gaugeY); hideGlyph(gaugeX); updateLockSphere(false, null, null, 0); }
+  if(ts[2] && _scVMissOn && !reduceMotion && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one)
+    const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
+    const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
+    driveGlyph(gaugeY, _scVMiss, '▲', '▼');   // TOP vertical: arc below orb (vMiss<0) -> ▲ aim up ; above -> ▼ ; |miss|<tol -> green ●
+    driveGlyph(gaugeX, lat, '▶', '◀');        // LOWER-LEFT lateral: arc left (lat<0) -> ▶ aim right ; right -> ◀
+  } else { hideGlyph(gaugeY); hideGlyph(gaugeX); }
   const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b>'
                            : '<br>IDEAL <b class="sk">out of range</b>';
   const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
