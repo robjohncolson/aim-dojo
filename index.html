@@ -542,7 +542,7 @@ const CFG = {
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
   // projectile (ballistic gravity arc — the DEFAULT and the daily now; railgun hit-scan kept as a free-play fallback via the projSeg toggle. global peak-BPM board stays hit-scan-pure.)
   projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
-  scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'); arcMatchTol = apex match window (m) at which the arc-delta LED gauge greens + vanishes
+  scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
   // clutch flourish on a big ARC hit — RHYTHM-SAFE: a LOCALIZED camera FOV punch + explosion-only slow-mo + a shockwave ring. NEVER scales dt/Tone.Transport (that would desync the beat). Trigger = long-range OR last-second; clutchAnd:true → far AND late (rarer).
@@ -1644,8 +1644,8 @@ function updateScope(dt){
     const _gg=CFG.projGravity, _myTA=_scV.y>0?_scV.y/_gg:0;     // your current shot's time-to-apex from the muzzle launch velocity
     if(ts[2] && _reach && _myTA>0.05 && !reduceMotion){
       const dd=_apex-(_scM.y + _scV.y*_scV.y/(2*_gg));          // + = under-arcing (loft higher), - = over-arcing (loft lower); _scM.y cancels -> pure loft delta
-      if(Math.abs(dd)<=CFG.arcMatchTol){
-        if(_arcDeltaState!==2){ _arcDeltaState=2; renderArcDelta(null); arcDeltaEl.classList.add('on'); arcDeltaEl.classList.remove('matched'); void arcDeltaEl.offsetWidth; arcDeltaEl.classList.add('matched'); }   // crossed into match: 0.0 green, blink x2, vanish
+      if(locked){                                               // GREEN = your shot would actually CONNECT (same signal as the gold LOCK box), so the gauge can NEVER read red-while-locked. There are two firing solutions (flat + lobbed); _apex is the lobbed ideal, so a flat-arc hit would otherwise show a stale red +. While seeking, the red delta coaches loft toward the lobbed ideal.
+        if(_arcDeltaState!==2){ _arcDeltaState=2; renderArcDelta(null); arcDeltaEl.classList.add('on'); arcDeltaEl.classList.remove('matched'); void arcDeltaEl.offsetWidth; arcDeltaEl.classList.add('matched'); }   // crossed into match (LOCK): 0.0 green, blink x2, vanish
       } else { renderArcDelta(dd); if(_arcDeltaState===2) arcDeltaEl.classList.remove('matched'); _arcDeltaState=1; arcDeltaEl.classList.add('on'); }
     } else hideArcDelta();
   }
