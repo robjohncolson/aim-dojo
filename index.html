@@ -470,7 +470,7 @@ const CFG = {
   startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
   startBpm:35, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // gentler slowdown so a few misses don't crater the tempo
-  challengeDur:90, challengeStartBpm:42, challengeMaxBpm:150, challengeEase:1.4,   // daily challenge: ease-in tempo ramp (lingers playable, hard finale)
+  challengeDur:90, challengeStartBpm:40, challengeMaxBpm:128, challengeEase:1.5,   // daily challenge: ease-in tempo ramp (lingers playable, hard finale). Tuned DOWN for the ARC daily — flight + lead need more time per shot than hit-scan.
   // shared adaptive law
   upThreshold:0.80, downThreshold:0.45, windowSize:10, warmEvents:6,   // wider dead-band: only slow down below 45% accuracy
   // difficulty mapping
@@ -479,7 +479,7 @@ const CFG = {
   rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeStep:1.2, rangeStepDown:1.6,   // skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
-  beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // FREE-PLAY RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (daily stays continuous for determinism; hunt has no beat)
+  beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM (free-play + the ARC daily): strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. The daily strobes too now (off Tone.Transport.ticks, same as spawns); hunt has no beat.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -490,7 +490,7 @@ const CFG = {
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
-  // projectile (ballistic free-play option — gravity arc; the seeded daily + both leaderboards stay hit-scan)
+  // projectile (ballistic gravity arc — the DEFAULT and the daily now; railgun hit-scan kept as a free-play fallback via the projSeg toggle. global peak-BPM board stays hit-scan-pure.)
   projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
   scope:true, scopeUnits:'m',   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft')
 };
@@ -527,7 +527,7 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
-let _quantIdx=-1, _quantT=0;   // beat-grid strobe: last snap index + state.t at last snap (free-play rhythm target motion)
+let _quantIdx=-1, _quantT=0;   // beat-grid strobe: last snap index + state.t at last snap. Free-play AND the ARC daily both step off Tone.Transport.ticks (same audio clock as the spawn scheduler).
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
 const FLOOR_SIZE=620;
@@ -1303,7 +1303,7 @@ function hitScanTarget(){
 function fire(){
   if(!state.running) return;
   addRecoil();
-  if(CFG.projectile && !state.challenge){ spawnProjectile(); return; }   // ballistic FREE-PLAY only — the seeded daily ALWAYS uses hit-scan regardless of this toggle (fairness + a comparable board + valid ghosts)
+  if(CFG.projectile || state.challenge){ spawnProjectile(); return; }   // ARC = free-play (CFG.projectile, the default) OR the daily (always ARC now). Railgun = free-play with the toggle OFF (fallback).
   const tg=hitScanTarget();
   if(tg){ state.mode==='rhythm'?gradeRhythmHit(tg,_fireHit):onHit(tg,_fireHit); fireBeam(_fireHit,true,_fireDir); }
   else onWhiff(false,_fireDir);
@@ -1311,7 +1311,7 @@ function fire(){
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); });
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
 
-/* ========================= PROJECTILE (ballistic free-play option — true gravity arc; aim above + lead. Daily/boards stay hit-scan, so no determinism needed here.) ========================= */
+/* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
 const projectiles=[];
 const PROJ_GEO=new THREE.SphereGeometry(0.17,8,6);
 const PROJ_MAT=new THREE.MeshBasicMaterial({color:0x9fe8ff});
@@ -1402,7 +1402,7 @@ function simShotHits(M, V, T, tg){                                              
   return false;
 }
 function updateArcPreview(dt){                                                               // thick low-opacity ribbon with scrolling dashes — IS the real shot's path (same plan spawnProjectile uses)
-  if(!(CFG.projectile && CFG.projArc && state.running && !state.challenge && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // never preview in the daily (it's hit-scan)
+  if(!((CFG.projectile||state.challenge) && CFG.projArc && state.running && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // ARC free-play OR the ARC daily
   ensureArcObjs();
   animateArcPulse();                                                                         // smooth every frame, off the last computed landing point
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
@@ -1470,7 +1470,7 @@ function scopeLockTarget(){ camera.getWorldDirection(_scAim); let best=null, bes
   for(const tg of targets){ if(tg.dead) continue; _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;
     const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d; if(dot>bestDot){ bestDot=dot; best=tg; } } return best; }
 function updateScope(dt){
-  if(!(CFG.projectile && CFG.scope && state.running && !state.challenge)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
+  if(!((CFG.projectile||state.challenge) && CFG.scope && state.running)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
   scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
   const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
   const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
@@ -1722,13 +1722,13 @@ function animate(frameNow){
     if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ TARGET_SHELL_MAT.opacity=0.13+0.06*Math.sin(state.t*4); shellAccum=0; } }
     if(targets.length){
       // beat-quantized motion (free-play rhythm): the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle. Continuous modes (hunt/daily) keep doSnap=true every frame → unchanged.
-      const wantStrobe=(state.mode==='rhythm' && !state.challenge && CFG.beatQuant && toneReady);
+      const wantStrobe=(state.mode==='rhythm' && CFG.beatQuant && toneReady);   // free-play AND the (now ARC) daily — both strobe
       const strobe=wantStrobe && Tone.Transport.state==='started';
       let doSnap=true, moveStep=dt;
       if(wantStrobe && !strobe){ doSnap=false; }               // transport not ticking yet (e.g. the brief window after a resume) → HOLD, don't revert to per-frame scatter
       else if(strobe){
-        const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/4 → 1/8 → 1/16 beat as skill (diffT) rises
-        let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}                     // beats elapsed (tempo-ramp-robust)
+        const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/2 → 1/4 → 1/8 beat as skill (diffT) rises
+        let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}   // same audio clock as the spawn scheduler (onGrid) → in the daily, strobe steps + spawns share one timeline (seeded-fair, fps-tolerant)
         const qi=Math.floor(beats*spb);
         doSnap = qi!==_quantIdx;
         if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
@@ -1796,8 +1796,8 @@ function animate(frameNow){
   } else clearRings();
   updateAssist(dt);
   updateTrail(dt);
-  if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ballistic free-play option + scope; guarded so a hiccup can't freeze the loop
-  else if(arcRibbon && arcRibbon.visible) hideArc();
+  if(CFG.projectile || state.challenge) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC free-play OR the ARC daily; guarded so a hiccup can't freeze the loop
+  else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (all modes)
   try{ updateLandRings(dt); }catch(e){}                       // expanding ring where a shot hits the ground
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
@@ -2173,7 +2173,7 @@ async function submitScore(){
   if(state.mode!=='rhythm') return;
   const score=Math.round(state.maxBpm);
   let best=0; try{ best=+(localStorage.getItem('aimdojo.bestBpm')||0); }catch(e){}
-  if(CFG.projectile || state.challengeOver || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip ballistic + challenge runs; else only a real improved best (keeps the peak-BPM board hit-scan-pure)
+  if(CFG.projectile || state.challenge || state.challengeOver || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip ballistic + ANY challenge run (in-progress or over); else only a real improved best (keeps the peak-BPM board hit-scan-pure)
   try{ localStorage.setItem('aimdojo.bestBpm', String(score)); }catch(e){}
   const acc=state.shots?Math.round(state.hits/state.shots*100):null;
   const ap=state.pathScores.length?Math.round(avgPathScore()*100):null;
