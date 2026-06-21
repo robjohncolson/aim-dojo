@@ -202,8 +202,8 @@ if a week's field gets large, move to a server aggregate (same path as the pace 
 - **Floor HUD (`updateTargetMarks`):** ring radius `0.5+beat*0.38`, `Math.pow(...,1.6)` beat envelope,
   marker color `0xffce5c`. **Land ring (`updateLandRings`):** `0.5+k*3.4` radius, `0.55s` life.
 - **Scope lock:** `simShotHits` radius margin (`+0.12`), lock cone in `scopeLockTarget` (`bestDot 0.72`).
-- **Arc-delta LED gauge (`updateScope` + `#arcDelta` CSS):** `CFG.arcMatchTol:0.5` = apex match window (m) where it
-  greens + vanishes (raise for an easier "matched"). Seven-seg geometry is fixed CSS (digit 12×20px, 2.5px bars);
+- **Arc-delta LED gauge (`updateScope` + `#arcDelta` CSS):** greens/vanishes on **LOCK** (`simShotHits`, same as the
+  gold lock box) — `CFG.arcMatchTol` is VESTIGIAL (no longer the trigger). Seven-seg geometry is fixed CSS (digit 12×20px, 2.5px bars);
   blink timing in `@keyframes ledMatch`. Colors = `--blood` (red) / `--toxic` (green). To bring back the retired
   floating apex number, un-retire the `#arcApexInfo` block in `updateArcPreview`.
 - **Daily ghost toggle:** `ghostMode` (0/1/2, default 1), key `G`, persisted `aimdojo.ghostmode`. To change the
@@ -298,8 +298,12 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     CDN only ships `.sfd` sources, and a school-network font fallback was unacceptable) nested as a child of
     `#lockBox`, pinned to its **top-right corner** (`left:100%;top:0;translateY(-50%)`). Shows the **signed delta
     from YOUR shot's apex to the locked target's IDEAL apex** (`+`=under-arc/loft higher, `-`=over; user picked
-    "delta" over absolute peak): **RED** while off → **GREEN, double-blink, vanish** within `CFG.arcMatchTol:0.5` m
-    (`@keyframes ledMatch`, `forwards`→opacity 0; reappears red off-match; reflow-restart on re-match). Apex is
+    "delta" over absolute peak): **RED** while off → **GREEN, double-blink, vanish** when your shot would CONNECT
+    (`locked`/`simShotHits` — the SAME signal as the gold lock box, so the gauge can't disagree with it;
+    `@keyframes ledMatch` `forwards`→opacity 0; reappears red off-lock; reflow-restart on re-lock). **The green
+    trigger is LOCK, not an apex window** — `CFG.arcMatchTol` is now VESTIGIAL. (An earlier apex-window version
+    read red-WHILE-locked because a target has TWO firing solutions — flat + lobbed — and `_apex` is the lobbed
+    one, so a flat-arc hit showed a stale red `+`; fixed `3467cf8`.) Apex is
     derived from the **scope's own shot plan** (`_scM/_scV` in `updateScope`), NOT `_arcApexY/_arcApexOn` — so it
     tracks the SCOPE (works even with the Trajectory-arc ribbon OFF; a review-confirmed fix). `!reduceMotion`-gated.
     State machine: module `_arcDeltaState` (0 hidden/1 red/2 matched-latched-hidden); `renderArcDelta`/`_setDigit`/

@@ -118,7 +118,9 @@ remaining open work is the **promotions / deferrals** below — none are roadmap
 > 🔁 **REDESIGNED post-playtest (`ee2f662`):** user found the readout worked but the numbers crowded the cursor
 > (the constantly-shown apex height vs the ideal competing). The peak readout moved OUT of `#scopeHud` into a
 > **seven-segment LED "delta-to-ideal-apex" gauge pinned to the lock box's top-right corner** — shows the SIGNED
-> delta (`+`=loft higher / `-`=lower), RED while off → GREEN double-blink then vanish at match (`CFG.arcMatchTol`).
+> delta (`+`=loft higher / `-`=lower), RED while off → GREEN double-blink then vanish **on LOCK** (your shot would
+> connect — `simShotHits`, the same signal as the gold lock box; NOT an apex window — that earlier version read
+> red-while-locked because a target has two flat/lobbed firing solutions, fixed `3467cf8`).
 > `#scopeHud` keeps only `IDEAL <loft>°`. The floating `▲apex` number + per-target orb-top `↑height` labels were
 > RETIRED (the gauge subsumes them). Apex is derived from the scope's own shot plan so it needs no ribbon. See
 > CONTINUATION_PROMPT.md Shipped #16. **Playtest:** does the LED gauge read well? want the floating apex number back?
