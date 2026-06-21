@@ -405,13 +405,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 
       <div class="row">
         <label for="upTh">Speed-up at</label>
-        <input type="range" id="upTh" min="0.6" max="0.95" step="0.01" value="0.80">
+        <input type="range" id="upTh" min="0" max="0.95" step="0.01" value="0.80">
         <span class="out" id="upThOut">80%</span>
       </div>
       <div class="row">
         <label for="downTh">Slow-down at</label>
-        <input type="range" id="downTh" min="0.3" max="0.75" step="0.01" value="0.45">
-        <span class="out" id="downThOut">45%</span>
+        <input type="range" id="downTh" min="0" max="0.75" step="0.01" value="0.20">
+        <span class="out" id="downThOut">20%</span>
       </div>
       <div class="hint">The gap between these is the dead-band: while accuracy sits between them the tempo holds steady.</div>
 
@@ -472,7 +472,7 @@ const CFG = {
   startBpm:35, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // gentler slowdown so a few misses don't crater the tempo
   challengeDur:90, challengeStartBpm:40, challengeMaxBpm:128, challengeEase:1.5,   // daily challenge: ease-in tempo ramp (lingers playable, hard finale). Tuned DOWN for the ARC daily — flight + lead need more time per shot than hit-scan.
   // shared adaptive law
-  upThreshold:0.80, downThreshold:0.45, windowSize:10, warmEvents:6,   // wider dead-band: only slow down below 45% accuracy
+  upThreshold:0.80, downThreshold:0.20, windowSize:10, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Sliders now span 0–95% (up) / 0–75% (down); slow-down default 20%.
   // difficulty mapping
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
