@@ -1506,9 +1506,12 @@ function sampleArc(M, V, T, samples, outArr){                                   
 function simShotHits(M, V, T, tg){                                                           // march the actual shot vs the target's predicted motion → does it connect? (path-accurate lock)
   const g=CFG.projGravity, sdt=1/90; let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
   const T0=tg.mesh.position, Vt=tg.vel, rr=(tg.radius*tg.sc)+CFG.projRadius+0.12, rr2=rr*rr;
+  let bestH2=Infinity, bestDy=0;                                                                  // closest HORIZONTAL approach + the vertical gap there → the arc-delta gauge (vertical miss)
   for(let t=0; t<=T+0.15 && py>-1; t+=sdt){ vx+=windX*sdt; vy-=g*sdt; vz+=windZ*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt;   // wind (0 in the daily) → the LOCK marches the real wind-blown path
-    const dx=px-(T0.x+Vt.x*t), dy=py-(T0.y+Vt.y*t), dz=pz-(T0.z+Vt.z*t); if(dx*dx+dy*dy+dz*dz<=rr2) return true; }
-  return false;
+    const dx=px-(T0.x+Vt.x*t), dy=py-(T0.y+Vt.y*t), dz=pz-(T0.z+Vt.z*t), h2=dx*dx+dz*dz;
+    if(h2<bestH2){ bestH2=h2; bestDy=dy; }                                                        // dy = shot.y - target.y at the moment the shot passes the target's range (dy<0 = arc is BELOW the orb → loft higher)
+    if(dx*dx+dy*dy+dz*dz<=rr2){ _scVMiss=0; _scVMissOn=true; return true; } }
+  _scVMiss=bestDy; _scVMissOn=(bestH2<Infinity); return false;
 }
 function updateArcPreview(dt){                                                               // thick low-opacity ribbon with scrolling dashes — IS the real shot's path (same plan spawnProjectile uses)
   if(!((CFG.projectile||state.challenge) && CFG.projArc && state.running && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // ARC free-play OR the ARC daily
@@ -1593,6 +1596,7 @@ const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vec
 const _scScreen=[0,0,false];
 /* ---- seven-segment LED renderer for the arc-delta gauge: self-contained rectangular |/- bars (no webfont). Shows the signed delta from your shot's apex to the target's IDEAL apex; red seeking -> green double-blink -> vanish at match. ---- */
 const arcDeltaEl=gid('arcDelta'); let _arcDeltaState=0, _arcDeltaCells=null;   // 0 hidden/seeking · 1 showing-red · 2 matched (green, blinked, latched-hidden until off-match)
+let _scVMiss=0, _scVMissOn=false;   // signed vertical miss of YOUR shot vs the locked target at closest approach (set by simShotHits): shot.y - target.y -> the arc-delta gauge's "how far my arc passes below/above the orb" (0 at a hit)
 const SEG7={'0':'abcdef','1':'bc','2':'abged','3':'abgcd','4':'fgbc','5':'afgcd','6':'afgedc','7':'abc','8':'abcdefg','9':'abcdfg'};
 function _mkDigit(){ const s=document.createElement('span'); s.className='s7'; s._segs={}; for(const c of 'abcdefg'){ const i=document.createElement('i'); i.className=c; s.appendChild(i); s._segs[c]=i; } s._v=undefined; return s; }
 function _mkSign(){ const s=document.createElement('span'); s.className='s7sign'; const h=document.createElement('i'); h.className='sh'; const v=document.createElement('i'); v.className='sv'; s.appendChild(h); s.appendChild(v); s._v=undefined; return s; }
@@ -1641,14 +1645,12 @@ function updateScope(dt){
     if(disc<0){ _reach=false; break; }
     _reach=true; _loft=Math.atan((_is*_is+Math.sqrt(disc))/(_ig*ix)); _it=ix/(_is*Math.cos(_loft)); }   // high (lobbed) solution; refine flight time from the solved angle
   if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
-  // arc-delta LED gauge (lock box top-right): signed delta from YOUR shot's apex to this target's IDEAL apex. red while off -> green double-blink then vanish at match. apex derived from the scope's OWN shot plan (_scM/_scV computed above) so the gauge tracks the SCOPE (not the Trajectory-arc toggle) + needs no ribbon. read-only (no rng/clock/scoring -> daily-deterministic).
+  // arc-delta LED gauge (lock box top-right): how far YOUR shot's arc passes BELOW/ABOVE the locked orb — the signed VERTICAL MISS at closest approach (from simShotHits): 0 at a hit, grows smoothly as you deviate; + = arc passes low (loft higher), - = high (loft lower). GREEN on LOCK (shot would connect — same signal as the gold box). NOT an apex-height delta (that read ~the lobbed ideal HEIGHT, ~17, even on a flat-arc hit). read-only -> daily-deterministic.
   if(arcDeltaEl){
-    const _gg=CFG.projGravity, _myTA=_scV.y>0?_scV.y/_gg:0;     // your current shot's time-to-apex from the muzzle launch velocity
-    if(ts[2] && _reach && _myTA>0.05 && !reduceMotion){
-      const dd=_apex-(_scM.y + _scV.y*_scV.y/(2*_gg));          // + = under-arcing (loft higher), - = over-arcing (loft lower); _scM.y cancels -> pure loft delta
-      if(locked){                                               // GREEN = your shot would actually CONNECT (same signal as the gold LOCK box), so the gauge can NEVER read red-while-locked. There are two firing solutions (flat + lobbed); _apex is the lobbed ideal, so a flat-arc hit would otherwise show a stale red +. While seeking, the red delta coaches loft toward the lobbed ideal.
+    if(ts[2] && _scVMissOn && !reduceMotion){
+      if(locked){
         if(_arcDeltaState!==2){ _arcDeltaState=2; renderArcDelta(null); arcDeltaEl.classList.add('on'); arcDeltaEl.classList.remove('matched'); void arcDeltaEl.offsetWidth; arcDeltaEl.classList.add('matched'); }   // crossed into match (LOCK): 0.0 green, blink x2, vanish
-      } else { renderArcDelta(dd); if(_arcDeltaState===2) arcDeltaEl.classList.remove('matched'); _arcDeltaState=1; arcDeltaEl.classList.add('on'); }
+      } else { renderArcDelta(-_scVMiss); if(_arcDeltaState===2) arcDeltaEl.classList.remove('matched'); _arcDeltaState=1; arcDeltaEl.classList.add('on'); }   // -_scVMiss: arc below the orb (shot.y<target.y) -> + (loft higher)
     } else hideArcDelta();
   }
   const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b>'
