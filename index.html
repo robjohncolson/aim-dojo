@@ -88,9 +88,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock::after{opacity:1}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
-.tgtDist{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,206,92,.92);text-shadow:0 0 4px rgba(0,0,0,.9);pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
+.tgtDist{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,214,120,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 .tgtDist.on{display:block}
-.arcInfo{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(159,232,255,.95);text-shadow:0 0 4px rgba(0,0,0,.9);pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
+.arcInfo{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 .arcInfo.on{display:block}
 #fps{position:fixed;left:8px;top:8px;font:11px var(--mono);color:#9fe8ff;letter-spacing:.04em;text-shadow:0 0 5px rgba(0,0,0,.9);z-index:30;pointer-events:none;display:none}
 #fps.on{display:block}
@@ -554,7 +554,7 @@ function setDayFloorTex(){
   const tex=getCheckerTex(dayTileIdx);
   if(dayFloor.material.map!==tex){ dayFloor.material.map=tex; dayFloor.material.needsUpdate=true; reflResDirty=true; }   // null->tex (first dawn) recompiles the floor shader & resets uRes to (2,2) — re-mark dirty so syncReflUniformSize re-syncs it (else the sky reflection smears)
 }
-let nightGrid=null, dayFloor=null;
+let nightGrid=null, dayFloor=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight
 (function buildArena(){
   const FLOOR=FLOOR_SIZE;                                     // floor stretches well past the fog → reads as a horizon
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14}));
@@ -720,7 +720,7 @@ function updateSky(dt){
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // carries stars + sun + moon around the orbit
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
-  const sunY=sunDir.y, day=smooth(-0.12,0.22,sunY), tw=Math.max(0,1-Math.abs(sunY)/0.26);  // day 0..1, dawn/dusk warmth
+  const sunY=sunDir.y, day=smooth(-0.12,0.22,sunY), tw=Math.max(0,1-Math.abs(sunY)/0.26); dayAmt=day;  // day 0..1 (exposed for ARC-viz day contrast), dawn/dusk warmth
   _sky.copy(SKY_NIGHT).lerp(SKY_DAY, day).lerp(SKY_DUSK, tw*0.55);                          // overall tint (drives the lights)
   _hor.copy(HOR_NIGHT).lerp(HOR_DAY, day).lerp(HOR_DUSK, tw*0.7);                           // horizon colour
   _zen.copy(ZEN_NIGHT).lerp(ZEN_DAY, day).lerp(ZEN_DUSK, tw*0.45);                          // zenith colour (deep)
@@ -1365,23 +1365,23 @@ const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){
 function makeArcGeo(maxPts){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3)); return g; }
 function ensureArcObjs(){
   if(arcRibbon) return;
-  const lm=(c,o)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,blending:THREE.AdditiveBlending});
+  const lm=(c,o)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o});   // NORMAL blend — additive washes out against the bright day sky/tiles
   const rg=new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_SAMP*2*3),3));
   const uv=new Float32Array(ARC_SAMP*2*2); for(let i=0;i<ARC_SAMP;i++){ const u=i/(ARC_SAMP-1); uv[i*4]=u; uv[i*4+1]=0; uv[i*4+2]=u; uv[i*4+3]=1; }
   rg.setAttribute('uv', new THREE.BufferAttribute(uv,2));
   const idx=[]; for(let i=0;i<ARC_SAMP-1;i++){ const aa=i*2; idx.push(aa,aa+1,aa+2, aa+1,aa+3,aa+2); } rg.setIndex(idx);
-  arcRibbon=new THREE.Mesh(rg, new THREE.MeshBasicMaterial({color:0x8fe8ff, transparent:true, opacity:0.16, side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending}));   // thin, faint, SOLID trajectory (scrolling dashes retired)
-  arcLand =new THREE.LineLoop(_arcRingGeo, lm(0x9fe8ff,0.85));                 // static landing ring
-  arcPulseA=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));               // beat-synced expanding pulse rings out of the impact
-  arcPulseB=new THREE.LineLoop(_arcRingGeo, lm(0x6fe0ff,0.55));
-  arcApex=new THREE.Line(makeArcGeo(2), lm(0xbfeeff,0.7));                    // horizontal tangent line at the parabola's apex (max height)
+  arcRibbon=new THREE.Mesh(rg, new THREE.MeshBasicMaterial({color:0xff8a3a, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false}));   // bold WARM trajectory, NORMAL blend → pops on cool sky AND white tiles (opacity day-boosted in updateArcPreview)
+  arcLand =new THREE.LineLoop(_arcRingGeo, lm(0xff8a3a,0.92));                 // landing ring (bigger + bolder, set in updateArcPreview)
+  arcPulseA=new THREE.LineLoop(_arcRingGeo, lm(0xffb066,0.6));                // beat-synced expanding pulse rings out of the impact
+  arcPulseB=new THREE.LineLoop(_arcRingGeo, lm(0xffb066,0.6));
+  arcApex=new THREE.Line(makeArcGeo(2), lm(0xffd24a,0.9));                    // horizontal tangent line at the parabola's apex (max height)
   for(const o of [arcRibbon,arcLand,arcPulseA,arcPulseB,arcApex]){ o.frustumCulled=false; scene.add(o); }
 }
 function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } if(arcLandInfoEl) arcLandInfoEl.classList.remove('on'); if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); arcLanded=false; }
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
   const beatLen=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5, period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
-  const setP=(ring,ph)=>{ const r=0.35+ph*1.9; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*0.55; ring.visible=true; };
+  const setP=(ring,ph)=>{ const r=0.5+ph*2.6; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*(0.5+0.3*dayAmt); ring.visible=true; };   // bigger pulse rings, brighter by day
   const ph=(state.t % period)/period; setP(arcPulseA, ph); setP(arcPulseB, (ph+0.5)%1);
 }
 function computeShotPlan(M, V){                                                              // shared by the dashed arc, the REAL projectile, and the lock: launch from the bottom-right muzzle, solved to land where the eye→crosshair parabola lands. Fills M (muzzle) + V (launch velocity), sets _arcI (impact) + _planLanded, returns flight time T.
@@ -1422,8 +1422,8 @@ function updateArcPreview(dt){                                                  
     const vi=i*6; rp[vi]=_arcPts[k]-_ribOff.x; rp[vi+1]=_arcPts[k+1]-_ribOff.y; rp[vi+2]=_arcPts[k+2]-_ribOff.z;
     rp[vi+3]=_arcPts[k]+_ribOff.x; rp[vi+4]=_arcPts[k+1]+_ribOff.y; rp[vi+5]=_arcPts[k+2]+_ribOff.z;
   }
-  arcRibbon.geometry.attributes.position.needsUpdate=true; arcRibbon.visible=true;
-  arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.55,0.55,0.55); arcLand.visible=_planLanded;
+  arcRibbon.geometry.attributes.position.needsUpdate=true; arcRibbon.material.opacity=0.42+0.4*dayAmt; arcRibbon.visible=true;   // brighter by day (fights the bright sky/tiles)
+  arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.95,0.95,0.95); arcLand.material.opacity=0.8+0.18*dayAmt; arcLand.visible=_planLanded;   // bigger + bolder landing ring
   arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
   // landing-distance label (ground range from the player to the impact ring)
   if(_planLanded && arcLandInfoEl){ const ls=projectPointScope(_arcLandPos);
@@ -1447,24 +1447,28 @@ function updateArcPreview(dt){                                                  
 const targetMarks=[]; const _tmFloor=new THREE.Vector3();
 function ensureTargetMark(i){
   let m=targetMarks[i]; if(m) return m;
-  const ring=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending})); ring.frustumCulled=false; scene.add(ring);
+  const ring=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.5})); ring.frustumCulled=false; scene.add(ring);   // NORMAL blend (additive washes out by day)
   const dg=new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
-  const drop=new THREE.Line(dg, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.25,blending:THREE.AdditiveBlending})); drop.frustumCulled=false; scene.add(drop);
+  const drop=new THREE.Line(dg, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.35})); drop.frustumCulled=false; scene.add(drop);
   const label=document.createElement('div'); label.className='tgtDist'; document.body.appendChild(label);
-  return targetMarks[i]={ring,drop,label};
+  const hlabel=document.createElement('div'); hlabel.className='tgtDist'; document.body.appendChild(hlabel);   // height label — floats AT the target, not at the feet
+  return targetMarks[i]={ring,drop,label,hlabel};
 }
 function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
-  if(!(state.running && !reduceMotion)){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); } return; }
+  if(!(state.running && !reduceMotion)){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on'); } return; }
   const bl=60/Math.max(20,state.bpm), beat=Math.pow(1-(state.t%bl)/bl, 1.6);   // pulse on the beat
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
-    const r=0.5+beat*0.38; m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.3+beat*0.45; m.ring.visible=true;
+    const r=0.5+beat*0.38; m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.4+beat*0.5; m.ring.visible=true;
     const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;
     m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true;
-    _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // distance label floating at the floor ring
-    if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))+'  ↑'+fmtDist(p.y)); m.label.classList.add('on'); }   // slant range + height (altitude above the floor)
-    else m.label.classList.remove('on'); }
-  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); }
+    _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
+    if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
+    else m.label.classList.remove('on');
+    const hs=projectPointScope(p);                                             // HEIGHT label floating AT the target itself (not the feet)
+    if(hs[2]){ m.hlabel.style.setProperty('--tx',hs[0]+'px'); m.hlabel.style.setProperty('--ty',hs[1]+'px'); setText(m.hlabel, '↑'+fmtDist(p.y)); m.hlabel.classList.add('on'); }
+    else m.hlabel.classList.remove('on'); }
+  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
