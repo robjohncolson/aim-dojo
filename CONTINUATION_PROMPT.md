@@ -309,18 +309,18 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     call** (the triangle currently points toward the orb = correction direction). The `▼` axis stays top-right; the
     `◀/▶` axis is at the reticle's **lower-left** (`#arcDeltaX right:100%;top:100%`). Sizes: glyphs `.led7` 12px;
     `▲apex` label `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
-    **3D LOCK-ON (`e0b5781`→`8296744`):** on full **LOCK** (`locked` from `simShotHits` — both axes ~0) the triangles
-    **blink once and vanish** (`setGaugeLocked` → CSS `ledLockFlash`), and a **tumbling wireframe sphere wraps the
-    orb** + a **dotted gold tether** from the crosshair to the orb fade in (`lockSphere`, `lockLine`; gold `0xffcd5a`
-    = LOCK colour). **`lockSphere`** = a `THREE.Group` of 3 perpendicular rings (`THREE.LineLoop` on `_lockRingGeo`,
-    XZ/XY/YZ → a globe), positioned on the orb, `scale = max(orbR*2.8, 1.0)`, slow tilted spin (`_lockSpin`),
-    `depthTest:false` (overlay). `updateLockSphere(show, Tt, P, orbR)` fades `_sphereOpacity` at 30Hz; off-lock fades
-    out + triangles return. **HISTORY / don't repeat the dead-end:** v1 drew two great circles at orb distance
-    (`e0b5781`); v2 projected them onto the **sky** (radius 470, aim-oriented, `24e3dde`) — but a radius-470 circle is
-    locally STRAIGHT where it crosses the cursor, so it read as a flat `+` of "lines from the cursor" (user: under-
-    whelming). The small tumbling sphere AT the orb shows real curvature → reads as 3D. The tether far end is along
-    `_scAim` at the orb's range (projects to the crosshair). NOTE: WebGL line width ~1px. Build-blind — expect tuning
-    (sphere size `orbR*2.8`, spin rate `0.02`, keep/drop the tether).
+    **LOCK-ON — SIMPLIFIED (`0778c90`):** a 3D lock-on viz was tried and SCRAPPED (user: "messy squiggles…
+    overcomplicating"). Dead-ends, do NOT resurrect: two great circles at orb distance (`e0b5781`) → projected on the
+    SKY (radius 470, aim-oriented, `24e3dde`; read as a flat `+` because a huge circle is locally straight at the
+    crossing) → a tumbling wireframe sphere at the orb (`8296744`; read as squiggles). ALL removed (`lockSphere`/
+    `lockLine`/`updateLockSphere`/`setGaugeLocked`/`ledLockFlash` are GONE). **The lock indicator is just the gold
+    `#lockBox` reticle + the triangle gauges** (→ green `●` per centered axis). Keep it simple.
+    **DECOY reticle (`0778c90`):** `scopeLockTarget` no longer skips decoys (`kind===2`); a decoy shows a RED
+    **`#lockBox.decoy` 'AVOID'** box (never the gold `.lock`) and NO aim gauges (`tg.kind!==2` gate) — so you see +
+    dodge them. HUD-only → daily determinism untouched.
+    **Orb feel by kind (`0778c90`, FREE-PLAY ONLY):** in `spawnTarget`, AFTER the seeded kind roll (so no extra rnd —
+    daily byte-identical), gated `!state.challenge`: GOLD bonus spawns farther + smaller (`goldDistMul:1.35`,
+    `goldSizeMul:0.7`), DECOYS lunge closer (`decoyDistMul:0.6`). The daily keeps the original distances/sizes.
     **METRIC HISTORY (important — don't regress):** v1 showed "your apex − the LOBBED ideal apex" — but you hit via
     flatter arcs, so that read ≈ the ideal HEIGHT (~17) even when locked, and jumped 0→17 off-lock. `8e0eb30` switched
     to the **vertical miss** (0 exactly where the arc crosses the orb), `999bda8` added the **lateral twin**, then the
