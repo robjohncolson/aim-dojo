@@ -292,9 +292,12 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     an int → `Math.floor(obj)=NaN`→black). Made it a hex int. **Gotcha:** kill-burst colors MUST be hex ints, not `THREE.Color`.
 13. **Per-target ideal arc (`a5819f6`, LIVE)** — `#scopeHud` shows `IDEAL <loft>° loft · peak <apex>` for the locked
     target (closed-form lofted-launch solve at `projSpeed`; lead-iterated intercept). Read-only; daily-deterministic. See SPEC_NEXT §3.
-14. **Special orbs (`fa42b21`, LIVE)** — gold bonus (×2, `score===h.length`-safe) + don't-hit decoy (penalty on hit,
-    free to dodge). `tg.kind` rolled from `rng` only when LIVE (latched per-run) → daily byte-identical; special orbs
-    enter the daily at `specialDailyTs`. See SPEC_NEXT §4. **Tune gold/decoy rates.**
+14. **Special orbs (`fa42b21`, LIVE; decoys DISABLED `e06b59d`)** — gold bonus (×2, `score===h.length`-safe) + a
+    don't-hit decoy. **DECOYS ARE OFF (`decoyChance:0`)** — playtest verdict: the "don't-hit" orb made the correct
+    play passive/boring + hitting one was pure punishment. Gold bonus KEPT. All decoy code (kind 2, red AVOID
+    reticle `#lockBox.decoy`, `decoyDistMul` closer-spawn, scope-includes-decoys) is intact behind the 0 chance —
+    flip `decoyChance` back to re-enable, or rework into an ACTIVE challenge orb (don't-hit is the boring part).
+    `tg.kind` still rolled from `rng` when LIVE (latched per-run) → daily byte-identical. See SPEC_NEXT §4.
 15. **Wind (`b517d4b`, LIVE) — FREE-PLAY PROTOTYPE, opt-in `?wind`/`CFG.wind`** — gentle per-run wind in all 4 ballistics
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
