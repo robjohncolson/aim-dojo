@@ -1055,7 +1055,7 @@ function makeTargetSound(mesh){
     const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=7000;
     const outGain=ctx.createGain(); outGain.gain.value=0.0001;
-    const gateGain=ctx.createGain(); gateGain.gain.value = CFG.targetPulse ? (_gateOn?1:0.0001) : 1;   // rhythmic 16th-note gate (driven each frame in animate); 1 = continuous when targetPulse is off
+    const gateGain=ctx.createGain(); gateGain.gain.value = 1;   // rhythmic 16th-note gate (driven each frame per-target from its OWN spawn phase); opens at spawn; stays 1 (continuous) when targetPulse is off
     osc.connect(ampGain); lfo.connect(lfoGain); lfoGain.connect(ampGain.gain);
     ampGain.connect(lowpass); lowpass.connect(gateGain); gateGain.connect(outGain);
     pa.setNodeSource(outGain); mesh.add(pa);
@@ -1240,7 +1240,7 @@ function spawnTarget(opts){
   const life=opts.life!=null?opts.life:targetLife();
   const rhythm=(state.mode==='rhythm');                   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd;
-  tg.sndAccum=999; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0); tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
+  tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   if(rhythm) tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll (and thus consume rng) ONLY when special orbs are live → today's seeded daily stream is byte-identical
   if(_specialLive){ const kr=rnd(); kind = kr<CFG.goldChance ? 1 : (kr<CFG.goldChance+CFG.decoyChance ? 2 : 0); }
@@ -1838,7 +1838,6 @@ function updateTrail(dt){
 const clock=new THREE.Clock();
 const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30, CHALLENGE_TONE_STEP=1/20;
 const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
-let _gatePhase=0, _gateOn=true;   // beat-synced 16th-note gate phase (sixteenths) for the target tones + current on/off state
 let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999, challengeToneAccum=CHALLENGE_TONE_STEP, challengeUiBpm=-1;
 const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
 function animate(frameNow){
@@ -1891,8 +1890,7 @@ function animate(frameNow){
     }
     if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
-      let _gateChanged=false; const _actx=listener&&listener.context;   // 16th-note target-tone gate: ON for targetPulseOn sixteenths then rest, beat-synced to state.bpm (audio only)
-      if(CFG.targetPulse){ _gatePhase=(_gatePhase + dt*(state.bpm/60)*4) % CFG.targetPulsePeriod; const _go=_gatePhase<CFG.targetPulseOn; _gateChanged=_go!==_gateOn; _gateOn=_go; }
+      const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
       // beat-quantized motion (free-play rhythm): the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle. Continuous modes (hunt/daily) keep doSnap=true every frame → unchanged.
       const wantStrobe=(state.mode==='rhythm' && CFG.beatQuant && toneReady);   // free-play AND the (now ARC) daily — both strobe
       const strobe=wantStrobe && Tone.Transport.state==='started';
@@ -1928,7 +1926,7 @@ function animate(frameNow){
           }
         }
         if(tg.snd){
-          if(_gateChanged && tg.snd.gateGain && _actx){ tg.snd.gateGain.gain.setTargetAtTime(_gateOn?1:0.0001, _actx.currentTime, _gateOn?0.005:0.06); }   // open fast on the 16th, release with a short tail into the rest
+          if(CFG.targetPulse && tg.snd.gateGain && _actx){ tg.gatePhase=(tg.gatePhase+_gateRate)%CFG.targetPulsePeriod; const go=tg.gatePhase<CFG.targetPulseOn; if(go!==tg.gOn){ tg.gOn=go; tg.snd.gateGain.gain.setTargetAtTime(go?1:0.0001, _actx.currentTime, go?0.005:0.06); } }   // open fast on this target's 16th, short release into its rest
           tg.sndAccum+=dt; if(tg.sndAccum>=TARGET_AUDIO_STEP){ tg.sndAccum=0; const dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d2=dx*dx+dy*dy+dz*dz;
           const db=Math.max(0,Math.min(TARGET_AUDIO_BUCKETS, Math.round((d2-TARGET_AUDIO_NEAR2)*TARGET_AUDIO_BUCKET_SCALE)));
           if(db!==tg.snd.dBucket){ tg.snd.dBucket=db; const d=Math.sqrt(d2), t=(d-6)/22; tg.snd.lowpass.frequency.value=lerp(7000,1200,t); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,t); }
