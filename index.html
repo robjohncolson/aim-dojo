@@ -1556,7 +1556,18 @@ function updateScope(dt){
   else lockBoxEl.classList.remove('on','lock');
   // HUD readouts
   const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(Tt.y-P.y)/slant)))*RAD2DEG, lead=tg.vel.length()*flight;
-  const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>';
+  // PER-TARGET IDEAL LOB (firing-computer depth): lead-iterate the intercept point, then closed-form solve the lofted
+  // launch ANGLE at the FIXED projSpeed (high arc) → required loft + apex height + reachability. Read-only; no rng (daily stays deterministic).
+  const _ig=CFG.projGravity, _is=CFG.projSpeed; let _it=slant/_is, _reach=false, _loft=0, _apex=0;
+  for(let k=0;k<4;k++){ const qx=Tt.x+tg.vel.x*_it, qy=Tt.y+tg.vel.y*_it, qz=Tt.z+tg.vel.z*_it;   // Q = where the orb will be at intercept
+    const ix=Math.max(0.01, Math.hypot(qx-_scM.x, qz-_scM.z)), iy=qy-_scM.y;                       // ground range + height from the muzzle to Q
+    const disc=_is*_is*_is*_is - _ig*(_ig*ix*ix + 2*iy*_is*_is);                                   // projectile-range discriminant; <0 → unreachable at this launch speed
+    if(disc<0){ _reach=false; break; }
+    _reach=true; _loft=Math.atan((_is*_is+Math.sqrt(disc))/(_ig*ix)); _it=ix/(_is*Math.cos(_loft)); }   // high (lobbed) solution; refine flight time from the solved angle
+  if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
+  const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b> · peak <b>↑'+fmtDist(_apex)+'</b>'
+                           : '<br>IDEAL <b class="sk">out of range</b>';
+  const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
   if(scopeHudEl._html!==html){ scopeHudEl.innerHTML=html; scopeHudEl._html=html; }
   scopeHudEl.classList.add('on');
 }
