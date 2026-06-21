@@ -101,10 +101,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.decoy::after{content:'AVOID';color:rgba(255,95,135,.97);opacity:1}
 /* deviation EDGE TINTS: a red glow on the screen edge you must aim TOWARD — top = aim up (Δy<0) · bottom = aim down (Δy>0) · left = aim left (Δx>0) · right = aim right (Δx<0). opacity ∝ |delta| (set in updateScope). Top/bottom = 1/20 screen height, sides = 1/30 width, fading inward. */
 .edgeTint{position:fixed;pointer-events:none;z-index:3;opacity:0;will-change:opacity}
-#edgeTop{top:0;left:0;right:0;height:5vh;background:linear-gradient(to bottom, rgba(255,55,55,.9), transparent)}
-#edgeBot{bottom:0;left:0;right:0;height:5vh;background:linear-gradient(to top, rgba(255,55,55,.9), transparent)}
-#edgeLeft{top:0;bottom:0;left:0;width:3.34vw;background:linear-gradient(to right, rgba(255,55,55,.9), transparent)}
-#edgeRight{top:0;bottom:0;right:0;width:3.34vw;background:linear-gradient(to left, rgba(255,55,55,.9), transparent)}
+#edgeTop{top:0;left:0;right:0;height:5vh;background:linear-gradient(to bottom, rgba(255,60,60,1), transparent)}
+#edgeBot{bottom:0;left:0;right:0;height:5vh;background:linear-gradient(to top, rgba(255,60,60,1), transparent)}
+#edgeLeft{top:0;bottom:0;left:0;width:3.34vw;background:linear-gradient(to right, rgba(255,60,60,1), transparent)}
+#edgeRight{top:0;bottom:0;right:0;width:3.34vw;background:linear-gradient(to left, rgba(255,60,60,1), transparent)}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
 #windHud{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font:11px var(--mono);color:#bfe9ff;letter-spacing:.12em;display:none;align-items:center;gap:7px;text-shadow:0 0 5px #000;z-index:5;pointer-events:none}
@@ -1607,7 +1607,7 @@ const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vec
 const _scScreen=[0,0,false];
 /* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
 let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
-const EDGE_TOL=0.4, EDGE_K=0.14, EDGE_MAX=0.5;   // deviation -> edge-tint opacity: 0 within EDGE_TOL m, full (EDGE_MAX) by ~EDGE_TOL + EDGE_MAX/EDGE_K (~4) m
+const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85;   // deviation -> edge-tint opacity: 0 within EDGE_TOL m, ramps fast, full (EDGE_MAX) by ~EDGE_TOL + EDGE_MAX/EDGE_K (~3) m. Punchy so the cue reads clearly.
 const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints cueing the aim-correction direction
 function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
 function driveEdgeTints(vMiss, lat){   // dy<0 (arc BELOW orb -> aim UP) -> TOP red; dy>0 -> BOTTOM. dx>0 (arc RIGHT -> aim LEFT) -> LEFT red; dx<0 -> RIGHT. opacity ∝ |delta|.
