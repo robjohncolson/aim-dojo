@@ -309,18 +309,18 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     call** (the triangle currently points toward the orb = correction direction). The `▼` axis stays top-right; the
     `◀/▶` axis is at the reticle's **lower-left** (`#arcDeltaX right:100%;top:100%`). Sizes: glyphs `.led7` 12px;
     `▲apex` label `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
-    **3D LOCK-ON (`e0b5781`→`24e3dde`):** on full **LOCK** (`locked` from `simShotHits` — both axes ~0) the triangles
-    **blink once and vanish** (`setGaugeLocked` → CSS `ledLockFlash`), and **two perpendicular GREAT CIRCLES projected
-    on the SKY** fade in (`lockRingV`/`lockRingH`, `THREE.LineLoop` on `_lockRingGeo`, radius `SKY_R=470` ≈ the sky
-    dome 480, depthTest ON so terrain occludes them below the horizon), plus a **dotted gold tether** (`lockLine`,
-    `LineDashedMaterial`) from the circles' crossing down to the orb. Gold `0xffcd5a` = LOCK colour.
-    **KEY GEOMETRY DECISION:** the circles ride the **AIM direction** (`_scAim`), NOT the orb direction — if they rode
-    the exact orb direction their sky-crossing would be on the same view-ray as the orb and the tether would project
-    to ZERO length (invisible). Riding the aim, the crossing is at the crosshair and the orb sits just off it by the
-    lob lead → visible tether. The tether's far end is `orbDist+10` along the aim (projects to the crosshair where the
-    circles cross, but keeps the dashes short/clean instead of stretching to 470). Normals `nV=aim×up`, `nH=aim×nV`
-    (verified `⟂`). Fades `_sphereOpacity` at 30Hz; off-lock fades out + triangles return. Read-only → daily unaffected.
-    NOTE: WebGL line width ~1px (can't match the box's 1.5px CSS border). Build-blind — expect tuning (sphere size, tether).
+    **3D LOCK-ON (`e0b5781`→`8296744`):** on full **LOCK** (`locked` from `simShotHits` — both axes ~0) the triangles
+    **blink once and vanish** (`setGaugeLocked` → CSS `ledLockFlash`), and a **tumbling wireframe sphere wraps the
+    orb** + a **dotted gold tether** from the crosshair to the orb fade in (`lockSphere`, `lockLine`; gold `0xffcd5a`
+    = LOCK colour). **`lockSphere`** = a `THREE.Group` of 3 perpendicular rings (`THREE.LineLoop` on `_lockRingGeo`,
+    XZ/XY/YZ → a globe), positioned on the orb, `scale = max(orbR*2.8, 1.0)`, slow tilted spin (`_lockSpin`),
+    `depthTest:false` (overlay). `updateLockSphere(show, Tt, P, orbR)` fades `_sphereOpacity` at 30Hz; off-lock fades
+    out + triangles return. **HISTORY / don't repeat the dead-end:** v1 drew two great circles at orb distance
+    (`e0b5781`); v2 projected them onto the **sky** (radius 470, aim-oriented, `24e3dde`) — but a radius-470 circle is
+    locally STRAIGHT where it crosses the cursor, so it read as a flat `+` of "lines from the cursor" (user: under-
+    whelming). The small tumbling sphere AT the orb shows real curvature → reads as 3D. The tether far end is along
+    `_scAim` at the orb's range (projects to the crosshair). NOTE: WebGL line width ~1px. Build-blind — expect tuning
+    (sphere size `orbR*2.8`, spin rate `0.02`, keep/drop the tether).
     **METRIC HISTORY (important — don't regress):** v1 showed "your apex − the LOBBED ideal apex" — but you hit via
     flatter arcs, so that read ≈ the ideal HEIGHT (~17) even when locked, and jumped 0→17 off-lock. `8e0eb30` switched
     to the **vertical miss** (0 exactly where the arc crosses the orb), `999bda8` added the **lateral twin**, then the
