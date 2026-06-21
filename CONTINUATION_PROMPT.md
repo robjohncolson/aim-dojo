@@ -3,13 +3,17 @@
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
 ## ▶ START HERE (next session)
-The game is in great shape and the user says it's **"genuinely addicting."** Agreed next work is in
-**`SPEC_NEXT.md`** (read it first). Build order: **(1) Juice pass — combo color-lift + a rhythm-safe
-clutch flourish, and (2) Self-ghost — race your own best** TOGETHER first (both low-risk, immediately
-felt), then (3) per-target ideal arc, (4) special orbs, (5) wind (free-play prototype, last).
-**Key gotcha:** the "clutch slow-mo" must NOT scale `dt`/the master clock — that would desync
-Tone.Transport (the beat). Keep it a localized visual (camera punch + explosion-only slow-mo).
-One open question for the user: the clutch trigger ("long-range OR last-second" vs rarer).
+The game is in great shape and the user says it's **"genuinely addicting."** Roadmap lives in
+**`SPEC_NEXT.md`** (read it first). **Features 1 (Juice pass) + 2 (Self-ghost) are SHIPPED + LIVE**
+(commit `368bd4f`) and **awaiting the user's playtest** — see SPEC_NEXT §1/§2 for the as-built details +
+the **tunables to adjust by ear/eye** + the playtest questions. **Next build = (3) per-target ideal arc**
+(user is curious about the number), then (4) special orbs, (5) wind (free-play prototype, last). Also
+parked: a **free-play self-ghost** (deferred — free-play records no ghost + no shared seed).
+**FIRST: ask the user how features 1+2 felt** (clutch frequency/zoom/slow-mo, glow intensity, the cyan
+self-ghost reticle) and tune the CFG values before moving to feature 3.
+**Key gotcha that held (keep holding it):** the clutch "slow-mo" must NOT scale `dt`/the master clock —
+that would desync Tone.Transport (the beat). It's localized: a camera FOV punch + an explosion-only
+`rec.slow` factor (`edt=dt*slow` inside the explosion loop ONLY; `dt` is never reassigned).
 Follow the build-blind loop (validate → adversarial review for risky diffs → push → poll).
 
 ## What it is
@@ -249,8 +253,18 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     day-boosted via module `dayAmt` (exposed from `updateSky`), bigger landing/pulse rings, heavier label
     outlines.
 
+11. **Juice pass + daily self-ghost (`368bd4f`, LIVE)** — see `SPEC_NEXT.md` §1/§2 for full as-built notes.
+    (a) **Combo color-lift:** warm vignette `#comboGlow` rides a smoothed `glowI` (streak-driven, rise-fast/fall-slow),
+    `!reduceMotion`-gated overlay. (b) **Clutch flourish** (long-range OR last-second; `CFG.clutchAnd:false`):
+    localized camera FOV punch (`clutchT`→`camFovBase`, restored exactly) + explosion-only slow-mo (`rec.slow`→`edt`,
+    **never** the master clock) + gold burst + camera-facing shockwave ring (`clutchRing`), with a `clutchCooldown`.
+    (c) **Daily self-ghost:** cyan `#selfGhostRet` racing your stored best on today's seed (localStorage
+    `aimdojo.selfghost`, daily-keyed, offline). New CFG: `comboGlow/glowMax/glowStreakFull/glowRiseK/glowFallK` +
+    `clutch/clutchAnd/clutchRange/clutchLateBeats/clutchCooldown/clutchTime/clutchZoom/clutchSlow/clutchBurst/clutchRingTime`.
+    **Tune by ear/eye + playtest; user not yet seen it run.**
+
 All verified via the build-blind loop (node --check + dangling-ref greps; date logic for seasons executed in
-node); the larger/risky features (pace ghost, beat-quant, ARC daily) got multi-agent adversarial reviews.
+node); the larger/risky features (pace ghost, beat-quant, ARC daily, juice+self-ghost) got multi-agent adversarial reviews.
 
 ## Outstanding / likely next
 - **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build pacing (streak cutoffs

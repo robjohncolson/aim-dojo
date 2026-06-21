@@ -5,17 +5,42 @@ addicting." User wants **all of it**; build order below. Everything is build-bli
 CONTINUATION_PROMPT.md constraints) — verify by syntax + logic, user playtests.
 
 ## Build order (recommended)
-1. **Juice pass** (color lift + clutch flourish) — fast, big feel, low risk. ← START HERE
-2. **Self-ghost** (race your own best) — high addiction value, mostly reuse.
-3. **Per-target ideal arc** — firing-computer depth (user is curious about this number).
+1. ✅ **Juice pass** (color lift + clutch flourish) — SHIPPED (commit 368bd4f), awaiting playtest.
+2. ✅ **Self-ghost** (race your own best, DAILY only) — SHIPPED (commit 368bd4f), awaiting playtest.
+3. **Per-target ideal arc** — firing-computer depth (user is curious about this number). ← START HERE
 4. **Special orbs** — variety.
 5. **Wind** — LAST, free-play prototype first (user is cautious; must move the clouds too).
 
-Do **1 + 2 together** first (both low-risk, immediately felt), then 3, 4, and treat 5 as opt-in.
+1 + 2 shipped together (both low-risk, immediately felt). Next: 3, then 4, treat 5 as opt-in.
+Also parked: **free-play self-ghost** (deferred — free-play records no ghost + has no shared seed; see §2).
 
 ---
 
 ## 1. Juice pass
+
+> ✅ **SHIPPED (368bd4f) — as built (build-blind; tune by eye/playtest):**
+> - **Color lift:** a fixed warm vignette `#comboGlow` (CSS radial-gradient, NORMAL alpha, pointer-events:none,
+>   z-index:2) whose opacity rides a smoothed module var `glowI`. `glowI` eases toward `min(1, streak/glowStreakFull)`
+>   rise-fast/fall-slow via `1-exp(-dt*K)` (K=`glowRiseK`/`glowFallK`). Updated every frame in `animate` (always-run
+>   section), `!reduceMotion` gated, throttled style write (Δ>0.004). Tunables: `comboGlow`, `glowMax:0.40`,
+>   `glowStreakFull:16`, `glowRiseK:10`, `glowFallK:2.6`. NO WebGL-canvas CSS filter (perf/DPR risk) — overlay only.
+> - **Clutch flourish:** trigger = **long-range OR last-second** (user's pick; `CFG.clutchAnd:false` → flip true for
+>   far AND late). Detected in `gradeRhythmHit` (good hit; `far=range>clutchRange || late=beats>=clutchLateBeats`)
+>   and `onHit` (range-only, hunt has no beat). `triggerClutch(tg)` fires a **localized camera FOV punch**
+>   (`clutchT`/`clutchDur` timer read in the camera block: `camera.fov = camFovBase - clutchZoom*env`, short attack
+>   then ease-out, restored EXACTLY to `camFovBase` on end; `camFovBase` synced in `applySettings`), a camera-facing
+>   **shockwave ring** (`clutchRing`, one reused LineLoop), and routes the kill through `killTarget(tg, true)` →
+>   `explodeAt(pos, radius*clutchBurst, CLUTCH_COLOR, clutchSlow)`. **Explosion-only slow-mo:** `rec.slow` →
+>   `edt = dt*(e.slow||1)` in the explosion loop ONLY. **RHYTHM-SAFE proof:** `dt` is never reassigned; `state.t+=dt`,
+>   `Tone.Transport`, and the spawn scheduler all use real `dt`. Cooldown `_clutchLast` vs `clutchCooldown:1.1`.
+>   Tunables: `clutch`, `clutchAnd:false`, `clutchRange:22`, `clutchLateBeats:2.4`, `clutchCooldown:1.1`,
+>   `clutchTime:0.34`, `clutchZoom:9`(°), `clutchSlow:0.42`, `clutchBurst:1.7`, `clutchRingTime:0.5`.
+> - **Reduce-motion:** the clutch flag itself is `!reduceMotion`-gated in BOTH kill paths (so no punch/ring/slow/bigger
+>   burst) and the glow block is gated — reduced-motion runs are fully neutral.
+> - **Note:** the FOV punch briefly (~0.34s) re-projects HUD (ghost/scope/arc) since they read the projection matrix —
+>   coherent zoom, not a bug; never affects aim/grading (shot dir = camera world dir, sens is FOV-independent).
+> - **Playtest Qs for user:** clutch frequency (cooldown/OR feel), zoom intensity (`clutchZoom`), slow-mo amount
+>   (`clutchSlow`), glow intensity/ramp (`glowMax`/`glowStreakFull`).
 
 ### Color lift as the combo climbs
 - Tie a screen-edge vignette glow + subtle scene color/saturation lift to `state.streak`,
@@ -41,6 +66,19 @@ Do **1 + 2 together** first (both low-risk, immediately felt), then 3, 4, and tr
 ---
 
 ## 2. Self-ghost — race your own best
+
+> ✅ **SHIPPED (368bd4f) — DAILY flavor only (as built):**
+> - Cyan reticle `#selfGhostRet` + label `#selfGhostName` ("◆ your best · N kills"), distinct from the purple
+>   opponent ghost + green live opponents. `updateSelfGhost(dt)` mirrors `updateGhost` (same quant/dequant, same
+>   centisecond `h` flash), called in the `animate` daily branch; gated to `state.challenge && state.running`.
+> - Stored OFFLINE in `localStorage['aimdojo.selfghost'] = {day, score, rec:ghostRec}`, **daily-keyed** (`o.day===dayKey()`
+>   → resets each UTC day; a worse run never overwrites a better same-day best). `loadSelfGhost()` (sync) at
+>   `startChallenge`; `saveSelfGhost()` at `endChallenge` while `ghostRec` is still valid; cursor `selfGhost.hi` reset
+>   in `resetSession`; reticle+label hidden on endChallenge/exitChallenge/resetSession-else.
+> - **DEFERRED: free-play flavor.** Free-play records NO `ghostRec` (gated to `state.challenge`) and has no shared
+>   seed, so a free-play "race" isn't apples-to-apples. To add later: turn on recording in free-play rhythm
+>   (resetSession + the animate aim-record branch), a non-challenge `updateSelfGhost` gate, and a tempo/all-time key.
+> - **Playtest Q for user:** is the cyan-vs-purple reticle distinction clear? Want a free-play version next?
 
 - You already record `ghostRec = {a:[aim@20Hz quantized], h:[scoring-hit times, centisec]}` during a
   run (in the `animate` challenge branch + `gradeRhythmHit`). `loadGhost`/`updateGhost` already play
