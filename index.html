@@ -45,6 +45,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 @keyframes ghosthit{0%{transform:translate(var(--gx,50vw),var(--gy,50vh)) scale(1.7);border-color:rgba(255,255,255,.95)}100%{transform:translate(var(--gx,50vw),var(--gy,50vh)) scale(1)}}
 #ghostName{left:50%;top:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;color:rgba(200,150,255,.9);display:none;white-space:nowrap}
 #ghostName.on{display:block}
+#selfGhostRet{position:fixed;left:0;top:0;width:24px;height:24px;margin:-12px 0 0 -12px;border:2px solid rgba(95,208,255,.7);border-radius:50%;box-shadow:0 0 8px rgba(95,208,255,.5);pointer-events:none;z-index:5;display:none;transform:translate(var(--sx,50vw),var(--sy,50vh));will-change:transform}
+#selfGhostRet::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px;border-radius:50%;background:rgba(170,230,255,.95)}
+#selfGhostRet.on{display:block}
+#selfGhostRet.hit{animation:selfhit .26s ease-out}
+@keyframes selfhit{0%{transform:translate(var(--sx,50vw),var(--sy,50vh)) scale(1.7);border-color:rgba(255,255,255,.95)}100%{transform:translate(var(--sx,50vw),var(--sy,50vh)) scale(1)}}
+#selfGhostName{left:50%;top:78px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;color:rgba(120,210,255,.9);display:none;white-space:nowrap}
+#selfGhostName.on{display:block}
+#comboGlow{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:radial-gradient(125% 95% at 50% 50%, rgba(0,0,0,0) 54%, rgba(255,168,72,.18) 84%, rgba(255,120,44,.42) 100%);will-change:opacity}
 .liveRet{position:fixed;left:0;top:0;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(116,232,74,.55);border-radius:50%;box-shadow:0 0 6px rgba(116,232,74,.35);pointer-events:none;z-index:5;display:none;will-change:transform}
 .liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
 #presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
@@ -234,6 +242,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </head>
 <body>
 <canvas id="scene"></canvas>
+<div id="comboGlow" aria-hidden="true"></div>
 <div id="beatRing" aria-hidden="true"></div>
 <div id="fps" aria-hidden="true"></div>
 <div id="arcLandInfo" class="arcInfo" aria-hidden="true"></div>
@@ -246,6 +255,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </div>
 <div id="ghostRet" aria-hidden="true"></div>
 <div id="ghostName" class="hud" aria-hidden="true"></div>
+<div id="selfGhostRet" aria-hidden="true"></div>
+<div id="selfGhostName" class="hud" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
 <div id="paceGhost" class="hud" aria-hidden="true"><div class="pg-top"><span>PACE</span><span class="pg-pct">—</span></div><div class="pg-track"><span class="pg-fill"></span></div><div class="pg-sub"></div></div>
@@ -497,6 +508,11 @@ const CFG = {
   // projectile (ballistic gravity arc — the DEFAULT and the daily now; railgun hit-scan kept as a free-play fallback via the projSeg toggle. global peak-BPM board stays hit-scan-pure.)
   projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
   scope:true, scopeUnits:'m',   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft')
+  // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
+  comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
+  // clutch flourish on a big ARC hit — RHYTHM-SAFE: a LOCALIZED camera FOV punch + explosion-only slow-mo + a shockwave ring. NEVER scales dt/Tone.Transport (that would desync the beat). Trigger = long-range OR last-second; clutchAnd:true → far AND late (rarer).
+  clutch:true, clutchAnd:false, clutchRange:22, clutchLateBeats:2.4, clutchCooldown:1.1,
+  clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* seeded RNG — gameplay randomness goes through rnd(); reseeded for the daily challenge so everyone gets the SAME run */
@@ -855,7 +871,7 @@ function acquireShards(n, color){
 function releaseShards(rec){ rec.pts.visible=false; scene.remove(rec.pts); shardPool.push(rec); }
 function addRecoil(){ if(reduceMotion) return; recoilPitch=Math.min(recoilPitch+CFG.recoilKick, CFG.recoilMax); recoilYaw += (Math.random()*2-1)*CFG.recoilYaw; }
 function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt); }
-function explodeAt(pos, radius, color){
+function explodeAt(pos, radius, color, slow){
   color=color||TOXIC;
   const flash=acquireFlash(color);
   flash.position.copy(pos);
@@ -870,10 +886,29 @@ function explodeAt(pos, radius, color){
     geo.attributes.position.needsUpdate=true;
   }
   const rec=explosionRecordPool.pop() || {};
-  rec.shards=shards; rec.pts=pts; rec.geo=geo; rec.mat=mat; rec.vels=vels; rec.flash=flash; rec.flashBase=flashBase; rec.age=0; rec.life=0.55;
+  rec.shards=shards; rec.pts=pts; rec.geo=geo; rec.mat=mat; rec.vels=vels; rec.flash=flash; rec.flashBase=flashBase; rec.age=0; rec.life=0.55; rec.slow=slow||1;   // slow<1 → this burst evolves in slow-mo (clutch flourish) without touching the master clock
   explosions.push(rec);
 }
-function killTarget(tg){ dropTarget(tg); explodeAt(tg.mesh.position, tg.radius); removeTarget(tg); }
+/* ---- clutch flourish: a localized camera FOV punch + a camera-facing shockwave ring (the explosion-only slow-mo lives in the explosion loop via rec.slow). RHYTHM-SAFE — never scales dt or Tone.Transport. ---- */
+const CLUTCH_COLOR=new THREE.Color(0xffd27a);
+let clutchT=0, clutchDur=0, camFovBase=camera.fov, _clutchLast=-999;
+let clutchRing=null, clutchRingT=0, clutchRingDur=0; const _clutchRingPos=new THREE.Vector3();
+let glowI=0; const comboGlowEl=gid('comboGlow');
+function ensureClutchRing(){
+  if(clutchRing) return;
+  const a=new Float32Array(49*3); for(let i=0;i<=48;i++){ const th=i/48*Math.PI*2; a[i*3]=Math.cos(th); a[i*3+1]=Math.sin(th); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3));
+  clutchRing=new THREE.LineLoop(g, new THREE.LineBasicMaterial({color:0xffe0a0, transparent:true, opacity:0, depthWrite:false}));
+  clutchRing.frustumCulled=false; clutchRing.visible=false; scene.add(clutchRing);
+}
+function triggerClutch(tg){
+  if(reduceMotion || !CFG.clutch) return;
+  if(state.t - _clutchLast < CFG.clutchCooldown) return;       // keep each flourish a treat, not a strobe
+  _clutchLast=state.t;
+  clutchT=clutchDur=CFG.clutchTime;                            // camera FOV punch timer (read in the camera block of animate)
+  ensureClutchRing(); _clutchRingPos.copy(tg.mesh.position); clutchRingT=clutchRingDur=CFG.clutchRingTime;   // expanding shockwave ring at the impact
+}
+function killTarget(tg, clutch){ dropTarget(tg); if(clutch) explodeAt(tg.mesh.position, tg.radius*CFG.clutchBurst, CLUTCH_COLOR, CFG.clutchSlow); else explodeAt(tg.mesh.position, tg.radius); removeTarget(tg); }
 
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
@@ -1260,7 +1295,9 @@ function onHit(tg, point, atT){ // free-hunt   (atT = when the shot was committe
   if(tg.dead) return; tg.dead=true; if(atT==null) atT=state.t;
   state.hits++; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
   pushReaction((atT-tg.born)*1000);
-  pushEvent(true); popHitMarker(); addTrauma(CFG.hitTrauma); sfx('hit'); killTarget(tg); renderStats();
+  const clutch=CFG.clutch && !reduceMotion && tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange;   // hunt has no beat window → range-only clutch
+  if(clutch) triggerClutch(tg);
+  pushEvent(true); popHitMarker(); addTrauma(CFG.hitTrauma); sfx('hit'); killTarget(tg, clutch); renderStats();
 }
 function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
@@ -1277,7 +1314,9 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   state.sessEffs.push(ps); state.sessBpms.push(state.bpm); state.sessEffSum+=ps; state.sessBpmSum+=state.bpm;   // full-session record (for the startup chart)
   pushEvent(good); showTiming(grade, beats.toFixed(1)+' beats', good?'perfect':'good', pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
-  if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg); renderStats();
+  let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
+  if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
+  if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch); renderStats();
 }
 function onWhiff(skipBeam, fwd){
   state.shots++; state.streak=0; pushEvent(false);
@@ -1734,6 +1773,13 @@ function animate(frameNow){
   }
   camera.rotation.set(pitch+recoilPitch+shP, yaw+recoilYaw+shY, shR, 'YXZ');
   camera.position.set(shX, EYE+shPY, shZ);
+  if(clutchT>0){                                               // clutch FOV punch: a quick zoom-in that eases out. Purely visual — does NOT touch dt or the beat clock.
+    clutchT=Math.max(0, clutchT-dt);
+    const a=clutchDur*0.14, tIn=clutchDur-clutchT;             // short attack, then ease-out
+    const env=tIn<a ? tIn/a : Math.max(0, clutchT/(clutchDur-a));
+    camera.fov=camFovBase - CFG.clutchZoom*env; camera.updateProjectionMatrix();
+    if(clutchT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }   // restore exactly when the punch ends
+  }
 
   if(state.running){
     state.t+=dt;
@@ -1744,6 +1790,7 @@ function animate(frameNow){
       const rb=Math.round(state.bpm); if(rb!==challengeUiBpm){ challengeUiBpm=rb; renderPrimary(false,false); }
       if(ghostRec){ while(state.t>=ghostNextSample){ ghostRec.a.push(qYaw(yaw), qPit(pitch)); ghostNextSample+=1/GHOST_HZ; } }   // record my aim path
       updateGhost(dt);                                      // play the opponent's ghost reticle
+      updateSelfGhost(dt);                                  // play YOUR best-run ghost (cyan)
       updatePaceGhost(dt);                                  // live "ahead of X% of today" pace bar
       if(state.t>=CFG.challengeDur){ endChallenge(); }
     }
@@ -1798,10 +1845,10 @@ function animate(frameNow){
 
   // explosions (shards fly out + a flash); run regardless so they finish across a pause
   for(let i=explosions.length-1;i>=0;i--){
-    const e=explosions[i]; e.age+=dt; const k=e.age/e.life;
+    const e=explosions[i]; const edt=dt*(e.slow||1); e.age+=edt; const k=e.age/e.life;   // edt: a clutch burst (slow<1) ages in slow-mo — localized, never the master clock
     if(e.geo){ const arr=e.geo.attributes.position.array;
-      const drag=Math.max(0,1-1.6*dt);
-      for(let j=0;j<e.vels.length;j+=3){ e.vels[j+1]-=9.8*dt*0.5; e.vels[j]*=drag; e.vels[j+1]*=drag; e.vels[j+2]*=drag; arr[j]+=e.vels[j]*dt; arr[j+1]+=e.vels[j+1]*dt; arr[j+2]+=e.vels[j+2]*dt; }
+      const drag=Math.max(0,1-1.6*edt);
+      for(let j=0;j<e.vels.length;j+=3){ e.vels[j+1]-=9.8*edt*0.5; e.vels[j]*=drag; e.vels[j+1]*=drag; e.vels[j+2]*=drag; arr[j]+=e.vels[j]*edt; arr[j+1]+=e.vels[j+1]*edt; arr[j+2]+=e.vels[j+2]*edt; }
       e.geo.attributes.position.needsUpdate=true; e.mat.opacity=Math.max(0,1-k);
     }
     const fk=Math.min(1,e.age/0.18); e.flash.scale.setScalar(e.flashBase*(1+fk*2.4)); e.flash.material.opacity=Math.max(0,0.95*(1-fk));
@@ -1809,6 +1856,18 @@ function animate(frameNow){
   }
 
   for(let i=beams.length-1;i>=0;i--){ const b=beams[i]; b.age+=dt; b.line.material.opacity=Math.max(0,0.9*(1-b.age/b.life)); if(b.age>=b.life){ releaseBeam(b.line); swapRemove(beams,i); b.line=null; beamRecordPool.push(b);} }
+  if(clutchRingT>0 && clutchRing){                              // clutch shockwave: a camera-facing ring expanding out of the impact
+    clutchRingT=Math.max(0, clutchRingT-dt);
+    const u=1-clutchRingT/clutchRingDur, r=0.6+u*7.0;
+    clutchRing.position.copy(_clutchRingPos); clutchRing.scale.set(r,r,r); clutchRing.lookAt(camera.position);
+    clutchRing.material.opacity=Math.max(0,1-u)*0.9; clutchRing.visible=true;
+  } else if(clutchRing && clutchRing.visible){ clutchRing.visible=false; }
+  if(comboGlowEl && !reduceMotion){                             // combo color-lift: warm vignette rides the streak (rise fast / fall slow)
+    const gt=(state.running ? Math.min(1, state.streak/CFG.glowStreakFull) : 0);
+    glowI += (gt-glowI)*(1-Math.exp(-dt*(gt>glowI?CFG.glowRiseK:CFG.glowFallK)));
+    const op=CFG.comboGlow ? glowI*CFG.glowMax : 0;
+    if(comboGlowEl._op===undefined || Math.abs(comboGlowEl._op-op)>0.004){ comboGlowEl.style.opacity=op.toFixed(3); comboGlowEl._op=op; }
+  }
   // Slow sky/light uniforms do not need a 60Hz CPU update; gameplay rendering stays per-frame.
   skyT += dt; skyAccum += dt; starAccum += dt;
   if(starAccum>=STAR_UPDATE_STEP){ updateStars(skyT); starAccum=0; }
@@ -1893,12 +1952,12 @@ function configureMode(){
 }
 function resetSession(){
   state.challengeOver=false; rng = state.challenge ? mulberry32(challengeSeed) : Math.random;   // reseed for a reproducible challenge; plain random otherwise
-  if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; if(ghost) ghost.hi=0; } else { ghostRec=null; if(ghostRetEl) ghostRetEl.classList.remove('on'); }
+  if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; if(ghost) ghost.hi=0; if(selfGhost) selfGhost.hi=0; } else { ghostRec=null; if(ghostRetEl) ghostRetEl.classList.remove('on'); if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); }
   for(const t of targets) removeTarget(t); targets.length=0;
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0;
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
   Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
@@ -1915,7 +1974,7 @@ function applySettings(){
   CFG.startBpm=parseInt(startBpm.value,10);
   CFG.densityScale=parseFloat(density.value);
   radPerPx=CFG.baseRadPerPx*parseFloat(sens.value);
-  camera.fov=parseInt(fov.value,10); camera.updateProjectionMatrix();
+  camera.fov=parseInt(fov.value,10); camFovBase=camera.fov; camera.updateProjectionMatrix();   // keep the clutch-punch base in sync with the FOV slider
   resetSession();
 }
 /* advanced settings modal */
@@ -1976,6 +2035,7 @@ const GHOST_HZ=20, TAU=Math.PI*2;
 const GHOST_UPDATE_STEP=1/30;
 let ghostRec=null, ghost=null, ghostNextSample=0, ghostAccum=GHOST_UPDATE_STEP;
 const ghostRetEl=gid('ghostRet');
+let selfGhost=null, selfGhostAccum=GHOST_UPDATE_STEP; const selfGhostRetEl=gid('selfGhostRet');   // self-ghost: race YOUR best run on today's seed (localStorage, offline)
 function qYaw(y){ const w=((y%TAU)+TAU)%TAU; return Math.round(w/TAU*65535); }
 function qPit(p){ return Math.max(0,Math.min(65535, Math.round((p/PITCH_LIMIT*0.5+0.5)*65535))); }
 function dqYaw(q){ return q/65535*TAU; }
@@ -1997,6 +2057,28 @@ function updateGhost(dt){
   const p1=dqPit(ghost.a[i*2+1]), gp=p1+(dqPit(ghost.a[i2*2+1])-p1)*fr;
   const sc=projectDir(setAimDir(_ghostDir,gp,gy)); gr.style.setProperty('--gx',sc[0]+'px'); gr.style.setProperty('--gy',sc[1]+'px'); gr.classList.add('on');
   if(ghost.h){ const tc=state.t*100; while(ghost.hi<ghost.h.length && tc>=ghost.h[ghost.hi]){ gr.classList.remove('hit'); void gr.offsetWidth; gr.classList.add('hit'); ghost.hi++; } }
+}
+function updateSelfGhost(dt){                                   // mirrors updateGhost, but for YOUR stored best (cyan reticle #selfGhostRet)
+  const gr=selfGhostRetEl; if(!gr) return;
+  if(!selfGhost || !selfGhost.a || selfGhost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
+  selfGhostAccum+=dt; if(selfGhostAccum<GHOST_UPDATE_STEP) return; selfGhostAccum=0;
+  const n=selfGhost.a.length>>1; let i=Math.floor(state.t*GHOST_HZ); if(i>n-1)i=n-1; const i2=Math.min(i+1,n-1), fr=Math.max(0,Math.min(1,state.t*GHOST_HZ-i));
+  const gy=lerpAngle(dqYaw(selfGhost.a[i*2]), dqYaw(selfGhost.a[i2*2]), fr);
+  const p1=dqPit(selfGhost.a[i*2+1]), gp=p1+(dqPit(selfGhost.a[i2*2+1])-p1)*fr;
+  const sc=projectDir(setAimDir(_ghostDir,gp,gy)); gr.style.setProperty('--sx',sc[0]+'px'); gr.style.setProperty('--sy',sc[1]+'px'); gr.classList.add('on');
+  if(selfGhost.h){ const tc=state.t*100; while(selfGhost.hi<selfGhost.h.length && tc>=selfGhost.h[selfGhost.hi]){ gr.classList.remove('hit'); void gr.offsetWidth; gr.classList.add('hit'); selfGhost.hi++; } }
+}
+function loadSelfGhost(){                                       // load your stored best for TODAY's seed (offline; daily-keyed so it resets each UTC day)
+  selfGhost=null; const lbl=gid('selfGhostName'); if(lbl){ lbl.textContent=''; lbl.classList.remove('on'); }
+  try{ const raw=localStorage.getItem('aimdojo.selfghost'); if(raw){ const o=JSON.parse(raw);
+    if(o && o.day===dayKey() && o.rec && o.rec.a && o.rec.a.length){ selfGhost={a:o.rec.a, h:o.rec.h||[], hi:0, score:o.score|0};
+      if(lbl){ lbl.textContent='◆ your best · '+(o.score|0)+' kills'; lbl.classList.add('on'); } } } }catch(e){}
+}
+function saveSelfGhost(){                                       // on run end: store the recorded run if it beat today's stored best
+  if(!ghostRec || !ghostRec.a || !ghostRec.a.length) return;
+  try{ const today=dayKey(); let prev=null; try{ prev=JSON.parse(localStorage.getItem('aimdojo.selfghost')); }catch(e){}
+    const prevScore=(prev && prev.day===today)?(prev.score|0):-1;
+    if(state.hits>prevScore){ localStorage.setItem('aimdojo.selfghost', JSON.stringify({day:today, score:state.hits, rec:ghostRec})); } }catch(e){}
 }
 async function loadGhost(){
   ghost=null; const lbl=gid('ghostName'); if(lbl){ lbl.textContent=''; lbl.classList.remove('on'); }
@@ -2141,6 +2223,7 @@ function startChallenge(){
   }
   challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
   loadGhost();                                                // fetch the top player's run to race (async; appears once loaded)
+  loadSelfGhost();                                            // load YOUR best run on today's seed (sync; localStorage, offline)
   loadPaceField();                                            // fetch today's field for the live pace percentile (async; bar appears once loaded)
   CFG.mode='rhythm'; state.challenge=true; state.challengeOver=false; state.needsReset=true;
   startRun();
@@ -2148,7 +2231,9 @@ function startChallenge(){
 function endChallenge(){
   state.challenge=false; state.challengeOver=true; state.needsReset=true;
   submitDaily();
+  saveSelfGhost();                                            // store this run as your new best for today if it beat the old one (ghostRec still valid here)
   if(ghostRetEl) ghostRetEl.classList.remove('on'); const gn=gid('ghostName'); if(gn) gn.classList.remove('on');
+  if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); const sgn=gid('selfGhostName'); if(sgn) sgn.classList.remove('on');
   hidePace();
   exitRunning();                                              // stop the run synchronously so state.running/challenge are consistent this frame (don't wait on async pointerlockchange)
   if(document.pointerLockElement) document.exitPointerLock();
@@ -2265,6 +2350,7 @@ function restoreStartCard(){                                  // revert the paus
 function exitChallenge(){                                     // bail out of an in-progress daily → free-play menu (next ENTER is a normal run; ghost/score-race auto-hide since state.challenge is false)
   state.challenge=false; state.challengeOver=false; state.needsReset=true;
   hidePace();
+  if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); const sgn=gid('selfGhostName'); if(sgn) sgn.classList.remove('on');
   restoreStartCard();
 }
 if(exitChallengeBtn) exitChallengeBtn.addEventListener('click', exitChallenge);
