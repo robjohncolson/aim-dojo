@@ -110,7 +110,8 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
   because the ARC path consumes NO rng/Math.random (firing never touches the seeded spawn stream) and
   brownian stays off in the daily. The daily strobe steps off `Tone.Transport.ticks` — the same audio clock
   as the spawn scheduler (`onGrid`) — so steps + spawns share one timeline. ARC tempo retuned
-  (`challengeMaxBpm:128`). Server anti-cheat unchanged (score===h.length + hit-rate hold for ARC).
+  (`challengeMaxBpm:110`, `challengeEase:1.9` — eased both ways for ARC). Server anti-cheat unchanged
+  (score===h.length + hit-rate hold for ARC).
 - **Ghosts:** record aim @20Hz + hits → JSON `replay`; `loadGhost`/`updateGhost` draw the top scorer's
   purple reticle.
 - **Realtime (Supabase Realtime):** `initRealtime` → presence ("N in the dojo") + `broadcastAim` (rides
