@@ -298,6 +298,14 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     reticle `#lockBox.decoy`, `decoyDistMul` closer-spawn, scope-includes-decoys) is intact behind the 0 chance —
     flip `decoyChance` back to re-enable, or rework into an ACTIVE challenge orb (don't-hit is the boring part).
     `tg.kind` still rolled from `rng` when LIVE (latched per-run) → daily byte-identical. See SPEC_NEXT §4.
+    **NEW orb kinds (`9621b4d`, FREE-PLAY only — daily kind roll byte-identical, verified):** the kind roll now branches
+    `state.challenge` → DAILY gets gold-only at `goldChance:0.06` (unchanged); FREE-PLAY gets a richer mix — more gold
+    (`goldChanceFP:0.12`) + **SPEED** (kind 3, cyan `0x3fd0ff`: ×`speedScore:3` if hit within `speedWindow:0.8`s of
+    spawn else ×1, `speedLifeMul:0.7` shorter life) + **MOVER** (kind 4, purple `0xc77dff`: ×`moverScore:2`,
+    `moverVelMul:2.2` faster drift). Shared `kindScore(tg, atT)` drives both scoring paths (gold path unchanged → daily
+    `score===h.length` safe; free-play tracks no `h`). Per-kind spawn mods in `spawnTarget` (gold farther+smaller,
+    speed shorter life, mover faster vel). **STILL TODO (user greenlit): DOUBLE-TAP orb** — needs survive-first-hit
+    (orb takes 2 hits): branch `killTarget` in `onHit`/`gradeRhythmHit` on a `tg.taps` counter; deferred as the complex one.
 15. **Wind (`b517d4b`, LIVE) — FREE-PLAY PROTOTYPE, opt-in `?wind`/`CFG.wind`** — gentle per-run wind in all 4 ballistics
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
