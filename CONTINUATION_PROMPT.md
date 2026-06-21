@@ -122,12 +122,14 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
   rate-limit) → service-role insert. The **anon-insert policy was dropped** (`drop policy "aimdojo_daily
   insert"`), so the server is the sole writer to the daily board. Verified end-to-end this session.
 
-## Multiplayer roadmap — all stages + Live Score Race + Percentile Pace Ghost ✅
+## Multiplayer roadmap — all stages + Live Score Race + Percentile Pace Ghost + Weekly Seasons ✅
 leaderboard → daily seeded challenge → ghosts → Railway-verified scores (DEPLOYED) → realtime presence +
 reticles → **Live Score Race** → **Percentile Pace Ghost** (live "DAILY PACE — ahead of X% of today's
 field" bar; `loadPaceField`/`updatePaceGhost`, top-center HUD, works SOLO since it races the *recorded*
-field). Remaining roadmap ideas (from a design-exploration pass, not built): Best-of-3 Duel brackets
-(needs a lobby), shareable result card + streak, weekly seasons.
+field) → **Weekly Seasons** (`loadSeasonBoard`, a standings board summing each player's best daily score
+this UTC week). Remaining roadmap ideas (not built): **shareable result card + streak** (next, mostly
+client-side); **Best-of-3 Duel brackets** (needs a realtime lobby/matchmaking — big lift, low confidence
+build-blind).
 
 ### Percentile Pace Ghost — how it works (built)
 `updatePaceGhost` (daily branch, throttled ~6Hz via `PACE_STEP`) sweeps a monotonic `Int32Array` cursor
@@ -141,6 +143,20 @@ flashes on scoring hits. Server `score≤h.length` / hit-rate checks still pass 
 **Scaling note (not built):** `loadPaceField` downloads up to 120 FULL replays and parses each just to read
 `h` (the big `a[] aim path is wasted). If a single day's field ever gets large, add a server/Supabase
 h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole replays.
+
+### Weekly Seasons — how it works (built)
+`loadSeasonBoard` renders the `#seasonBox` standings (rank / name / total / "Nd" days-played) under the
+daily board. `seasonDays()` builds the **7 day-keys of the current UTC week (Mon–Sun)** via `dayKeyOf` —
+which MUST mirror `dayKey()`'s **non-padded** format (`2026-6-15`, not `06-15`), because the stored `day`
+strings aren't zero-padded so a lexical `day=gte` range query is WRONG; we query exact keys with
+`day=in.(...)`. Per player, take the **best score per day**, **sum** across the days played, sort by total
+(then days-played). Reuses `aimdojo_daily` — no new table/server/realtime. Wired into all three board
+refreshes (startup, run end, `submitDaily`). **Scaling note:** client-aggregates up to `limit=2000` rows;
+if a week's field gets large, move to a server aggregate (same path as the pace ghost).
+- **FPS/DPR readout (dev/validation):** visit `…/?fps` (or `#fps`) → live `N fps · dpr X.XX` top-left
+  during play (`_showFps`/`fpsEMA` in `animate`, EMA of rAF timestamps + `renderer.getPixelRatio()`).
+  Cross-device (no keyboard needed) → the way to finally validate the Codex perf pass on phones/school
+  machines. Gated to the URL flag; zero cost otherwise.
 
 ## Key tunables (in `CFG` unless noted)
 - **Ballistics:** `projSpeed:24`, `projGravity:16` (lofted for a visible arc; raise speed / lower gravity
@@ -184,32 +200,37 @@ Reviewed clean (0 regressions) except one fixed: deferred checker map recompiled
 the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf gains are unverified at runtime**
 (can't profile blind) — a real device FPS capture is the outstanding validation.
 
-## Shipped & playtest-accepted (latest session)
-Four changes landed and the user confirmed the result is **"genuinely fun"** — tuning on these is settled,
-no open round-trips:
+## Shipped (recent work)
+**Playtest-accepted ("genuinely fun")** — tuning settled, no open round-trips:
 1. **Skill-gated spawn distance** (free-play) — starts close (8–11m), marches the spawn shell outward on
-   sustained ≥80% accuracy, pulls back when struggling. Tunables in Key tunables above.
-2. **Percentile Pace Ghost** (daily) — live "DAILY PACE — ahead of X% of today's field" bar; works SOLO
-   (races the recorded field, not live opponents).
+   sustained ≥80% accuracy, pulls back when struggling.
+2. **Percentile Pace Ghost** (daily) — live "ahead of X% of today's field" bar; works SOLO.
 3. **Beat-quantized target motion** (free-play rhythm) — the orb HOLDS then STEPS on the beat; wander SPEED
-   tied to skill (sedate at low bpm via `velCap`, fast at high). The big "feel" win this session.
-4. **ARC guide cleanup** — aim-pip retired; trajectory ribbon slimmed to a thin/faint/SOLID arc (scrolling
-   dashes gone); lock box + landing ring + impact pulses kept.
-All verified via the build-blind loop (node --check + dangling-ref greps); the two larger features (#2, #3)
-also got multi-agent adversarial reviews before shipping.
+   tied to skill (sedate at low bpm via `velCap`, fast at high). The big "feel" win.
+4. **ARC guide cleanup** — aim-pip retired; trajectory ribbon slimmed to a thin/faint/SOLID arc; lock box +
+   landing ring + impact pulses kept.
+
+**Shipped, awaiting the user's eyes** (built + validated, not yet playtested in anger):
+5. **Weekly Seasons** board (see its how-it-works section).
+6. **FPS/DPR readout** at `…/?fps` — for the user to capture real-device perf.
+7. **Global board relabeled "RAILGUN · PEAK BPM"** — resolves the ARC-default-vs-board question by keeping
+   the global board hit-scan-pure (the daily/season boards are the real cross-mode comp). Flip to "let ARC
+   count" only if the user asks.
+
+All verified via the build-blind loop (node --check + dangling-ref greps; date logic for seasons executed in
+node); the larger gameplay features also got multi-agent adversarial reviews before shipping.
 
 ## Outstanding / likely next
-- **Decide on the global board vs ARC-default:** ARC runs are excluded from `aimdojo_scores`, so with ARC
-  default the peak-BPM board only fills from RAILGUN runs. Either accept (daily board is the real comp) or
-  let ARC runs count (mixes difficulties).
-- **Next roadmap features (not built):** shareable result card + streak; Best-of-3 Duel brackets (needs a
-  lobby); weekly seasons.
-- **Pace ghost scaling (if a day's field gets big):** swap the full-replay fetch for a server/Supabase
-  h-only aggregate (see the Percentile Pace Ghost section). Not needed at current scale.
+- **Shareable result card + streak** — the recommended NEXT feature (mostly client-side: render an
+  end-of-run card → download / Web Share, + a localStorage daily streak). High retention value for a class.
+- **Best-of-3 Duel brackets** — needs a realtime lobby/matchmaking (presence/broadcast only today); big
+  lift, hard to verify build-blind. Deferred.
+- **Pace ghost + season scaling (if a field gets big):** both client-aggregate; move to a server/Supabase
+  aggregate if counts grow. Not needed at current scale.
 - **Known pre-existing ARC nuance (not fixed):** a perfectly-aimed point-blank lofted shot can miss because
   `computeShotPlan` solves the eye→crosshair parabola from PLAYER_POS/eye, ignoring the down-right muzzle
   offset (`BLADE_DX/DY`). The scope LOCK accounts for it; only matters if you ignore the firing computer.
   Fixing it means touching `computeShotPlan` (risks the "bullet flies down the ribbon" invariant).
-- **Other ideas:** device perf capture (perf gains still unverified); floor HUD distance ground-vs-slant;
-  railgun θ/range readouts; optional removal of the impact pulse rings if they ever feel busy; a wiki/memory
-  note (aim-dojo still isn't in workspace memory).
+- **Low-value / parked:** railgun θ/range readout (decoration — hit-scan needs no aiming computer) and floor
+  HUD ground-vs-slant (slant is the useful number, already shown) — assessed low-value, deliberately skipped.
+  Also: optional impact-pulse removal if it ever feels busy; a wiki/memory note (aim-dojo isn't in memory).
