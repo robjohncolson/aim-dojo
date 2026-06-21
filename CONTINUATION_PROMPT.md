@@ -2,6 +2,16 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
+## ▶ START HERE (next session)
+The game is in great shape and the user says it's **"genuinely addicting."** Agreed next work is in
+**`SPEC_NEXT.md`** (read it first). Build order: **(1) Juice pass — combo color-lift + a rhythm-safe
+clutch flourish, and (2) Self-ghost — race your own best** TOGETHER first (both low-risk, immediately
+felt), then (3) per-target ideal arc, (4) special orbs, (5) wind (free-play prototype, last).
+**Key gotcha:** the "clutch slow-mo" must NOT scale `dt`/the master clock — that would desync
+Tone.Transport (the beat). Keep it a localized visual (camera punch + explosion-only slow-mo).
+One open question for the user: the clutch trigger ("long-range OR last-second" vs rarer).
+Follow the build-blind loop (validate → adversarial review for risky diffs → push → poll).
+
 ## What it is
 A single-file, browser-based **rhythm + spatial-audio aim trainer** with a full day/night sky,
 adaptive difficulty, a multiplayer stack, and a **ballistic (projectile) shot mode with a firing-computer
@@ -230,6 +240,14 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
    to a free-play fallback. Deterministic via Tone.ticks + no rng in the ARC path; anti-cheat intact
    (15-agent review). **Transition:** today's board may briefly mix railgun + ARC runs; clean from the next
    UTC midnight. (To avoid even that, could gate ARC-daily to a future dayKey — not done; user said go.)
+10. **Recent UI/feel tweaks (playtest-driven):** daily ARC tempo eased to `challengeMaxBpm:110`/
+    `challengeEase:1.9` (was 128/1.5); free-play adaptive sliders open 0–95% (up) / 0–75% (down), slow-down
+    **default 5%**; **ARC info readouts** — landing-distance label (`#arcLandInfo`), apex tangent line
+    (`arcApex`) + height (`#arcApexInfo`), and a target **height** label that floats at the orb's TOP and
+    shows ONLY when the orb is above your shot's apex (`_arcApexY`/`_arcApexOn`); **daytime legibility** —
+    the ARC viz + floor-HUD rings switched additive→NORMAL blend with a bold warm **orange**, opacity
+    day-boosted via module `dayAmt` (exposed from `updateSky`), bigger landing/pulse rings, heavier label
+    outlines.
 
 All verified via the build-blind loop (node --check + dangling-ref greps; date logic for seasons executed in
 node); the larger/risky features (pace ghost, beat-quant, ARC daily) got multi-agent adversarial reviews.
