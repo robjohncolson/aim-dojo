@@ -1588,10 +1588,17 @@ function driveGlyph(el, miss, negGlyph, posGlyph){   // miss<0 -> negGlyph, miss
 }
 function hideGlyph(el){ if(el && (el.classList.contains('on')||el.classList.contains('centered')||el.classList.contains('lockflash'))){ el.classList.remove('on','centered','lockflash'); el._g=undefined; } }
 /* ---- 3D lock-on: when the shot is dead-on (LOCK), the orb is shown sitting at the intersection of TWO perpendicular GREAT CIRCLES of a player-centred sphere (radius = orb distance). Both planes contain the player→orb direction, so both circles pass through the orb. Drawn in the gold LOCK colour, faded in. ---- */
-let lockRingV=null, lockRingH=null, _sphereOpacity=0, _gaugeLocked=false;
-const _UP=new THREE.Vector3(0,1,0), _lrD=new THREE.Vector3(), _lrNV=new THREE.Vector3(), _lrNH=new THREE.Vector3();
-const _lockRingGeo=(()=>{ const N=72, a=new Float32Array(N*3); for(let i=0;i<N;i++){ const th=i/N*6.2831853; a[i*3]=Math.cos(th); a[i*3+1]=0; a[i*3+2]=Math.sin(th); } const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();   // unit ring in XZ (normal +Y)
-function ensureLockRings(){ if(lockRingV) return; const mk=()=>{ const m=new THREE.LineLoop(_lockRingGeo, new THREE.LineBasicMaterial({color:0xffcd5a, transparent:true, opacity:0, depthWrite:false, depthTest:false, fog:false})); m.frustumCulled=false; m.renderOrder=5; m.visible=false; scene.add(m); return m; }; lockRingV=mk(); lockRingH=mk(); }
+let lockRingV=null, lockRingH=null, lockLine=null, _sphereOpacity=0, _gaugeLocked=false;
+const SKY_R=470;   // the great circles ride the sky dome (radius 480) so they read as projected on the sky
+const _UP=new THREE.Vector3(0,1,0), _lrD=new THREE.Vector3(), _lrNV=new THREE.Vector3(), _lrNH=new THREE.Vector3(), _lrSky=new THREE.Vector3();
+const _lockRingGeo=(()=>{ const N=96, a=new Float32Array(N*3); for(let i=0;i<N;i++){ const th=i/N*6.2831853; a[i*3]=Math.cos(th); a[i*3+1]=0; a[i*3+2]=Math.sin(th); } const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();   // unit ring in XZ (normal +Y)
+function ensureLockRings(){ if(lockRingV) return;
+  const mk=()=>{ const m=new THREE.LineLoop(_lockRingGeo, new THREE.LineBasicMaterial({color:0xffcd5a, transparent:true, opacity:0, depthWrite:false, fog:false})); m.frustumCulled=false; m.renderOrder=5; m.visible=false; scene.add(m); return m; };   // depthTest ON -> rings sit on the sky, occluded by terrain below the horizon
+  lockRingV=mk(); lockRingH=mk();
+  const lg=new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
+  lockLine=new THREE.Line(lg, new THREE.LineDashedMaterial({color:0xffcd5a, transparent:true, opacity:0, dashSize:0.6, gapSize:0.4, depthWrite:false, depthTest:false, fog:false}));   // dotted gold tether from the circles' crossing down to the orb (always visible)
+  lockLine.frustumCulled=false; lockLine.renderOrder=6; lockLine.visible=false; lockLine.computeLineDistances(); scene.add(lockLine);
+}
 function setGaugeLocked(locked){ if(locked===_gaugeLocked) return; _gaugeLocked=locked;
   for(const el of [gaugeY,gaugeX]){ if(!el) continue;
     if(locked){ el.classList.remove('centered','lockflash'); void el.offsetWidth; el.classList.add('on','lockflash'); }   // both axes zero: blink once then hidden (CSS ends opacity:0)
@@ -1599,17 +1606,21 @@ function setGaugeLocked(locked){ if(locked===_gaugeLocked) return; _gaugeLocked=
 }
 function updateLockSphere(show, Tt, P){
   const tgt=show?0.9:0; _sphereOpacity += (tgt-_sphereOpacity)*0.4;                     // smooth fade (per 30Hz scope tick)
-  if(_sphereOpacity<0.012){ _sphereOpacity=0; if(lockRingV){ lockRingV.visible=false; lockRingH.visible=false; } return; }
+  if(_sphereOpacity<0.012){ _sphereOpacity=0; if(lockRingV){ lockRingV.visible=false; lockRingH.visible=false; lockLine.visible=false; } return; }
   ensureLockRings();
   if(show && Tt){                                                                       // (re)orient only while locked; keep the last transform during fade-out
-    _lrD.subVectors(Tt,P); const R=_lrD.length()||1; _lrD.multiplyScalar(1/R);
+    _lrD.copy(_scAim);                                                                  // ride the AIM direction (crosshair): the circles cross at the aim point on the sky; the orb sits just off it by the lob lead, so the tether is visible
     _lrNV.crossVectors(_lrD,_UP);
-    if(_lrNV.lengthSq()>=1e-5){ _lrNV.normalize(); _lrNH.crossVectors(_lrD,_lrNV).normalize();   // two perpendicular great-circle normals, both ⟂ to the orb direction
-      lockRingV.position.copy(P); lockRingV.scale.setScalar(R); lockRingV.quaternion.setFromUnitVectors(_UP,_lrNV);
-      lockRingH.position.copy(P); lockRingH.scale.setScalar(R); lockRingH.quaternion.setFromUnitVectors(_UP,_lrNH); }
+    if(_lrNV.lengthSq()>=1e-5){ _lrNV.normalize(); _lrNH.crossVectors(_lrD,_lrNV).normalize();   // two perpendicular great-circle normals, both ⟂ to the aim direction
+      lockRingV.position.copy(P); lockRingV.scale.setScalar(SKY_R); lockRingV.quaternion.setFromUnitVectors(_UP,_lrNV);
+      lockRingH.position.copy(P); lockRingH.scale.setScalar(SKY_R); lockRingH.quaternion.setFromUnitVectors(_UP,_lrNH);
+      _lrSky.copy(P).addScaledVector(_lrD, Tt.distanceTo(P)+10);                         // tether far end: just past the orb along the aim (projects to the crosshair, where the circles cross) -> short, clean dashes
+      const lp=lockLine.geometry.attributes.position.array; lp[0]=_lrSky.x;lp[1]=_lrSky.y;lp[2]=_lrSky.z; lp[3]=Tt.x;lp[4]=Tt.y;lp[5]=Tt.z;
+      lockLine.geometry.attributes.position.needsUpdate=true; lockLine.geometry.computeLineDistances(); }
   }
-  lockRingV.material.opacity=_sphereOpacity; lockRingV.visible=true;
-  lockRingH.material.opacity=_sphereOpacity; lockRingH.visible=true;
+  const o=_sphereOpacity;
+  lockRingV.material.opacity=o; lockRingV.visible=true; lockRingH.material.opacity=o; lockRingH.visible=true;
+  lockLine.material.opacity=o; lockLine.visible=true;
 }
 function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); hideGlyph(gaugeY); hideGlyph(gaugeX); setGaugeLocked(false); updateLockSphere(false, null, null); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
