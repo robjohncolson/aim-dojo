@@ -99,13 +99,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock::after{opacity:1}
 #lockBox.decoy{border-color:rgba(255,59,110,.95);box-shadow:0 0 12px rgba(255,59,110,.5),inset 0 0 8px rgba(255,59,110,.2)}
 #lockBox.decoy::after{content:'AVOID';color:rgba(255,95,135,.97);opacity:1}
-/* deviation arrows on the 4 SIDES of the lock reticle, each with the live |delta|: ▲ above = aim up (Δy<0) · ▼ below = aim down (Δy>0) · ◀ left = aim left (Δx>0) · ▶ right = aim right (Δx<0). hidden when that axis is centered. */
-.devarr{position:absolute;display:none;font:13px var(--mono);color:var(--blood);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;white-space:nowrap;z-index:6}
-.devarr.on{display:block}
-#devTop{left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:4px}
-#devBot{left:50%;top:100%;transform:translateX(-50%);margin-top:4px}
-#devLeft{right:100%;top:50%;transform:translateY(-50%);margin-right:6px}
-#devRight{left:100%;top:50%;transform:translateY(-50%);margin-left:6px}
+/* deviation EDGE TINTS: a red glow on the screen edge you must aim TOWARD — top = aim up (Δy<0) · bottom = aim down (Δy>0) · left = aim left (Δx>0) · right = aim right (Δx<0). opacity ∝ |delta| (set in updateScope). Top/bottom = 1/20 screen height, sides = 1/30 width, fading inward. */
+.edgeTint{position:fixed;pointer-events:none;z-index:3;opacity:0;will-change:opacity}
+#edgeTop{top:0;left:0;right:0;height:5vh;background:linear-gradient(to bottom, rgba(255,55,55,.9), transparent)}
+#edgeBot{bottom:0;left:0;right:0;height:5vh;background:linear-gradient(to top, rgba(255,55,55,.9), transparent)}
+#edgeLeft{top:0;bottom:0;left:0;width:3.34vw;background:linear-gradient(to right, rgba(255,55,55,.9), transparent)}
+#edgeRight{top:0;bottom:0;right:0;width:3.34vw;background:linear-gradient(to left, rgba(255,55,55,.9), transparent)}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
 #windHud{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font:11px var(--mono);color:#bfe9ff;letter-spacing:.12em;display:none;align-items:center;gap:7px;text-shadow:0 0 5px #000;z-index:5;pointer-events:none}
@@ -279,7 +278,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
 <div id="paceGhost" class="hud" aria-hidden="true"><div class="pg-top"><span>PACE</span><span class="pg-pct">—</span></div><div class="pg-track"><span class="pg-fill"></span></div><div class="pg-sub"></div></div>
 <div id="scopeAim" aria-hidden="true"></div>
-<div id="lockBox" aria-hidden="true"><div id="devTop" class="devarr"></div><div id="devBot" class="devarr"></div><div id="devLeft" class="devarr"></div><div id="devRight" class="devarr"></div></div>
+<div id="lockBox" aria-hidden="true"></div>
+<div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
@@ -538,7 +538,7 @@ const CFG = {
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
   goldDistMul:1.35, goldSizeMul:0.7, decoyDistMul:0.6,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward), DECOYS lunge closer (bait). Deterministic given the seeded kind; the daily is left untouched.
-  grooveCut:[1,3,6],   // streak thresholds where the adaptive groove steps up a tier (target = streak<cut0?0 : <cut1?1 : <cut2?2 : 3). Loosened from [2,6,12] — the full groove now lands at a 6-streak, tier 1 on the first hit. Audio only. Lower these for an even easier build.
+  grooveCut:[1,2,4],   // streak thresholds where the adaptive groove steps up a tier (target = streak<cut0?0 : <cut1?1 : <cut2?2 : 3). Eager: tier 1 on the first hit, tier 2 at a 2-streak, FULL groove at a 4-streak (was [2,6,12]). Audio only.
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
@@ -1605,23 +1605,19 @@ let scopeAccum=SCOPE_STEP;
 const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox');
 const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
 const _scScreen=[0,0,false];
-/* ---- deviation arrows on the 4 SIDES of the lock reticle (#devTop/#devBot/#devLeft/#devRight), each with the live |delta|: Y = ▲ above (aim up, vMiss<0) / ▼ below (vMiss>0); X = ◀ left (aim left, lat>0) / ▶ right (lat<0). Hidden when that axis is centered. ---- */
+/* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
 let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
-const ARC_CENTER_TOL=0.5;   // |miss| (m) under which an axis is "centered" -> no arrow on that side
-const devTop=gid('devTop'), devBot=gid('devBot'), devLeft=gid('devLeft'), devRight=gid('devRight');   // deviation arrows on the 4 sides of the lock reticle (+ live |delta|)
-function setDevArrow(el, on, arrow, mag){
-  if(!el) return;
-  if(on){ const t=arrow+' '+mag.toFixed(1); if(el._t!==t){ el.textContent=t; el._t=t; } el.classList.add('on'); }
-  else if(el.classList.contains('on')){ el.classList.remove('on'); el._t=undefined; }
+const EDGE_TOL=0.4, EDGE_K=0.14, EDGE_MAX=0.5;   // deviation -> edge-tint opacity: 0 within EDGE_TOL m, full (EDGE_MAX) by ~EDGE_TOL + EDGE_MAX/EDGE_K (~4) m
+const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints cueing the aim-correction direction
+function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
+function driveEdgeTints(vMiss, lat){   // dy<0 (arc BELOW orb -> aim UP) -> TOP red; dy>0 -> BOTTOM. dx>0 (arc RIGHT -> aim LEFT) -> LEFT red; dx<0 -> RIGHT. opacity ∝ |delta|.
+  setStyle(edgeTop,   'opacity', vMiss<0 ? edgeOp(-vMiss) : 0);
+  setStyle(edgeBot,   'opacity', vMiss>0 ? edgeOp(vMiss)  : 0);
+  setStyle(edgeLeft,  'opacity', lat>0   ? edgeOp(lat)    : 0);
+  setStyle(edgeRight, 'opacity', lat<0   ? edgeOp(-lat)   : 0);
 }
-function driveDevArrows(vMiss, lat){   // Y: vMiss<0 = arc BELOW the orb -> aim UP (▲ top); vMiss>0 -> aim DOWN (▼ bottom). X: lat>0 = arc RIGHT -> aim LEFT (◀ left); lat<0 -> aim RIGHT (▶ right). live |delta| beside each; centered axis -> no arrow.
-  setDevArrow(devTop,   vMiss < -ARC_CENTER_TOL, '▲', -vMiss);
-  setDevArrow(devBot,   vMiss >  ARC_CENTER_TOL, '▼',  vMiss);
-  setDevArrow(devLeft,  lat   >  ARC_CENTER_TOL, '◀',  lat);
-  setDevArrow(devRight, lat   < -ARC_CENTER_TOL, '▶', -lat);
-}
-function hideDevArrows(){ setDevArrow(devTop,false); setDevArrow(devBot,false); setDevArrow(devLeft,false); setDevArrow(devRight,false); }
-function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); hideDevArrows(); }
+function hideEdgeTints(){ setStyle(edgeTop,'opacity',0); setStyle(edgeBot,'opacity',0); setStyle(edgeLeft,'opacity',0); setStyle(edgeRight,'opacity',0); }
+function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); hideEdgeTints(); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
@@ -1658,8 +1654,8 @@ function updateScope(dt){
   if(ts[2] && _scVMissOn && !reduceMotion && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one)
     const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
     const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
-    driveDevArrows(_scVMiss, lat);            // arrows + live |delta| on the lock reticle's sides (up/down for Δy, left/right for Δx)
-  } else { hideDevArrows(); }
+    driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
+  } else { hideEdgeTints(); }
   const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b>'
                            : '<br>IDEAL <b class="sk">out of range</b>';
   const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
