@@ -1588,15 +1588,16 @@ function driveGlyph(el, miss, negGlyph, posGlyph){   // miss<0 -> negGlyph, miss
 }
 function hideGlyph(el){ if(el && (el.classList.contains('on')||el.classList.contains('centered')||el.classList.contains('lockflash'))){ el.classList.remove('on','centered','lockflash'); el._g=undefined; } }
 /* ---- 3D lock-on: when the shot is dead-on (LOCK), the orb is shown sitting at the intersection of TWO perpendicular GREAT CIRCLES of a player-centred sphere (radius = orb distance). Both planes contain the player→orb direction, so both circles pass through the orb. Drawn in the gold LOCK colour, faded in. ---- */
-let lockRingV=null, lockRingH=null, lockLine=null, _sphereOpacity=0, _gaugeLocked=false;
-const SKY_R=470;   // the great circles ride the sky dome (radius 480) so they read as projected on the sky
-const _UP=new THREE.Vector3(0,1,0), _lrD=new THREE.Vector3(), _lrNV=new THREE.Vector3(), _lrNH=new THREE.Vector3(), _lrSky=new THREE.Vector3();
-const _lockRingGeo=(()=>{ const N=96, a=new Float32Array(N*3); for(let i=0;i<N;i++){ const th=i/N*6.2831853; a[i*3]=Math.cos(th); a[i*3+1]=0; a[i*3+2]=Math.sin(th); } const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();   // unit ring in XZ (normal +Y)
-function ensureLockRings(){ if(lockRingV) return;
-  const mk=()=>{ const m=new THREE.LineLoop(_lockRingGeo, new THREE.LineBasicMaterial({color:0xffcd5a, transparent:true, opacity:0, depthWrite:false, fog:false})); m.frustumCulled=false; m.renderOrder=5; m.visible=false; scene.add(m); return m; };   // depthTest ON -> rings sit on the sky, occluded by terrain below the horizon
-  lockRingV=mk(); lockRingH=mk();
+let lockSphere=null, lockLine=null, _sphereOpacity=0, _gaugeLocked=false, _lockSpin=0;
+const _lrSky=new THREE.Vector3();
+const _lockRingGeo=(()=>{ const N=80, a=new Float32Array(N*3); for(let i=0;i<N;i++){ const th=i/N*6.2831853; a[i*3]=Math.cos(th); a[i*3+1]=0; a[i*3+2]=Math.sin(th); } const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();   // unit ring in XZ (normal +Y)
+function ensureLockRings(){ if(lockSphere) return;
+  lockSphere=new THREE.Group(); lockSphere.frustumCulled=false; lockSphere.visible=false;                       // small wireframe sphere AROUND the locked orb: 3 perpendicular great circles (a globe) that tumble, gold like the LOCK box
+  const mk=()=>{ const m=new THREE.LineLoop(_lockRingGeo, new THREE.LineBasicMaterial({color:0xffcd5a, transparent:true, opacity:0, depthWrite:false, depthTest:false, fog:false})); m.renderOrder=5; m.frustumCulled=false; return m; };
+  const r1=mk(), r2=mk(), r3=mk(); r2.rotation.x=Math.PI/2; r3.rotation.z=Math.PI/2;                            // XZ / XY / YZ rings -> a wireframe sphere
+  lockSphere.add(r1); lockSphere.add(r2); lockSphere.add(r3); scene.add(lockSphere);
   const lg=new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
-  lockLine=new THREE.Line(lg, new THREE.LineDashedMaterial({color:0xffcd5a, transparent:true, opacity:0, dashSize:0.6, gapSize:0.4, depthWrite:false, depthTest:false, fog:false}));   // dotted gold tether from the circles' crossing down to the orb (always visible)
+  lockLine=new THREE.Line(lg, new THREE.LineDashedMaterial({color:0xffcd5a, transparent:true, opacity:0, dashSize:0.45, gapSize:0.32, depthWrite:false, depthTest:false, fog:false}));   // dotted gold tether from the crosshair down to the orb
   lockLine.frustumCulled=false; lockLine.renderOrder=6; lockLine.visible=false; lockLine.computeLineDistances(); scene.add(lockLine);
 }
 function setGaugeLocked(locked){ if(locked===_gaugeLocked) return; _gaugeLocked=locked;
@@ -1604,25 +1605,23 @@ function setGaugeLocked(locked){ if(locked===_gaugeLocked) return; _gaugeLocked=
     if(locked){ el.classList.remove('centered','lockflash'); void el.offsetWidth; el.classList.add('on','lockflash'); }   // both axes zero: blink once then hidden (CSS ends opacity:0)
     else el.classList.remove('lockflash'); }                                                                            // off-lock: driveGlyph re-renders the triangle
 }
-function updateLockSphere(show, Tt, P){
-  const tgt=show?0.9:0; _sphereOpacity += (tgt-_sphereOpacity)*0.4;                     // smooth fade (per 30Hz scope tick)
-  if(_sphereOpacity<0.012){ _sphereOpacity=0; if(lockRingV){ lockRingV.visible=false; lockRingH.visible=false; lockLine.visible=false; } return; }
+function updateLockSphere(show, Tt, P, orbR){
+  const tgt=show?0.95:0; _sphereOpacity += (tgt-_sphereOpacity)*0.4;                    // smooth fade (per 30Hz scope tick)
+  if(_sphereOpacity<0.012){ _sphereOpacity=0; if(lockSphere){ lockSphere.visible=false; lockLine.visible=false; } return; }
   ensureLockRings();
-  if(show && Tt){                                                                       // (re)orient only while locked; keep the last transform during fade-out
-    _lrD.copy(_scAim);                                                                  // ride the AIM direction (crosshair): the circles cross at the aim point on the sky; the orb sits just off it by the lob lead, so the tether is visible
-    _lrNV.crossVectors(_lrD,_UP);
-    if(_lrNV.lengthSq()>=1e-5){ _lrNV.normalize(); _lrNH.crossVectors(_lrD,_lrNV).normalize();   // two perpendicular great-circle normals, both ⟂ to the aim direction
-      lockRingV.position.copy(P); lockRingV.scale.setScalar(SKY_R); lockRingV.quaternion.setFromUnitVectors(_UP,_lrNV);
-      lockRingH.position.copy(P); lockRingH.scale.setScalar(SKY_R); lockRingH.quaternion.setFromUnitVectors(_UP,_lrNH);
-      _lrSky.copy(P).addScaledVector(_lrD, Tt.distanceTo(P)+10);                         // tether far end: just past the orb along the aim (projects to the crosshair, where the circles cross) -> short, clean dashes
-      const lp=lockLine.geometry.attributes.position.array; lp[0]=_lrSky.x;lp[1]=_lrSky.y;lp[2]=_lrSky.z; lp[3]=Tt.x;lp[4]=Tt.y;lp[5]=Tt.z;
-      lockLine.geometry.attributes.position.needsUpdate=true; lockLine.geometry.computeLineDistances(); }
+  if(show && Tt){                                                                       // place + tumble the sphere on the orb only while locked; keep the last transform during fade-out
+    const R=Math.max(orbR*2.8, 1.0);                                                    // bigger than the orb so the curved rings clearly enclose it (and the curve is visible up close)
+    lockSphere.position.copy(Tt); lockSphere.scale.setScalar(R);
+    _lockSpin += 0.02; lockSphere.rotation.set(0.5, _lockSpin, 0.0);                    // slow tilted tumble so it reads unambiguously as a 3D sphere
+    _lrSky.copy(P).addScaledVector(_scAim, Tt.distanceTo(P));                           // tether far end: along the aim at the orb's range -> projects to the crosshair
+    const lp=lockLine.geometry.attributes.position.array; lp[0]=_lrSky.x;lp[1]=_lrSky.y;lp[2]=_lrSky.z; lp[3]=Tt.x;lp[4]=Tt.y;lp[5]=Tt.z;
+    lockLine.geometry.attributes.position.needsUpdate=true; lockLine.geometry.computeLineDistances();
   }
   const o=_sphereOpacity;
-  lockRingV.material.opacity=o; lockRingV.visible=true; lockRingH.material.opacity=o; lockRingH.visible=true;
-  lockLine.material.opacity=o; lockLine.visible=true;
+  for(const r of lockSphere.children){ r.material.opacity=o; }
+  lockSphere.visible=true; lockLine.material.opacity=o; lockLine.visible=true;
 }
-function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); hideGlyph(gaugeY); hideGlyph(gaugeX); setGaugeLocked(false); updateLockSphere(false, null, null); }
+function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock'); hideGlyph(gaugeY); hideGlyph(gaugeX); setGaugeLocked(false); updateLockSphere(false, null, null, 0); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
@@ -1657,16 +1656,16 @@ function updateScope(dt){
   if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
   // arc-delta LED gauges (on the lock box): how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits), split into two axes vs the optimal shot. TOP (#arcDelta) = VERTICAL: + = arc passes low (loft higher), - = high (loft lower). BOTTOM (#arcDeltaX) = LATERAL: + = passes right, - = left. Both 0 at a hit; GREEN on LOCK. read-only -> daily-deterministic.
   if(ts[2] && _scVMissOn && !reduceMotion){
-    if(locked){ setGaugeLocked(true); updateLockSphere(true, Tt, P); }            // LOCK (both axes zero): triangles blink once + vanish; reveal the two great circles
+    if(locked){ setGaugeLocked(true); updateLockSphere(true, Tt, P, tg.radius*tg.sc); }   // LOCK (both axes zero): triangles blink once + vanish; a wireframe sphere wraps the orb
     else {
       setGaugeLocked(false);
       const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;  // horizontal view forward
       const lat=_scMissX*(-fz)+_scMissZ*fx;                                       // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
       driveGlyph(gaugeY, _scVMiss, '▲', '▼');   // TOP vertical: arc below orb (vMiss<0) -> ▲ aim up ; above -> ▼
       driveGlyph(gaugeX, lat, '▶', '◀');        // LOWER-LEFT lateral: arc left (lat<0) -> ▶ aim right ; right -> ◀
-      updateLockSphere(false, Tt, P);
+      updateLockSphere(false, Tt, P, 0);
     }
-  } else { setGaugeLocked(false); hideGlyph(gaugeY); hideGlyph(gaugeX); updateLockSphere(false, null, null); }
+  } else { setGaugeLocked(false); hideGlyph(gaugeY); hideGlyph(gaugeX); updateLockSphere(false, null, null, 0); }
   const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b>'
                            : '<br>IDEAL <b class="sk">out of range</b>';
   const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
