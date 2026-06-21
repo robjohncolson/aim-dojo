@@ -6,7 +6,7 @@ Paste-in context for resuming work on **aim-dojo** in a new session.
 A single-file, browser-based **rhythm + spatial-audio aim trainer** with a full day/night sky,
 adaptive difficulty, a multiplayer stack, and a **ballistic (projectile) shot mode with a firing-computer
 scope**. Built for the user (high-school math teacher, robjohncolson). Everything lives in **`index.html`**
-— no build step (~2180 lines; ~110K of JS in one IIFE after a Codex perf pass).
+— no build step (~2260 lines; one big IIFE of JS after a Codex perf pass).
 
 - **Repo:** `github.com/robjohncolson/aim-dojo` (public). `gh` is authed as **robjohncolson**.
 - **Live:** https://robjohncolson.github.io/aim-dojo/ (GitHub Pages, deploys from `main` root).
@@ -166,7 +166,7 @@ h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole 
   step travels. The orb HOLDS position+velocity between beat-grid ticks then STEPS, so the
   cursor + target-locked aim guides (lock box, lead, range, floor ring — all read
   `tg.mesh.position`+`tg.vel`) settle instead of fleeing. Phase-locked via `Tone.Transport.ticks/PPQ`;
-  subdivision 1/4→1/8→1/16 beat by `diffT()`. Module state `_quantIdx`/`_quantT` (reset in resetSession).
+  subdivision steps by `diffT()` per `beatQuantDivs` (currently 1/2→1/4→1/8). Module state `_quantIdx`/`_quantT` (reset in resetSession).
   On a snap, `scopeAccum`/`arcAccum` are forced so the guides recompute the same frame. Strobe-path wall
   bounce reflects POSITION (large steps); continuous bounce unchanged. **Daily + hunt untouched** (strobe
   gated `mode==='rhythm' && !state.challenge`; continuous modes keep `doSnap=true` every frame → identical).
@@ -184,20 +184,32 @@ Reviewed clean (0 regressions) except one fixed: deferred checker map recompiled
 the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf gains are unverified at runtime**
 (can't profile blind) — a real device FPS capture is the outstanding validation.
 
+## Shipped & playtest-accepted (latest session)
+Four changes landed and the user confirmed the result is **"genuinely fun"** — tuning on these is settled,
+no open round-trips:
+1. **Skill-gated spawn distance** (free-play) — starts close (8–11m), marches the spawn shell outward on
+   sustained ≥80% accuracy, pulls back when struggling. Tunables in Key tunables above.
+2. **Percentile Pace Ghost** (daily) — live "DAILY PACE — ahead of X% of today's field" bar; works SOLO
+   (races the recorded field, not live opponents).
+3. **Beat-quantized target motion** (free-play rhythm) — the orb HOLDS then STEPS on the beat; wander SPEED
+   tied to skill (sedate at low bpm via `velCap`, fast at high). The big "feel" win this session.
+4. **ARC guide cleanup** — aim-pip retired; trajectory ribbon slimmed to a thin/faint/SOLID arc (scrolling
+   dashes gone); lock box + landing ring + impact pulses kept.
+All verified via the build-blind loop (node --check + dangling-ref greps); the two larger features (#2, #3)
+also got multi-agent adversarial reviews before shipping.
+
 ## Outstanding / likely next
-- **Playtest tuning** of: the **beat-quantized motion** (do the holds feel catchable? thresholds 0.40/0.75
-  and divs 4/8/16 in `beatQuantT`/`beatQuantDivs`; is the 1/16 end fluid enough?), the **skill-gated spawn
-  distance** (does the close→far march feel right? knobs above), the **pace ghost** (tier cutoffs, does the
-  bar read well?), the trajectory viz, scope feel (lock stickiness), floor HUD, marching dashes, ARC
-  ballistics — the user iterates by eye.
 - **Decide on the global board vs ARC-default:** ARC runs are excluded from `aimdojo_scores`, so with ARC
   default the peak-BPM board only fills from RAILGUN runs. Either accept (daily board is the real comp) or
   let ARC runs count (mixes difficulties).
+- **Next roadmap features (not built):** shareable result card + streak; Best-of-3 Duel brackets (needs a
+  lobby); weekly seasons.
 - **Pace ghost scaling (if a day's field gets big):** swap the full-replay fetch for a server/Supabase
   h-only aggregate (see the Percentile Pace Ghost section). Not needed at current scale.
 - **Known pre-existing ARC nuance (not fixed):** a perfectly-aimed point-blank lofted shot can miss because
   `computeShotPlan` solves the eye→crosshair parabola from PLAYER_POS/eye, ignoring the down-right muzzle
   offset (`BLADE_DX/DY`). The scope LOCK accounts for it; only matters if you ignore the firing computer.
   Fixing it means touching `computeShotPlan` (risks the "bullet flies down the ribbon" invariant).
-- Possible: device perf capture; make the floor HUD distance show ground vs slant; railgun θ/range readouts;
-  a wiki/memory note (aim-dojo still isn't in workspace memory).
+- **Other ideas:** device perf capture (perf gains still unverified); floor HUD distance ground-vs-slant;
+  railgun θ/range readouts; optional removal of the impact pulse rings if they ever feel busy; a wiki/memory
+  note (aim-dojo still isn't in workspace memory).
