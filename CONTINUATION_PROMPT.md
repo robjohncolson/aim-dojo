@@ -306,8 +306,17 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     closest-approach tracking: `_scVMiss` (vertical = shot.y−target.y) + `_scMissX/_scMissZ` (horizontal → projected
     onto screen-right `(-fz,fx)` in `updateScope` → signed lateral, `<0`=left per the user). 0 at a hit, grows as you
     deviate. **If left/right or up/down feels inverted, the fix is swapping the two glyph args in the `driveGlyph`
-    call** (the triangle currently points toward the orb = correction direction). Sizes: glyphs `.led7` 12px; `▲apex`
-    label `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
+    call** (the triangle currently points toward the orb = correction direction). The `▼` axis stays top-right; the
+    `◀/▶` axis is at the reticle's **lower-left** (`#arcDeltaX right:100%;top:100%`). Sizes: glyphs `.led7` 12px;
+    `▲apex` label `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
+    **3D LOCK-ON (`e0b5781`):** on full **LOCK** (`locked` from `simShotHits` — both axes ~0) the triangles **blink
+    once and vanish** (`setGaugeLocked` → CSS `ledLockFlash`), and **two perpendicular GREAT CIRCLES** of a
+    player-centred sphere (radius = orb distance) fade in, intersecting exactly at the orb — both planes contain the
+    player→orb direction so both pass through it (normals `nV=d×up`, `nH=d×nV`; verified `d⟂nV`, `d⟂nH`, `nV⟂nH`).
+    `lockRingV`/`lockRingH` = `THREE.LineLoop`s on `_lockRingGeo` (unit ring), gold `0xffcd5a` like the LOCK box,
+    `depthTest:false` (overlay), oriented via `quaternion.setFromUnitVectors(_UP,n)` + `scale=R` in `updateLockSphere`
+    (fades `_sphereOpacity` at 30Hz). Off-lock they fade out + the triangles return. Read-only → daily unaffected.
+    NOTE: WebGL line width is ~1px (can't match the box's 1.5px CSS border exactly). Build-blind — first 3D pass, expect tuning.
     **METRIC HISTORY (important — don't regress):** v1 showed "your apex − the LOBBED ideal apex" — but you hit via
     flatter arcs, so that read ≈ the ideal HEIGHT (~17) even when locked, and jumped 0→17 off-lock. `8e0eb30` switched
     to the **vertical miss** (0 exactly where the arc crosses the orb), `999bda8` added the **lateral twin**, then the
