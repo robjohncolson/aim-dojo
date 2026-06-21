@@ -99,11 +99,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock::after{opacity:1}
 #lockBox.decoy{border-color:rgba(255,59,110,.95);box-shadow:0 0 12px rgba(255,59,110,.5),inset 0 0 8px rgba(255,59,110,.2)}
 #lockBox.decoy::after{content:'AVOID';color:rgba(255,95,135,.97);opacity:1}
-/* arc-deviation glyphs: simple directional triangles in the HUD mono font, shown INLINE at the apex label (replacing the old static ▲). #arcDelta = VERTICAL (▲ aim up / ▼ aim down); #arcDeltaX = LATERAL (◀ aim left / ▶ aim right). Points the way to nudge your aim; green ● when that axis is centered. */
-.led7{display:none;color:var(--blood);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none}
-.led7.on{display:inline}
-.led7.centered{color:var(--toxic)}
-#arcApexNum{margin-left:3px}   /* the apex height number, sitting after the two delta arrows */
+/* deviation arrows on the 4 SIDES of the lock reticle, each with the live |delta|: ▲ above = aim up (Δy<0) · ▼ below = aim down (Δy>0) · ◀ left = aim left (Δx>0) · ▶ right = aim right (Δx<0). hidden when that axis is centered. */
+.devarr{position:absolute;display:none;font:13px var(--mono);color:var(--blood);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;white-space:nowrap;z-index:6}
+.devarr.on{display:block}
+#devTop{left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:4px}
+#devBot{left:50%;top:100%;transform:translateX(-50%);margin-top:4px}
+#devLeft{right:100%;top:50%;transform:translateY(-50%);margin-right:6px}
+#devRight{left:100%;top:50%;transform:translateY(-50%);margin-left:6px}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
 #windHud{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font:11px var(--mono);color:#bfe9ff;letter-spacing:.12em;display:none;align-items:center;gap:7px;text-shadow:0 0 5px #000;z-index:5;pointer-events:none}
@@ -261,7 +263,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="beatRing" aria-hidden="true"></div>
 <div id="fps" aria-hidden="true"></div>
 <div id="arcLandInfo" class="arcInfo" aria-hidden="true"></div>
-<div id="arcApexInfo" class="arcInfo" aria-hidden="true"><span id="arcDelta" class="led7"></span><span id="arcDeltaX" class="led7"></span><span id="arcApexNum"></span></div>
+<div id="arcApexInfo" class="arcInfo" aria-hidden="true"><span id="arcApexNum"></span></div>
 
 <div id="reticle" aria-hidden="true">
   <div class="arm h l"></div><div class="arm h r"></div>
@@ -277,7 +279,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
 <div id="paceGhost" class="hud" aria-hidden="true"><div class="pg-top"><span>PACE</span><span class="pg-pct">—</span></div><div class="pg-track"><span class="pg-fill"></span></div><div class="pg-sub"></div></div>
 <div id="scopeAim" aria-hidden="true"></div>
-<div id="lockBox" aria-hidden="true"></div>
+<div id="lockBox" aria-hidden="true"><div id="devTop" class="devarr"></div><div id="devBot" class="devarr"></div><div id="devLeft" class="devarr"></div><div id="devRight" class="devarr"></div></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
@@ -1554,7 +1556,7 @@ function updateArcPreview(dt){                                                  
     ap[0]=apX-_ux*_half; ap[1]=apY; ap[2]=apZ-_uz*_half; ap[3]=apX+_ux*_half; ap[4]=apY; ap[5]=apZ+_uz*_half;
     arcApex.geometry.attributes.position.needsUpdate=true; arcApex.visible=true;
     if(arcApexInfoEl){ _arcApexP.set(apX,apY,apZ); const as=projectPointScope(_arcApexP);   // floating ▲apex height at your shot's peak — gives context to the lock-box delta gauge
-      if(as[2]){ arcApexInfoEl.style.setProperty('--tx',as[0]+'px'); arcApexInfoEl.style.setProperty('--ty',as[1]+'px'); setText(arcApexNumEl, fmtDist(apY)); arcApexInfoEl.classList.add('on'); }   // set only the number span — the two delta-arrow spans (gaugeY/gaugeX) are driven by updateScope
+      if(as[2]){ arcApexInfoEl.style.setProperty('--tx',as[0]+'px'); arcApexInfoEl.style.setProperty('--ty',as[1]+'px'); setText(arcApexNumEl, '▲ '+fmtDist(apY)); arcApexInfoEl.classList.add('on'); }   // apex height only now — the Δ arrows moved to the lock-reticle sides
       else arcApexInfoEl.classList.remove('on'); }
   } else { if(arcApex) arcApex.visible=false; if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); _arcApexOn=false; }
 }
@@ -1602,17 +1604,23 @@ let scopeAccum=SCOPE_STEP;
 const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox');
 const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
 const _scScreen=[0,0,false];
-/* ---- arc-deviation glyphs (two, on the lock box): simple directional triangles in the HUD mono font (no gaudy seven-seg). gaugeY (#arcDelta, top-right) = vertical (▲ aim up / ▼ aim down); gaugeX (#arcDeltaX, bottom) = lateral (◀ aim left / ▶ aim right). The triangle points the way to nudge your aim (toward the orb); turns into a green ● when that axis is centered. ---- */
+/* ---- deviation arrows on the 4 SIDES of the lock reticle (#devTop/#devBot/#devLeft/#devRight), each with the live |delta|: Y = ▲ above (aim up, vMiss<0) / ▼ below (vMiss>0); X = ◀ left (aim left, lat>0) / ▶ right (lat<0). Hidden when that axis is centered. ---- */
 let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
-const gaugeY=gid('arcDelta'), gaugeX=gid('arcDeltaX'), ARC_CENTER_TOL=0.5;   // |miss| (m) under which an axis reads "centered" (● circle)
-function driveGlyph(el, miss, negGlyph, posGlyph){   // miss<0 -> negGlyph, miss>0 -> posGlyph (both point TOWARD the orb); |miss|<=tol -> centered green ●
+const ARC_CENTER_TOL=0.5;   // |miss| (m) under which an axis is "centered" -> no arrow on that side
+const devTop=gid('devTop'), devBot=gid('devBot'), devLeft=gid('devLeft'), devRight=gid('devRight');   // deviation arrows on the 4 sides of the lock reticle (+ live |delta|)
+function setDevArrow(el, on, arrow, mag){
   if(!el) return;
-  const centered=Math.abs(miss)<=ARC_CENTER_TOL, ch=centered?'●':(miss<0?negGlyph:posGlyph);
-  if(el._g!==ch){ el.textContent=ch; el._g=ch; }
-  el.classList.toggle('centered', centered); el.classList.add('on');
+  if(on){ const t=arrow+' '+mag.toFixed(1); if(el._t!==t){ el.textContent=t; el._t=t; } el.classList.add('on'); }
+  else if(el.classList.contains('on')){ el.classList.remove('on'); el._t=undefined; }
 }
-function hideGlyph(el){ if(el && (el.classList.contains('on')||el.classList.contains('centered'))){ el.classList.remove('on','centered'); el._g=undefined; } }
-function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); hideGlyph(gaugeY); hideGlyph(gaugeX); }
+function driveDevArrows(vMiss, lat){   // Y: vMiss<0 = arc BELOW the orb -> aim UP (▲ top); vMiss>0 -> aim DOWN (▼ bottom). X: lat>0 = arc RIGHT -> aim LEFT (◀ left); lat<0 -> aim RIGHT (▶ right). live |delta| beside each; centered axis -> no arrow.
+  setDevArrow(devTop,   vMiss < -ARC_CENTER_TOL, '▲', -vMiss);
+  setDevArrow(devBot,   vMiss >  ARC_CENTER_TOL, '▼',  vMiss);
+  setDevArrow(devLeft,  lat   >  ARC_CENTER_TOL, '◀',  lat);
+  setDevArrow(devRight, lat   < -ARC_CENTER_TOL, '▶', -lat);
+}
+function hideDevArrows(){ setDevArrow(devTop,false); setDevArrow(devBot,false); setDevArrow(devLeft,false); setDevArrow(devRight,false); }
+function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); hideDevArrows(); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
@@ -1645,13 +1653,12 @@ function updateScope(dt){
     if(disc<0){ _reach=false; break; }
     _reach=true; _loft=Math.atan((_is*_is+Math.sqrt(disc))/(_ig*ix)); _it=ix/(_is*Math.cos(_loft)); }   // high (lobbed) solution; refine flight time from the solved angle
   if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
-  // arc-delta LED gauges (on the lock box): how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits), split into two axes vs the optimal shot. TOP (#arcDelta) = VERTICAL: + = arc passes low (loft higher), - = high (loft lower). BOTTOM (#arcDeltaX) = LATERAL: + = passes right, - = left. Both 0 at a hit; GREEN on LOCK. read-only -> daily-deterministic.
+  // deviation arrows on the lock reticle: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits), as up/down (Δy) + left/right (Δx) arrows with the live |delta|. read-only -> daily-deterministic.
   if(ts[2] && _scVMissOn && !reduceMotion && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one)
     const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
     const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
-    driveGlyph(gaugeY, _scVMiss, '▲', '▼');   // TOP vertical: arc below orb (vMiss<0) -> ▲ aim up ; above -> ▼ ; |miss|<tol -> green ●
-    driveGlyph(gaugeX, lat, '▶', '◀');        // LOWER-LEFT lateral: arc left (lat<0) -> ▶ aim right ; right -> ◀
-  } else { hideGlyph(gaugeY); hideGlyph(gaugeX); }
+    driveDevArrows(_scVMiss, lat);            // arrows + live |delta| on the lock reticle's sides (up/down for Δy, left/right for Δx)
+  } else { hideDevArrows(); }
   const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b>'
                            : '<br>IDEAL <b class="sk">out of range</b>';
   const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
