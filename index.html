@@ -890,7 +890,7 @@ function explodeAt(pos, radius, color, slow){
   explosions.push(rec);
 }
 /* ---- clutch flourish: a localized camera FOV punch + a camera-facing shockwave ring (the explosion-only slow-mo lives in the explosion loop via rec.slow). RHYTHM-SAFE — never scales dt or Tone.Transport. ---- */
-const CLUTCH_COLOR=new THREE.Color(0xffd27a);
+const CLUTCH_COLOR=0xffd27a;   // hex (NOT a THREE.Color): explodeAt → acquireFlash/acquireShards call color.setHex(color), which needs an int
 let clutchT=0, clutchDur=0, camFovBase=camera.fov, _clutchLast=-999;
 let clutchRing=null, clutchRingT=0, clutchRingDur=0; const _clutchRingPos=new THREE.Vector3();
 let glowI=0; const comboGlowEl=gid('comboGlow');
