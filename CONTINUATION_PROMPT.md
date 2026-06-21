@@ -70,10 +70,12 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
   brownian wander (off in the seeded challenge). Each `tg` has `.mesh/.shell/.vel/.radius/.born/.dead/.sc`.
 - **Firing:**
   - **Railgun (hit-scan):** `fire()` → manual ray-sphere (the perf pass replaced `THREE.Raycaster`).
-  - **Ballistic (ARC, free-play only):** `fire()` → `spawnProjectile()` when `CFG.projectile &&
-    !state.challenge`. Pooled projectiles, gravity-integrated, swept segment-vs-sphere collision.
-    **Rhythm graded by FIRE-TIME** (`atT` threaded into `gradeRhythmHit`/`onHit`), so "fire on the beat"
-    holds; the projectile adds the spatial lead+drop skill. A shot counts ONCE (hit XOR expire).
+  - **Ballistic (ARC) — the DEFAULT *and* the daily now:** `fire()` → `spawnProjectile()` when
+    `CFG.projectile || state.challenge`. Pooled projectiles, gravity-integrated, swept segment-vs-sphere
+    collision. **Rhythm graded by FIRE-TIME** (`atT` threaded into `gradeRhythmHit`/`onHit`), so "fire on
+    the beat" holds; the projectile adds the spatial lead+drop skill. A shot counts ONCE (hit XOR expire).
+    Railgun is the free-play FALLBACK (projSeg toggle off). The ARC guards are `(CFG.projectile ||
+    state.challenge)` in fire / the updateProjectiles animate-gate / `updateScope` / `updateArcPreview`.
 - **`computeShotPlan(M,V)` — THE shared shot helper (ARC section).** Launches from the **bottom-right
   muzzle** (`BLADE_DX/DY/DZ`) with a velocity solved to land where the eye→crosshair parabola lands
   (`_arcI`). Used by: `spawnProjectile` (real bullet), `updateArcPreview` (the dashed ribbon), and the
@@ -104,7 +106,11 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
 - **Daily challenge:** `startChallenge` (seed from `dayKey`), fixed ease-in tempo ramp, `endChallenge`
   (stops the run SYNCHRONOUSLY then releases pointer lock). **`EXIT DAILY → FREE PLAY` button** on the
   pause overlay clears `state.challenge` and restores the start card (`exitChallenge`/`restoreStartCard`).
-  ARC/scope/projectile are all force-disabled in the daily via `!state.challenge` guards.
+  **The daily is now ARC** (projectile + scope + held-target strobe), not hit-scan. It stays seeded-fair
+  because the ARC path consumes NO rng/Math.random (firing never touches the seeded spawn stream) and
+  brownian stays off in the daily. The daily strobe steps off `Tone.Transport.ticks` — the same audio clock
+  as the spawn scheduler (`onGrid`) — so steps + spawns share one timeline. ARC tempo retuned
+  (`challengeMaxBpm:128`). Server anti-cheat unchanged (score===h.length + hit-rate hold for ARC).
 - **Ghosts:** record aim @20Hz + hits → JSON `replay`; `loadGhost`/`updateGhost` draw the top scorer's
   purple reticle.
 - **Realtime (Supabase Realtime):** `initRealtime` → presence ("N in the dojo") + `broadcastAim` (rides
@@ -184,8 +190,9 @@ if a week's field gets large, move to a server aggregate (same path as the pace 
   `tg.mesh.position`+`tg.vel`) settle instead of fleeing. Phase-locked via `Tone.Transport.ticks/PPQ`;
   subdivision steps by `diffT()` per `beatQuantDivs` (currently 1/2→1/4→1/8). Module state `_quantIdx`/`_quantT` (reset in resetSession).
   On a snap, `scopeAccum`/`arcAccum` are forced so the guides recompute the same frame. Strobe-path wall
-  bounce reflects POSITION (large steps); continuous bounce unchanged. **Daily + hunt untouched** (strobe
-  gated `mode==='rhythm' && !state.challenge`; continuous modes keep `doSnap=true` every frame → identical).
+  bounce reflects POSITION (large steps); continuous bounce unchanged. **Free-play AND the ARC daily strobe**
+  (gate `mode==='rhythm' && CFG.beatQuant && toneReady`, then `Tone.Transport.state==='started'`); both use
+  the `Tone.Transport.ticks` clock. Only **hunt** stays continuous (`doSnap=true` every frame → identical).
   NOTE: the **trajectory ribbon is camera/crosshair-driven** (`updateArcPreview`), NOT target-driven — the
   strobe does NOT calm it (it follows your aim by design). If ribbon scatter is ever the complaint, that's
   a separate fix (smooth the crosshair / snap the ribbon's far end to the locked target).
@@ -213,14 +220,29 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
 **Shipped, awaiting the user's eyes** (built + validated, not yet playtested in anger):
 5. **Weekly Seasons** board (see its how-it-works section).
 6. **FPS/DPR readout** at `…/?fps` — for the user to capture real-device perf.
-7. **Global board relabeled "RAILGUN · PEAK BPM"** — resolves the ARC-default-vs-board question by keeping
-   the global board hit-scan-pure (the daily/season boards are the real cross-mode comp). Flip to "let ARC
-   count" only if the user asks.
+7. **Global board relabeled "RAILGUN · PEAK BPM"** — kept hit-scan-pure. NOTE: with ARC now the default +
+   the daily, this board is largely **dormant** (only fed by free-play RAILGUN runs via the toggle). The
+   daily/season boards are the real comp. Could relabel/repurpose to ARC later if desired.
+8. **Adaptive audio** — groove builds with streak (layered drums + bass via grooveI), timing-graded hits
+   (`playHit`), in-key misses, ARC flight whoosh + impact thud. **First pass — tune by ear.**
+9. **ARC daily** — the daily is now ARC (projectile + scope + held-target strobe), railgun soft-deprecated
+   to a free-play fallback. Deterministic via Tone.ticks + no rng in the ARC path; anti-cheat intact
+   (15-agent review). **Transition:** today's board may briefly mix railgun + ARC runs; clean from the next
+   UTC midnight. (To avoid even that, could gate ARC-daily to a future dayKey — not done; user said go.)
 
 All verified via the build-blind loop (node --check + dangling-ref greps; date logic for seasons executed in
-node); the larger gameplay features also got multi-agent adversarial reviews before shipping.
+node); the larger/risky features (pace ghost, beat-quant, ARC daily) got multi-agent adversarial reviews.
 
 ## Outstanding / likely next
+- **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build pacing (streak cutoffs
+  `<2/<6/<12`, ease 0.5/0.1), levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
+  miss notes (220/110), the whoosh sweep (260→560) + impact thud. The user listens & reports.
+- **Capture real-device FPS/DPR** at `…/?fps` (phones/school machines) → finally validate the perf pass.
+- **Scope LOCK vs strobe (low, approximate):** `simShotHits`/lead predict LINEAR target motion, but targets
+  now STROBE (hold→jump) in ARC free-play AND the ARC daily — so LOCK can read true while a shot crosses a
+  snap and misses (and vice-versa). The continuous prediction ≈ correct on average over a multi-snap flight,
+  so it's a feedback-honesty nicety, not a bug. Real fix: make `simShotHits` step the target on the same
+  `beats`/`spb` grid (hold then `vel*moveStep`). Applies to both modes; defer until it actually annoys.
 - **Shareable result card + streak** — the recommended NEXT feature (mostly client-side: render an
   end-of-run card → download / Web Share, + a localStorage daily streak). High retention value for a class.
 - **Best-of-3 Duel brackets** — needs a realtime lobby/matchmaking (presence/broadcast only today); big
