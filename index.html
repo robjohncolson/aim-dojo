@@ -96,6 +96,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock::after{opacity:1}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
+#windHud{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font:11px var(--mono);color:#bfe9ff;letter-spacing:.12em;display:none;align-items:center;gap:7px;text-shadow:0 0 5px #000;z-index:5;pointer-events:none}
+#windHud.on{display:flex}
+#windHud .wh-arrow{display:inline-block;font-size:17px;line-height:1;color:#dff2ff;text-shadow:0 0 7px rgba(140,225,255,.85);will-change:transform}
+#windHud .wh-mag::before{content:'WIND '}
 .tgtDist{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,214,120,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 .tgtDist.on{display:block}
 .arcInfo{position:fixed;left:0;top:0;font:10px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
@@ -263,6 +267,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="scopeAim" aria-hidden="true"></div>
 <div id="lockBox" aria-hidden="true"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
+<div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
 <div id="assist" aria-hidden="true"></div>
@@ -515,6 +520,8 @@ const CFG = {
   clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
   // special orbs (variety): rare GOLD bonus (worth goldScore kills, pushes matching ghost-hit entries so score===h.length holds) + DON'T-HIT DECOY (hitting breaks streak + costs a shot; dodging is free). Kind is rolled from rng ONLY when live → free-play now, daily from the next UTC midnight (fresh seed, clean cutover; today's stream untouched).
   specialOrbs:true, goldChance:0.06, decoyChance:0.10, goldScore:2, specialDailyTs:Date.UTC(2026,5,22),
+  // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
+  wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* seeded RNG — gameplay randomness goes through rnd(); reseeded for the daily challenge so everyone gets the SAME run */
@@ -652,15 +659,15 @@ moon.scale.set(34,34,1); moon.position.copy(sunU).multiplyScalar(-SUN_R); skyGro
 const CLOUD_OCTAVES = MOBILE ? 2 : 3;
 const skyDomeMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, depthTest:false, fog:false,
   uniforms:{ uHor:{value:new THREE.Color(0x0e1626)}, uZen:{value:new THREE.Color(0x010109)}, uHaze:{value:new THREE.Color(0xbcd8f0)},
-             uCloudCol:{value:new THREE.Color(0xffffff)}, uTime:{value:0}, uCloud:{value:0} },
+             uCloudCol:{value:new THREE.Color(0xffffff)}, uTime:{value:0}, uCloud:{value:0}, uWind:{value:new THREE.Vector2(0.006,0.004)} },
   vertexShader:'varying vec3 vDir; void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
   fragmentShader:[
-    'uniform vec3 uHor,uZen,uHaze,uCloudCol; uniform float uTime,uCloud; varying vec3 vDir;',
+    'uniform vec3 uHor,uZen,uHaze,uCloudCol; uniform float uTime,uCloud; uniform vec2 uWind; varying vec3 vDir;',
     'float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }',
     'float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=hash(i),b=hash(i+vec2(1.0,0.0)),c=hash(i+vec2(0.0,1.0)),d=hash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
     'float fbm(vec2 p){ float v=0.0,a=0.5; for(int k=0;k<'+CLOUD_OCTAVES+';k++){ v+=a*vnoise(p); p=p*2.0+11.3; a*=0.5; } return v; }',
     'void main(){ float el=vDir.y; vec3 c=mix(uHor,uZen,pow(clamp(el,0.0,1.0),0.30)); c=mix(c,uHaze,exp(-abs(el)/0.05)*0.55);',
-    '  if(el>0.03 && uCloud>0.001){ vec2 cuv=vDir.xz/el*0.55+vec2(uTime*0.006,uTime*0.004); float n=fbm(cuv); float cov=smoothstep(0.50,0.72,n)*smoothstep(0.05,0.32,el)*uCloud; c=mix(c,uCloudCol,cov); }',
+    '  if(el>0.03 && uCloud>0.001){ vec2 cuv=vDir.xz/el*0.55+uTime*uWind; float n=fbm(cuv); float cov=smoothstep(0.50,0.72,n)*smoothstep(0.05,0.32,el)*uCloud; c=mix(c,uCloudCol,cov); }',
     '  gl_FragColor=vec4(c,1.0); }'
   ].join('\n') });
 const skyDome=new THREE.Mesh(new THREE.SphereGeometry(480,32,16), skyDomeMat);
@@ -761,6 +768,8 @@ function updateSky(dt){
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // light comes from whichever body is up
   skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',day*0.9);          // procedural clouds: drift + fade in with the day
+  if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
+  else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
   if(day>0.02) renderReflection();                           // refresh the floor's sky reflection while the tiles are visible
 }
@@ -1377,6 +1386,8 @@ canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); });
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
+let windX=0, windZ=0;   // free-play prototype wind (horizontal accel m/s²); 0 in the daily → every ballistics integration below is bit-identical to no-wind
+const _windFlag=(location.search+location.hash).indexOf('wind')>=0;   // ?wind / #wind opt-in (mirrors the ?fps flag)
 const projectiles=[];
 const PROJ_GEO=new THREE.SphereGeometry(0.17,8,6);
 const PROJ_MAT=new THREE.MeshBasicMaterial({color:0x9fe8ff});
@@ -1405,7 +1416,7 @@ const _prev=new THREE.Vector3();
 function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const pr=projectiles[i];
-    pr.vel.y-=CFG.projGravity*dt; _prev.copy(pr.pos); pr.pos.x+=pr.vel.x*dt; pr.pos.y+=pr.vel.y*dt; pr.pos.z+=pr.vel.z*dt; pr.life+=dt;
+    pr.vel.x+=windX*dt; pr.vel.y-=CFG.projGravity*dt; pr.vel.z+=windZ*dt; _prev.copy(pr.pos); pr.pos.x+=pr.vel.x*dt; pr.pos.y+=pr.vel.y*dt; pr.pos.z+=pr.vel.z*dt; pr.life+=dt;   // wind: horizontal accel (0 in the daily)
     let hit=null;
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
@@ -1450,22 +1461,22 @@ function computeShotPlan(M, V){                                                 
   camera.getWorldDirection(_arcDir);
   _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(CFG.projSpeed);
   const step=1/30, g=CFG.projGravity; let n=0; _planLanded=false;
-  for(; n<ARC_MAX; n++){ _arcVel.y-=g*step; _arcPos.addScaledVector(_arcVel,step);
+  for(; n<ARC_MAX; n++){ _arcVel.x+=windX*step; _arcVel.y-=g*step; _arcVel.z+=windZ*step; _arcPos.addScaledVector(_arcVel,step);   // wind drifts the eye→crosshair landing point too (so wind is FELT — the player aims upwind)
     if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ _planLanded=_arcPos.y<=0.04; n++; break; } }
   _arcI.copy(_arcPos); const T=Math.max(0.12, n*step);
   _arcRight.crossVectors(_arcDir, _ARC_UP); if(_arcRight.lengthSq()<1e-6) _arcRight.set(1,0,0); else _arcRight.normalize();
   M.set(PLAYER_POS.x + _arcRight.x*BLADE_DX + _arcDir.x*BLADE_DZ, PLAYER_POS.y - BLADE_DY + _arcDir.y*BLADE_DZ, PLAYER_POS.z + _arcRight.z*BLADE_DX + _arcDir.z*BLADE_DZ);
-  V.set((_arcI.x-M.x)/T, (_arcI.y-M.y)/T + 0.5*g*T, (_arcI.z-M.z)/T);
+  V.set((_arcI.x-M.x)/T - 0.5*windX*T, (_arcI.y-M.y)/T + 0.5*g*T, (_arcI.z-M.z)/T - 0.5*windZ*T);   // back-solve the muzzle launch to land at _arcI under gravity AND wind (so the real bullet + the ribbon both reach the drawn impact)
   return T;
 }
 function sampleArc(M, V, T, samples, outArr){                                                // integrate the parabola (M, V, gravity) — exactly the path the real projectile flies
   const g=CFG.projGravity, sdt=T/(samples-1); let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
-  for(let i=0;i<samples;i++){ const k=i*3; outArr[k]=px; outArr[k+1]=py; outArr[k+2]=pz; vy-=g*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt; }
+  for(let i=0;i<samples;i++){ const k=i*3; outArr[k]=px; outArr[k+1]=py; outArr[k+2]=pz; vx+=windX*sdt; vy-=g*sdt; vz+=windZ*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt; }   // wind (0 in the daily) → the ribbon curves exactly like the bullet
 }
 function simShotHits(M, V, T, tg){                                                           // march the actual shot vs the target's predicted motion → does it connect? (path-accurate lock)
   const g=CFG.projGravity, sdt=1/90; let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
   const T0=tg.mesh.position, Vt=tg.vel, rr=(tg.radius*tg.sc)+CFG.projRadius+0.12, rr2=rr*rr;
-  for(let t=0; t<=T+0.15 && py>-1; t+=sdt){ vy-=g*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt;
+  for(let t=0; t<=T+0.15 && py>-1; t+=sdt){ vx+=windX*sdt; vy-=g*sdt; vz+=windZ*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt;   // wind (0 in the daily) → the LOCK marches the real wind-blown path
     const dx=px-(T0.x+Vt.x*t), dy=py-(T0.y+Vt.y*t), dz=pz-(T0.z+Vt.z*t); if(dx*dx+dy*dy+dz*dz<=rr2) return true; }
   return false;
 }
@@ -1592,6 +1603,17 @@ function updateScope(dt){
   const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
   if(scopeHudEl._html!==html){ scopeHudEl.innerHTML=html; scopeHudEl._html=html; }
   scopeHudEl.classList.add('on');
+}
+/* ---- wind HUD (free-play prototype): an arrow rotated to the wind direction RELATIVE TO YOUR VIEW + the strength ---- */
+const windHudEl=gid('windHud'), windArrowEl=windHudEl&&windHudEl.querySelector('.wh-arrow'), windMagEl=windHudEl&&windHudEl.querySelector('.wh-mag'), _windFwd=new THREE.Vector3();
+function updateWindHud(){
+  if(!windHudEl) return;
+  if(!(state.running && (windX||windZ))){ if(windHudEl.classList.contains('on')) windHudEl.classList.remove('on'); return; }
+  camera.getWorldDirection(_windFwd); const fl=Math.hypot(_windFwd.x,_windFwd.z)||1, dfx=_windFwd.x/fl, dfz=_windFwd.z/fl;   // horizontal forward
+  const wFwd=windX*dfx+windZ*dfz, wRight=windX*(-dfz)+windZ*dfx, ang=Math.atan2(wRight,wFwd)*RAD2DEG;   // wind vs view: 0=downrange (arrow up), + = pushes right (screen-right = (-fz,fx))
+  setStyle(windArrowEl,'transform','rotate('+ang.toFixed(0)+'deg)');
+  setText(windMagEl, Math.hypot(windX,windZ).toFixed(2));
+  if(!windHudEl.classList.contains('on')) windHudEl.classList.add('on');
 }
 
 /* ========================= HUD ========================= */
@@ -1923,6 +1945,7 @@ function animate(frameNow){
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (all modes)
   try{ updateLandRings(dt); }catch(e){}                       // expanding ring where a shot hits the ground
+  if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
   if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
   renderer.render(scene,camera);
@@ -1986,6 +2009,8 @@ function configureMode(){
 function resetSession(){
   state.challengeOver=false; rng = state.challenge ? mulberry32(challengeSeed) : Math.random;   // reseed for a reproducible challenge; plain random otherwise
   _specialLive=specialOrbsLive();   // latch special-orb liveness for the whole run (constant-per-run → no mid-run gate flip)
+  if((CFG.wind||_windFlag) && !state.challenge){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per FREE-PLAY run (prototype)
+  else { windX=0; windZ=0; }                                  // daily + wind-off → no wind (ballistics bit-identical)
   if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; if(ghost) ghost.hi=0; if(selfGhost) selfGhost.hi=0; } else { ghostRec=null; if(ghostRetEl) ghostRetEl.classList.remove('on'); if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); }
   for(const t of targets) removeTarget(t); targets.length=0;
   clearProjectiles();
