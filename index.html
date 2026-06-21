@@ -98,16 +98,16 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox::after{content:'LOCK';position:absolute;left:50%;top:-13px;transform:translateX(-50%);font:9px var(--mono);letter-spacing:.22em;color:rgba(255,205,90,.95);opacity:0;white-space:nowrap}
 #lockBox.lock::after{opacity:1}
 /* arc-delta LED gauge: signed delta from your shot's apex to the locked target's IDEAL apex, pinned to the lock box's top-right corner. Seven-segment (rectangular |/- bars); RED while off -> GREEN double-blink then vanish at match. */
-#arcDelta{position:absolute;left:100%;top:0;margin-left:8px;transform:translateY(-50%);display:none;align-items:center;padding:3px 5px;background:rgba(4,9,11,.62);border:1px solid rgba(120,140,150,.22);border-radius:3px;color:var(--blood);white-space:nowrap;line-height:0;box-shadow:0 0 10px rgba(0,0,0,.45)}
+#arcDelta{position:absolute;left:100%;top:0;margin-left:8px;transform:translateY(-50%);display:none;align-items:center;padding:0 2px;color:var(--blood);white-space:nowrap;line-height:0;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))}
 #arcDelta.on{display:inline-flex}
-#arcDelta.matched{color:var(--toxic);border-color:rgba(116,232,74,.42);animation:ledMatch .64s ease-out forwards}
+#arcDelta.matched{color:var(--toxic);animation:ledMatch .64s ease-out forwards}
 @keyframes ledMatch{0%{opacity:1}14%{opacity:.12}28%{opacity:1}42%{opacity:.12}56%{opacity:1}100%{opacity:0}}
 #arcDelta .s7,#arcDelta .s7sign,#arcDelta .s7dot{position:relative;display:inline-block;height:20px}
 #arcDelta .s7{width:12px;margin:0 1px}
 #arcDelta .s7.blank{display:none}
 #arcDelta .s7sign{width:9px;margin:0 1px}
 #arcDelta .s7dot{width:5px}
-#arcDelta .s7 i,#arcDelta .s7sign i,#arcDelta .s7dot i{position:absolute;background:currentColor;opacity:.10;border-radius:1px}
+#arcDelta .s7 i,#arcDelta .s7sign i,#arcDelta .s7dot i{position:absolute;background:currentColor;opacity:0;border-radius:1px}   /* unlit segments fully hidden (no LED-screen backdrop) -> only the lit red/green lettering shows */
 #arcDelta .s7 i.on{opacity:1;box-shadow:0 0 4px currentColor}
 #arcDelta .s7 i.a,#arcDelta .s7 i.g,#arcDelta .s7 i.d{left:2.5px;right:2.5px;height:2.5px}
 #arcDelta .s7 i.a{top:0}
@@ -1542,7 +1542,9 @@ function updateArcPreview(dt){                                                  
     const ap=arcApex.geometry.attributes.position.array;
     ap[0]=apX-_ux*_half; ap[1]=apY; ap[2]=apZ-_uz*_half; ap[3]=apX+_ux*_half; ap[4]=apY; ap[5]=apZ+_uz*_half;
     arcApex.geometry.attributes.position.needsUpdate=true; arcApex.visible=true;
-    if(arcApexInfoEl) arcApexInfoEl.classList.remove('on');   // floating ▲apex number retired -> the arc-delta LED gauge on the lock box is the single apex readout now (declutter); apex tangent LINE kept as the spatial cue
+    if(arcApexInfoEl){ _arcApexP.set(apX,apY,apZ); const as=projectPointScope(_arcApexP);   // floating ▲apex height at your shot's peak — gives context to the lock-box delta gauge
+      if(as[2]){ arcApexInfoEl.style.setProperty('--tx',as[0]+'px'); arcApexInfoEl.style.setProperty('--ty',as[1]+'px'); setText(arcApexInfoEl, '▲ '+fmtDist(apY)); arcApexInfoEl.classList.add('on'); }
+      else arcApexInfoEl.classList.remove('on'); }
   } else { if(arcApex) arcApex.visible=false; if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); _arcApexOn=false; }
 }
 /* ---- floor HUD under each target: beat-pulsed ring + dropline + distance label (all modes) ---- */
