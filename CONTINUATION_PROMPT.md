@@ -310,16 +310,16 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
 16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
-    (a) **Deviation arrows on the LOCK-RETICLE SIDES (`1b1adcb`→`1a37bc1`):** four arrow+number elements on the four
-    sides of `#lockBox` (`#devTop/#devBot/#devLeft/#devRight`, class `.devarr`), each showing its axis's arrow + the
-    **live |delta|** when off-center: **Δy<0** (arc below orb) → **`▲` above** (aim up), **Δy>0** → **`▼` below**;
-    **Δx>0** (arc right) → **`◀` left** (aim left), **Δx<0** → **`▶` right**. An axis within `ARC_CENTER_TOL` (0.5m) =
-    centered → no arrow on that axis. `driveDevArrows(vMiss, lat)` / `setDevArrow` / `hideDevArrows`; miss from
-    `simShotHits` (`_scVMiss` vertical, `_scMissX/_scMissZ` → screen-right `(-fz,fx)` lateral in `updateScope`). Red
-    (`--blood`), shown only when a non-decoy orb is locked/seeking. **If a direction feels inverted, swap the side
-    element or the sign in the `setDevArrow` call.** **DESIGN HISTORY:** seven-seg LED numbers (user: "too gaudy")
-    → single triangle glyphs → inline at the apex label → these per-side arrows (current). The apex label is back to
-    just `▲ <height>` (`#arcApexNum`, set in `updateArcPreview`). Sizes: `.devarr` 13px; landing `◎` `#arcLandInfo` 16px.
+    (a) **Deviation cue = SCREEN-EDGE RED TINTS (`1b1adcb`→`69462ff`):** four fixed `.edgeTint` divs
+    (`#edgeTop/#edgeBot/#edgeLeft/#edgeRight`) — the screen edge you must aim TOWARD glows red, **opacity ∝ |delta|**:
+    **Δy<0** (arc below orb → aim up) → **TOP**; **Δy>0** → **BOTTOM**; **Δx>0** (arc right → aim left) → **LEFT**;
+    **Δx<0** → **RIGHT**. Bands are `5vh` (top/bottom) / `3.34vw` (sides), red→transparent gradient fading inward,
+    `z-index:3` (below the HUD so text stays readable). `driveEdgeTints(vMiss, lat)`/`hideEdgeTints`/`edgeOp(mag)`
+    (`EDGE_TOL:0.4` deadzone, `EDGE_K:0.14`, `EDGE_MAX:0.5` cap → full tint ~4m miss). Miss from `simShotHits`
+    (`_scVMiss` vertical, `_scMissX/_scMissZ` → screen-right lateral in `updateScope`); `!reduceMotion`, non-decoy lock.
+    **DESIGN HISTORY (all superseded):** seven-seg LED numbers ("too gaudy") → triangle glyphs → inline-at-apex → arrows
+    on the lock-reticle sides (`.devarr`/`driveDevArrows`, GONE) → these edge tints. Apex label is back to just
+    `▲ <height>` (`#arcApexNum`, set in `updateArcPreview`). **If a direction feels inverted, flip the sign test in `driveEdgeTints`.**
     **LOCK-ON — SIMPLIFIED (`0778c90`):** a 3D lock-on viz was tried and SCRAPPED (user: "messy squiggles…
     overcomplicating"). Dead-ends, do NOT resurrect: two great circles at orb distance (`e0b5781`) → projected on the
     SKY (radius 470, aim-oriented, `24e3dde`; read as a flat `+` because a huge circle is locally straight at the
@@ -358,8 +358,8 @@ special orbs, wind) got multi-agent adversarial reviews (0 confirmed findings on
 
 ## Outstanding / likely next
 - **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build pacing — streak cutoffs now
-  `CFG.grooveCut:[1,3,6]` (`c7a5742`, loosened from `[2,6,12]` per playtest "too strict"; full groove at a 6-streak,
-  tier 1 on the first hit; build/strip ease 0.5/0.1), levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
+  `CFG.grooveCut:[1,2,4]` (`c7a5742`→`69462ff`, loosened from `[2,6,12]` per playtest "too strict/build more eagerly";
+  full groove at a 4-streak, tier 1 on the first hit; build/strip ease 0.5/0.1), levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
   miss notes (220/110), the whoosh sweep (260→560) + impact thud. The user listens & reports.
 - **Target-tone gate (`538a6fd`→`e172584`):** the per-target spatial tone is no longer continuous — it's GATED to a
   16th-note rhythm (`CFG.targetPulse:true`, `targetPulseOn:1`/`targetPulsePeriod:4` = a 16th note + 3 16ths rest) at
