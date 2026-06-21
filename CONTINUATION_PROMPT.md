@@ -296,27 +296,26 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
 16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
-    (a) **Arc-delta gauges (TWO, `999bda8`):** self-contained **seven-segment LEDs** (rectangular `|`/`-` bars, NO
-    webfont — DSEG's CDN only ships `.sfd` sources, and a school-network font fallback was unacceptable), children of
-    `#lockBox`, shared look via class `.led7`. **`gaugeY` = `#arcDelta`, top-right** (`left:100%;top:0`) = signed
-    **VERTICAL miss** (`+`=arc passes BELOW the orb → loft higher, `-`=ABOVE → loft lower). **`gaugeX` = `#arcDeltaX`,
-    bottom-center** (`left:50%;top:100%`) = signed **LATERAL miss** (`+`=passes RIGHT, `-`=LEFT; user wanted left
-    negative). Both are the closest-approach miss of your real shot vs the locked orb from `simShotHits` (`_scVMiss`
-    vertical; `_scMissX/_scMissZ` horizontal → projected onto screen-right `(-fz,fx)` in `updateScope` for the lateral
-    value): **0 at a hit, grow as you deviate**. Renderer is parameterized into gauge objects
-    (`makeLed/buildLed/renderLed/hideLed/driveLed`) so both reuse one seven-seg implementation. The font sizes:
-    gauges `scale(0.82)`; the floating `▲apex` label is `.arcInfo` 12px; the landing `◎` label is `#arcLandInfo` 14px.
-    **RED** while off → **GREEN, double-blink, vanish** on **LOCK** (`locked`/`simShotHits` — same signal as the
-    gold box, so they can't disagree; `@keyframes ledMatch` `forwards`→opacity 0; reappears red off-lock).
+    (a) **Arc-deviation glyphs (TWO, `1b1adcb`):** the seven-seg LED numbers were retired (user: "too gaudy / too
+    big"). Now each gauge is a **single directional triangle glyph in the HUD mono font** (matching the `▲apex`
+    label), children of `#lockBox`, class `.led7`. **`gaugeY` = `#arcDelta`, top-right** = VERTICAL: arc below the orb
+    → `▲` (aim up), above → `▼`. **`gaugeX` = `#arcDeltaX`, bottom-center** = LATERAL: arc left → `▶` (aim right),
+    right → `◀`. **The triangle points TOWARD the orb (which way to nudge your aim)**; within `ARC_CENTER_TOL` (0.5m)
+    that axis is "centered" → a green **`●`** circle. Red off-center, green centered (CSS `.led7.centered`). Driven by
+    `driveGlyph(el, miss, negGlyph, posGlyph)` (miss<0→neg, >0→pos) / `hideGlyph`. The miss comes from `simShotHits`'s
+    closest-approach tracking: `_scVMiss` (vertical = shot.y−target.y) + `_scMissX/_scMissZ` (horizontal → projected
+    onto screen-right `(-fz,fx)` in `updateScope` → signed lateral, `<0`=left per the user). 0 at a hit, grows as you
+    deviate. **If left/right or up/down feels inverted, the fix is swapping the two glyph args in the `driveGlyph`
+    call** (the triangle currently points toward the orb = correction direction). Sizes: glyphs `.led7` 12px; `▲apex`
+    label `.arcInfo` 14px; landing `◎` `#arcLandInfo` 16px.
     **METRIC HISTORY (important — don't regress):** v1 showed "your apex − the LOBBED ideal apex" — but you hit via
-    flatter arcs, so that read ≈ the ideal HEIGHT (~17) even when locked, and jumped 0→17 off-lock (the 0 was the
-    green-at-lock mask). `8e0eb30` switched to the vertical miss, which is 0 exactly where the arc crosses the orb.
-    `CFG.arcMatchTol` is VESTIGIAL (green = LOCK, not an apex window — that also fixed an earlier red-WHILE-locked
-    bug from the two flat/lobbed firing solutions, `3467cf8`). `simShotHits` now tracks closest-horizontal-approach
-    `dy` into `_scVMiss`/`_scVMissOn`; its hit-detection return is UNCHANGED (lock identical). `!reduceMotion`-gated.
-    State machine: module `_arcDeltaState` (0 hidden/1 red/2 matched-latched-hidden); `renderArcDelta`/`_setDigit`/
-    `_setSign` cache by `_v` (cheap at 30Hz). **Gauge is TRANSPARENT** (`cb25994`): no dark box, unlit ghost
-    segments hidden, only the lit red/green lettering + a dark drop-shadow halo. **Decluttered:** the floating
+    flatter arcs, so that read ≈ the ideal HEIGHT (~17) even when locked, and jumped 0→17 off-lock. `8e0eb30` switched
+    to the **vertical miss** (0 exactly where the arc crosses the orb), `999bda8` added the **lateral twin**, then the
+    numbers became **glyphs** (`1b1adcb`). DEAD-ENDS now GONE (don't reintroduce): an apex-match `arcMatchTol` window,
+    a green-blink-on-LOCK seven-seg state machine (`_arcDeltaState`/`ledMatch`/`renderArcDelta`), and the transparent-
+    LED tweaks (`cb25994`) — all superseded by the glyph rewrite; `CFG.arcMatchTol` is now fully unused (vestigial).
+    `simShotHits` tracks closest-approach miss components into `_scVMiss`/`_scMissX`/`_scMissZ`/`_scVMissOn`; its
+    hit-detection return is UNCHANGED (lock identical). `!reduceMotion`-gated. **Decluttered:** the floating
     `▲apex` number (`#arcApexInfo`) was retired then **RESTORED** (`cb25994`, user liked it — gives context to the
     delta); the apex tangent LINE was always kept. The per-target orb-top `↑height` labels (`m.hlabel`, element
     kept/hidden) STAY retired; dropped the HUD `· peak ↑X` (kept `IDEAL <loft>°`). NOTE `_arcApexY/_arcApexOn` are now WRITE-ONLY in `updateArcPreview` (dead
