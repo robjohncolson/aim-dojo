@@ -9,8 +9,15 @@ roadmap features are now SHIPPED + LIVE** — (1) juice pass, (2) self-ghost, (3
 build-blind (syntax + logic + numeric checks + a multi-lens adversarial review with **0 confirmed findings**)
 and is **awaiting the user's playtest**. **Read `SPEC_NEXT.md` first** — every §1–§5 has the as-built notes,
 the **CFG tunables to adjust by ear/eye**, and the playtest questions.
-**FIRST next session: ask the user how each feature FEELS and tune the CFG values** (clutch freq/zoom/slow,
-combo glow, gold/decoy rates, wind strength + cloud sign). Then the only open work is the **promotions /
+**Playtest round 1 happened (`ee2f662`):** user calls it "so far so good." Verdicts: **likes special orbs**
+(no change); **daily endgame is too fast at high BPM but that's ACCEPTED ("which is fine")** — do NOT ease the
+ramp unless asked; **daily felt overwhelming — "two cursors from two ghosts"** → FIXED with a **G-key ghost
+toggle** (none / your-best / top-scorer, default your-best); **per-target ideal arc worked but the numbers
+crowded the cursor** → REDESIGNED into a **seven-segment LED "delta-to-ideal-apex" gauge on the lock box**
+(see Shipped #16). **STILL needs the user's feel feedback (not yet given): clutch (freq/zoom/slow), combo
+glow, wind, the self-ghost loop.** **Next session: ask about those + how the new LED gauge / ghost toggle feel.**
+One judgment call to surface: I **retired the floating ▲apex number + the orb-top ↑height labels** (the LED
+gauge subsumes them) — user may want the apex number back; ask. Then the open work is the **promotions /
 deferrals** (none roadmap-blocking; see SPEC_NEXT "Open follow-ups"): promote **wind to the daily** (needs
 seeded wind + a clean cutover — user must greenlight), and the deferred **free-play self-ghost**.
 **Key gotchas that held (keep holding them):**
@@ -195,6 +202,12 @@ if a week's field gets large, move to a server aggregate (same path as the pace 
 - **Floor HUD (`updateTargetMarks`):** ring radius `0.5+beat*0.38`, `Math.pow(...,1.6)` beat envelope,
   marker color `0xffce5c`. **Land ring (`updateLandRings`):** `0.5+k*3.4` radius, `0.55s` life.
 - **Scope lock:** `simShotHits` radius margin (`+0.12`), lock cone in `scopeLockTarget` (`bestDot 0.72`).
+- **Arc-delta LED gauge (`updateScope` + `#arcDelta` CSS):** `CFG.arcMatchTol:0.5` = apex match window (m) where it
+  greens + vanishes (raise for an easier "matched"). Seven-seg geometry is fixed CSS (digit 12×20px, 2.5px bars);
+  blink timing in `@keyframes ledMatch`. Colors = `--blood` (red) / `--toxic` (green). To bring back the retired
+  floating apex number, un-retire the `#arcApexInfo` block in `updateArcPreview`.
+- **Daily ghost toggle:** `ghostMode` (0/1/2, default 1), key `G`, persisted `aimdojo.ghostmode`. To change the
+  default, edit `let ghostMode=1`. The cycle order is `(ghostMode+1)%3` → none→self→top.
 - **Skill-gated spawn distance (FREE-PLAY only):** `rangeStart:11`, `rangeMax:28`, `rangeNear:8`,
   `rangeBand:8`, `rangeStep:1.2`, `rangeStepDown:1.6`. `state.range` is the spawn shell's far edge; it
   marches outward (`changeRange` in `maybeAdjust`) on sustained ≥80% accuracy and pulls back ≤45% — the SAME
@@ -280,6 +293,27 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
 15. **Wind (`b517d4b`, LIVE) — FREE-PLAY PROTOTYPE, opt-in `?wind`/`CFG.wind`** — gentle per-run wind in all 4 ballistics
     fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
     NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
+16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
+    (a) **Arc-delta gauge:** a self-contained **seven-segment LED** (rectangular `|`/`-` bars, NO webfont — DSEG's
+    CDN only ships `.sfd` sources, and a school-network font fallback was unacceptable) nested as a child of
+    `#lockBox`, pinned to its **top-right corner** (`left:100%;top:0;translateY(-50%)`). Shows the **signed delta
+    from YOUR shot's apex to the locked target's IDEAL apex** (`+`=under-arc/loft higher, `-`=over; user picked
+    "delta" over absolute peak): **RED** while off → **GREEN, double-blink, vanish** within `CFG.arcMatchTol:0.5` m
+    (`@keyframes ledMatch`, `forwards`→opacity 0; reappears red off-match; reflow-restart on re-match). Apex is
+    derived from the **scope's own shot plan** (`_scM/_scV` in `updateScope`), NOT `_arcApexY/_arcApexOn` — so it
+    tracks the SCOPE (works even with the Trajectory-arc ribbon OFF; a review-confirmed fix). `!reduceMotion`-gated.
+    State machine: module `_arcDeltaState` (0 hidden/1 red/2 matched-latched-hidden); `renderArcDelta`/`_setDigit`/
+    `_setSign` cache by `_v` (cheap at 30Hz). **Decluttered:** RETIRED the floating `▲apex` number (`#arcApexInfo`,
+    kept the tangent LINE), the per-target orb-top `↑height` labels (`m.hlabel`, element kept/hidden), and the HUD
+    `· peak ↑X` (kept `IDEAL <loft>°`). NOTE `_arcApexY/_arcApexOn` are now WRITE-ONLY in `updateArcPreview` (dead
+    state, harmless — left to avoid churning the hot path). Read-only → daily bit-identical.
+    (b) **Daily ghost toggle:** `G` cycles `ghostMode` 0 none / 1 your-best (cyan) / 2 top-scorer (purple), default
+    1 (one calm ghost, not two cursors), persisted `localStorage['aimdojo.ghostmode']`. `updateGhost` gated
+    `ghostMode!==2`, `updateSelfGhost` `ghostMode!==1`; `loadGhost`/`loadSelfGhost` gate their name-label;
+    `applyGhostMode` reconciles on toggle; `#ghostToast` confirms. `exitChallenge` now clears the purple ghost too
+    (review fix — was stranding a frozen reticle/label). Key guarded vs text inputs + the settings overlay.
+    Build-blind verified + a **4-lens adversarial review** (daily-determinism / runtime / CSS-DOM / ghost-regression):
+    7 raw findings, **2 confirmed (the projArc-coupling + the exitChallenge strand), both fixed**, 0 determinism issues.
 
 All verified via the build-blind loop (node --check + dangling-ref/wiring greps + numeric ballistics checks; date logic
 for seasons executed in node); the larger/risky features (pace ghost, beat-quant, ARC daily, juice+self-ghost, ideal-arc,

@@ -114,6 +114,14 @@ remaining open work is the **promotions / deferrals** below — none are roadmap
 > range` past `s²/g ≈ 36 m`). Read-only HUD; no rng/clock/scoring → daily deterministic. Solve verified numerically
 > (the parabola passes through the target at the solved angle). **Gap:** wind-naive (see §5 / follow-ups) — only
 > matters under opt-in free-play wind.
+>
+> 🔁 **REDESIGNED post-playtest (`ee2f662`):** user found the readout worked but the numbers crowded the cursor
+> (the constantly-shown apex height vs the ideal competing). The peak readout moved OUT of `#scopeHud` into a
+> **seven-segment LED "delta-to-ideal-apex" gauge pinned to the lock box's top-right corner** — shows the SIGNED
+> delta (`+`=loft higher / `-`=lower), RED while off → GREEN double-blink then vanish at match (`CFG.arcMatchTol`).
+> `#scopeHud` keeps only `IDEAL <loft>°`. The floating `▲apex` number + per-target orb-top `↑height` labels were
+> RETIRED (the gauge subsumes them). Apex is derived from the scope's own shot plan so it needs no ribbon. See
+> CONTINUATION_PROMPT.md Shipped #16. **Playtest:** does the LED gauge read well? want the floating apex number back?
 
 - TODAY: the target height label gates on `_arcApexY` = the apex of YOUR CURRENT aim's parabola (one
   value vs every target). User is curious about a PER-TARGET ideal arc instead.
