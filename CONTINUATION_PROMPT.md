@@ -129,7 +129,11 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
   where a ballistic shot hits the floor.
 - **Hit distance/height stats (`4174143`):** on every successful (non-decoy) hit, `recordHit(tg)` flashes the orb's
   **distance-to-player + altitude** (`#hitFlash`, ~1s pop-fade) and tracks session bests `state.maxHitDist`/
-  `maxHitHeight` → **FARTHEST / HIGHEST** rows in `#statBox` (via `renderStats`, reset per session). Read-only HUD.
+  `maxHitHeight` → **FARTHEST / HIGHEST** rows in `#statBox` (via `renderStats`, reset per session). Floor `.tgtDist`
+  label bumped to 14px (`3b24ab8`). The FLAWLESS/PERFECT timing popups were removed (`51e6e22`) — the flash is the only post-hit readout.
+- **Time-to-hit = pulsing reticle (`2ba1b95`):** when LOCKED, the lock box BREATHES (one expand/contract per projectile
+  FLIGHT = the time-to-hit) instead of a number — `_pulsePhase` drives `--pulse` (a `scale()` on `#lockBox`'s transform,
+  ±15%) in `updateScope`; quick shot = fast pulse. (Replaced an earlier `#tth` "N beats" text readout.)
 - **Adaptive engine:** `maybeAdjust`→`changeBpm`/`changeSpeed`. Skipped in the daily.
 - **Audio:** lazy Tone.js; synths + chord on hit. The daily refuses to start without audio (`startChallenge`
   gates on `toneReady`).
