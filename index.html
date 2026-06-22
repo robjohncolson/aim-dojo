@@ -103,11 +103,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.decoy{border-color:rgba(255,59,110,.95);box-shadow:0 0 12px rgba(255,59,110,.5),inset 0 0 8px rgba(255,59,110,.2)}
 #lockBox.decoy::after{content:'AVOID';color:rgba(255,95,135,.97);opacity:1}
 /* deviation EDGE TINTS: a red glow on the screen edge you must aim TOWARD — top = aim up (Δy<0) · bottom = aim down (Δy>0) · left = aim left (Δx>0) · right = aim right (Δx<0). opacity ∝ |delta| (set in updateScope). Top/bottom = 1/20 screen height, sides = 1/30 width, fading inward. */
-.edgeTint{position:fixed;pointer-events:none;z-index:3;opacity:0;will-change:opacity}
-#edgeTop{top:0;left:0;right:0;height:5vh;background:linear-gradient(to bottom, rgba(255,60,60,1), transparent)}
-#edgeBot{bottom:0;left:0;right:0;height:5vh;background:linear-gradient(to top, rgba(255,60,60,1), transparent)}
-#edgeLeft{top:0;bottom:0;left:0;width:3.34vw;background:linear-gradient(to right, rgba(255,60,60,1), transparent)}
-#edgeRight{top:0;bottom:0;right:0;width:3.34vw;background:linear-gradient(to left, rgba(255,60,60,1), transparent)}
+.edgeTint{position:fixed;pointer-events:none;z-index:3;opacity:0;will-change:opacity,background-position}
+#edgeTop{top:0;left:0;right:0;height:8vh;background:repeating-linear-gradient(to top, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to bottom,#000,transparent);mask:linear-gradient(to bottom,#000,transparent)}
+#edgeBot{bottom:0;left:0;right:0;height:8vh;background:repeating-linear-gradient(to bottom, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to top,#000,transparent);mask:linear-gradient(to top,#000,transparent)}
+#edgeLeft{top:0;bottom:0;left:0;width:6vw;background:repeating-linear-gradient(to left, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to right,#000,transparent);mask:linear-gradient(to right,#000,transparent)}
+#edgeRight{top:0;bottom:0;right:0;width:6vw;background:repeating-linear-gradient(to right, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to left,#000,transparent);mask:linear-gradient(to left,#000,transparent)}
 #scopeHud .lk{color:#ffd36b}
 #scopeHud .sk{color:var(--bone-dim)}
 #windHud{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font:11px var(--mono);color:#bfe9ff;letter-spacing:.12em;display:none;align-items:center;gap:7px;text-shadow:0 0 5px #000;z-index:5;pointer-events:none}
@@ -445,7 +445,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 
       <div class="row">
         <label for="upTh">Speed-up at</label>
-        <input type="range" id="upTh" min="0" max="1" step="0.01" value="1">
+        <input type="range" id="upTh" min="0" max="1" step="0.01" value="0.80">
         <span class="out" id="upThOut">80%</span>
       </div>
       <div class="row">
@@ -512,7 +512,7 @@ const CFG = {
   startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // default tempo 20bpm (slow fixed-ish practice). gentler slowdown so a few misses don't crater the tempo
   challengeDur:90, challengeStartBpm:40, challengeMaxBpm:110, challengeEase:1.9,   // daily ARC tempo ramp — eased BOTH ways: lower peak (128→110) + steeper ease (1.5→1.9 → stays in the playable low range longer, spike lands later). bpm(t)=lerp(40,110,(t/90)^1.9).
   // shared adaptive law
-  upThreshold:1.0, downThreshold:0, windowSize:25, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Defaults: speed-up only at 100% acc, slow-down only at 0% -> tempo stays ~fixed unless you're perfect/terrible. windowSize 25.
+  upThreshold:0.80, downThreshold:0, windowSize:25, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Defaults: speed-up at 80% acc, slow-down only at 0% (never eases off). windowSize 25.
   // difficulty mapping
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
@@ -1626,16 +1626,19 @@ const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vec
 const _scScreen=[0,0,false];
 /* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
 let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
-const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85;   // deviation -> edge-tint opacity: 0 within EDGE_TOL m, ramps fast, full (EDGE_MAX) by ~EDGE_TOL + EDGE_MAX/EDGE_K (~3) m. Punchy so the cue reads clearly.
-const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints cueing the aim-correction direction
+const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85, EDGE_FLOW=34;   // deviation -> edge-tint opacity (0 within EDGE_TOL m, full by ~3m). EDGE_FLOW = conveyor scroll speed in px/s per metre of |delta|.
+const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints that CONVEY toward the aim-correction direction
+let _devY=0, _devX=0, _devShow=false, _eTopP=0, _eBotP=0, _eLeftP=0, _eRightP=0;
 function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
-function driveEdgeTints(vMiss, lat){   // dy<0 (arc BELOW orb -> aim UP) -> TOP red; dy>0 -> BOTTOM. dx>0 (arc RIGHT -> aim LEFT) -> LEFT red; dx<0 -> RIGHT. opacity ∝ |delta|.
-  setStyle(edgeTop,   'opacity', vMiss<0 ? edgeOp(-vMiss) : 0);
-  setStyle(edgeBot,   'opacity', vMiss>0 ? edgeOp(vMiss)  : 0);
-  setStyle(edgeLeft,  'opacity', lat>0   ? edgeOp(lat)    : 0);
-  setStyle(edgeRight, 'opacity', lat<0   ? edgeOp(-lat)   : 0);
+function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
+function hideEdgeTints(){ _devShow=false; }
+function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
+  const dy=_devShow?_devY:0, dx=_devShow?_devX:0;
+  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
+  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
+  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
+  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
 }
-function hideEdgeTints(){ setStyle(edgeTop,'opacity',0); setStyle(edgeBot,'opacity',0); setStyle(edgeLeft,'opacity',0); setStyle(edgeRight,'opacity',0); }
 function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
@@ -2029,6 +2032,7 @@ function animate(frameNow){
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (all modes)
   try{ updateLandRings(dt); }catch(e){}                       // expanding ring where a shot hits the ground
+  try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
   if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
