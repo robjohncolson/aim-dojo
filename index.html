@@ -742,7 +742,7 @@ function renderReflection(){
   const prev=renderer.getRenderTarget();
   renderer.setRenderTarget(reflRT); renderer.render(scene, mirrorCam); renderer.setRenderTarget(prev);
 }
-let dayPhase=0.82;                                            // 0=sunrise, .25=noon, .5=sunset, .75=midnight; start in deep night
+let dayPhase=0.82, skyFrozen=false;                          // dayPhase: 0=sunrise, .25=noon, .5=sunset, .75=midnight (start deep night). skyFrozen: right-click holds the time-of-day (keep a pretty sunset)
 const DAY_SLOW=0.32, DAY_FAST=4.2;                           // ease time: ~half the cycle in dawn/dusk, hurry through deep day/night (period preserved)
 const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  // night grid: green, amber, red ([line,cell])
 let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
@@ -767,7 +767,7 @@ function setScalarCached(obj, prop, value, scale){
 function updateSky(dt){
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
-  dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1;
+  if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1;   // right-click freeze: hold the current time-of-day (everything below recomputes from the frozen dayPhase)
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // carries stars + sun + moon around the orbit
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
@@ -1442,7 +1442,8 @@ function fire(){
   if(tg){ state.mode==='rhythm'?gradeRhythmHit(tg,_fireHit):onHit(tg,_fireHit); fireBeam(_fireHit,true,_fireDir); }
   else onWhiff(false,_fireDir);
 }
-canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); });
+canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
+function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast(skyFrozen?'🌅 SKY FROZEN':'🌅 SKY RESUMED'); }
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
