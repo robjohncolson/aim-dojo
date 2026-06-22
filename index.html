@@ -49,32 +49,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
 #presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
 #presence.on{display:block}
-#scoreRace{right:18px;top:88px;width:178px;display:none;flex-direction:column;gap:5px}
-#scoreRace.on{display:flex}
-#scoreRace .rr{display:flex;align-items:center;gap:7px;font:11px var(--mono);line-height:1;border-radius:4px;padding:1px 3px}
-#scoreRace .rr .nm{flex:0 0 44px;max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--bone-dim);letter-spacing:.04em}
-#scoreRace .rr.me .nm{color:var(--bone)}
-#scoreRace .rr .br{flex:1 1 auto;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
-#scoreRace .rr .br i{display:block;height:100%;width:0;background:rgba(116,232,74,.45);transition:width .18s ease}
-#scoreRace .rr.me .br i{background:var(--toxic)}
-#scoreRace .rr .kc{flex:0 0 22px;text-align:right;color:var(--bone)}
-#scoreRace .rr.lead .kc{color:#ffd36b;text-shadow:0 0 6px rgba(255,211,107,.5)}
-@keyframes srflash{0%{background:rgba(255,211,107,.4)}100%{background:transparent}}
-#scoreRace .rr.flash{animation:srflash .55s ease-out}
-#paceGhost{left:50%;top:84px;transform:translateX(-50%);width:230px;display:none;flex-direction:column;gap:3px}
-#paceGhost.on{display:flex}
-#paceGhost .pg-top{display:flex;justify-content:space-between;align-items:baseline;font:10px var(--mono);letter-spacing:.18em;color:var(--bone-dim)}
-#paceGhost .pg-pct{font-size:13px;letter-spacing:.04em;color:var(--toxic)}
-#paceGhost.lo .pg-pct{color:#ff7a6b}
-#paceGhost.hi .pg-pct{color:#ffd36b;text-shadow:0 0 7px rgba(255,211,107,.5)}
-#paceGhost .pg-track{position:relative;width:100%;height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden}
-#paceGhost .pg-fill{position:absolute;left:0;top:0;height:100%;width:0;background:rgba(116,232,74,.5);transition:width .25s ease,background .25s ease}
-#paceGhost.lo .pg-fill{background:rgba(255,122,107,.5)}
-#paceGhost.hi .pg-fill{background:rgba(255,211,107,.6)}
-#paceGhost .pg-sub{font:10px var(--mono);letter-spacing:.06em;color:var(--bone-dim);text-align:center}
-@keyframes pgflash{0%{box-shadow:0 0 0 2px rgba(255,211,107,.55)}100%{box-shadow:0 0 0 0 rgba(255,211,107,0)}}
-#paceGhost.flash .pg-track{animation:pgflash .5s ease-out}
-@media (max-width:520px){#paceGhost{left:10px;right:auto;transform:none;width:min(230px,calc(100vw - 210px))}}   /* left-anchor + width-cap so the pace bar can never reach the right-anchored score race on a narrow phone */
 #scopeHud{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);font:11px var(--mono);color:var(--bone-dim);letter-spacing:.06em;line-height:1.6;display:none}
 #scopeHud.on{display:block}
 #scopeHud b{color:var(--rail);font-weight:400}
@@ -276,8 +250,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </div>
 <div id="ghostToast" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
-<div id="scoreRace" class="hud" aria-hidden="true"></div>
-<div id="paceGhost" class="hud" aria-hidden="true"><div class="pg-top"><span>PACE</span><span class="pg-pct">—</span></div><div class="pg-track"><span class="pg-fill"></span></div><div class="pg-sub"></div></div>
 <div id="scopeAim" aria-hidden="true"></div>
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
@@ -351,21 +323,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       <div id="boardList" class="boardlist"><div class="board-empty">loading…</div></div>
     </div>
 
-    <div id="dailyBox" class="boardbox">
-      <div class="histhead"><span>🏆 TODAY'S CHALLENGE · KILLS</span><span id="dailySub" class="histsub"></span></div>
-      <div id="dailyList" class="boardlist"><div class="board-empty">loading…</div></div>
-    </div>
-
-    <div id="seasonBox" class="boardbox">
-      <div class="histhead"><span>📅 SEASON · BEST/DAY THIS WEEK</span><span id="seasonSub" class="histsub"></span></div>
-      <div id="seasonList" class="boardlist"><div class="board-empty">loading…</div></div>
-    </div>
 
     <div id="pauseStats" style="display:none"></div>
 
     <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
-    <div class="dualcols"><button class="ghost" id="exitChallengeBtn" style="display:none">✕ EXIT DAILY → FREE PLAY</button></div>
-    <div class="dualcols"><button class="ghost" id="dailyBtn">🏆 DAILY CHALLENGE</button></div>
     <div class="dualcols"><button class="ghost" id="advBtn">⚙ ADVANCED</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
   </div>
 </div>
@@ -1936,15 +1897,6 @@ function animate(frameNow){
 
   if(state.running){
     state.t+=dt;
-    if(state.challenge){                                    // fixed tempo ramp (same for everyone), then end after challengeDur
-      const f=Math.pow(Math.min(1, state.t/CFG.challengeDur), CFG.challengeEase);   // ease-in: stay playable, then spike for the finish
-      state.bpm=lerp(CFG.challengeStartBpm, CFG.challengeMaxBpm, f); state.maxBpm=Math.max(state.maxBpm, state.bpm);
-      if(toneReady){ challengeToneAccum+=dt; if(challengeToneAccum>=CHALLENGE_TONE_STEP){ challengeToneAccum=0; try{ Tone.Transport.bpm.value=state.bpm; }catch(e){} } }
-      const rb=Math.round(state.bpm); if(rb!==challengeUiBpm){ challengeUiBpm=rb; renderPrimary(false,false); }
-      if(ghostRec){ while(state.t>=ghostNextSample){ ghostRec.a.push(qYaw(yaw), qPit(pitch)); ghostNextSample+=1/GHOST_HZ; } }   // record my aim path -> the daily replay (anti-cheat)
-      updatePaceGhost(dt);                                  // live "ahead of X% of today" pace bar
-      if(state.t>=CFG.challengeDur){ endChallenge(); }
-    }
     if(state.mode==='hunt'){
       if(activeTargetCount()<desiredCount() && state.t>=nextSpawnAt){ spawnTarget(); nextSpawnAt=state.t+spawnGap(); }
     }
@@ -2047,7 +1999,7 @@ function animate(frameNow){
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
   if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
-  if(rtCh || remotes.size || _srRows.size || (_srBox && _srBox.classList.contains('on'))) updateRemotes(dt);   // draw live reticles only when realtime state exists
+  if(rtCh || remotes.size) updateRemotes(dt);   // draw live reticles only when realtime state exists
   renderer.render(scene,camera);
 }
 // NOTE: animate() is kicked off at the very end of the IIFE (after all module-scope const/let exist) — see bootstrap below.
@@ -2058,8 +2010,6 @@ const overlay=gid('overlay'), beginBtn=gid('beginBtn'), applyBtn=gid('applyBtn')
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 const rhythmOnlyEls=[...document.querySelectorAll('.rhythm-only')], huntOnlyEls=[...document.querySelectorAll('.hunt-only')];
-const exitChallengeBtn=gid('exitChallengeBtn');
-const _startCard={ eyebrow:ovEyebrow.textContent, title:ovTitle.innerHTML, lede:ovLede.innerHTML, begin:beginBtn.textContent, setHead:(gid('setHead')?gid('setHead').textContent:'') };   // pristine start-card text, to restore on EXIT DAILY
 if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>tap to shoot on the beat</span><span><b>❙❙</b>pause &amp; settings</span>'; }
 
 function enterRunning(){
@@ -2205,53 +2155,6 @@ function projectDir(dir){
   if(behind||Math.abs(x)>1||Math.abs(y)>1){ if(behind){x=-x;y=-y;} const ax=Math.abs(x)||1e-3,ay=Math.abs(y)||1e-3,s=0.92/Math.max(ax,ay); x*=s;y*=s; }
   _projectScreen[0]=viewCX + x*viewCX; _projectScreen[1]=viewCY - y*viewCY; return _projectScreen;
 }
-/* ---- percentile pace ghost: live "you're ahead of X% of today's runs" — your kills-by-now vs the recorded pace of everyone else on today's seed. Works SOLO (no live opponents needed); complements the head-to-head score race. ---- */
-const PACE_STEP=1/6; let paceRuns=null, paceCursors=null, paceTotal=0, paceLastPct=-1, paceAccum=0, _paceTier='';
-const paceEl=gid('paceGhost'), pacePctEl=paceEl&&paceEl.querySelector('.pg-pct'), paceFillEl=paceEl&&paceEl.querySelector('.pg-fill'), paceSubEl=paceEl&&paceEl.querySelector('.pg-sub');
-function hidePace(){ paceRuns=null; paceCursors=null; paceTotal=0; paceLastPct=-1; _paceTier=''; if(paceEl) paceEl.classList.remove('on','lo','hi','flash'); }
-async function loadPaceField(){
-  hidePace();
-  try{
-    const me=clientId();
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=client_id,replay&day=eq.'+encodeURIComponent(dayKey())+'&order=score.desc&limit=120', {headers:sbH()});
-    const rows=await res.json(); const runs=[], seen=new Set();
-    for(const row of (rows||[])){
-      if(!row || !row.replay || row.client_id===me || seen.has(row.client_id)) continue;   // race the FIELD (everyone else on today's seed), not myself; one run per client — their best, since rows arrive score.desc (mirrors loadDailyBoard)
-      let h=null; try{ const r=JSON.parse(row.replay); h=r&&r.h; }catch(e){}
-      if(h && h.length){ seen.add(row.client_id); runs.push(h); }                          // h = ascending scoring-hit times in centiseconds
-    }
-    if(runs.length){ paceRuns=runs; paceCursors=new Int32Array(runs.length); paceTotal=runs.length; paceAccum=PACE_STEP; }   // prime the throttle so the bar appears on the first frame after load, not ~167ms later
-  }catch(e){}
-}
-function updatePaceGhost(dt){
-  if(!paceEl) return;
-  if(!paceRuns || !state.running || !state.challenge){ if(paceEl.classList.contains('on')) paceEl.classList.remove('on'); return; }
-  paceAccum+=dt; if(paceAccum<PACE_STEP) return; paceAccum=0;
-  const tc=state.t*100, mine=state.hits;
-  if(!paceEl.classList.contains('on')) paceEl.classList.add('on');
-  if(mine===0){                                                   // before you've scored, everyone's tied at 0 → don't flash a misleading 50%; show a neutral "warming up"
-    if(pacePctEl) setText(pacePctEl,'—');
-    if(paceFillEl && paceFillEl._w!==0){ paceFillEl.style.width='0%'; paceFillEl._w=0; }
-    if(paceSubEl) setText(paceSubEl,'warming up');
-    if(_paceTier!==''){ paceEl.classList.remove('lo','hi'); _paceTier=''; }
-    paceLastPct=-1; return;                                       // -1 → the first real percentile won't trigger a climb-flash
-  }
-  let below=0, ties=0;
-  for(let r=0;r<paceRuns.length;r++){                              // monotonic cursors: state.t only grows, so each run's "kills so far" advances cheaply (amortized O(total hits))
-    const h=paceRuns[r]; let c=paceCursors[r];
-    while(c<h.length && h[c]<=tc) c++;
-    paceCursors[r]=c;
-    if(mine>c) below++; else if(mine===c) ties++;                  // ties split → the bar doesn't jump a whole slot on equal kill counts
-  }
-  const pct=Math.round((below+ties*0.5)/paceTotal*100);
-  if(pacePctEl) setText(pacePctEl, pct+'%');
-  if(paceFillEl && paceFillEl._w!==pct){ paceFillEl.style.width=pct+'%'; paceFillEl._w=pct; }
-  if(paceSubEl) setText(paceSubEl, 'ahead of '+below+' / '+paceTotal+' today');
-  const tier = pct>=80?'hi' : (pct<40?'lo':'');
-  if(_paceTier!==tier){ paceEl.classList.remove('lo','hi'); if(tier) paceEl.classList.add(tier); _paceTier=tier; }
-  if(pct>paceLastPct && paceLastPct>=0 && !reduceMotion){ paceEl.classList.remove('flash'); void paceEl.offsetWidth; paceEl.classList.add('flash'); }   // flash when you climb the field
-  paceLastPct=pct;
-}
 /* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
 let rtCh=null, lastBcast=0; const remotes=new Map();
 function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
@@ -2271,10 +2174,10 @@ function initRealtime(){
 }
 function loadRealtimeClient(){ if(rtCh) return; if(window.supabase) initRealtime(); else loadScriptOnce(SUPABASE_JS).then(initRealtime).catch(()=>{}); }
 function broadcastAim(){ if(!rtCh) return; const now=performance.now(); if(now-lastBcast<85) return; lastBcast=now;
-  try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch, k:state.hits, s:state.streak, c:state.challenge?1:0}}); }catch(e){} }   // k/s/c ride the existing aim send (no new messages) → feeds the live score race
+  try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch, k:state.hits, s:state.streak}}); }catch(e){} }   // k/s ride the existing aim send (presence + opponent reticles)
 const REMOTE_UPDATE_STEP=1/30; let remoteAccum=REMOTE_UPDATE_STEP;
 function updateRemotes(dt){
-  if(remotes.size===0 && _srRows.size===0) return;
+  if(remotes.size===0) return;
   const now=performance.now();
   if(state.running){ remoteAccum+=dt; if(remoteAccum<REMOTE_UPDATE_STEP) return; remoteAccum=0; }
   for(const [id,r] of remotes){
@@ -2287,116 +2190,7 @@ function updateRemotes(dt){
     const name=r.name||'';
     if(r.el._name!==name){ r.el.setAttribute('data-name', name); r.el._name=name; }
   }
-  if(state.challenge || _srRows.size || (_srBox && _srBox.classList.contains('on'))){ try{ renderScoreRace(now); }catch(e){} }   // defensive: never let a render hiccup throw inside the animate loop
 }
-/* ---- live score race: a kill-ladder of everyone running TODAY'S seeded daily right now (kills only compare on the shared seed → gated to the challenge) ---- */
-const _srRows=new Map(), _srBox=gid('scoreRace'), _srScratch=[], _srMe={id:'__me', name:'YOU', k:0, s:0, me:true}; let _srLast=0;
-function renderScoreRace(now){
-  const box=_srBox; if(!box) return;
-  now=now||performance.now(); if(now-_srLast<110) return; _srLast=now;          // ~9Hz, matches the broadcast cadence
-  const racers=_srScratch; racers.length=0;
-  if(state.challenge && state.running){
-    for(const [id,r] of remotes){ if(r.c){ const p=r._race || (r._race={me:false}); p.id=id; p.name=r.name||'rival'; p.k=r.k|0; p.s=r.s|0; racers.push(p); } }   // pruning above keeps these fresh; r.c ⇒ they're in the daily too
-    if(racers.length){ _srMe.k=state.hits; _srMe.s=state.streak; racers.push(_srMe); }                 // only show YOU once there's someone to race
-  }
-  if(!racers.length){                                                  // nobody else on today's seed → hide entirely (never an empty box)
-    if(box.classList.contains('on')){ box.classList.remove('on'); _srRows.forEach(rec=>rec.row.remove()); _srRows.clear(); }
-    return;
-  }
-  racers.sort((a,b)=> b.k-a.k || b.s-a.s || (a.me?1:-1));
-  const maxK=Math.max(1, racers[0].k);
-  for(const rec of _srRows.values()) rec.live=false;
-  if(!box.classList.contains('on')) box.classList.add('on');
-  for(let i=0;i<racers.length;i++){ const p=racers[i];
-    let rec=_srRows.get(p.id);
-    if(!rec){                                                                     // build the row once, then mutate in place so the bar can transition + the flash can play
-      const row=document.createElement('div'); row.className='rr';
-      const nm=document.createElement('span'); nm.className='nm';
-      const br=document.createElement('span'); br.className='br'; const bi=document.createElement('i'); br.appendChild(bi);
-      const kc=document.createElement('span'); kc.className='kc';
-      row.appendChild(nm); row.appendChild(br); row.appendChild(kc);
-      rec={row, nm, bar:bi, kc, wasAhead:false, live:false, me:null, lead:null, width:-1}; _srRows.set(p.id, rec);
-    }
-    rec.live=true;
-    setText(rec.nm,p.name);
-    if(rec.me!==p.me){ rec.row.classList.toggle('me', p.me); rec.me=p.me; }
-    const lead=i===0 && p.k>0; if(rec.lead!==lead){ rec.row.classList.toggle('lead', lead); rec.lead=lead; }
-    const width=Math.round(p.k/maxK*100); if(rec.width!==width){ rec.bar.style.width=width+'%'; rec.width=width; }
-    setText(rec.kc,p.k);
-    const ahead=!p.me && p.k>state.hits;                                          // flash a rival's row the instant they pull ahead of you ("passed you!")
-    if(ahead && !rec.wasAhead && !reduceMotion){ rec.row.classList.remove('flash'); void rec.row.offsetWidth; rec.row.classList.add('flash'); }
-    rec.wasAhead=ahead;
-    if(box.children[i]!==rec.row) box.insertBefore(rec.row, box.children[i] || null);  // keep rank order without moving already-correct rows
-  }
-  for(const [id,rec] of _srRows){ if(!rec.live){ rec.row.remove(); _srRows.delete(id); } }   // drop racers who left
-}
-/* ---- daily seeded challenge ---- */
-function startChallenge(){
-  if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
-  initAudio();                                                // the challenge is rhythm-only (orbs come off Tone.Transport) — make sure audio is up first
-  if(!toneReady){                                             // audio unavailable (e.g. Tone CDN blocked) → refuse, else we'd run a beatless free-hunt that STILL submits a daily score
-    showToneBlock('challenge');
-    return;
-  }
-  challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
-  loadPaceField();                                            // fetch today's field for the live pace percentile (async; bar appears once loaded)
-  CFG.mode='rhythm'; state.challenge=true; state.challengeOver=false; state.needsReset=true;
-  startRun();
-}
-function endChallenge(){
-  state.challenge=false; state.challengeOver=true; state.needsReset=true;
-  submitDaily();
-  hidePace();
-  exitRunning();                                              // stop the run synchronously so state.running/challenge are consistent this frame (don't wait on async pointerlockchange)
-  if(document.pointerLockElement) document.exitPointerLock();
-}
-async function submitDaily(){
-  if(state.hits<1) return;
-  const row={client_id:clientId(), name:playerName().slice(0,24), day:dayKey(), score:state.hits,
-    accuracy: state.shots?Math.round(state.hits/state.shots*100):null, best_streak:state.bestStreak,
-    replay: ghostRec ? JSON.stringify(ghostRec) : null};
-  try{
-    const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/daily' : SB_URL+'/rest/v1/aimdojo_daily';
-    const hdr = RAILWAY_URL ? {'Content-Type':'application/json'} : sbH({Prefer:'return=minimal'});
-    await fetch(ep, {method:'POST', headers:hdr, body:JSON.stringify(row)}); loadDailyBoard(); loadSeasonBoard();
-  }catch(e){}
-}
-async function loadDailyBoard(){
-  const list=gid('dailyList'); if(!list) return; const sub=gid('dailySub'); if(sub) sub.textContent=dayKey();
-  try{
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=client_id,name,score,accuracy&day=eq.'+encodeURIComponent(dayKey())+'&order=score.desc&limit=200', {headers:sbH()});
-    if(!res.ok) throw 0;
-    const rows=await res.json(); const seen=new Set(), top=[];
-    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); top.push(r); if(top.length>=15) break; }
-    if(!top.length){ list.innerHTML='<div class="board-empty">no one has run today’s challenge yet — be first</div>'; return; }
-    const me=clientId();
-    list.innerHTML=top.map((r,i)=>'<div class="board-row'+(r.client_id===me?' me':'')+'"><span class="br-rank">'+(i+1)+'</span><span class="br-name">'+esc(r.name||'?')+'</span><span class="br-bpm">'+Math.round(r.score)+'</span><span class="br-acc">'+(r.accuracy!=null?r.accuracy+'%':'—')+'</span></div>').join('');
-  }catch(e){ list.innerHTML='<div class="board-empty">daily board offline (table not created yet)</div>'; }
-}
-/* ---- weekly season: aggregate this UTC week's daily runs (sum of each day's best score) → a standings board. Reuses aimdojo_daily; no new table/server. ---- */
-const _SEASON_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function dayKeyOf(d){ return d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)+'-'+d.getUTCDate(); }   // matches dayKey()'s NON-padded format, so it joins the stored day strings
-function seasonDays(){ const now=new Date(), dow=(now.getUTCDay()+6)%7;                          // dow: 0=Mon .. 6=Sun
-  const mon=new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()-dow));    // Monday 00:00 UTC of this week
-  const days=[]; for(let i=0;i<7;i++) days.push(dayKeyOf(new Date(mon.getTime()+i*86400000)));
-  return {days, mon}; }
-async function loadSeasonBoard(){
-  const list=gid('seasonList'); if(!list) return;
-  const sd=seasonDays(); const sub=gid('seasonSub'); if(sub) sub.textContent='wk of '+_SEASON_MON[sd.mon.getUTCMonth()]+' '+sd.mon.getUTCDate();
-  try{
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=client_id,name,score,day&day=in.('+sd.days.join(',')+')&limit=2000', {headers:sbH()});
-    if(!res.ok) throw 0;
-    const rows=await res.json(), agg={};
-    for(const r of rows){ const cid=r.client_id; if(!cid) continue; let e=agg[cid]; if(!e) e=agg[cid]={name:r.name||'?', day:{}}; if(r.name) e.name=r.name;
-      const sc=r.score|0, d=r.day; if(e.day[d]==null || sc>e.day[d]) e.day[d]=sc; }                // best score per (player, day)
-    const me=clientId(), standings=Object.keys(agg).map(cid=>{ const e=agg[cid], v=Object.values(e.day); let total=0; for(const x of v) total+=x; return {cid, name:e.name, total, played:v.length}; });
-    standings.sort((a,b)=> b.total-a.total || b.played-a.played);
-    const top=standings.slice(0,15);
-    if(!top.length){ list.innerHTML='<div class="board-empty">no challenge runs yet this week — start the season</div>'; return; }
-    list.innerHTML=top.map((r,i)=>'<div class="board-row'+(r.cid===me?' me':'')+'"><span class="br-rank">'+(i+1)+'</span><span class="br-name">'+esc(r.name||'?')+'</span><span class="br-bpm">'+r.total+'</span><span class="br-acc">'+r.played+'d</span></div>').join('');
-  }catch(e){ list.innerHTML='<div class="board-empty">season board offline</div>'; }
-}
-const _dailyBtn=gid('dailyBtn'); if(_dailyBtn) _dailyBtn.addEventListener('click', startChallenge);
 async function submitScore(){
   if(state.mode!=='rhythm') return;
   const score=Math.round(state.maxBpm);
@@ -2489,8 +2283,7 @@ function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
   ovLede.style.display='none'; keysRow.style.display='none'; phonesNote.style.display='none';
-  beginBtn.textContent = state.challenge ? '▶ RESUME DAILY' : '▶ RESUME'; gid('setHead').textContent='— ADJUST (mode/sliders apply on restart) —';
-  if(exitChallengeBtn) exitChallengeBtn.style.display = state.challenge ? '' : 'none';   // offer a way out only while a daily is in progress
+  beginBtn.textContent = '▶ RESUME'; gid('setHead').textContent='— ADJUST (mode/sliders apply on restart) —';
   const clickPct=state.shots?Math.round(state.hits/state.shots*100)+'%':'—';
   const avgNum=avgReaction();
   const avgR = avgNum==null?'—':(state.mode==='rhythm'?avgNum.toFixed(1)+' beats':Math.round(avgNum)+' ms');
@@ -2505,21 +2298,9 @@ function showPause(){
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
     (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(avgPathScore()*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
-  submitScore(); saveSession(); renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard(); submitDojo(); loadDojoBoard();
+  submitScore(); saveSession(); renderHistory(); loadBoard(); submitDojo(); loadDojoBoard();
   overlay.classList.remove('hidden');
 }
-function restoreStartCard(){                                  // revert the pause/report overlay back to the free-play start card
-  ovEyebrow.textContent=_startCard.eyebrow; ovTitle.innerHTML=_startCard.title;
-  ovLede.innerHTML=_startCard.lede; ovLede.style.display=''; keysRow.style.display=''; phonesNote.style.display='';
-  beginBtn.textContent=_startCard.begin; const sh=gid('setHead'); if(sh) sh.textContent=_startCard.setHead;
-  pauseStats.style.display='none'; if(exitChallengeBtn) exitChallengeBtn.style.display='none';
-}
-function exitChallenge(){                                     // bail out of an in-progress daily → free-play menu (next ENTER is a normal run; ghost/score-race auto-hide since state.challenge is false)
-  state.challenge=false; state.challengeOver=false; state.needsReset=true;
-  hidePace();
-  restoreStartCard();
-}
-if(exitChallengeBtn) exitChallengeBtn.addEventListener('click', exitChallenge);
 
 const sens=gid('sens'),sensOut=gid('sensOut'),fov=gid('fov'),fovOut=gid('fovOut');
 const startSpd=gid('startSpd'),startSpdOut=gid('startSpdOut'),startBpm=gid('startBpm'),startBpmOut=gid('startBpmOut');
@@ -2589,7 +2370,7 @@ const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.reques
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
 const preloadTone=()=>{ loadToneOnce().catch(()=>{}); };
 runIdle(preloadTone,700,1800);
-setTimeout(()=>{ renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard(); loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
+setTimeout(()=>{ renderHistory(); loadBoard(); loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
