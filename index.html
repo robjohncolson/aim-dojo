@@ -55,6 +55,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
 #ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
 @keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
+#hitFlash{position:fixed;left:50%;top:57%;transform:translateX(-50%);z-index:6;pointer-events:none;font:13px var(--mono);letter-spacing:.08em;color:rgba(255,214,120,.96);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}   /* flashes the just-hit target's distance + height */
+#hitFlash.show{animation:hitFlash 1s ease-out forwards}
+@keyframes hitFlash{0%{opacity:0;transform:translateX(-50%) translateY(8px) scale(.9)}16%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}68%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-12px)}}
 #comboGlow{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:radial-gradient(125% 95% at 50% 50%, rgba(0,0,0,0) 54%, rgba(255,168,72,.18) 84%, rgba(255,120,44,.42) 100%);will-change:opacity}
 .liveRet{position:fixed;left:0;top:0;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(116,232,74,.55);border-radius:50%;box-shadow:0 0 6px rgba(116,232,74,.35);pointer-events:none;z-index:5;display:none;will-change:transform}
 .liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
@@ -291,7 +294,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
   <div class="stat"><span class="k">STREAK</span><span class="v green" id="sStreak">0</span><span class="sub" id="sStreakBest">best 0</span></div>
   <div class="stat"><span class="k" id="reactLabel">TIMING</span><span class="v" id="sReact">— ms</span></div>
   <div class="stat"><span class="k">CLICK&nbsp;%</span><span class="v" id="sClick">—</span></div>
+  <div class="stat"><span class="k">FARTHEST</span><span class="v" id="sFar">—</span></div>
+  <div class="stat"><span class="k">HIGHEST</span><span class="v" id="sHigh">—</span></div>
 </div>
+<div id="hitFlash" aria-hidden="true"></div>
 
 <div id="speedBox" class="hud">
   <div id="speedLabel">TEMPO</div>
@@ -1339,7 +1345,7 @@ function changeBpm(delta,up){
 
 /* ========================= STATE + OUTCOMES ========================= */
 const state={ running:false, started:false, needsReset:false, challenge:false, challengeOver:false, t:0, mode:CFG.mode,
-  speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart,
+  speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart, maxHitDist:0, maxHitHeight:0,
   hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0, pathScores:[], pathScoreSum:0, pathScoreHead:0, sessEffs:[], sessBpms:[], sessEffSum:0, sessBpmSum:0 };
 function pushReaction(v){
   const a=state.reactions;
@@ -1360,11 +1366,18 @@ function kindScore(tg, atT){   // per-kind score: gold/mover ×bonus, speed bonu
   if(tg.kind===3) return ((atT!=null?atT:state.t) - tg.born <= CFG.speedWindow) ? CFG.speedScore : 1;
   return 1;
 }
+function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb's distance-to-player + altitude, and keep the session bests
+  const p=tg.mesh.position, dist=p.distanceTo(PLAYER_POS), h=p.y;
+  if(dist>state.maxHitDist) state.maxHitDist=dist;
+  if(h>state.maxHitHeight) state.maxHitHeight=h;
+  if(el.hitFlash){ setText(el.hitFlash, '◎ '+fmtDist(dist)+'   ▲ '+fmtDist(h)); el.hitFlash.classList.remove('show'); void el.hitFlash.offsetWidth; el.hitFlash.classList.add('show'); }
+}
 function onHit(tg, point, atT){ // free-hunt   (atT = when the shot was committed; defaults to now for hit-scan, = fire-time for a projectile)
   if(tg.dead) return; tg.dead=true; if(atT==null) atT=state.t;
   state.shots++;
   if(tg.kind===2){ state.streak=0; pushEvent(false); flashReticleBad(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); killTarget(tg, false); renderStats(); return; }   // DECOY penalty (free-hunt: no h to keep in sync)
   const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);   // GOLD = goldScore kills
+  recordHit(tg);
   pushReaction((atT-tg.born)*1000);
   const clutch=CFG.clutch && !reduceMotion && tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange;   // hunt has no beat window → range-only clutch
   if(clutch) triggerClutch(tg);
@@ -1385,6 +1398,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   }
   if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); if(ghostRec){ const _t100=Math.round(atT*100); for(let q=0;q<sc;q++) ghostRec.h.push(_t100); } }   // GOLD = goldScore kills + matching ghost-hit entries → keeps score===h.length (server-safe). record SCORING hits only → drives the ghost flash + daily pace.
   else state.streak=0;
+  recordHit(tg);
   pushReaction(beats);
   const ps=pathScoreOf(tg); pushPathScore(ps);
   state.sessEffs.push(ps); state.sessBpms.push(state.bpm); state.sessEffSum+=ps; state.sessBpmSum+=state.bpm;   // full-session record (for the startup chart)
@@ -1682,7 +1696,7 @@ function updateWindHud(){
 /* ========================= HUD ========================= */
 function gid(id){ return document.getElementById(id); }
 const el={ speedVal:gid('speedVal'), speedLabel:gid('speedLabel'), sTargets:gid('sTargets'), sStreak:gid('sStreak'),
-  sStreakBest:gid('sStreakBest'), sReact:gid('sReact'), reactLabel:gid('reactLabel'), sClick:gid('sClick'),
+  sStreakBest:gid('sStreakBest'), sReact:gid('sReact'), reactLabel:gid('reactLabel'), sClick:gid('sClick'), sFar:gid('sFar'), sHigh:gid('sHigh'), hitFlash:gid('hitFlash'),
   verdict:gid('verdict'), accVal:gid('accVal'), fill:gid('fill'), gateUp:gid('gateUp'), gateDown:gid('gateDown'),
   gaugeLegend:gid('gaugeLegend'), reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
 el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
@@ -1701,6 +1715,8 @@ function renderStats(){
   const avg=avgReaction();
   setText(el.sReact, state.mode==='rhythm' ? (avg!=null?avg.toFixed(1):'—') : (avg!=null?Math.round(avg)+' ms':'— ms'));
   setText(el.sClick, state.shots?Math.round(state.hits/state.shots*100)+'%':'—');
+  setText(el.sFar, state.maxHitDist?fmtDist(state.maxHitDist):'—');
+  setText(el.sHigh, state.maxHitHeight?fmtDist(state.maxHitHeight):'—');
 }
 function renderGauge(){
   setStyle(el.gateDown,'left',(CFG.downThreshold*100)+'%'); setStyle(el.gateUp,'left',(CFG.upThreshold*100)+'%');
@@ -2085,7 +2101,7 @@ function resetSession(){
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999;
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
-  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
+  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
   challengeToneAccum=CHALLENGE_TONE_STEP; challengeUiBpm=-1;
   nextSpawnAt=0;
   if(state.mode==='rhythm') ensureRhythm();
