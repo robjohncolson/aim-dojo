@@ -11,7 +11,7 @@ create table if not exists public.aimdojo_dojo (
   id          uuid primary key default gen_random_uuid(),
   client_id   text not null,                                       -- per-device id (one best per player)
   name        text not null check (char_length(name) <= 24),
-  far         real not null check (far  >= 0 and far  <= 50),      -- farthest hit (m); room diagonal ~46.3 (railgun hit-scan reach; ARC ballistic max ~36)
+  far         real not null check (far  >= 0 and far  <= 42),      -- farthest hit (m); ARC ballistic max ~38 (projSpeed^2/projGravity=36 + downhill + eye/muzzle offset) + margin (railgun removed)
   high        real not null check (high >= 0 and high <= 30),      -- highest hit (m); room cap ~25.5 (ROOM_BY)
   streak      int  not null check (streak    between 0 and 5000),  -- best streak this run
   peak_bpm    int  not null check (peak_bpm  between 0 and 400),   -- peak tempo (bpm); engine max 172
@@ -39,5 +39,5 @@ create policy "aimdojo_dojo read" on public.aimdojo_dojo for select to anon usin
 drop policy if exists "aimdojo_dojo insert" on public.aimdojo_dojo;
 create policy "aimdojo_dojo insert" on public.aimdojo_dojo for insert to anon
   with check (char_length(name) <= 24
-    and far    between 0 and 50   and high     between 0 and 30
+    and far    between 0 and 42   and high     between 0 and 30
     and streak between 0 and 5000 and peak_bpm between 0 and 400 and kills between 0 and 5000);
