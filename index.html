@@ -1402,7 +1402,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   pushReaction(beats);
   const ps=pathScoreOf(tg); pushPathScore(ps);
   state.sessEffs.push(ps); state.sessBpms.push(state.bpm); state.sessEffSum+=ps; state.sessBpmSum+=state.bpm;   // full-session record (for the startup chart)
-  pushEvent(good); showTiming((good&&tg.kind===1)?('★ '+grade):grade, beats.toFixed(1)+' beats', good?'perfect':'good', (good&&tg.kind===1?'GOLD ×'+CFG.goldScore+' · ':'')+pathGrade(ps)+' · '+Math.round(ps*100)+'%', pathTier(ps));
+  pushEvent(good);   // timing-grade popup (FLAWLESS/PERFECT/…) removed per playtest — the distance/height flash (recordHit) is the only post-hit readout now
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
   if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
