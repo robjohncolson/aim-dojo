@@ -95,15 +95,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #scopeAim{position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid rgba(255,205,90,.85);border-radius:50%;box-shadow:0 0 9px rgba(255,205,90,.5);pointer-events:none;z-index:5;display:none;transform:translate(var(--sx,50vw),var(--sy,50vh));will-change:transform}
 #scopeAim::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:rgba(255,230,160,.95)}
 #scopeAim.on{display:block}
-#lockBox{position:fixed;left:0;top:0;box-sizing:border-box;border:1.5px solid rgba(150,190,230,.45);border-radius:3px;pointer-events:none;z-index:5;display:none;transform:translate(var(--lx,50vw),var(--ly,50vh)) translate(-50%,-50%);will-change:transform,width,height}
+#lockBox{position:fixed;left:0;top:0;box-sizing:border-box;border:1.5px solid rgba(150,190,230,.45);border-radius:3px;pointer-events:none;z-index:5;display:none;transform:translate(var(--lx,50vw),var(--ly,50vh)) translate(-50%,-50%) scale(var(--pulse,1));will-change:transform,width,height}
 #lockBox.on{display:block}
 #lockBox.lock{border-color:rgba(255,205,90,.95);box-shadow:0 0 12px rgba(255,205,90,.55),inset 0 0 8px rgba(255,205,90,.22)}
 #lockBox::after{content:'LOCK';position:absolute;left:50%;top:-13px;transform:translateX(-50%);font:9px var(--mono);letter-spacing:.22em;color:rgba(255,205,90,.95);opacity:0;white-space:nowrap}
 #lockBox.lock::after{opacity:1}
 #lockBox.decoy{border-color:rgba(255,59,110,.95);box-shadow:0 0 12px rgba(255,59,110,.5),inset 0 0 8px rgba(255,59,110,.2)}
 #lockBox.decoy::after{content:'AVOID';color:rgba(255,95,135,.97);opacity:1}
-#tth{position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:5px;font:12px var(--mono);letter-spacing:.08em;color:rgba(255,205,90,.97);text-shadow:0 0 6px rgba(0,0,0,.85);white-space:nowrap;pointer-events:none;display:none}   /* TIME TO HIT (beats), shown below the reticle when LOCKED */
-#tth.on{display:block}
 /* deviation EDGE TINTS: a red glow on the screen edge you must aim TOWARD — top = aim up (Δy<0) · bottom = aim down (Δy>0) · left = aim left (Δx>0) · right = aim right (Δx<0). opacity ∝ |delta| (set in updateScope). Top/bottom = 1/20 screen height, sides = 1/30 width, fading inward. */
 .edgeTint{position:fixed;pointer-events:none;z-index:3;opacity:0;will-change:opacity}
 #edgeTop{top:0;left:0;right:0;height:5vh;background:linear-gradient(to bottom, rgba(255,60,60,1), transparent)}
@@ -283,7 +281,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
 <div id="paceGhost" class="hud" aria-hidden="true"><div class="pg-top"><span>PACE</span><span class="pg-pct">—</span></div><div class="pg-track"><span class="pg-fill"></span></div><div class="pg-sub"></div></div>
 <div id="scopeAim" aria-hidden="true"></div>
-<div id="lockBox" aria-hidden="true"><div id="tth" aria-hidden="true"></div></div>
+<div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
@@ -1623,7 +1621,7 @@ function updateLandRings(dt){
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
 const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
 let scopeAccum=SCOPE_STEP;
-const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox'), tthEl=gid('tth');
+const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
 const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
 const _scScreen=[0,0,false];
 /* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
@@ -1638,7 +1636,7 @@ function driveEdgeTints(vMiss, lat){   // dy<0 (arc BELOW orb -> aim UP) -> TOP 
   setStyle(edgeRight, 'opacity', lat<0   ? edgeOp(-lat)   : 0);
 }
 function hideEdgeTints(){ setStyle(edgeTop,'opacity',0); setStyle(edgeBot,'opacity',0); setStyle(edgeLeft,'opacity',0); setStyle(edgeRight,'opacity',0); }
-function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); if(tthEl) tthEl.classList.remove('on'); hideEdgeTints(); }
+function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
@@ -1659,8 +1657,9 @@ function updateScope(dt){
     lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
     lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px');
     const isDecoy=tg.kind===2, lk=locked && !isDecoy; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', lk);   // decoy -> red AVOID box, never the gold LOCK
-    if(tthEl){ if(lk){ setText(tthEl, (flight*state.bpm/60).toFixed(1)+' beats'); tthEl.classList.add('on'); } else tthEl.classList.remove('on'); } }   // TIME TO HIT in beats when LOCKED = projectile flight / beat duration
-  else { lockBoxEl.classList.remove('on','lock','decoy'); if(tthEl) tthEl.classList.remove('on'); }
+    if(lk && flight>0){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast
+    else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
+  else { lockBoxEl.classList.remove('on','lock','decoy'); _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); }
   // HUD readouts
   const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(Tt.y-P.y)/slant)))*RAD2DEG, lead=tg.vel.length()*flight;
   // PER-TARGET IDEAL LOB (firing-computer depth): lead-iterate the intercept point, then closed-form solve the lofted
