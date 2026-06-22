@@ -311,16 +311,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     </div>
 
     <div id="dojoBox" class="boardbox">
-      <div class="histhead"><span>🥋 DOJO RECORDS</span><span id="dojoBests" class="histsub"></span></div>
+      <div class="histhead"><span>🥋 DOJO RECORDS</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
       <div id="dojoTabs" class="dojo-tabs">
         <span class="dt" data-sort="kills">KILLS</span><span class="dt" data-sort="streak">STREAK</span><span class="dt" data-sort="peak_bpm">BPM</span><span class="dt" data-sort="far">FARTHEST</span><span class="dt" data-sort="high">HIGHEST</span>
       </div>
+      <div id="dojoBests" class="histsub" style="margin:0 0 3px;text-align:left;white-space:normal"></div>
       <div id="dojoList" class="boardlist"><div class="board-empty">loading…</div></div>
-    </div>
-
-    <div id="boardBox" class="boardbox">
-      <div class="histhead"><span>GLOBAL HI · RAILGUN PEAK BPM</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
-      <div id="boardList" class="boardlist"><div class="board-empty">loading…</div></div>
     </div>
 
 
@@ -377,16 +373,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       </div>
 
       <div class="row">
-        <label>Shot type</label>
-        <div class="seg" id="projSeg"><button data-v="off">RAILGUN</button><button data-v="on" class="on">ARC (gravity)</button></div>
-        <span class="out"></span>
-      </div>
-      <div class="row">
         <label>Trajectory arc</label>
         <div class="seg" id="arcSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
         <span class="out"></span>
       </div>
-      <div class="hint">RAILGUN is instant hit-scan. ARC fires a real projectile that travels and drops under gravity — lead moving targets and aim a touch high. The trajectory arc previews where your shot will fly.</div>
+      <div class="hint">Your shot is a real projectile that travels and drops under gravity — lead moving targets and aim a touch high. The trajectory arc previews where it will fly.</div>
 
       <div class="row">
         <label>Ballistic scope</label>
@@ -497,8 +488,8 @@ const CFG = {
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
-  // projectile (ballistic gravity arc — the DEFAULT and the daily now; railgun hit-scan kept as a free-play fallback via the projSeg toggle. global peak-BPM board stays hit-scan-pure.)
-  projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
+  // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
+  projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten (keep projSpeed^2/projGravity >= ~30 so far targets stay reachable)
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
@@ -1246,30 +1237,6 @@ function reconcileTargetSounds(){
   }
 }
 
-/* ========================= TRACER ========================= */
-const beams=[], beamPool=[], beamRecordPool=[];
-const _beamFwd=new THREE.Vector3(), _beamRight=new THREE.Vector3(), _beamOrigin=new THREE.Vector3(), _beamUp=new THREE.Vector3(0,1,0), _missEnd=new THREE.Vector3();
-function acquireBeam(){
-  const line=beamPool.pop();
-  if(line){ line.visible=true; scene.add(line); return line; }
-  const geo=new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3).setUsage(THREE.DynamicDrawUsage));
-  const fresh=new THREE.Line(geo, new THREE.LineBasicMaterial({color:0x43d9ff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending}));
-  fresh.frustumCulled=false;
-  scene.add(fresh); return fresh;
-}
-function releaseBeam(line){ line.visible=false; scene.remove(line); beamPool.push(line); }
-function fireBeam(end, hit, fwd){
-  if(reduceMotion) return;
-  if(fwd) _beamFwd.copy(fwd); else camera.getWorldDirection(_beamFwd);
-  if(!end) end=_missEnd.copy(PLAYER_POS).addScaledVector(_beamFwd,60);
-  _beamRight.crossVectors(_beamFwd,_beamUp).normalize();
-  _beamOrigin.copy(PLAYER_POS).addScaledVector(_beamRight,0.7).addScaledVector(_beamUp,-0.55).addScaledVector(_beamFwd,0.9);
-  const line=acquireBeam(), pos=line.geometry.attributes.position.array;
-  pos[0]=_beamOrigin.x; pos[1]=_beamOrigin.y; pos[2]=_beamOrigin.z; pos[3]=end.x; pos[4]=end.y; pos[5]=end.z;
-  line.geometry.attributes.position.needsUpdate=true; line.material.color.setHex(hit?TOXIC:0x43d9ff); line.material.opacity=0.9;
-  const rec=beamRecordPool.pop() || {};
-  rec.line=line; rec.life=0.12; rec.age=0; beams.push(rec);
-}
 
 /* ========================= ADAPTIVE ENGINE ========================= */
 const events=[]; let sinceAdjust=0, eventsGood=0, eventsHead=0;
@@ -1372,39 +1339,15 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
   if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch); renderStats();
 }
-function onWhiff(skipBeam, fwd){
+function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
-  if(!skipBeam) fireBeam(null,false,fwd);   // a projectile miss passes skipBeam — the bullet itself was the visual, no railgun tracer
   flashReticleBad(); sfx('whiff'); renderStats();
 }
 function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); return; }   // dodged a decoy → no penalty (avoiding it is the correct play)
   retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); if(state.mode==='rhythm') showTiming('MISS','too slow','off'); sfx('expire'); renderStats(); }
-const _fireDir=new THREE.Vector3(), _fireHit=new THREE.Vector3();
-function hitScanTarget(){
-  camera.getWorldDirection(_fireDir);
-  const ox=camera.position.x, oy=camera.position.y, oz=camera.position.z, dx=_fireDir.x, dy=_fireDir.y, dz=_fireDir.z;
-  let best=null, bestT=Infinity;
-  for(const tg of targets){
-    if(tg.dead) continue;
-    const p=tg.mesh.position, sx=p.x-ox, sy=p.y-oy, sz=p.z-oz;
-    const tca=sx*dx+sy*dy+sz*dz;
-    if(tca<=0) continue;
-    const rr=tg.radius*tg.sc, d2=sx*sx+sy*sy+sz*sz-tca*tca, r2=rr*rr;
-    if(d2>r2) continue;
-    const thc=Math.sqrt(r2-d2), t=tca>thc ? tca-thc : tca+thc;
-    if(t<bestT){ bestT=t; best=tg; }
-  }
-  if(!best) return null;
-  _fireHit.set(ox+dx*bestT, oy+dy*bestT, oz+dz*bestT);
-  return best;
-}
 function fire(){
   if(!state.running) return;
-  addRecoil();
-  if(CFG.projectile){ spawnProjectile(); return; }   // ARC = the default. Railgun = the projSeg toggle OFF (free-play fallback).
-  const tg=hitScanTarget();
-  if(tg){ state.mode==='rhythm'?gradeRhythmHit(tg,_fireHit):onHit(tg,_fireHit); fireBeam(_fireHit,true,_fireDir); }
-  else onWhiff(false,_fireDir);
+  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed)
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast(skyFrozen?'🌅 SKY FROZEN':'🌅 SKY RESUMED'); }
@@ -1858,7 +1801,7 @@ function animate(frameNow){
   requestAnimationFrame(animate);
   if(document.hidden){ clock.getDelta(); return; }
   if(frameNow==null) frameNow=performance.now();
-  if(!state.running && explosions.length===0 && beams.length===0 && ghosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;
+  if(!state.running && explosions.length===0 && ghosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;
   if(!state.running) lastIdleFrame=frameNow;
   const dt=Math.min(clock.getDelta(),0.05);
   updateRenderQuality(dt);
@@ -1952,7 +1895,6 @@ function animate(frameNow){
     if(e.age>=e.life){ if(e.shards) releaseShards(e.shards); releaseFlash(e.flash); swapRemove(explosions,i); e.shards=e.pts=e.geo=e.mat=e.vels=e.flash=null; explosionRecordPool.push(e); }
   }
 
-  for(let i=beams.length-1;i>=0;i--){ const b=beams[i]; b.age+=dt; b.line.material.opacity=Math.max(0,0.9*(1-b.age/b.life)); if(b.age>=b.life){ releaseBeam(b.line); swapRemove(beams,i); b.line=null; beamRecordPool.push(b);} }
   if(clutchRingT>0 && clutchRing){                              // clutch shockwave: a camera-facing ring expanding out of the impact
     clutchRingT=Math.max(0, clutchRingT-dt);
     const u=1-clutchRingT/clutchRingDur, r=0.6+u*7.0;
@@ -2121,7 +2063,6 @@ function renderHistory(){                                 // startup/pause chart
 /* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
 const SB_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
-const SB_TABLE='aimdojo_scores';
 const RAILWAY_URL='https://aim-dojo-production.up.railway.app';   // verify-server (Railway): daily scores validated server-side before insert; empty = submit straight to Supabase
 const SUPABASE_JS='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'}, extra||{}); }
@@ -2173,35 +2114,6 @@ function updateRemotes(dt){
     const name=r.name||'';
     if(r.el._name!==name){ r.el.setAttribute('data-name', name); r.el._name=name; }
   }
-}
-async function submitScore(){
-  if(state.mode!=='rhythm') return;
-  const score=Math.round(state.maxBpm);
-  let best=0; try{ best=+(localStorage.getItem('aimdojo.bestBpm')||0); }catch(e){}
-  if(CFG.projectile || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip ballistic (ARC); else only a real improved best (keeps the peak-BPM board hit-scan-pure)
-  try{ localStorage.setItem('aimdojo.bestBpm', String(score)); }catch(e){}
-  const acc=state.shots?Math.round(state.hits/state.shots*100):null;
-  const ap=state.pathScores.length?Math.round(avgPathScore()*100):null;
-  const row={client_id:clientId(), name:playerName().slice(0,24), score, hits:state.hits, accuracy:acc, avg_path:ap, best_streak:state.bestStreak, mode:'rhythm'};
-  try{ await fetch(SB_URL+'/rest/v1/'+SB_TABLE, {method:'POST', headers:sbH({Prefer:'return=minimal'}), body:JSON.stringify(row)}); loadBoard(); }catch(e){}
-}
-async function loadBoard(){
-  const list=gid('boardList'); if(!list) return;
-  try{
-    const res=await fetch(SB_URL+'/rest/v1/'+SB_TABLE+'?select=client_id,name,score,accuracy&order=score.desc&limit=200', {headers:sbH()});
-    if(!res.ok) throw 0;
-    const rows=await res.json(); const seen=new Set(), top=[];               // dedupe to each player's best
-    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); top.push(r); if(top.length>=15) break; }
-    renderBoard(top);
-  }catch(e){ list.innerHTML='<div class="board-empty">leaderboard offline</div>'; }
-}
-function renderBoard(rows){
-  const list=gid('boardList'); if(!list) return;
-  if(!rows.length){ list.innerHTML='<div class="board-empty">no scores yet — be the first</div>'; return; }
-  const me=clientId();
-  list.innerHTML=rows.map((r,i)=>'<div class="board-row'+(r.client_id===me?' me':'')+'">'
-    +'<span class="br-rank">'+(i+1)+'</span><span class="br-name">'+esc(r.name||'?')+'</span>'
-    +'<span class="br-bpm">'+Math.round(r.score)+'</span><span class="br-acc">'+(r.accuracy!=null?r.accuracy+'%':'—')+'</span></div>').join('');
 }
 (function(){ const ni=gid('nameInput'); if(!ni) return;                      // persist the player name as it's typed
   try{ ni.value=localStorage.getItem('aimdojo.name')||''; }catch(e){}
@@ -2280,7 +2192,7 @@ function showPause(){
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
     (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(avgPathScore()*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
-  submitScore(); saveSession(); renderHistory(); loadBoard(); submitDojo(); loadDojoBoard();
+  saveSession(); renderHistory(); submitDojo(); loadDojoBoard();
   overlay.classList.remove('hidden');
 }
 
@@ -2301,7 +2213,6 @@ function wireSeg(id,cb){ const seg=gid(id); seg.addEventListener('click',e=>{ co
 wireSeg('modeSeg', v=>{ CFG.mode=v; configureMode(); });
 wireSeg('fieldSeg', v=> CFG.spawnField=v);
 wireSeg('assistSeg', v=> CFG.audioAssist=(v==='on'));
-wireSeg('projSeg', v=>{ CFG.projectile=(v==='on'); });        // RAILGUN (hit-scan) ↔ ARC (ballistic). Applies on APPLY & RESTART
 wireSeg('arcSeg', v=>{ CFG.projArc=(v==='on'); });            // show/hide the trajectory-arc preview
 wireSeg('scopeSeg', v=>{ CFG.scope=(v==='on'); });            // ballistic firing-computer overlay (ARC only)
 wireSeg('unitsSeg', v=>{ CFG.scopeUnits=v; });                // 'm' | 'ft' — applies live
@@ -2352,7 +2263,7 @@ const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.reques
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
 const preloadTone=()=>{ loadToneOnce().catch(()=>{}); };
 runIdle(preloadTone,700,1800);
-setTimeout(()=>{ renderHistory(); loadBoard(); loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
+setTimeout(()=>{ renderHistory(); loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
