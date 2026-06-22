@@ -372,13 +372,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 
       <div class="row rhythm-only">
         <label for="startBpm">Start tempo</label>
-        <input type="range" id="startBpm" min="20" max="150" step="2" value="35">
+        <input type="range" id="startBpm" min="20" max="150" step="2" value="20">
         <span class="out" id="startBpmOut">35</span>
       </div>
 
       <div class="row rhythm-only">
         <label for="density">Orb density</label>
-        <input type="range" id="density" min="0.25" max="1.3" step="0.05" value="0.55">
+        <input type="range" id="density" min="0.25" max="1.3" step="0.05" value="1.00">
         <span class="out" id="densityOut">0.55×</span>
       </div>
       <div class="hint">How busy the beat patterns are. Lower = more rests between orbs; higher = more onsets. A cooldown keeps orbs from ever clustering. Applies live.</div>
@@ -433,25 +433,25 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       </div>
       <div class="row">
         <label for="fov">Field of view</label>
-        <input type="range" id="fov" min="70" max="110" step="1" value="95">
-        <span class="out" id="fovOut">95°</span>
+        <input type="range" id="fov" min="70" max="110" step="1" value="70">
+        <span class="out" id="fovOut">70°</span>
       </div>
 
       <div class="row">
         <label for="upTh">Speed-up at</label>
-        <input type="range" id="upTh" min="0" max="0.95" step="0.01" value="0.80">
+        <input type="range" id="upTh" min="0" max="1" step="0.01" value="1">
         <span class="out" id="upThOut">80%</span>
       </div>
       <div class="row">
         <label for="downTh">Slow-down at</label>
-        <input type="range" id="downTh" min="0" max="0.75" step="0.01" value="0.05">
+        <input type="range" id="downTh" min="0" max="0.75" step="0.01" value="0">
         <span class="out" id="downThOut">5%</span>
       </div>
       <div class="hint">The gap between these is the dead-band: while accuracy sits between them the tempo holds steady.</div>
 
       <div class="row">
         <label for="win">Window size</label>
-        <input type="range" id="win" min="5" max="25" step="1" value="10">
+        <input type="range" id="win" min="5" max="25" step="1" value="25">
         <span class="out" id="winOut">10</span>
       </div>
 
@@ -503,10 +503,10 @@ const CFG = {
   // free-hunt world speed
   startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
-  startBpm:35, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // gentler slowdown so a few misses don't crater the tempo
+  startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // default tempo 20bpm (slow fixed-ish practice). gentler slowdown so a few misses don't crater the tempo
   challengeDur:90, challengeStartBpm:40, challengeMaxBpm:110, challengeEase:1.9,   // daily ARC tempo ramp — eased BOTH ways: lower peak (128→110) + steeper ease (1.5→1.9 → stays in the playable low range longer, spike lands later). bpm(t)=lerp(40,110,(t/90)^1.9).
   // shared adaptive law
-  upThreshold:0.80, downThreshold:0.05, windowSize:10, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Sliders span 0–95% (up) / 0–75% (down); slow-down default 5% (almost never eases off).
+  upThreshold:1.0, downThreshold:0, windowSize:25, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Defaults: speed-up only at 100% acc, slow-down only at 0% -> tempo stays ~fixed unless you're perfect/terrible. windowSize 25.
   // difficulty mapping
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
   gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
@@ -523,7 +523,7 @@ const CFG = {
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
-  densityScale:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,
+  densityScale:1.00, challengeDensity:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = FREE-PLAY orb density (default 1.0). challengeDensity = the DAILY's fixed density (0.55, the old default) — decoupled so the daily stays seeded-fair + unchanged regardless of your density setting.
   // projectile (ballistic gravity arc — the DEFAULT and the daily now; railgun hit-scan kept as a free-play fallback via the projSeg toggle. global peak-BPM board stays hit-scan-pure.)
   projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
@@ -944,10 +944,11 @@ function killTarget(tg, clutch){ dropTarget(tg); if(clutch) explodeAt(tg.mesh.po
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
 let reverbInput=null, reverbQueued=false;
-let kick=null, snare=null, hat=null, tick=null, bass=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
+let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
 let gridId=null, grid8=0, cd=0, restSlots=0;
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
 const PENTA=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
+const ARP=[0,3,4,5,3,4,5,7];   // PENTA indices for the melodic-layer arp across the 8-step grid (an ascending A-minor-pentatonic figure)
 function chordHit(streak){                               // a major chord a 1/4-beat after a hit, rising with the streak
   if(!soundOn || !toneReady || !chordSynth) return;
   try{ const root=PENTA[Math.min(streak, PENTA.length-1)];
@@ -994,6 +995,7 @@ function buildDrums(){
     hat=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0}}).connect(hatFilt);
     tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(new Tone.Volume(3).connect(drumBus));
     bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.004,decay:0.2,sustain:0.04,release:0.1}}).connect(new Tone.Filter(440,'lowpass').connect(new Tone.Volume(-9).connect(drumBus)));   // warm sub-bass for the higher groove tiers
+    try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(2800,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.35}).connect(new Tone.Volume(-13).connect(drumBus)))); }catch(e){ arp=null; }   // melodic layer: plucky pentatonic arp w/ echo (enters tier 2). guarded so a delay/synth failure can't kill the whole drum build
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
 }
@@ -1115,6 +1117,7 @@ function onGrid(time){
     if(hat && (tier>=2 || i%2===0)) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);   // beat-hats → every-step hats as it builds
     if(bass && tier>=2 && i===0) bass.triggerAttackRelease('A1','8n',time, 0.8);           // sub-bass root enters mid-intensity
     if(bass && tier>=3 && i===4) bass.triggerAttackRelease('E2','8n',time, 0.55);          // a little movement at full
+    if(arp && tier>=2 && (tier>=3 || i%2===0)) arp.triggerAttackRelease(PENTA[ARP[i]],'16n',time, tier>=3?0.5:0.42);   // MELODIC LAYER: pentatonic arp — on the beats at tier 2, every step at full intensity
     if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker ALWAYS (the gameplay metronome)
   }catch(e){}
   if(i%2===0){
@@ -1131,7 +1134,7 @@ function onGrid(time){
   else if(active<CFG.patternConcurrency){
     const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only
     if(elig){
-      let p = CFG.densityScale*metricWeight(i);
+      let p = (state.challenge?CFG.challengeDensity:CFG.densityScale)*metricWeight(i);   // DAILY uses the fixed challengeDensity (seeded-fair); free-play uses the densityScale setting
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
         try{ Tone.Draw.schedule(()=>{ if(state.running) spawnRhythmOrb(); }, time); }catch(e){ if(state.running) spawnRhythmOrb(); }
