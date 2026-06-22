@@ -38,20 +38,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #reticle .l{left:0;width:11px}#reticle .r{right:0;width:11px}
 #reticle .t{top:0;height:11px}#reticle .b{bottom:0;height:11px}
 #reticle .dot{position:absolute;left:50%;top:50%;width:3px;height:3px;border-radius:50%;background:var(--rail);transform:translate(-50%,-50%);box-shadow:0 0 6px var(--rail);transition:transform .08s ease, box-shadow .08s ease}
-#ghostRet{position:fixed;left:0;top:0;width:24px;height:24px;margin:-12px 0 0 -12px;border:2px solid rgba(190,120,255,.7);border-radius:50%;box-shadow:0 0 8px rgba(190,120,255,.5);pointer-events:none;z-index:5;display:none;transform:translate(var(--gx,50vw),var(--gy,50vh));will-change:transform}
-#ghostRet::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px;border-radius:50%;background:rgba(200,150,255,.95)}
-#ghostRet.on{display:block}
-#ghostRet.hit{animation:ghosthit .26s ease-out}
-@keyframes ghosthit{0%{transform:translate(var(--gx,50vw),var(--gy,50vh)) scale(1.7);border-color:rgba(255,255,255,.95)}100%{transform:translate(var(--gx,50vw),var(--gy,50vh)) scale(1)}}
-#ghostName{left:50%;top:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;color:rgba(200,150,255,.9);display:none;white-space:nowrap}
-#ghostName.on{display:block}
-#selfGhostRet{position:fixed;left:0;top:0;width:24px;height:24px;margin:-12px 0 0 -12px;border:2px solid rgba(95,208,255,.7);border-radius:50%;box-shadow:0 0 8px rgba(95,208,255,.5);pointer-events:none;z-index:5;display:none;transform:translate(var(--sx,50vw),var(--sy,50vh));will-change:transform}
-#selfGhostRet::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px;border-radius:50%;background:rgba(170,230,255,.95)}
-#selfGhostRet.on{display:block}
-#selfGhostRet.hit{animation:selfhit .26s ease-out}
-@keyframes selfhit{0%{transform:translate(var(--sx,50vw),var(--sy,50vh)) scale(1.7);border-color:rgba(255,255,255,.95)}100%{transform:translate(var(--sx,50vw),var(--sy,50vh)) scale(1)}}
-#selfGhostName{left:50%;top:78px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;color:rgba(120,210,255,.9);display:none;white-space:nowrap}
-#selfGhostName.on{display:block}
 #ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
 #ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
 @keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
@@ -288,10 +274,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
   <div class="arm v t"></div><div class="arm v b"></div>
   <div class="dot"></div>
 </div>
-<div id="ghostRet" aria-hidden="true"></div>
-<div id="ghostName" class="hud" aria-hidden="true"></div>
-<div id="selfGhostRet" aria-hidden="true"></div>
-<div id="selfGhostName" class="hud" aria-hidden="true"></div>
 <div id="ghostToast" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="scoreRace" class="hud" aria-hidden="true"></div>
@@ -1959,9 +1941,7 @@ function animate(frameNow){
       state.bpm=lerp(CFG.challengeStartBpm, CFG.challengeMaxBpm, f); state.maxBpm=Math.max(state.maxBpm, state.bpm);
       if(toneReady){ challengeToneAccum+=dt; if(challengeToneAccum>=CHALLENGE_TONE_STEP){ challengeToneAccum=0; try{ Tone.Transport.bpm.value=state.bpm; }catch(e){} } }
       const rb=Math.round(state.bpm); if(rb!==challengeUiBpm){ challengeUiBpm=rb; renderPrimary(false,false); }
-      if(ghostRec){ while(state.t>=ghostNextSample){ ghostRec.a.push(qYaw(yaw), qPit(pitch)); ghostNextSample+=1/GHOST_HZ; } }   // record my aim path
-      updateGhost(dt);                                      // play the opponent's ghost reticle
-      updateSelfGhost(dt);                                  // play YOUR best-run ghost (cyan)
+      if(ghostRec){ while(state.t>=ghostNextSample){ ghostRec.a.push(qYaw(yaw), qPit(pitch)); ghostNextSample+=1/GHOST_HZ; } }   // record my aim path -> the daily replay (anti-cheat)
       updatePaceGhost(dt);                                  // live "ahead of X% of today" pace bar
       if(state.t>=CFG.challengeDur){ endChallenge(); }
     }
@@ -2131,7 +2111,7 @@ function resetSession(){
   _specialLive=specialOrbsLive();   // latch special-orb liveness for the whole run (constant-per-run → no mid-run gate flip)
   if((CFG.wind||_windFlag) && !state.challenge){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per FREE-PLAY run (prototype)
   else { windX=0; windZ=0; }                                  // daily + wind-off → no wind (ballistics bit-identical)
-  if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; if(ghost) ghost.hi=0; if(selfGhost) selfGhost.hi=0; } else { ghostRec=null; if(ghostRetEl) ghostRetEl.classList.remove('on'); if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); }
+  if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; } else { ghostRec=null; }   // record my aim path during the daily (-> replay anti-cheat); no recording in free-play
   for(const t of targets) removeTarget(t); targets.length=0;
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
@@ -2210,26 +2190,13 @@ let _clientId='', _playerName='';
 function clientId(){ if(_clientId) return _clientId; let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return _clientId=id; }
 function playerName(){ if(_playerName) return _playerName; let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return _playerName=(n || ('Guest-'+clientId().slice(-4))); }
 function esc(s){ return String(s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
-/* ---- ghost replays: record my aim path + hits at 20Hz; race the top player's ghost ---- */
+/* ---- ghost recording: capture my aim path + scoring-hit times @20Hz -> the daily's `replay` (server anti-cheat). The ghost RACING/display layer was removed in the dojo pivot; recording stays until the daily is removed (Step 2). ---- */
 const GHOST_HZ=20, TAU=Math.PI*2;
-const GHOST_UPDATE_STEP=1/30;
-let ghostRec=null, ghost=null, ghostNextSample=0, ghostAccum=GHOST_UPDATE_STEP;
-const ghostRetEl=gid('ghostRet');
-let selfGhost=null, selfGhostAccum=GHOST_UPDATE_STEP; const selfGhostRetEl=gid('selfGhostRet');   // self-ghost: race YOUR best run on today's seed (localStorage, offline)
-let ghostMode=1; try{ const _gm=localStorage.getItem('aimdojo.ghostmode'); if(_gm!=null){ const _v=_gm|0; if(_v>=0&&_v<=2) ghostMode=_v; } }catch(e){}   // DAILY ghost display: 0 none · 1 your-best (cyan) · 2 top-scorer (purple). Toggle with G (persisted). Default 1 -> one calm ghost, not two cursors.
+let ghostRec=null, ghostNextSample=0;
 const ghostToastEl=gid('ghostToast');
 function showGhostToast(txt){ if(!ghostToastEl) return; setText(ghostToastEl, txt); ghostToastEl.classList.remove('show'); void ghostToastEl.offsetWidth; ghostToastEl.classList.add('show'); }
-function applyGhostMode(){                                       // reconcile reticle + name-label visibility to the current mode (the per-frame updaters also self-gate)
-  const gn=gid('ghostName'), sgn=gid('selfGhostName');
-  if(ghostMode!==2){ if(ghostRetEl) ghostRetEl.classList.remove('on'); if(gn) gn.classList.remove('on'); } else if(gn && ghost) gn.classList.add('on');
-  if(ghostMode!==1){ if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); if(sgn) sgn.classList.remove('on'); } else if(sgn && selfGhost) sgn.classList.add('on');
-}
-function cycleGhostMode(){ ghostMode=(ghostMode+1)%3; try{ localStorage.setItem('aimdojo.ghostmode', String(ghostMode)); }catch(e){} applyGhostMode(); showGhostToast(ghostMode===0?'DAILY GHOST · OFF':ghostMode===1?'DAILY GHOST · YOUR BEST':'DAILY GHOST · TOP SCORER'); }
-document.addEventListener('keydown', e=>{ if(e.key!=='g'&&e.key!=='G') return; const tn=((e.target&&e.target.tagName)||'').toLowerCase(); if(tn==='input'||tn==='select'||tn==='textarea') return; if(settingsOverlay && !settingsOverlay.classList.contains('hidden')) return; cycleGhostMode(); });
 function qYaw(y){ const w=((y%TAU)+TAU)%TAU; return Math.round(w/TAU*65535); }
 function qPit(p){ return Math.max(0,Math.min(65535, Math.round((p/PITCH_LIMIT*0.5+0.5)*65535))); }
-function dqYaw(q){ return q/65535*TAU; }
-function dqPit(q){ return (q/65535-0.5)*2*PITCH_LIMIT; }
 function lerpAngle(a,b,t){ let d=(b-a)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return a+d*t; }
 const _projectWorld=new THREE.Vector3(), _projectLocal=new THREE.Vector3(), _projectScreen=[0,0], _ghostDir=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
 function projectDir(dir){
@@ -2237,46 +2204,6 @@ function projectDir(dir){
   _projectLocal.applyMatrix4(camera.projectionMatrix); let x=_projectLocal.x,y=_projectLocal.y;
   if(behind||Math.abs(x)>1||Math.abs(y)>1){ if(behind){x=-x;y=-y;} const ax=Math.abs(x)||1e-3,ay=Math.abs(y)||1e-3,s=0.92/Math.max(ax,ay); x*=s;y*=s; }
   _projectScreen[0]=viewCX + x*viewCX; _projectScreen[1]=viewCY - y*viewCY; return _projectScreen;
-}
-function updateGhost(dt){
-  const gr=ghostRetEl; if(!gr) return;
-  if(ghostMode!==2 || !ghost || !ghost.a || ghost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
-  ghostAccum+=dt; if(ghostAccum<GHOST_UPDATE_STEP) return; ghostAccum=0;
-  const n=ghost.a.length>>1; let i=Math.floor(state.t*GHOST_HZ); if(i>n-1)i=n-1; const i2=Math.min(i+1,n-1), fr=Math.max(0,Math.min(1,state.t*GHOST_HZ-i));
-  const gy=lerpAngle(dqYaw(ghost.a[i*2]), dqYaw(ghost.a[i2*2]), fr);
-  const p1=dqPit(ghost.a[i*2+1]), gp=p1+(dqPit(ghost.a[i2*2+1])-p1)*fr;
-  const sc=projectDir(setAimDir(_ghostDir,gp,gy)); gr.style.setProperty('--gx',sc[0]+'px'); gr.style.setProperty('--gy',sc[1]+'px'); gr.classList.add('on');
-  if(ghost.h){ const tc=state.t*100; while(ghost.hi<ghost.h.length && tc>=ghost.h[ghost.hi]){ gr.classList.remove('hit'); void gr.offsetWidth; gr.classList.add('hit'); ghost.hi++; } }
-}
-function updateSelfGhost(dt){                                   // mirrors updateGhost, but for YOUR stored best (cyan reticle #selfGhostRet)
-  const gr=selfGhostRetEl; if(!gr) return;
-  if(ghostMode!==1 || !selfGhost || !selfGhost.a || selfGhost.a.length<4 || !state.running || !state.challenge){ gr.classList.remove('on'); return; }
-  selfGhostAccum+=dt; if(selfGhostAccum<GHOST_UPDATE_STEP) return; selfGhostAccum=0;
-  const n=selfGhost.a.length>>1; let i=Math.floor(state.t*GHOST_HZ); if(i>n-1)i=n-1; const i2=Math.min(i+1,n-1), fr=Math.max(0,Math.min(1,state.t*GHOST_HZ-i));
-  const gy=lerpAngle(dqYaw(selfGhost.a[i*2]), dqYaw(selfGhost.a[i2*2]), fr);
-  const p1=dqPit(selfGhost.a[i*2+1]), gp=p1+(dqPit(selfGhost.a[i2*2+1])-p1)*fr;
-  const sc=projectDir(setAimDir(_ghostDir,gp,gy)); gr.style.setProperty('--sx',sc[0]+'px'); gr.style.setProperty('--sy',sc[1]+'px'); gr.classList.add('on');
-  if(selfGhost.h){ const tc=state.t*100; while(selfGhost.hi<selfGhost.h.length && tc>=selfGhost.h[selfGhost.hi]){ gr.classList.remove('hit'); void gr.offsetWidth; gr.classList.add('hit'); selfGhost.hi++; } }
-}
-function loadSelfGhost(){                                       // load your stored best for TODAY's seed (offline; daily-keyed so it resets each UTC day)
-  selfGhost=null; const lbl=gid('selfGhostName'); if(lbl){ lbl.textContent=''; lbl.classList.remove('on'); }
-  try{ const raw=localStorage.getItem('aimdojo.selfghost'); if(raw){ const o=JSON.parse(raw);
-    if(o && o.day===dayKey() && o.rec && o.rec.a && o.rec.a.length){ selfGhost={a:o.rec.a, h:o.rec.h||[], hi:0, score:o.score|0};
-      if(lbl){ lbl.textContent='◆ your best · '+(o.score|0)+' kills'; if(ghostMode===1) lbl.classList.add('on'); } } } }catch(e){}
-}
-function saveSelfGhost(){                                       // on run end: store the recorded run if it beat today's stored best
-  if(!ghostRec || !ghostRec.a || !ghostRec.a.length) return;
-  try{ const today=dayKey(); let prev=null; try{ prev=JSON.parse(localStorage.getItem('aimdojo.selfghost')); }catch(e){}
-    const prevScore=(prev && prev.day===today)?(prev.score|0):-1;
-    if(state.hits>prevScore){ localStorage.setItem('aimdojo.selfghost', JSON.stringify({day:today, score:state.hits, rec:ghostRec})); } }catch(e){}
-}
-async function loadGhost(){
-  ghost=null; const lbl=gid('ghostName'); if(lbl){ lbl.textContent=''; lbl.classList.remove('on'); }
-  try{
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_daily?select=name,replay,score&day=eq.'+encodeURIComponent(dayKey())+'&order=score.desc&limit=1', {headers:sbH()});
-    const rows=await res.json();
-    if(rows && rows[0] && rows[0].replay){ const r=JSON.parse(rows[0].replay); if(r && r.a && r.a.length){ ghost={a:r.a, h:r.h||[], name:rows[0].name, hi:0}; if(lbl){ lbl.textContent='👻 racing '+(rows[0].name||'?')+' · '+rows[0].score+' kills'; if(ghostMode===2) lbl.classList.add('on'); } } }
-  }catch(e){}
 }
 /* ---- percentile pace ghost: live "you're ahead of X% of today's runs" — your kills-by-now vs the recorded pace of everyone else on today's seed. Works SOLO (no live opponents needed); complements the head-to-head score race. ---- */
 const PACE_STEP=1/6; let paceRuns=null, paceCursors=null, paceTotal=0, paceLastPct=-1, paceAccum=0, _paceTier='';
@@ -2412,8 +2339,6 @@ function startChallenge(){
     return;
   }
   challengeSeed=strHash('aimdojo-'+dayKey());                 // same seed all day → same run for everyone
-  loadGhost();                                                // fetch the top player's run to race (async; appears once loaded)
-  loadSelfGhost();                                            // load YOUR best run on today's seed (sync; localStorage, offline)
   loadPaceField();                                            // fetch today's field for the live pace percentile (async; bar appears once loaded)
   CFG.mode='rhythm'; state.challenge=true; state.challengeOver=false; state.needsReset=true;
   startRun();
@@ -2421,9 +2346,6 @@ function startChallenge(){
 function endChallenge(){
   state.challenge=false; state.challengeOver=true; state.needsReset=true;
   submitDaily();
-  saveSelfGhost();                                            // store this run as your new best for today if it beat the old one (ghostRec still valid here)
-  if(ghostRetEl) ghostRetEl.classList.remove('on'); const gn=gid('ghostName'); if(gn) gn.classList.remove('on');
-  if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); const sgn=gid('selfGhostName'); if(sgn) sgn.classList.remove('on');
   hidePace();
   exitRunning();                                              // stop the run synchronously so state.running/challenge are consistent this frame (don't wait on async pointerlockchange)
   if(document.pointerLockElement) document.exitPointerLock();
@@ -2595,8 +2517,6 @@ function restoreStartCard(){                                  // revert the paus
 function exitChallenge(){                                     // bail out of an in-progress daily → free-play menu (next ENTER is a normal run; ghost/score-race auto-hide since state.challenge is false)
   state.challenge=false; state.challengeOver=false; state.needsReset=true;
   hidePace();
-  if(ghostRetEl) ghostRetEl.classList.remove('on'); const gn=gid('ghostName'); if(gn) gn.classList.remove('on');   // clear the purple top-scorer ghost too (mode 2) — mirror endChallenge so exiting the daily never strands a frozen reticle/label
-  if(selfGhostRetEl) selfGhostRetEl.classList.remove('on'); const sgn=gid('selfGhostName'); if(sgn) sgn.classList.remove('on');
   restoreStartCard();
 }
 if(exitChallengeBtn) exitChallengeBtn.addEventListener('click', exitChallenge);
