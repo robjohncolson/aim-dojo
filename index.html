@@ -240,6 +240,22 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 .histbox{margin:2px 0 16px;border:1px solid var(--panel-edge);background:#0d110f;padding:9px 11px}
 .histhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:9.5px;letter-spacing:.16em;color:var(--bone-dim);margin-bottom:6px}
 .histsub{color:var(--rail);letter-spacing:.06em;white-space:nowrap}
+/* DOJO RECORDS board — multi-metric, tabbed sort (THE DOJO PIVOT) */
+.dojo-tabs{display:flex;gap:4px;margin:5px 0 3px;flex-wrap:wrap}
+.dt{font:9.5px var(--mono);letter-spacing:.12em;color:var(--bone-dim);padding:3px 7px;border:1px solid var(--panel-edge);background:#0a0e0c;cursor:pointer;user-select:none}
+.dt:hover{color:var(--bone)}
+.dt.on{color:#0a0e0c;background:var(--plasma);border-color:var(--plasma)}
+.dojo-row{display:grid;grid-template-columns:18px 1fr 40px 38px 30px 34px 30px;align-items:center;gap:5px;font-size:11.5px;padding:3px 3px}
+.dojo-row:nth-child(odd):not(.head){background:rgba(255,255,255,.025)}
+.dojo-row.me{background:rgba(67,217,255,.12);outline:1px solid rgba(67,217,255,.25)}
+.dojo-row.head{font-size:8.5px;letter-spacing:.08em;color:var(--bone-dim);padding-bottom:2px}
+.dojo-row .dn{color:var(--bone);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dojo-row .dr{color:var(--bone-dim);font-size:10.5px;text-align:right}
+.dojo-row .dc{text-align:right;color:var(--bone-dim)}
+.dojo-row .dc.on{color:var(--plasma);font-weight:600}
+#dojoFlash{position:fixed;left:50%;top:30%;transform:translateX(-50%);z-index:6;pointer-events:none;font:bold 15px var(--mono);letter-spacing:.14em;color:#ffd36b;text-shadow:0 0 10px rgba(255,211,107,.6),0 0 4px rgba(0,0,0,.9);opacity:0;white-space:nowrap}
+#dojoFlash.show{animation:dojoFlash 1.4s ease-out forwards}
+@keyframes dojoFlash{0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.8)}14%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.05)}26%{transform:translateX(-50%) translateY(0) scale(1)}72%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-16px)}}
 #histChart{display:block;width:100%;height:84px}
 
 @media (max-width:520px){ h1{font-size:30px} #speedVal{font-size:44px} .row{grid-template-columns:118px 1fr 48px} }
@@ -298,6 +314,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
   <div class="stat"><span class="k">HIGHEST</span><span class="v" id="sHigh">—</span></div>
 </div>
 <div id="hitFlash" aria-hidden="true"></div>
+<div id="dojoFlash" aria-hidden="true"></div>
 
 <div id="speedBox" class="hud">
   <div id="speedLabel">TEMPO</div>
@@ -337,6 +354,14 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     <div id="histBox" class="histbox" style="display:none">
       <div class="histhead"><span>PATH EFFICIENCY · RECENT RUNS</span><span id="histSub" class="histsub"></span></div>
       <canvas id="histChart"></canvas>
+    </div>
+
+    <div id="dojoBox" class="boardbox">
+      <div class="histhead"><span>🥋 DOJO RECORDS</span><span id="dojoBests" class="histsub"></span></div>
+      <div id="dojoTabs" class="dojo-tabs">
+        <span class="dt" data-sort="kills">KILLS</span><span class="dt" data-sort="streak">STREAK</span><span class="dt" data-sort="peak_bpm">BPM</span><span class="dt" data-sort="far">FARTHEST</span><span class="dt" data-sort="high">HIGHEST</span>
+      </div>
+      <div id="dojoList" class="boardlist"><div class="board-empty">loading…</div></div>
     </div>
 
     <div id="boardBox" class="boardbox">
@@ -1371,6 +1396,11 @@ function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb'
   if(dist>state.maxHitDist) state.maxHitDist=dist;
   if(h>state.maxHitHeight) state.maxHitHeight=h;
   if(el.hitFlash){ setText(el.hitFlash, '◎ '+fmtDist(dist)+'   ▲ '+fmtDist(h)); el.hitFlash.classList.remove('show'); void el.hitFlash.offsetWidth; el.hitFlash.classList.add('show'); }
+  if(_dojoBest && !state.challenge && !reduceMotion){       // ★ NEW RECORD — flash when this free-play run beats your stored personal best (once per metric per run)
+    if(!_dojoRecHit.far && _dojoBest.far>0 && dist>_dojoBest.far){ _dojoRecHit.far=true; flashDojoRecord('FARTHEST '+fmtDist(dist)); }
+    else if(!_dojoRecHit.high && _dojoBest.high>0 && h>_dojoBest.high){ _dojoRecHit.high=true; flashDojoRecord('HIGHEST '+fmtDist(h)); }
+    else if(!_dojoRecHit.streak && _dojoBest.streak>0 && state.bestStreak>_dojoBest.streak){ _dojoRecHit.streak=true; flashDojoRecord('STREAK '+state.bestStreak); }
+  }
 }
 function onHit(tg, point, atT){ // free-hunt   (atT = when the shot was committed; defaults to now for hit-scan, = fire-time for a projectile)
   if(tg.dead) return; tg.dead=true; if(atT==null) atT=state.t;
@@ -1702,7 +1732,7 @@ function updateWindHud(){
 /* ========================= HUD ========================= */
 function gid(id){ return document.getElementById(id); }
 const el={ speedVal:gid('speedVal'), speedLabel:gid('speedLabel'), sTargets:gid('sTargets'), sStreak:gid('sStreak'),
-  sStreakBest:gid('sStreakBest'), sReact:gid('sReact'), reactLabel:gid('reactLabel'), sClick:gid('sClick'), sFar:gid('sFar'), sHigh:gid('sHigh'), hitFlash:gid('hitFlash'),
+  sStreakBest:gid('sStreakBest'), sReact:gid('sReact'), reactLabel:gid('reactLabel'), sClick:gid('sClick'), sFar:gid('sFar'), sHigh:gid('sHigh'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
   verdict:gid('verdict'), accVal:gid('accVal'), fill:gid('fill'), gateUp:gid('gateUp'), gateDown:gid('gateDown'),
   gaugeLegend:gid('gaugeLegend'), reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
 el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
@@ -2106,6 +2136,7 @@ function resetSession(){
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999;
+  _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
   Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
@@ -2476,6 +2507,61 @@ function renderBoard(rows){
   try{ ni.value=localStorage.getItem('aimdojo.name')||''; }catch(e){}
   ni.addEventListener('input', ()=>{ const v=ni.value.slice(0,24); _playerName=v.trim() || ('Guest-'+clientId().slice(-4)); try{ localStorage.setItem('aimdojo.name', v); }catch(e){} });
 })();
+/* ===== DOJO RECORDS — global free-play leaderboard (THE DOJO PIVOT). Multi-metric, tabbed; submits session bests on free-play run end. ===== */
+let _dojoBest=null, _dojoRecHit={far:false,high:false,streak:false};
+const _DOJO_SORTS={kills:1,streak:1,peak_bpm:1,far:1,high:1};                         // whitelist (also guards the order= query string)
+let dojoSort='kills'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
+function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
+function dojoSession(){ return { far:+state.maxHitDist.toFixed(2), high:+state.maxHitHeight.toFixed(2), streak:state.bestStreak, bpm:Math.round(state.maxBpm), kills:state.hits }; }
+function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
+  if(!(b.kills>0||b.far>0)){ sub.textContent=''; return; }
+  sub.textContent='you · '+(b.kills||0)+'K · '+(b.streak||0)+'⚡ · '+(b.bpm||0)+'bpm · '+fmtDist(b.far||0)+' · '+fmtDist(b.high||0); }
+function flashDojoRecord(label){ const f=el.dojoFlash; if(!f) return; setText(f, '★ NEW RECORD · '+label); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
+async function submitDojo(){
+  if(state.challenge || state.challengeOver) return;          // free-play only (daily runs go through submitDaily)
+  if(state.hits<1) return;
+  const s=dojoSession(), b=loadDojoBests();
+  const improved = s.far>(b.far||0) || s.high>(b.high||0) || s.streak>(b.streak||0) || s.bpm>(b.bpm||0) || s.kills>(b.kills||0);
+  _dojoBest={ far:Math.max(b.far||0,s.far), high:Math.max(b.high||0,s.high), streak:Math.max(b.streak||0,s.streak), bpm:Math.max(b.bpm||0,s.bpm), kills:Math.max(b.kills||0,s.kills) };
+  try{ localStorage.setItem('aimdojo.dojobest', JSON.stringify(_dojoBest)); }catch(e){}
+  renderDojoBests();
+  if(!improved) return;                                        // nothing new to publish → skip the network write (don't spam on every pause)
+  const row={ client_id:clientId(), name:playerName().slice(0,24), far:s.far, high:s.high, streak:s.streak, peak_bpm:s.bpm, kills:s.kills, runtime:Math.round(state.t) };
+  try{
+    const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/dojo' : SB_URL+'/rest/v1/aimdojo_dojo';
+    const hdr = RAILWAY_URL ? {'Content-Type':'application/json'} : sbH({Prefer:'return=minimal'});
+    await fetch(ep, {method:'POST', headers:hdr, body:JSON.stringify(row)}); loadDojoBoard();
+  }catch(e){}
+}
+async function loadDojoBoard(){
+  const list=gid('dojoList'); if(!list) return;
+  const col=_DOJO_SORTS[dojoSort]?dojoSort:'kills';            // whitelist-guarded before it touches the query string
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select=client_id,name,far,high,streak,peak_bpm,kills&order='+col+'.desc&limit=300', {headers:sbH()});
+    if(!res.ok) throw 0;
+    const rows=await res.json(); const seen=new Set(), top=[];
+    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); top.push(r); if(top.length>=15) break; }   // each client's best in the sorted column (rows arrive col.desc)
+    renderDojoBoard(top, col);
+  }catch(e){ list.innerHTML='<div class="board-empty">dojo board offline (table not created yet)</div>'; }
+}
+function _dcell(v, col, sort, dist){ return '<span class="dc'+(col===sort?' on':'')+'">'+(v==null?'—':(dist?(+v).toFixed(1):v))+'</span>'; }
+function renderDojoBoard(rows, sort){
+  const list=gid('dojoList'); if(!list) return;
+  const head='<div class="dojo-row head"><span class="dr">#</span><span class="dn">NAME</span>'
+    +_dcell('FAR','far',sort,false)+_dcell('HIGH','high',sort,false)+_dcell('STK','streak',sort,false)+_dcell('BPM','peak_bpm',sort,false)+_dcell('K','kills',sort,false)+'</div>';
+  if(!rows.length){ list.innerHTML=head+'<div class="board-empty">no dojo records yet — be the first</div>'; return; }
+  const me=clientId();
+  list.innerHTML=head+rows.map((r,i)=>'<div class="dojo-row'+(r.client_id===me?' me':'')+'">'
+    +'<span class="dr">'+(i+1)+'</span><span class="dn">'+esc(r.name||'?')+'</span>'
+    +_dcell(r.far,'far',sort,true)+_dcell(r.high,'high',sort,true)+_dcell(r.streak,'streak',sort,false)
+    +_dcell(r.peak_bpm,'peak_bpm',sort,false)+_dcell(r.kills,'kills',sort,false)+'</div>').join('');
+}
+(function(){ const tabs=gid('dojoTabs'); if(!tabs) return;       // metric sort tabs
+  function paint(){ tabs.querySelectorAll('.dt').forEach(t=>t.classList.toggle('on', t.dataset.sort===dojoSort)); }
+  tabs.addEventListener('click', e=>{ const t=e.target.closest('.dt'); if(!t) return; const s=t.dataset.sort; if(!_DOJO_SORTS[s]||s===dojoSort) return;
+    dojoSort=s; try{ localStorage.setItem('aimdojo.dojosort', s); }catch(_e){} paint(); loadDojoBoard(); });
+  paint();
+})();
 function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
@@ -2496,7 +2582,7 @@ function showPause(){
     '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
     (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(avgPathScore()*100)+'%':'—')+'</div></div>':'')+
     '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
-  submitScore(); saveSession(); renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard();
+  submitScore(); saveSession(); renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard(); submitDojo(); loadDojoBoard();
   overlay.classList.remove('hidden');
 }
 function restoreStartCard(){                                  // revert the pause/report overlay back to the free-play start card
@@ -2582,7 +2668,7 @@ const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.reques
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
 const preloadTone=()=>{ loadToneOnce().catch(()=>{}); };
 runIdle(preloadTone,700,1800);
-setTimeout(()=>{ renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
+setTimeout(()=>{ renderHistory(); loadBoard(); loadDailyBoard(); loadSeasonBoard(); loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
 window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
 })();
 </script>
