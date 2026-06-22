@@ -2,6 +2,47 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
+## ▶▶ NEXT BIG DIRECTION — THE DOJO PIVOT (spec'd, NOT built; user greenlit the direction)
+The user: *"the main thing in this app is not the daily competitions but… the dojo is so satisfying."* The whole app
+is pivoting to center the **free-play ARC distance trainer ("the dojo")** with a **global leaderboard**, and to
+**deprecate** the competitive/legacy scaffolding. Build the leaderboard FIRST (additive, low-risk), then deprecate
+incrementally. Everything below the `## ▶ START HERE` header is now HISTORY — the 5 roadmap features + a long
+HUD/feel/music polish session are all SHIPPED & LIVE (latest `4cb03da`); read the dated commit refs for as-built.
+
+### A. BUILD — Global Dojo Leaderboard
+- **Submit on free-play run end** the session's: `far` = farthest hit (`state.maxHitDist`), `high` = highest hit
+  (`state.maxHitHeight`), `streak` = best streak (`state.bestStreak`), `bpm` = peak tempo (`state.maxBpm`), `kills` =
+  total targets neutralized this session (`state.hits`). (All already tracked in `state` — see Hit distance/height
+  stats + `recordHit`, and `renderStats`.)
+- **Backend:** new Supabase table `aimdojo_dojo` (`client_id, name, far, high, streak, peak_bpm, kills, created_at`),
+  RLS like `aimdojo_scores`/`aimdojo_daily`. Submit through the **Railway server** (`/dojo` endpoint, mirror `/daily`)
+  for sanity-validation + service-role insert (drop the anon-insert policy), OR direct anon insert if you accept
+  weaker anti-cheat. Dedup to each client's best (per the sorted column) like `loadDailyBoard`.
+- **Board UI:** replace the daily/global/season boards with one **"DOJO RECORDS"** board — a multi-column table
+  (name · far · high · streak · bpm · kills) with tabs/sort by each metric (default sort by `kills` or a composite).
+  Plus local "your bests" + an optional **"★ NEW RECORD"** flash when you beat your own best mid-run.
+- **Anti-cheat (best-effort — free-play has NO seed, so NO replay verification like the daily):** server-side sanity
+  caps — `far ≤` ballistic max (~36m, `projSpeed²/projGravity`), `high ≤ ROOM_BY`, `bpm ≤ maxBpm(172)`, `kills/runtime`
+  rate cap; per-client/IP rate-limit. Accept that free-play stats are only sanity-checked, not proven.
+
+### B. DEPRECATE (big, intertwined refactor — do AFTER the board, incrementally, build-blind loop each step)
+- **Ghosts** — `loadGhost`/`updateGhost`/`selfGhost`/`loadSelfGhost`/`saveSelfGhost`/the G-key `ghostMode` toggle/
+  `ghostRec` recording/the cyan+purple reticles + name labels/`#ghostToast`. The `replay` column becomes unused.
+- **Daily challenge** — `startChallenge`/`endChallenge`/`exitChallenge`/`submitDaily`/the daily board (`loadDailyBoard`)/
+  pace ghost (`loadPaceField`/`updatePaceGhost`)/score race (`renderScoreRace`)/weekly seasons (`loadSeasonBoard`)/the
+  challenge tempo ramp + `challengeDensity`/the EXIT-DAILY UI/`state.challenge` branches throughout (`onGrid`,
+  `maybeAdjust`, `spawnTarget`, `updateScope`). The `aimdojo_daily` table + the `/daily` Railway endpoint retire.
+  **NOTE:** the `score===h.length` server invariant only matters for the daily — it relaxes once the daily is gone,
+  but DON'T break it while the daily still exists.
+- **Railgun** — the `projSeg` toggle (hit-scan fallback) + the manual ray-sphere in `fire()` + the global peak-BPM
+  board (`aimdojo_scores`/`submitScore`). Make **ARC the only fire mode** (`fire()` always `spawnProjectile()`).
+- **Sequencing:** leaderboard → ghosts → daily → railgun. Each is a risky/gameplay-touching diff → run the
+  adversarial-review workflow + dangling-ref greps. Many `state.challenge`/`_specialLive`/`ghostRec` conditionals are
+  load-bearing — grep every removed symbol.
+
+### C. Stats the leaderboard ranks (user-confirmed)
+farthest hit · highest hit · best streak · peak tempo · **+ total targets neutralized in the session** (`state.hits`).
+
 ## ▶ START HERE (next session)
 The game is in great shape and the user says it's **"genuinely addicting."** **ALL FIVE `SPEC_NEXT.md`
 roadmap features are now SHIPPED + LIVE** — (1) juice pass, (2) self-ghost, (3) per-target ideal arc,
