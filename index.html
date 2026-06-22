@@ -386,7 +386,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
         <div class="seg" id="arcSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
         <span class="out"></span>
       </div>
-      <div class="hint">RAILGUN is instant hit-scan. ARC fires a real projectile that travels and drops under gravity — lead moving targets and aim a touch high. Free-play only; the daily challenge &amp; leaderboards always use hit-scan. The trajectory arc previews where your shot will fly.</div>
+      <div class="hint">RAILGUN is instant hit-scan. ARC fires a real projectile that travels and drops under gravity — lead moving targets and aim a touch high. The trajectory arc previews where your shot will fly.</div>
 
       <div class="row">
         <label>Ballistic scope</label>
@@ -478,12 +478,11 @@ const CFG = {
   startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
   startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // default tempo 20bpm (slow fixed-ish practice). gentler slowdown so a few misses don't crater the tempo
-  challengeDur:90, challengeStartBpm:40, challengeMaxBpm:110, challengeEase:1.9,   // daily ARC tempo ramp — eased BOTH ways: lower peak (128→110) + steeper ease (1.5→1.9 → stays in the playable low range longer, spike lands later). bpm(t)=lerp(40,110,(t/90)^1.9).
   // shared adaptive law
   upThreshold:0.80, downThreshold:0, windowSize:25, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Defaults: speed-up at 80% acc, slow-down only at 0% (never eases off). windowSize 25.
   // difficulty mapping
   lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
-  gapSlow:0.55, gapFast:0.07, spawnDist:[12,26],
+  gapSlow:0.55, gapFast:0.07,
   rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeHitStep:0.08, rangeMissStep:0.20, rangeStep:1.2, rangeStepDown:1.6,   // DISTANCE TRAINER (free-play): state.range (spawn shell far edge) now creeps SUB-PERCEPTUALLY per event — +rangeHitStep on a hit, -rangeMissStep on a miss (converges ~71% reach). rangeStep/rangeStepDown = the old CHUNKED march, now vestigial. -- skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
@@ -497,7 +496,7 @@ const CFG = {
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
-  densityScale:1.00, challengeDensity:0.55, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = FREE-PLAY orb density (default 1.0). challengeDensity = the DAILY's fixed density (0.55, the old default) — decoupled so the daily stays seeded-fair + unchanged regardless of your density setting.
+  densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc — the DEFAULT and the daily now; railgun hit-scan kept as a free-play fallback via the projSeg toggle. global peak-BPM board stays hit-scan-pure.)
   projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // ARC is the DEFAULT now; lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten; set projectile:false for railgun-default
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
@@ -506,8 +505,8 @@ const CFG = {
   // clutch flourish on a big ARC hit — RHYTHM-SAFE: a LOCALIZED camera FOV punch + explosion-only slow-mo + a shockwave ring. NEVER scales dt/Tone.Transport (that would desync the beat). Trigger = long-range OR last-second; clutchAnd:true → far AND late (rarer).
   clutch:true, clutchAnd:false, clutchRange:22, clutchLateBeats:2.4, clutchCooldown:1.1,
   clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
-  // special orbs (variety): rare GOLD bonus (worth goldScore kills, pushes matching ghost-hit entries so score===h.length holds) + DON'T-HIT DECOY (hitting breaks streak + costs a shot; dodging is free). Kind is rolled from rng ONLY when live → free-play now, daily from the next UTC midnight (fresh seed, clean cutover; today's stream untouched).
-  specialOrbs:true, goldChance:0.06, decoyChance:0, goldScore:2, specialDailyTs:Date.UTC(2026,5,22),   // DAILY: gold-only at goldChance (UNCHANGED -> byte-identical). decoys off. specialDailyTs gates daily special orbs.
+  // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
+  specialOrbs:true, decoyChance:0, goldScore:2,   // decoys off (decoyChance:0); goldScore = gold-orb kill multiplier
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
@@ -518,13 +517,9 @@ const CFG = {
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-/* seeded RNG — gameplay randomness goes through rnd(); reseeded for the daily challenge so everyone gets the SAME run */
+/* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
 let rng=Math.random; function rnd(){ return rng(); }
-function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-function strHash(s){ let h=1779033703^s.length; for(let i=0;i<s.length;i++){ h=Math.imul(h^s.charCodeAt(i),3432918353); h=(h<<13)|(h>>>19); } return (h^(h>>>16))>>>0; }
-function dayKey(){ const d=new Date(); return d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)+'-'+d.getUTCDate(); }
 function swapRemove(arr,i){ const item=arr[i], last=arr.pop(); if(i<arr.length) arr[i]=last; return item; }
-let challengeSeed=0;
 const HAS_TOUCH = (navigator.maxTouchPoints||0) > 0 || ('ontouchstart' in window);
 const MOBILE = window.matchMedia('(pointer: coarse)').matches && HAS_TOUCH;
 
@@ -1108,7 +1103,7 @@ function onGrid(time){
   else if(active<CFG.patternConcurrency){
     const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only
     if(elig){
-      let p = (state.challenge?CFG.challengeDensity:CFG.densityScale)*metricWeight(i);   // DAILY uses the fixed challengeDensity (seeded-fair); free-play uses the densityScale setting
+      let p = CFG.densityScale*metricWeight(i);   // free-play orb density
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
         try{ Tone.Draw.schedule(()=>{ if(state.running) spawnRhythmOrb(); }, time); }catch(e){ if(state.running) spawnRhythmOrb(); }
@@ -1196,7 +1191,7 @@ function desiredCount(){ return state.speed<5?1:(state.speed<9?2:3); }
 function activeTargetCount(){ return targets.length; }
 function spawnRhythmOrb(){ spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats}); }
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
-function specialOrbsLive(){ return CFG.specialOrbs && (!state.challenge || Date.now()>=CFG.specialDailyTs); }   // free-play: now. daily: from the next UTC midnight (fresh seed → clean cutover; today's seeded stream stays untouched since the kind roll is skipped).
+function specialOrbsLive(){ return CFG.specialOrbs; }
 
 function spawnTarget(opts){
   opts=opts||{};
@@ -1209,7 +1204,7 @@ function spawnTarget(opts){
     do{
       const az=rnd()*Math.PI*2, pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
       dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));
-    }while(!state.challenge && dir3.dot(a0)>minDot && ++tries<8);
+    }while(dir3.dot(a0)>minDot && ++tries<8);
   }else{
     camera.getWorldDirection(_spawnFwd);
     _spawnFlat.set(_spawnFwd.x,0,_spawnFwd.z).normalize();
@@ -1218,8 +1213,8 @@ function spawnTarget(opts){
     const pitOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
     dir3=_spawnDir.copy(_spawnFlat).applyQuaternion(_spawnQYaw.setFromAxisAngle(SPAWN_UP,yawOff)).applyQuaternion(_spawnQPit.setFromAxisAngle(_spawnRight,pitOff));
   }
-  const far=state.challenge?CFG.spawnDist[1]:state.range;  // FREE-PLAY: skill-gated shell (state.range marches outward as you hit); the seeded daily stays on fixed spawnDist for a fair run
-  const d0=state.challenge?CFG.spawnDist[0]:Math.max(CFG.rangeNear, far-CFG.rangeBand), d1=far;
+  const far=state.range;  // skill-gated shell: state.range marches outward as you hit, eases back when you struggle
+  const d0=Math.max(CFG.rangeNear, far-CFG.rangeBand), d1=far;
   const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd()));   // cube-root warp → constant volumetric density (no bunching at the near edge)
   _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist);
   _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos);
@@ -1233,13 +1228,10 @@ function spawnTarget(opts){
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd;
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   if(rhythm) tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
-  let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll (and thus consume rng) ONLY when special orbs are live → today's seeded daily stream is byte-identical
-  if(_specialLive){ const kr=rnd();
-    if(state.challenge){ kind = kr<CFG.goldChance ? 1 : 0; }                                                   // DAILY: gold only — roll byte-identical to before (keeps the daily deterministic)
-    else { const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // FREE-PLAY: more gold + speed (3) + mover (4)
-  }
+  let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
+  if(_specialLive){ const kr=rnd(); const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind];
-  if(kind && !state.challenge){                            // FREE-PLAY per-kind feel (deterministic given the seeded kind — no extra rnd)
+  if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
     if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
     else if(kind===4){ tg.vel.multiplyScalar(CFG.moverVelMul); }                                               // mover: faster, more erratic drift
@@ -1286,11 +1278,10 @@ function pushEvent(good){
   good=!!good;
   if(events.length<CFG.windowSize){ events.push(good); if(good) eventsGood++; }
   else { if(events[eventsHead]) eventsGood--; events[eventsHead]=good; if(good) eventsGood++; eventsHead=(eventsHead+1)%CFG.windowSize; }
-  if(!state.challenge) changeRange(good ? CFG.rangeHitStep : -CFG.rangeMissStep);   // DISTANCE TRAINER (free-play): the spawn shell creeps sub-perceptually FARTHER on each hit, eases back on a miss -> converges on your reliable reach. (daily uses fixed spawnDist)
+  changeRange(good ? CFG.rangeHitStep : -CFG.rangeMissStep);   // DISTANCE TRAINER: the spawn shell creeps sub-perceptually FARTHER on each hit, eases back on a miss -> converges on your reliable reach
   sinceAdjust++; maybeAdjust(); renderGauge();
 }
 function maybeAdjust(){
-  if(state.challenge) return;                                   // daily challenge uses a fixed tempo ramp, not the adaptive engine
   if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
   if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
   const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
@@ -1312,7 +1303,7 @@ function changeBpm(delta,up){
 }
 
 /* ========================= STATE + OUTCOMES ========================= */
-const state={ running:false, started:false, needsReset:false, challenge:false, challengeOver:false, t:0, mode:CFG.mode,
+const state={ running:false, started:false, needsReset:false, t:0, mode:CFG.mode,
   speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart, maxHitDist:0, maxHitHeight:0,
   hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0, pathScores:[], pathScoreSum:0, pathScoreHead:0, sessEffs:[], sessBpms:[], sessEffSum:0, sessBpmSum:0 };
 function pushReaction(v){
@@ -1339,7 +1330,7 @@ function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb'
   if(dist>state.maxHitDist) state.maxHitDist=dist;
   if(h>state.maxHitHeight) state.maxHitHeight=h;
   if(el.hitFlash){ setText(el.hitFlash, '◎ '+fmtDist(dist)+'   ▲ '+fmtDist(h)); el.hitFlash.classList.remove('show'); void el.hitFlash.offsetWidth; el.hitFlash.classList.add('show'); }
-  if(_dojoBest && !state.challenge && !reduceMotion){       // ★ NEW RECORD — flash when this free-play run beats your stored personal best (once per metric per run)
+  if(_dojoBest && !reduceMotion){       // ★ NEW RECORD — flash when this run beats your stored personal best (once per metric per run)
     if(!_dojoRecHit.far && _dojoBest.far>0 && dist>_dojoBest.far){ _dojoRecHit.far=true; flashDojoRecord('FARTHEST '+fmtDist(dist)); }
     else if(!_dojoRecHit.high && _dojoBest.high>0 && h>_dojoBest.high){ _dojoRecHit.high=true; flashDojoRecord('HIGHEST '+fmtDist(h)); }
     else if(!_dojoRecHit.streak && _dojoBest.streak>0 && state.bestStreak>_dojoBest.streak){ _dojoRecHit.streak=true; flashDojoRecord('STREAK '+state.bestStreak); }
@@ -1369,7 +1360,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
     showTiming('DECOY','don\'t shoot these','off');
     popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); retireTrail(tg, 0.3); killTarget(tg, false); renderStats(); return;
   }
-  if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); if(ghostRec){ const _t100=Math.round(atT*100); for(let q=0;q<sc;q++) ghostRec.h.push(_t100); } }   // GOLD = goldScore kills + matching ghost-hit entries → keeps score===h.length (server-safe). record SCORING hits only → drives the ghost flash + daily pace.
+  if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
   else state.streak=0;
   recordHit(tg);
   pushReaction(beats);
@@ -1410,7 +1401,7 @@ function hitScanTarget(){
 function fire(){
   if(!state.running) return;
   addRecoil();
-  if(CFG.projectile || state.challenge){ spawnProjectile(); return; }   // ARC = free-play (CFG.projectile, the default) OR the daily (always ARC now). Railgun = free-play with the toggle OFF (fallback).
+  if(CFG.projectile){ spawnProjectile(); return; }   // ARC = the default. Railgun = the projSeg toggle OFF (free-play fallback).
   const tg=hitScanTarget();
   if(tg){ state.mode==='rhythm'?gradeRhythmHit(tg,_fireHit):onHit(tg,_fireHit); fireBeam(_fireHit,true,_fireDir); }
   else onWhiff(false,_fireDir);
@@ -1518,7 +1509,7 @@ function simShotHits(M, V, T, tg){                                              
   _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
 }
 function updateArcPreview(dt){                                                               // thick low-opacity ribbon with scrolling dashes — IS the real shot's path (same plan spawnProjectile uses)
-  if(!((CFG.projectile||state.challenge) && CFG.projArc && state.running)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // ARC free-play OR the ARC daily. The arc ribbon is a STATIC functional aim aid -> shown even under reduced-motion (only the impact pulse is motion, gated just below)
+  if(!(CFG.projectile && CFG.projArc && state.running)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // ARC only. The arc ribbon is a STATIC functional aim aid -> shown even under reduced-motion (only the impact pulse is motion, gated just below)
   ensureArcObjs();
   if(reduceMotion){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } }            // reduced-motion: the beat-pulsed impact rings are motion -> hide them (ribbon/landing/apex still show)
   else animateArcPulse();                                                                    // smooth every frame, off the last computed landing point
@@ -1622,7 +1613,7 @@ function scopeLockTarget(){ camera.getWorldDirection(_scAim); let best=null, bes
   for(const tg of targets){ if(tg.dead) continue; _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included now -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
     const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d; if(dot>bestDot){ bestDot=dot; best=tg; } } return best; }
 function updateScope(dt){
-  if(!((CFG.projectile||state.challenge) && CFG.scope && state.running)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
+  if(!(CFG.projectile && CFG.scope && state.running)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
   scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
   const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
   const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
@@ -1859,9 +1850,9 @@ function updateTrail(dt){
 
 /* ========================= LOOP ========================= */
 const clock=new THREE.Clock();
-const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30, CHALLENGE_TONE_STEP=1/20;
+const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30;
 const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
-let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999, challengeToneAccum=CHALLENGE_TONE_STEP, challengeUiBpm=-1;
+let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
 const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
 function animate(frameNow){
   requestAnimationFrame(animate);
@@ -1915,7 +1906,7 @@ function animate(frameNow){
         doSnap = qi!==_quantIdx;
         if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
       }
-      const brownianStep=(CFG.brownian>0 && !state.challenge && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
+      const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
       for(let i=targets.length-1;i>=0;i--){
@@ -1992,7 +1983,7 @@ function animate(frameNow){
   } else clearRings();
   updateAssist(dt);
   updateTrail(dt);
-  if(CFG.projectile || state.challenge) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC free-play OR the ARC daily; guarded so a hiccup can't freeze the loop
+  if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (all modes)
   try{ updateLandRings(dt); }catch(e){}                       // expanding ring where a shot hits the ground
@@ -2057,11 +2048,10 @@ function configureMode(){
   renderPrimary(false,false);
 }
 function resetSession(){
-  state.challengeOver=false; rng = state.challenge ? mulberry32(challengeSeed) : Math.random;   // reseed for a reproducible challenge; plain random otherwise
+  rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   _specialLive=specialOrbsLive();   // latch special-orb liveness for the whole run (constant-per-run → no mid-run gate flip)
-  if((CFG.wind||_windFlag) && !state.challenge){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per FREE-PLAY run (prototype)
-  else { windX=0; windZ=0; }                                  // daily + wind-off → no wind (ballistics bit-identical)
-  if(state.challenge){ ghostRec={a:[],h:[]}; ghostNextSample=0; } else { ghostRec=null; }   // record my aim path during the daily (-> replay anti-cheat); no recording in free-play
+  if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
+  else { windX=0; windZ=0; }                                  // wind-off → no wind
   for(const t of targets) removeTarget(t); targets.length=0;
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
@@ -2071,7 +2061,6 @@ function resetSession(){
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
   Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
-  challengeToneAccum=CHALLENGE_TONE_STEP; challengeUiBpm=-1;
   nextSpawnAt=0;
   if(state.mode==='rhythm') ensureRhythm();
   configureMode(); renderStats(); renderGauge();
@@ -2140,14 +2129,8 @@ let _clientId='', _playerName='';
 function clientId(){ if(_clientId) return _clientId; let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return _clientId=id; }
 function playerName(){ if(_playerName) return _playerName; let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return _playerName=(n || ('Guest-'+clientId().slice(-4))); }
 function esc(s){ return String(s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
-/* ---- ghost recording: capture my aim path + scoring-hit times @20Hz -> the daily's `replay` (server anti-cheat). The ghost RACING/display layer was removed in the dojo pivot; recording stays until the daily is removed (Step 2). ---- */
-const GHOST_HZ=20, TAU=Math.PI*2;
-let ghostRec=null, ghostNextSample=0;
 const ghostToastEl=gid('ghostToast');
 function showGhostToast(txt){ if(!ghostToastEl) return; setText(ghostToastEl, txt); ghostToastEl.classList.remove('show'); void ghostToastEl.offsetWidth; ghostToastEl.classList.add('show'); }
-function qYaw(y){ const w=((y%TAU)+TAU)%TAU; return Math.round(w/TAU*65535); }
-function qPit(p){ return Math.max(0,Math.min(65535, Math.round((p/PITCH_LIMIT*0.5+0.5)*65535))); }
-function lerpAngle(a,b,t){ let d=(b-a)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return a+d*t; }
 const _projectWorld=new THREE.Vector3(), _projectLocal=new THREE.Vector3(), _projectScreen=[0,0], _ghostDir=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
 function projectDir(dir){
   _projectWorld.copy(PLAYER_POS).addScaledVector(dir,50); _projectLocal.copy(_projectWorld); camera.worldToLocal(_projectLocal); const behind=_projectLocal.z>0;
@@ -2195,7 +2178,7 @@ async function submitScore(){
   if(state.mode!=='rhythm') return;
   const score=Math.round(state.maxBpm);
   let best=0; try{ best=+(localStorage.getItem('aimdojo.bestBpm')||0); }catch(e){}
-  if(CFG.projectile || state.challenge || state.challengeOver || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip ballistic + ANY challenge run (in-progress or over); else only a real improved best (keeps the peak-BPM board hit-scan-pure)
+  if(CFG.projectile || state.hits<3 || score<=best || score<=CFG.startBpm) return;   // skip ballistic (ARC); else only a real improved best (keeps the peak-BPM board hit-scan-pure)
   try{ localStorage.setItem('aimdojo.bestBpm', String(score)); }catch(e){}
   const acc=state.shots?Math.round(state.hits/state.shots*100):null;
   const ap=state.pathScores.length?Math.round(avgPathScore()*100):null;
@@ -2235,7 +2218,6 @@ function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b
   sub.textContent='you · '+(b.kills||0)+'K · '+(b.streak||0)+'⚡ · '+(b.bpm||0)+'bpm · '+fmtDist(b.far||0)+' · '+fmtDist(b.high||0); }
 function flashDojoRecord(label){ const f=el.dojoFlash; if(!f) return; setText(f, '★ NEW RECORD · '+label); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
 async function submitDojo(){
-  if(state.challenge || state.challengeOver) return;          // free-play only (daily runs go through submitDaily)
   if(state.hits<1) return;
   const s=dojoSession(), b=loadDojoBests();
   const improved = s.far>(b.far||0) || s.high>(b.high||0) || s.streak>(b.streak||0) || s.bpm>(b.bpm||0) || s.kills>(b.kills||0);
