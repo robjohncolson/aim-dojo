@@ -203,7 +203,7 @@ if a week's field gets large, move to a server aggregate (same path as the pace 
   machines. Gated to the URL flag; zero cost otherwise.
 
 ## Defaults (`26584fd`, slider `value=` attrs + CFG, kept in sync by `applySettings`)
-window size **25** (`win`/`windowSize`), FOV **70** (`fov`), speed-up **100%** / slow-down **0%**
+window size **25** (`win`/`windowSize`), FOV **70** (`fov`), speed-up **80%** (`upThreshold`, `4cb03da`; was 100%) / slow-down **0%**
 (`upTh`/`downTh` → `upThreshold:1.0`/`downThreshold:0` — tempo stays ~fixed unless perfect/terrible; `upTh` slider max
 extended to 1), default tempo **20 bpm** (`startBpm`), orb density **1.00×** (`density`/`densityScale`). **Daily density
 DECOUPLED:** `onGrid` uses `CFG.challengeDensity` (0.55, the old default) in the daily, `densityScale` (the setting) in
@@ -330,7 +330,10 @@ the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf g
     **Δy<0** (arc below orb → aim up) → **TOP**; **Δy>0** → **BOTTOM**; **Δx>0** (arc right → aim left) → **LEFT**;
     **Δx<0** → **RIGHT**. Bands are `5vh` (top/bottom) / `3.34vw` (sides), red→transparent gradient fading inward,
     `z-index:3` (below the HUD so text stays readable). `driveEdgeTints(vMiss, lat)`/`hideEdgeTints`/`edgeOp(mag)`
-    (`EDGE_TOL:0.3` deadzone, `EDGE_K:0.30`, `EDGE_MAX:0.85` cap, gradient `rgba(255,60,60,1)` → punchy, full tint ~3m miss; `6b586ec` made it more visible). Miss from `simShotHits`
+    (`EDGE_TOL:0.3`, `EDGE_K:0.30`, `EDGE_MAX:0.85`; `6b586ec` punchier). **CONVEYOR (`4cb03da`):** the bands SCROLL
+    toward the aim direction (top flows up for Δy<0 etc.) at speed ∝|delta| (slows as you centre, gone at lock) — CSS
+    `repeating-linear-gradient` bands + inward-fade `mask`; `driveEdgeTints` stores `_devY/_devX/_devShow`, per-frame
+    `updateEdgeTints(dt)` (in `animate`) scrolls `background-position` by `EDGE_FLOW(34)*|delta|*dt`. Miss from `simShotHits`
     (`_scVMiss` vertical, `_scMissX/_scMissZ` → screen-right lateral in `updateScope`); `!reduceMotion`, non-decoy lock.
     **DESIGN HISTORY (all superseded):** seven-seg LED numbers ("too gaudy") → triangle glyphs → inline-at-apex → arrows
     on the lock-reticle sides (`.devarr`/`driveDevArrows`, GONE) → these edge tints. Apex label is back to just
