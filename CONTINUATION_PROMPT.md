@@ -127,6 +127,9 @@ One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap**
   pulsing ring** on the floor + a **vertical dropline** + a floating **distance label** (`.tgtDist`, slant
   range in m/ft). Pooled (`targetMarks`). `updateLandRings` + `spawnLandRing`: a big ring radiates out
   where a ballistic shot hits the floor.
+- **Hit distance/height stats (`4174143`):** on every successful (non-decoy) hit, `recordHit(tg)` flashes the orb's
+  **distance-to-player + altitude** (`#hitFlash`, ~1s pop-fade) and tracks session bests `state.maxHitDist`/
+  `maxHitHeight` → **FARTHEST / HIGHEST** rows in `#statBox` (via `renderStats`, reset per session). Read-only HUD.
 - **Adaptive engine:** `maybeAdjust`→`changeBpm`/`changeSpeed`. Skipped in the daily.
 - **Audio:** lazy Tone.js; synths + chord on hit. The daily refuses to start without audio (`startChallenge`
   gates on `toneReady`).
