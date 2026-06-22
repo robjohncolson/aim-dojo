@@ -195,6 +195,14 @@ if a week's field gets large, move to a server aggregate (same path as the pace 
   Cross-device (no keyboard needed) → the way to finally validate the Codex perf pass on phones/school
   machines. Gated to the URL flag; zero cost otherwise.
 
+## Defaults (`26584fd`, slider `value=` attrs + CFG, kept in sync by `applySettings`)
+window size **25** (`win`/`windowSize`), FOV **70** (`fov`), speed-up **100%** / slow-down **0%**
+(`upTh`/`downTh` → `upThreshold:1.0`/`downThreshold:0` — tempo stays ~fixed unless perfect/terrible; `upTh` slider max
+extended to 1), default tempo **20 bpm** (`startBpm`), orb density **1.00×** (`density`/`densityScale`). **Daily density
+DECOUPLED:** `onGrid` uses `CFG.challengeDensity` (0.55, the old default) in the daily, `densityScale` (the setting) in
+free-play → the daily is seeded-fair + byte-identical regardless of the user's density slider. Other settings affecting
+the daily: NONE (daily uses a fixed tempo ramp, not `startBpm`/`upThreshold`/`downThreshold`; `windowSize` is audio-only there).
+
 ## Key tunables (in `CFG` unless noted)
 - **Ballistics:** `projSpeed:24`, `projGravity:16` (lofted for a visible arc; raise speed / lower gravity
   to flatten — keep `projSpeed²/projGravity ≥ ~30` so far targets stay reachable), `projRadius`, `projLife`.
@@ -361,7 +369,11 @@ special orbs, wind) got multi-agent adversarial reviews (0 confirmed findings on
   **COMPOSITE** (`355444c`, in `onGrid`): `3*(grooveW·[streak/grooveStreakFull, click%→0..1 over grooveAccLo..Hi,
   totalHits/grooveHitsFull])` with `grooveW:[.35,.3,.35]`, `grooveStreakFull:4`, `grooveHitsFull:25`, acc 0.4..0.9.
   Replaced the streak-only `grooveCut` (was tough — one miss tanked it); click% + total-hits persist so a broken
-  streak holds ~tier 1-2. (Earlier: `[2,6,12]`→`[1,3,6]`→`[1,2,4]`→composite.) build/strip ease 0.5/0.1; levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
+  streak holds ~tier 1-2. (Earlier: `[2,6,12]`→`[1,3,6]`→`[1,2,4]`→composite.) build/strip ease 0.5/0.1. **Groove
+  voices (`onGrid`):** tick (always) · kick (beats 1&3, +1 at tier 3) · snare (backbeat, tier 1+) · hat (on-beat→every
+  step at tier 2) · sub-bass (tier 2 root, +move at tier 3) · **MELODIC ARP** (`26584fd`, NEW: `arp` synth, pentatonic
+  `ARP[]`/`PENTA`, dotted echo — on beats at tier 2, every step at tier 3; self-guarded so it can't kill the drum build).
+  Possible next layers: phrase fills, busier tier-3 bass, top-end (open hat/clap). Other levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
   miss notes (220/110), the whoosh sweep (260→560) + impact thud. The user listens & reports.
 - **Target-tone gate (`538a6fd`→`e172584`):** the per-target spatial tone is no longer continuous — it's GATED to a
   16th-note rhythm (`CFG.targetPulse:true`, `targetPulseOn:1`/`targetPulsePeriod:4` = a 16th note + 3 16ths rest) at
