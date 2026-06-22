@@ -1575,9 +1575,10 @@ function simShotHits(M, V, T, tg){                                              
   _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
 }
 function updateArcPreview(dt){                                                               // thick low-opacity ribbon with scrolling dashes — IS the real shot's path (same plan spawnProjectile uses)
-  if(!((CFG.projectile||state.challenge) && CFG.projArc && state.running && !reduceMotion)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // ARC free-play OR the ARC daily
+  if(!((CFG.projectile||state.challenge) && CFG.projArc && state.running)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // ARC free-play OR the ARC daily. The arc ribbon is a STATIC functional aim aid -> shown even under reduced-motion (only the impact pulse is motion, gated just below)
   ensureArcObjs();
-  animateArcPulse();                                                                         // smooth every frame, off the last computed landing point
+  if(reduceMotion){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } }            // reduced-motion: the beat-pulsed impact rings are motion -> hide them (ribbon/landing/apex still show)
+  else animateArcPulse();                                                                    // smooth every frame, off the last computed landing point
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP) return; arcAccum=0;
   const T=computeShotPlan(_arcM, _arcV);                                                     // right muzzle _arcM + launch velocity _arcV; sets _arcI + _planLanded
   sampleArc(_arcM, _arcV, T, ARC_SAMP, _arcPts);                                             // the shot path
@@ -1623,8 +1624,8 @@ function ensureTargetMark(i){
   return targetMarks[i]={ring,drop,label,hlabel};
 }
 function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
-  if(!(state.running && !reduceMotion)){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on'); } return; }
-  const bl=60/Math.max(20,state.bpm), beat=Math.pow(1-(state.t%bl)/bl, 1.6);   // pulse on the beat
+  if(!state.running){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
+  const bl=60/Math.max(20,state.bpm), beat=reduceMotion?0:Math.pow(1-(state.t%bl)/bl, 1.6);   // reduced-motion -> beat=0 -> a static ring (no pulse)
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
     const r=0.5+beat*0.38; m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.4+beat*0.5; m.ring.visible=true;
@@ -1664,11 +1665,11 @@ function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE
 function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
 function hideEdgeTints(){ _devShow=false; }
 function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
-  const dy=_devShow?_devY:0, dx=_devShow?_devX:0;
-  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
-  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
-  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
-  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
+  const dy=_devShow?_devY:0, dx=_devShow?_devX:0, scroll=!reduceMotion;   // reduced-motion: keep the static edge tint (opacity), freeze the conveyor scroll
+  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0 && scroll){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
+  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0 && scroll){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
+  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0 && scroll){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
+  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
 }
 function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
@@ -1691,7 +1692,7 @@ function updateScope(dt){
     lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
     lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px');
     const isDecoy=tg.kind===2, lk=locked && !isDecoy; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', lk);   // decoy -> red AVOID box, never the gold LOCK
-    if(lk && flight>0){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast
+    if(lk && flight>0 && !reduceMotion){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast. reduced-motion -> steady box (no breathe)
     else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
   else { lockBoxEl.classList.remove('on','lock','decoy'); _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); }
   // HUD readouts
@@ -1706,7 +1707,7 @@ function updateScope(dt){
     _reach=true; _loft=Math.atan((_is*_is+Math.sqrt(disc))/(_ig*ix)); _it=ix/(_is*Math.cos(_loft)); }   // high (lobbed) solution; refine flight time from the solved angle
   if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
   // deviation arrows on the lock reticle: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits), as up/down (Δy) + left/right (Δx) arrows with the live |delta|. read-only -> daily-deterministic.
-  if(ts[2] && _scVMissOn && !reduceMotion && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one)
+  if(ts[2] && _scVMissOn && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one). edge tints are a functional aim cue -> shown under reduced-motion too; only the conveyor SCROLL is motion (frozen in updateEdgeTints)
     const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
     const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
     driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
