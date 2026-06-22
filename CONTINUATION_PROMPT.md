@@ -2,46 +2,53 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
-## ▶▶ NEXT BIG DIRECTION — THE DOJO PIVOT (spec'd, NOT built; user greenlit the direction)
-The user: *"the main thing in this app is not the daily competitions but… the dojo is so satisfying."* The whole app
-is pivoting to center the **free-play ARC distance trainer ("the dojo")** with a **global leaderboard**, and to
-**deprecate** the competitive/legacy scaffolding. Build the leaderboard FIRST (additive, low-risk), then deprecate
-incrementally. Everything below the `## ▶ START HERE` header is now HISTORY — the 5 roadmap features + a long
-HUD/feel/music polish session are all SHIPPED & LIVE (latest `4cb03da`); read the dated commit refs for as-built.
+## ▶▶ THE DOJO PIVOT — COMPLETE ✅ (shipped 2026-06-22; app is now SOLELY the dojo)
+The user: *"the main thing in this app is not the daily competitions but… the dojo is so satisfying."* The pivot is
+**DONE & LIVE.** The app is now the **free-play ARC distance trainer ("the dojo")** + a **global DOJO RECORDS
+leaderboard**. The daily challenge, ghosts, and railgun are **all removed.** Build-blind loop held throughout
+(node --check + dangling-ref greps + a multi-lens adversarial review per step; **0 confirmed findings** except the
+one far-cap fix noted below). Session commits, in order:
+- `809d378` **Right-click freezes the time-of-day** (`skyFrozen` gates the `dayPhase` advance in `updateSky`; reuses
+  `showGhostToast`/`#ghostToast` for the toast — that's why the toast helper SURVIVED the ghost purge).
+- `af0ed98` **Global DOJO RECORDS leaderboard (Phase A)** — `aimdojo_dojo` table (`supabase-dojo.sql`) + `/dojo`
+  Railway endpoint + the 🥋 board (5 sort tabs: kills/streak/bpm/far/high) + `submitDojo` on free-play run end +
+  localStorage personal bests + mid-run **★ NEW RECORD** flash. Review caught 1 real bug: the server `far` cap was
+  the ARC ballistic max (~36m) but railgun could hit a corner orb at the room diagonal (~46m) → raised to **50** in
+  both `server.js` and the SQL CHECK. (Railgun's since gone, so the cap *could* now tighten to ~40 — optional.)
+- `adc5b55` **Reduced-motion fix** — the trajectory arc / floor HUD / edge tints were gated OFF by
+  `prefers-reduced-motion` (they vanished on the user's work laptop and looked like a regression). Now the FUNCTIONAL
+  aim aids always render; only genuine motion (shake/clutch/combo-glow/beat-pulse/conveyor-scroll/lock-breathe) stays
+  suppressed. See [[reduced-motion-hides-aim-assists]] in memory.
+- `9b70d73` **Phase B Step 1 — ghosts removed** (racing/display layer; recording kept temporarily for the daily replay).
+- `dfae4b5` **Step 2a — daily made unreachable** + its code/UI/boards/pace/score-race/`/daily` endpoint removed.
+- `cda449a` **Step 2b — collapsed all dead `state.challenge` branches + removed orphans** (`mulberry32`/`strHash`/
+  `dayKey`/`challengeSeed`, the seeded-RNG machinery, ghost recording, `CFG.challenge*` keys). The daily is fully gone.
+- `32e9713` **Step 3 — railgun removed; ARC is the ONLY fire mode** (`fire()`→`spawnProjectile()`; tracer + hit-scan +
+  peak-BPM board gone; `#nameInput` relocated into the dojo header; `CFG.projectile` left as a vestigial always-true const).
 
-### A. BUILD — Global Dojo Leaderboard
-- **Submit on free-play run end** the session's: `far` = farthest hit (`state.maxHitDist`), `high` = highest hit
-  (`state.maxHitHeight`), `streak` = best streak (`state.bestStreak`), `bpm` = peak tempo (`state.maxBpm`), `kills` =
-  total targets neutralized this session (`state.hits`). (All already tracked in `state` — see Hit distance/height
-  stats + `recordHit`, and `renderStats`.)
-- **Backend:** new Supabase table `aimdojo_dojo` (`client_id, name, far, high, streak, peak_bpm, kills, created_at`),
-  RLS like `aimdojo_scores`/`aimdojo_daily`. Submit through the **Railway server** (`/dojo` endpoint, mirror `/daily`)
-  for sanity-validation + service-role insert (drop the anon-insert policy), OR direct anon insert if you accept
-  weaker anti-cheat. Dedup to each client's best (per the sorted column) like `loadDailyBoard`.
-- **Board UI:** replace the daily/global/season boards with one **"DOJO RECORDS"** board — a multi-column table
-  (name · far · high · streak · bpm · kills) with tabs/sort by each metric (default sort by `kills` or a composite).
-  Plus local "your bests" + an optional **"★ NEW RECORD"** flash when you beat your own best mid-run.
-- **Anti-cheat (best-effort — free-play has NO seed, so NO replay verification like the daily):** server-side sanity
-  caps — `far ≤` ballistic max (~36m, `projSpeed²/projGravity`), `high ≤ ROOM_BY`, `bpm ≤ maxBpm(172)`, `kills/runtime`
-  rate cap; per-client/IP rate-limit. Accept that free-play stats are only sanity-checked, not proven.
+### Current app shape (as of this session)
+**Free-play only** (CFG.mode rhythm/hunt; ARC ballistic shot; the distance-trainer spawn shell `state.range`) +
+**realtime presence/opponent reticles** (Supabase Realtime, kept) + the **🥋 DOJO RECORDS** global board. Sky-freeze
+on right-click. No daily, no ghosts, no railgun, no seeded RNG (`rng` is always `Math.random`).
 
-### B. DEPRECATE (big, intertwined refactor — do AFTER the board, incrementally, build-blind loop each step)
-- **Ghosts** — `loadGhost`/`updateGhost`/`selfGhost`/`loadSelfGhost`/`saveSelfGhost`/the G-key `ghostMode` toggle/
-  `ghostRec` recording/the cyan+purple reticles + name labels/`#ghostToast`. The `replay` column becomes unused.
-- **Daily challenge** — `startChallenge`/`endChallenge`/`exitChallenge`/`submitDaily`/the daily board (`loadDailyBoard`)/
-  pace ghost (`loadPaceField`/`updatePaceGhost`)/score race (`renderScoreRace`)/weekly seasons (`loadSeasonBoard`)/the
-  challenge tempo ramp + `challengeDensity`/the EXIT-DAILY UI/`state.challenge` branches throughout (`onGrid`,
-  `maybeAdjust`, `spawnTarget`, `updateScope`). The `aimdojo_daily` table + the `/daily` Railway endpoint retire.
-  **NOTE:** the `score===h.length` server invariant only matters for the daily — it relaxes once the daily is gone,
-  but DON'T break it while the daily still exists.
-- **Railgun** — the `projSeg` toggle (hit-scan fallback) + the manual ray-sphere in `fire()` + the global peak-BPM
-  board (`aimdojo_scores`/`submitScore`). Make **ARC the only fire mode** (`fire()` always `spawnProjectile()`).
-- **Sequencing:** leaderboard → ghosts → daily → railgun. Each is a risky/gameplay-touching diff → run the
-  adversarial-review workflow + dangling-ref greps. Many `state.challenge`/`_specialLive`/`ghostRec` conditionals are
-  load-bearing — grep every removed symbol.
+### Remaining follow-ups (none blocking)
+- **OPS cleanup (user, in Supabase):** the `aimdojo_daily` and `aimdojo_scores` tables are now **orphaned** (nothing
+  reads/writes them) — `drop table public.aimdojo_daily;` + `drop table public.aimdojo_scores;` whenever.
+  `supabase-daily.sql` + `supabase-leaderboard.sql` are dead files. For the dojo board, once it's confirmed, optionally
+  `drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;` (lock writes to the Railway service role).
+- **OPTIONAL:** tighten the `/dojo` `far` cap 50→~40 (`server.js` + `supabase-dojo.sql` CHECK; deploy server before the
+  SQL `ALTER`) now that hit-scan corner reach is gone. Harmless to leave at 50.
+- **Stale internal comments:** a handful still mention "daily"/"the daily"/"hit-scan" for historical param/determinism
+  context (e.g. `onHit`/`gradeRhythmHit` atT comments, the dead `else` in the animate ARC guard). Harmless; cosmetic.
+- **`CFG.projectile`** is now a vestigial always-true constant the `updateArcPreview`/`updateScope`/animate gates read;
+  could be fully collapsed for tidiness (low value).
+- **Self-ghost:** the user confirmed they never used it — removed with the ghost system (Step 1/2). Don't rebuild it.
 
-### C. Stats the leaderboard ranks (user-confirmed)
-farthest hit · highest hit · best streak · peak tempo · **+ total targets neutralized in the session** (`state.hits`).
+### NOTE on the sections below
+**Everything below `## ▶ START HERE` is now HISTORY** and describes systems that were REMOVED this session (daily,
+ghosts, railgun, pace ghost, score race, weekly seasons, the peak-BPM board). Read it for as-built context on the
+*current* systems (sky, targets, ARC/scope, floor HUD, edge tints, audio, realtime, the dojo board) but treat any
+daily/ghost/railgun detail as gone. The deprecated multiplayer/daily docs are retained only for archaeology.
 
 ## ▶ START HERE (next session)
 The game is in great shape and the user says it's **"genuinely addicting."** **ALL FIVE `SPEC_NEXT.md`
