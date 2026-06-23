@@ -49,6 +49,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
 #presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
 #presence.on{display:block}
+#wasdHud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:560px;height:560px;z-index:4;pointer-events:none;display:none}   /* WASD-rhythm: osu-style contracting color rings, centered on the crosshair */
 #scopeHud{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);font:11px var(--mono);color:var(--bone-dim);letter-spacing:.06em;line-height:1.6;display:none}
 #scopeHud.on{display:block}
 #scopeHud b{color:var(--rail);font-weight:400}
@@ -257,6 +258,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
+<canvas id="wasdHud" width="560" height="560" aria-hidden="true"></canvas>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -1523,41 +1525,33 @@ function updateTargetMarks(){                                                 //
     m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
-/* ===== WASD-rhythm: CARDINAL floor cues — the world's compass IS the keys (N=W, W=A, S=S, E=D). Each beat one required key: a grid tile lights up and marches IN from that compass direction to the strike ring; strike the key as it lands. Integrated into the floor grid; world-fixed (no view-follow). ===== */
-const CARD_DIR=[[0,0,1],[-1,0,0],[0,0,-1],[1,0,0]];   // key→floor direction: W=North(+Z), A=West(-X), S=South(-Z), D=East(+X)
-const CARD_RING=5.0, CARD_UPB=3.4, CARD_CELL=2;       // strike-ring radius; units a note marches per beat; floor grid cell size (snap notes onto tiles)
-let cardGroup=null; const _cardTiles=[], _LETTER_TEX=[];
-function makeLetterTex(ch){ const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d'); x.clearRect(0,0,64,64); x.font='bold 50px monospace'; x.textAlign='center'; x.textBaseline='middle'; x.lineWidth=6; x.strokeStyle='rgba(0,0,0,.85)'; x.strokeText(ch,32,35); x.fillStyle='#eaf2ff'; x.fillText(ch,32,35); const t=new THREE.CanvasTexture(c); t.minFilter=THREE.LinearFilter; return t; }
-function ensureCardObjs(){ if(cardGroup) return;
-  cardGroup=new THREE.Group(); cardGroup.visible=false; scene.add(cardGroup);
-  for(let i=0;i<4;i++) _LETTER_TEX[i]=makeLetterTex(WASD_GLYPH[i]);
-  const seg=72, rp=[]; for(let i=0;i<=seg;i++){ const a=i/seg*Math.PI*2; rp.push(Math.cos(a)*CARD_RING,0.04,Math.sin(a)*CARD_RING); }   // strike ring on the floor around you
-  const rg=new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rp,3));
-  const ring=new THREE.Line(rg, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.5})); ring.frustumCulled=false; cardGroup.add(ring);
-  for(let k=0;k<4;k++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:_LETTER_TEX[k],transparent:true,depthTest:false,depthWrite:false})); sp.scale.set(1.3,1.3,1); sp.position.set(CARD_DIR[k][0]*CARD_RING,0.9,CARD_DIR[k][2]*CARD_RING); cardGroup.add(sp); }   // permanent compass labels at the ring (N=W, W=A, S=S, E=D)
-}
-function ensureCardTile(i){ let t=_cardTiles[i]; if(t) return t;
-  const m=new THREE.Mesh(new THREE.PlaneGeometry(CARD_CELL*0.9,CARD_CELL*0.9), new THREE.MeshBasicMaterial({color:0x3a6ea5,transparent:true,opacity:0.6,side:THREE.DoubleSide})); m.rotation.x=-Math.PI/2; m.frustumCulled=false; cardGroup.add(m);
-  return _cardTiles[i]=m;
-}
-function drawWasdLane(){   // cardinal floor cues: a lit grid tile marches in from each beat's compass direction to the strike ring; strike the key as it lands.
-  ensureCardObjs();
+/* ===== WASD-rhythm: contracting COLOR RINGS in the HUD (osu-style), centered on the crosshair. Each key = a color; a ring spawns large and smoothly shrinks to the target ring around you — strike that color's key as it lands. Single combo (only THIS beat's key counts). ===== */
+const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d');
+const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'];   // key→color: W cyan, A green, S gold, D pink
+const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the 2D ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px
+if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
+function drawWasdLane(){
+  if(!hudCtx) return;
   const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running;
-  if(!on){ if(cardGroup.visible) cardGroup.visible=false; return; }
-  cardGroup.visible=true; cardGroup.position.set(PLAYER_POS.x,0,PLAYER_POS.z);
-  let frac=0; try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}
-  const len=_combo.length; let ti=0;
-  for(let nn=-1;nn<=3;nn++){ const key=_combo[((_comboStep+nn)%len+len)%len], dir=CARD_DIR[key], dist=CARD_RING+(nn+(1-frac))*CARD_UPB;
-    if(dist<CARD_RING-CARD_UPB*0.9 || dist>CARD_RING+CARD_UPB*3.6) continue;
-    const wx=PLAYER_POS.x+dir[0]*dist, wz=PLAYER_POS.z+dir[2]*dist;
-    const lx=Math.round(wx/CARD_CELL)*CARD_CELL-PLAYER_POS.x, lz=Math.round(wz/CARD_CELL)*CARD_CELL-PLAYER_POS.z;   // snap onto the floor grid (local to the group at the player)
-    const tile=ensureCardTile(ti++); tile.position.set(lx,0.05,lz);
-    let col=0x3a6ea5, op=0.6;
-    if(nn===0 && frac>=1-CFG.wasdWindowFrac) col=0xffc033;                                  // imminent + in the strike window → gold (hit NOW)
-    if(nn===-1){ const fa=Math.max(0,1-(state.t-_laneFlashT)/0.22); if(fa<=0){ tile.visible=false; continue; } col=_lastSnapHit?0x74e84a:0xff5a50; op=0.25+0.55*fa; }   // just-struck → green hit / red miss, fading
-    tile.material.color.setHex(col); tile.material.opacity=op; tile.visible=true;
+  if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; return; }
+  if(hudCanvas.style.display==='none') hudCanvas.style.display='block';
+  const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, targetR=46, maxR=Math.min(cx,cy)-8, ppb=(maxR-targetR)/3.4, len=_combo.length;
+  let frac=0; if(!reduceMotion) try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // reduced-motion: pin frac=0 → rings sit at static radii (no continuous sweep), but the colored ring legend stays as a functional aim aid
+  hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H);   // dpr-scale: draw in CSS px, render at backing-store resolution
+  for(let nn=3;nn>=0;nn--){ const key=_combo[(_comboStep+nn)%len], r=targetR+(nn+(1-frac))*ppb;   // contracting note rings (far→target), draw outer first
+    if(r>maxR+6 || r<targetR-2) continue; const near=Math.max(0,Math.min(1,1-(r-targetR)/ppb));   // 0 far → 1 at the target
+    const lw = nn===0 ? 3+4*near : 2.5;
+    hudCtx.lineWidth=lw+3; hudCtx.globalAlpha=0.55; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();   // dark backing halo → rings stay legible over the bright day sky
+    hudCtx.lineWidth=lw; hudCtx.globalAlpha=Math.min(1,(nn===0?0.6+0.4*near:0.6)+0.3*dayAmt); hudCtx.strokeStyle=WASD_COL[key]; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();
   }
-  for(;ti<_cardTiles.length;ti++) _cardTiles[ti].visible=false;
+  hudCtx.globalAlpha=1;
+  let trCol='rgba(255,255,255,0.6)', trW=3; const fa=reduceMotion?0:1-(state.t-_laneFlashT)/0.22;   // target ring, flashes green/red the beat a note is struck (reduced-motion: no flash decay)
+  if(fa>0){ trCol = (_lastSnapHit?'rgba(116,232,74,':'rgba(255,90,80,')+fa.toFixed(2)+')'; trW=3+6*fa; }
+  hudCtx.globalAlpha=0.7; hudCtx.lineWidth=trW+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();   // dark backing for daytime legibility
+  hudCtx.globalAlpha=1; hudCtx.lineWidth=trW; hudCtx.strokeStyle=trCol; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();
+  hudCtx.font='bold 15px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3;   // color legend: W/A/S/D in their colors around the target ring (W top, A left, S bottom, D right)
+  const lp=[[0,-targetR-15],[-targetR-15,0],[0,targetR+15],[targetR+15,0]];
+  for(let k=0;k<4;k++){ const lx=cx+lp[k][0], ly=cy+lp[k][1]; hudCtx.strokeStyle='rgba(0,0,0,.75)'; hudCtx.strokeText(WASD_GLYPH[k],lx,ly); hudCtx.fillStyle=WASD_COL[k]; hudCtx.fillText(WASD_GLYPH[k],lx,ly); }
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
