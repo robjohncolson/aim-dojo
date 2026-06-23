@@ -34,7 +34,9 @@ does it need a touch of lookahead back? Day/night legibility still OK?
 
 ### The WASD-rhythm MECHANIC (GRADED damping as of `8bc6d95` — the binary freeze is GONE)
 Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **single looping combo** of WASD keys
-(`_combo`, length `CFG.wasdComboLen:8`, random keys regenerated each run in `resetSession`; `_comboStep++` each snap).
+(`_combo`, length `CFG.wasdComboLen:8`, regenerated each run by `makeWasdCombo()` = concatenated shuffles of [0,1,2,3]
+→ every key appears, each exactly twice at len 8, no droughts; `_comboStep++` each snap. **Was** pure-random, which
+could omit a key for a whole looping run — the "never saw A" bug, fixed `d037c8b`).
 Each beat has ONE required key = `_combo[_comboStep % len]`. At each strobe snap, `delta=state.t-_wasdPress[rk]`;
 `_snapHeld=(delta<=w)` where `w=max(CFG.wasdWindow:0.18, _snapInterval*CFG.wasdWindowFrac:0.5)`.
 **NEW — accuracy-scaled motion damping (replaced the old all-or-nothing freeze):** the WHOLE field's strobe step is
