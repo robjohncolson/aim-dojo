@@ -483,7 +483,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
-  wasdRhythm:true, wasdWindow:0.18, wasdWindowFrac:0.5, wasdComboLen:8,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
+  wasdRhythm:true, wasdWindow:0.18, wasdWindowFrac:0.5, wasdComboLen:8, wasdDampEdge:0.5,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -544,7 +544,7 @@ const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
 const _wasdPress=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'];   // WASD-on-rhythm: last press time (state.t) per direction W/A/S/D
-let _combo=[0,1,2,3], _comboStep=0, _snapHeld=false, _lastSnapKey=0, _lastSnapHit=false, _laneFlashT=-999;   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
+let _combo=[0,1,2,3], _comboStep=0, _snapHeld=false, _snapMoveMul=1, _lastSnapKey=0, _lastSnapHit=false, _laneFlashT=-999;   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
 const FLOOR_SIZE=620;
@@ -1525,7 +1525,7 @@ function updateTargetMarks(){                                                 //
     m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
-/* ===== WASD-rhythm: the nearest 3 notes APPROACH FROM DEPTH toward the crosshair (osu-style). Each key = a color; a ring emerges near-invisible far out and brightens as it shrinks to the strike ring at the crosshair (opacity ∝ closeness) — strike that key as it lands. A fixed current-key letter under the strike ring (brightens to the beat) tells you which key NOW, so you never have to track a shifting ring's color. Single combo (only THIS beat's key counts). ===== */
+/* ===== WASD-rhythm: the current note's single ring APPROACHES FROM DEPTH toward the crosshair (osu-style). Each key = a color; a ring emerges near-invisible far out and brightens as it shrinks to the strike ring at the crosshair (opacity ∝ closeness) — strike that key as it lands. A fixed current-key letter under the strike ring (brightens to the beat) tells you which key NOW, so you never have to track a shifting ring's color. Single combo (only THIS beat's key counts). ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'];   // key→color: W cyan, A green, S gold, D pink
 const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the 2D ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px
@@ -1536,7 +1536,7 @@ function drawWasdLane(){
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; return; }
   if(hudCanvas.style.display==='none') hudCanvas.style.display='block';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, targetR=46, maxR=Math.min(cx,cy)-8;
-  const LOOK=3, span=maxR-targetR, ppb=span/LOOK, len=_combo.length;   // show only the nearest LOOK notes, spread across the full radius
+  const LOOK=1, span=maxR-targetR, ppb=span/LOOK, len=_combo.length;   // show only the nearest LOOK note(s); LOOK=1 → one ring sweeps the full radius each beat (depth==frac)
   let frac=0; if(!reduceMotion) try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // reduced-motion: pin frac=0 → notes sit static (no continuous sweep), still readable
   hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H);   // dpr-scale: draw in CSS px, render at backing-store resolution
   for(let nn=LOOK-1; nn>=0; nn--){ const key=_combo[(_comboStep+nn)%len], r=targetR+(nn+(1-frac))*ppb;   // notes approach from depth (far→crosshair), draw farthest first
@@ -1897,19 +1897,21 @@ function animate(frameNow){
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
-      if(doSnap){ _snapHeld=false;                              // WASD-rhythm single combo: only THIS beat's required key counts (anti-spam). Hit it on-beat → the WHOLE field holds this beat.
-        if(CFG.wasdRhythm && strobe){ const rk=_combo[_comboStep%_combo.length], w=Math.max(CFG.wasdWindow, _snapInterval*CFG.wasdWindowFrac); _snapHeld=(state.t-_wasdPress[rk]<=w); if(_snapHeld) _wasdPress[rk]=-999; _lastSnapKey=rk; _lastSnapHit=_snapHeld; _laneFlashT=state.t; _comboStep++; } }
+      if(doSnap){ _snapHeld=false; _snapMoveMul=1;                       // WASD-rhythm single combo: only THIS beat's required key counts (anti-spam). The better your timing, the more the WHOLE field's motion is dampened this step.
+        if(CFG.wasdRhythm && strobe){ const rk=_combo[_comboStep%_combo.length], w=Math.max(CFG.wasdWindow, _snapInterval*CFG.wasdWindowFrac), delta=state.t-_wasdPress[rk]; _snapHeld=(delta<=w); if(_snapHeld){ _snapMoveMul=CFG.wasdDampEdge*Math.max(0,Math.min(1,delta/w)); _wasdPress[rk]=-999; } else _snapMoveMul=1; _lastSnapKey=rk; _lastSnapHit=_snapHeld; _laneFlashT=state.t; _comboStep++; } }   // accuracy-scaled damping: dead-on tap (delta→0) → mul 0 (field freezes); barely in time (delta→w) → mul wasdDampEdge; miss → mul 1 (full move)
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
         if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
         const p=tg.mesh.position;
-        if(doSnap && !_snapHeld){                            // strobe: step on a beat-grid tick — UNLESS the player hit this beat's combo key (then the WHOLE field holds, skip the step)
+        if(doSnap){ const mul=_snapMoveMul;                  // strobe: step on a beat-grid tick — the step is scaled by mul (WASD-rhythm accuracy): 1 = full move (miss), 0 = frozen (dead-on hit)
           if(brownianStep){                                  // brownian wander
-            tg.vel.x+=(Math.random()*2-1)*brownianStep; tg.vel.y+=(Math.random()*2-1)*brownianStep*0.6; tg.vel.z+=(Math.random()*2-1)*brownianStep;
+            const bj=brownianStep*mul;   // jitter scaled by accuracy too → a clean hit calms the velocity, not just the position (over a streak the field truly settles)
+            tg.vel.x+=(Math.random()*2-1)*bj; tg.vel.y+=(Math.random()*2-1)*bj*0.6; tg.vel.z+=(Math.random()*2-1)*bj;
             tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
             const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>velCap2){ const f=velCap/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
           }
-          p.x+=tg.vel.x*moveStep; p.y+=tg.vel.y*moveStep; p.z+=tg.vel.z*moveStep;
+          const ms=moveStep*mul;   // accuracy-scaled displacement: the better you time the beat, the less the field drifts this step
+          p.x+=tg.vel.x*ms; p.y+=tg.vel.y*ms; p.z+=tg.vel.z*ms;
           if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
             if(p.x<-ROOM_BX){ p.x=-2*ROOM_BX-p.x; tg.vel.x=Math.abs(tg.vel.x); } else if(p.x>ROOM_BX){ p.x=2*ROOM_BX-p.x; tg.vel.x=-Math.abs(tg.vel.x); }
             if(p.z<-ROOM_BZ){ p.z=-2*ROOM_BZ-p.z; tg.vel.z=Math.abs(tg.vel.z); } else if(p.z>ROOM_BZ){ p.z=2*ROOM_BZ-p.z; tg.vel.z=-Math.abs(tg.vel.z); }
