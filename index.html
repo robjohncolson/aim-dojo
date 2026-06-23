@@ -1525,7 +1525,7 @@ function updateTargetMarks(){                                                 //
     m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
-/* ===== WASD-rhythm: contracting COLOR RINGS in the HUD (osu-style), centered on the crosshair. Each key = a color; a ring spawns large and smoothly shrinks to the target ring around you — strike that color's key as it lands. Single combo (only THIS beat's key counts). ===== */
+/* ===== WASD-rhythm: the nearest 3 notes APPROACH FROM DEPTH toward the crosshair (osu-style). Each key = a color; a ring emerges near-invisible far out and brightens as it shrinks to the strike ring at the crosshair (opacity ∝ closeness) — strike that key as it lands. A fixed current-key letter under the strike ring (brightens to the beat) tells you which key NOW, so you never have to track a shifting ring's color. Single combo (only THIS beat's key counts). ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'];   // key→color: W cyan, A green, S gold, D pink
 const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the 2D ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px
@@ -1535,23 +1535,28 @@ function drawWasdLane(){
   const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running;
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; return; }
   if(hudCanvas.style.display==='none') hudCanvas.style.display='block';
-  const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, targetR=46, maxR=Math.min(cx,cy)-8, ppb=(maxR-targetR)/3.4, len=_combo.length;
-  let frac=0; if(!reduceMotion) try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // reduced-motion: pin frac=0 → rings sit at static radii (no continuous sweep), but the colored ring legend stays as a functional aim aid
+  const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, targetR=46, maxR=Math.min(cx,cy)-8;
+  const LOOK=3, span=maxR-targetR, ppb=span/LOOK, len=_combo.length;   // show only the nearest LOOK notes, spread across the full radius
+  let frac=0; if(!reduceMotion) try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // reduced-motion: pin frac=0 → notes sit static (no continuous sweep), still readable
   hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H);   // dpr-scale: draw in CSS px, render at backing-store resolution
-  for(let nn=3;nn>=0;nn--){ const key=_combo[(_comboStep+nn)%len], r=targetR+(nn+(1-frac))*ppb;   // contracting note rings (far→target), draw outer first
-    if(r>maxR+6 || r<targetR-2) continue; const near=Math.max(0,Math.min(1,1-(r-targetR)/ppb));   // 0 far → 1 at the target
-    const lw = nn===0 ? 3+4*near : 2.5;
-    hudCtx.lineWidth=lw+3; hudCtx.globalAlpha=0.55; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();   // dark backing halo → rings stay legible over the bright day sky
-    hudCtx.lineWidth=lw; hudCtx.globalAlpha=Math.min(1,(nn===0?0.6+0.4*near:0.6)+0.3*dayAmt); hudCtx.strokeStyle=WASD_COL[key]; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();
+  for(let nn=LOOK-1; nn>=0; nn--){ const key=_combo[(_comboStep+nn)%len], r=targetR+(nn+(1-frac))*ppb;   // notes approach from depth (far→crosshair), draw farthest first
+    if(r>maxR+6 || r<targetR-2) continue;
+    const depth=Math.max(0,Math.min(1,(maxR-r)/span)), a=Math.pow(depth,1.6);   // depth: 0 far (near-invisible) → 1 at the crosshair; power curve keeps the distance faint
+    if(a<0.02) continue;
+    const aDay=Math.min(1,a*(1+0.5*dayAmt)), lw=(nn===0?3:2)+3*depth;
+    hudCtx.globalAlpha=a*0.6; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();   // depth-faded dark halo (legible over the bright day sky)
+    hudCtx.globalAlpha=aDay; hudCtx.lineWidth=lw; hudCtx.strokeStyle=WASD_COL[key]; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();
   }
   hudCtx.globalAlpha=1;
-  let trCol='rgba(255,255,255,0.6)', trW=3; const fa=reduceMotion?0:1-(state.t-_laneFlashT)/0.22;   // target ring, flashes green/red the beat a note is struck (reduced-motion: no flash decay)
+  let trCol='rgba(255,255,255,0.55)', trW=3; const fa=reduceMotion?0:1-(state.t-_laneFlashT)/0.22;   // strike ring at the crosshair: flashes green/red the beat a note lands (reduced-motion: no flash decay)
   if(fa>0){ trCol = (_lastSnapHit?'rgba(116,232,74,':'rgba(255,90,80,')+fa.toFixed(2)+')'; trW=3+6*fa; }
-  hudCtx.globalAlpha=0.7; hudCtx.lineWidth=trW+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();   // dark backing for daytime legibility
+  hudCtx.globalAlpha=0.7; hudCtx.lineWidth=trW+3; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();   // dark backing for daytime legibility
   hudCtx.globalAlpha=1; hudCtx.lineWidth=trW; hudCtx.strokeStyle=trCol; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();
-  hudCtx.font='bold 15px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3;   // color legend: W/A/S/D in their colors around the target ring (W top, A left, S bottom, D right)
-  const lp=[[0,-targetR-15],[-targetR-15,0],[0,targetR+15],[targetR+15,0]];
-  for(let k=0;k<4;k++){ const lx=cx+lp[k][0], ly=cy+lp[k][1]; hudCtx.strokeStyle='rgba(0,0,0,.75)'; hudCtx.strokeText(WASD_GLYPH[k],lx,ly); hudCtx.fillStyle=WASD_COL[k]; hudCtx.fillText(WASD_GLYPH[k],lx,ly); }
+  const ck=_combo[_comboStep%len], la=reduceMotion?0.9:0.35+0.65*frac, ly=cy+targetR+22;   // current-key letter (fixed spot, no tracking): brightens toward the beat
+  hudCtx.globalAlpha=la; hudCtx.font='bold 26px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle';
+  hudCtx.lineWidth=4; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.strokeText(WASD_GLYPH[ck],cx,ly);
+  hudCtx.fillStyle=WASD_COL[ck]; hudCtx.fillText(WASD_GLYPH[ck],cx,ly);
+  hudCtx.globalAlpha=1;
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
