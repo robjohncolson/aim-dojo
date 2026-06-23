@@ -6,11 +6,17 @@ Paste-in context for resuming work on **aim-dojo** in a new session.
 The dojo pivot is DONE (see the next section). Since then, post-pivot work shipped, and we're now deep in **build-blind
 visual iteration of a NEW "WASD-on-rhythm steady-the-field" mechanic.** READ THIS FIRST.
 
-### ✅ osu-ring HUD — REVIEWED, FIXED, SHIPPED & LIVE (`4931041`) — awaiting the user's playtest
-The user chose (a) "finish the ring version." Done: ran the 4-lens adversarial-review workflow (16 agents, verdict
-**fix-then-ship**, 3 confirmed issues), folded the fixes in, pushed, Pages-confirmed live. **LIVE = `4931041`** (was
-`faee889` cardinal-floor). The HUD is the **osu-style contracting color-ring** WASD cue (W=cyan/A=green/S=gold/D=pink
-rings shrink to a target ring on the crosshair; `#wasdHud` 560×560 centered canvas, `drawWasdLane`, `WASD_COL`).
+### ✅ osu-ring HUD — SHIPPED & LIVE (`b0e642a`, 3-note depth redesign) — awaiting the user's playtest
+The user chose (a) "finish the ring version." `4931041` shipped the first osu-ring HUD (after a 16-agent fix-then-ship
+review). **Playtest #1 feedback:** the 4 packed rings re-shuffled each beat — tracking a ring by POSITION, its key
+changes when the combo advances ("the green ring turned yellow"), and it was distracting. **`b0e642a` redesign (now
+LIVE):** (1) only the **nearest 3 notes**; (2) they **approach from depth** — opacity ∝ closeness (`depth=(maxR-r)/span`,
+`a=depth^1.6`): near-invisible far out, max at the crosshair, so the far churn stops competing for attention; (3)
+**dropped the static 4-corner legend**, replaced with the **CURRENT key as one letter** at a fixed spot under the strike
+ring (`cy+targetR+22`) that brightens to the beat (`la=0.35+0.65*frac`) → read which-key-now directly, no ring-tracking.
+The HUD is `#wasdHud` 560×560 centered canvas, `drawWasdLane`, `WASD_COL=['#43d9ff'(W)|'#74e84a'(A)|'#ffd36b'(S)|'#ff5a7a'(D)]`,
+`WASD_GLYPH`, `LOOK=3`. **NO desync verified:** drawWasdLane's `frac` and the snap's `_comboStep++` both derive from
+`Tone.Transport.ticks/PPQ × spb` in the same frame → the drawn current ring/letter always matches the graded key.
 **3 review fixes applied** (all in `drawWasdLane` + its const init, ~L1529-1554): (1) **prefers-reduced-motion** —
 freeze the contraction (`if(!reduceMotion)` pins `frac=0` → static ring radii) + drop the flash decay (`fa=reduceMotion?0:…`),
 but KEEP rings/target-ring/legend rendering (freeze, don't hide — the [[reduced-motion-hides-aim-assists]] lesson);
@@ -37,7 +43,8 @@ per-orb floating letters (spam-cheesable) → bigger + bottom timing bar (timing
 before-snap-only + too tight → FIXED with the tempo-scaled window) → **single combo** (fixed the spam) → 2D
 scrolling note-lane overlay → **3D in-scene note-highway** that follows your yaw (user: "distracting") → **cardinal
 floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn't go the way I'd hoped") →
-**[LIVE `4931041`] osu contracting color rings in the HUD** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
+**[`4931041`] osu contracting color rings (4 rings + corner legend; user: shifting rings "turned yellow", distracting)** →
+**[LIVE `b0e642a`] 3-note depth-approach rings (opacity ∝ closeness) + fixed current-key letter** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
 overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
 target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
 DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
