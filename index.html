@@ -79,7 +79,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .tgtKey.on{display:block}
 .tgtKey.held{color:#0d110f;background:var(--toxic);border-color:var(--toxic);text-shadow:none}
 /* WASD-rhythm: scrolling note-lane (canvas) + screen-half color flashes */
-#wasdLane{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);width:300px;height:104px;z-index:6;pointer-events:none;display:none;opacity:.92}
 .wq{position:fixed;z-index:2;pointer-events:none;opacity:0}
 .wq.flash{animation:wqflash .3s ease-out}
 @keyframes wqflash{0%{opacity:.9}100%{opacity:0}}
@@ -267,7 +266,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
 <div id="wqTop" class="wq"></div><div id="wqBot" class="wq"></div><div id="wqLeft" class="wq"></div><div id="wqRight" class="wq"></div>
-<canvas id="wasdLane" width="300" height="104" aria-hidden="true"></canvas>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -1535,32 +1533,47 @@ function updateTargetMarks(){                                                 //
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
 /* ===== WASD-rhythm: scrolling note-lane (canvas) + screen-half color flashes. Single combo stream — only THIS beat's required key counts (anti-spam); hitting it on-beat holds the WHOLE field. ===== */
-const laneCanvas=gid('wasdLane'), laneCtx=laneCanvas&&laneCanvas.getContext('2d');
+/* ===== WASD-rhythm: 3D in-scene note-highway (follows your view along the floor) + screen-half color flashes. Single combo — only THIS beat's required key counts; strike the note on the deadline → the WHOLE field holds. ===== */
 _wqEls[0]=gid('wqTop'); _wqEls[1]=gid('wqLeft'); _wqEls[2]=gid('wqBot'); _wqEls[3]=gid('wqRight');
 const _WQ_GRAD=['to bottom','to right','to top','to left'];   // each half's shade fades inward from its edge (W top, A left, S bottom, D right)
 function wqFlash(k, good){ const el=_wqEls[k]; if(!el) return; const c=good?'120,230,90':'255,90,80'; el.style.background='linear-gradient('+_WQ_GRAD[k]+', rgba('+c+',.30), transparent 72%)'; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
-function drawWasdLane(){   // notes scroll right toward a hit line; press the key as the note crosses (in the green zone). The note at the line = THIS beat's required key.
-  if(!laneCtx) return;
+const LANE_OFF=[-2.4,-0.8,0.8,2.4], LANE_DEADZ=6.5, LANE_UPB=5.0;   // local X per key (W A S D, ~1.6 apart); deadline distance in front; units between beats (note spacing)
+let wasdLaneGroup=null, _laneYaw=0; const _laneNotes=[], _LETTER_TEX=[], _laneFwd=new THREE.Vector3();
+function makeLetterTex(ch){ const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d'); x.clearRect(0,0,64,64); x.font='bold 50px monospace'; x.textAlign='center'; x.textBaseline='middle'; x.lineWidth=6; x.strokeStyle='rgba(0,0,0,.85)'; x.strokeText(ch,32,35); x.fillStyle='#eaf2ff'; x.fillText(ch,32,35); const t=new THREE.CanvasTexture(c); t.minFilter=THREE.LinearFilter; return t; }
+function ensureLaneObjs(){ if(wasdLaneGroup) return;
+  wasdLaneGroup=new THREE.Group(); wasdLaneGroup.visible=false; scene.add(wasdLaneGroup);
+  for(let i=0;i<4;i++) _LETTER_TEX[i]=makeLetterTex(WASD_GLYPH[i]);
+  const far=LANE_DEADZ+LANE_UPB*4.4, gp=[]; for(let L=0;L<4;L++){ const x=LANE_OFF[L]; gp.push(x,0.02,LANE_DEADZ, x,0.02,far); }   // a guide line down each lane
+  const gg=new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gp,3));
+  const guides=new THREE.LineSegments(gg, new THREE.LineBasicMaterial({color:0x4a78b0,transparent:true,opacity:0.35})); guides.frustumCulled=false; wasdLaneGroup.add(guides);
+  const dl=new THREE.Mesh(new THREE.PlaneGeometry(LANE_OFF[3]-LANE_OFF[0]+1.6,0.6), new THREE.MeshBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.7,side:THREE.DoubleSide})); dl.rotation.x=-Math.PI/2; dl.position.set((LANE_OFF[0]+LANE_OFF[3])/2,0.03,LANE_DEADZ); dl.frustumCulled=false; wasdLaneGroup.add(dl);   // the deadline bar across the lanes
+}
+function ensureLaneNote(i){ let n=_laneNotes[i]; if(n) return n;
+  const tile=new THREE.Mesh(new THREE.PlaneGeometry(1.5,1.5), new THREE.MeshBasicMaterial({color:0x2a4a6a,transparent:true,opacity:0.55,side:THREE.DoubleSide})); tile.rotation.x=-Math.PI/2; tile.frustumCulled=false; wasdLaneGroup.add(tile);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:_LETTER_TEX[0],transparent:true,depthTest:false,depthWrite:false})); sp.scale.set(1.5,1.5,1); wasdLaneGroup.add(sp);
+  return _laneNotes[i]={tile,sp};
+}
+function drawWasdLane(){   // 3D highway: notes slide along the floor toward the deadline bar; strike the key as the note reaches it. Anchored to your (smoothed) facing so it's always in front.
+  ensureLaneObjs();
   const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running;
-  if(!on){ if(laneCanvas.style.display!=='none') laneCanvas.style.display='none'; return; }
-  if(laneCanvas.style.display==='none') laneCanvas.style.display='block';
-  const W=laneCanvas.width, H=laneCanvas.height, rh=H/4, lineX=W*0.80, pxPerBeat=lineX/3.2, len=_combo.length;
-  let frac=0; try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // phase to the next beat (note crosses the line at frac→1)
-  laneCtx.clearRect(0,0,W,H);
-  const zoneW=Math.min(lineX, CFG.wasdWindowFrac*pxPerBeat);   // green hit zone = the press window before the line
-  laneCtx.fillStyle='rgba(116,232,74,0.12)'; laneCtx.fillRect(lineX-zoneW,0,zoneW,H);
-  laneCtx.strokeStyle='rgba(255,255,255,0.55)'; laneCtx.lineWidth=2; laneCtx.beginPath(); laneCtx.moveTo(lineX,0); laneCtx.lineTo(lineX,H); laneCtx.stroke(); laneCtx.lineWidth=1;
-  laneCtx.textBaseline='middle';
-  for(let r=0;r<4;r++){ const cy=r*rh+rh/2; laneCtx.strokeStyle='rgba(255,255,255,0.07)'; laneCtx.beginPath(); laneCtx.moveTo(0,(r+1)*rh); laneCtx.lineTo(W,(r+1)*rh); laneCtx.stroke();
-    laneCtx.fillStyle='rgba(180,200,220,0.45)'; laneCtx.textAlign='left'; laneCtx.font='bold 11px monospace'; laneCtx.fillText(WASD_GLYPH[r],3,cy); }
-  laneCtx.textAlign='center'; laneCtx.font='bold 15px monospace';
-  for(let n=-1;n<=3;n++){ const key=_combo[((_comboStep+n)%len+len)%len], dd=n+(1-frac), x=lineX-dd*pxPerBeat;
-    if(x<-14||x>W+14) continue; const cy=key*rh+rh/2; let col='rgba(120,180,255,0.9)';
-    if(n===0 && frac>=1-CFG.wasdWindowFrac) col='#ffd36b';                                                  // imminent note + in the hit zone → press NOW
-    if(n===-1){ const fa=Math.max(0,1-(state.t-_laneFlashT)/0.22); if(fa<=0) continue; col=(_lastSnapHit?'rgba(116,232,74,':'rgba(255,90,80,')+fa.toFixed(2)+')'; }   // just-passed → green hit / red miss, fading
-    laneCtx.fillStyle=col; laneCtx.fillRect(x-12,cy-rh*0.30,24,rh*0.60);
-    laneCtx.fillStyle='rgba(13,17,15,0.95)'; laneCtx.fillText(WASD_GLYPH[key],x,cy+1);
+  if(!on){ if(wasdLaneGroup.visible) wasdLaneGroup.visible=false; return; }
+  wasdLaneGroup.visible=true;
+  camera.getWorldDirection(_laneFwd); _laneFwd.y=0; if(_laneFwd.lengthSq()<1e-6) _laneFwd.set(0,0,1); _laneFwd.normalize();
+  let dyaw=Math.atan2(_laneFwd.x,_laneFwd.z)-_laneYaw; while(dyaw>Math.PI)dyaw-=2*Math.PI; while(dyaw<-Math.PI)dyaw+=2*Math.PI; _laneYaw+=dyaw*0.2;   // smoothed yaw-follow: local +Z aims down your view
+  wasdLaneGroup.rotation.y=_laneYaw; wasdLaneGroup.position.set(PLAYER_POS.x,0,PLAYER_POS.z);
+  let frac=0; try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}
+  const len=_combo.length; let ni=0;
+  for(let nn=-1;nn<=4;nn++){ const key=_combo[((_comboStep+nn)%len+len)%len], dd=nn+(1-frac), z=LANE_DEADZ+dd*LANE_UPB;
+    if(z<LANE_DEADZ-LANE_UPB*0.9 || z>LANE_DEADZ+LANE_UPB*4.6) continue;
+    const note=ensureLaneNote(ni++), x=LANE_OFF[key];
+    note.tile.position.set(x,0.05,z); note.sp.position.set(x,0.85,z); note.sp.material.map=_LETTER_TEX[key];
+    let col=0x2a4a6a, op=0.95;
+    if(nn===0 && frac>=1-CFG.wasdWindowFrac) col=0xffc033;                                  // imminent + in the strike window → gold (hit NOW)
+    if(nn===-1){ const fa=Math.max(0,1-(state.t-_laneFlashT)/0.22); if(fa<=0){ note.tile.visible=false; note.sp.visible=false; continue; } col=_lastSnapHit?0x74e84a:0xff5a50; op=fa; }   // just-struck → green hit / red miss, fading
+    note.tile.material.color.setHex(col); note.tile.material.opacity=(nn===-1?0.55*op:0.55); note.tile.visible=true;
+    note.sp.material.opacity=op; note.sp.visible=true;
   }
+  for(;ni<_laneNotes.length;ni++){ _laneNotes[ni].tile.visible=false; _laneNotes[ni].sp.visible=false; }
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
