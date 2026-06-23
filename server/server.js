@@ -35,7 +35,7 @@ app.post('/dojo', async (req, res) => {
     if (typeof client_id !== 'string' || !client_id || client_id.length > 64) return res.status(400).json({ err: 'client_id' });
     if (typeof name !== 'string' || name.length > 24) return res.status(400).json({ err: 'name' });
     const far = +b.far, high = +b.high, streak = b.streak, peak_bpm = b.peak_bpm, kills = b.kills, runtime = +b.runtime;
-    if (!Number.isFinite(far)  || far  < 0 || far  > 42) return res.status(400).json({ err: 'far' });    // ARC ballistic max ~38m (projSpeed^2/projGravity=36 + downhill shots + eye->hitpoint vs muzzle) + ~4m margin; railgun (unbounded hit-scan) removed
+    if (!Number.isFinite(far)  || far  < 0 || far  > 50) return res.status(400).json({ err: 'far' });    // tempo-scaled projSpeed (projSpeedFast) lets a fast bullet reach the room corners → cap at the room diagonal ~46.3m + margin
     if (!Number.isFinite(high) || high < 0 || high > 30) return res.status(400).json({ err: 'high' });   // room cap ~25.5m (ROOM_BY) + margin
     if (!Number.isInteger(streak)   || streak   < 0 || streak   > 5000) return res.status(400).json({ err: 'streak' });
     if (!Number.isInteger(peak_bpm) || peak_bpm < 0 || peak_bpm > 180)  return res.status(400).json({ err: 'bpm' });   // engine max 172 + margin

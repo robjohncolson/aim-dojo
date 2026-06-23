@@ -489,7 +489,7 @@ const CFG = {
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
-  projectile:true, projArc:true, projSpeed:24, projGravity:16.0, projRadius:0.30, projLife:2.6,   // lofted so the parabola is visible. raise projSpeed / lower projGravity to flatten (keep projSpeed^2/projGravity >= ~30 so far targets stay reachable)
+  projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:2.6,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob.
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
@@ -1425,9 +1425,10 @@ function animateArcPulse(){                                                     
   const setP=(ring,ph)=>{ const r=0.5+ph*2.6; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*(0.5+0.3*dayAmt); ring.visible=true; };   // bigger pulse rings, brighter by day
   const ph=(state.t % period)/period; setP(arcPulseA, ph); setP(arcPulseB, (ph+0.5)%1);
 }
+function projSpeedNow(){ return lerp(CFG.projSpeed, CFG.projSpeedFast, diffT()); }   // muzzle speed scales with tempo/skill (diffT) so the bullet's flight time — and thus the lead a fast orb demands — stays manageable at high BPM. Used by computeShotPlan (→ bullet+ribbon+lock) and the ideal-arc readout, so all stay consistent.
 function computeShotPlan(M, V){                                                              // shared by the dashed arc, the REAL projectile, and the lock: launch from the bottom-right muzzle, solved to land where the eye→crosshair parabola lands. Fills M (muzzle) + V (launch velocity), sets _arcI (impact) + _planLanded, returns flight time T.
   camera.getWorldDirection(_arcDir);
-  _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(CFG.projSpeed);
+  _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(projSpeedNow());
   const step=1/30, g=CFG.projGravity; let n=0; _planLanded=false;
   for(; n<ARC_MAX; n++){ _arcVel.x+=windX*step; _arcVel.y-=g*step; _arcVel.z+=windZ*step; _arcPos.addScaledVector(_arcVel,step);   // wind drifts the eye→crosshair landing point too (so wind is FELT — the player aims upwind)
     if(_arcPos.y<=0.04 || n*step>=CFG.projLife){ _planLanded=_arcPos.y<=0.04; n++; break; } }
@@ -1575,8 +1576,8 @@ function updateScope(dt){
   // HUD readouts
   const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(Tt.y-P.y)/slant)))*RAD2DEG, lead=tg.vel.length()*flight;
   // PER-TARGET IDEAL LOB (firing-computer depth): lead-iterate the intercept point, then closed-form solve the lofted
-  // launch ANGLE at the FIXED projSpeed (high arc) → required loft + apex height + reachability. Read-only; no rng (daily stays deterministic).
-  const _ig=CFG.projGravity, _is=CFG.projSpeed; let _it=slant/_is, _reach=false, _loft=0, _apex=0;
+  // launch ANGLE at projSpeedNow() (tempo-scaled) → required loft + apex height + reachability. Read-only; no rng.
+  const _ig=CFG.projGravity, _is=projSpeedNow(); let _it=slant/_is, _reach=false, _loft=0, _apex=0;
   for(let k=0;k<4;k++){ const qx=Tt.x+tg.vel.x*_it, qy=Tt.y+tg.vel.y*_it, qz=Tt.z+tg.vel.z*_it;   // Q = where the orb will be at intercept
     const ix=Math.max(0.01, Math.hypot(qx-_scM.x, qz-_scM.z)), iy=qy-_scM.y;                       // ground range + height from the muzzle to Q
     const disc=_is*_is*_is*_is - _ig*(_ig*ix*ix + 2*iy*_is*_is);                                   // projectile-range discriminant; <0 → unreachable at this launch speed
