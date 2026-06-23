@@ -22,21 +22,34 @@ freeze the contraction (`if(!reduceMotion)` pins `frac=0` → static ring radii)
 but KEEP rings/target-ring/legend rendering (freeze, don't hide — the [[reduced-motion-hides-aim-assists]] lesson);
 (2) **DPR** — backing store = `HUD_CSS(560)*HUD_DPR(min(DEVICE_DPR,2))`, `hudCtx.setTransform(HUD_DPR…)` each frame,
 all draw math in CSS px → crisp on HiDPI; (3) **daytime legibility** — dark backing halo under every ring + target
-ring, base-alpha bumped (0.45→0.6), `+0.3*dayAmt` contrast boost over the bright sky. **NEXT: the user playtests
-the live ring HUD and reports** — does the contraction read as a clear "strike NOW" timing cue? colors/legibility OK
-in day & night? still feel too busy / not the way they hoped? If rejected, the journey continues (don't re-propose a
-dead visual below). The combo/freeze MECHANIC is settled & untouched — only the visual is in question.
+ring, base-alpha bumped (0.45→0.6), `+0.3*dayAmt` contrast boost over the bright sky.
 
-### The WASD-rhythm MECHANIC (stable across all the visual rewrites — keep this; only the VISUAL keeps changing)
+**THEN playtest #2 → TWO changes (LIVE `8bc6d95`):** (i) **MECHANIC changed from binary to GRADED damping** (user:
+"to the degree the user is accurate, the motion of the target is dampened") — see the updated MECHANIC section below;
+(ii) **HUD cut to ONE ring** (`LOOK 3→1`; the single current-note ring sweeps the full radius, opacity=`frac^1.6`,
+invisible far → full at the crosshair; keeps the strike ring + fixed current-key letter). **NEXT: the user playtests
+the graded damping + single ring.** Does timing-to-freeze feel good? Is `wasdDampEdge:0.5` (the barely-in-time move
+fraction) right, or should a clean hit freeze harder / a sloppy-but-in-window hit move more? Is one ring enough, or
+does it need a touch of lookahead back? Day/night legibility still OK?
+
+### The WASD-rhythm MECHANIC (GRADED damping as of `8bc6d95` — the binary freeze is GONE)
 Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **single looping combo** of WASD keys
-(`_combo`, length `CFG.wasdComboLen:8`, regenerated each run in `resetSession`; `_comboStep++` each snap). Each beat
-has ONE required key = `_combo[_comboStep % len]`. At each strobe snap, `_snapHeld = (that key pressed within the
-tempo-scaled window `max(CFG.wasdWindow:0.18, _snapInterval*CFG.wasdWindowFrac:0.5)`)`; if held → the WHOLE field
-holds that beat (every orb skips its jump: `if(doSnap && !_snapHeld){…}` in the strobe loop); else all jump.
+(`_combo`, length `CFG.wasdComboLen:8`, random keys regenerated each run in `resetSession`; `_comboStep++` each snap).
+Each beat has ONE required key = `_combo[_comboStep % len]`. At each strobe snap, `delta=state.t-_wasdPress[rk]`;
+`_snapHeld=(delta<=w)` where `w=max(CFG.wasdWindow:0.18, _snapInterval*CFG.wasdWindowFrac:0.5)`.
+**NEW — accuracy-scaled motion damping (replaced the old all-or-nothing freeze):** the WHOLE field's strobe step is
+multiplied by `_snapMoveMul`: **miss → 1** (full move); **held → `CFG.wasdDampEdge(0.5) * clamp(delta/w)`** so a
+**dead-on tap (delta→0) → 0 (frozen)** and a **barely-in-time tap (delta→w) → 0.5 (half move)**. Applied in the
+strobe loop (`if(doSnap){ const mul=_snapMoveMul; … bj=brownianStep*mul … ms=moveStep*mul … }`) — BOTH the brownian
+jitter and the displacement scale by mul, so a clean streak also calms the velocity (the field truly settles, not just
+holds one beat). `_snapHeld` still drives the HUD strike-ring green/red flash (`_lastSnapHit`). WASD-off / hunt keep
+`mul=1` (identical to before). **Free-play only (the daily is gone), so input-driven motion has NO determinism issue.**
 **Anti-cheat the user explicitly wanted: only the ONE required key counts — mashing all of WASD does nothing** (this
 killed the earlier per-orb design). Keydown stamps `_wasdPress[k]=state.t` (e.code KeyW/A/S/D; `e.repeat` ignored so
-you can't hold to cheese). Assistive — ignore it and orbs jump as always. Tunables: `wasdRhythm`(on/off),
-`wasdWindow`, `wasdWindowFrac`, `wasdComboLen`. `WASD_GLYPH=['W','A','S','D']`, key index 0/1/2/3.
+you can't hold to cheese). Assistive — ignore it and orbs move as always. Tunables: `wasdRhythm`(on/off),
+`wasdWindow`, `wasdWindowFrac`, `wasdComboLen`, **`wasdDampEdge:0.5`** (barely-in-time move fraction; lower = a sloppy
+in-window hit still nearly freezes; 0 = any in-window hit freezes; 1 = only a perfect tap freezes).
+`WASD_GLYPH=['W','A','S','D']`, key index 0/1/2/3.
 
 ### The VISUAL journey (why each was rejected — the user is picky here; don't re-propose a dead one)
 per-orb floating letters (spam-cheesable) → bigger + bottom timing bar (timing didn't register: window was
@@ -44,7 +57,8 @@ before-snap-only + too tight → FIXED with the tempo-scaled window) → **singl
 scrolling note-lane overlay → **3D in-scene note-highway** that follows your yaw (user: "distracting") → **cardinal
 floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn't go the way I'd hoped") →
 **[`4931041`] osu contracting color rings (4 rings + corner legend; user: shifting rings "turned yellow", distracting)** →
-**[LIVE `b0e642a`] 3-note depth-approach rings (opacity ∝ closeness) + fixed current-key letter** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
+**[`b0e642a`] 3-note depth-approach rings (opacity ∝ closeness) + fixed current-key letter** →
+**[LIVE `8bc6d95`] ONE ring + fixed current-key letter, paired with GRADED accuracy damping** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
 overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
 target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
 DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
