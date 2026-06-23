@@ -78,14 +78,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .tgtKey{position:fixed;left:0;top:0;font:bold 17px var(--mono);color:#cfe;background:rgba(10,14,12,.72);border:1px solid var(--panel-edge);border-radius:4px;padding:1px 7px;text-shadow:0 0 3px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-260%);white-space:nowrap;display:none}   /* WASD-rhythm: the orb's required key (green when just held) */
 .tgtKey.on{display:block}
 .tgtKey.held{color:#0d110f;background:var(--toxic);border-color:var(--toxic);text-shadow:none}
-/* WASD-rhythm: scrolling note-lane (canvas) + screen-half color flashes */
-.wq{position:fixed;z-index:2;pointer-events:none;opacity:0}
-.wq.flash{animation:wqflash .3s ease-out}
-@keyframes wqflash{0%{opacity:.9}100%{opacity:0}}
-#wqTop{left:0;top:0;width:100%;height:46%}
-#wqBot{left:0;bottom:0;width:100%;height:46%}
-#wqLeft{left:0;top:0;height:100%;width:38%}
-#wqRight{right:0;top:0;height:100%;width:38%}
 .tgtDist.on{display:block}
 .arcInfo{position:fixed;left:0;top:0;font:14px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 #arcLandInfo{font-size:16px}   /* distance to the end of the parabola (the landing ring) — larger per playtest */
@@ -265,7 +257,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
-<div id="wqTop" class="wq"></div><div id="wqBot" class="wq"></div><div id="wqLeft" class="wq"></div><div id="wqRight" class="wq"></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -550,7 +541,7 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
-const _wasdPress=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'], _wqEls=[null,null,null,null];   // WASD-on-rhythm: last press time (state.t) per direction W/A/S/D; _wqEls = the 4 screen-half color overlays (by key: 0=W top, 1=A left, 2=S bottom, 3=D right)
+const _wasdPress=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'];   // WASD-on-rhythm: last press time (state.t) per direction W/A/S/D
 let _combo=[0,1,2,3], _comboStep=0, _snapHeld=false, _lastSnapKey=0, _lastSnapHit=false, _laneFlashT=-999;   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
@@ -1366,7 +1357,7 @@ function fire(){
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
-document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return; _wasdPress[k]=state.t; wqFlash(k, k===_combo[_comboStep%_combo.length]); });   // WASD-on-rhythm: stamp the press time (graded at the beat) + flash the screen-half (green if it's THIS beat's required key, red if wrong). e.repeat ignored so you can't HOLD to cheese it
+document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return; _wasdPress[k]=state.t; });   // WASD-on-rhythm: stamp the press time; graded against the beat in the strobe loop (e.repeat ignored so you can't HOLD to cheese it)
 function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast(skyFrozen?'🌅 SKY FROZEN':'🌅 SKY RESUMED'); }
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
 
@@ -1532,48 +1523,41 @@ function updateTargetMarks(){                                                 //
     m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
-/* ===== WASD-rhythm: scrolling note-lane (canvas) + screen-half color flashes. Single combo stream — only THIS beat's required key counts (anti-spam); hitting it on-beat holds the WHOLE field. ===== */
-/* ===== WASD-rhythm: 3D in-scene note-highway (follows your view along the floor) + screen-half color flashes. Single combo — only THIS beat's required key counts; strike the note on the deadline → the WHOLE field holds. ===== */
-_wqEls[0]=gid('wqTop'); _wqEls[1]=gid('wqLeft'); _wqEls[2]=gid('wqBot'); _wqEls[3]=gid('wqRight');
-const _WQ_GRAD=['to bottom','to right','to top','to left'];   // each half's shade fades inward from its edge (W top, A left, S bottom, D right)
-function wqFlash(k, good){ const el=_wqEls[k]; if(!el) return; const c=good?'120,230,90':'255,90,80'; el.style.background='linear-gradient('+_WQ_GRAD[k]+', rgba('+c+',.30), transparent 72%)'; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
-const LANE_OFF=[-2.4,-0.8,0.8,2.4], LANE_DEADZ=6.5, LANE_UPB=5.0;   // local X per key (W A S D, ~1.6 apart); deadline distance in front; units between beats (note spacing)
-let wasdLaneGroup=null, _laneYaw=0; const _laneNotes=[], _LETTER_TEX=[], _laneFwd=new THREE.Vector3();
+/* ===== WASD-rhythm: CARDINAL floor cues — the world's compass IS the keys (N=W, W=A, S=S, E=D). Each beat one required key: a grid tile lights up and marches IN from that compass direction to the strike ring; strike the key as it lands. Integrated into the floor grid; world-fixed (no view-follow). ===== */
+const CARD_DIR=[[0,0,1],[-1,0,0],[0,0,-1],[1,0,0]];   // key→floor direction: W=North(+Z), A=West(-X), S=South(-Z), D=East(+X)
+const CARD_RING=5.0, CARD_UPB=3.4, CARD_CELL=2;       // strike-ring radius; units a note marches per beat; floor grid cell size (snap notes onto tiles)
+let cardGroup=null; const _cardTiles=[], _LETTER_TEX=[];
 function makeLetterTex(ch){ const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d'); x.clearRect(0,0,64,64); x.font='bold 50px monospace'; x.textAlign='center'; x.textBaseline='middle'; x.lineWidth=6; x.strokeStyle='rgba(0,0,0,.85)'; x.strokeText(ch,32,35); x.fillStyle='#eaf2ff'; x.fillText(ch,32,35); const t=new THREE.CanvasTexture(c); t.minFilter=THREE.LinearFilter; return t; }
-function ensureLaneObjs(){ if(wasdLaneGroup) return;
-  wasdLaneGroup=new THREE.Group(); wasdLaneGroup.visible=false; scene.add(wasdLaneGroup);
+function ensureCardObjs(){ if(cardGroup) return;
+  cardGroup=new THREE.Group(); cardGroup.visible=false; scene.add(cardGroup);
   for(let i=0;i<4;i++) _LETTER_TEX[i]=makeLetterTex(WASD_GLYPH[i]);
-  const far=LANE_DEADZ+LANE_UPB*4.4, gp=[]; for(let L=0;L<4;L++){ const x=LANE_OFF[L]; gp.push(x,0.02,LANE_DEADZ, x,0.02,far); }   // a guide line down each lane
-  const gg=new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gp,3));
-  const guides=new THREE.LineSegments(gg, new THREE.LineBasicMaterial({color:0x4a78b0,transparent:true,opacity:0.35})); guides.frustumCulled=false; wasdLaneGroup.add(guides);
-  const dl=new THREE.Mesh(new THREE.PlaneGeometry(LANE_OFF[3]-LANE_OFF[0]+1.6,0.6), new THREE.MeshBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.7,side:THREE.DoubleSide})); dl.rotation.x=-Math.PI/2; dl.position.set((LANE_OFF[0]+LANE_OFF[3])/2,0.03,LANE_DEADZ); dl.frustumCulled=false; wasdLaneGroup.add(dl);   // the deadline bar across the lanes
+  const seg=72, rp=[]; for(let i=0;i<=seg;i++){ const a=i/seg*Math.PI*2; rp.push(Math.cos(a)*CARD_RING,0.04,Math.sin(a)*CARD_RING); }   // strike ring on the floor around you
+  const rg=new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rp,3));
+  const ring=new THREE.Line(rg, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.5})); ring.frustumCulled=false; cardGroup.add(ring);
+  for(let k=0;k<4;k++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:_LETTER_TEX[k],transparent:true,depthTest:false,depthWrite:false})); sp.scale.set(1.3,1.3,1); sp.position.set(CARD_DIR[k][0]*CARD_RING,0.9,CARD_DIR[k][2]*CARD_RING); cardGroup.add(sp); }   // permanent compass labels at the ring (N=W, W=A, S=S, E=D)
 }
-function ensureLaneNote(i){ let n=_laneNotes[i]; if(n) return n;
-  const tile=new THREE.Mesh(new THREE.PlaneGeometry(1.5,1.5), new THREE.MeshBasicMaterial({color:0x2a4a6a,transparent:true,opacity:0.55,side:THREE.DoubleSide})); tile.rotation.x=-Math.PI/2; tile.frustumCulled=false; wasdLaneGroup.add(tile);
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:_LETTER_TEX[0],transparent:true,depthTest:false,depthWrite:false})); sp.scale.set(1.5,1.5,1); wasdLaneGroup.add(sp);
-  return _laneNotes[i]={tile,sp};
+function ensureCardTile(i){ let t=_cardTiles[i]; if(t) return t;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(CARD_CELL*0.9,CARD_CELL*0.9), new THREE.MeshBasicMaterial({color:0x3a6ea5,transparent:true,opacity:0.6,side:THREE.DoubleSide})); m.rotation.x=-Math.PI/2; m.frustumCulled=false; cardGroup.add(m);
+  return _cardTiles[i]=m;
 }
-function drawWasdLane(){   // 3D highway: notes slide along the floor toward the deadline bar; strike the key as the note reaches it. Anchored to your (smoothed) facing so it's always in front.
-  ensureLaneObjs();
+function drawWasdLane(){   // cardinal floor cues: a lit grid tile marches in from each beat's compass direction to the strike ring; strike the key as it lands.
+  ensureCardObjs();
   const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running;
-  if(!on){ if(wasdLaneGroup.visible) wasdLaneGroup.visible=false; return; }
-  wasdLaneGroup.visible=true;
-  camera.getWorldDirection(_laneFwd); _laneFwd.y=0; if(_laneFwd.lengthSq()<1e-6) _laneFwd.set(0,0,1); _laneFwd.normalize();
-  let dyaw=Math.atan2(_laneFwd.x,_laneFwd.z)-_laneYaw; while(dyaw>Math.PI)dyaw-=2*Math.PI; while(dyaw<-Math.PI)dyaw+=2*Math.PI; _laneYaw+=dyaw*0.2;   // smoothed yaw-follow: local +Z aims down your view
-  wasdLaneGroup.rotation.y=_laneYaw; wasdLaneGroup.position.set(PLAYER_POS.x,0,PLAYER_POS.z);
+  if(!on){ if(cardGroup.visible) cardGroup.visible=false; return; }
+  cardGroup.visible=true; cardGroup.position.set(PLAYER_POS.x,0,PLAYER_POS.z);
   let frac=0; try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}
-  const len=_combo.length; let ni=0;
-  for(let nn=-1;nn<=4;nn++){ const key=_combo[((_comboStep+nn)%len+len)%len], dd=nn+(1-frac), z=LANE_DEADZ+dd*LANE_UPB;
-    if(z<LANE_DEADZ-LANE_UPB*0.9 || z>LANE_DEADZ+LANE_UPB*4.6) continue;
-    const note=ensureLaneNote(ni++), x=LANE_OFF[key];
-    note.tile.position.set(x,0.05,z); note.sp.position.set(x,0.85,z); note.sp.material.map=_LETTER_TEX[key];
-    let col=0x2a4a6a, op=0.95;
+  const len=_combo.length; let ti=0;
+  for(let nn=-1;nn<=3;nn++){ const key=_combo[((_comboStep+nn)%len+len)%len], dir=CARD_DIR[key], dist=CARD_RING+(nn+(1-frac))*CARD_UPB;
+    if(dist<CARD_RING-CARD_UPB*0.9 || dist>CARD_RING+CARD_UPB*3.6) continue;
+    const wx=PLAYER_POS.x+dir[0]*dist, wz=PLAYER_POS.z+dir[2]*dist;
+    const lx=Math.round(wx/CARD_CELL)*CARD_CELL-PLAYER_POS.x, lz=Math.round(wz/CARD_CELL)*CARD_CELL-PLAYER_POS.z;   // snap onto the floor grid (local to the group at the player)
+    const tile=ensureCardTile(ti++); tile.position.set(lx,0.05,lz);
+    let col=0x3a6ea5, op=0.6;
     if(nn===0 && frac>=1-CFG.wasdWindowFrac) col=0xffc033;                                  // imminent + in the strike window → gold (hit NOW)
-    if(nn===-1){ const fa=Math.max(0,1-(state.t-_laneFlashT)/0.22); if(fa<=0){ note.tile.visible=false; note.sp.visible=false; continue; } col=_lastSnapHit?0x74e84a:0xff5a50; op=fa; }   // just-struck → green hit / red miss, fading
-    note.tile.material.color.setHex(col); note.tile.material.opacity=(nn===-1?0.55*op:0.55); note.tile.visible=true;
-    note.sp.material.opacity=op; note.sp.visible=true;
+    if(nn===-1){ const fa=Math.max(0,1-(state.t-_laneFlashT)/0.22); if(fa<=0){ tile.visible=false; continue; } col=_lastSnapHit?0x74e84a:0xff5a50; op=0.25+0.55*fa; }   // just-struck → green hit / red miss, fading
+    tile.material.color.setHex(col); tile.material.opacity=op; tile.visible=true;
   }
-  for(;ni<_laneNotes.length;ni++){ _laneNotes[ni].tile.visible=false; _laneNotes[ni].sp.visible=false; }
+  for(;ti<_cardTiles.length;ti++) _cardTiles[ti].visible=false;
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
