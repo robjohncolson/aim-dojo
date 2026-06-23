@@ -6,15 +6,20 @@ Paste-in context for resuming work on **aim-dojo** in a new session.
 The dojo pivot is DONE (see the next section). Since then, post-pivot work shipped, and we're now deep in **build-blind
 visual iteration of a NEW "WASD-on-rhythm steady-the-field" mechanic.** READ THIS FIRST.
 
-### ⚠️ UNCOMMITTED WORK IN THE WORKING TREE (decide first)
-`git status` shows **`index.html` modified but NOT committed/pushed/reviewed** — it's the **osu-style contracting
-color-ring** version of the WASD HUD (W=cyan/A=green/S=gold/D=pink rings shrink to a target ring on the crosshair;
-`#wasdHud` 560×560 centered canvas, `drawWasdLane`, `WASD_COL`). It's `node --check`-clean + symbol-swept but the
-adversarial review was INTERRUPTED and the user hasn't seen it run. **LIVE/deployed = `faee889` (the previous
-"cardinal floor" version).** Next session, FIRST decide with the user: (a) finish the loop on the canvas-ring version
-(adversarial review → push → they playtest), or (b) they want yet another visual — `git checkout -- index.html` to
-drop it and re-approach. The user has been unhappy with every visual so far (see the journey below), so DON'T assume
-(a); ask.
+### ✅ osu-ring HUD — REVIEWED, FIXED, SHIPPED & LIVE (`4931041`) — awaiting the user's playtest
+The user chose (a) "finish the ring version." Done: ran the 4-lens adversarial-review workflow (16 agents, verdict
+**fix-then-ship**, 3 confirmed issues), folded the fixes in, pushed, Pages-confirmed live. **LIVE = `4931041`** (was
+`faee889` cardinal-floor). The HUD is the **osu-style contracting color-ring** WASD cue (W=cyan/A=green/S=gold/D=pink
+rings shrink to a target ring on the crosshair; `#wasdHud` 560×560 centered canvas, `drawWasdLane`, `WASD_COL`).
+**3 review fixes applied** (all in `drawWasdLane` + its const init, ~L1529-1554): (1) **prefers-reduced-motion** —
+freeze the contraction (`if(!reduceMotion)` pins `frac=0` → static ring radii) + drop the flash decay (`fa=reduceMotion?0:…`),
+but KEEP rings/target-ring/legend rendering (freeze, don't hide — the [[reduced-motion-hides-aim-assists]] lesson);
+(2) **DPR** — backing store = `HUD_CSS(560)*HUD_DPR(min(DEVICE_DPR,2))`, `hudCtx.setTransform(HUD_DPR…)` each frame,
+all draw math in CSS px → crisp on HiDPI; (3) **daytime legibility** — dark backing halo under every ring + target
+ring, base-alpha bumped (0.45→0.6), `+0.3*dayAmt` contrast boost over the bright sky. **NEXT: the user playtests
+the live ring HUD and reports** — does the contraction read as a clear "strike NOW" timing cue? colors/legibility OK
+in day & night? still feel too busy / not the way they hoped? If rejected, the journey continues (don't re-propose a
+dead visual below). The combo/freeze MECHANIC is settled & untouched — only the visual is in question.
 
 ### The WASD-rhythm MECHANIC (stable across all the visual rewrites — keep this; only the VISUAL keeps changing)
 Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **single looping combo** of WASD keys
@@ -32,7 +37,7 @@ per-orb floating letters (spam-cheesable) → bigger + bottom timing bar (timing
 before-snap-only + too tight → FIXED with the tempo-scaled window) → **single combo** (fixed the spam) → 2D
 scrolling note-lane overlay → **3D in-scene note-highway** that follows your yaw (user: "distracting") → **cardinal
 floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn't go the way I'd hoped") →
-**[uncommitted] osu contracting color rings in the HUD** (current attempt). The screen-half color flashes (quadrant
+**[LIVE `4931041`] osu contracting color rings in the HUD** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
 overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
 target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
 DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
