@@ -75,9 +75,19 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #windHud .wh-arrow{display:inline-block;font-size:17px;line-height:1;color:#dff2ff;text-shadow:0 0 7px rgba(140,225,255,.85);will-change:transform}
 #windHud .wh-mag::before{content:'WIND '}
 .tgtDist{position:fixed;left:0;top:0;font:14px var(--mono);color:rgba(255,214,120,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
-.tgtKey{position:fixed;left:0;top:0;font:bold 13px var(--mono);color:#cfe;background:rgba(10,14,12,.72);border:1px solid var(--panel-edge);border-radius:4px;padding:0 5px;text-shadow:0 0 3px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-260%);white-space:nowrap;display:none}   /* WASD-rhythm: the orb's required key (green when just held) */
+.tgtKey{position:fixed;left:0;top:0;font:bold 17px var(--mono);color:#cfe;background:rgba(10,14,12,.72);border:1px solid var(--panel-edge);border-radius:4px;padding:1px 7px;text-shadow:0 0 3px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-260%);white-space:nowrap;display:none}   /* WASD-rhythm: the orb's required key (green when just held) */
 .tgtKey.on{display:block}
 .tgtKey.held{color:#0d110f;background:var(--toxic);border-color:var(--toxic);text-shadow:none}
+/* WASD-rhythm bottom HUD: the aimed orb's key (big) + a beat bar that fills to a green press-zone right before each beat */
+#wasdHud{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);z-index:6;pointer-events:none;display:none;flex-direction:column;align-items:center;gap:5px}
+#wasdHud.on{display:flex}
+#wasdHud .wk{font:bold 30px var(--mono);color:#cfe;letter-spacing:.1em;min-width:1.3em;text-align:center;text-shadow:0 0 8px #000,0 0 3px #000}
+#wasdHud .wk.held{color:var(--toxic);text-shadow:0 0 10px rgba(116,232,74,.6)}
+#wasdHud .wbar{position:relative;width:240px;height:9px;background:rgba(255,255,255,.10);border-radius:5px;overflow:hidden}
+#wasdHud .wbar::after{content:'';position:absolute;right:0;top:0;height:100%;width:50%;background:rgba(116,232,74,.18)}
+#wasdHud .wfill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--rail);border-radius:5px}
+#wasdHud.beat .wbar{box-shadow:0 0 0 2px rgba(116,232,74,.6)}
+#wasdHud.beat .wfill{background:var(--toxic)}
 .tgtDist.on{display:block}
 .arcInfo{position:fixed;left:0;top:0;font:14px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 #arcLandInfo{font-size:16px}   /* distance to the end of the parabola (the landing ring) — larger per playtest */
@@ -257,6 +267,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
+<div id="wasdHud" aria-hidden="true"><div class="wk">·</div><div class="wbar"><i class="wfill"></i></div></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -481,7 +492,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
-  wasdRhythm:true, wasdWindow:0.18,   // WASD-on-rhythm "steady the orb": each strobing orb shows a W/A/S/D key; tap it on the beat (within wasdWindow s) to FREEZE its jump that beat. Assistive — untyped orbs jump as normal. One tap = one beat (consumed; key-repeat ignored). wasdRhythm:false disables.
+  wasdRhythm:true, wasdWindow:0.18, wasdWindowFrac:0.5,   // WASD-on-rhythm "steady the orb": each strobing orb shows a W/A/S/D key; tap it as the beat approaches (window = max(wasdWindow s, wasdWindowFrac × the beat-step interval) → forgiving at low tempo) to FREEZE its jump that beat. Assistive — untyped orbs jump as normal. One tap = one beat (consumed; key-repeat ignored). wasdRhythm:false disables.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -540,7 +551,7 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
-let _quantIdx=-1, _quantT=0;   // beat-grid strobe: last snap index + state.t at last snap. Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
+let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
 const _wasdPress=[-999,-999,-999,-999], _heldKeys=[false,false,false,false], WASD_GLYPH=['W','A','S','D'];   // WASD-on-rhythm "steady the orb": last press time (state.t) per direction W/A/S/D, which keys landed on the current beat, and the per-orb glyphs
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
@@ -1526,6 +1537,19 @@ function updateTargetMarks(){                                                 //
     else m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
+const wasdHudEl=gid('wasdHud'), wasdKeyEl=wasdHudEl&&wasdHudEl.querySelector('.wk'), wasdFillEl=wasdHudEl&&wasdHudEl.querySelector('.wfill');
+function updateWasdHud(){   // bottom-center: the aimed orb's required key (big) + a beat bar that fills to a green press-zone right before each beat (tells you WHEN to tap)
+  if(!wasdHudEl) return;
+  const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running;
+  if(!on){ if(wasdHudEl.classList.contains('on')) wasdHudEl.classList.remove('on'); return; }
+  let frac=0; try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // phase to the next beat-step
+  const focal=scopeLockTarget();   // the orb nearest your crosshair — show ITS key big (steady the one you're about to shoot)
+  if(focal){ setText(wasdKeyEl, WASD_GLYPH[focal.reqKey]); wasdKeyEl.classList.toggle('held',(state.t-focal.heldT)<0.16); }
+  else { setText(wasdKeyEl,'·'); wasdKeyEl.classList.remove('held'); }
+  setStyle(wasdFillEl,'width',(frac*100).toFixed(0)+'%');
+  wasdHudEl.classList.toggle('beat', frac > (1-CFG.wasdWindowFrac));   // in the press zone (green right portion) → tap now
+  if(!wasdHudEl.classList.contains('on')) wasdHudEl.classList.add('on');
+}
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
 function spawnLandRing(x,z){
@@ -1856,6 +1880,7 @@ function animate(frameNow){
       if(wantStrobe && !strobe){ doSnap=false; }               // transport not ticking yet (e.g. the brief window after a resume) → HOLD, don't revert to per-frame scatter
       else if(strobe){
         const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/2 → 1/4 → 1/8 beat as skill (diffT) rises
+        _snapInterval=(60/Math.max(20,state.bpm))/spb;   // seconds between strobe steps → scales the WASD hit window
         let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}   // same audio clock as the spawn scheduler (onGrid) → in the daily, strobe steps + spawns share one timeline (seeded-fair, fps-tolerant)
         const qi=Math.floor(beats*spb);
         doSnap = qi!==_quantIdx;
@@ -1864,7 +1889,7 @@ function animate(frameNow){
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
-      if(doSnap && CFG.wasdRhythm && strobe){ const w=CFG.wasdWindow; for(let k=0;k<4;k++){ if(state.t-_wasdPress[k]<=w){ _heldKeys[k]=true; _wasdPress[k]=-999; } else _heldKeys[k]=false; } }   // WASD-rhythm: which keys landed on THIS beat (consume → one tap = one beat); orbs whose reqKey matches will HOLD instead of jumping
+      if(doSnap && CFG.wasdRhythm && strobe){ const w=Math.max(CFG.wasdWindow, _snapInterval*CFG.wasdWindowFrac); for(let k=0;k<4;k++){ if(state.t-_wasdPress[k]<=w){ _heldKeys[k]=true; _wasdPress[k]=-999; } else _heldKeys[k]=false; } }   // WASD-rhythm: tempo-scaled window (press in the last wasdWindowFrac of the beat-step) → which keys landed on THIS beat (consume → one tap = one beat); matching orbs HOLD
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
         if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
@@ -1946,6 +1971,7 @@ function animate(frameNow){
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (all modes)
+  try{ updateWasdHud(); }catch(e){}                           // WASD-rhythm bottom HUD: focal key + beat timing bar
   try{ updateLandRings(dt); }catch(e){}                       // expanding ring where a shot hits the ground
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
