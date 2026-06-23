@@ -2,7 +2,61 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
-## ▶▶ THE DOJO PIVOT — COMPLETE ✅ (shipped 2026-06-22; app is now SOLELY the dojo)
+## ▶▶▶ START HERE — SESSION 2 STATE (2026-06-23): the WASD-rhythm feature, mid-iteration
+The dojo pivot is DONE (see the next section). Since then, post-pivot work shipped, and we're now deep in **build-blind
+visual iteration of a NEW "WASD-on-rhythm steady-the-field" mechanic.** READ THIS FIRST.
+
+### ⚠️ UNCOMMITTED WORK IN THE WORKING TREE (decide first)
+`git status` shows **`index.html` modified but NOT committed/pushed/reviewed** — it's the **osu-style contracting
+color-ring** version of the WASD HUD (W=cyan/A=green/S=gold/D=pink rings shrink to a target ring on the crosshair;
+`#wasdHud` 560×560 centered canvas, `drawWasdLane`, `WASD_COL`). It's `node --check`-clean + symbol-swept but the
+adversarial review was INTERRUPTED and the user hasn't seen it run. **LIVE/deployed = `faee889` (the previous
+"cardinal floor" version).** Next session, FIRST decide with the user: (a) finish the loop on the canvas-ring version
+(adversarial review → push → they playtest), or (b) they want yet another visual — `git checkout -- index.html` to
+drop it and re-approach. The user has been unhappy with every visual so far (see the journey below), so DON'T assume
+(a); ask.
+
+### The WASD-rhythm MECHANIC (stable across all the visual rewrites — keep this; only the VISUAL keeps changing)
+Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **single looping combo** of WASD keys
+(`_combo`, length `CFG.wasdComboLen:8`, regenerated each run in `resetSession`; `_comboStep++` each snap). Each beat
+has ONE required key = `_combo[_comboStep % len]`. At each strobe snap, `_snapHeld = (that key pressed within the
+tempo-scaled window `max(CFG.wasdWindow:0.18, _snapInterval*CFG.wasdWindowFrac:0.5)`)`; if held → the WHOLE field
+holds that beat (every orb skips its jump: `if(doSnap && !_snapHeld){…}` in the strobe loop); else all jump.
+**Anti-cheat the user explicitly wanted: only the ONE required key counts — mashing all of WASD does nothing** (this
+killed the earlier per-orb design). Keydown stamps `_wasdPress[k]=state.t` (e.code KeyW/A/S/D; `e.repeat` ignored so
+you can't hold to cheese). Assistive — ignore it and orbs jump as always. Tunables: `wasdRhythm`(on/off),
+`wasdWindow`, `wasdWindowFrac`, `wasdComboLen`. `WASD_GLYPH=['W','A','S','D']`, key index 0/1/2/3.
+
+### The VISUAL journey (why each was rejected — the user is picky here; don't re-propose a dead one)
+per-orb floating letters (spam-cheesable) → bigger + bottom timing bar (timing didn't register: window was
+before-snap-only + too tight → FIXED with the tempo-scaled window) → **single combo** (fixed the spam) → 2D
+scrolling note-lane overlay → **3D in-scene note-highway** that follows your yaw (user: "distracting") → **cardinal
+floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn't go the way I'd hoped") →
+**[uncommitted] osu contracting color rings in the HUD** (current attempt). The screen-half color flashes (quadrant
+overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
+target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
+DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
+
+### Other post-pivot work SHIPPED + LIVE this session
+- `d6fd965` **Tempo-scaled projectile speed** — `projSpeedNow()=lerp(CFG.projSpeed:24, CFG.projSpeedFast:60, diffT())`
+  used in `computeShotPlan` + the ideal-arc solve, so the bullet keeps pace with faster orbs at high BPM (less lead).
+  Low tempo unchanged (=24). Tune `projSpeedFast` by ear. User liked it.
+- The **`/dojo` far cap** rode a saga: 50 → tightened to 42 (`c4e6aa4`) → reverted to **50** (`d6fd965`) because
+  tempo-scaled bullets can reach the room corners again. Server + `supabase-dojo.sql` both at 50 now.
+
+### PENDING manual ops (user's side, in Supabase) — REMIND THEM
+- **Probe-row cleanup (my mistake):** I left 5 bogus `capprobe` rows (far=45) on the dojo board while testing the
+  cap. They must run: `delete from public.aimdojo_dojo where client_id = 'capprobe';` (anon can't delete; needs the
+  SQL editor). NOT yet done as of session end. They were told to SKIP the old `far<=42` ALTER (cap is 50).
+- Optional lockdown: `drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;` (server is the writer).
+- Optional: drop the orphaned `aimdojo_daily` + `aimdojo_scores` tables (dead since the pivot).
+
+### Memory
+Saved [[reduced-motion-hides-aim-assists]] — a work/managed machine with prefers-reduced-motion silently hides the
+arc/floor-HUD/edge-tints; looks like a regression. (Fixed in `adc5b55`: functional aim assists now always render;
+only true motion is suppressed.)
+
+
 The user: *"the main thing in this app is not the daily competitions but… the dojo is so satisfying."* The pivot is
 **DONE & LIVE.** The app is now the **free-play ARC distance trainer ("the dojo")** + a **global DOJO RECORDS
 leaderboard**. The daily challenge, ghosts, and railgun are **all removed.** Build-blind loop held throughout
