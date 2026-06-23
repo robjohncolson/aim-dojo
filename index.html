@@ -78,16 +78,15 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .tgtKey{position:fixed;left:0;top:0;font:bold 17px var(--mono);color:#cfe;background:rgba(10,14,12,.72);border:1px solid var(--panel-edge);border-radius:4px;padding:1px 7px;text-shadow:0 0 3px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-260%);white-space:nowrap;display:none}   /* WASD-rhythm: the orb's required key (green when just held) */
 .tgtKey.on{display:block}
 .tgtKey.held{color:#0d110f;background:var(--toxic);border-color:var(--toxic);text-shadow:none}
-/* WASD-rhythm bottom HUD: the aimed orb's key (big) + a beat bar that fills to a green press-zone right before each beat */
-#wasdHud{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);z-index:6;pointer-events:none;display:none;flex-direction:column;align-items:center;gap:5px}
-#wasdHud.on{display:flex}
-#wasdHud .wk{font:bold 30px var(--mono);color:#cfe;letter-spacing:.1em;min-width:1.3em;text-align:center;text-shadow:0 0 8px #000,0 0 3px #000}
-#wasdHud .wk.held{color:var(--toxic);text-shadow:0 0 10px rgba(116,232,74,.6)}
-#wasdHud .wbar{position:relative;width:240px;height:9px;background:rgba(255,255,255,.10);border-radius:5px;overflow:hidden}
-#wasdHud .wbar::after{content:'';position:absolute;right:0;top:0;height:100%;width:50%;background:rgba(116,232,74,.18)}
-#wasdHud .wfill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--rail);border-radius:5px}
-#wasdHud.beat .wbar{box-shadow:0 0 0 2px rgba(116,232,74,.6)}
-#wasdHud.beat .wfill{background:var(--toxic)}
+/* WASD-rhythm: scrolling note-lane (canvas) + screen-half color flashes */
+#wasdLane{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);width:300px;height:104px;z-index:6;pointer-events:none;display:none;opacity:.92}
+.wq{position:fixed;z-index:2;pointer-events:none;opacity:0}
+.wq.flash{animation:wqflash .3s ease-out}
+@keyframes wqflash{0%{opacity:.9}100%{opacity:0}}
+#wqTop{left:0;top:0;width:100%;height:46%}
+#wqBot{left:0;bottom:0;width:100%;height:46%}
+#wqLeft{left:0;top:0;height:100%;width:38%}
+#wqRight{right:0;top:0;height:100%;width:38%}
 .tgtDist.on{display:block}
 .arcInfo{position:fixed;left:0;top:0;font:14px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 #arcLandInfo{font-size:16px}   /* distance to the end of the parabola (the landing ring) — larger per playtest */
@@ -267,7 +266,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <div id="scopeHud" class="hud" aria-hidden="true"></div>
-<div id="wasdHud" aria-hidden="true"><div class="wk">·</div><div class="wbar"><i class="wfill"></i></div></div>
+<div id="wqTop" class="wq"></div><div id="wqBot" class="wq"></div><div id="wqLeft" class="wq"></div><div id="wqRight" class="wq"></div>
+<canvas id="wasdLane" width="300" height="104" aria-hidden="true"></canvas>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -492,7 +492,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
-  wasdRhythm:true, wasdWindow:0.18, wasdWindowFrac:0.5,   // WASD-on-rhythm "steady the orb": each strobing orb shows a W/A/S/D key; tap it as the beat approaches (window = max(wasdWindow s, wasdWindowFrac × the beat-step interval) → forgiving at low tempo) to FREEZE its jump that beat. Assistive — untyped orbs jump as normal. One tap = one beat (consumed; key-repeat ignored). wasdRhythm:false disables.
+  wasdRhythm:true, wasdWindow:0.18, wasdWindowFrac:0.5, wasdComboLen:8,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -552,7 +552,8 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
-const _wasdPress=[-999,-999,-999,-999], _heldKeys=[false,false,false,false], WASD_GLYPH=['W','A','S','D'];   // WASD-on-rhythm "steady the orb": last press time (state.t) per direction W/A/S/D, which keys landed on the current beat, and the per-orb glyphs
+const _wasdPress=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'], _wqEls=[null,null,null,null];   // WASD-on-rhythm: last press time (state.t) per direction W/A/S/D; _wqEls = the 4 screen-half color overlays (by key: 0=W top, 1=A left, 2=S bottom, 3=D right)
+let _combo=[0,1,2,3], _comboStep=0, _snapHeld=false, _lastSnapKey=0, _lastSnapHit=false, _laneFlashT=-999;   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
 const FLOOR_SIZE=620;
@@ -1233,7 +1234,7 @@ function spawnTarget(opts){
   const life=opts.life!=null?opts.life:targetLife();
   const rhythm=(state.mode==='rhythm');                   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd;
-  tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0); tg.reqKey=(Math.random()*4)|0; tg.heldT=-999;   // reqKey: this orb's WASD-rhythm key (rerolled each strobe step); heldT: last beat it was tamed. gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
+  tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   if(rhythm) tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
@@ -1367,7 +1368,7 @@ function fire(){
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
-document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return; _wasdPress[k]=state.t; });   // WASD-on-rhythm: stamp the press time; the strobe loop grades it against the beat (e.repeat ignored so you can't HOLD to cheese it)
+document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return; _wasdPress[k]=state.t; wqFlash(k, k===_combo[_comboStep%_combo.length]); });   // WASD-on-rhythm: stamp the press time (graded at the beat) + flash the screen-half (green if it's THIS beat's required key, red if wrong). e.repeat ignored so you can't HOLD to cheese it
 function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast(skyFrozen?'🌅 SKY FROZEN':'🌅 SKY RESUMED'); }
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
 
@@ -1521,7 +1522,6 @@ function ensureTargetMark(i){
 }
 function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
   if(!state.running){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
-  const _wasdActive = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady;   // show the per-orb WASD key only when the strobe (and thus the freeze mechanic) is in play
   const bl=60/Math.max(20,state.bpm), beat=reduceMotion?0:Math.pow(1-(state.t%bl)/bl, 1.6);   // reduced-motion -> beat=0 -> a static ring (no pulse)
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
@@ -1531,24 +1531,36 @@ function updateTargetMarks(){                                                 //
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
-    if(_wasdActive){ const ks=projectPointScope(p);                          // WASD-rhythm: show this orb's required key AT the orb (green the beat it was just held)
-      if(ks[2]){ m.hlabel.style.setProperty('--tx',ks[0]+'px'); m.hlabel.style.setProperty('--ty',ks[1]+'px'); setText(m.hlabel, WASD_GLYPH[tg.reqKey]); m.hlabel.classList.toggle('held',(state.t-tg.heldT)<0.16); m.hlabel.classList.add('on'); }
-      else m.hlabel.classList.remove('on'); }
-    else m.hlabel.classList.remove('on'); }
+    m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
-const wasdHudEl=gid('wasdHud'), wasdKeyEl=wasdHudEl&&wasdHudEl.querySelector('.wk'), wasdFillEl=wasdHudEl&&wasdHudEl.querySelector('.wfill');
-function updateWasdHud(){   // bottom-center: the aimed orb's required key (big) + a beat bar that fills to a green press-zone right before each beat (tells you WHEN to tap)
-  if(!wasdHudEl) return;
+/* ===== WASD-rhythm: scrolling note-lane (canvas) + screen-half color flashes. Single combo stream — only THIS beat's required key counts (anti-spam); hitting it on-beat holds the WHOLE field. ===== */
+const laneCanvas=gid('wasdLane'), laneCtx=laneCanvas&&laneCanvas.getContext('2d');
+_wqEls[0]=gid('wqTop'); _wqEls[1]=gid('wqLeft'); _wqEls[2]=gid('wqBot'); _wqEls[3]=gid('wqRight');
+const _WQ_GRAD=['to bottom','to right','to top','to left'];   // each half's shade fades inward from its edge (W top, A left, S bottom, D right)
+function wqFlash(k, good){ const el=_wqEls[k]; if(!el) return; const c=good?'120,230,90':'255,90,80'; el.style.background='linear-gradient('+_WQ_GRAD[k]+', rgba('+c+',.30), transparent 72%)'; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+function drawWasdLane(){   // notes scroll right toward a hit line; press the key as the note crosses (in the green zone). The note at the line = THIS beat's required key.
+  if(!laneCtx) return;
   const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running;
-  if(!on){ if(wasdHudEl.classList.contains('on')) wasdHudEl.classList.remove('on'); return; }
-  let frac=0; try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // phase to the next beat-step
-  const focal=scopeLockTarget();   // the orb nearest your crosshair — show ITS key big (steady the one you're about to shoot)
-  if(focal){ setText(wasdKeyEl, WASD_GLYPH[focal.reqKey]); wasdKeyEl.classList.toggle('held',(state.t-focal.heldT)<0.16); }
-  else { setText(wasdKeyEl,'·'); wasdKeyEl.classList.remove('held'); }
-  setStyle(wasdFillEl,'width',(frac*100).toFixed(0)+'%');
-  wasdHudEl.classList.toggle('beat', frac > (1-CFG.wasdWindowFrac));   // in the press zone (green right portion) → tap now
-  if(!wasdHudEl.classList.contains('on')) wasdHudEl.classList.add('on');
+  if(!on){ if(laneCanvas.style.display!=='none') laneCanvas.style.display='none'; return; }
+  if(laneCanvas.style.display==='none') laneCanvas.style.display='block';
+  const W=laneCanvas.width, H=laneCanvas.height, rh=H/4, lineX=W*0.80, pxPerBeat=lineX/3.2, len=_combo.length;
+  let frac=0; try{ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]); const x=(Tone.Transport.ticks/Tone.Transport.PPQ)*spb; frac=x-Math.floor(x); }catch(e){}   // phase to the next beat (note crosses the line at frac→1)
+  laneCtx.clearRect(0,0,W,H);
+  const zoneW=Math.min(lineX, CFG.wasdWindowFrac*pxPerBeat);   // green hit zone = the press window before the line
+  laneCtx.fillStyle='rgba(116,232,74,0.12)'; laneCtx.fillRect(lineX-zoneW,0,zoneW,H);
+  laneCtx.strokeStyle='rgba(255,255,255,0.55)'; laneCtx.lineWidth=2; laneCtx.beginPath(); laneCtx.moveTo(lineX,0); laneCtx.lineTo(lineX,H); laneCtx.stroke(); laneCtx.lineWidth=1;
+  laneCtx.textBaseline='middle';
+  for(let r=0;r<4;r++){ const cy=r*rh+rh/2; laneCtx.strokeStyle='rgba(255,255,255,0.07)'; laneCtx.beginPath(); laneCtx.moveTo(0,(r+1)*rh); laneCtx.lineTo(W,(r+1)*rh); laneCtx.stroke();
+    laneCtx.fillStyle='rgba(180,200,220,0.45)'; laneCtx.textAlign='left'; laneCtx.font='bold 11px monospace'; laneCtx.fillText(WASD_GLYPH[r],3,cy); }
+  laneCtx.textAlign='center'; laneCtx.font='bold 15px monospace';
+  for(let n=-1;n<=3;n++){ const key=_combo[((_comboStep+n)%len+len)%len], dd=n+(1-frac), x=lineX-dd*pxPerBeat;
+    if(x<-14||x>W+14) continue; const cy=key*rh+rh/2; let col='rgba(120,180,255,0.9)';
+    if(n===0 && frac>=1-CFG.wasdWindowFrac) col='#ffd36b';                                                  // imminent note + in the hit zone → press NOW
+    if(n===-1){ const fa=Math.max(0,1-(state.t-_laneFlashT)/0.22); if(fa<=0) continue; col=(_lastSnapHit?'rgba(116,232,74,':'rgba(255,90,80,')+fa.toFixed(2)+')'; }   // just-passed → green hit / red miss, fading
+    laneCtx.fillStyle=col; laneCtx.fillRect(x-12,cy-rh*0.30,24,rh*0.60);
+    laneCtx.fillStyle='rgba(13,17,15,0.95)'; laneCtx.fillText(WASD_GLYPH[key],x,cy+1);
+  }
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
@@ -1889,15 +1901,13 @@ function animate(frameNow){
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
-      if(doSnap && CFG.wasdRhythm && strobe){ const w=Math.max(CFG.wasdWindow, _snapInterval*CFG.wasdWindowFrac); for(let k=0;k<4;k++){ if(state.t-_wasdPress[k]<=w){ _heldKeys[k]=true; _wasdPress[k]=-999; } else _heldKeys[k]=false; } }   // WASD-rhythm: tempo-scaled window (press in the last wasdWindowFrac of the beat-step) → which keys landed on THIS beat (consume → one tap = one beat); matching orbs HOLD
+      if(doSnap){ _snapHeld=false;                              // WASD-rhythm single combo: only THIS beat's required key counts (anti-spam). Hit it on-beat → the WHOLE field holds this beat.
+        if(CFG.wasdRhythm && strobe){ const rk=_combo[_comboStep%_combo.length], w=Math.max(CFG.wasdWindow, _snapInterval*CFG.wasdWindowFrac); _snapHeld=(state.t-_wasdPress[rk]<=w); if(_snapHeld) _wasdPress[rk]=-999; _lastSnapKey=rk; _lastSnapHit=_snapHeld; _laneFlashT=state.t; _comboStep++; } }
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
         if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
         const p=tg.mesh.position;
-        if(doSnap){                                          // strobe: step only on a beat-grid tick (continuous modes step every frame)
-          const _held = CFG.wasdRhythm && strobe && _heldKeys[tg.reqKey];   // WASD-rhythm: this orb's key was tapped on the beat → tame it
-          if(_held){ tg.heldT=state.t; }                      // frozen this beat: skip the strobe step (orb holds its position + velocity)
-          else {
+        if(doSnap && !_snapHeld){                            // strobe: step on a beat-grid tick — UNLESS the player hit this beat's combo key (then the WHOLE field holds, skip the step)
           if(brownianStep){                                  // brownian wander
             tg.vel.x+=(Math.random()*2-1)*brownianStep; tg.vel.y+=(Math.random()*2-1)*brownianStep*0.6; tg.vel.z+=(Math.random()*2-1)*brownianStep;
             tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
@@ -1911,8 +1921,6 @@ function animate(frameNow){
           }else{
             if(p.x<-ROOM_BX||p.x>ROOM_BX) tg.vel.x*=-1; if(p.z<-ROOM_BZ||p.z>ROOM_BZ) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM_BY) tg.vel.y*=-1;
           }
-          }
-          if(CFG.wasdRhythm && strobe) tg.reqKey=(Math.random()*4)|0;   // roll the next beat's required key
         }
         if(tg.snd){
           if(CFG.targetPulse && tg.snd.gateGain && _actx){ tg.gatePhase=(tg.gatePhase+_gateRate)%CFG.targetPulsePeriod; const go=tg.gatePhase<CFG.targetPulseOn; if(go!==tg.gOn){ tg.gOn=go; tg.snd.gateGain.gain.setTargetAtTime(go?1:0.0001, _actx.currentTime, go?0.005:0.06); } }   // open fast on this target's 16th, short release into its rest
@@ -1971,7 +1979,7 @@ function animate(frameNow){
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){}                       // floor indicators under targets (all modes)
-  try{ updateWasdHud(); }catch(e){}                           // WASD-rhythm bottom HUD: focal key + beat timing bar
+  try{ drawWasdLane(); }catch(e){}                            // WASD-rhythm: scrolling note-lane HUD
   try{ updateLandRings(dt); }catch(e){}                       // expanding ring where a shot hits the ground
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
@@ -2042,7 +2050,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdPress.fill(-999);
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdPress.fill(-999); _comboStep=0; _snapHeld=false; _combo=Array.from({length:CFG.wasdComboLen},()=>(Math.random()*4)|0);   // fresh WASD combo per run
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
