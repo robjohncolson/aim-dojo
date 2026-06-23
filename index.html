@@ -544,7 +544,8 @@ const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
 const _wasdPress=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'];   // WASD-on-rhythm: last press time (state.t) per direction W/A/S/D
-let _combo=[0,1,2,3], _comboStep=0, _snapHeld=false, _snapMoveMul=1, _lastSnapKey=0, _lastSnapHit=false, _laneFlashT=-999;   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
+let _combo=[0,1,2,3], _comboStep=0, _snapHeld=false, _snapMoveMul=1, _lastSnapKey=0, _lastSnapHit=false, _laneFlashT=-999;
+function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
 const FLOOR_SIZE=620;
@@ -2048,7 +2049,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdPress.fill(-999); _comboStep=0; _snapHeld=false; _combo=Array.from({length:CFG.wasdComboLen},()=>(Math.random()*4)|0);   // fresh WASD combo per run
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdPress.fill(-999); _comboStep=0; _snapHeld=false; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
