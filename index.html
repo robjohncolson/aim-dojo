@@ -544,8 +544,8 @@ const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
 const _wasdDownT=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'];   // WASD-rhythm TAP notes: timestamp each key last went down (for anticipation — a press just BEFORE the beat still counts)
-let _combo=[0,1,2,3], _noteIdx=-1, _noteKey=0, _noteStart=0, _noteW=0.3, _noteMain=true, _noteHit=false, _noteActive=false, _baseMul=1, _wasdCombo=0, _noteFlashT=-999, _noteFlashHit=false;   // WASD TAP notes: combo seq + current note index/key/beat-time/window, is-main(on-beat)/was-hit/active, _baseMul=field damping from the last main tap, _wasdCombo=bonus(off-beat) combo, tap flash
-function _wasdHit(errSec){ if(_noteHit) return; _noteHit=true; const acc=Math.max(0,Math.min(1,1-errSec/Math.max(0.03,_noteW))); _noteFlashT=state.t; _noteFlashHit=true; if(_noteMain) _baseMul=1-acc; else _wasdCombo++; }   // a clean TAP: main(on-beat) note sets the field damping (1-acc); bonus(off-beat) note stacks the steady+groove combo
+let _combo=[0,1,2,3], _noteIdx=-1, _noteKey=0, _noteStart=0, _noteW=0.3, _noteMain=true, _noteHit=false, _noteActive=false, _baseMul=1, _wasdCombo=0, _noteFlashT=-999, _noteFlashHit=false, _armIdx=-1, _spoilNote=-1, _spoilFrac=0, _tapOffMs=0, _tapShowT=-999;   // WASD TAP notes: combo seq + current note index/key/beat-time/window, is-main(on-beat)/was-hit/active, _baseMul=field damping from the last main tap, _wasdCombo=bonus(off-beat) combo, tap flash
+function _wasdHit(offSec){ if(_noteHit) return; _noteHit=true; const acc=Math.max(0,Math.min(1,1-Math.abs(offSec)/Math.max(0.03,_noteW))); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapShowT=state.t; if(_noteMain) _baseMul=1-acc; else if(acc>0) _wasdCombo++; }   // clean TAP: signed offSec (<0 AHEAD, >0 BEHIND) → acc; main sets field damping (1-acc), bonus stacks the steady+groove combo; offset shown 1s
 function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(0, _baseMul*(1-steady)); }   // orb-motion multiplier: the last MAIN tap's damping, made calmer by the bonus combo (1=orbs move, 0=frozen)
 function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
@@ -1363,8 +1363,14 @@ function fire(){
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
 document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return;
-  _wasdDownT[k]=state.t;
-  if(_noteActive && !_noteHit){ const len=_combo.length; if(k===_noteKey){ const err=state.t-_noteStart; if(err>=-0.001 && err<=_noteW){ _wasdHit(Math.max(0,err)); _wasdDownT[k]=-999; } } else if(k!==_combo[(((_noteIdx+1)%len)+len)%len]){ _noteHit=true; if(_noteMain) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; } }   // correct key in-window -> TAP hit; a wrong key (not the NEXT note's) -> spoil this note (mashing does nothing, combo resets)
+  if(!_noteActive) return;
+  const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+  let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e2){}
+  const ci=Math.floor(beats*nd)+1, ckey=_combo[((ci%len)+len)%len];
+  if(k===_noteKey){ if(!_noteHit && _spoilNote!==_noteIdx){ const off=state.t-_noteStart; if(off>=-0.001 && off<=_noteW) _wasdHit(off); } return; }   // the just-landed note's key: LATE/BEHIND hit if in-window (not if it was spoiled); ALWAYS consumed so a double/too-late tap can't spoil the NEXT note
+  if(_spoilNote===ci || _armIdx===ci) return;   // contracting note already spoiled OR armed -> ONE press per note (a 2nd press is ignored; the first commits)
+  if(k===ckey){ _armIdx=ci; _wasdDownT[k]=state.t; return; }   // FIRST correct press -> arm (graded at landing = AHEAD)
+  _spoilNote=ci; _spoilFrac=Math.max(0,Math.min(1,ci-beats*nd)); _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false;   // WRONG key -> spoil the contracting note: grey its letter + FREEZE its circle until the next beat, break the combo
 });
 // WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
 window.addEventListener('blur', ()=>{ _wasdDownT.fill(-999); });   // alt-tab: clear stale press timestamps so anticipation can't mis-fire on return
@@ -1550,24 +1556,24 @@ function drawWasdLane(){
   // ---- the inner HIT-LINE ring (tap when the shrinking circle lands here); flashes green/red on the tap ----
   hudCtx.globalAlpha=0.85; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
   hudCtx.globalAlpha=0.8; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin);
-  // ---- the shrinking circle for the IMMINENT note (skip the anim under reduced-motion) ----
-  let letterKey=_noteActive?_noteKey:_combo[0];
-  if(!reduceMotion){
-    const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+  // ---- the IMMINENT (contracting) note + whether a wrong key spoiled it ----
+  let letterKey=_noteActive?_noteKey:_combo[0], spoiled=false;
+  { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
     let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
-    const phase=beats*nd, nextIdx=Math.floor(phase)+1, tNext=Math.max(0,Math.min(1,nextIdx-phase));
-    const nextKey=_combo[((nextIdx%len)+len)%len], nextMain=((((nextIdx%nd)+nd)%nd)===0);
-    letterKey=nextKey;
-    const ra=Rin+tNext*span, a=0.35+0.65*(1-tNext), lw=nextMain?4.5:2.5;   // brighter as it nears the hit line; main=thick/bright, bonus=thin/dim
-    hudCtx.globalAlpha=a*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
-    hudCtx.globalAlpha=Math.min(1,(nextMain?1:0.55)*a*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=WASD_COL[nextKey]; ARC(ra);
-  }
-  // ---- the key to TAP as it lands, drawn just below the hit-line ring ----
+    const phase=beats*nd, nextIdx=Math.floor(phase)+1, nextKey=_combo[((nextIdx%len)+len)%len], nextMain=((((nextIdx%nd)+nd)%nd)===0);
+    letterKey=nextKey; spoiled=(nextIdx===_spoilNote);
+    if(!reduceMotion){   // shrinking circle; if spoiled, FREEZE at _spoilFrac + grey ("stops contracting until the next beat")
+      const tNext=spoiled?Math.max(0,Math.min(1,_spoilFrac)):Math.max(0,Math.min(1,nextIdx-phase)), ra=Rin+tNext*span, a=spoiled?0.45:0.35+0.65*(1-tNext), lw=nextMain?4.5:2.5;
+      hudCtx.globalAlpha=a*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
+      hudCtx.globalAlpha=Math.min(1,(nextMain?1:0.55)*a*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.8)':WASD_COL[nextKey]; ARC(ra);
+    } }
+  // ---- the key to TAP as it lands, drawn just below the hit-line ring (GREYED if a wrong key spoiled this note) ----
   hudCtx.globalAlpha=0.95; hudCtx.font='bold 26px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle';
   hudCtx.lineWidth=4; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.strokeText(WASD_GLYPH[letterKey],cx,LY);
-  hudCtx.fillStyle=WASD_COL[letterKey]; hudCtx.fillText(WASD_GLYPH[letterKey],cx,LY);
+  hudCtx.fillStyle=spoiled?'rgba(150,152,160,0.9)':WASD_COL[letterKey]; hudCtx.fillText(WASD_GLYPH[letterKey],cx,LY);
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(_wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
+  if(state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout: how far AHEAD/BEHIND the beat the tap was
   hudCtx.globalAlpha=1;
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
@@ -1915,7 +1921,7 @@ function animate(frameNow){
           if(ni!==_noteIdx){ if(_noteActive && !_noteHit){ if(_noteMain) _baseMul=1; _wasdCombo=0; }   // previous note went un-tapped -> MISS: main resets the field damping; any miss breaks the bonus combo
             const beatDur=60/Math.max(20,state.bpm), w=Math.min(beatDur/nd, Math.max(CFG.wasdWindow, (beatDur/nd)*CFG.wasdWindowFrac)), rk=_combo[((ni%len)+len)%len];
             _noteIdx=ni; _noteKey=rk; _noteStart=state.t; _noteW=w; _noteMain=((((ni%nd)+nd)%nd)===0); _noteHit=false; _noteActive=true;
-            if(_wasdDownT[rk]>=0 && (state.t-_wasdDownT[rk])<=w){ _wasdHit(state.t-_wasdDownT[rk]); _wasdDownT[rk]=-999; } }   // anticipation: correct key tapped within w BEFORE the beat -> immediate hit
+            if(_armIdx===ni && _spoilNote!==ni && _wasdDownT[rk]>=0 && (state.t-_wasdDownT[rk])<=w){ _wasdHit(-(state.t-_wasdDownT[rk])); _wasdDownT[rk]=-999; } }   // anticipation: ARMED correct key tapped within w BEFORE the beat -> hit (AHEAD by that much)
         } else { _noteActive=false; _noteIdx=-1; _baseMul=1; _wasdCombo=0; } }
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
@@ -2066,7 +2072,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdDownT.fill(-999); _noteActive=false; _noteIdx=-1; _noteHit=false; _baseMul=1; _wasdCombo=0; _noteFlashT=-999; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdDownT.fill(-999); _noteActive=false; _noteIdx=-1; _noteHit=false; _baseMul=1; _wasdCombo=0; _noteFlashT=-999; _armIdx=-1; _spoilNote=-1; _spoilFrac=0; _tapOffMs=0; _tapShowT=-999; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
