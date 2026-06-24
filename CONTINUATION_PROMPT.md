@@ -32,37 +32,50 @@ invisible far → full at the crosshair; keeps the strike ring + fixed current-k
 **THEN playtest #3 → HOLD NOTES (LIVE `fc370a7`):** user found you could hold the key and score 100% (the tap window
 gets huge at low bpm). Added note LENGTH: press on the beat + HOLD to match `_noteLen`; the strike ring became a fill
 GAUGE (grey ring fills with the key colour by hold-thickness; over-hold → red; wrong key → its colour dashed outside;
-green/red grade pulse). See the rewritten MECHANIC section. Shipped after a 17-agent review (fix-then-ship; folded in
-the anticipation cross-talk fix, the over-hold clamp, the Apply&Restart flash reset, pause/blur key hygiene).
-**NEXT: the user playtests hold notes.** Does the fill gauge read clearly as "hold this long"? Is the random length
-range (`wasdNoteMin:0.4..wasdNoteMax:0.85` of the beat) fun, or should it be fixed / a different range? Is releasing
-on time satisfying, and is `wasdLenTol:0.7` too forgiving/strict? Does the approaching ring (now the NEXT key) + gauge
-+ letter read cleanly or is it cluttered? Day/night legibility OK?
+green/red grade pulse). [superseded by the annulus redesign below.]
 
-### The WASD-rhythm MECHANIC (HOLD NOTES as of `fc370a7` — tap-grade & binary-freeze are BOTH gone)
-Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **single looping combo** of WASD keys
-(`_combo`, length `CFG.wasdComboLen:8`, regenerated each run by `makeWasdCombo()` = concatenated shuffles of [0,1,2,3]
-→ every key appears, each exactly twice at len 8, no droughts; fixes the "never saw A" bug `d037c8b`). Each beat has
-ONE required key = `_combo[_comboStep % len]`; `_comboStep++` when a note starts.
-**HOLD-NOTE model:** at each snap, a note begins for the current key with a target hold length
-`_noteLen=_snapInterval*(wasdNoteMin:0.4 .. wasdNoteMax:0.85)` (random per note). The player must PRESS the correct
-key on the beat and HOLD ~`_noteLen`, then release. State machine (`_noteKey/_noteStart/_noteLen/_noteW/_noteHoldStart/
-_noteHoldEnd/_noteWrong/_noteWrongKey/_noteActive`); input via `keydown`/`keyup` → `_wasdDown[]`/`_wasdDownT[]`
-(physical state). **Grading** (`gradeWasdNote()`, graded at the NEXT snap → one-beat pipeline): `acc = startAcc ×
-lenAcc × (wrong? wasdWrongPenalty:0.5 : 1)` where `startAcc=1-|holdStart-noteStart|/w` (w=max(wasdWindow:0.18,
-_snapInterval*wasdWindowFrac:0.5)), `lenAcc=1-|holdDur-noteLen|/(noteLen*wasdLenTol:0.7)`, and **if the key is still
-down at grade time (`_noteHoldEnd<0`) lenAcc is clamped ≤0.1** (kills "hold and forget"). The field-motion damping
-`_snapMoveMul = 1-acc` (miss/over-hold → 1 = full move; perfect → 0 = freeze). Applied in the strobe loop
-(`if(doSnap){ const mul=_snapMoveMul; … bj=brownianStep*mul … ms=moveStep*mul … }`) — both jitter and displacement
-scale by mul, so a clean streak calms the field. WASD-off / hunt keep `mul=1` (identical to before). **Free-play only
-(no daily) → input-driven motion has NO determinism issue.** Anticipation grace: pressing the NEXT combo key early is
-NOT flagged wrong (`else if(k!==_combo[_comboStep%len])`); a held key already down within `w` at the snap is credited
-as the hold-start. `window.blur` clears stuck keys; keyup hold-end gated on `state.running` (no pause mis-grade).
-**Why:** the old single-tap grade let you cheese 100% by holding (the window gets huge at low bpm); requiring a
-matched *hold length* adds the missing duration skill. `_snapHeld`/`_lastSnapKey` are now vestigial (write-only).
-Tunables: `wasdRhythm`(on/off), `wasdWindow`, `wasdWindowFrac`, `wasdComboLen`, **`wasdNoteMin/Max`** (note length
-range as a fraction of the beat), **`wasdLenTol`** (length-match forgiveness; lower=stricter), **`wasdWrongPenalty`**.
-`WASD_GLYPH=['W','A','S','D']`, `WASD_COL` (W cyan/A green/S gold/D pink), key index 0/1/2/3.
+**THEN playtest #4 → ANNULUS redesign (LIVE `ebc0e36`):** user said hold notes were too frequent (every beat) +
+unclear (the dotted wrong-key ring). Rewrote: **one note every 4 beats** (`wasdNoteBeats`); the strike ring became a
+**target ANNULUS** whose width = note length; a circle **shrinks→press@Rin→reverses→expands-to-fill** the band; **graded
+on release** (field calms immediately, holds for the rest of the gap). See the rewritten MECHANIC section. **A 13-agent
+review CAUGHT A CRITICAL SELF-INFLICTED BUG** before ship: the function-rewrite had deleted the `hudCanvas/hudCtx/WASD_COL/
+HUD_CSS/HUD_DPR` preamble → ReferenceError every frame, silently swallowed by the render try/catch (`node --check` was
+clean — runtime error). Fixed + restored, + `_snapMoveMul` reset, + one-time error logging in the render catches.
+**NEXT: the user playtests the annulus.** Is every-4-beats the right frequency (`wasdNoteBeats` — raise/lower)? Does
+shrink→press→expand-to-fill read clearly? Is the band-width-as-length intuitive? Is `wasdLenTol:0.7` right? The
+shrinking circle passing through the band region near the handoff — clean or busy? Day/night legibility OK?
+
+### The WASD-rhythm MECHANIC (ANNULUS HOLD NOTES as of `ebc0e36` — every 4 beats, shrink→press→expand-to-fill)
+Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **single looping combo** (`_combo`, len
+`CFG.wasdComboLen:8`, `makeWasdCombo()` = shuffled [0,1,2,3] bags → every key appears, no droughts; fixes "never saw A"
+`d037c8b`). **Notes fire once every `CFG.wasdNoteBeats:4` BEATS** (NOT every snap) — `_noteIdx=floor(beats/wasdNoteBeats)`
+in the snap block; a new note when `_noteIdx` changes. `_comboStep++` per note.
+**HOLD-NOTE model (annulus):** each note picks `_noteLenFrac∈[wasdNoteMin:0.25, wasdNoteMax:0.5]` (fraction of the
+4-beat gap); `_noteLen=_noteLenFrac*wasdNoteBeats*beatDur` (sec, `beatDur=60/max(20,bpm)`). VISUAL (`drawWasdLane`):
+target ANNULUS `[Rin:42 .. Rout]`, `Rout=Rin+_noteLenFrac*span` (span=maxR-Rin) — **fixed inner, outer grows out** =
+note length. A circle SHRINKS from `maxR` to `Rin` across the gap (`np`=frac of `beats/wasdNoteBeats`); PRESS as it
+lands on Rin; on press it REVERSES + EXPANDS, shading the band `Rin→fillR` (`fillR=Rin+clamp(holdDur/noteLen)*(Rout-Rin)`,
+a stroked circle of width `fillR-Rin`); HOLD until the band fills (release). Over-hold (`prog>1.08`) → red. **Approach
+speed == fill speed** by construction (both `span/gap`). The NEXT note's circle is already shrinking in. Current-key
+letter sits in the inner hole. NO wrong-key dotted ring (removed per user; wrong key still penalises score).
+**GRADING** (`gradeWasdNote()`): `acc = startAcc × lenAcc × (wrong?wasdWrongPenalty:0.5:1)`,
+`startAcc=1-|holdStart-noteStart|/w` (w=max(wasdWindow:0.18, beatDur*wasdWindowFrac:0.5)),
+`lenAcc=1-|holdDur-noteLen|/(noteLen*wasdLenTol:0.7)`. **Graded ON RELEASE** (in `keyup`) → sets `_snapMoveMul=1-acc`
+immediately, which PERSISTS for the rest of the gap; if never released, a FALLBACK grade at the next note-beat
+(`!_noteGraded`) gives holdDur≈gap → lenAcc 0 → full motion (this kills "hold & forget"; the old still-holding clamp was
+removed). Field damping applied in the strobe loop (`const mul=_snapMoveMul; bj=brownianStep*mul; ms=moveStep*mul`) —
+persists between notes (NOT reset each snap). WASD-off / hunt keep `mul=1`. **Free-play only → no determinism issue.**
+State: `_noteKey/_noteStart/_noteLen/_noteLenFrac/_noteW/_noteHoldStart/_noteHoldEnd/_noteWrong/_noteWrongKey/_noteActive/
+_noteIdx/_noteGraded`; input `_wasdDown[]`/`_wasdDownT[]`. Anticipation grace: pressing the NEXT combo key early is not
+flagged wrong; a held key within `w` at the note-beat is credited. `window.blur` clears stuck keys; keyup gated on
+`state.running`. **resetSession MUST reset `_snapMoveMul=1`** (else a clean final hold leaks mul=0 → frozen field next run
+— review-caught). **CRITICAL gotcha (review-caught, `ebc0e36`):** the const preamble `hudCanvas/hudCtx/WASD_COL/HUD_CSS/
+HUD_DPR` lives RIGHT BEFORE `function drawWasdLane` — a Python wholesale-replace of the function deleted it → ReferenceError
+every frame, **silently swallowed by the `try{drawWasdLane()}catch(e){}`** (now logs once via `drawWasdLane._e`). When
+rewriting drawWasdLane, KEEP that preamble. `_snapHeld/_lastSnapKey/_snapInterval` are vestigial write-only.
+Tunables: **`wasdNoteBeats:4`** (beats/note — raise=sparser, lower=denser), **`wasdNoteMin/Max:0.25/0.5`** (note length
+as a fraction of the gap → band width), **`wasdLenTol:0.7`** (length forgiveness), **`wasdWrongPenalty:0.5`**, `wasdWindow`,
+`wasdWindowFrac`, `wasdComboLen`. `WASD_GLYPH`, `WASD_COL` (W cyan/A green/S gold/D pink).
 
 ### The VISUAL journey (why each was rejected — the user is picky here; don't re-propose a dead one)
 per-orb floating letters (spam-cheesable) → bigger + bottom timing bar (timing didn't register: window was
@@ -72,7 +85,8 @@ floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn'
 **[`4931041`] osu contracting color rings (4 rings + corner legend; user: shifting rings "turned yellow", distracting)** →
 **[`b0e642a`] 3-note depth-approach rings (opacity ∝ closeness) + fixed current-key letter** →
 **[`8bc6d95`] ONE ring + fixed current-key letter + GRADED accuracy damping** →
-**[LIVE `fc370a7`] HOLD NOTES: strike ring = fill gauge, hold to match note length; approaching ring previews the next key** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
+**[`fc370a7`] HOLD NOTES: strike ring = fill gauge, hold to match note length** →
+**[LIVE `ebc0e36`] ANNULUS hold notes: 1 note / 4 beats; shrink→press→expand-to-fill a band whose width = note length; graded on release** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
 overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
 target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
 DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
