@@ -483,7 +483,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
-  wasdRhythm:true, wasdWindow:0.18, wasdWindowFrac:0.5, wasdComboLen:8, wasdDampEdge:0.5,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
+  wasdRhythm:true, wasdWindow:0.18, wasdWindowFrac:0.5, wasdComboLen:8, wasdNoteMin:0.4, wasdNoteMax:0.85, wasdLenTol:0.7, wasdWrongPenalty:0.5,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -543,8 +543,10 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
-const _wasdPress=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'];   // WASD-on-rhythm: last press time (state.t) per direction W/A/S/D
+const _wasdDown=[false,false,false,false], _wasdDownT=[-999,-999,-999,-999], WASD_GLYPH=['W','A','S','D'];   // WASD-on-rhythm hold notes: physical key-down state + when each key went down (for hold-length grading)
 let _combo=[0,1,2,3], _comboStep=0, _snapHeld=false, _snapMoveMul=1, _lastSnapKey=0, _lastSnapHit=false, _laneFlashT=-999;
+let _noteKey=0, _noteStart=0, _noteLen=0.5, _noteW=0.3, _noteHoldStart=-1, _noteHoldEnd=-1, _noteWrong=false, _noteWrongKey=-1, _noteActive=false;   // WASD hold-note: required key, start time, target hold length, start window, when the hold began/ended (-1=none), wrong-key flag + which key, active flag
+function gradeWasdNote(){ if(!_noteActive || _noteHoldStart<0) return 0; const end=_noteHoldEnd>=0?_noteHoldEnd:state.t, holdDur=Math.max(0,end-_noteHoldStart), startErr=Math.abs(_noteHoldStart-_noteStart), lenErr=Math.abs(holdDur-_noteLen); const startAcc=Math.max(0,1-startErr/Math.max(0.05,_noteW)); let lenAcc=Math.max(0,1-lenErr/Math.max(0.05,_noteLen*CFG.wasdLenTol)); if(_noteHoldEnd<0) lenAcc=Math.min(lenAcc,0.1); let acc=startAcc*lenAcc; if(_noteWrong) acc*=CFG.wasdWrongPenalty; return Math.max(0,Math.min(1,acc)); }   // hold-note accuracy: press-on-time (startAcc) × hold-length-match (lenAcc) × wrong-key penalty → drives _snapMoveMul = 1-acc
 function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
@@ -1360,7 +1362,12 @@ function fire(){
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
-document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return; _wasdPress[k]=state.t; });   // WASD-on-rhythm: stamp the press time; graded against the beat in the strobe loop (e.repeat ignored so you can't HOLD to cheese it)
+document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return;
+  _wasdDown[k]=true; _wasdDownT[k]=state.t;
+  if(_noteActive){ if(k===_noteKey){ if(_noteHoldStart<0) _noteHoldStart=state.t; } else if(k!==_combo[_comboStep%_combo.length]){ _noteWrong=true; _noteWrongKey=k; } }   // correct key begins the hold; a WRONG key penalises — but NOT pressing the NEXT note's key early (anticipation; the approaching ring invites it, and it's credited at the next snap)
+});
+document.addEventListener('keyup', e=>{ const k=_WASD_CODE[e.code]; if(k===undefined) return; _wasdDown[k]=false; if(state.running && _noteActive && k===_noteKey && _noteHoldStart>=0 && _noteHoldEnd<0) _noteHoldEnd=state.t; });   // release ends the hold (gated on running so a release while PAUSED can't lock the hold-end at frozen time)
+window.addEventListener('blur', ()=>{ _wasdDown.fill(false); _wasdDownT.fill(-999); });   // alt-tab: the keyup goes to the other window → clear stuck physical-key state
 function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast(skyFrozen?'🌅 SKY FROZEN':'🌅 SKY RESUMED'); }
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
 
@@ -1526,7 +1533,7 @@ function updateTargetMarks(){                                                 //
     m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
-/* ===== WASD-rhythm: the current note's single ring APPROACHES FROM DEPTH toward the crosshair (osu-style). Each key = a color; a ring emerges near-invisible far out and brightens as it shrinks to the strike ring at the crosshair (opacity ∝ closeness) — strike that key as it lands. A fixed current-key letter under the strike ring (brightens to the beat) tells you which key NOW, so you never have to track a shifting ring's color. Single combo (only THIS beat's key counts). ===== */
+/* ===== WASD-rhythm HOLD NOTES: the NEXT note's ring approaches from depth and lands on the strike ring (when to press). The strike ring is a HOLD GAUGE: press the current key (shown as a letter below) on the beat and HOLD — the grey ring fills with the key's colour (thickness ∝ hold time); a hold ≈ the note's length fills it exactly. Release on a full ring = best. Over-hold → red; wrong key → its colour dashed outside. Accuracy (press-timing × hold-length-match × wrong-key penalty) drives the field-motion damping (1-acc). ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'];   // key→color: W cyan, A green, S gold, D pink
 const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the 2D ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px
@@ -1542,18 +1549,22 @@ function drawWasdLane(){
   hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H);   // dpr-scale: draw in CSS px, render at backing-store resolution
   for(let nn=LOOK-1; nn>=0; nn--){ const key=_combo[(_comboStep+nn)%len], r=targetR+(nn+(1-frac))*ppb;   // notes approach from depth (far→crosshair), draw farthest first
     if(r>maxR+6 || r<targetR-2) continue;
-    const depth=Math.max(0,Math.min(1,(maxR-r)/span)), a=Math.pow(depth,1.6);   // depth: 0 far (near-invisible) → 1 at the crosshair; power curve keeps the distance faint
+    const depth=Math.max(0,Math.min(1,(maxR-r)/span)), edge=Math.max(0,Math.min(1,(r-(targetR+14))/16)), a=Math.pow(depth,1.6)*edge;   // edge: fade the ring to 0 as it reaches the gauge so it "arrives into" it (no overlap muddying). depth: 0 far (near-invisible) → 1 at the crosshair; power curve keeps the distance faint
     if(a<0.02) continue;
     const aDay=Math.min(1,a*(1+0.5*dayAmt)), lw=(nn===0?3:2)+3*depth;
     hudCtx.globalAlpha=a*0.6; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();   // depth-faded dark halo (legible over the bright day sky)
     hudCtx.globalAlpha=aDay; hudCtx.lineWidth=lw; hudCtx.strokeStyle=WASD_COL[key]; hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,PI2); hudCtx.stroke();
   }
   hudCtx.globalAlpha=1;
-  let trCol='rgba(255,255,255,0.55)', trW=3; const fa=reduceMotion?0:1-(state.t-_laneFlashT)/0.22;   // strike ring at the crosshair: flashes green/red the beat a note lands (reduced-motion: no flash decay)
-  if(fa>0){ trCol = (_lastSnapHit?'rgba(116,232,74,':'rgba(255,90,80,')+fa.toFixed(2)+')'; trW=3+6*fa; }
-  hudCtx.globalAlpha=0.7; hudCtx.lineWidth=trW+3; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();   // dark backing for daytime legibility
-  hudCtx.globalAlpha=1; hudCtx.lineWidth=trW; hudCtx.strokeStyle=trCol; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();
-  const ck=_combo[_comboStep%len], la=reduceMotion?0.9:0.35+0.65*frac, ly=cy+targetR+22;   // current-key letter (fixed spot, no tracking): brightens toward the beat
+  // ---- hold gauge: the grey strike ring FILLS with the key colour as you HOLD; a hold ≈ the note length fills it exactly (over-hold → red; wrong key → its colour, dashed, outside) ----
+  const GW=12, fa=reduceMotion?0:1-(state.t-_laneFlashT)/0.22;
+  hudCtx.lineWidth=GW+4; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();   // dark backing
+  hudCtx.lineWidth=GW; hudCtx.strokeStyle='rgba(220,226,238,0.45)'; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke();   // grey "track" to fill
+  if(_noteActive && _noteHoldStart>=0 && _noteLen>0){ const hend=_noteHoldEnd>=0?_noteHoldEnd:state.t, fill=(hend-_noteHoldStart)/_noteLen, tF=Math.max(0,Math.min(1,fill))*GW;
+    if(tF>0.5){ hudCtx.lineWidth=tF; hudCtx.strokeStyle = fill>1.08?'#ff5a50':WASD_COL[_noteKey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR,0,PI2); hudCtx.stroke(); } }   // colour fill ∝ hold/noteLen; ==GW (covers grey) at a perfect hold; red if held too long
+  if(_noteWrong && _noteWrongKey>=0){ hudCtx.globalAlpha=0.8; hudCtx.lineWidth=4; hudCtx.strokeStyle=WASD_COL[_noteWrongKey]; hudCtx.setLineDash([7,7]); hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR+GW*0.5+13,0,PI2); hudCtx.stroke(); hudCtx.setLineDash([]); hudCtx.globalAlpha=1; }   // wrong-key press → its colour, dashed, outside the gauge
+  if(fa>0){ hudCtx.globalAlpha=fa; hudCtx.lineWidth=2+5*fa; hudCtx.strokeStyle=_lastSnapHit?'#74e84a':'#ff5a50'; hudCtx.beginPath(); hudCtx.arc(cx,cy,targetR+GW*0.5+6,0,PI2); hudCtx.stroke(); hudCtx.globalAlpha=1; }   // grade pulse: green good / red poor
+  const ck=_noteActive?_noteKey:_combo[_comboStep%len], la=1, ly=cy+targetR+30;   // current-key letter (the key to HOLD now) at a fixed spot under the gauge
   hudCtx.globalAlpha=la; hudCtx.font='bold 26px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle';
   hudCtx.lineWidth=4; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.strokeText(WASD_GLYPH[ck],cx,ly);
   hudCtx.fillStyle=WASD_COL[ck]; hudCtx.fillText(WASD_GLYPH[ck],cx,ly);
@@ -1899,7 +1910,9 @@ function animate(frameNow){
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
       if(doSnap){ _snapHeld=false; _snapMoveMul=1;                       // WASD-rhythm single combo: only THIS beat's required key counts (anti-spam). The better your timing, the more the WHOLE field's motion is dampened this step.
-        if(CFG.wasdRhythm && strobe){ const rk=_combo[_comboStep%_combo.length], w=Math.max(CFG.wasdWindow, _snapInterval*CFG.wasdWindowFrac), delta=state.t-_wasdPress[rk]; _snapHeld=(delta<=w); if(_snapHeld){ _snapMoveMul=CFG.wasdDampEdge*Math.max(0,Math.min(1,delta/w)); _wasdPress[rk]=-999; } else _snapMoveMul=1; _lastSnapKey=rk; _lastSnapHit=_snapHeld; _laneFlashT=state.t; _comboStep++; } }   // accuracy-scaled damping: dead-on tap (delta→0) → mul 0 (field freezes); barely in time (delta→w) → mul wasdDampEdge; miss → mul 1 (full move)
+        if(CFG.wasdRhythm && strobe){ const acc=gradeWasdNote(); if(_noteActive){ _snapMoveMul=1-acc; _lastSnapKey=_noteKey; _lastSnapHit=acc>0.15; _laneFlashT=state.t; }   // grade the hold-note that just ended → this step's damping = 1-accuracy
+          const rk=_combo[_comboStep%_combo.length], w=Math.max(CFG.wasdWindow, _snapInterval*CFG.wasdWindowFrac); _noteKey=rk; _noteStart=state.t; _noteW=w; _noteLen=_snapInterval*(CFG.wasdNoteMin+Math.random()*(CFG.wasdNoteMax-CFG.wasdNoteMin)); _noteHoldStart=(_wasdDown[rk] && (state.t-_wasdDownT[rk])<=w)?_wasdDownT[rk]:-1; _noteHoldEnd=-1; _noteWrong=false; _noteWrongKey=-1; _noteActive=true; _comboStep++;   // start the new hold-note (random length within the beat); credit an anticipatory hold already down within the start window
+        } else _noteActive=false; }   // WASD off / hunt: no active hold-note → mul stays 1 (full movement)
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
         if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
@@ -2049,7 +2062,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdPress.fill(-999); _comboStep=0; _snapHeld=false; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _wasdDown.fill(false); _wasdDownT.fill(-999); _comboStep=0; _snapHeld=false; _noteActive=false; _noteHoldStart=-1; _noteHoldEnd=-1; _noteWrong=false; _laneFlashT=-999; _lastSnapHit=false; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
