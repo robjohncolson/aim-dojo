@@ -65,45 +65,26 @@ per note (lock); (2) a correct tap shows a 1s **AHEAD/BEHIND/PERFECT ms readout*
 letter + freezes the circle** until the next beat. All shipped (see MECHANIC §"REFINEMENTS"). Reviewed (11 agents,
 fix-then-ship): fixed a stray/late press of the just-landed key spoiling the NEXT note, and a spoiled note being hittable
 late; deliberately KEPT the one-press lock (didn't apply the reviewer's "2nd press re-anchors" — conflicts with the rule).
-**NEXT: the user playtests the readout + lock + grey/freeze.** Does the AHEAD/BEHIND ms readout help dial timing? Does the
-wrong-key grey+freeze read clearly? Is the ±25ms PERFECT band right? Still snappy? quarter→8th→16th ramp good?
+**THEN playtest #8 → CONVERGE-BLOOM round model (LIVE `e0e15f3`):** user asked: instead of the circle perpetually
+closing then snapping to the next note (no room to be late; a wrong key near the beat "doesn't let me know, just goes
+next"), make it **converge to center at the beat, then expand back + fade** = a late window. Re-architected to the ROUND
+model (one in-focus note `ci=round(beats*nd)`; converge→bloom; grade-on-press; AHEAD/BEHIND). The bloom keeps a spoiled
+note on-screen long enough to read (fixes the wrong-key feedback). Caught+fixed a CRITICAL dangling `_wasdDownT.fill()`
+in resetSession (runtime ReferenceError, node --check clean); review (8 agents)→SHIP, all low/nit (folded in: clear stale
+`_spoilNote`, gate draw on Transport started, reset `_curMain`). See the rewritten MECHANIC section. **NEXT: the user
+playtests the converge-bloom.** Does the late window feel good (room to be BEHIND)? Does a wrong key near the beat now
+clearly grey+freeze? Is the converge speed + bloom right? AHEAD/BEHIND/PERFECT readout still good?
 
-### The WASD-rhythm MECHANIC (TAP notes; one-press lock + AHEAD/BEHIND readout + wrong-key grey/freeze as of `13efef4`)
+### The WASD-rhythm MECHANIC (ROUND model: circle CONVERGES to center at the beat then BLOOMS+fades, as of `e0e15f3`)
 Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **looping combo** (`_combo`, len `CFG.wasdComboLen:8`,
 `makeWasdCombo()` = shuffled [0,1,2,3] bags → every key appears; fixes "never saw A" `d037c8b`).
-**NOTE GRID — at HALF the orb-jump rate, so it ramps with skill:** the orbs subdivide `spb∈[2,4,8]` by `diffT`
-(`beatQuantDivs/beatQuantT`); WASD notes use `nd=max(1,spb/2)` = **1/2/4 notes per beat = quarter → +8th → +16th**.
-`_noteIdx=floor(beats*nd)` in the snap block; new note when it changes. `_noteMain=(ni%nd===0)` → **MAIN = on a whole
-beat; BONUS = the in-between 8th/16th**. Required key = `_combo[ni%len]` (absolute index, no separate counter).
-**TAP (no hold):** press the correct key as the shrinking circle LANDS on the inner hit-line ring. Grade-on-press
-(keydown, err=`state.t-_noteStart`, hit if `err∈[-0.001,_noteW]`) + anticipation (at the note-beat, if the key was
-pressed within `w` just before → immediate hit; consume `_wasdDownT[rk]=-999`). A note un-tapped by the next note-beat =
-MISS. `_wasdHit(errSec)`: `acc=1-errSec/_noteW`; **MAIN hit → `_baseMul=1-acc`** (the field damping); **BONUS hit →
-`_wasdCombo++`**. MISS: if main `_baseMul=1`; **any miss resets `_wasdCombo=0`**. Wrong key (not `_combo[ni+1]`, the next,
-which is allowed for anticipation) → **spoils the note** (mashing does nothing). Tap window `w=min(beatDur/nd,
-max(wasdWindow:0.16, (beatDur/nd)*wasdWindowFrac:0.4))` (clamped to the note interval at high tempo).
-**REFINEMENTS (`13efef4`):** `_wasdHit(offSec)` now takes a SIGNED offset (acc=1-|offSec|/w): **AHEAD** (negative, the
-anticipation path — pressed before the beat) vs **BEHIND** (positive, the keydown late path — `k===_noteKey` after its
-beat). **ONE PRESS PER NOTE:** `_armIdx` locks the contracting note after its first correct press (a 2nd press is
-ignored — no top-line `_wasdDownT` re-anchor); `_spoilNote` locks a spoiled one. A press of the just-landed key
-(`k===_noteKey`) is ALWAYS consumed (returns) so a double/too-late tap can't spoil the NEXT note; the late-hit is gated
-`_spoilNote!==_noteIdx` (a spoiled note has no late recovery). **WRONG KEY → `_spoilNote=ci`** (the contracting note):
-the draw greys its center letter + FREEZES its circle at `_spoilFrac` until the next beat, and `_wasdCombo=0`; the note
-becomes a MISS at landing. **TIMING READOUT (draw):** for 1s after a tap, `PERFECT` (|`_tapOffMs`|≤25) / `AHEAD Nms` /
-`BEHIND Nms` shows above the ring (green/gold/orange by magnitude), fading. State: `_armIdx/_spoilNote/_spoilFrac/
-_tapOffMs/_tapShowT` (all reset in resetSession).
-**DAMPING — `wasdMul()` every frame:** `if(!wasdRhythm) 1; else max(0, _baseMul*(1-min(wasdComboCap:0.8,
-_wasdCombo*wasdComboGain:0.14)))`. So the field is as steady as your last MAIN tap, **calmed further by the bonus combo**.
-Used in the strobe step: `const mul=wasdMul(); bj=brownianStep*mul; ms=moveStep*mul`. WASD-off/hunt → snap else-branch
-resets `_baseMul=1,_wasdCombo=0` → mul 1.
-**BONUS combo also lifts the GROOVE** (`onGrid` ~L1081): `gt += min(wasdGrooveMax:1.2, _wasdCombo*wasdGrooveGain:0.18)`
-(clamped ≤3) → music intensifies as you nail off-beats.
-**VISUAL (`drawWasdLane`):** inner hit-line ring (`Rin:46`, flashes green/red via `_noteFlashHit/_noteFlashT` 0.18s); the
-IMMINENT note's circle shrinks `maxR→Rin` (`nextIdx=floor(phase)+1, ra=Rin+tNext*span`), **main=thick/bright, bonus=
-thin/dim**; the key LETTER (the one to tap, drawn below the ring); green **combo pips** (dark-backed) ringing the hit-line.
-reduceMotion: skip the shrink anim, show `_noteKey` letter, no flash. **Free-play only → no determinism issue.**
-State: `_noteIdx/_noteKey/_noteStart/_noteW/_noteMain/_noteHit/_noteActive/_baseMul/_wasdCombo/_noteFlashT/_noteFlashHit`,
-`_wasdDownT[]` (press timestamps; `_wasdDown` boolean was removed — TAP-only). `_snapInterval` is vestigial write-only.
+**NOTE GRID — at HALF the orb-jump rate, ramps with skill:** orbs subdivide `spb∈[2,4,8]` by `diffT` (`beatQuantDivs/beatQuantT`); WASD notes use `nd=max(1,spb/2)` = **1/2/4 notes per beat = quarter → +8th → +16th**. **MAIN = whole beat** (`ci%nd===0`), **BONUS = the in-between 8th/16th**. Key = `_combo[ci%len]`.
+**ROUND MODEL (the in-focus note):** `ci=round(beats*nd)` = the NEAREST beat. ONE circle CONVERGES to the center ring (`Rin:46`) at the beat, then BLOOMS back out + fades — a real LATE window. `offSec=(beats-ci/nd)*(60/bpm)` is SIGNED: **<0 AHEAD** (before the beat / circle still outside Rin), **~0 PERFECT**, **>0 BEHIND** (after / circle blooming out). This REPLACED the old floor/anticipation/arm model — all that state (`_noteIdx/_noteKey/_noteStart/_noteW/_noteMain/_noteHit/_noteActive/_armIdx/_wasdDownT/_spoilFrac/_wasdHit`) is GONE.
+**GRADE ON PRESS (keydown):** `ci=round(beats*nd)`; `if(ci===_resolvedIdx) return` (**ONE press per note** — first commits, 2nd ignored); `w=min(full*0.5, max(wasdWindow:0.16, full*wasdWindowFrac:0.4))` (`full=(60/bpm)/nd`, capped at the half-interval); `if(|offSec|>w) return` (stray, no lock). Else `_resolvedIdx=ci`; correct → `_wasdResolve(offSec,main,w)` (`acc=1-|offSec|/w`; MAIN→`_baseMul=1-acc`, BONUS→`_wasdCombo++`; stores `_tapOffMs/_tapShowT`); **WRONG → `_spoilNote=ci`** (+`_spoilOff`): greys the letter + FREEZES the circle (visible through the bloom window — this is what makes a wrong tap near the beat actually register), `_baseMul=1` if main, `_wasdCombo=0`.
+**MISS** (snap, per subdivision): `ci=round(nb*nd)`; when it changes, if the retiring `_curCi` was unresolved (`_resolvedIdx!==_curCi`) → MISS (main→`_baseMul=1`, combo=0); on advance clear `_spoilNote` if it was that note. WASD-off/hunt → `_curCi=-1; _baseMul=1; _wasdCombo=0`.
+**DAMPING — `wasdMul()` every frame:** `if(!wasdRhythm) 1; else max(0, _baseMul*(1-min(wasdComboCap:0.8, _wasdCombo*wasdComboGain:0.14)))` → the field is as steady as your last MAIN tap, calmed further by the bonus combo. Strobe step: `const mul=wasdMul(); bj=brownianStep*mul; ms=moveStep*mul`.
+**BONUS combo also lifts the GROOVE** (`onGrid`): `gt += min(wasdGrooveMax:1.2, _wasdCombo*wasdGrooveGain:0.18)` (≤3) → music intensifies.
+**VISUAL (`drawWasdLane`):** hit-line ring at `Rin:46` (green/red tap flash); the in-focus circle converges (`off≤0`: `ra=Rin+(-off/half)*span`, `half=0.5/nd`) then blooms+fades (`off>0`: `ra=Rin+(off/half)*span*0.55`, alpha→0); **main=thick/bright, bonus=thin/dim**; spoiled→grey+frozen at `_spoilOff`; key LETTER below; green **combo pips**; a 1s **AHEAD/BEHIND/PERFECT ms readout** above the ring. Draw gated on `Tone.Transport.state==='started'` (no resume ghost). reduceMotion: no anim, letter only. **Free-play only → no determinism.** State: `_curCi/_curMain/_resolvedIdx/_baseMul/_wasdCombo/_noteFlashT/_noteFlashHit/_spoilNote/_spoilOff/_tapOffMs/_tapShowT`. **KNOWN (deferred, rare/self-correcting):** a same-frame straddle at very high tempo can retro-miss a clean hit (single `_resolvedIdx`; durable fix = track resolution in a per-note set). `_snapInterval` is vestigial write-only.
 **CRITICAL gotcha (bit us `ebc0e36`):** the const preamble `hudCanvas/hudCtx/WASD_COL/HUD_CSS/HUD_DPR` lives RIGHT BEFORE
 `function drawWasdLane`. A wholesale function-replace must START AT `function drawWasdLane` (NOT the header comment) so the
 preamble survives — else ReferenceError every frame, **silently swallowed** by `try{drawWasdLane()}catch(e){…once via
@@ -124,7 +105,8 @@ floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn'
 **[`ebc0e36`] ANNULUS hold notes (1/4 beats, shrink→press→expand-to-fill, graded on release; user: too slow, press felt backwards, disconnected from orbs)** →
 **[`9b57799`] SINGLE-FOCUS + LIVE ORB-FREEZE (hold a caught note to freeze the orbs; user: still lethargic, toss the hold)** →
 **[`96f9824`] TAP notes (no hold): shrink→TAP-on-landing→accuracy damps the field; quarter→8th→16th; bonus off-beats stack a combo (calmer field + louder groove)** →
-**[LIVE `13efef4`] + one-press lock, 1s AHEAD/BEHIND/PERFECT ms readout, wrong-key greys the letter & freezes the circle** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
+**[`13efef4`] + one-press lock, AHEAD/BEHIND/PERFECT readout, wrong-key grey/freeze** →
+**[LIVE `e0e15f3`] CONVERGE-BLOOM round model: circle converges to center at the beat then expands back & fades (a real LATE window); wrong-key near the beat now reads** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
 overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
 target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
 DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
