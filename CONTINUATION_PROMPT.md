@@ -2,78 +2,46 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
-## ▶▶▶ START HERE — SESSION 2 STATE (2026-06-23): the WASD-rhythm feature, mid-iteration
-The dojo pivot is DONE (see the next section). Since then, post-pivot work shipped, and we're now deep in **build-blind
-visual iteration of a NEW "WASD-on-rhythm steady-the-field" mechanic.** READ THIS FIRST.
+## ▶▶▶ START HERE — END OF SESSION (2026-06-24): WASD-rhythm at the converge-bloom round model
+The dojo pivot is DONE (see far below). The last two sessions were a long **build-blind iteration of the
+"WASD-on-rhythm steady-the-field" feature** — ~8 playtest round-trips. **Everything is committed, pushed, and LIVE;
+working tree clean. No uncommitted work.** Live site: https://robjohncolson.github.io/aim-dojo/
 
-### ✅ osu-ring HUD — SHIPPED & LIVE (`b0e642a`, 3-note depth redesign) — awaiting the user's playtest
-The user chose (a) "finish the ring version." `4931041` shipped the first osu-ring HUD (after a 16-agent fix-then-ship
-review). **Playtest #1 feedback:** the 4 packed rings re-shuffled each beat — tracking a ring by POSITION, its key
-changes when the combo advances ("the green ring turned yellow"), and it was distracting. **`b0e642a` redesign (now
-LIVE):** (1) only the **nearest 3 notes**; (2) they **approach from depth** — opacity ∝ closeness (`depth=(maxR-r)/span`,
-`a=depth^1.6`): near-invisible far out, max at the crosshair, so the far churn stops competing for attention; (3)
-**dropped the static 4-corner legend**, replaced with the **CURRENT key as one letter** at a fixed spot under the strike
-ring (`cy+targetR+22`) that brightens to the beat (`la=0.35+0.65*frac`) → read which-key-now directly, no ring-tracking.
-The HUD is `#wasdHud` 560×560 centered canvas, `drawWasdLane`, `WASD_COL=['#43d9ff'(W)|'#74e84a'(A)|'#ffd36b'(S)|'#ff5a7a'(D)]`,
-`WASD_GLYPH`, `LOOK=3`. **NO desync verified:** drawWasdLane's `frac` and the snap's `_comboStep++` both derive from
-`Tone.Transport.ticks/PPQ × spb` in the same frame → the drawn current ring/letter always matches the graded key.
-**3 review fixes applied** (all in `drawWasdLane` + its const init, ~L1529-1554): (1) **prefers-reduced-motion** —
-freeze the contraction (`if(!reduceMotion)` pins `frac=0` → static ring radii) + drop the flash decay (`fa=reduceMotion?0:…`),
-but KEEP rings/target-ring/legend rendering (freeze, don't hide — the [[reduced-motion-hides-aim-assists]] lesson);
-(2) **DPR** — backing store = `HUD_CSS(560)*HUD_DPR(min(DEVICE_DPR,2))`, `hudCtx.setTransform(HUD_DPR…)` each frame,
-all draw math in CSS px → crisp on HiDPI; (3) **daytime legibility** — dark backing halo under every ring + target
-ring, base-alpha bumped (0.45→0.6), `+0.3*dayAmt` contrast boost over the bright sky.
+### ✅ CURRENT STATE (LIVE = `e0e15f3`) — awaiting the user's next playtest
+**What the WASD feature is (free-play rhythm mode):** a rhythm-game overlay that steadies the orb field so you can aim.
+ONE circle CONVERGES to a center "hit-line" ring at each beat, then BLOOMS back out + fades (a late window); TAP the shown
+key as it lands — timing accuracy (AHEAD / PERFECT / BEHIND, shown 1s in ms) sets how much the orbs' motion is dampened.
+Notes ramp **quarter → 8th → 16th** with skill (rides the targets' `diffT`); off-beat **BONUS** notes stack a combo that
+calms the field further + lifts the groove. **One press per note; a wrong key greys the letter + freezes the circle.**
+Full as-built detail: the **MECHANIC section just below**. The user calls the dojo "genuinely fun," but the WASD
+visual/feel was heavily iterated — **read the journey before changing the visual; the user is picky and several
+approaches are dead (don't re-propose them).**
 
-**THEN playtest #2 → TWO changes (LIVE `8bc6d95`):** (i) **MECHANIC changed from binary to GRADED damping** (user:
-"to the degree the user is accurate, the motion of the target is dampened") — see the updated MECHANIC section below;
-(ii) **HUD cut to ONE ring** (`LOOK 3→1`; the single current-note ring sweeps the full radius, opacity=`frac^1.6`,
-invisible far → full at the crosshair; keeps the strike ring + fixed current-key letter).
+**Deferred (low, self-correcting):** at very high tempo a same-frame double-tap can retro-miss one clean note (single
+`_resolvedIdx`; durable fix = a per-note resolution set). Rare; flagged in the MECHANIC section.
 
-**THEN playtest #3 → HOLD NOTES (LIVE `fc370a7`):** user found you could hold the key and score 100% (the tap window
-gets huge at low bpm). Added note LENGTH: press on the beat + HOLD to match `_noteLen`; the strike ring became a fill
-GAUGE (grey ring fills with the key colour by hold-thickness; over-hold → red; wrong key → its colour dashed outside;
-green/red grade pulse). [superseded by the annulus redesign below.]
+**Supabase capprobe cleanup: ✅ DONE** — the user ran `delete from public.aimdojo_dojo where client_id='capprobe';`
+this session. Optional leftover ops (none blocking): drop the orphaned `aimdojo_daily` + `aimdojo_scores` tables; lock the
+dojo insert policy (`drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;`).
 
-**THEN playtest #4 → ANNULUS redesign (LIVE `ebc0e36`):** user said hold notes were too frequent (every beat) +
-unclear (the dotted wrong-key ring). Rewrote: **one note every 4 beats** (`wasdNoteBeats`); the strike ring became a
-**target ANNULUS** whose width = note length; a circle **shrinks→press@Rin→reverses→expands-to-fill** the band; **graded
-on release** (field calms immediately, holds for the rest of the gap). See the rewritten MECHANIC section. **A 13-agent
-review CAUGHT A CRITICAL SELF-INFLICTED BUG** before ship: the function-rewrite had deleted the `hudCanvas/hudCtx/WASD_COL/
-HUD_CSS/HUD_DPR` preamble → ReferenceError every frame, silently swallowed by the render try/catch (`node --check` was
-clean — runtime error). Fixed + restored, + `_snapMoveMul` reset, + one-time error logging in the render catches.
-**THEN playtest #5 → SINGLE-FOCUS + LIVE-FREEZE (LIVE `9b57799`):** annulus feedback was (1) too slow → `wasdNoteBeats`
-4→2; (2) **press timing felt "backwards"** — the shrinking circle was the NEXT note, but the note you pressed had its
-window a beat earlier with no circle at center (root cause: the press window didn't coincide with a circle landing); (3)
-**didn't feel connected to the orbs**. User chose "single-focus + tie to orb jumps." Rewrote: ONE circle per note (shrink →
-press as it LANDS at Rin → expand-to-fill → release) so "press when it hits center" is literally correct; and the orb
-damping became **LIVE** (`wasdMul()`, every frame) — holding a cleanly-caught note FREEZES the orbs, release/mash/off-beat →
-they move. Grading/`gradeWasdNote`/persisted `_snapMoveMul` all removed. See the rewritten MECHANIC section. Shipped after a
-7-agent review (fix-then-ship: fixed a reduced-motion double-letter overlap; preamble re-verified).
-
-**THEN playtest #6 → TAP NOTES (LIVE `96f9824`):** user: "sure I like the new style but it still feels lethargic… let's
-toss the hold-note part." Also a bug: pressing early re-showed the previous note's frozen band. **Tossed the hold.** New
-**TAP** model (kept the shrinking circle, dropped the band/fill): tap as the circle lands → accuracy sets the field
-damping; **notes ride at HALF the orb-jump rate → quarter→+8th→+16th with skill** (like the targets); **bonus = the
-in-between 8th/16th notes** → hitting them stacks a combo that **calms the field further + intensifies the groove** (user's
-pick), any miss resets it, a wrong key spoils (mashing dead). See the rewritten MECHANIC section. Shipped after a 9-agent
-review → **SHIP** (preamble did NOT regress); folded in: consume `_wasdDownT` on a keydown hit (no 16th-tempo double-grade),
-clamp the window to the note interval at high tempo, dropped the dead `_wasdDown` array, dark-backed the combo pips, fixed
-comments.
-
-**THEN playtest #7 → TAP REFINEMENTS (LIVE `13efef4`):** user confirmed "good, it's better" + asked for: (1) ONE press
-per note (lock); (2) a correct tap shows a 1s **AHEAD/BEHIND/PERFECT ms readout**; (3) a wrong key **greys the center
-letter + freezes the circle** until the next beat. All shipped (see MECHANIC §"REFINEMENTS"). Reviewed (11 agents,
-fix-then-ship): fixed a stray/late press of the just-landed key spoiling the NEXT note, and a spoiled note being hittable
-late; deliberately KEPT the one-press lock (didn't apply the reviewer's "2nd press re-anchors" — conflicts with the rule).
-**THEN playtest #8 → CONVERGE-BLOOM round model (LIVE `e0e15f3`):** user asked: instead of the circle perpetually
-closing then snapping to the next note (no room to be late; a wrong key near the beat "doesn't let me know, just goes
-next"), make it **converge to center at the beat, then expand back + fade** = a late window. Re-architected to the ROUND
-model (one in-focus note `ci=round(beats*nd)`; converge→bloom; grade-on-press; AHEAD/BEHIND). The bloom keeps a spoiled
-note on-screen long enough to read (fixes the wrong-key feedback). Caught+fixed a CRITICAL dangling `_wasdDownT.fill()`
-in resetSession (runtime ReferenceError, node --check clean); review (8 agents)→SHIP, all low/nit (folded in: clear stale
-`_spoilNote`, gate draw on Transport started, reset `_curMain`). See the rewritten MECHANIC section. **NEXT: the user
-playtests the converge-bloom.** Does the late window feel good (room to be BEHIND)? Does a wrong key near the beat now
-clearly grey+freeze? Is the converge speed + bloom right? AHEAD/BEHIND/PERFECT readout still good?
+### The WASD visual+mechanic JOURNEY (why each was reworked — the user is picky; do NOT re-propose a dead one)
+Each step shipped build-blind (node --check + dangling-ref greps + a multi-agent adversarial review). In order:
+1. **osu contracting COLOR-RINGS** (4 rings + corner legend) — rings re-shuffled each beat ("the green ring turned
+   yellow"), distracting.
+2. **3-note depth-approach** (opacity ∝ closeness) + fixed current-key letter — cleaner, but still busy.
+3. **ONE ring + GRADED damping** (binary freeze removed; accuracy scales motion).
+4. **HOLD notes** (press+hold to fill a gauge to the note length) — killed the "hold = 100%" exploit, but felt lethargic.
+5. **ANNULUS hold notes** (1 note / 4 beats; shrink→press→expand-to-fill; graded on release) — "too slow, press felt
+   backwards, disconnected from the orbs."
+6. **SINGLE-FOCUS + LIVE FREEZE** (hold a caught note to freeze the orbs live) — "still lethargic; toss the hold."
+7. **TAP notes** (no hold; tap-on-landing → accuracy damps the field; quarter→8th→16th; bonus combo = calmer + louder
+   groove) — the keeper direction.
+8. **+ one-press lock + AHEAD/BEHIND/PERFECT ms readout + wrong-key grey/freeze**, then **[LIVE] the CONVERGE-BLOOM round
+   model** (circle converges to center then blooms+fades = a real late window; a wrong key near the beat now reads).
+**Dead-ends — do NOT resurrect:** the multi-ring color highway; the hold/fill-gauge mechanic (lethargic); grading on
+release; the "annulus expand-to-fill"; the binary freeze. Also from earlier: per-orb floating letters (spam-cheesable),
+2D/3D note-highways, cardinal floor tiles, screen-edge quadrant flashes (see far below). The combo/freeze/damping CONCEPT
+survived; only the presentation churned.
 
 ### The WASD-rhythm MECHANIC (ROUND model: circle CONVERGES to center at the beat then BLOOMS+fades, as of `e0e15f3`)
 Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **looping combo** (`_combo`, len `CFG.wasdComboLen:8`,
@@ -118,12 +86,11 @@ DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (tr
 - The **`/dojo` far cap** rode a saga: 50 → tightened to 42 (`c4e6aa4`) → reverted to **50** (`d6fd965`) because
   tempo-scaled bullets can reach the room corners again. Server + `supabase-dojo.sql` both at 50 now.
 
-### PENDING manual ops (user's side, in Supabase) — REMIND THEM
-- **Probe-row cleanup (my mistake):** I left 5 bogus `capprobe` rows (far=45) on the dojo board while testing the
-  cap. They must run: `delete from public.aimdojo_dojo where client_id = 'capprobe';` (anon can't delete; needs the
-  SQL editor). NOT yet done as of session end. They were told to SKIP the old `far<=42` ALTER (cap is 50).
-- Optional lockdown: `drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;` (server is the writer).
-- Optional: drop the orphaned `aimdojo_daily` + `aimdojo_scores` tables (dead since the pivot).
+### Supabase manual ops (user's side)
+- **Probe-row cleanup: ✅ DONE (2026-06-24)** — the user ran `delete from public.aimdojo_dojo where client_id = 'capprobe';`
+  (the 5 bogus far=45 rows I left while testing the cap). Cap stays **50** (skipped the old `far<=42` ALTER).
+- Optional, still open (none blocking): lockdown `drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;` (server is
+  the sole writer); drop the orphaned `aimdojo_daily` + `aimdojo_scores` tables (dead since the pivot).
 
 ### Memory
 Saved [[reduced-motion-hides-aim-assists]] — a work/managed machine with prefers-reduced-motion silently hides the
