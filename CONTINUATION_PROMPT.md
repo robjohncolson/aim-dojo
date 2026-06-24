@@ -58,10 +58,17 @@ in-between 8th/16th notes** → hitting them stacks a combo that **calms the fie
 pick), any miss resets it, a wrong key spoils (mashing dead). See the rewritten MECHANIC section. Shipped after a 9-agent
 review → **SHIP** (preamble did NOT regress); folded in: consume `_wasdDownT` on a keydown hit (no 16th-tempo double-grade),
 clamp the window to the note interval at high tempo, dropped the dead `_wasdDown` array, dark-backed the combo pips, fixed
-comments. **NEXT: the user playtests TAP.** Does it feel snappy (not lethargic)? Does quarter→8th→16th ramp well? Is the
-bonus combo (calmer field + louder groove) satisfying — and do the green combo pips read? Is `wasdComboGain/Cap` right?
+comments.
 
-### The WASD-rhythm MECHANIC (TAP notes as of `96f9824` — hold is GONE; accuracy→damping, live)
+**THEN playtest #7 → TAP REFINEMENTS (LIVE `13efef4`):** user confirmed "good, it's better" + asked for: (1) ONE press
+per note (lock); (2) a correct tap shows a 1s **AHEAD/BEHIND/PERFECT ms readout**; (3) a wrong key **greys the center
+letter + freezes the circle** until the next beat. All shipped (see MECHANIC §"REFINEMENTS"). Reviewed (11 agents,
+fix-then-ship): fixed a stray/late press of the just-landed key spoiling the NEXT note, and a spoiled note being hittable
+late; deliberately KEPT the one-press lock (didn't apply the reviewer's "2nd press re-anchors" — conflicts with the rule).
+**NEXT: the user playtests the readout + lock + grey/freeze.** Does the AHEAD/BEHIND ms readout help dial timing? Does the
+wrong-key grey+freeze read clearly? Is the ±25ms PERFECT band right? Still snappy? quarter→8th→16th ramp good?
+
+### The WASD-rhythm MECHANIC (TAP notes; one-press lock + AHEAD/BEHIND readout + wrong-key grey/freeze as of `13efef4`)
 Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **looping combo** (`_combo`, len `CFG.wasdComboLen:8`,
 `makeWasdCombo()` = shuffled [0,1,2,3] bags → every key appears; fixes "never saw A" `d037c8b`).
 **NOTE GRID — at HALF the orb-jump rate, so it ramps with skill:** the orbs subdivide `spb∈[2,4,8]` by `diffT`
@@ -75,6 +82,16 @@ MISS. `_wasdHit(errSec)`: `acc=1-errSec/_noteW`; **MAIN hit → `_baseMul=1-acc`
 `_wasdCombo++`**. MISS: if main `_baseMul=1`; **any miss resets `_wasdCombo=0`**. Wrong key (not `_combo[ni+1]`, the next,
 which is allowed for anticipation) → **spoils the note** (mashing does nothing). Tap window `w=min(beatDur/nd,
 max(wasdWindow:0.16, (beatDur/nd)*wasdWindowFrac:0.4))` (clamped to the note interval at high tempo).
+**REFINEMENTS (`13efef4`):** `_wasdHit(offSec)` now takes a SIGNED offset (acc=1-|offSec|/w): **AHEAD** (negative, the
+anticipation path — pressed before the beat) vs **BEHIND** (positive, the keydown late path — `k===_noteKey` after its
+beat). **ONE PRESS PER NOTE:** `_armIdx` locks the contracting note after its first correct press (a 2nd press is
+ignored — no top-line `_wasdDownT` re-anchor); `_spoilNote` locks a spoiled one. A press of the just-landed key
+(`k===_noteKey`) is ALWAYS consumed (returns) so a double/too-late tap can't spoil the NEXT note; the late-hit is gated
+`_spoilNote!==_noteIdx` (a spoiled note has no late recovery). **WRONG KEY → `_spoilNote=ci`** (the contracting note):
+the draw greys its center letter + FREEZES its circle at `_spoilFrac` until the next beat, and `_wasdCombo=0`; the note
+becomes a MISS at landing. **TIMING READOUT (draw):** for 1s after a tap, `PERFECT` (|`_tapOffMs`|≤25) / `AHEAD Nms` /
+`BEHIND Nms` shows above the ring (green/gold/orange by magnitude), fading. State: `_armIdx/_spoilNote/_spoilFrac/
+_tapOffMs/_tapShowT` (all reset in resetSession).
 **DAMPING — `wasdMul()` every frame:** `if(!wasdRhythm) 1; else max(0, _baseMul*(1-min(wasdComboCap:0.8,
 _wasdCombo*wasdComboGain:0.14)))`. So the field is as steady as your last MAIN tap, **calmed further by the bonus combo**.
 Used in the strobe step: `const mul=wasdMul(); bj=brownianStep*mul; ms=moveStep*mul`. WASD-off/hunt → snap else-branch
@@ -106,7 +123,8 @@ floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn'
 **[`fc370a7`] HOLD NOTES: strike ring = fill gauge, hold to match note length** →
 **[`ebc0e36`] ANNULUS hold notes (1/4 beats, shrink→press→expand-to-fill, graded on release; user: too slow, press felt backwards, disconnected from orbs)** →
 **[`9b57799`] SINGLE-FOCUS + LIVE ORB-FREEZE (hold a caught note to freeze the orbs; user: still lethargic, toss the hold)** →
-**[LIVE `96f9824`] TAP notes (no hold): shrink→TAP-on-landing→accuracy damps the field; quarter→8th→16th with skill; bonus off-beat notes stack a combo (calmer field + louder groove)** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
+**[`96f9824`] TAP notes (no hold): shrink→TAP-on-landing→accuracy damps the field; quarter→8th→16th; bonus off-beats stack a combo (calmer field + louder groove)** →
+**[LIVE `13efef4`] + one-press lock, 1s AHEAD/BEHIND/PERFECT ms readout, wrong-key greys the letter & freezes the circle** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
 overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
 target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
 DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
