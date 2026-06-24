@@ -495,7 +495,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
-  wasdRhythm:true, wasdLetter:true, wasdHud:true, floorBeat:true, floorBeatMax:0.3, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
+  wasdRhythm:true, wasdLetter:true, wasdHud:true, floorBeat:true, floorBeatMax:0.3, floorBeatDayMul:2.5, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -608,7 +608,7 @@ function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper
     sh.fragmentShader='uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes; uniform vec3 uBeatCol; uniform float uBeatAmt; varying float vMirD;\n'+sh.fragmentShader.replace(
       '#include <dithering_fragment>',
       '#include <dithering_fragment>\n'+
-      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, uBeatCol, uBeatAmt*dot(gl_FragColor.rgb, vec3(0.299,0.587,0.114)));\n'+
+      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, gl_FragColor.rgb*uBeatCol, uBeatAmt);\n'+   // multiplicative beat-tint: bright tiles take the key hue (dark tiles stay dark) -> visible in daylight, not pastel
       ' vec3 reflCol=texture2D(uRefl, gl_FragCoord.xy/uRes).rgb;\n'+
       ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, smoothstep(uMirN,uMirF,vMirD));');
     dayFloor.material.userData.sh=sh;
@@ -1619,7 +1619,7 @@ function updateFloorBeat(){
     amt=CFG.floorBeatMax*env*env; _floorBeatCol.setHex(WASD_HEX[ckey]);
   }
   const fsh=dayFloor&&dayFloor.material.userData.sh;
-  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=amt*dayAmt; fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight
+  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=amt*dayAmt*CFG.floorBeatDayMul; fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted: bright tiles + bright daylight wash out a soft tint)
   const gsh=nightGrid&&nightGrid.material.userData.shBeat;
   if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
 }
