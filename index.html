@@ -49,7 +49,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .liveRet::after{content:attr(data-name);position:absolute;left:50%;top:114%;transform:translateX(-50%);font:10px var(--mono);color:rgba(116,232,74,.8);white-space:nowrap;text-shadow:0 0 4px rgba(0,0,0,.85)}
 #presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
 #presence.on{display:block}
-#wasdHud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:560px;height:560px;z-index:4;pointer-events:none;display:none}   /* WASD-rhythm: osu-style contracting color rings, centered on the crosshair */
+#wasdHud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:300px;height:300px;z-index:4;pointer-events:none;display:none}   /* WASD-rhythm: osu-style contracting color rings, centered on the crosshair (shrunk to a toggleable training-wheel; the floor beat-tint is the primary cue) */
 #scopeHud{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);font:11px var(--mono);color:var(--bone-dim);letter-spacing:.06em;line-height:1.6;display:none}
 #scopeHud.on{display:block}
 #scopeHud b{color:var(--rail);font-weight:400}
@@ -384,6 +384,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       </div>
 
       <div class="row">
+        <label>WASD center cue</label>
+        <div class="seg" id="wasdHudSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
+        <span class="out"></span>
+      </div>
+
+      <div class="row">
         <label>Trajectory arc</label>
         <div class="seg" id="arcSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
         <span class="out"></span>
@@ -489,7 +495,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
-  wasdRhythm:true, wasdLetter:true, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
+  wasdRhythm:true, wasdLetter:true, wasdHud:true, floorBeat:true, floorBeatMax:0.3, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -578,6 +584,16 @@ function setDayFloorTex(){
   if(dayFloor.material.map!==tex){ dayFloor.material.map=tex; dayFloor.material.needsUpdate=true; reflResDirty=true; }   // null->tex (first dawn) recompiles the floor shader & resets uRes to (2,2) — re-mark dirty so syncReflUniformSize re-syncs it (else the sky reflection smears)
 }
 let nightGrid=null, dayFloor=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight
+function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper (re-applied whenever setNightGrid recreates the helper)
+  grid.material.onBeforeCompile=(sh)=>{
+    sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};
+    sh.fragmentShader='uniform vec3 uBeatCol; uniform float uBeatAmt;\n'+sh.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      '#include <dithering_fragment>\n gl_FragColor.rgb=mix(gl_FragColor.rgb, uBeatCol, uBeatAmt);');
+    grid.material.userData.shBeat=sh;
+  };
+  grid.material.needsUpdate=true;
+}
 (function buildArena(){
   const FLOOR=FLOOR_SIZE;                                     // floor stretches well past the fog → reads as a horizon
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14}));
@@ -587,16 +603,18 @@ let nightGrid=null, dayFloor=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), 
   dayFloor.material.onBeforeCompile=(sh)=>{                  // far floor shows the TRUE planar reflection of the sky (sun disc included → omega sunset); also dissolves the checker so no moiré
     sh.uniforms.uMirN={value:18}; sh.uniforms.uMirF={value:140};
     sh.uniforms.uRefl={value:reflRT.texture}; sh.uniforms.uRes={value:new THREE.Vector2(2,2)};
+    sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};   // WASD floor beat-tint (luminance-weighted so the light tiles take the colour)
     sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
-    sh.fragmentShader='uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes; varying float vMirD;\n'+sh.fragmentShader.replace(
+    sh.fragmentShader='uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes; uniform vec3 uBeatCol; uniform float uBeatAmt; varying float vMirD;\n'+sh.fragmentShader.replace(
       '#include <dithering_fragment>',
       '#include <dithering_fragment>\n'+
+      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, uBeatCol, uBeatAmt*dot(gl_FragColor.rgb, vec3(0.299,0.587,0.114)));\n'+
       ' vec3 reflCol=texture2D(uRefl, gl_FragCoord.xy/uRes).rgb;\n'+
       ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, smoothstep(uMirN,uMirF,vMirD));');
     dayFloor.material.userData.sh=sh;
   };
   nightGrid = new THREE.GridHelper(FLOOR, FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;
-  nightGrid.material.transparent = true; nightGrid.material.depthWrite = false; nightGrid.material.opacity = 0.55; scene.add(nightGrid);
+  nightGrid.material.transparent = true; nightGrid.material.depthWrite = false; nightGrid.material.opacity = 0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
 })();
 
 /* ========================= SKY: stars, sun, moon, day/night ========================= */
@@ -721,7 +739,7 @@ let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks
 function setNightGrid(lineCol, cellCol){                      // recreate the grid lines in a new colour
   if(nightGrid){ scene.remove(nightGrid); nightGrid.geometry.dispose(); nightGrid.material.dispose(); }
   nightGrid=new THREE.GridHelper(620, 310, lineCol, cellCol); nightGrid.position.y=0.02;
-  nightGrid.material.transparent=true; nightGrid.material.depthWrite=false; nightGrid.material.opacity=0.55; scene.add(nightGrid);
+  nightGrid.material.transparent=true; nightGrid.material.depthWrite=false; nightGrid.material.opacity=0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
 }
 const SKY_NIGHT=new THREE.Color(0x05060e), SKY_DAY=new THREE.Color(0x5e93cf), SKY_DUSK=new THREE.Color(0xd0743a);
 const HOR_NIGHT=new THREE.Color(0x0e1626), HOR_DAY=new THREE.Color(0x9ec9ee), HOR_DUSK=new THREE.Color(0xef8a3c);  // horizon: lighter / warmer (haze)
@@ -1551,27 +1569,28 @@ function updateTargetMarks(){                                                 //
 }
 /* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d');
-const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'];   // key→color: W cyan, A green, S gold, D pink
+const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
 const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
 function drawWasdLane(){
   if(!hudCtx) return;
-  const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running && Tone.Transport.state==='started';
+  const on = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; return; }
   if(hudCanvas.style.display==='none') hudCanvas.style.display='block';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+Rin+24;
   const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
   hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H);
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
-  // ---- the inner HIT-LINE ring (tap when the shrinking circle lands here); flashes green/red on the tap ----
-  hudCtx.globalAlpha=0.85; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
-  hudCtx.globalAlpha=0.8; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin);
+  // ---- the inner HIT-LINE ring (gated by the 'WASD center cue' toggle; the letter below keeps its OWN toggle so reduceMotion users never lose it) ----
+  const showHud=CFG.wasdHud;
+  if(showHud){ hudCtx.globalAlpha=0.85; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
+    hudCtx.globalAlpha=0.8; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
   // ---- the IN-FOCUS note (nearest beat): the circle CONVERGES to Rin at the beat, then BLOOMS back out + fades (the late window) ----
   let letterKey=_combo[0], spoiled=false;
   { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
     let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
     const ci=Math.round(beats*nd), ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0); spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); letterKey=ckey;
-    if(!reduceMotion){ const half=0.5/nd, off=spoiled?_spoilOff:(hit?_hitOff:(beats-ci/nd)); let ra,al;
+    if(showHud && !reduceMotion){ const half=0.5/nd, off=spoiled?_spoilOff:(hit?_hitOff:(beats-ci/nd)); let ra,al;
       if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
       else { const f=Math.min(1,off/half); ra=Rin+f*span*0.55; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
       if(spoiled) al=0.5;   // a spoiled note's circle freezes (grey, steady) so the wrong-key feedback is readable
@@ -1585,9 +1604,24 @@ function drawWasdLane(){
     hudCtx.lineWidth=4; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.strokeText(WASD_GLYPH[letterKey],cx,LY);
     hudCtx.fillStyle=spoiled?'rgba(150,152,160,0.9)':WASD_COL[letterKey]; hudCtx.fillText(WASD_GLYPH[letterKey],cx,LY); }
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
-  if(_wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
-  if(state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout: how far AHEAD/BEHIND the beat the tap was
+  if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
+  if(showHud && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout: how far AHEAD/BEHIND the beat the tap was
   hudCtx.globalAlpha=1;
+}
+/* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the whole beat (looser groove); reduceMotion-gated, free-play only ---- */
+const _floorBeatCol=new THREE.Color();
+function updateFloorBeat(){
+  let amt=0;
+  if(CFG.floorBeat && !reduceMotion && CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && state.running && toneReady && Tone.Transport.state==='started'){
+    let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
+    const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+    const bi=Math.round(beats), env=Math.max(0,1-Math.abs(beats-bi)*2), len=_combo.length, ckey=_combo[(((bi*nd)%len)+len)%len];   // wide soft pulse peaking on the whole beat; colour = that beat's MAIN-note key
+    amt=CFG.floorBeatMax*env*env; _floorBeatCol.setHex(WASD_HEX[ckey]);
+  }
+  const fsh=dayFloor&&dayFloor.material.userData.sh;
+  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=amt*dayAmt; fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight
+  const gsh=nightGrid&&nightGrid.material.userData.shBeat;
+  if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
@@ -2012,6 +2046,7 @@ function animate(frameNow){
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
+  try{ updateFloorBeat(); }catch(e){}   // WASD floor beat-tint (free-play); guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
@@ -2299,6 +2334,7 @@ wireSeg('modeSeg', v=>{ CFG.mode=v; configureMode(); });
 wireSeg('fieldSeg', v=> CFG.spawnField=v);
 wireSeg('assistSeg', v=> CFG.audioAssist=(v==='on'));
 wireSeg('wasdLetterSeg', v=> CFG.wasdLetter=(v==='on'));
+wireSeg('wasdHudSeg', v=> CFG.wasdHud=(v==='on'));
 wireSeg('arcSeg', v=>{ CFG.projArc=(v==='on'); });            // show/hide the trajectory-arc preview
 wireSeg('scopeSeg', v=>{ CFG.scope=(v==='on'); });            // ballistic firing-computer overlay (ARC only)
 wireSeg('unitsSeg', v=>{ CFG.scopeUnits=v; });                // 'm' | 'ft' — applies live
