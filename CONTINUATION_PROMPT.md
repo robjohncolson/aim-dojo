@@ -2,7 +2,43 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
-## ▶▶▶ START HERE — END OF SESSION (2026-06-25 cont.): keeper is aim-dojo-iso; fb7d911 was REAL all along
+## ▶▶▶ START HERE — END OF SESSION (2026-06-25, late): aim-dojo-iso is the active game (iso progression + variety/difficulty shipped + plays "zen" on the S24; gamepad on web)
+
+**The map — "aim-dojo" is a web app + THREE nested Godot repos, ALL now on GitHub (private). Each is its OWN git repo (own `.git` + remote); the parent `Projects` repo is local-only and does NOT track them. To find work: `git -C <each> log`.**
+
+| Project | Repo (branch) | What it is | Latest |
+|---|---|---|---|
+| **aim-dojo-iso** ⭐ KEEPER | `robjohncolson/aim-dojo-iso` (master) | Isometric slingshot **rhythm** game — the one the user plays + likes ("simple, zen") | `940d5d3` Iso 2.4 |
+| aim-dojo (web) | `robjohncolson/aim-dojo` (main) | First-person Three.js/WebGL trainer, GitHub Pages | `2ecbefd` gamepad |
+| aim-dojo-godot | `robjohncolson/aim-dojo-godot` (master) | First-person 3D Godot port (Phase 1.1→1.3) | untouched today |
+| godot-aim-spike | `robjohncolson/godot-aim-spike` (main) | latency/groove de-risk prototype + tap mini-game | NOT the real game |
+
+### aim-dojo-iso — the keeper (dev focus is here)
+Isometric ortho `Camera3D`; touch **slingshot** (drag-pull-release ballistic, gravity arc, landing predictor); targets **drift + re-aim each beat**; **release ON the beat freezes the field (longer if PERFECT) + builds the baked-stem groove**; CALIBRATE flow (`fb7d911`); converge-bloom beat ring; PERFECT/AHEAD/BEHIND grade. `main.gd` ~700 lines, `extends Node3D`, **4-SPACE indent**. Persistence: `user://calib.cfg`, `user://scores.cfg`.
+
+Shipped TODAY (each built blind over SSH → validated `--check-only` + headless run → **adversarially reviewed by a 4-lens workflow** → fixed → re-exported → pushed → installed + playtested on the S24):
+- **Iso 2.3 progression (`ed80753`):** points = `100 × combo-multiplier × rhythm-bonus`. The release grade is carried by the projectile to its hit (PERFECT 2.5× / GOOD 1.6× / off-beat 1×). **Combo grows ONLY on on-beat hits** → the 1×→4× multiplier requires rhythm; a whiff dents combo (−5), an off-beat hit holds it. best_points/best_combo persisted (atomic write + `.bak` + `_notification(APPLICATION_PAUSED)` save = Android-safe; debounced). Gold flash only on a new best combo. Juice: score/combo scale-punch.
+- **Iso 2.4 variety + adaptive difficulty (`940d5d3`):** target KINDS via node meta — NORMAL / FAR (small+distant, 2×) / SPEED (fast, 2×) / DECOY (don't shoot → `DECOY_PENALTY × mult` + combo halved). **Difficulty = on-beat combo / `DIFF_COMBO_FULL`(12)** — decoupled from the music groove so a deliberate slow player still ramps AND the music tuning is untouched. Drives kind weights, target count (≤`MAX_TARGETS`=3), drift speed (`DRIFT_DIFF_MAX`=1.7). `_ensure_real_target()` guarantees never-all-decoys; decoys only when >1 target. Collision iterates a per-frame snapshot + `is_instance_valid` so a 2nd in-flight shot can't hit a target spawned mid-frame.
+
+**⚠️ DESIGN VALUE — protect the "zen":** after playtesting 2.3+2.4 on the S24 the user said *"feels good.. very simple, very zen."* Keep it calm/minimal — adaptive systems that stay out of the way, sparse HUD; **flag any feature that would make it busier/louder before building it.** (Memory: [[aim-dojo-iso-zen-feel]].) All balance is `const`s up top (`DIFF_COMBO_FULL`, `DECOY_CHANCE/PENALTY`, `DRIFT_DIFF_MAX`, `MAX_TARGETS`, kind values/weights) — tune by feel.
+
+### web aim-dojo — gamepad added (`2ecbefd`)
+8BitDo Pro / W3C standard mapping: **dual sticks = aim** (`CFG.padLookRate/padDeadzone/padExpo`), **face diamond + D-pad = WASD lanes by POSITION** (top/up=W, left=A, bottom/down=S, right=D), **ZL/ZR = fire**. The WASD keydown body was refactored into a shared `wasdLanePress(k)` (keyboard + gamepad). Polled in `animate()` via `navigator.getGamepads()`; no-ops with no controller. User confirmed it works.
+
+### Godot dev workflow (reuse this)
+- Editor `C:\Users\rober\Godot\Godot_v4.7-stable_win64.exe` / `..._console.exe` (CLI). Parse-check: `..._console.exe --headless --path <dir> --check-only --script main.gd`. Smoke: add `--quit-after 90`. Re-export: `..._console.exe --headless --path <dir> --export-debug "Android" "<name>.apk"`. Install: `adb install -r <apk>` (S24 = `SM-S921U1`; iso package `org.aimdojo.iso`; launch: `adb shell monkey -p org.aimdojo.iso -c android.intent.category.LAUNCHER 1`).
+- GOTCHAS: `get_output_latency()` = 0 on Android (∴ the calibration). `adb screencap` is BLACK for Godot's SurfaceView on Samsung — trust on-screen. No visual verify from headless SSH — lean on `--check-only` + headless run + the **4-lens review workflow** (it caught real bugs BOTH times: a corrupt-save window, a near-unhittable SPEED target, a difficulty cadence-ceiling). The "5 resources still in use at exit" line on a `--quit-after` run is a BENIGN audio force-quit warning, not a script error.
+
+### NEXT (open ideas — all logic-heavy = safe to build blind, tune on-device)
+- **Score-attack rounds** — timed rounds so "best" = best round (resolves points-are-cumulative). Recommended.
+- **Online leaderboard** — wire the iso to a backend (the web app already runs a Railway/Supabase board to reuse).
+- **Feel-tuning** — adjust the iso `const`s on-device.
+
+**Everything below is HISTORY** — the calibration-saga correction, then the older web-app WASD handover. Accurate context, but the active game is `aim-dojo-iso` above.
+
+---
+
+## (history) — calibration-saga correction (2026-06-25 cont.): keeper is aim-dojo-iso; fb7d911 was REAL all along
 
 **⚠️ CORRECTION — read this first; it supersedes the dated block below.** The "lost-calibration saga" was a mistake from searching the wrong repos. **`fb7d911` is REAL** — it's the HEAD commit of **`aim-dojo-iso`** ("Iso 2.2: in-app latency calibration"), a separate nested Godot repo I never searched. Nothing was lost or fabricated. `git cat-file -t fb7d911` failed only because it was run in the web repo + the parent `Projects` monorepo + the spike — never in `aim-dojo-iso`'s own object DB (git doesn't cross repo boundaries).
 
