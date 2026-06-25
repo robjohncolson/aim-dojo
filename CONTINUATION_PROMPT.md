@@ -2,7 +2,21 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
-## ▶▶▶ START HERE — END OF SESSION (2026-06-25): active frontier is the GODOT PORT (now versioned + a scoring mini-game)
+## ▶▶▶ START HERE — END OF SESSION (2026-06-25 cont.): keeper is aim-dojo-iso; fb7d911 was REAL all along
+
+**⚠️ CORRECTION — read this first; it supersedes the dated block below.** The "lost-calibration saga" was a mistake from searching the wrong repos. **`fb7d911` is REAL** — it's the HEAD commit of **`aim-dojo-iso`** ("Iso 2.2: in-app latency calibration"), a separate nested Godot repo I never searched. Nothing was lost or fabricated. `git cat-file -t fb7d911` failed only because it was run in the web repo + the parent `Projects` monorepo + the spike — never in `aim-dojo-iso`'s own object DB (git doesn't cross repo boundaries).
+
+**"aim-dojo" = a web app + THREE separate Godot projects, each its own nested git repo — ALL now on GitHub (private):**
+- **`aim-dojo-iso`** (`robjohncolson/aim-dojo-iso`) — **THE KEEPER** ("the isometric is good"). Isometric orthographic `Camera3D`; touch **slingshot** (drag-pull-release ballistic, gravity arc, landing predictor); targets drift + re-aim each beat; **releasing ON the beat freezes the field (longer if PERFECT) + builds the baked-stem groove**, off-beat decays it; CALIBRATE flow (`fb7d911`); converge-bloom beat ring; PERFECT/AHEAD/BEHIND grade; score/shots/accuracy. `main.gd` ~570 lines, `extends Node3D`, 4-space indent.
+- **`aim-dojo-godot`** (`robjohncolson/aim-dojo-godot`) — first-person 3D port (commits Phase 1.1 3D foundation → 1.2 ballistics → 1.3 fire-on-beat).
+- **`godot-aim-spike`** (`robjohncolson/godot-aim-spike`) — latency/groove DE-RISK prototype (2D tap-timing + a bolted-on scoring mini-game). NOT the real game; its calibration (`f78e17b`) was a redundant rebuild of what `aim-dojo-iso` already had.
+- **Web `aim-dojo`** — unchanged at `e50e309` this session (web calibration `c24ffbd` was added then reverted → net zero).
+
+The parent `Projects` repo is local-only and does NOT track these nested repos (they show as `??` embedded). **To find work: `git -C <each-project> log`.** **NEXT: develop `aim-dojo-iso` forward** (the user picked it as the keeper). Memory: [[aim-dojo-has-two-codebases]] (corrected).
+
+---
+
+## (SUPERSEDED by the correction above) START HERE — END OF SESSION (2026-06-25): "the GODOT PORT" framing
 
 **ORIENTATION — "aim-dojo" is now TWO codebases. Do NOT assume the web one:**
 1. **Web app** — THIS repo (`aim-dojo/index.html`), GitHub Pages → https://robjohncolson.github.io/aim-dojo/ . At `e50e309`, **unchanged this session**, in sync with origin, clean. The 2026-06-24 WASD-rhythm handover below is still its live state.
