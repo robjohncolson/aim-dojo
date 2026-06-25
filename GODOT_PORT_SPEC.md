@@ -1,6 +1,6 @@
 # Godot Native Android Port — Spec & Progress
 
-> **Status: EXPLORATION PARKED (2026-06-24).** Decision = **staged-go**, gated on 2 unproven conditions (below).
+> **Status (2026-06-24): GATE 1 (on-device latency) PASSED on a Galaxy S24 — 1 of 2 gates cleared. Decision = staged-go.** Exploration otherwise parked (the WebGL app remains live).
 > The WebGL app remains the live product; this doc records the native-port exploration so it can resume cleanly.
 > Full detail lives in `../godot-aim-spike/PORT_PLAN.md` (the audit output).
 
@@ -16,9 +16,13 @@ only a native rewrite delivers the goal. Rendering actually gets *easier/lighter
 replace hand-rolled Three.js).
 
 ## Decision: STAGED-GO, gated on two conditions (in order)
-1. **Tablet latency spike** — does Godot's `get_output_latency()` compensation yield a *stable, calibratable* offset on the
-   actual tablet? **Built, NOT yet measured on-device.** (The desktop spike proved the *tap* survives the audio-clock model;
-   the per-device offset stability is unproven — this is the headline go/no-go.)
+1. **Latency spike — ✅ PASSED on-device (Galaxy S24, 2026-06-24).** Feels **reactive**; the native Android audio-clock
+   model holds. On-screen readout over 64 taps: **mean +35 ms, jitter ±56 ms, spread 211 ms, reported output latency 0 ms.**
+   Key finding: Godot's `get_output_latency()` returns **0 on Android** (it doesn't surface the real device latency), so the
+   auto-compensation is a no-op and the true latency shows up as the **+35 ms mean — a fixed, *calibratable* offset**
+   (exactly Risk #2's prediction). **→ Action if pursued: ship an in-app tap-calibration to measure + subtract that offset.**
+   The **±56 ms jitter** is confounded with human tapping variance (casual phone taps run ±30–50 ms on their own), so it's
+   acceptable and matched the qualitative feel — worth a cleaner (automated-input) look only if the port proceeds.
 2. **The Tone.js lookahead scheduler** — prove a baked-tier-stem groove feels solid (vs a frame-time per-hit poll that
    wobbles the backbeat). ~1 afternoon, **no tablet needed.** Not started — the recommended NEXT build if resumed.
 
@@ -39,9 +43,14 @@ If both pass → proceed through the 5 phases in PORT_PLAN.md (~65–107 dev-day
   headless + live on a Vulkan desktop preview.
   - **Desktop preview gotcha:** this machine's Intel drivers support **Vulkan** but NOT OpenGL 3.3. Preview with
     `--rendering-method forward_plus --rendering-driver vulkan`. The APK ships **gl_compatibility** (OpenGL ES, fine on Android).
-- **Debug APK exported** → `godot-aim-spike\aim-spike-debug.apk` (arm64-only, ~27 MB; apksigner-signed+verified).
-  Package `org.aimdojo.spike`. (A universal arm64+x86_64 build was tried for an emulator smoke test — emulator was flaky
-  and x86 latency is meaningless, so reverted to lean arm64.)
+- **Debug APK exported + run on-device** → `godot-aim-spike\aim-spike-debug.apk` (arm64-only, ~27 MB; apksigner-signed).
+  Package `org.aimdojo.spike`. Installed + launched on a **Galaxy S24** (Adreno 750, GL ES 3.2) — renders + feels reactive
+  (see Gate 1). (A universal arm64+x86_64 build was tried for an emulator smoke test — emulator was flaky and x86 latency
+  is meaningless, so reverted to lean arm64. The shipped APK is **gl_compatibility** and works on the S24 — do NOT switch
+  to Vulkan based on a black screenshot; see gotcha.)
+  - **GOTCHA:** `adb screencap` returns a **BLACK image** for Godot's hardware SurfaceView on Samsung — the screen renders
+    fine; the screenshot lies. Trust the device / on-screen readout. (Also: Godot `print()` to the `godot` logcat tag was
+    filtered / not visible on this S24 — read the numbers off-screen instead of from logcat.)
 - **Full portability audit** (9-agent workflow, ~745K tokens) → `godot-aim-spike\PORT_PLAN.md`.
 
 ## The plan in one breath
@@ -60,8 +69,9 @@ the `animate()`-last TDZ dance) just deletes. The ONLY hard part is rebuilding `
 See `../godot-aim-spike/PORT_PLAN.md` for the full per-system effort table, 5-phase order, and risk register.
 
 ## How to resume
-- **Gate 1 (tablet):** plug tablet in → enable USB debugging → `adb install godot-aim-spike\aim-spike-debug.apk` (or
-  sideload the file) → tap to the beat → read **jitter**. Low jitter = the heart mechanic survives the port.
+- **Gate 1 (latency) — DONE ✅** (Galaxy S24, 2026-06-24): reactive; mean +35 ms (calibratable), jitter ±56 ms, 64 taps.
+  Caveat to handle if pursued: Godot `get_output_latency()` = 0 on Android → **add an in-app tap-calibration** (measure +
+  subtract the per-device offset). To re-test on another device: `adb install` the APK, tap, read the on-screen numbers.
 - **Gate 2 (scheduler):** extend the spike — bake a one-bar groove, layer into intensity tiers crossfaded on the audio
   clock, confirm baked stems feel solid on the Vulkan desktop preview. Recommended FIRST build if resumed.
 - Re-export: `& "C:\Users\rober\Godot\Godot_v4.7-stable_win64_console.exe" --headless --path "C:\Users\rober\Downloads\Projects\godot-aim-spike" --export-debug "Android" "out.apk"`
@@ -75,6 +85,8 @@ See `../godot-aim-spike/PORT_PLAN.md` for the full per-system effort table, 5-ph
 | Godot editor | `C:\Users\rober\Godot\Godot_v4.7-stable_win64.exe` (GUI) / `…_console.exe` (CLI/MCP) |
 
 ## Open follow-ups if pursued
+- **In-app latency calibration is REQUIRED on Android** — Godot `get_output_latency()` returns 0 there (no auto-compensation;
+  the S24 showed a +35 ms uncompensated offset). A one-time tap-calibration storing a per-device offset. Small but mandatory.
 - Decide **per-hit poll vs baked tier stems** (Gate 2) — highest-leverage call in the whole port.
 - The Godot spike project is **outside any git repo** — if the port goes forward, `git init` it (or move under a repo).
 - A custom app icon was skipped (Godot default used); add one before any real build.
