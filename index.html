@@ -507,6 +507,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
+  padLookRate:3.0, padDeadzone:0.18, padExpo:1.5,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center)
   // juice
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
@@ -1393,7 +1394,8 @@ function fire(){
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
-document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; if(!state.running || state.mode!=='rhythm') return;
+function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND gamepad (face buttons / D-pad).
+  if(!state.running || state.mode!=='rhythm') return;
   if(!CFG.wasdRhythm) return;
   const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
   let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e2){}
@@ -1405,7 +1407,38 @@ document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_COD
   const offSec=(beats-ci/nd)*bps, ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0);
   if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; }   // correct: grade + FREEZE the circle at the hit position, shaded in the key color, until the next note
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
-});
+}
+document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; wasdLanePress(k); });   // keyboard W/A/S/D -> lanes
+
+/* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire. ===== */
+let _gpIndex=null, _gpPrev={};
+window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPrev={}; try{ showGhostToast('🎮 '+(e.gamepad.id||'gamepad').slice(0,22)); }catch(_e){} });
+window.addEventListener('gamepaddisconnected', e=>{ if(_gpIndex===e.gamepad.index){ _gpIndex=null; _gpPrev={}; } });
+function _gpAxis(v){ const dz=CFG.padDeadzone; if(Math.abs(v)<dz) return 0; const n=(v-Math.sign(v)*dz)/(1-dz); return Math.sign(n)*Math.pow(Math.abs(n), CFG.padExpo); }   // deadzone + expo response
+function pollGamepad(dt){
+  if(_gpIndex===null || !navigator.getGamepads) return;
+  const gp=navigator.getGamepads()[_gpIndex];
+  if(!gp) return;
+  // dual sticks -> aim (yaw/pitch). Both sticks sum so either one aims.
+  const ax=_gpAxis(gp.axes[2]||0)+_gpAxis(gp.axes[0]||0), ay=_gpAxis(gp.axes[3]||0)+_gpAxis(gp.axes[1]||0);
+  if(state.running && (ax!==0 || ay!==0)){
+    const rate=CFG.padLookRate;
+    yaw   -= ax*rate*dt;                                                  // stick right -> look right
+    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch - ay*rate*dt));   // stick up -> look up
+    markAimDirty();
+  }
+  const _down=(i)=>{ const b=gp.buttons[i]; return !!b && (b.pressed || b.value>0.4); };
+  const _edge=(i)=>{ const p=_down(i), was=_gpPrev[i]; _gpPrev[i]=p; return p && !was; };   // true only on the frame a button goes down
+  // evaluate ALL edges first (no short-circuit) so every button's prev-state updates each frame
+  const fT=_edge(3), fL=_edge(2), fB=_edge(0), fR=_edge(1);     // face diamond: top/left/bottom/right
+  const dU=_edge(12), dL=_edge(14), dD=_edge(13), dR=_edge(15); // D-pad: up/left/down/right
+  const zL=_edge(6), zR=_edge(7);                               // triggers ZL / ZR
+  if(fT||dU) wasdLanePress(0);   // W
+  if(fL||dL) wasdLanePress(1);   // A
+  if(fB||dD) wasdLanePress(2);   // S
+  if(fR||dR) wasdLanePress(3);   // D
+  if(zL||zR) fire();             // fire() self-guards on state.running
+}
 // WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
 // (no blur handler needed - TAP grading is immediate; no held/timestamp state)
 function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast(skyFrozen?'🌅 SKY FROZEN':'🌅 SKY RESUMED'); }
@@ -1932,6 +1965,7 @@ function animate(frameNow){
   if(!state.running && explosions.length===0 && ghosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;
   if(!state.running) lastIdleFrame=frameNow;
   const dt=Math.min(clock.getDelta(),0.05);
+  pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
   updateRenderQuality(dt);
   if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
     fpsAccum+=dt; if(fpsAccum>=0.25){ fpsAccum=0; setText(fpsEl, Math.round(fpsEMA)+' fps · dpr '+renderer.getPixelRatio().toFixed(2)); if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on'); } }
