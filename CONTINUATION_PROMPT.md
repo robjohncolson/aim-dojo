@@ -2,6 +2,33 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
+## ▶▶▶ START HERE — END OF SESSION (2026-06-25): active frontier is the GODOT PORT (now versioned + a scoring mini-game)
+
+**ORIENTATION — "aim-dojo" is now TWO codebases. Do NOT assume the web one:**
+1. **Web app** — THIS repo (`aim-dojo/index.html`), GitHub Pages → https://robjohncolson.github.io/aim-dojo/ . At `e50e309`, **unchanged this session**, in sync with origin, clean. The 2026-06-24 WASD-rhythm handover below is still its live state.
+2. **Native Godot port** — `../godot-aim-spike/` — a SIBLING dir tracked by the **parent `Projects` repo, NOT this aim-dojo repo**. Godot 4.7 → Android APK = the "compiled aim-dojo" the user plays on their **Galaxy S24**. **This is where active development moved.** Single script `main.gd`. See `GODOT_PORT_SPEC.md` (this repo) + `../godot-aim-spike/PORT_PLAN.md`.
+
+### The lost-calibration saga (resolved)
+The prior session ended abruptly claiming "calibration committed (`fb7d911`)." **`fb7d911` exists in NO repo** (checked local/remote/reflog/stash/all blobs) — a **fabricated hash**. The real work sat **untracked** in `godot-aim-spike/` (was `?? untracked` in the Projects repo; never committed anywhere — the genuine loss risk). I first searched only the web repo and wrongly rebuilt web calibration; the user then clarified the working version is the **compiled Godot APK**. *Lesson: verify a claimed commit with `git cat-file -t <hash>` before trusting it.* Memory saved: [[aim-dojo-has-two-codebases]].
+
+### This session's commits
+- **Web (`aim-dojo`): NET ZERO** — added web calibration (`c24ffbd`) then **reverted** it; repo back at `e50e309` = origin/main, clean. (Web-calibration impl is recoverable from reflog / this transcript if ever wanted.)
+- **Godot (in the PARENT `Projects` repo — LOCAL, unpushed):**
+  - **`d4f172b`** — **versioned godot-aim-spike** (was 100% untracked). Source tracked; `aim-spike-debug.apk` (28 MB) + `.godot/` gitignored, rebuildable via export.
+  - **`f78e17b`** — **tap-latency CALIBRATE flow** in `main.gd`: CALIBRATE button (or `C` on desktop) → "TAP ON THE BEAT n/10" → **median** offset → `user://calib.cfg` (survives restarts) → subtracted from every grade. Fixes Godot `get_output_latency()`=0 on Android (the S24's uncompensated **+35 ms**). User confirmed it reproduces the original (tap 10 → autocorrects). Math proven on the web side too (on-beat late press → 0 ms across 20–172 bpm).
+  - **`67d8fde`** — **scoring rhythm mini-game** on the spike: judgment **PERFECT ≤25 / GREAT ≤60 / GOOD ≤120 / MISS** (ms); **score = base(100/60/20) × combo multiplier** (ramps to 6× at a 50-combo); **best score + best combo** persisted to `user://scores.cfg`; **juice** = combo/score scale-punch, PERFECT/GREAT burst ring, judgment-color hit-ring flash, groove-tinted bg, tier-gain screen flash. MISS breaks combo + drops groove hard; GOOD keeps combo but slips the tier.
+- **APK rebuilt + signed** with all of the above. Install: `adb install -r "C:\Users\rober\Downloads\Projects\godot-aim-spike\aim-spike-debug.apk"`.
+
+### Godot port status & NEXT STEP
+**Fully de-risked / greenlit:** both S24 latency gates PASSED (Gate 1 reactive latency, Gate 2 baked-tier-stem groove) **and** the last mandatory item — in-app latency calibration — is now DONE. Per `GODOT_PORT_SPEC.md` + `PORT_PLAN.md`, **next is Phase 1 — the playable rhythm-aim vertical slice** (3D look-around + beat-strobing orbs on the existing groove clock + arc-shot ballistics `computeShotPlan`/swept-collision = "near-verbatim GDScript" + tempo ramp). Foundation (clock/groove/calibration) is done; the spike is currently a 2D tap mini-game. The user chose to **polish the mini-game first** (done) → the **3D Phase-1 port is the next rung**.
+
+### Godot working facts
+- **Build/run:** editor `C:\Users\rober\Godot\Godot_v4.7-stable_win64.exe` (GUI) / `..._console.exe` (CLI/MCP). Parse-check: `..._console.exe --headless --path <dir> --check-only --script main.gd`. Smoke-run: add `--quit-after 90`. Re-export: `..._console.exe --headless --path "...\godot-aim-spike" --export-debug "Android" "aim-spike-debug.apk"`.
+- **`main.gd`:** `extends Node2D`, **4-SPACE indent (not tabs)**. Metronome + 4 phase-locked baked stems (`tier0-3.wav`) crossfade by groove tier (Gate-2 thesis = zero per-hit jitter). `song_pos()`=audio clock; `beat_offset()`=phase vs nearest beat; `_on_tap()` grades & scores; `_cal_*` = calibration; `ConfigFile` persistence (`user://calib.cfg`, `user://scores.cfg`).
+- **GOTCHAS:** `get_output_latency()`=**0 on Android** (∴ manual calibration). `adb screencap` is a **BLACK image** for Godot's SurfaceView on Samsung — trust on-screen, not screenshots. **No visual verify from headless SSH** — use `--check-only` + `--quit-after` + on-device eyes. Tune `SC_*` / multiplier cap / punch amounts / decay rates by feel on the S24.
+
+**Everything below is the WEB app's handover (2026-06-24 & earlier) — still accurate for `index.html`, but the active frontier is the Godot port above.**
+
 ## ▶▶▶ START HERE — END OF SESSION (2026-06-24): WASD-rhythm at the converge-bloom round model
 The dojo pivot is DONE (see far below). The last two sessions were a long **build-blind iteration of the
 "WASD-on-rhythm steady-the-field" feature** — ~8 playtest round-trips. **Everything is committed, pushed, and LIVE;
