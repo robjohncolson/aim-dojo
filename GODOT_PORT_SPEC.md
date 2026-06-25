@@ -1,6 +1,6 @@
 # Godot Native Android Port — Spec & Progress
 
-> **Status (2026-06-24): GATE 1 (on-device latency) PASSED on a Galaxy S24 — 1 of 2 gates cleared. Decision = staged-go.** Exploration otherwise parked (the WebGL app remains live).
+> **Status (2026-06-24): BOTH GATES PASSED on a Galaxy S24 — the native port is fully de-risked (a GO whenever the ~65–107 dev-days are worth investing). Not yet started.** The WebGL app remains the live product.
 > The WebGL app remains the live product; this doc records the native-port exploration so it can resume cleanly.
 > Full detail lives in `../godot-aim-spike/PORT_PLAN.md` (the audit output).
 
@@ -23,10 +23,16 @@ replace hand-rolled Three.js).
    (exactly Risk #2's prediction). **→ Action if pursued: ship an in-app tap-calibration to measure + subtract that offset.**
    The **±56 ms jitter** is confounded with human tapping variance (casual phone taps run ±30–50 ms on their own), so it's
    acceptable and matched the qualitative feel — worth a cleaner (automated-input) look only if the port proceeds.
-2. **The Tone.js lookahead scheduler** — prove a baked-tier-stem groove feels solid (vs a frame-time per-hit poll that
-   wobbles the backbeat). ~1 afternoon, **no tablet needed.** Not started — the recommended NEXT build if resumed.
+2. **Lookahead groove scheduler — ✅ PASSED on-device (Galaxy S24, 2026-06-24).** Prototyped the **baked-tier-stem** approach
+   (4 one-bar groove loops — kick/snare/hat/bass at rising density — all looping phase-locked, `volume_db` crossfade between
+   tiers driven by tap accuracy). On the S24 it sounds **tight: no wobble, no drift, no seam** as layers fade in through the
+   tier changes — because the stems loop continuously and never re-schedule per-hit. **DECISION: baked tier stems** (not the
+   frame-time per-hit poll). The highest-leverage call in the port is now made. (Aside: desktop audio couldn't be used for
+   this test — WASAPI had no device because Windows audio was temporarily disabled — so it was validated on the phone, which
+   is the real target anyway.)
 
-If both pass → proceed through the 5 phases in PORT_PLAN.md (~65–107 dev-days for v1). If either fails → keep the web build.
+**Both passed (2026-06-24)** → the port is a GO; the next concrete step is **Phase 1** (the playable rhythm-aim vertical
+slice) in PORT_PLAN.md (~65–107 dev-days for v1, front-loaded into audio). Not yet started — the web build stays live until then.
 
 ## What was built this session (2026-06-24)
 - **Godot 4.7.stable installed** → `C:\Users\rober\Godot\` (console exe `Godot_v4.7-stable_win64_console.exe`).
@@ -52,6 +58,9 @@ If both pass → proceed through the 5 phases in PORT_PLAN.md (~65–107 dev-day
     fine; the screenshot lies. Trust the device / on-screen readout. (Also: Godot `print()` to the `godot` logcat tag was
     filtered / not visible on this S24 — read the numbers off-screen instead of from logcat.)
 - **Full portability audit** (9-agent workflow, ~745K tokens) → `godot-aim-spike\PORT_PLAN.md`.
+- **Gate 2 groove prototype** (same spike) → `main.gd` + baked `tier0–3.wav` (one bar each, 100 BPM, kick/snare/hat/bass at
+  rising density). All stems + the metronome loop **phase-locked**; tap accuracy drives a `groove` float whose floor selects
+  the tier; `volume_db` crossfade (Tween ~0.45 s) on tier change. Confirmed tight on the S24 → baked stems chosen.
 
 ## The plan in one breath
 **~65–107 dev-days for v1** (midpoint ~76), front-loaded into audio. Most of the app ports cleanly: ballistics
@@ -72,8 +81,10 @@ See `../godot-aim-spike/PORT_PLAN.md` for the full per-system effort table, 5-ph
 - **Gate 1 (latency) — DONE ✅** (Galaxy S24, 2026-06-24): reactive; mean +35 ms (calibratable), jitter ±56 ms, 64 taps.
   Caveat to handle if pursued: Godot `get_output_latency()` = 0 on Android → **add an in-app tap-calibration** (measure +
   subtract the per-device offset). To re-test on another device: `adb install` the APK, tap, read the on-screen numbers.
-- **Gate 2 (scheduler):** extend the spike — bake a one-bar groove, layer into intensity tiers crossfaded on the audio
-  clock, confirm baked stems feel solid on the Vulkan desktop preview. Recommended FIRST build if resumed.
+- **Gate 2 (groove scheduler) — DONE ✅** (S24, 2026-06-24): the baked-tier-stem groove (4 looping one-bar stems + crossfade)
+  sounds tight, no wobble. Decision locked: **baked stems**. The spike now demonstrates it — `adb install` the APK + tap to
+  hear the groove build through the tiers. (Desktop audio works once Windows audio is enabled, but the phone is the real test.)
+- **Both gates cleared → if pursuing the port, start at Phase 1** (playable rhythm-aim vertical slice) in PORT_PLAN.md.
 - Re-export: `& "C:\Users\rober\Godot\Godot_v4.7-stable_win64_console.exe" --headless --path "C:\Users\rober\Downloads\Projects\godot-aim-spike" --export-debug "Android" "out.apk"`
 
 ## Artifacts
@@ -87,6 +98,6 @@ See `../godot-aim-spike/PORT_PLAN.md` for the full per-system effort table, 5-ph
 ## Open follow-ups if pursued
 - **In-app latency calibration is REQUIRED on Android** — Godot `get_output_latency()` returns 0 there (no auto-compensation;
   the S24 showed a +35 ms uncompensated offset). A one-time tap-calibration storing a per-device offset. Small but mandatory.
-- Decide **per-hit poll vs baked tier stems** (Gate 2) — highest-leverage call in the whole port.
+- ✅ **Per-hit poll vs baked tier stems — DECIDED: baked stems** (Gate 2 proved it tight on the S24). No longer open.
 - The Godot spike project is **outside any git repo** — if the port goes forward, `git init` it (or move under a repo).
 - A custom app icon was skipped (Godot default used); add one before any real build.
