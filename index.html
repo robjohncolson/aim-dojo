@@ -41,7 +41,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #reticle .x{position:absolute;left:50%;top:50%;width:24px;height:2px;border-radius:1px;background:var(--blood);box-shadow:0 0 6px var(--blood);display:none}   /* wrong-WASD-key feedback: a red X over the + crosshair (= asterisk), held until the note advances */
 #reticle .x1{transform:translate(-50%,-50%) rotate(45deg)} #reticle .x2{transform:translate(-50%,-50%) rotate(-45deg)}
 #reticle.spoil .x{display:block}
-#wasdAcc{position:fixed;left:50%;top:50%;transform:translate(-50%,26px);font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.04em;color:var(--toxic);opacity:0;display:none;pointer-events:none;z-index:5;text-shadow:0 0 4px rgba(0,0,0,.9)}   /* small accuracy % under the cursor after a correct WASD tap */
 #ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
 #ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
 @keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
@@ -257,7 +256,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
   <div class="dot"></div>
   <div class="x x1"></div><div class="x x2"></div>
 </div>
-<div id="wasdAcc" aria-hidden="true"></div>
 <div id="ghostToast" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="scopeAim" aria-hidden="true"></div>
@@ -390,6 +388,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       </div>
 
       <div class="row">
+        <label>Tap timing readout</label>
+        <div class="seg" id="wasdTapTextSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
+        <span class="out"></span>
+      </div>
+
+      <div class="row">
         <label>WASD center cue</label>
         <div class="seg" id="wasdHudSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
         <span class="out"></span>
@@ -501,7 +505,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
-  wasdRhythm:true, wasdLetter:true, wasdHud:true, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
+  wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:true, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
@@ -1644,7 +1648,7 @@ function drawWasdLane(){
     hudCtx.fillStyle=spoiled?'rgba(150,152,160,0.9)':WASD_COL[letterKey]; hudCtx.fillText(WASD_GLYPH[letterKey],cx,LY); }
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
-  if(showHud && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout: how far AHEAD/BEHIND the beat the tap was
+  if(showHud && CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
   hudCtx.globalAlpha=1;
 }
 /* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the whole beat (looser groove); reduceMotion-gated, free-play only ---- */
@@ -1760,7 +1764,7 @@ function gid(id){ return document.getElementById(id); }
 const el={ speedVal:gid('speedVal'), speedLabel:gid('speedLabel'), sTargets:gid('sTargets'), sStreak:gid('sStreak'),
   sStreakBest:gid('sStreakBest'), sReact:gid('sReact'), reactLabel:gid('reactLabel'), sClick:gid('sClick'), sFar:gid('sFar'), sHigh:gid('sHigh'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
   verdict:gid('verdict'), accVal:gid('accVal'), fill:gid('fill'), gateUp:gid('gateUp'), gateDown:gid('gateDown'),
-  gaugeLegend:gid('gaugeLegend'), reticle:gid('reticle'), wasdAcc:gid('wasdAcc'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
+  gaugeLegend:gid('gaugeLegend'), reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
 el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
 function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
 function setClassName(node, value){ if(node._className!==value){ node.className=value; node._className=value; } }
@@ -1795,17 +1799,11 @@ function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('f
 let reticleBadT=0;
 function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
 let _spoilShown=false;
-function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key; a small accuracy % after a correct tap
+function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
   const active = CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;
   if(active && _spoilNote>=0){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2); let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note == the spoiled one -> X held until it advances (matches drawWasdLane's `spoiled`)
   if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
-  const dt2=state.t-_tapShowT;
-  if(active && dt2>=0 && dt2<1.0){
-    const a=_tapAcc, col=a>=85?'#74e84a':a>=60?'#ffd36b':'#ff8a5a';
-    setText(el.wasdAcc, a+'%'); setStyle(el.wasdAcc,'color',col);
-    setStyle(el.wasdAcc,'opacity',Math.min(1,(1-dt2)*2.5).toFixed(2)); setStyle(el.wasdAcc,'display','block');
-  } else setStyle(el.wasdAcc,'display','none');
 }
 function showTiming(grade, sub, cls, pathTxt, pathCls){
   if(!el.timing) return;
@@ -2387,6 +2385,7 @@ wireSeg('modeSeg', v=>{ CFG.mode=v; configureMode(); });
 wireSeg('fieldSeg', v=> CFG.spawnField=v);
 wireSeg('assistSeg', v=> CFG.audioAssist=(v==='on'));
 wireSeg('wasdLetterSeg', v=> CFG.wasdLetter=(v==='on'));
+wireSeg('wasdTapTextSeg', v=> CFG.wasdTapText=(v==='on'));
 wireSeg('wasdHudSeg', v=> CFG.wasdHud=(v==='on'));
 wireSeg('arcSeg', v=>{ CFG.projArc=(v==='on'); });            // show/hide the trajectory-arc preview
 wireSeg('scopeSeg', v=>{ CFG.scope=(v==='on'); });            // ballistic firing-computer overlay (ARC only)
