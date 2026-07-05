@@ -2,7 +2,33 @@
 
 Paste-in context for resuming work on **aim-dojo** in a new session.
 
-## ▶▶▶ START HERE — END OF SESSION (2026-06-25→26): aim-dojo-iso is the active game (progression + variety/difficulty + haptics + dynamic-framing camera; plays "zen" on the S24 & Pixel 3; gamepad on web)
+## ▶▶▶ START HERE — END OF SESSION (2026-07-05): the WEB app went full ZEN (settings panel + hunt mode + live HUD **DELETED**) and moved to **VERCEL**
+
+**Deploy loop changed.** Primary host is now **https://aim-dojo.vercel.app** — Vercel project `aim-dojo` (scope `roberts-projects-19fe2013`), GitHub-connected: every push to `main` auto-deploys in ~1–3 s (CLI authed on this machine; `.vercel/` gitignored). GH Pages (robjohncolson.github.io/aim-dojo) stays enabled as a legacy mirror for old links/QR codes — it failed a deploy with a transient GitHub error and then sat ~15 min in queue this session, which is what triggered the move. **Verify pushes against the Vercel URL, not Pages.** Railway anti-cheat server: project **`reliable-harmony`**, service `aim-dojo` (railway CLI authed as bobby); **`ALLOW_ORIGIN=*` since today** (was the Pages origin — would have CORS-blocked record submissions from the Vercel domain; the endpoint still validates + rate-limits, so `*` costs nothing real). `/health` returns ok.
+
+### Session commits (web repo, in order)
+- `ae01a28` **Pure-sine orb hums** — the per-orb hum oscillator AND gold's detuned twin are now `sine` (was lowpass-filtered triangle; the user: *"Cool, much better!"*). DECOY's "faintly wrong" tell is now only its sluggish 1.4 Hz tremolo. The short HIT chime (`synthHit`) is still a triangle blip — offered as a follow-up swap, not requested.
+- `4e04a67` **WASD lane letters localize to the player's keyboard layout** — lane MATCHING was already physical (`e.code` KeyW/A/S/D → the same inverted-T cluster on AZERTY/Dvorak/Cyrillic); this only fixes the HUD letter via `navigator.keyboard.getLayoutMap()` (Chromium-only, falls back to W/A/S/D). Japanese/JIS was never broken (QWERTY Latin; kana are secondary legends).
+- `0997c8a` **THE ZEN UI REDESIGN** — the user declared the game matured and picked the MOST aggressive option on every axis offered (delete settings entirely / remove hunt entirely / zen HUD sweep / collapse the start card). Net **−283 lines**. Method: 4 parallel removal-map agents → one edit pass → validate → 16-agent adversarial review (3 confirmed minor findings, all fixed pre-push). What changed:
+  - **ADVANCED settings panel DELETED** (HTML+CSS+JS: `applySettings`, `wireSeg`, `bind`, all sliders/segments, the modal + its Escape handler). Every tuned value is baked as a CFG literal = exactly what a fresh page load already played. ⚠️ **FOV is baked at 95** — the old slider *claimed* 70 but only APPLY ever set it and nobody pressed it; 95 is what the user actually played. Sensitivity baked at 3.00× (`radPerPx=CFG.baseRadPerPx*3`). **There is no settings UI — tune by editing CFG consts and pushing.**
+  - **FREE HUNT mode DELETED** — the game is rhythm-only. Gone: `state.mode`/`CFG.mode`, `state.speed`/`maxReached`, `changeSpeed`, `desiredCount`/`spawnGap`/`targetLife`, the per-frame hunt spawn block, CFG `startSpeed/minSpeed/maxSpeed/upStep/downStep/lifeSlow/lifeFast/gapSlow/gapFast/radFast`. `diffT()` is bpm-only. Audio-failure no longer falls back to hunt — `startRun` blocks at the card until Tone is ready.
+  - **Live HUD zen sweep** — DELETED: `#statBox` (6 live counters), `#gauge` (accuracy bar + gates, `renderGauge`), `#scopeHud` (θ/RANGE/FLIGHT/LEAD text block), `#scopeAim` (long-retired pip), `renderStats`. KEPT: TEMPO box, mute, reticle + `#lockBox` (breathe/LOCK/AVOID), deviation edge tints, WASD lane, wind HUD, presence, floor marks, `hitFlash`, `dojoFlash`. Stats now appear ONLY on the pause **RANGE REPORT** (`showPause` chips, now incl. **FARTHEST/HIGHEST**).
+  - **Start card = one breath** — lede is one line ("Find the orb, fire on the beat — the dojo does the rest."). Key legend + 🎧 note are **first-visit-only**: `aimdojo.seen` in localStorage + a tiny inline **head** script stamping `html.seen` pre-paint (CSS hides them — pure-JS hiding flashed because the game IIFE loads behind three.js). DOJO RECORDS board + path-efficiency chart moved into collapsed `#recordsWrap` behind a **🥋 RECORDS** ghost button; `openRecords()` re-renders the chart on expand (its canvas reads `clientWidth`, which is 0 while hidden). The name input auto-opens + focuses ONCE on the first improved record with no saved name (`promptNameOnFirstRecord` in `submitDojo`). `showPause` unhides the overlay BEFORE `renderHistory/submitDojo` (review finding: the chart otherwise rendered at a stretched 300 px fallback).
+- `cc6f2f0` gitignore `.vercel` (this push also proved the Vercel auto-deploy: live in ~1 s) · `0664eae` server docs → `ALLOW_ORIGIN=*`.
+
+**Status: the zen redesign is LIVE on both hosts and awaiting the user's playtest feel-read.** The sine hums + layout-aware letters are playtested and approved.
+
+### Known / deferred (nothing blocking)
+- **Pre-existing dead code, deliberately NOT fixed:** orb aim-trails never render — `tg.trailMesh=rhythm?newTrailMesh():null;` sits swallowed in the tail of a `//` comment inside `spawnTarget` (same bug class as the `e1cb786` CFG hotfix: a line-join ate code). AVG PATH grading is unaffected (`angPath` is tracked separately). Given the zen direction, decide whether trails are even wanted before "fixing".
+- `showToneBlock` still says "Tap BEGIN again" while the button reads ▶ ENTER THE DOJO (pre-existing, cosmetic).
+- No sensitivity slider anymore — if a different mouse feels off, it's the `*3` in `radPerPx=CFG.baseRadPerPx*3` (one line).
+- Memory updated: [[aim-dojo-iso-zen-feel]] now covers the WEB app too (**don't propose re-adding settings UI, hunt mode, or live counters**); new [[aim-dojo-deploy-infra]] (Vercel/Pages/Railway facts).
+
+**⚠️ EVERYTHING BELOW predates the zen redesign.** Any mention of the ADVANCED panel, FREE HUNT / mode switching, `#statBox`, `#gauge`, `#scopeHud`, or the Pages-first deploy-poll loop is now STALE for the web app. Still true and still matters: the build-blind validation pattern (extract inline script → `node --check` → dangling-ref grep for every removed symbol → adversarial review for risky diffs).
+
+---
+
+## (history) ▶▶▶ END OF SESSION (2026-06-25→26): aim-dojo-iso is the active game (progression + variety/difficulty + haptics + dynamic-framing camera; plays "zen" on the S24 & Pixel 3; gamepad on web)
 
 **The map — "aim-dojo" is a web app + THREE nested Godot repos, ALL now on GitHub (private). Each is its OWN git repo (own `.git` + remote); the parent `Projects` repo is local-only and does NOT track them. To find work: `git -C <each> log`.**
 
