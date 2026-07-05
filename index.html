@@ -334,7 +334,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
-  padLookRate:3.0, padDeadzone:0.18, padExpo:1.5,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center)
+  padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
@@ -833,16 +833,16 @@ function buildDrums(){
   }catch(e){ drumsBuilt=false; }
 }
 function ensureListener(){
-  if(listener) return;
+  if(listener){ try{ if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{}); }catch(e){} return; }   // THREE's listener context is SEPARATE from Tone's rawCtx — it needs its own post-gesture resume retry or the positional orb hums stay dead after a pad-first start (Firefox rejects the pre-gesture resume)
   try{
     listener=new THREE.AudioListener(); camera.add(listener);
-    if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume();
+    if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{});
   }catch(e){ listener=null; }
 }
 function initAudio(){
   ensureListener();
   scheduleReverbBuild();
-  if(audioInit) return;
+  if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
   if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
   audioInit=true;
   try{
@@ -1197,10 +1197,11 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.kind===2){                                                          // DECOY: never scores — the hit IS the penalty (streak break + a wasted shot). Skip the grade path entirely; h/score untouched.
     state.streak=0; pushReaction(beats); pushEvent(false);
     showTiming('DECOY','don\'t shoot these','off');
-    popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); retireTrail(tg, 0.3); killTarget(tg, false); return;
+    popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); padRumble(70,0.9); retireTrail(tg, 0.3); killTarget(tg, false); return;
   }
   if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
   else state.streak=0;
+  padRumble(good?[26,18,12][gradeIdx]:8, good?[0.7,0.5,0.35][gradeIdx]:0.2);   // graded haptic blip (FLAWLESS strongest → a whisper for a late GOOD); values mirror the iso game's tuning
   recordHit(tg);
   pushReaction(beats);
   const ps=pathScoreOf(tg); pushPathScore(ps);
@@ -1240,11 +1241,21 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
 }
 document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; wasdLanePress(k); });   // keyboard W/A/S/D -> lanes
 
-/* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire. ===== */
+/* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire, START = begin/pause/resume (face-bottom also begins at the card). Subtle rumble on hit. ===== */
 let _gpIndex=null, _gpPrev={};
-window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPrev={}; try{ showGhostToast('🎮 '+(e.gamepad.id||'gamepad').slice(0,22)); }catch(_e){} });
+window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPrev={}; try{ showGhostToast('🎮 '+(e.gamepad.id||'gamepad').slice(0,22)+(e.gamepad.mapping==='standard'?'':' ⚠ unmapped')); }catch(_e){} });   // ⚠ = browser didn't give it the W3C standard layout (buttons/axes may not line up — try Chrome, or the pad's XInput mode)
 window.addEventListener('gamepaddisconnected', e=>{ if(_gpIndex===e.gamepad.index){ _gpIndex=null; _gpPrev={}; } });
 function _gpAxis(v){ const dz=CFG.padDeadzone; if(Math.abs(v)<dz) return 0; const n=(v-Math.sign(v)*dz)/(1-dz); return Math.sign(n)*Math.pow(Math.abs(n), CFG.padExpo); }   // deadzone + expo response
+function padBeginBlocked(){   // a pad BEGIN/RESUME must not yank the player out of the record-name input, or start a run behind the open share modal (it sits above the card, so a mouse never could). Checked at press time AND in startRun's deferred resume path.
+  const ae=document.activeElement, s=gid('shareOverlay');
+  return (!!ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) || (!!s && !s.classList.contains('hidden'));
+}
+function padRumble(ms, mag){   // felt-not-seen hit feedback (mirrors the iso game's haptics). No-op without a pad or actuator support.
+  if(!CFG.padRumble || _gpIndex===null || !navigator.getGamepads) return;
+  const gp=navigator.getGamepads()[_gpIndex], a=gp && gp.vibrationActuator;
+  if(!a || !a.playEffect) return;
+  try{ const p=a.playEffect('dual-rumble', {duration:ms, strongMagnitude:mag, weakMagnitude:mag*0.6}); if(p&&p.catch) p.catch(()=>{}); }catch(e){}   // playEffect REJECTS async on unsupported actuators (Firefox ships the method regardless) — a sync catch alone leaks an unhandled rejection per hit
+}
 function pollGamepad(dt){
   if(_gpIndex===null || !navigator.getGamepads) return;
   const gp=navigator.getGamepads()[_gpIndex];
@@ -1263,11 +1274,14 @@ function pollGamepad(dt){
   const fT=_edge(3), fL=_edge(2), fB=_edge(0), fR=_edge(1);     // face diamond: top/left/bottom/right
   const dU=_edge(12), dL=_edge(14), dD=_edge(13), dR=_edge(15); // D-pad: up/left/down/right
   const zL=_edge(6), zR=_edge(7);                               // triggers ZL / ZR
+  const st=_edge(9);                                            // START / menu
   if(fT||dU) wasdLanePress(0);   // W
   if(fL||dL) wasdLanePress(1);   // A
   if(fB||dD) wasdLanePress(2);   // S
   if(fR||dR) wasdLanePress(3);   // D
   if(zL||zR) fire();             // fire() self-guards on state.running
+  if(!state.running){ if((st||fB) && !padBeginBlocked()) startRun(true); }   // overlay up: START or face-bottom = BEGIN/RESUME (viaPad skips pointer lock — a pad press isn't a browser user gesture, the lock request would be denied)
+  else if(st){ if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(e){} } else exitRunning(); }   // START pauses: exit the lock when held (pointerlockchange shows the pause), else pause directly (pad-started runs never lock)
 }
 // WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
 // (no blur handler needed - TAP grading is immediate; no held/timestamp state)
@@ -1760,7 +1774,7 @@ function animate(frameNow){
   requestAnimationFrame(animate);
   if(document.hidden){ clock.getDelta(); return; }
   if(frameNow==null) frameNow=performance.now();
-  if(!state.running && explosions.length===0 && ghosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;
+  if(!state.running && _gpIndex===null && explosions.length===0 && ghosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;   // pad connected → poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples)
   if(!state.running) lastIdleFrame=frameNow;
   const dt=Math.min(clock.getDelta(),0.05);
   pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
@@ -1935,12 +1949,22 @@ function showToneBlock(reason){
   const l=gid('ovLede'); if(!l) return;
   if(reason==='challenge') l.innerHTML='<b>The daily challenge needs sound.</b> Audio did not start - reload the page, or unblock the audio library and browser audio.';
   else if(reason==='start') l.innerHTML='<b>Sound did not start.</b> Tap BEGIN again, or unblock browser audio for this page.';
+  else if(reason==='pad') l.innerHTML='<b>Audio needs one real touch.</b> Click, tap, or press any key once — then press START on the pad again.';
   else l.innerHTML=toneLoadFailed ? '<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap BEGIN again.' : '<b>Sound is still loading.</b> Tap BEGIN again in a moment.';
 }
-function startRun(){
+function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
   initAudio();
   if(!toneReady){ showToneBlock('start'); return; }
+  if(viaPad===true){   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
+    if(rawCtx && rawCtx.state!=='running'){
+      const t0=performance.now(); let ok=false;
+      try{ rawCtx.resume().then(()=>{ ok=true; if(!state.running && performance.now()-t0<3000 && !padBeginBlocked()) enterRunning(); }).catch(()=>{}); }catch(e){}   // under sticky activation (any earlier click/keypress on the page) this resolves ~instantly; the 3s freshness + re-checked guards stop a resume that a much-later unrelated click (e.g. opening the share modal — the very gesture Chrome was waiting for) finally unblocks from yanking the player into a run
+      setTimeout(()=>{ if(!ok && !state.running) showToneBlock('pad'); }, 300);
+      return;
+    }
+    enterRunning(); return;
+  }
   if(MOBILE || !canvas.requestPointerLock){ enterRunning(); }   // touch devices: no pointer lock
   else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
 }
