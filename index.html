@@ -6,6 +6,7 @@
 <title>Aim Dojo — Rhythm &amp; Spatial Audio Trainer</title>
 <meta name="description" content="Aim Dojo — a browser-based rhythm and spatial-audio aim trainer. A woodblock tick sets the pulse: find it, track it, fire on the beat. No install.">
 <meta name="theme-color" content="#0b0d0c">
+<script>try{if(localStorage.getItem('aimdojo.seen'))document.documentElement.classList.add('seen')}catch(e){}</script><!-- stamp BEFORE first paint so returning players never see the first-visit legend flash (the game IIFE loads much later, behind three.js) -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Aim Dojo — Rhythm &amp; Spatial Audio Trainer">
 <meta property="og:description" content="Find it, track it, fire on the beat. A browser aim trainer driven by rhythm and 3D spatial audio. No install — just play.">
@@ -53,12 +54,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
 #presence.on{display:block}
 #wasdHud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:300px;height:300px;z-index:4;pointer-events:none;display:none}   /* WASD-rhythm: osu-style contracting color rings, centered on the crosshair (shrunk to a toggleable training-wheel; the floor beat-tint is the primary cue) */
-#scopeHud{left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);font:11px var(--mono);color:var(--bone-dim);letter-spacing:.06em;line-height:1.6;display:none}
-#scopeHud.on{display:block}
-#scopeHud b{color:var(--rail);font-weight:400}
-#scopeAim{position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid rgba(255,205,90,.85);border-radius:50%;box-shadow:0 0 9px rgba(255,205,90,.5);pointer-events:none;z-index:5;display:none;transform:translate(var(--sx,50vw),var(--sy,50vh));will-change:transform}
-#scopeAim::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:rgba(255,230,160,.95)}
-#scopeAim.on{display:block}
 #lockBox{position:fixed;left:0;top:0;box-sizing:border-box;border:1.5px solid rgba(150,190,230,.45);border-radius:3px;pointer-events:none;z-index:5;display:none;transform:translate(var(--lx,50vw),var(--ly,50vh)) translate(-50%,-50%) scale(var(--pulse,1));will-change:transform,width,height}
 #lockBox.on{display:block}
 #lockBox.lock{border-color:rgba(255,205,90,.95);box-shadow:0 0 12px rgba(255,205,90,.55),inset 0 0 8px rgba(255,205,90,.22)}
@@ -72,8 +67,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #edgeBot{bottom:0;left:0;right:0;height:8vh;background:repeating-linear-gradient(to bottom, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to top,#000,transparent);mask:linear-gradient(to top,#000,transparent)}
 #edgeLeft{top:0;bottom:0;left:0;width:6vw;background:repeating-linear-gradient(to left, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to right,#000,transparent);mask:linear-gradient(to right,#000,transparent)}
 #edgeRight{top:0;bottom:0;right:0;width:6vw;background:repeating-linear-gradient(to right, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to left,#000,transparent);mask:linear-gradient(to left,#000,transparent)}
-#scopeHud .lk{color:#ffd36b}
-#scopeHud .sk{color:var(--bone-dim)}
 #windHud{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font:11px var(--mono);color:#bfe9ff;letter-spacing:.12em;display:none;align-items:center;gap:7px;text-shadow:0 0 5px #000;z-index:5;pointer-events:none}
 #windHud.on{display:flex}
 #windHud .wh-arrow{display:inline-block;font-size:17px;line-height:1;color:#dff2ff;text-shadow:0 0 7px rgba(140,225,255,.85);will-change:transform}
@@ -113,12 +106,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .arrow span{position:absolute;left:0;top:0;width:0;height:0;border-left:30px solid var(--c,var(--plasma));border-top:45px solid transparent;border-bottom:45px solid transparent;transform:translate(-50%,-50%);filter:drop-shadow(0 0 9px var(--c,var(--plasma))) drop-shadow(0 0 4px var(--c,var(--plasma)))}
 
 .hud{position:fixed;z-index:4;pointer-events:none;text-shadow:0 0 8px rgba(0,0,0,.7)}
-#statBox{left:18px;top:16px;display:flex;flex-direction:column;gap:9px}
-.stat{display:flex;align-items:baseline;gap:8px}
-.stat .k{font-size:11px;letter-spacing:.18em;color:var(--bone-dim)}
-.stat .v{font-size:21px;line-height:1;color:var(--bone)}
-.stat .sub{font-size:11px;color:var(--bone-dim)}
-.stat .v.green{color:var(--toxic)}
 
 #speedBox{right:18px;top:14px;text-align:right}
 #speedLabel{font-size:11px;letter-spacing:.2em;color:var(--bone-dim)}
@@ -129,17 +116,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 @keyframes flashUp{0%{color:var(--toxic);transform:scale(1.18)}100%{color:var(--plasma);transform:scale(1)}}
 @keyframes flashDown{0%{color:var(--blood);transform:scale(.86)}100%{color:var(--plasma);transform:scale(1)}}
 
-#gauge{left:50%;bottom:26px;transform:translateX(-50%);width:min(560px,86vw)}
-#gaugeHead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
-#verdict{font-size:13px;letter-spacing:.22em}
-#verdict.go{color:var(--toxic)}#verdict.hold{color:var(--plasma)}#verdict.slow{color:var(--blood)}#verdict.warm{color:var(--bone-dim)}
-#accVal{font-size:20px}
-#bar{position:relative;height:16px;border:1px solid var(--panel-edge);background:linear-gradient(90deg,rgba(255,66,66,.10) 0%,rgba(255,138,43,.08) 55%,rgba(116,232,74,.12) 100%)}
-#fill{position:absolute;left:0;top:0;bottom:0;width:0%;transition:width .25s ease, background .2s linear;background:var(--plasma)}
-#fill.go{background:var(--toxic)}#fill.slow{background:var(--blood)}#fill.hold{background:var(--plasma)}
-.gate{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--bone);opacity:.8}
-.gate::after{content:attr(data-l);position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:.12em;color:var(--bone-dim);white-space:nowrap}
-#gaugeFoot{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;letter-spacing:.14em;color:var(--bone-dim)}
 
 #muteBtn{position:fixed;right:18px;top:96px;z-index:7;pointer-events:auto;width:34px;height:30px;border:1px solid var(--panel-edge);background:rgba(20,26,24,.7);color:var(--bone-dim);font-family:var(--mono);font-size:14px;cursor:pointer}
 #muteBtn:hover{color:var(--bone);border-color:var(--steel)}
@@ -162,27 +138,13 @@ h1 .acc{color:var(--plasma)}
 .lede{color:var(--bone-dim);font-size:13.5px;line-height:1.55;margin:0 0 14px}
 .lede b{color:var(--bone)}
 .phones{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--rail);border:1px solid rgba(67,217,255,.3);background:rgba(67,217,255,.06);padding:9px 12px;margin:0 0 18px}
+html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones note are first-visit only (html.seen stamped by the inline head script) */
 .keys{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 20px;font-size:12px;color:var(--bone-dim)}
 .keys b{color:var(--bone);background:#0d110f;border:1px solid var(--panel-edge);padding:2px 7px;margin-right:6px}
 .primary{pointer-events:auto;width:100%;padding:14px;border:1px solid var(--toxic);background:rgba(116,232,74,.10);color:var(--toxic);font-family:var(--mono);font-size:15px;letter-spacing:.18em;cursor:pointer;transition:background .15s}
 .primary:hover{background:rgba(116,232,74,.20)}
-.primary:focus-visible,.ghost:focus-visible,#muteBtn:focus-visible,.seg button:focus-visible,.primary:focus,.ghost:focus{outline:2px solid var(--rail);outline-offset:2px}
+.primary:focus-visible,.ghost:focus-visible,#muteBtn:focus-visible,.primary:focus,.ghost:focus{outline:2px solid var(--rail);outline-offset:2px}
 
-.settings{margin-top:20px;border-top:1px solid var(--panel-edge);padding-top:16px}
-.settings h2{font-size:11px;letter-spacing:.24em;color:var(--bone-dim);margin:0 0 14px}
-.row{display:grid;grid-template-columns:140px 1fr 56px;align-items:center;gap:12px;margin-bottom:13px}
-.row label{font-size:12px;color:var(--bone)}
-.row .hint{grid-column:1 / -1;font-size:10.5px;color:var(--bone-dim);margin:-7px 0 4px;line-height:1.4}
-.row.rhythm-only,.row.hunt-only{transition:opacity .2s}
-input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:var(--steel);border-radius:2px;outline:none}
-input[type=range]:disabled{opacity:.35}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:var(--rail);box-shadow:0 0 6px rgba(67,217,255,.7);cursor:pointer}
-input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-radius:50%;background:var(--rail);cursor:pointer}
-.row .out{font-size:13px;color:var(--bone-dim);text-align:right}
-.seg{display:flex;border:1px solid var(--panel-edge)}
-.seg button{flex:1;background:transparent;color:var(--bone-dim);border:none;border-right:1px solid var(--panel-edge);padding:7px 0;font-family:var(--mono);font-size:11px;letter-spacing:.1em;cursor:pointer}
-.seg button:last-child{border-right:none}
-.seg button.on{background:rgba(67,217,255,.14);color:var(--rail)}
 .dualcols{display:flex;gap:12px;margin-top:18px}
 .ghost{flex:1;pointer-events:auto;padding:12px;border:1px solid var(--panel-edge);background:transparent;color:var(--bone-dim);font-family:var(--mono);font-size:12px;letter-spacing:.16em;cursor:pointer;transition:.15s}
 .ghost:hover{color:var(--bone);border-color:var(--steel)}
@@ -225,12 +187,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 @keyframes dojoFlash{0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.8)}14%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.05)}26%{transform:translateX(-50%) translateY(0) scale(1)}72%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-16px)}}
 #histChart{display:block;width:100%;height:84px}
 
-@media (max-width:520px){ h1{font-size:30px} #speedVal{font-size:44px} .row{grid-template-columns:118px 1fr 48px} }
-@media (prefers-reduced-motion: reduce){ #fill{transition:none} #speedVal{transition:none;animation:none!important} #hitmark.fire{animation-duration:.001s} #beatRing.pulse{animation:none} }
+@media (max-width:520px){ h1{font-size:30px} #speedVal{font-size:44px} }
+@media (prefers-reduced-motion: reduce){ #speedVal{transition:none;animation:none!important} #hitmark.fire{animation-duration:.001s} #beatRing.pulse{animation:none} }
 
 /* ---- share modal ---- */
-#shareOverlay,#settingsOverlay{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.82),rgba(8,11,10,.96));backdrop-filter:blur(4px)}
-#shareOverlay.hidden,#settingsOverlay.hidden{display:none}
+#shareOverlay{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.82),rgba(8,11,10,.96));backdrop-filter:blur(4px)}
+#shareOverlay.hidden{display:none}
 .share-card{text-align:center}
 .share-card .lede{margin-bottom:4px}
 .qr{width:212px;height:212px;margin:18px auto 14px;padding:12px;background:var(--bone);border:1px solid var(--panel-edge);box-shadow:0 0 0 1px rgba(67,217,255,.25),0 16px 40px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
@@ -258,24 +220,14 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 </div>
 <div id="ghostToast" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
-<div id="scopeAim" aria-hidden="true"></div>
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
-<div id="scopeHud" class="hud" aria-hidden="true"></div>
 <canvas id="wasdHud" width="560" height="560" aria-hidden="true"></canvas>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
 <div id="assist" aria-hidden="true"></div>
 
-<div id="statBox" class="hud">
-  <div class="stat"><span class="k">TARGETS</span><span class="v" id="sTargets">0</span></div>
-  <div class="stat"><span class="k">STREAK</span><span class="v green" id="sStreak">0</span><span class="sub" id="sStreakBest">best 0</span></div>
-  <div class="stat"><span class="k" id="reactLabel">TIMING</span><span class="v" id="sReact">— ms</span></div>
-  <div class="stat"><span class="k">CLICK&nbsp;%</span><span class="v" id="sClick">—</span></div>
-  <div class="stat"><span class="k">FARTHEST</span><span class="v" id="sFar">—</span></div>
-  <div class="stat"><span class="k">HIGHEST</span><span class="v" id="sHigh">—</span></div>
-</div>
 <div id="hitFlash" aria-hidden="true"></div>
 <div id="dojoFlash" aria-hidden="true"></div>
 
@@ -291,164 +243,38 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
   <button id="fireBtn" aria-label="Fire">FIRE</button>
 </div>
 
-<div id="gauge" class="hud" role="meter" aria-label="Accuracy pressure">
-  <div id="gaugeHead"><span id="verdict" class="warm">WARMING UP</span><span id="accVal">—%</span></div>
-  <div id="bar">
-    <div id="fill"></div>
-    <div class="gate" id="gateDown" data-l="SLOW ↓"></div>
-    <div class="gate" id="gateUp" data-l="↑ FASTER"></div>
-  </div>
-  <div id="gaugeFoot"><span>0%</span><span id="gaugeLegend">on-beat hits vs. misses</span><span>100%</span></div>
-</div>
-
 <div id="overlay">
   <div class="card">
     <p class="eyebrow" id="ovEyebrow">QUAKE&nbsp;III&nbsp;·&nbsp;RHYTHM&nbsp;TRAINER</p>
     <h1 id="ovTitle">AIM <span class="acc">DOJO</span></h1>
-    <p class="lede" id="ovLede">A slow groove sets the pulse, with a <b>woodblock tick on every beat</b> to count by. An orb appears on a beat, somewhere around you — <b>beat 1 you find it, beat 2 you track it, beat 3 you fire</b>. Killing it within 3 beats is <b>Excellent</b>; faster is better still. The ring sweeping the floor marks each 8-beat phrase. Distance is in the sound: close orbs are dry and loud, far ones quiet and washed in reverb.</p>
+    <p class="lede" id="ovLede">Find the orb, <b>fire on the beat</b> — the dojo does the rest.</p>
     <div class="phones" id="phonesNote">🎧 Headphones help, but laptop speakers work too. Sound on.</div>
 
     <div class="keys">
       <span><b>MOUSE</b>turn &amp; aim</span>
       <span><b>L-CLICK</b>fire on the beat</span>
       <span><b>WASD</b>tap the shown key on the beat &mdash; steadies the orbs</span>
-      <span><b>ESC</b>pause &amp; settings</span>
+      <span><b>ESC</b>pause</span>
     </div>
-
-    <div id="histBox" class="histbox" style="display:none">
-      <div class="histhead"><span>PATH EFFICIENCY · RECENT RUNS</span><span id="histSub" class="histsub"></span></div>
-      <canvas id="histChart"></canvas>
-    </div>
-
-    <div id="dojoBox" class="boardbox">
-      <div class="histhead"><span>🥋 DOJO RECORDS</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
-      <div id="dojoTabs" class="dojo-tabs">
-        <span class="dt" data-sort="kills">KILLS</span><span class="dt" data-sort="streak">STREAK</span><span class="dt" data-sort="peak_bpm">BPM</span><span class="dt" data-sort="far">FARTHEST</span><span class="dt" data-sort="high">HIGHEST</span>
-      </div>
-      <div id="dojoBests" class="histsub" style="margin:0 0 3px;text-align:left;white-space:normal"></div>
-      <div id="dojoList" class="boardlist"><div class="board-empty">loading…</div></div>
-    </div>
-
 
     <div id="pauseStats" style="display:none"></div>
 
     <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
-    <div class="dualcols"><button class="ghost" id="advBtn">⚙ ADVANCED</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
-  </div>
-</div>
+    <div class="dualcols"><button class="ghost" id="recordsBtn">🥋 RECORDS</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
 
-<div id="settingsOverlay" class="hidden">
-  <div class="card">
-    <p class="eyebrow">ADVANCED&nbsp;·&nbsp;RANGE&nbsp;SETTINGS</p>
-    <div class="settings" style="margin-top:6px">
-      <h2 id="setHead">— RANGE SETTINGS —</h2>
-
-      <div class="row">
-        <label>Mode</label>
-        <div class="seg" id="modeSeg"><button data-v="rhythm" class="on">RHYTHM</button><button data-v="hunt">FREE HUNT</button></div>
-        <span class="out"></span>
+    <div id="recordsWrap" style="display:none;margin-top:16px">
+      <div id="histBox" class="histbox" style="display:none">
+        <div class="histhead"><span>PATH EFFICIENCY · RECENT RUNS</span><span id="histSub" class="histsub"></span></div>
+        <canvas id="histChart"></canvas>
       </div>
-      <div class="hint">Rhythm: orbs spawn on the beat and you fire in time, tempo adapts. Free hunt: orbs stream continuously, world speed adapts. (Switching applies on restart.)</div>
-
-      <div class="row rhythm-only">
-        <label for="startBpm">Start tempo</label>
-        <input type="range" id="startBpm" min="20" max="150" step="2" value="48">
-        <span class="out" id="startBpmOut">48</span>
+      <div id="dojoBox" class="boardbox">
+        <div class="histhead"><span>🥋 DOJO RECORDS</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
+        <div id="dojoTabs" class="dojo-tabs">
+          <span class="dt" data-sort="kills">KILLS</span><span class="dt" data-sort="streak">STREAK</span><span class="dt" data-sort="peak_bpm">BPM</span><span class="dt" data-sort="far">FARTHEST</span><span class="dt" data-sort="high">HIGHEST</span>
+        </div>
+        <div id="dojoBests" class="histsub" style="margin:0 0 3px;text-align:left;white-space:normal"></div>
+        <div id="dojoList" class="boardlist"><div class="board-empty">loading…</div></div>
       </div>
-
-      <div class="row rhythm-only">
-        <label for="density">Orb density</label>
-        <input type="range" id="density" min="0.25" max="1.3" step="0.05" value="1.00">
-        <span class="out" id="densityOut">0.55×</span>
-      </div>
-      <div class="hint">How busy the beat patterns are. Lower = more rests between orbs; higher = more onsets. A cooldown keeps orbs from ever clustering. Applies live.</div>
-
-      <div class="row hunt-only">
-        <label for="startSpd">Start speed</label>
-        <input type="range" id="startSpd" min="1" max="8" step="0.5" value="2">
-        <span class="out" id="startSpdOut">2.0×</span>
-      </div>
-
-      <div class="row">
-        <label>Spawn field</label>
-        <div class="seg" id="fieldSeg"><button data-v="full" class="on">360° AROUND</button><button data-v="front">FRONT ONLY</button></div>
-        <span class="out"></span>
-      </div>
-      <div class="hint">360° makes you localize and turn to orbs behind you. Front-only keeps every orb in view.</div>
-
-      <div class="row">
-        <label>Assist arrows</label>
-        <div class="seg" id="assistSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
-        <span class="out"></span>
-      </div>
-
-      <div class="row">
-        <label>WASD key letter</label>
-        <div class="seg" id="wasdLetterSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
-        <span class="out"></span>
-      </div>
-
-      <div class="row">
-        <label>Tap timing readout</label>
-        <div class="seg" id="wasdTapTextSeg"><button data-v="off" class="on">OFF</button><button data-v="on">ON</button></div>
-        <span class="out"></span>
-      </div>
-
-      <div class="row">
-        <label>WASD center cue</label>
-        <div class="seg" id="wasdHudSeg"><button data-v="off" class="on">OFF</button><button data-v="on">ON</button></div>
-        <span class="out"></span>
-      </div>
-
-      <div class="row">
-        <label>Trajectory arc</label>
-        <div class="seg" id="arcSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
-        <span class="out"></span>
-      </div>
-      <div class="hint">Your shot is a real projectile that travels and drops under gravity — lead moving targets and aim a touch high. The trajectory arc previews where it will fly.</div>
-
-      <div class="row">
-        <label>Ballistic scope</label>
-        <div class="seg" id="scopeSeg"><button data-v="off">OFF</button><button data-v="on" class="on">ON</button></div>
-        <span class="out"></span>
-      </div>
-      <div class="row">
-        <label>Scope units</label>
-        <div class="seg" id="unitsSeg"><button data-v="m" class="on">METERS</button><button data-v="ft">FEET</button></div>
-        <span class="out"></span>
-      </div>
-      <div class="hint">In ARC mode the scope solves the shot for the target nearest your crosshair: a gold aim-pip shows where to point, and the reticle around the target snaps to <b>LOCK</b> the moment your current aim would actually hit it (accounting for its motion, drop, and range). HUD shows θ / range / flight-time / lead.</div>
-
-      <div class="row">
-        <label for="sens">Sensitivity</label>
-        <input type="range" id="sens" min="0.2" max="3" step="0.05" value="3">
-        <span class="out" id="sensOut">3.00×</span>
-      </div>
-      <div class="row">
-        <label for="fov">Field of view</label>
-        <input type="range" id="fov" min="70" max="110" step="1" value="70">
-        <span class="out" id="fovOut">70°</span>
-      </div>
-
-      <div class="row">
-        <label for="upTh">Speed-up at</label>
-        <input type="range" id="upTh" min="0" max="1" step="0.01" value="0.80">
-        <span class="out" id="upThOut">80%</span>
-      </div>
-      <div class="row">
-        <label for="downTh">Slow-down at</label>
-        <input type="range" id="downTh" min="0" max="0.75" step="0.01" value="0">
-        <span class="out" id="downThOut">5%</span>
-      </div>
-      <div class="hint">The gap between these is the dead-band: while accuracy sits between them the tempo holds steady.</div>
-
-      <div class="row">
-        <label for="win">Window size</label>
-        <input type="range" id="win" min="5" max="25" step="1" value="25">
-        <span class="out" id="winOut">10</span>
-      </div>
-
-      <div class="dualcols"><button class="ghost" id="applyBtn">APPLY &amp; RESTART</button><button class="ghost" id="settingsClose">← BACK</button></div>
     </div>
   </div>
 </div>
@@ -492,20 +318,16 @@ function loadToneOnce(){
 
 /* ========================= TUNABLES ========================= */
 const CFG = {
-  mode:'rhythm',
-  // free-hunt world speed
-  startSpeed:2.0, minSpeed:1.0, maxSpeed:12.0, upStep:0.6, downStep:0.7,
   // rhythm tempo
   startBpm:48, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // default tempo 48bpm (user-picked sane default). gentler slowdown so a few misses don't crater the tempo
   // shared adaptive law
   upThreshold:0.80, downThreshold:0, windowSize:25, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Defaults: speed-up at 80% acc, slow-down only at 0% (never eases off). windowSize 25.
   // difficulty mapping
-  lifeSlow:3.6, lifeFast:0.95, radSlow:1.15, radFast:0.46,
-  gapSlow:0.55, gapFast:0.07,
+  radSlow:1.15,
   rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeHitStep:0.08, rangeMissStep:0.20, rangeStep:1.2, rangeStepDown:1.6,   // DISTANCE TRAINER (free-play): state.range (spawn shell far edge) now creeps SUB-PERCEPTUALLY per event — +rangeHitStep on a hit, -rangeMissStep on a miss (converges ~71% reach). rangeStep/rangeStepDown = the old CHUNKED march, now vestigial. -- skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
-  beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // RHYTHM: strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises. (hunt has no beat)
+  beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:false, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Defaults (user-picked): center circle (wasdHud) + timing text (wasdTapText) OFF -- letter only, both opt-in via settings.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
@@ -1127,7 +949,7 @@ function stopTargetSound(snd){
 function rhythmLevel(){ const b=state.bpm; return b<90?1:(b<115?2:(b<140?3:4)); }
 function eighthSec(){ return (60/state.bpm)/2; }
 function timingErrorMs(){
-  if(state.mode!=='rhythm' || !toneReady) return 0;
+  if(!toneReady) return 0;
   const e=60/state.bpm; let pos=Tone.Transport.seconds;   // grade against the beat (quarter note) = the tick
   const lat=(rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0; pos-=lat;
   const k=Math.round(pos/e); return (pos - k*e)*1000;   // + = late, - = early
@@ -1183,7 +1005,7 @@ function ensureRhythm(){
   if(gridId==null){ gridId = Tone.Transport.scheduleRepeat(onGrid, '8n'); }
 }
 function syncTransport(){
-  if(state.mode!=='rhythm' || !toneReady) return;
+  if(!toneReady) return;
   if(state.running){ if(Tone.Transport.state!=='started') Tone.Transport.start('+0.05'); }
   else { if(Tone.Transport.state==='started') Tone.Transport.pause(); }
 }
@@ -1194,7 +1016,7 @@ function teardownTransport(){
 }
 
 /* ========================= TARGETS ========================= */
-const targets=[]; let nextSpawnAt=0; const TOXIC=0x74e84a;
+const targets=[]; const TOXIC=0x74e84a;
 const TARGET_CORE_GEO=new THREE.SphereGeometry(1,16,10);
 const TARGET_SHELL_GEO=new THREE.SphereGeometry(1,10,8);
 const TARGET_CORE_MAT=new THREE.MeshBasicMaterial({color:TOXIC});
@@ -1245,11 +1067,8 @@ function releaseTargetRecord(tg){
   releaseTrailPoints(tg.trail); tg.mesh=tg.shell=tg.snd=tg.trailMesh=null; tg.idx=-1; targetRecordPool.push(tg);
 }
 function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
-function diffT(){ return state.mode==='rhythm' ? Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))) : (state.speed-CFG.minSpeed)/(CFG.maxSpeed-CFG.minSpeed); }
-function targetRadius(){ const f = state.mode==='rhythm' ? 0.62 : CFG.radFast; return lerp(CFG.radSlow, f, diffT()); }
-function targetLife(){ return lerp(CFG.lifeSlow, CFG.lifeFast, diffT()); }
-function spawnGap(){ return lerp(CFG.gapSlow, CFG.gapFast, diffT()); }
-function desiredCount(){ return state.speed<5?1:(state.speed<9?2:3); }
+function diffT(){ return Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))); }
+function targetRadius(){ return lerp(CFG.radSlow, 0.62, diffT()); }
 function activeTargetCount(){ return targets.length; }
 function spawnRhythmOrb(){ spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats}); }
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
@@ -1280,16 +1099,15 @@ function spawnTarget(opts){
   const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd()));   // cube-root warp → constant volumetric density (no bunching at the near edge)
   _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist);
   _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos);
-  const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*(state.mode==='rhythm'?0.7:1);
+  const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*0.7;
   const tg=acquireTargetRecord();
   const vel=tg.vel.set(rnd()*2-1,(rnd()*2-1)*0.35,rnd()*2-1).normalize().multiplyScalar(dmag);
   core.scale.setScalar(r*(reduceMotion?1:0.01));
   const snd=makeTargetSound(core);
-  const life=opts.life!=null?opts.life:targetLife();
-  const rhythm=(state.mode==='rhythm');                   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
+  const life=opts.life!=null?opts.life:(60/state.bpm)*CFG.rhythmLifeBeats;   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd;
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
-  if(rhythm) tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
+  tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
@@ -1317,22 +1135,16 @@ function pushEvent(good){
   if(events.length<CFG.windowSize){ events.push(good); if(good) eventsGood++; }
   else { if(events[eventsHead]) eventsGood--; events[eventsHead]=good; if(good) eventsGood++; eventsHead=(eventsHead+1)%CFG.windowSize; }
   changeRange(good ? CFG.rangeHitStep : -CFG.rangeMissStep);   // DISTANCE TRAINER: the spawn shell creeps sub-perceptually FARTHER on each hit, eases back on a miss -> converges on your reliable reach
-  sinceAdjust++; maybeAdjust(); renderGauge();
+  sinceAdjust++; maybeAdjust();
 }
 function maybeAdjust(){
   if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
   if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
   const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
-  if(state.mode==='rhythm'){ if(up) changeBpm(+CFG.bpmUp,true); else if(down) changeBpm(-CFG.bpmDown,false); }
-  else { if(up) changeSpeed(+CFG.upStep,true); else if(down) changeSpeed(-CFG.downStep,false); }
+  if(up) changeBpm(+CFG.bpmUp,true); else if(down) changeBpm(-CFG.bpmDown,false);
   if(up||down) sinceAdjust=0;            // hold the bpm/speed adjust cadence even when railed (range is now a per-hit micro-creep in pushEvent, not a chunked march here)
 }
 function changeRange(delta){ state.range=Math.max(CFG.rangeStart,Math.min(CFG.rangeMax,state.range+delta)); }   // never closer than the start, never past the ballistically-reachable cap
-function changeSpeed(delta,up){
-  const prev=state.speed; state.speed=Math.max(CFG.minSpeed,Math.min(CFG.maxSpeed,state.speed+delta));
-  if(state.speed===prev) return; sinceAdjust=0; state.maxReached=Math.max(state.maxReached,state.speed);
-  renderPrimary(up,true); sfx(up?'levelUp':'levelDown');
-}
 function changeBpm(delta,up){
   const prev=state.bpm; state.bpm=Math.max(CFG.minBpm,Math.min(CFG.maxBpm,state.bpm+delta));
   if(state.bpm===prev) return; sinceAdjust=0; state.maxBpm=Math.max(state.maxBpm,state.bpm);
@@ -1341,8 +1153,8 @@ function changeBpm(delta,up){
 }
 
 /* ========================= STATE + OUTCOMES ========================= */
-const state={ running:false, started:false, needsReset:false, t:0, mode:CFG.mode,
-  speed:CFG.startSpeed, maxReached:CFG.startSpeed, bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart, maxHitDist:0, maxHitHeight:0,
+const state={ running:false, started:false, needsReset:false, t:0,
+  bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart, maxHitDist:0, maxHitHeight:0,
   hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0, pathScores:[], pathScoreSum:0, pathScoreHead:0, sessEffs:[], sessBpms:[], sessEffSum:0, sessBpmSum:0 };
 function pushReaction(v){
   const a=state.reactions;
@@ -1374,17 +1186,6 @@ function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb'
     else if(!_dojoRecHit.streak && _dojoBest.streak>0 && state.bestStreak>_dojoBest.streak){ _dojoRecHit.streak=true; flashDojoRecord('STREAK '+state.bestStreak); }
   }
 }
-function onHit(tg, point, atT){ // free-hunt   (atT = when the shot was committed; defaults to now for hit-scan, = fire-time for a projectile)
-  if(tg.dead) return; tg.dead=true; if(atT==null) atT=state.t;
-  state.shots++;
-  if(tg.kind===2){ state.streak=0; pushEvent(false); flashReticleBad(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); killTarget(tg, false); renderStats(); return; }   // DECOY penalty (free-hunt: no h to keep in sync)
-  const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);   // GOLD = goldScore kills
-  recordHit(tg);
-  pushReaction((atT-tg.born)*1000);
-  const clutch=CFG.clutch && !reduceMotion && tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange;   // hunt has no beat window → range-only clutch
-  if(clutch) triggerClutch(tg);
-  pushEvent(true); popHitMarker(); addTrauma(CFG.hitTrauma); sfx('hit'); killTarget(tg, clutch); renderStats();
-}
 function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
   const beats=(atT - tg.born)/(60/(atBpm!=null?atBpm:state.bpm));               // grade against the tempo at commit time too (it can step mid-flight in free-play)
@@ -1396,7 +1197,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.kind===2){                                                          // DECOY: never scores — the hit IS the penalty (streak break + a wasted shot). Skip the grade path entirely; h/score untouched.
     state.streak=0; pushReaction(beats); pushEvent(false);
     showTiming('DECOY','don\'t shoot these','off');
-    popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); retireTrail(tg, 0.3); killTarget(tg, false); renderStats(); return;
+    popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); retireTrail(tg, 0.3); killTarget(tg, false); return;
   }
   if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
   else state.streak=0;
@@ -1408,14 +1209,14 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
   if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
-  if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch); renderStats();
+  if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
-  flashReticleBad(); sfx('whiff'); renderStats();
+  flashReticleBad(); sfx('whiff');
 }
 function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); return; }   // dodged a decoy → no penalty (avoiding it is the correct play)
-  retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); if(state.mode==='rhythm') showTiming('MISS','too slow','off'); sfx('expire'); renderStats(); }
+  retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off'); sfx('expire'); }
 function fire(){
   if(!state.running) return;
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed)
@@ -1423,7 +1224,7 @@ function fire(){
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
 function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND gamepad (face buttons / D-pad).
-  if(!state.running || state.mode!=='rhythm') return;
+  if(!state.running) return;
   if(!CFG.wasdRhythm) return;
   const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
   let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e2){}
@@ -1483,10 +1284,10 @@ const projectileMeshPool=[], projectilePool=[];
 function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.Mesh(PROJ_GEO, PROJ_MAT); m.visible=true; scene.add(m); return m; }
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
 function spawnProjectile(){
-  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, mode:'hunt', life:0, mesh:null};
+  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null};
   const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
   if(soundOn && toneReady && arcWhoosh){ try{ const now=Tone.now(), ft=Math.max(0.2,Math.min(2.5,_T)); arcWhoosh.triggerAttackRelease(260, ft, now, 0.5); arcWhoosh.frequency.cancelScheduledValues(now); arcWhoosh.frequency.setValueAtTime(260, now); arcWhoosh.frequency.linearRampToValueAtTime(560, now+ft*0.9); }catch(e){} }   // rising flight whoosh over the arc
-  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.mode=state.mode; pr.life=0;                 // capture tempo too — it can step mid-flight (free-play adaptive engine)
+  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // capture tempo too — it can step mid-flight (free-play adaptive engine)
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
   if(projectiles.length>40){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest
@@ -1509,7 +1310,7 @@ function updateProjectiles(dt){
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){ if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // ARC impact thud (weight on connect)
-      if(pr.mode==='rhythm') gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); else onHit(hit, pr.pos, pr.fireT); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
+      gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
@@ -1541,7 +1342,7 @@ function ensureArcObjs(){
 function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } if(arcLandInfoEl) arcLandInfoEl.classList.remove('on'); if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); arcLanded=false; _arcApexOn=false; }
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
-  const beatLen=state.mode==='rhythm'?60/Math.max(20,state.bpm):0.5, period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
+  const beatLen=60/Math.max(20,state.bpm), period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
   const setP=(ring,ph)=>{ const r=0.5+ph*2.6; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*(0.5+0.3*dayAmt); ring.visible=true; };   // bigger pulse rings, brighter by day
   const ph=(state.t % period)/period; setP(arcPulseA, ph); setP(arcPulseB, (ph+0.5)%1);
 }
@@ -1642,7 +1443,7 @@ const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing 
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
 function drawWasdLane(){
   if(!hudCtx) return;
-  const on = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
+  const on = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; return; }
   if(hudCanvas.style.display==='none') hudCanvas.style.display='block';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+Rin+24;
@@ -1692,7 +1493,7 @@ function drawWasdLane(){
 const _floorBeatCol=new THREE.Color();
 function updateFloorBeat(){
   let amt=0;
-  if(!MOBILE && CFG.floorBeat && !reduceMotion && CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && state.running && toneReady && Tone.Transport.state==='started'){
+  if(!MOBILE && CFG.floorBeat && !reduceMotion && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'){
     let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
     const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
     const bi=Math.round(beats), env=Math.max(0,1-Math.abs(beats-bi)*2), len=_combo.length, ckey=_combo[(((bi*nd)%len)+len)%len];   // wide soft pulse peaking on the whole beat; colour = that beat's MAIN-note key
@@ -1719,7 +1520,7 @@ function updateLandRings(dt){
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
 const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
 let scopeAccum=SCOPE_STEP;
-const scopeHudEl=gid('scopeHud'), scopeAimEl=gid('scopeAim'), lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
+const lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
 const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
 const _scScreen=[0,0,false];
 /* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
@@ -1737,7 +1538,7 @@ function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-c
   const lOp=dx>0?edgeOp(dx):0;  if(lOp>0 && scroll){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
   const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
 }
-function hideScope(){ if(scopeHudEl) scopeHudEl.classList.remove('on'); if(scopeAimEl) scopeAimEl.classList.remove('on'); if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
+function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
@@ -1751,7 +1552,6 @@ function updateScope(dt){
   const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
   const flight=computeShotPlan(_scM, _scV);                   // the actual shot plan for the current aim (right muzzle → crosshair impact)
   const locked=simShotHits(_scM, _scV, flight, tg);           // does that real shot's path connect with the (moving) target?
-  scopeAimEl.classList.remove('on');                          // aim-pip retired — with the orb holding still + the lock box, a "where to point" dot is redundant noise
   // seeking → LOCK reticle around the target, sized to its on-screen radius
   const ts=projectPointScope(Tt);
   if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
@@ -1761,28 +1561,12 @@ function updateScope(dt){
     if(lk && flight>0 && !reduceMotion){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast. reduced-motion -> steady box (no breathe)
     else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
   else { lockBoxEl.classList.remove('on','lock','decoy'); _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); }
-  // HUD readouts
-  const aimElev=Math.asin(Math.max(-1,Math.min(1,_scAim.y)))*RAD2DEG, tgtElev=Math.asin(Math.max(-1,Math.min(1,(Tt.y-P.y)/slant)))*RAD2DEG, lead=tg.vel.length()*flight;
-  // PER-TARGET IDEAL LOB (firing-computer depth): lead-iterate the intercept point, then closed-form solve the lofted
-  // launch ANGLE at projSpeedNow() (tempo-scaled) → required loft + apex height + reachability. Read-only; no rng.
-  const _ig=CFG.projGravity, _is=projSpeedNow(); let _it=slant/_is, _reach=false, _loft=0, _apex=0;
-  for(let k=0;k<4;k++){ const qx=Tt.x+tg.vel.x*_it, qy=Tt.y+tg.vel.y*_it, qz=Tt.z+tg.vel.z*_it;   // Q = where the orb will be at intercept
-    const ix=Math.max(0.01, Math.hypot(qx-_scM.x, qz-_scM.z)), iy=qy-_scM.y;                       // ground range + height from the muzzle to Q
-    const disc=_is*_is*_is*_is - _ig*(_ig*ix*ix + 2*iy*_is*_is);                                   // projectile-range discriminant; <0 → unreachable at this launch speed
-    if(disc<0){ _reach=false; break; }
-    _reach=true; _loft=Math.atan((_is*_is+Math.sqrt(disc))/(_ig*ix)); _it=ix/(_is*Math.cos(_loft)); }   // high (lobbed) solution; refine flight time from the solved angle
-  if(_reach){ const vy=_is*Math.sin(_loft); _apex=_scM.y + vy*vy/(2*_ig); }                        // apex = muzzle height + vy²/2g
-  // deviation arrows on the lock reticle: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits), as up/down (Δy) + left/right (Δx) arrows with the live |delta|. read-only -> daily-deterministic.
+  // deviation edge tints: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits) — the red glow on the screen edge to aim toward
   if(ts[2] && _scVMissOn && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one). edge tints are a functional aim cue -> shown under reduced-motion too; only the conveyor SCROLL is motion (frozen in updateEdgeTints)
     const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
     const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
     driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
   } else { hideEdgeTints(); }
-  const idealLine = _reach ? '<br>IDEAL <b>'+(_loft*RAD2DEG).toFixed(1)+'° loft</b>'
-                           : '<br>IDEAL <b class="sk">out of range</b>';
-  const html=(locked?'<b class="lk">● LOCK</b>':'<span class="sk">○ seeking</span>')+'<br>θ→TGT <b>'+tgtElev.toFixed(1)+'°</b> · AIM <b>'+aimElev.toFixed(1)+'°</b><br>RANGE <b>'+fmtDist(slant)+'</b> · FLIGHT <b>'+flight.toFixed(2)+'s</b> · LEAD <b>'+fmtDist(lead)+'</b>'+idealLine;
-  if(scopeHudEl._html!==html){ scopeHudEl.innerHTML=html; scopeHudEl._html=html; }
-  scopeHudEl.classList.add('on');
 }
 /* ---- wind HUD (free-play prototype): an arrow rotated to the wind direction RELATIVE TO YOUR VIEW + the strength ---- */
 const windHudEl=gid('windHud'), windArrowEl=windHudEl&&windHudEl.querySelector('.wh-arrow'), windMagEl=windHudEl&&windHudEl.querySelector('.wh-mag'), _windFwd=new THREE.Vector3();
@@ -1798,10 +1582,8 @@ function updateWindHud(){
 
 /* ========================= HUD ========================= */
 function gid(id){ return document.getElementById(id); }
-const el={ speedVal:gid('speedVal'), speedLabel:gid('speedLabel'), sTargets:gid('sTargets'), sStreak:gid('sStreak'),
-  sStreakBest:gid('sStreakBest'), sReact:gid('sReact'), reactLabel:gid('reactLabel'), sClick:gid('sClick'), sFar:gid('sFar'), sHigh:gid('sHigh'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
-  verdict:gid('verdict'), accVal:gid('accVal'), fill:gid('fill'), gateUp:gid('gateUp'), gateDown:gid('gateDown'),
-  gaugeLegend:gid('gaugeLegend'), reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
+const el={ speedVal:gid('speedVal'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
+  reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
 el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
 function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
 function setClassName(node, value){ if(node._className!==value){ node.className=value; node._className=value; } }
@@ -1809,35 +1591,16 @@ function setStyle(node, prop, value){ const key='_style_'+prop; if(node[key]!==v
 
 let primaryKey='';
 function renderPrimary(up, flash){
-  const v=state.mode==='rhythm' ? Math.round(state.bpm) : state.speed.toFixed(1), key=state.mode+':'+v;
-  if(key!==primaryKey){ el.speedVal.innerHTML=state.mode==='rhythm' ? v+'<span class="x">bpm</span>' : v+'<span class="x">×</span>'; primaryKey=key; }
+  const v=Math.round(state.bpm), key=''+v;
+  if(key!==primaryKey){ el.speedVal.innerHTML=v+'<span class="x">bpm</span>'; primaryKey=key; }
   if(flash && !reduceMotion){ el.speedVal.classList.remove('up','down'); void el.speedVal.offsetWidth; el.speedVal.classList.add(up?'up':'down'); }
-}
-function renderStats(){
-  setText(el.sTargets,state.hits); setText(el.sStreak,state.streak); setText(el.sStreakBest,'best '+state.bestStreak);
-  const avg=avgReaction();
-  setText(el.sReact, state.mode==='rhythm' ? (avg!=null?avg.toFixed(1):'—') : (avg!=null?Math.round(avg)+' ms':'— ms'));
-  setText(el.sClick, state.shots?Math.round(state.hits/state.shots*100)+'%':'—');
-  setText(el.sFar, state.maxHitDist?fmtDist(state.maxHitDist):'—');
-  setText(el.sHigh, state.maxHitHeight?fmtDist(state.maxHitHeight):'—');
-}
-function renderGauge(){
-  setStyle(el.gateDown,'left',(CFG.downThreshold*100)+'%'); setStyle(el.gateUp,'left',(CFG.upThreshold*100)+'%');
-  const acc=windowAccuracy();
-  if(acc===null){
-    setStyle(el.fill,'width','0%'); setClassName(el.fill,''); setText(el.accVal,'—%'); setText(el.verdict,'WARMING UP'); setClassName(el.verdict,'warm'); return;
-  }
-  let fillCls='hold', verdict='HOLDING';
-  if(acc>=CFG.upThreshold){ fillCls='go'; verdict='SPEEDING UP'; }
-  else if(acc<=CFG.downThreshold){ fillCls='slow'; verdict='SLOWING DOWN'; }
-  setStyle(el.fill,'width',(acc*100)+'%'); setClassName(el.fill,fillCls); setText(el.accVal,Math.round(acc*100)+'%'); setText(el.verdict,verdict); setClassName(el.verdict,fillCls);
 }
 function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('fire'); void el.hitmark.offsetWidth; el.hitmark.classList.add('fire'); }
 let reticleBadT=0;
 function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
 let _spoilShown=false;
 function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
-  const active = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && state.mode==='rhythm' && toneReady && state.running && Tone.Transport.state==='started';
+  const active = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;
   if(active && _spoilNote>=0){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2); let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note == the spoiled one -> X held until it advances (matches drawWasdLane's `spoiled`)
   if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
@@ -1955,7 +1718,7 @@ function pathScoreOf(tg){
 function pathGrade(s){ return s>=0.93?'DIRECT':s>=0.82?'CLEAN':s>=0.66?'STEADY':'LOOSE'; }
 function pathTier(s){ return s>=0.93?'t4':s>=0.82?'t3':s>=0.66?'t2':'t1'; }
 function updateTrail(dt){
-  if(state.running && state.mode==='rhythm' && targets.length){
+  if(state.running && targets.length){
     const cur=setAimDir(_aimCur);
     const tx=cur.x*TRAIL_R, ty=cur.y*TRAIL_R, tz=cur.z*TRAIL_R;
     for(const tg of targets){
@@ -2028,14 +1791,11 @@ function animate(frameNow){
 
   if(state.running){
     state.t+=dt;
-    if(state.mode==='hunt'){
-      if(activeTargetCount()<desiredCount() && state.t>=nextSpawnAt){ spawnTarget(); nextSpawnAt=state.t+spawnGap(); }
-    }
     if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
-      // beat-quantized motion (free-play rhythm): the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle. Continuous modes (hunt/daily) keep doSnap=true every frame → unchanged.
-      const wantStrobe=(state.mode==='rhythm' && CFG.beatQuant && toneReady);   // free-play AND the (now ARC) daily — both strobe
+      // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
+      const wantStrobe=(CFG.beatQuant && toneReady);   // beat-quantized motion: the orb HOLDS, then STEPS on the beat grid
       const strobe=wantStrobe && Tone.Transport.state==='started';
       let doSnap=true, moveStep=dt;
       if(wantStrobe && !strobe){ doSnap=false; }               // transport not ticking yet (e.g. the brief window after a resume) → HOLD, don't revert to per-frame scatter
@@ -2118,7 +1878,7 @@ function animate(frameNow){
   skyT += dt; skyAccum += dt; starAccum += dt;
   if(starAccum>=STAR_UPDATE_STEP){ updateStars(skyT); starAccum=0; }
   if(skyAccum>=SKY_UPDATE_STEP){ updateSky(skyAccum); skyAccum=0; }
-  if(state.mode==='rhythm' && state.running && activeRingCount>0){
+  if(state.running && activeRingCount>0){
     const spb=60/state.bpm;
     for(const r of RING_POOL){
       if(!r.active) continue;
@@ -2147,15 +1907,16 @@ function animate(frameNow){
 // NOTE: animate() is kicked off at the very end of the IIFE (after all module-scope const/let exist) — see bootstrap below.
 window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH; camera.updateProjectionMatrix(); renderer.setSize(viewW,viewH); sizeRefl(); });
 
-/* ========================= OVERLAY / SETTINGS ========================= */
-const overlay=gid('overlay'), beginBtn=gid('beginBtn'), applyBtn=gid('applyBtn');
+/* ========================= OVERLAY ========================= */
+const overlay=gid('overlay'), beginBtn=gid('beginBtn');
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
-const rhythmOnlyEls=[...document.querySelectorAll('.rhythm-only')], huntOnlyEls=[...document.querySelectorAll('.hunt-only')];
-if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>tap to shoot on the beat</span><span><b>❙❙</b>pause &amp; settings</span>'; }
+if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>tap to shoot on the beat</span><span><b>❙❙</b>pause</span>'; }
+// first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
 function enterRunning(){
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); }
+  try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
   state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   reconcileTargetSounds();
   if(MOBILE) touchUI.classList.add('show');
@@ -2177,27 +1938,15 @@ function showToneBlock(reason){
   else l.innerHTML=toneLoadFailed ? '<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap BEGIN again.' : '<b>Sound is still loading.</b> Tap BEGIN again in a moment.';
 }
 function startRun(){
-  if(CFG.mode==='rhythm' && !window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
+  if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
   initAudio();
-  if(CFG.mode==='rhythm' && !toneReady){ showToneBlock('start'); return; }
+  if(!toneReady){ showToneBlock('start'); return; }
   if(MOBILE || !canvas.requestPointerLock){ enterRunning(); }   // touch devices: no pointer lock
   else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
 }
 beginBtn.addEventListener('click', startRun);
 document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
 
-function configureMode(){
-  const rhythm = CFG.mode==='rhythm';
-  el.speedLabel.textContent = rhythm ? 'TEMPO' : 'WORLD SPEED';
-  el.reactLabel.textContent = rhythm ? 'BEATS' : 'REACTION';
-  el.gaugeLegend.textContent = rhythm ? 'kills within 3 beats vs. slow & missed' : 'hits vs. whiffs & expired';
-  el.beatRing.style.display = rhythm ? 'block' : 'none';
-  el.timing.style.display = rhythm ? 'block' : 'none';
-  rhythmOnlyEls.forEach(r=>r.style.opacity = rhythm?'1':'0.4');
-  huntOnlyEls.forEach(r=>r.style.opacity = rhythm?'0.4':'1');
-  startBpm.disabled = !rhythm; density.disabled = !rhythm; startSpd.disabled = rhythm;
-  renderPrimary(false,false);
-}
 function resetSession(){
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   _specialLive=specialOrbsLive();   // latch special-orb liveness for the whole run (constant-per-run → no mid-run gate flip)
@@ -2210,31 +1959,10 @@ function resetSession(){
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; _sparks.length=0; _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
-  state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
-  Object.assign(state,{t:0,speed:CFG.startSpeed,maxReached:CFG.startSpeed,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
-  nextSpawnAt=0;
-  if(state.mode==='rhythm') ensureRhythm();
-  configureMode(); renderStats(); renderGauge();
+  Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
+  ensureRhythm();
+  renderPrimary(false,false);
 }
-function applySettings(){
-  CFG.upThreshold=parseFloat(upTh.value);
-  CFG.downThreshold=Math.min(parseFloat(downTh.value),CFG.upThreshold-0.02);
-  CFG.windowSize=parseInt(win.value,10);
-  CFG.startSpeed=parseFloat(startSpd.value);
-  CFG.startBpm=parseInt(startBpm.value,10);
-  CFG.densityScale=parseFloat(density.value);
-  radPerPx=CFG.baseRadPerPx*parseFloat(sens.value);
-  camera.fov=parseInt(fov.value,10); camFovBase=camera.fov; camera.updateProjectionMatrix();   // keep the clutch-punch base in sync with the FOV slider
-  resetSession();
-}
-/* advanced settings modal */
-const settingsOverlay=gid('settingsOverlay'), advBtn=gid('advBtn'), settingsClose=gid('settingsClose');
-function closeSettings(){ if(settingsOverlay) settingsOverlay.classList.add('hidden'); }
-if(advBtn) advBtn.addEventListener('click', ()=>{ if(settingsOverlay) settingsOverlay.classList.remove('hidden'); });
-if(settingsClose) settingsClose.addEventListener('click', closeSettings);
-if(settingsOverlay) settingsOverlay.addEventListener('click', e=>{ if(e.target===settingsOverlay) closeSettings(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && settingsOverlay && !settingsOverlay.classList.contains('hidden')) closeSettings(); });
-applyBtn.addEventListener('click',()=>{ applySettings(); closeSettings(); startRun(); });
 
 document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement===canvas){ enterRunning(); }
@@ -2346,6 +2074,7 @@ async function submitDojo(){
   try{ localStorage.setItem('aimdojo.dojobest', JSON.stringify(_dojoBest)); }catch(e){}
   renderDojoBests();
   if(!improved) return;                                        // nothing new to publish → skip the network write (don't spam on every pause)
+  promptNameOnFirstRecord();
   const row={ client_id:clientId(), name:playerName().slice(0,24), far:s.far, high:s.high, streak:s.streak, peak_bpm:s.bpm, kills:s.kills, runtime:Math.round(state.t) };
   try{
     const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/dojo' : SB_URL+'/rest/v1/aimdojo_dojo';
@@ -2382,52 +2111,41 @@ function renderDojoBoard(rows, sort){
     dojoSort=s; try{ localStorage.setItem('aimdojo.dojosort', s); }catch(_e){} paint(); loadDojoBoard(); });
   paint();
 })();
+/* ---- collapsible 🥋 RECORDS section on the card (history chart + dojo board + name input live inside; closed by default) ---- */
+const recordsWrap=gid('recordsWrap'), recordsBtn=gid('recordsBtn');
+let recordsOpen=false, _namePrompted=false;
+function openRecords(){
+  if(!recordsWrap || recordsOpen) return; recordsOpen=true; recordsWrap.style.display='block';
+  renderHistory(); renderDojoBests(); loadDojoBoard();   // re-render on expand: the chart canvas reads clientWidth, which is 0 while collapsed
+}
+function closeRecords(){ if(!recordsWrap) return; recordsOpen=false; recordsWrap.style.display='none'; }
+if(recordsBtn) recordsBtn.addEventListener('click', ()=>{ recordsOpen ? closeRecords() : openRecords(); });
+function promptNameOnFirstRecord(){   // a personal record landed but no name is saved → open the records section once and point at the name field
+  if(_namePrompted) return; let nm=''; try{ nm=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){}
+  if(nm) return; _namePrompted=true; openRecords();
+  const ni=gid('nameInput'); if(ni){ setTimeout(()=>{ try{ ni.focus(); }catch(e){} }, 60); }
+}
 function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
   ovLede.style.display='none'; keysRow.style.display='none'; phonesNote.style.display='none';
-  beginBtn.textContent = '▶ RESUME'; gid('setHead').textContent='— ADJUST (mode/sliders apply on restart) —';
+  beginBtn.textContent = '▶ RESUME';
   const clickPct=state.shots?Math.round(state.hits/state.shots*100)+'%':'—';
   const avgNum=avgReaction();
-  const avgR = avgNum==null?'—':(state.mode==='rhythm'?avgNum.toFixed(1)+' beats':Math.round(avgNum)+' ms');
-  const peakK = state.mode==='rhythm' ? 'PEAK TEMPO' : 'PEAK SPEED';
-  const peakV = state.mode==='rhythm' ? Math.round(state.maxBpm)+' bpm' : state.maxReached.toFixed(1)+'×';
-  const timeK = state.mode==='rhythm' ? 'AVG BEATS/KILL' : 'AVG REACTION';
+  const avgR = avgNum==null?'—':avgNum.toFixed(1)+' beats';
   pauseStats.style.display='flex';
   pauseStats.innerHTML=
-    '<div class="chip"><div class="ck">'+peakK+'</div><div class="cv amber">'+peakV+'</div></div>'+
-    '<div class="chip"><div class="ck">'+(state.mode==='rhythm'?'GOOD KILLS':'TARGETS HIT')+'</div><div class="cv">'+state.hits+'</div></div>'+
+    '<div class="chip"><div class="ck">PEAK TEMPO</div><div class="cv amber">'+Math.round(state.maxBpm)+' bpm</div></div>'+
+    '<div class="chip"><div class="ck">GOOD KILLS</div><div class="cv">'+state.hits+'</div></div>'+
     '<div class="chip"><div class="ck">BEST STREAK</div><div class="cv green">'+state.bestStreak+'</div></div>'+
-    '<div class="chip"><div class="ck">'+timeK+'</div><div class="cv">'+avgR+'</div></div>'+
-    (state.mode==='rhythm'?'<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(avgPathScore()*100)+'%':'—')+'</div></div>':'')+
-    '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>';
+    '<div class="chip"><div class="ck">AVG BEATS/KILL</div><div class="cv">'+avgR+'</div></div>'+
+    '<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(avgPathScore()*100)+'%':'—')+'</div></div>'+
+    '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>'+
+    '<div class="chip"><div class="ck">FARTHEST</div><div class="cv">'+(state.maxHitDist?fmtDist(state.maxHitDist):'—')+'</div></div>'+
+    '<div class="chip"><div class="ck">HIGHEST</div><div class="cv">'+(state.maxHitHeight?fmtDist(state.maxHitHeight):'—')+'</div></div>';
+  overlay.classList.remove('hidden');   // unhide FIRST: renderHistory + the auto-openRecords path measure the chart canvas's clientWidth, which is 0 while the overlay is display:none
   saveSession(); renderHistory(); submitDojo(); loadDojoBoard();
-  overlay.classList.remove('hidden');
 }
-
-const sens=gid('sens'),sensOut=gid('sensOut'),fov=gid('fov'),fovOut=gid('fovOut');
-const startSpd=gid('startSpd'),startSpdOut=gid('startSpdOut'),startBpm=gid('startBpm'),startBpmOut=gid('startBpmOut');
-const upTh=gid('upTh'),upThOut=gid('upThOut'),downTh=gid('downTh'),downThOut=gid('downThOut'),win=gid('win'),winOut=gid('winOut');
-function bind(input,out,fmt){ const f=()=>out.textContent=fmt(input.value); input.addEventListener('input',f); f(); }
-bind(sens,sensOut,v=>parseFloat(v).toFixed(2)+'×'); bind(fov,fovOut,v=>v+'°');
-bind(startSpd,startSpdOut,v=>parseFloat(v).toFixed(1)+'×'); bind(startBpm,startBpmOut,v=>v);
-const density=gid('density'),densityOut=gid('densityOut');
-bind(density,densityOut,v=>parseFloat(v).toFixed(2)+'×');
-density.addEventListener('input',()=>{ CFG.densityScale=parseFloat(density.value); });
-bind(upTh,upThOut,v=>Math.round(v*100)+'%'); bind(downTh,downThOut,v=>Math.round(v*100)+'%'); bind(win,winOut,v=>v);
-function clampThresholds(){ if(parseFloat(downTh.value)>parseFloat(upTh.value)-0.02){ downTh.value=(parseFloat(upTh.value)-0.02).toFixed(2); downThOut.textContent=Math.round(downTh.value*100)+'%'; } }
-upTh.addEventListener('input',clampThresholds); downTh.addEventListener('input',clampThresholds);
-
-function wireSeg(id,cb){ const seg=gid(id); seg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; [...seg.children].forEach(x=>x.classList.remove('on')); b.classList.add('on'); cb(b.dataset.v); }); }
-wireSeg('modeSeg', v=>{ CFG.mode=v; configureMode(); });
-wireSeg('fieldSeg', v=> CFG.spawnField=v);
-wireSeg('assistSeg', v=> CFG.audioAssist=(v==='on'));
-wireSeg('wasdLetterSeg', v=> CFG.wasdLetter=(v==='on'));
-wireSeg('wasdTapTextSeg', v=> CFG.wasdTapText=(v==='on'));
-wireSeg('wasdHudSeg', v=> CFG.wasdHud=(v==='on'));
-wireSeg('arcSeg', v=>{ CFG.projArc=(v==='on'); });            // show/hide the trajectory-arc preview
-wireSeg('scopeSeg', v=>{ CFG.scope=(v==='on'); });            // ballistic firing-computer overlay (ARC only)
-wireSeg('unitsSeg', v=>{ CFG.scopeUnits=v; });                // 'm' | 'ft' — applies live
 
 gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); reconcileTargetSounds(); });
 
@@ -2469,7 +2187,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
   });
 })();
 
-configureMode(); renderGauge(); renderStats();
+renderPrimary(false,false);
 animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
 const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.requestIdleCallback(fn,{timeout:timeout||delay||1000}); else setTimeout(fn,delay||0); };
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
