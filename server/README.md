@@ -14,7 +14,7 @@ when no Railway URL is set. Turn verification on by deploying this and pointing 
 2. **Variables** (from `.env.example`):
    - `SUPABASE_URL` = `https://hgvnytaqmuybzbotosyj.supabase.co`
    - `SUPABASE_SERVICE_KEY` = the **service_role** key (Supabase → Project Settings → API). Keep it secret.
-   - `ALLOW_ORIGIN` = `https://robjohncolson.github.io`
+   - `ALLOW_ORIGIN` = `*` (site is served from both aim-dojo.vercel.app and robjohncolson.github.io)
 3. Deploy, then open `https://<your-app>.up.railway.app/health` — expect `{"ok":true,"configured":true}`.
 
 ## Point the client at it
