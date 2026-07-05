@@ -1066,11 +1066,11 @@ function makeTargetSound(mesh){
   try{
     const pa=new THREE.PositionalAudio(listener);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
-    const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=pickPenta();
+    const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=pickPenta();
     const ampGain=ctx.createGain(); ampGain.gain.value=0.55;
     const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2;
     const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
-    const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // tracks the note (was a wide-open 7k): fundamental + a couple of harmonics -> rounder hum, no triangle edge
+    const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain
     const outGain=ctx.createGain(); outGain.gain.value=0.0001;
     const gateGain=ctx.createGain(); gateGain.gain.value = 1;   // rhythmic 16th-note gate (driven each frame per-target from its OWN spawn phase); opens at spawn; stays 1 (continuous) when targetPulse is off
     osc.connect(ampGain); lfo.connect(lfoGain); lfoGain.connect(ampGain.gain);
@@ -1091,12 +1091,12 @@ function voiceTargetSound(snd, kind){
   if(!snd || !listener || !kind) return;
   try{
     const ctx=listener.context, f=snd.osc.frequency.value;
-    if(kind===1){        // GOLD: a faint detuned twin through the same tremolo -> gentle shimmer, a touch brighter
+    if(kind===1){        // GOLD: a faint detuned sine twin through the same tremolo -> gentle beating shimmer
       snd.lowpass.frequency.value=f*3.8;
-      const o2=ctx.createOscillator(); o2.type='triangle'; o2.frequency.value=f*1.004;
+      const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.004;
       const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2;
-    }else if(kind===2){  // DECOY (dormant): darker sine, slower pulse -- faintly "wrong"
-      snd.osc.type='sine'; snd.lowpass.frequency.value=f*2.0; snd.lfo.frequency.value=1.4;
+    }else if(kind===2){  // DECOY (dormant): slower pulse -- faintly "wrong" (timbre now matches the others; the sluggish 1.4 Hz tremolo is the tell)
+      snd.lowpass.frequency.value=f*2.0; snd.lfo.frequency.value=1.4;
     }else if(kind===3){  // SPEED: an octave up with a quicker flutter -- light + urgent, filter keeps it airy not piercing
       snd.osc.frequency.value=f*2; snd.lowpass.frequency.value=f*2*2.4; snd.lfo.frequency.value=4.5+Math.random()*1.5;
     }else if(kind===4){  // MOVER: dreamy slow pitch wobble (a few cents at 0.7 Hz)
