@@ -570,6 +570,7 @@ let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap
 const WASD_GLYPH=['W','A','S','D'];   // WASD-rhythm TAP notes: timestamp each key last went down (for anticipation — a press just BEFORE the beat still counts)
 let _combo=[0,1,2,3], _curCi=-1, _curMain=true, _baseMul=1, _mulEff=1, _wasdCombo=0, _noteFlashT=-999, _noteFlashHit=false, _spoilNote=-1, _spoilOff=0, _hitNote=-1, _hitOff=0, _tapOffMs=0, _tapShowT=-999, _tapAcc=0;   // WASD TAP notes: combo seq + current note index/key/window, is-main(on-beat), _baseMul=field damping from last main tap, _wasdCombo=bonus combo, _spoilNote/_hitNote=the frozen wrong/correct note + its off (beat-fraction), tap flash
 const _resolved=new Set();   // resolved note indices (one-press lock + miss-detection); replaces the single _resolvedIdx so a same-frame double-tap can claim the ADJACENT note instead of being eaten
+let _sparks=[], _sparkPend=null;   // consumed-letter star burst: spawned on a correct tap (count rides accuracy), drawn + aged in drawWasdLane
 function _wasdResolve(offSec, main, win){ const ao=Math.abs(offSec), acc=ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,win-0.025))); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main) _baseMul=Math.pow(1-acc,1.5); else if(acc>0) _wasdCombo++; }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau (acc 1, matching the readout -> the field actually freezes); beyond it acc falls linearly over the rest of the window; damping (1-acc)^1.5 so decent-but-not-perfect taps still READ as calm
 function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(0, _baseMul*(1-steady)); }   // orb-motion multiplier: the last MAIN tap's damping, made calmer by the bonus combo (1=orbs move, 0=frozen)
 function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
@@ -1411,7 +1412,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(ci<0) return;   // no unresolved note in this press's window -> stray/duplicate, ignored (no lock)
   _resolved.add(ci);   // ONE press per note
   const offSec=(beats-ci/nd)*bps, ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0);
-  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; }   // correct: grade + FREEZE the circle at the hit position, shaded in the key color, until the next note
+  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc}; }   // correct: grade + FREEZE the circle at the hit position + burst the letter into stars
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
 }
 document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; wasdLanePress(k); });   // keyboard W/A/S/D -> lanes
@@ -1648,6 +1649,18 @@ function drawWasdLane(){
   if((CFG.wasdLetter || reduceMotion) && !hitHeld){ hudCtx.globalAlpha=0.95; hudCtx.font='bold 26px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle';
     hudCtx.lineWidth=4; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.strokeText(WASD_GLYPH[letterKey],cx,LY);
     hudCtx.fillStyle=spoiled?'rgba(150,152,160,0.9)':WASD_COL[letterKey]; hudCtx.fillText(WASD_GLYPH[letterKey],cx,LY); }   // correct hit -> the letter VANISHES until the next note (absence = unmistakably consumed); grey = spoiled by a wrong key
+  // ---- consumed-letter STAR BURST: the letter shatters into 4-point sparkles that drift out, float up, spin + fade (~0.6s); MORE stars = better timing (4..14), pale-gold ones mixed in on a PERFECT ----
+  if(_sparkPend){ const n=4+Math.round(_sparkPend.acc*0.10), bc=WASD_COL[_sparkPend.key];
+    for(let i=0;i<n;i++){ const a=Math.random()*PI2, sp=30+Math.random()*80;
+      _sparks.push({x:cx, y:LY, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-24, r:2.2+Math.random()*2.4, rot:Math.random()*PI2, vr:(Math.random()*2-1)*4, born:state.t, life:0.45+Math.random()*0.35, col:(_sparkPend.acc>=100&&i%3===0)?'#fff6c8':bc}); }
+    _sparkPend=null; }
+  for(let i=_sparks.length-1;i>=0;i--){ const s=_sparks[i], ag=(state.t-s.born)/s.life;
+    if(ag>=1 || ag<0){ _sparks.splice(i,1); continue; }
+    const ease=1-(1-ag)*(1-ag), px=s.x+s.vx*ease*s.life, py=s.y+s.vy*ease*s.life, rr=s.r*(1-0.4*ag), ro=s.rot+s.vr*ag;
+    hudCtx.globalAlpha=1-ag; hudCtx.fillStyle=s.col; hudCtx.beginPath();
+    for(let q=0;q<4;q++){ const an=ro+q*Math.PI/2, ax=px+Math.cos(an)*rr*2.6, ay=py+Math.sin(an)*rr*2.6, bx=px+Math.cos(an+Math.PI/4)*rr*0.55, by=py+Math.sin(an+Math.PI/4)*rr*0.55;
+      if(q===0) hudCtx.moveTo(ax,ay); else hudCtx.lineTo(ax,ay); hudCtx.lineTo(bx,by); }
+    hudCtx.closePath(); hudCtx.fill(); }
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
   if(showHud && CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
@@ -2172,7 +2185,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; _sparks.length=0; _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   state.mode = (CFG.mode==='rhythm' && toneReady) ? 'rhythm' : (CFG.mode==='rhythm' ? 'hunt' : 'hunt');
