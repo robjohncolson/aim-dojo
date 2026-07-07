@@ -1308,10 +1308,12 @@ const projectileMeshPool=[], projectilePool=[];
 function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.Mesh(PROJ_GEO, PROJ_MAT); m.visible=true; scene.add(m); return m; }
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
 function spawnProjectile(){
-  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null};
+  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
   const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
   if(soundOn && toneReady && arcWhoosh){ try{ const now=Tone.now(), ft=Math.max(0.2,Math.min(2.5,_T)); arcWhoosh.triggerAttackRelease(260, ft, now, 0.5); arcWhoosh.frequency.cancelScheduledValues(now); arcWhoosh.frequency.setValueAtTime(260, now); arcWhoosh.frequency.linearRampToValueAtTime(560, now+ft*0.9); }catch(e){} }   // rising flight whoosh over the arc
   pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // capture tempo too — it can step mid-flight (free-play adaptive engine)
+  pr.charged=orbOpen();   // groove VULN: was the TRIGGER pulled on the beat (while the orbs GLOW)? A charged shot KILLS on hit; a dud (off-beat) clanks. Judged HERE at the key press — the flight time is the game's problem, not the player's (that's what "arrive early" was forcing on them).
+  if(soundOn && toneReady && shotCue && CFG.grooveGroove && CFG.grooveVuln){ try{ shotCue.triggerAttackRelease(pr.charged?784:196, pr.charged?'16n':'8n', Tone.now(), pr.charged?0.5:0.4); }catch(e){} }   // instant fire-timing feedback at the trigger: bright G5 if ON the beat (charged), a low dud if OFF
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
   if(projectiles.length>40){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest
@@ -1334,7 +1336,7 @@ function updateProjectiles(dt){
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
-      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // hit the orb OFF the beat (shielded) → CLANK: no kill. DECOYS (kind 2) are exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(hit.kind!==2 && !pr.charged){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // the SHOT was fired OFF the beat (pr.charged set at fire) → CLANK: no kill, regardless of where it lands. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (open window): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
@@ -1890,7 +1892,7 @@ function animate(frameNow){
 
   if(state.running){
     state.t+=dt;
-    if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB VULNERABILITY glow: shells bloom OPEN on the beat ("the one"), dim/shielded off-beat → killable only while glowing (functional cue, shown under reduceMotion too)
+    if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
       let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
       const _bps=60/Math.max(20,state.bpm), _lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; hb-=_lat/_bps;   // heard timeline → the glow matches the audible beat
       _openAmt=Math.max(0, 1-Math.abs(hb-Math.round(hb))/Math.max(0.01,CFG.grooveOpenWindow));
