@@ -392,7 +392,7 @@ function learnWasdGlyph(k, key){ const ch=(key||'').toLocaleUpperCase(); if(ch.l
 try{ if(navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(m=>{ WASD_CODES.forEach((c,i)=>learnWasdGlyph(i,m.get(c))); }).catch(()=>{}); }catch(e){}
 let _combo=[0,1,2,3], _curCi=-1, _curMain=true, _baseMul=1, _mulEff=1, _wasdCombo=0, _noteFlashT=-999, _noteFlashHit=false, _spoilNote=-1, _spoilOff=0, _hitNote=-1, _hitOff=0, _tapOffMs=0, _tapShowT=-999, _tapAcc=0;   // WASD TAP notes: combo seq + current note index/key/window, is-main(on-beat), _baseMul=field damping from last main tap, _wasdCombo=bonus combo, _spoilNote/_hitNote=the frozen wrong/correct note + its off (beat-fraction), tap flash
 const _resolved=new Set();   // resolved note indices (one-press lock + miss-detection); replaces the single _resolvedIdx so a same-frame double-tap can claim the ADJACENT note instead of being eaten
-let _sparks=[], _sparkPend=null;   // consumed-letter star burst: spawned on a correct tap (count rides accuracy), drawn + aged in drawWasdLane
+let _sparkPend=null;   // correct-tap → 3D star-flock burst signal {key,acc,rainbow}; consumed once by updateFlock, then nulled
 function _wasdResolve(offSec, main, win){ const ao=Math.abs(offSec), acc=ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,win-0.025))); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main) _baseMul=Math.pow(1-acc,1.5); else if(acc>0) _wasdCombo++; }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau (acc 1, matching the readout -> the field actually freezes); beyond it acc falls linearly over the rest of the window; damping (1-acc)^1.5 so decent-but-not-perfect taps still READ as calm
 function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(0, _baseMul*(1-steady)); }   // orb-motion multiplier: the last MAIN tap's damping, made calmer by the bonus combo (1=orbs move, 0=frozen)
 function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
@@ -1234,7 +1234,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(ci<0) return;   // no unresolved note in this press's window -> stray/duplicate, ignored (no lock)
   _resolved.add(ci);   // ONE press per note
   const offSec=(beats-ci/nd)*bps, ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0);
-  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc}; }   // correct: grade + FREEZE the circle at the hit position + burst the letter into stars
+  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc, rainbow:_wasdCombo>=FLOCK.rainbowCombo}; }   // correct: grade + FREEZE the circle + burst the vanished letter into a 3D star-flock (rainbow flock on a hot combo)
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
 }
 document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; e.key refreshes the displayed local keycap on browsers without getLayoutMap()
@@ -1479,22 +1479,85 @@ function drawWasdLane(){
     } }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
   showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
-  // ---- consumed-letter STAR BURST: the letter shatters into 4-point sparkles that drift out, float up, spin + fade (~0.6s); MORE stars = better timing (4..14), pale-gold ones mixed in on a PERFECT ----
-  if(_sparkPend){ const n=4+Math.round(_sparkPend.acc*0.10), bc=WASD_COL[_sparkPend.key];
-    for(let i=0;i<n;i++){ const a=Math.random()*PI2, sp=30+Math.random()*80;
-      _sparks.push({x:cx, y:LY, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-24, r:2.2+Math.random()*2.4, rot:Math.random()*PI2, vr:(Math.random()*2-1)*4, born:state.t, life:0.45+Math.random()*0.35, col:(_sparkPend.acc>=100&&i%3===0)?'#fff6c8':bc}); }
-    _sparkPend=null; }
-  for(let i=_sparks.length-1;i>=0;i--){ const s=_sparks[i], ag=(state.t-s.born)/s.life;
-    if(ag>=1 || ag<0){ _sparks.splice(i,1); continue; }
-    const ease=1-(1-ag)*(1-ag), px=s.x+s.vx*ease*s.life, py=s.y+s.vy*ease*s.life, rr=s.r*(1-0.4*ag), ro=s.rot+s.vr*ag;
-    hudCtx.globalAlpha=1-ag; hudCtx.fillStyle=s.col; hudCtx.beginPath();
-    for(let q=0;q<4;q++){ const an=ro+q*Math.PI/2, ax=px+Math.cos(an)*rr*2.6, ay=py+Math.sin(an)*rr*2.6, bx=px+Math.cos(an+Math.PI/4)*rr*0.55, by=py+Math.sin(an+Math.PI/4)*rr*0.55;
-      if(q===0) hudCtx.moveTo(ax,ay); else hudCtx.lineTo(ax,ay); hudCtx.lineTo(bx,by); }
-    hudCtx.closePath(); hudCtx.fill(); }
+  // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
   if(CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
   hudCtx.globalAlpha=1;
+}
+/* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
+const FLOCK={ max:170, ghostMax:60, burstBase:16, burstAcc:0.12, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 16..28; rainbow flock once the bonus combo is this hot
+  spawnDist:2.4, dropY:0.35, cone:0.5, speed:[3.2,6.2], up:[0.5,1.7],              // erupt ~2.4m ahead + a touch below the crosshair; fly forward-out-up
+  swirl:0.85, dragPerSec:0.62, grav:0.9, bob:5.5, jitter:0.9,                       // per-bird horizontal bank + coast-down + wing-bob + settle + separation
+  life:[2.6,3.3], spin:[1.6,5.0], base:[0.34,0.52],                                 // ~3s lifespan, star spin, base scale
+  trailEvery:0.055, ghostGrowPerSec:1.9, branchRate:0.35, gold:0xfff6c8,
+  rainbow:[0xff4d4d,0xff9a3d,0xffd84a,0x5be86b,0x43d9ff,0x6aa8ff,0xc06bff] };
+const _flockGeo=(()=>{ const a=new THREE.BoxGeometry(0.62,0.09,0.09), b=new THREE.BoxGeometry(0.09,0.62,0.09);   // two merged crossed bars = a little 4-point star, like Formula Defense
+  const pa=a.attributes.position.array, pb=b.attributes.position.array, ia=a.index.array, ib=b.index.array;
+  const pos=new Float32Array(pa.length+pb.length); pos.set(pa,0); pos.set(pb,pa.length);
+  const idx=new Uint16Array(ia.length+ib.length); idx.set(ia,0); const off=pa.length/3;
+  for(let i=0;i<ib.length;i++) idx[ia.length+i]=ib[i]+off;
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1)); g.computeVertexNormals(); a.dispose(); b.dispose(); return g; })();
+const _flock=[], _flockPool=[], _flockGhosts=[], _flockGhostPool=[];   // live + recycled pools; meshes are reused for the session, never disposed mid-play
+const _FUP=new THREE.Vector3(0,1,0), _fFwd=new THREE.Vector3(), _fRight=new THREE.Vector3(), _fUp=new THREE.Vector3(), _fOrig=new THREE.Vector3(), _fDir=new THREE.Vector3();
+function _flockMat(){ return new THREE.MeshBasicMaterial({transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}); }   // additive glow, depth-tested so orbs/walls occlude them (they're in the world)
+function _acquireBird(){ const b=_flockPool.pop(); if(b){ b.mesh.visible=true; return b; }
+  const m=new THREE.Mesh(_flockGeo,_flockMat()); scene.add(m); return {mesh:m, vel:new THREE.Vector3(), age:0, life:1, swirl:0, twk:0, spin:0, base:0.4, col:0xffffff, tt:0, depth:0, branched:false}; }
+function _recycleBird(b){ b.mesh.visible=false; _flockPool.push(b); }
+function _acquireGhost(){ const g=_flockGhostPool.pop(); if(g){ g.mesh.visible=true; return g; }
+  const m=new THREE.Mesh(_flockGeo,_flockMat()); scene.add(m); return {mesh:m, age:0, life:0.5, spin:0}; }
+function _birthBird(col, base, life, vel, swirl, depth){
+  if(_flock.length>=FLOCK.max) _recycleBird(_flock.shift());   // cap: retire the oldest (only reached from spawnFlock, BEFORE the update loop → never mutates the live loop)
+  const b=_acquireBird(), mt=b.mesh.material; mt.color.setHex(col); mt.opacity=1;
+  b.mesh.position.copy(_fOrig); b.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); b.mesh.scale.setScalar(base*0.4);
+  b.vel.copy(vel); b.age=0; b.life=life; b.swirl=swirl; b.twk=Math.random()*6.283;
+  b.spin=(FLOCK.spin[0]+Math.random()*(FLOCK.spin[1]-FLOCK.spin[0]))*(Math.random()<0.5?-1:1);
+  b.base=base; b.col=col; b.tt=0; b.depth=depth; b.branched=false; _flock.push(b); }
+function _dropGhost(pos, col, scl){ if(_flockGhosts.length>=FLOCK.ghostMax) return;
+  const g=_acquireGhost(), mt=g.mesh.material; mt.color.setHex(col); mt.opacity=0.26;
+  g.mesh.position.copy(pos); g.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); g.mesh.scale.setScalar(scl);
+  g.age=0; g.life=0.5; g.spin=(Math.random()-0.5)*3; _flockGhosts.push(g); }
+function spawnFlock(key, acc, rainbow){
+  if(reduceMotion) return;
+  camera.getWorldDirection(_fFwd); _fRight.crossVectors(_fFwd,_FUP).normalize(); _fUp.crossVectors(_fRight,_fFwd).normalize();
+  _fOrig.copy(camera.position).addScaledVector(_fFwd,FLOCK.spawnDist).addScaledVector(_fUp,-FLOCK.dropY);
+  const n=Math.min(FLOCK.max, Math.round(FLOCK.burstBase+acc*FLOCK.burstAcc));
+  for(let i=0;i<n;i++){
+    const az=Math.random()*6.283, r=Math.random()*FLOCK.cone;
+    _fDir.copy(_fFwd).addScaledVector(_fRight,Math.cos(az)*r).addScaledVector(_fUp,Math.sin(az)*r).normalize()
+      .multiplyScalar(FLOCK.speed[0]+Math.random()*(FLOCK.speed[1]-FLOCK.speed[0])).addScaledVector(_fUp,FLOCK.up[0]+Math.random()*(FLOCK.up[1]-FLOCK.up[0]));
+    const col=rainbow?FLOCK.rainbow[i%FLOCK.rainbow.length]:(acc>=100&&i%3===0?FLOCK.gold:WASD_HEX[key]);   // key colour; pale-gold sprinkled on a PERFECT; full rainbow on a hot combo
+    _birthBird(col, FLOCK.base[0]+Math.random()*(FLOCK.base[1]-FLOCK.base[0]), FLOCK.life[0]+Math.random()*(FLOCK.life[1]-FLOCK.life[0]), _fDir, (Math.random()-0.5)*2*FLOCK.swirl, 0);
+  }
+}
+function resetFlock(){ for(const b of _flock) _recycleBird(b); _flock.length=0; for(const g of _flockGhosts){ g.mesh.visible=false; _flockGhostPool.push(g); } _flockGhosts.length=0; _sparkPend=null; }
+function updateFlock(dt){
+  if(_sparkPend){ spawnFlock(_sparkPend.key,_sparkPend.acc,!!_sparkPend.rainbow); _sparkPend=null; }   // spawn happens BEFORE the loop, so its cap-shifts never corrupt the iteration below
+  if(_flock.length===0 && _flockGhosts.length===0) return;
+  const drag=Math.pow(FLOCK.dragPerSec,dt), tempo=Math.max(20,state.bpm)/60, twoPi=6.283;
+  for(let i=_flock.length-1;i>=0;i--){ const b=_flock[i]; b.age+=dt; const t=b.age/b.life;
+    if(t>=1){ _recycleBird(b); _flock.splice(i,1); continue; }
+    b.vel.applyAxisAngle(_FUP, b.swirl*dt);                                              // bank/curl → the flock fans apart instead of spraying uniformly
+    b.vel.y += Math.sin(b.age*FLOCK.bob+b.twk)*FLOCK.bob*0.12*dt - FLOCK.grav*dt;         // wing-bob + gentle settle
+    b.vel.multiplyScalar(drag);                                                          // coast down so they glide, not rocket, into the distance
+    b.vel.x += (Math.random()-0.5)*FLOCK.jitter*dt; b.vel.z += (Math.random()-0.5)*FLOCK.jitter*dt;
+    b.mesh.position.addScaledVector(b.vel,dt);
+    b.tt+=dt; if(b.tt>=FLOCK.trailEvery && t<0.72){ b.tt=0; _dropGhost(b.mesh.position,b.col,b.mesh.scale.x*0.72); }   // comet-trail afterimage
+    if(!b.branched && b.depth<2 && _flock.length<FLOCK.max && t>0.15 && t<0.6 && Math.random()<FLOCK.branchRate*dt){   // a bird occasionally sheds a child that veers off
+      b.branched=true; _fOrig.copy(b.mesh.position);
+      _birthBird(b.col, b.base*0.8, b.life*(1-t)*0.9, b.vel.clone().applyAxisAngle(_FUP,(Math.random()-0.5)*1.1), b.swirl*(Math.random()<0.5?1.2:-1.2), b.depth+1);
+    }
+    const twk=0.66+0.34*Math.sin(state.t*tempo*twoPi+b.twk), bloom=Math.min(1,b.age/0.14);   // tempo twinkle + a 140ms grow-in
+    b.mesh.material.opacity=Math.max(0,(1-t)*twk);
+    b.mesh.scale.setScalar(b.base*(0.5+bloom*0.7)*(0.8+0.4*(1-t))*(0.85+0.15*twk));
+    b.mesh.rotation.z += b.spin*dt;
+  }
+  const gGrow=Math.pow(FLOCK.ghostGrowPerSec,dt);
+  for(let i=_flockGhosts.length-1;i>=0;i--){ const g=_flockGhosts[i]; g.age+=dt; const gt=g.age/g.life;
+    if(gt>=1){ g.mesh.visible=false; _flockGhostPool.push(g); _flockGhosts.splice(i,1); continue; }
+    g.mesh.scale.multiplyScalar(gGrow); g.mesh.rotation.x+=g.spin*dt; g.mesh.rotation.y+=g.spin*0.6*dt;
+    g.mesh.material.opacity=Math.max(0,0.26*(1-gt));
+  }
 }
 /* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the whole beat (looser groove); reduceMotion-gated, free-play only ---- */
 const _floorBeatCol=new THREE.Color();
@@ -1904,6 +1967,7 @@ function animate(frameNow){
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){}   // WASD floor beat-tint + cursor feedback (free-play); guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
+  try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
@@ -1973,7 +2037,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; _sparks.length=0; _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
