@@ -54,6 +54,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #presence{left:50%;top:42px;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--toxic);display:none}
 #presence.on{display:block}
 #wasdHud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:300px;height:300px;z-index:4;pointer-events:none;display:none}   /* WASD-rhythm: osu-style contracting color rings, centered on the crosshair (shrunk to a toggleable training-wheel; the floor beat-tint is the primary cue) */
+#wasdGlyph{position:fixed;left:50%;top:calc(50% + 50px);transform:translate(-50%,-50%);min-width:72px;text-align:center;z-index:7;pointer-events:none;display:none;font:bold 58px/1 var(--mono);letter-spacing:0;text-shadow:0 0 4px #000,0 0 10px rgba(0,0,0,.95),0 2px 2px #000;will-change:color}
+#wasdGlyph.on{display:block}
 #lockBox{position:fixed;left:0;top:0;box-sizing:border-box;border:1.5px solid rgba(150,190,230,.45);border-radius:3px;pointer-events:none;z-index:5;display:none;transform:translate(var(--lx,50vw),var(--ly,50vh)) translate(-50%,-50%) scale(var(--pulse,1));will-change:transform,width,height}
 #lockBox.on{display:block}
 #lockBox.lock{border-color:rgba(255,205,90,.95);box-shadow:0 0 12px rgba(255,205,90,.55),inset 0 0 8px rgba(255,205,90,.22)}
@@ -76,9 +78,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 .tgtKey.on{display:block}
 .tgtKey.held{color:#0d110f;background:var(--toxic);border-color:var(--toxic);text-shadow:none}
 .tgtDist.on{display:block}
-.arcInfo{position:fixed;left:0;top:0;font:14px var(--mono);color:rgba(255,180,110,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
-#arcLandInfo{font-size:16px}   /* distance to the end of the parabola (the landing ring) — larger per playtest */
-.arcInfo.on{display:block}
 #fps{position:fixed;left:8px;top:8px;font:11px var(--mono);color:#9fe8ff;letter-spacing:.04em;text-shadow:0 0 5px rgba(0,0,0,.9);z-index:30;pointer-events:none;display:none}
 #fps.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
@@ -209,9 +208,6 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 <div id="comboGlow" aria-hidden="true"></div>
 <div id="beatRing" aria-hidden="true"></div>
 <div id="fps" aria-hidden="true"></div>
-<div id="arcLandInfo" class="arcInfo" aria-hidden="true"></div>
-<div id="arcApexInfo" class="arcInfo" aria-hidden="true"><span id="arcApexNum"></span></div>
-
 <div id="reticle" aria-hidden="true">
   <div class="arm h l"></div><div class="arm h r"></div>
   <div class="arm v t"></div><div class="arm v b"></div>
@@ -223,6 +219,7 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <canvas id="wasdHud" width="560" height="560" aria-hidden="true"></canvas>
+<div id="wasdGlyph" aria-hidden="true"></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -389,9 +386,10 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
-const WASD_GLYPH=['W','A','S','D'];   // WASD-rhythm TAP notes: timestamp each key last went down (for anticipation — a press just BEFORE the beat still counts)
-// Localize the lane letters to the player's layout (AZERTY→Z/Q/S/D, Cyrillic→Ц/Ф/Ы/В, …). Lane MATCHING is already physical (e.code in the keydown handler → the same inverted-T cluster on every keyboard); this only fixes the letter the HUD asks for. Chromium-only API — elsewhere (and on QWERTY/JIS, where it's a no-op) the labels stay W/A/S/D.
-try{ if(navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(m=>{ ['KeyW','KeyA','KeyS','KeyD'].forEach((c,i)=>{ const ch=(m.get(c)||'').toUpperCase(); if(ch.length===1 && ch.trim()) WASD_GLYPH[i]=ch; }); }).catch(()=>{}); }catch(e){}
+const WASD_CODES=['KeyW','KeyA','KeyS','KeyD'], WASD_GLYPH=['W','A','S','D'];   // WASD-rhythm TAP notes: physical key lanes + the player's visible key legends.
+function learnWasdGlyph(k, key){ const ch=(key||'').toLocaleUpperCase(); if(ch.length===1 && ch.trim()) WASD_GLYPH[k]=ch; }
+// Localize the lane letters to the player's layout (AZERTY→Z/Q/S/D, Cyrillic→Ц/Ф/Ы/В, …). Lane MATCHING is already physical (e.code in the keydown handler → the same inverted-T cluster on every keyboard); this only fixes the letter the HUD asks for. Chromium can answer at startup; Firefox/Safari self-correct as soon as each physical key is pressed.
+try{ if(navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(m=>{ WASD_CODES.forEach((c,i)=>learnWasdGlyph(i,m.get(c))); }).catch(()=>{}); }catch(e){}
 let _combo=[0,1,2,3], _curCi=-1, _curMain=true, _baseMul=1, _mulEff=1, _wasdCombo=0, _noteFlashT=-999, _noteFlashHit=false, _spoilNote=-1, _spoilOff=0, _hitNote=-1, _hitOff=0, _tapOffMs=0, _tapShowT=-999, _tapAcc=0;   // WASD TAP notes: combo seq + current note index/key/window, is-main(on-beat), _baseMul=field damping from last main tap, _wasdCombo=bonus combo, _spoilNote/_hitNote=the frozen wrong/correct note + its off (beat-fraction), tap flash
 const _resolved=new Set();   // resolved note indices (one-press lock + miss-detection); replaces the single _resolvedIdx so a same-frame double-tap can claim the ADJACENT note instead of being eaten
 let _sparks=[], _sparkPend=null;   // consumed-letter star burst: spawned on a correct tap (count rides accuracy), drawn + aged in drawWasdLane
@@ -1239,7 +1237,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc}; }   // correct: grade + FREEZE the circle at the hit position + burst the letter into stars
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
 }
-document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; wasdLanePress(k); });   // keyboard W/A/S/D -> lanes
+document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; e.key refreshes the displayed local keycap on browsers without getLayoutMap()
 
 /* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire, START = begin/pause/resume (face-bottom also begins at the card). Subtle rumble on hit. ===== */
 let _gpIndex=null, _gpPrev={};
@@ -1331,7 +1329,6 @@ function updateProjectiles(dt){
 }
 const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=0.045;   // thin ribbon
 let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
-const arcLandInfoEl=gid('arcLandInfo'), arcApexInfoEl=gid('arcApexInfo'), arcApexNumEl=gid('arcApexNum'), _arcApexP=new THREE.Vector3();   // ARC readouts: landing-distance label, apex height label (now hosts the two deviation arrows inline + the height number)
 let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
@@ -1353,7 +1350,7 @@ function ensureArcObjs(){
   arcApex=new THREE.Line(makeArcGeo(2), lm(0xffd24a,0.9));                    // horizontal tangent line at the parabola's apex (max height)
   for(const o of [arcRibbon,arcLand,arcPulseA,arcPulseB,arcApex]){ o.frustumCulled=false; scene.add(o); }
 }
-function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } if(arcLandInfoEl) arcLandInfoEl.classList.remove('on'); if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); arcLanded=false; _arcApexOn=false; }
+function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } arcLanded=false; _arcApexOn=false; }
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
   const beatLen=60/Math.max(20,state.bpm), period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
@@ -1406,12 +1403,7 @@ function updateArcPreview(dt){                                                  
   arcRibbon.geometry.attributes.position.needsUpdate=true; arcRibbon.material.opacity=0.42+0.4*dayAmt; arcRibbon.visible=true;   // brighter by day (fights the bright sky/tiles)
   arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.95,0.95,0.95); arcLand.material.opacity=0.8+0.18*dayAmt; arcLand.visible=_planLanded;   // bigger + bolder landing ring
   arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
-  // landing-distance label (ground range from the player to the impact ring)
-  if(_planLanded && arcLandInfoEl){ const ls=projectPointScope(_arcLandPos);
-    if(ls[2]){ arcLandInfoEl.style.setProperty('--tx',ls[0]+'px'); arcLandInfoEl.style.setProperty('--ty',ls[1]+'px'); setText(arcLandInfoEl, '◎ '+fmtDist(Math.hypot(_arcI.x-PLAYER_POS.x, _arcI.z-PLAYER_POS.z))); arcLandInfoEl.classList.add('on'); }
-    else arcLandInfoEl.classList.remove('on'); }
-  else if(arcLandInfoEl) arcLandInfoEl.classList.remove('on');
-  // apex: a horizontal tangent line at the parabola's peak + its height
+  // apex: a horizontal tangent line at the parabola's peak.
   const _g=CFG.projGravity, _tA=_arcV.y>0 ? _arcV.y/_g : 0;
   if(_tA>0.05 && arcApex){
     const apX=_arcM.x+_arcV.x*_tA, apY=_arcM.y+_arcV.y*_tA-0.5*_g*_tA*_tA, apZ=_arcM.z+_arcV.z*_tA;
@@ -1420,10 +1412,7 @@ function updateArcPreview(dt){                                                  
     const ap=arcApex.geometry.attributes.position.array;
     ap[0]=apX-_ux*_half; ap[1]=apY; ap[2]=apZ-_uz*_half; ap[3]=apX+_ux*_half; ap[4]=apY; ap[5]=apZ+_uz*_half;
     arcApex.geometry.attributes.position.needsUpdate=true; arcApex.visible=true;
-    if(arcApexInfoEl){ _arcApexP.set(apX,apY,apZ); const as=projectPointScope(_arcApexP);   // floating ▲apex height at your shot's peak — gives context to the lock-box delta gauge
-      if(as[2]){ arcApexInfoEl.style.setProperty('--tx',as[0]+'px'); arcApexInfoEl.style.setProperty('--ty',as[1]+'px'); setText(arcApexNumEl, '▲ '+fmtDist(apY)); arcApexInfoEl.classList.add('on'); }   // apex height only now — the Δ arrows moved to the lock-reticle sides
-      else arcApexInfoEl.classList.remove('on'); }
-  } else { if(arcApex) arcApex.visible=false; if(arcApexInfoEl) arcApexInfoEl.classList.remove('on'); _arcApexOn=false; }
+  } else { if(arcApex) arcApex.visible=false; _arcApexOn=false; }
 }
 /* ---- floor HUD under each target: beat-pulsed ring + dropline + distance label (all modes) ---- */
 const targetMarks=[]; const _tmFloor=new THREE.Vector3(), _tmH=new THREE.Vector3();
@@ -1451,16 +1440,22 @@ function updateTargetMarks(){                                                 //
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
 /* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
-const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d');
+const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
 const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
+function showWasdGlyph(key, spoiled, on){
+  if(!wasdGlyphEl) return;
+  if(!on){ if(wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.remove('on'); return; }
+  setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':WASD_COL[key]);
+  if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
+}
 function drawWasdLane(){
-  if(!hudCtx) return;
+  if(!hudCtx){ showWasdGlyph(0,false,false); return; }
   const on = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
-  if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; return; }
+  if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
   if(hudCanvas.style.display==='none') hudCanvas.style.display='block';
-  const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+Rin+24;
+  const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
   const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
   hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H);
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
@@ -1482,10 +1477,8 @@ function drawWasdLane(){
       hudCtx.globalAlpha=al*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
       hudCtx.globalAlpha=Math.min(1,(main?1:0.55)*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
     } }
-  // ---- the key to TAP as it lands (toggle CFG.wasdLetter; forced on under reduceMotion since the circle anim is then the only other cue; GREYED if a wrong key spoiled this note) ----
-  if((CFG.wasdLetter || reduceMotion) && !hitHeld){ hudCtx.globalAlpha=0.95; hudCtx.font='bold 26px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle';
-    hudCtx.lineWidth=4; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.strokeText(WASD_GLYPH[letterKey],cx,LY);
-    hudCtx.fillStyle=spoiled?'rgba(150,152,160,0.9)':WASD_COL[letterKey]; hudCtx.fillText(WASD_GLYPH[letterKey],cx,LY); }   // correct hit -> the letter VANISHES until the next note (absence = unmistakably consumed); grey = spoiled by a wrong key
+  // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
+  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
   // ---- consumed-letter STAR BURST: the letter shatters into 4-point sparkles that drift out, float up, spin + fade (~0.6s); MORE stars = better timing (4..14), pale-gold ones mixed in on a PERFECT ----
   if(_sparkPend){ const n=4+Math.round(_sparkPend.acc*0.10), bc=WASD_COL[_sparkPend.key];
     for(let i=0;i<n;i++){ const a=Math.random()*PI2, sp=30+Math.random()*80;
