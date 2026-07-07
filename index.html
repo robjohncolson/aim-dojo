@@ -1230,7 +1230,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
   retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off'); sfx('expire'); }
 function fire(){
   if(!state.running) return;
-  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Timing feedback moved to IMPACT (connect vs clank) — you fire EARLY so the arc ARRIVES in the open window, so a fire-time grade would coach the wrong instant.
+  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at FIRE — pr.charged=orbOpen() at the trigger (in spawnProjectile); the connect-vs-clank at impact is a pure SPATIAL-lead outcome (arrival never re-grades timing), so the flight time is the game's problem, not the player's.
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
@@ -1337,7 +1337,7 @@ function updateProjectiles(dt){
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
       if(hit.kind!==2 && !pr.charged){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // the SHOT was fired OFF the beat (pr.charged set at fire) → CLANK: no kill, regardless of where it lands. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
-      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (open window): ARC impact thud (weight on connect)
+      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (shot was charged at fire): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
