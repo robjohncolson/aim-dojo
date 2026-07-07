@@ -33,9 +33,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 @keyframes ring{0%{opacity:.55;transform:translate(-50%,-50%) scale(.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.7)}}
 
 #reticle{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;pointer-events:none;z-index:5}
-#fireRing{position:fixed;left:50%;top:50%;width:46px;height:46px;border:2px solid var(--rail);border-radius:50%;transform:translate(-50%,-50%) scale(var(--frs,2.6));opacity:var(--fro,0);pointer-events:none;z-index:4;display:none;will-change:transform,opacity}   /* groove: converging "fire NOW" ring — shrinks onto the crosshair, collapses on the beat */
-#fireRing.on{display:block}
-#fireRing.hot{border-color:var(--toxic);box-shadow:0 0 12px var(--toxic),0 0 4px var(--toxic)}   /* green = inside the fire window */
 #reticle .arm{position:absolute;background:var(--rail);box-shadow:0 0 6px var(--rail);opacity:.9}
 #reticle .h{top:50%;height:2px;transform:translateY(-50%)}
 #reticle .v{left:50%;width:2px;transform:translateX(-50%)}
@@ -85,6 +82,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #fps.on{display:block}
 #reticle.beat .dot{box-shadow:0 0 16px var(--rail);transform:translate(-50%,-50%) scale(2.1)}
 #reticle.bad .arm,#reticle.bad .dot{background:var(--blood);box-shadow:0 0 8px var(--blood)}
+#reticle.fire .arm,#reticle.fire .dot{background:var(--toxic);box-shadow:0 0 10px var(--toxic)}   /* groove: crosshair GREEN = you're in the fire window → LAUNCH now (colour only, aim-stable) */
 #hitmark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none;z-index:6;opacity:0}
 #hitmark span{position:absolute;left:50%;top:50%;width:13px;height:2px;background:var(--toxic);box-shadow:0 0 6px var(--toxic)}
 #hitmark span:nth-child(1){transform:translate(-50%,-50%) rotate(45deg) translateX(8px)}
@@ -220,7 +218,6 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 <div id="ghostToast" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="lockBox" aria-hidden="true"></div>
-<div id="fireRing" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <canvas id="wasdHud" width="560" height="560" aria-hidden="true"></canvas>
 <div id="wasdGlyph" aria-hidden="true"></div>
@@ -335,7 +332,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
-  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenSec:[0.12,0.05],   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY if you FIRE inside a ±grooveOpenSec-SECOND window around the beat ("the one") — ms-based like osu/DDR, tightening ~120ms→50ms with skill (diffT); was a beat-fraction ≈ ±480ms at 20bpm (a free pass). Off-beat fire CLANKS (no kill). JUKE now fires on the "and" (0.5) so the orb then glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
+  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenSec:[0.25,0.10],   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY if you FIRE inside a ±grooveOpenSec-SECOND window around the beat ("the one") — ms-based, ~±250ms while learning tightening to ~±100ms with skill (diffT) — kept GENEROUS on purpose because you're AIMING and timing at once (unlike pure rhythm games, whose ±120ms assumes timing-only). Off-beat fire CLANKS (no kill). JUKE now fires on the "and" (0.5) so the orb then glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
@@ -1609,17 +1606,10 @@ function updateFloorBeat(){
   const gsh=nightGrid&&nightGrid.material.userData.shBeat;
   if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
 }
-const fireRingEl=gid('fireRing'); let _fireHot=false;
-function updateFireRing(){   // groove: a CONVERGING "fire NOW" ring at the crosshair — it shrinks onto the reticle and COLLAPSES on the beat (osu approach-circle / Hellsinger-arrows model; reads far better than a bare flash). Turns green inside the fire window = the exact "pull now" instant.
-  const el=fireRingEl; if(!el) return;
-  const on = CFG.grooveGroove && CFG.grooveVuln && !reduceMotion && state.running && toneReady && Tone.Transport.state==='started';
-  if(!on){ if(el.classList.contains('on')) el.classList.remove('on'); return; }
-  let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
-  const bps=60/Math.max(20,state.bpm), lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; hb-=lat/bps;   // heard timeline (matches the fire gate + glow)
-  const p2b=Math.ceil(hb)-hb;   // 1 just after a beat → 0 collapsing onto the next beat (sawtooth)
-  el.style.setProperty('--frs',(1+p2b*1.6).toFixed(3)); el.style.setProperty('--fro',(0.2+0.72*(1-p2b)).toFixed(3));   // 2.6× wide far from the beat → 1× (hugs the crosshair) ON the beat; brightens as it converges
-  const hot=_openAmt>0; if(hot!==_fireHot){ _fireHot=hot; el.classList.toggle('hot',hot); }
-  if(!el.classList.contains('on')) el.classList.add('on');
+let _fireHot=false;
+function updateFireRing(){   // groove FIRE CUE: the crosshair turns GREEN during the fire window = "LAUNCH now". Colour only — the crosshair never moves/scales, so aim stays rock-steady; the slow beat (audio + floor pulse) carries the anticipation. (Replaced the converging ring, which read as messy.)
+  const hot = CFG.grooveGroove && CFG.grooveVuln && state.running && _openAmt>0;
+  if(hot!==_fireHot){ _fireHot=hot; if(el.reticle) el.reticle.classList.toggle('fire',hot); }
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
