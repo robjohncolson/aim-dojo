@@ -782,15 +782,15 @@ function killTarget(tg, clutch){ dropTarget(tg); if(clutch) explodeAt(tg.mesh.po
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
 let reverbInput=null, reverbQueued=false;
-let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
+let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
 let gridId=null, grid8=0, cd=0, restSlots=0;
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
 const PENTA=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
 const ARP=[0,3,4,5,3,4,5,7];   // PENTA indices for the melodic-layer arp across the 8-step grid (an ascending A-minor-pentatonic figure)
-function chordHit(streak){                               // a major chord a 1/4-beat after a hit, rising with the streak
+function chordHit(streak){                               // an open (fifth) chord a 1/4-beat after a hit, rising with the streak — no 3rd, so it never clashes major/minor with the A-minor bed
   if(!soundOn || !toneReady || !chordSynth) return;
   try{ const root=PENTA[Math.min(streak, PENTA.length-1)];
-    chordSynth.triggerAttackRelease([root, root*1.25, root*1.5, root*2], '8n', Tone.now()+(60/state.bpm)*0.25, 0.5);
+    chordSynth.triggerAttackRelease([root, root*1.5, root*2, root*3], '8n', Tone.now()+(60/state.bpm)*0.25, 0.45);
   }catch(e){}
 }
 function pickPenta(){ return PENTA[(Math.random()*PENTA.length)|0]; }
@@ -835,6 +835,8 @@ function buildDrums(){
     shotCue=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.03}}).connect(new Tone.Volume(1).connect(drumBus));   // groove Phase 1 shot-timing feedback: its OWN voice + a distinct SINE timbre so it never voice-steals the (triangle) metronome tick
     bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.004,decay:0.2,sustain:0.04,release:0.1}}).connect(new Tone.Filter(440,'lowpass').connect(new Tone.Volume(-9).connect(drumBus)));   // warm sub-bass for the higher groove tiers
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(2800,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.35}).connect(new Tone.Volume(-13).connect(drumBus)))); }catch(e){ arp=null; }   // melodic layer: plucky pentatonic arp w/ echo (enters tier 2). guarded so a delay/synth failure can't kill the whole drum build
+    try{ tapSynth=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.002,decay:0.13,sustain:0,release:0.08}}).connect(new Tone.Filter(3200,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }   // WASD taps get a VOICE (were silent): the off-beat "and" taps play a pentatonic counter-melody — playing well = playing music
+    try{ pad=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}}).connect(new Tone.Filter(1400,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }   // sustained PAD swell — layers in on the downbeat at high groove (the "Rez build" ceiling above tier 3)
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
 }
@@ -879,9 +881,9 @@ function sfx(kind){
 }
 function playHit(gradeIdx){                               // graded hit tone: tighter timing (lower idx) → brighter/higher; streak still raises pitch
   if(!soundOn || !toneReady || !synthHit) return;
-  try{ const now=Tone.now(), base=880*Math.pow(2,Math.min(state.streak,12)/24), mult=gradeIdx<=0?1.5:gradeIdx===1?1.25:1.0;
-    synthHit.triggerAttackRelease(base*mult, 0.06, now);
-    if(gradeIdx<=0) synthHit.triggerAttackRelease(base*mult*2, 0.05, now+0.045);   // FLAWLESS sparkle (octave up)
+  try{ const now=Tone.now(), s=Math.min(state.streak,23), root=PENTA[s%PENTA.length]*Math.pow(2,Math.floor(s/PENTA.length));   // kills WALK UP the A-minor pentatonic with the streak → a clean run plays a rising melody (was a smooth off-scale glide)
+    synthHit.triggerAttackRelease(root, 0.06, now, gradeIdx<=0?0.95:gradeIdx===1?0.78:0.62);
+    if(gradeIdx<=0) synthHit.triggerAttackRelease(root*2, 0.05, now+0.045, 0.5);   // FLAWLESS sparkle (octave up)
   }catch(e){}
 }
 function applyAudioState(){
@@ -977,6 +979,7 @@ function onGrid(time){
     if(bass && tier>=2 && i===0) bass.triggerAttackRelease('A1','8n',time, 0.8);           // sub-bass root enters mid-intensity
     if(bass && tier>=3 && i===4) bass.triggerAttackRelease('E2','8n',time, 0.55);          // a little movement at full
     if(arp && tier>=2 && (tier>=3 || i%2===0)) arp.triggerAttackRelease(PENTA[ARP[i]],'16n',time, tier>=3?0.5:0.42);   // MELODIC LAYER: pentatonic arp — on the beats at tier 2, every step at full intensity
+    if(pad && grooveI>=2.2 && i===0) pad.triggerAttackRelease(['A2','C3','E3'],'2n',time, Math.min(0.2,0.07+0.11*(grooveI-2.2)));   // PAD swell: a soft Am bed layers in on the downbeat once you're deep in the groove (velocity rises with grooveI = the "Rez build")
     if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker ALWAYS (the gameplay metronome)
   }catch(e){}
   if(i%2===0){
@@ -1247,7 +1250,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(ci<0) return;   // no unresolved note in this press's window -> stray/duplicate, ignored (no lock)
   _resolved.add(ci);   // ONE press per note
   const offSec=(beats-ci/nd)*bps, ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0);
-  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc, rainbow:_wasdCombo>=FLOCK.rainbowCombo}; }   // correct: grade + FREEZE the circle + burst the vanished letter into a 3D star-flock (rainbow flock on a hot combo)
+  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc, rainbow:_wasdCombo>=FLOCK.rainbowCombo}; if(soundOn&&toneReady&&tapSynth){ try{ tapSynth.triggerAttackRelease(PENTA[k*2]*(_wasdCombo>=8?2:1), '16n', Tone.now(), 0.42); }catch(e){} } }   // correct: grade + FREEZE the circle + star-flock + the tap now SINGS (lane→pentatonic: W=A A=D S=G D=C, octave up on a hot combo)
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
 }
 document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; e.key refreshes the displayed local keycap on browsers without getLayoutMap()
