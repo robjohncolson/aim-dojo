@@ -330,6 +330,8 @@ const CFG = {
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
+  // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
+  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:70,   // grooveGroove:false = full Phase-1 kill-switch (reverts everything). grooveFreezePhase only shifts the WASD grid onto the "and" — NOT a kill-switch (juke + shot cue stay tied to grooveGroove).
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
@@ -386,6 +388,8 @@ const dLight = new THREE.DirectionalLight(0x44557f, 0.3); dLight.position.set(6,
 const ROOM = {w:64, h:28, d:64};
 const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=ROOM.w/2, ROOM_HALF_D=ROOM.d/2;
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
+let _jukeIdx=-1;   // last whole-beat index an orb-JUKE fired on (groove Phase 1)
+function wasdBeats(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b - (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // WASD note grid, phase-shifted onto the "and" so the freeze PEAKS off-beat; the metronome / orb-strobe / juke / shot all stay on the RAW whole beat
 const WASD_CODES=['KeyW','KeyA','KeyS','KeyD'], WASD_GLYPH=['W','A','S','D'];   // WASD-rhythm TAP notes: physical key lanes + the player's visible key legends.
 function learnWasdGlyph(k, key){ const ch=(key||'').toLocaleUpperCase(); if(ch.length===1 && ch.trim()) WASD_GLYPH[k]=ch; }
 // Localize the lane letters to the player's layout (AZERTY→Z/Q/S/D, Cyrillic→Ц/Ф/Ы/В, …). Lane MATCHING is already physical (e.code in the keydown handler → the same inverted-T cluster on every keyboard); this only fixes the letter the HUD asks for. Chromium can answer at startup; Firefox/Safari self-correct as soon as each physical key is pressed.
@@ -775,7 +779,7 @@ function killTarget(tg, clutch){ dropTarget(tg); if(clutch) explodeAt(tg.mesh.po
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
 let reverbInput=null, reverbQueued=false;
-let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
+let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
 let gridId=null, grid8=0, cd=0, restSlots=0;
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
 const PENTA=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
@@ -825,6 +829,7 @@ function buildDrums(){
     const hatFilt=new Tone.Filter(8000,'highpass').connect(drumBus);
     hat=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0}}).connect(hatFilt);
     tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(new Tone.Volume(3).connect(drumBus));
+    shotCue=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.03}}).connect(new Tone.Volume(1).connect(drumBus));   // groove Phase 1 shot-timing feedback: its OWN voice + a distinct SINE timbre so it never voice-steals the (triangle) metronome tick
     bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.004,decay:0.2,sustain:0.04,release:0.1}}).connect(new Tone.Filter(440,'lowpass').connect(new Tone.Volume(-9).connect(drumBus)));   // warm sub-bass for the higher groove tiers
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(2800,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.35}).connect(new Tone.Volume(-13).connect(drumBus)))); }catch(e){ arp=null; }   // melodic layer: plucky pentatonic arp w/ echo (enters tier 2). guarded so a delay/synth failure can't kill the whole drum build
     drumsBuilt=true;
@@ -1218,7 +1223,18 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
   retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off'); sfx('expire'); }
 function fire(){
   if(!state.running) return;
+  gradeShotTiming();   // groove Phase 1: grade the trigger-pull vs the whole-beat SHOT pocket + audio cue (feedback only — never gates the shot)
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed)
+}
+function gradeShotTiming(){   // is the trigger-pull in the pocket (the metronome beat, ½-beat after the WASD freeze peak)? in-pocket = bright in-key bell (octave sparkle on a PERFECT); off = a LOW note if early, HIGH if late.
+  if(!(CFG.grooveGroove && soundOn && toneReady && shotCue && Tone.Transport.state==='started')) return;
+  const bps=60/Math.max(20,state.bpm); let beats; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return; }
+  const lat=(rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0; beats-=lat/bps;   // heard timeline; the shot pocket is the RAW whole beat (NOT phase-shifted like the WASD grid)
+  const off=(beats-Math.round(beats))*bps, offMs=off*1000, ao=Math.abs(offMs), inPocket=ao<=CFG.goodMs, perfect=ao<=CFG.perfectMs;
+  try{ const now=Tone.now(), base=inPocket?784:(offMs<0?523:988);   // G5 in-pocket · C5 early · B5 late
+    shotCue.triggerAttackRelease(base, perfect?'16n':'32n', now, inPocket?0.9:0.55);
+    if(perfect) shotCue.triggerAttackRelease(base*2, '32n', now+0.05, 0.5);   // perfect sparkle (octave up)
+  }catch(e){}
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
@@ -1226,7 +1242,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(!state.running) return;
   if(!CFG.wasdRhythm) return;
   const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-  let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e2){}
+  let beats=wasdBeats();   // WASD grid shifted onto the "and" (groove phase); latency correction applied next
   const bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5, Math.max(CFG.wasdWindow, full*CFG.wasdWindowFrac));
   const lat=(rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0; beats-=lat/bps;   // grade in the HEARD timeline (mirrors timingErrorMs) -- without this, high-latency audio makes every tap grade BEHIND and PERFECT unreachable
   const exact=beats*nd, lo=Math.floor(exact), hi=Math.ceil(exact);   // resolve the NEAREST UNRESOLVED note within window (so a same-frame double-tap claims the ADJACENT note instead of being eaten)
@@ -1466,7 +1482,7 @@ function drawWasdLane(){
   // ---- the IN-FOCUS note (nearest beat): the circle CONVERGES to Rin at the beat, then BLOOMS back out + fades (the late window) ----
   let letterKey=_combo[0], spoiled=false, hitHeld=false;
   { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-    let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
+    let beats=wasdBeats();
     const ci=Math.round(beats*nd), ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0); spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey;
     if(showHud && !reduceMotion){ const half=0.5/nd, off=spoiled?_spoilOff:(hit?_hitOff:(beats-ci/nd)); let ra,al;
       if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
@@ -1486,7 +1502,7 @@ function drawWasdLane(){
   hudCtx.globalAlpha=1;
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
-const FLOCK={ max:190, ghostMax:60, burstBase:16, burstAcc:0.12, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 16..28; rainbow flock once the bonus combo is this hot
+const FLOCK={ max:190, ghostMax:60, burstBase:8, burstAcc:0.06, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 8..14 (count halved — less flock mass; star size kept readable); rainbow flock once the bonus combo is this hot
   spawnDist:2.4, dropY:0.35, cone:0.5, speed:[4.0,7.5], up:[0.3,1.0],              // burst: erupt ~2.4m ahead of the crosshair, fly forward-OUT into the room (less up-bias than before)
   swirl:0.85, dragPerSec:0.55, grav:0.7, bob:4.2, jitter:0.08,                      // burst-phase per-bird bank + coast-down + wing-bob + settle + √dt-scaled separation jitter
   burst:[0.42,0.66], orbitFwd:7.5, orbitRise:3.2, orbitRadius:[2.6,5.2], orbitSpeed:3.6, orbitPull:1.6, orbitSteer:2.8, centerEase:0.30,   // anchor the orbit ~10m DOWNRANGE (not around the head); ~2x wider ring; later bursts join the same swarm
@@ -1574,14 +1590,14 @@ function updateFlock(dt){
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt));
   }
 }
-/* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the whole beat (looser groove); reduceMotion-gated, free-play only ---- */
+/* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the WASD "and" (the shifted freeze peak via wasdBeats(); raw whole beat only when grooveGroove is off); reduceMotion-gated, free-play only ---- */
 const _floorBeatCol=new THREE.Color();
 function updateFloorBeat(){
   let amt=0;
   if(!MOBILE && CFG.floorBeat && !reduceMotion && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'){
-    let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
+    let beats=wasdBeats();
     const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-    const bi=Math.round(beats), env=Math.max(0,1-Math.abs(beats-bi)*2), len=_combo.length, ckey=_combo[(((bi*nd)%len)+len)%len];   // wide soft pulse peaking on the whole beat; colour = that beat's MAIN-note key
+    const bi=Math.round(beats), env=Math.max(0,1-Math.abs(beats-bi)*2), len=_combo.length, ckey=_combo[(((bi*nd)%len)+len)%len];   // wide soft pulse peaking on the WASD "and" (groove); colour = that note's MAIN key
     amt=CFG.floorBeatMax*env*env; _floorBeatCol.setHex(WASD_HEX[ckey]);
   }
   const fsh=dayFloor&&dayFloor.material.userData.sh;
@@ -1687,7 +1703,7 @@ let _spoilShown=false;
 function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
   const active = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;
-  if(active && _spoilNote>=0){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2); let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note == the spoiled one -> X held until it advances (matches drawWasdLane's `spoiled`)
+  if(active && _spoilNote>=0){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
   if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
 }
 function showTiming(grade, sub, cls, pathTxt, pathCls){
@@ -1882,7 +1898,7 @@ function animate(frameNow){
       // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
       const wantStrobe=(CFG.beatQuant && toneReady);   // beat-quantized motion: the orb HOLDS, then STEPS on the beat grid
       const strobe=wantStrobe && Tone.Transport.state==='started';
-      let doSnap=true, moveStep=dt;
+      let doSnap=true, moveStep=dt, doJuke=false;
       if(wantStrobe && !strobe){ doSnap=false; }               // transport not ticking yet (e.g. the brief window after a resume) → HOLD, don't revert to per-frame scatter
       else if(strobe){
         const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/2 → 1/4 → 1/8 beat as skill (diffT) rises
@@ -1891,13 +1907,14 @@ function animate(frameNow){
         const qi=Math.floor(beats*spb);
         doSnap = qi!==_quantIdx;
         if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
+        const _jb=Math.floor(beats); if(CFG.grooveGroove && CFG.grooveJuke && _jb!==_jukeIdx){ doJuke=true; _jukeIdx=_jb; }   // JUKE once per whole beat: the orbs redirect (in the loop below) so the lead must be re-predicted each beat
       }
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
       if(doSnap){
         if(CFG.wasdRhythm && strobe){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);   // notes at HALF the orb-jump rate -> quarter/8th/16th as skill (diffT) rises
-          let nb=0; try{ nb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} const ci=Math.round(nb*nd);   // IN-FOCUS note = nearest beat; the circle converges to it then diverges (the late window)
+          const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
           if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi)){ if(_curMain) _baseMul=1; _wasdCombo=0; }   // the in-focus note passed UNRESOLVED -> MISS: main resets the field damping; any miss breaks the combo
             if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
         } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _resolved.clear(); }
@@ -1913,6 +1930,7 @@ function animate(frameNow){
             tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
             const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>velCap2){ const f=velCap/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
           }
+          if(doJuke){ const _ja=(Math.random()*2-1)*CFG.grooveJukeDeg*0.017453293, _c=Math.cos(_ja), _s=Math.sin(_ja), _vx=tg.vel.x, _vz=tg.vel.z; tg.vel.x=_vx*_c-_vz*_s; tg.vel.z=_vx*_s+_vz*_c; }   // beat JUKE: rotate the horizontal heading up to ±grooveJukeDeg (a frozen orb barely moves, so the juke is felt most when the field is live)
           const ms=moveStep*mul;   // accuracy-scaled displacement: the better you time the beat, the less the field drifts this step
           p.x+=tg.vel.x*ms; p.y+=tg.vel.y*ms; p.z+=tg.vel.z*ms;
           if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
@@ -2052,7 +2070,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   teardownTransport();
   Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
