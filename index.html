@@ -331,7 +331,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
-  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25,   // grooveGroove:false = full kill-switch. JUKE: each beat the orb CUTS to grooveGlideSpeed in a new heading (±grooveJukeDeg) → a visible, leadable dart. grooveFreezeFloor: the WASD freeze can only CALM the field to this floor (never fully stop), so there's always a moving lead + a felt juke. grooveFreezePhase just shifts the WASD grid onto the "and".
+  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenWindow:0.16,   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY while it GLOWS open — a window of grooveOpenWindow beats around the beat ("the one"); an off-beat hit CLANKS (no kill). JUKE now fires on the "and" (0.5) so the orb then glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
@@ -390,6 +390,8 @@ const ROOM_BX=ROOM.w/2-3, ROOM_BZ=ROOM.d/2-3, ROOM_BY=ROOM.h-2.5, ROOM_HALF_W=RO
 let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap index + state.t at last snap + current seconds-between-steps (scales the WASD hit window). Steps off Tone.Transport.ticks (same audio clock as the spawn scheduler).
 let _jukeIdx=-1;   // last whole-beat index an orb-JUKE fired on (groove Phase 1)
 function wasdBeats(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b - (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // WASD note grid, phase-shifted onto the "and" so the freeze PEAKS off-beat; the metronome / orb-strobe / juke / shot all stay on the RAW whole beat
+let _openAmt=1;   // orb-vulnerability glow 0..1 (peaks on the beat); recomputed each frame in the run loop
+function orbOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || _openAmt>0; }   // a shot only KILLS while the orb glows OPEN (on the beat); an off-beat hit clanks off the shield
 const WASD_CODES=['KeyW','KeyA','KeyS','KeyD'], WASD_GLYPH=['W','A','S','D'];   // WASD-rhythm TAP notes: physical key lanes + the player's visible key legends.
 function learnWasdGlyph(k, key){ const ch=(key||'').toLocaleUpperCase(); if(ch.length===1 && ch.trim()) WASD_GLYPH[k]=ch; }
 // Localize the lane letters to the player's layout (AZERTY→Z/Q/S/D, Cyrillic→Ц/Ф/Ы/В, …). Lane MATCHING is already physical (e.code in the keydown handler → the same inverted-T cluster on every keyboard); this only fixes the letter the HUD asks for. Chromium can answer at startup; Firefox/Safari self-correct as soon as each physical key is pressed.
@@ -1215,6 +1217,11 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
   if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
+function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF the beat (shielded) → NO kill. It's a TIMING MISS: costs a shot + breaks the streak + feeds the adaptive engine, exactly like a whiff — so spray-and-pray can't beat the clock or inflate the leaderboard. A DISTINCT dull bonk (vs the whiff noise) so you know it was timing, not aim.
+  state.shots++; state.streak=0; pushEvent(false); flashReticleBad();
+  if(soundOn && toneReady && shotCue){ try{ shotCue.triggerAttackRelease(150, '16n', Tone.now(), 0.5); }catch(e){} }
+  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.12);
+}
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
   flashReticleBad(); sfx('whiff');
@@ -1223,18 +1230,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
   retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off'); sfx('expire'); }
 function fire(){
   if(!state.running) return;
-  gradeShotTiming();   // groove Phase 1: grade the trigger-pull vs the whole-beat SHOT pocket + audio cue (feedback only — never gates the shot)
-  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed)
-}
-function gradeShotTiming(){   // is the trigger-pull in the pocket (the metronome beat, ½-beat after the WASD freeze peak)? in-pocket = bright in-key bell (octave sparkle on a PERFECT); off = a LOW note if early, HIGH if late.
-  if(!(CFG.grooveGroove && soundOn && toneReady && shotCue && Tone.Transport.state==='started')) return;
-  const bps=60/Math.max(20,state.bpm); let beats; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return; }
-  const lat=(rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0; beats-=lat/bps;   // heard timeline; the shot pocket is the RAW whole beat (NOT phase-shifted like the WASD grid)
-  const off=(beats-Math.round(beats))*bps, offMs=off*1000, ao=Math.abs(offMs), inPocket=ao<=CFG.goodMs, perfect=ao<=CFG.perfectMs;
-  try{ const now=Tone.now(), base=inPocket?784:(offMs<0?523:988);   // G5 in-pocket · C5 early · B5 late
-    shotCue.triggerAttackRelease(base, perfect?'16n':'32n', now, inPocket?0.9:0.55);
-    if(perfect) shotCue.triggerAttackRelease(base*2, '32n', now+0.05, 0.5);   // perfect sparkle (octave up)
-  }catch(e){}
+  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Timing feedback moved to IMPACT (connect vs clank) — you fire EARLY so the arc ARRIVES in the open window, so a fire-time grade would coach the wrong instant.
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
@@ -1337,7 +1333,9 @@ function updateProjectiles(dt){
     let hit=null;
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
-    if(hit){ if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // ARC impact thud (weight on connect)
+    if(hit){
+      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // hit the orb OFF the beat (shielded) → CLANK: no kill. DECOYS (kind 2) are exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (open window): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
@@ -1892,7 +1890,12 @@ function animate(frameNow){
 
   if(state.running){
     state.t+=dt;
-    if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; shellAccum=0; } }
+    if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB VULNERABILITY glow: shells bloom OPEN on the beat ("the one"), dim/shielded off-beat → killable only while glowing (functional cue, shown under reduceMotion too)
+      let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
+      const _bps=60/Math.max(20,state.bpm), _lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; hb-=_lat/_bps;   // heard timeline → the glow matches the audible beat
+      _openAmt=Math.max(0, 1-Math.abs(hb-Math.round(hb))/Math.max(0.01,CFG.grooveOpenWindow));
+      const _so=_openAmt>0?0.20+0.47*_openAmt:0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so;   // discontinuous floor: shielded=0.05, then POPS to >=0.20 the instant it's killable → a crisp on/off edge that matches orbOpen() exactly
+    } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
       // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
@@ -1907,7 +1910,7 @@ function animate(frameNow){
         const qi=Math.floor(beats*spb);
         doSnap = qi!==_quantIdx;
         if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
-        const _jb=Math.floor(beats); if(CFG.grooveGroove && CFG.grooveJuke && _jb!==_jukeIdx){ doJuke=true; _jukeIdx=_jb; }   // JUKE once per whole beat: the orbs redirect (in the loop below) so the lead must be re-predicted each beat
+        const _jb=Math.floor(beats - (CFG.grooveGroove?CFG.grooveFreezePhase:0)); if(CFG.grooveGroove && CFG.grooveJuke && _jb!==_jukeIdx){ doJuke=true; _jukeIdx=_jb; }   // JUKE on the "and" (off-beat) → the orb then glides predictably into the on-beat open window (a fair timed lead)
       }
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
