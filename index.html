@@ -1486,11 +1486,12 @@ function drawWasdLane(){
   hudCtx.globalAlpha=1;
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
-const FLOCK={ max:170, ghostMax:60, burstBase:16, burstAcc:0.12, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 16..28; rainbow flock once the bonus combo is this hot
-  spawnDist:2.4, dropY:0.35, cone:0.5, speed:[3.2,6.2], up:[0.5,1.7],              // erupt ~2.4m ahead + a touch below the crosshair; fly forward-out-up
-  swirl:0.85, dragPerSec:0.62, grav:0.9, bob:5.5, jitter:0.9,                       // per-bird horizontal bank + coast-down + wing-bob + settle + separation
-  life:[2.6,3.3], spin:[1.6,5.0], base:[0.34,0.52],                                 // ~3s lifespan, star spin, base scale
-  trailEvery:0.055, ghostGrowPerSec:1.9, branchRate:0.35, gold:0xfff6c8,
+const FLOCK={ max:190, ghostMax:60, burstBase:16, burstAcc:0.12, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 16..28; rainbow flock once the bonus combo is this hot
+  spawnDist:2.4, dropY:0.35, cone:0.5, speed:[3.0,5.6], up:[0.4,1.4],              // burst: erupt ~2.4m ahead + a touch below the crosshair; fly forward-out-up
+  swirl:0.85, dragPerSec:0.55, grav:0.7, bob:4.2, jitter:0.08,                      // burst-phase per-bird bank + coast-down + wing-bob + settle + √dt-scaled separation jitter
+  burst:[0.42,0.66], orbitRise:2.4, orbitRadius:[1.2,2.7], orbitSpeed:2.7, orbitPull:1.6, orbitSteer:2.8, centerEase:0.30,   // then settle into a SHARED orbit above the letter; later bursts join the same swarm
+  life:[3.6,5.2], spin:[1.6,5.0], base:[0.34,0.52],                                 // ~4-5s so the orbit is visible before they dissolve out
+  trailEvery:0.06, ghostGrowPerSec:1.9, branchRate:0.28, gold:0xfff6c8,
   rainbow:[0xff4d4d,0xff9a3d,0xffd84a,0x5be86b,0x43d9ff,0x6aa8ff,0xc06bff] };
 const _flockGeo=(()=>{ const a=new THREE.BoxGeometry(0.62,0.09,0.09), b=new THREE.BoxGeometry(0.09,0.62,0.09);   // two merged crossed bars = a little 4-point star, like Formula Defense
   const pa=a.attributes.position.array, pb=b.attributes.position.array, ia=a.index.array, ib=b.index.array;
@@ -1499,10 +1500,11 @@ const _flockGeo=(()=>{ const a=new THREE.BoxGeometry(0.62,0.09,0.09), b=new THRE
   for(let i=0;i<ib.length;i++) idx[ia.length+i]=ib[i]+off;
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1)); g.computeVertexNormals(); a.dispose(); b.dispose(); return g; })();
 const _flock=[], _flockPool=[], _flockGhosts=[], _flockGhostPool=[];   // live + recycled pools; meshes are reused for the session, never disposed mid-play
-const _FUP=new THREE.Vector3(0,1,0), _fFwd=new THREE.Vector3(), _fRight=new THREE.Vector3(), _fUp=new THREE.Vector3(), _fOrig=new THREE.Vector3(), _fDir=new THREE.Vector3();
+const _FUP=new THREE.Vector3(0,1,0), _fFwd=new THREE.Vector3(), _fRight=new THREE.Vector3(), _fUp=new THREE.Vector3(), _fOrig=new THREE.Vector3(), _fDir=new THREE.Vector3(), _flockCenter=new THREE.Vector3(), _fToC=new THREE.Vector3(), _fTan=new THREE.Vector3();
+let _flockHasCenter=false, _flockSpin=1;   // shared orbit anchor: successive bursts pool into ONE swarm circling _flockCenter (direction _flockSpin) until it fully dissolves, then the next burst starts fresh
 function _flockMat(){ return new THREE.MeshBasicMaterial({transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}); }   // additive glow, depth-tested so orbs/walls occlude them (they're in the world)
 function _acquireBird(){ const b=_flockPool.pop(); if(b){ b.mesh.visible=true; return b; }
-  const m=new THREE.Mesh(_flockGeo,_flockMat()); scene.add(m); return {mesh:m, vel:new THREE.Vector3(), age:0, life:1, swirl:0, twk:0, spin:0, base:0.4, col:0xffffff, tt:0, depth:0, branched:false}; }
+  const m=new THREE.Mesh(_flockGeo,_flockMat()); scene.add(m); return {mesh:m, vel:new THREE.Vector3(), age:0, life:1, swirl:0, twk:0, spin:0, base:0.4, col:0xffffff, tt:0, depth:0, branched:false, burst:0.5, orbR:2}; }
 function _recycleBird(b){ b.mesh.visible=false; _flockPool.push(b); }
 function _acquireGhost(){ const g=_flockGhostPool.pop(); if(g){ g.mesh.visible=true; return g; }
   const m=new THREE.Mesh(_flockGeo,_flockMat()); scene.add(m); return {mesh:m, age:0, life:0.5, spin:0}; }
@@ -1512,7 +1514,8 @@ function _birthBird(col, base, life, vel, swirl, depth){
   b.mesh.position.copy(_fOrig); b.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); b.mesh.scale.setScalar(base*0.4);
   b.vel.copy(vel); b.age=0; b.life=life; b.swirl=swirl; b.twk=Math.random()*6.283;
   b.spin=(FLOCK.spin[0]+Math.random()*(FLOCK.spin[1]-FLOCK.spin[0]))*(Math.random()<0.5?-1:1);
-  b.base=base; b.col=col; b.tt=0; b.depth=depth; b.branched=false; _flock.push(b); }
+  b.base=base; b.col=col; b.tt=0; b.depth=depth; b.branched=false;
+  b.burst=FLOCK.burst[0]+Math.random()*(FLOCK.burst[1]-FLOCK.burst[0]); b.orbR=FLOCK.orbitRadius[0]+Math.random()*(FLOCK.orbitRadius[1]-FLOCK.orbitRadius[0]); _flock.push(b); }
 function _dropGhost(pos, col, scl){ if(_flockGhosts.length>=FLOCK.ghostMax) return;
   const g=_acquireGhost(), mt=g.mesh.material; mt.color.setHex(col); mt.opacity=0.26;
   g.mesh.position.copy(pos); g.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); g.mesh.scale.setScalar(scl);
@@ -1521,6 +1524,8 @@ function spawnFlock(key, acc, rainbow){
   if(reduceMotion) return;
   camera.getWorldDirection(_fFwd); _fRight.crossVectors(_fFwd,_FUP).normalize(); _fUp.crossVectors(_fRight,_fFwd).normalize();
   _fOrig.copy(camera.position).addScaledVector(_fFwd,FLOCK.spawnDist).addScaledVector(_fUp,-FLOCK.dropY);
+  _fToC.copy(_fOrig).addScaledVector(_FUP,FLOCK.orbitRise);   // this flock orbits just ABOVE where the letter burst, out of the crosshair line
+  if(_flockHasCenter) _flockCenter.lerp(_fToC, FLOCK.centerEase); else { _flockCenter.copy(_fToC); _flockSpin=Math.random()<0.5?1:-1; _flockHasCenter=true; }   // live swarm migrates toward recent taps; a fresh one picks a new anchor + orbit direction
   const n=Math.min(FLOCK.max, Math.round(FLOCK.burstBase+acc*FLOCK.burstAcc));
   for(let i=0;i<n;i++){
     const az=Math.random()*6.283, r=Math.random()*FLOCK.cone;
@@ -1530,28 +1535,37 @@ function spawnFlock(key, acc, rainbow){
     _birthBird(col, FLOCK.base[0]+Math.random()*(FLOCK.base[1]-FLOCK.base[0]), FLOCK.life[0]+Math.random()*(FLOCK.life[1]-FLOCK.life[0]), _fDir, (Math.random()-0.5)*2*FLOCK.swirl, 0);
   }
 }
-function resetFlock(){ for(const b of _flock) _recycleBird(b); _flock.length=0; for(const g of _flockGhosts){ g.mesh.visible=false; _flockGhostPool.push(g); } _flockGhosts.length=0; _sparkPend=null; }
+function resetFlock(){ for(const b of _flock) _recycleBird(b); _flock.length=0; for(const g of _flockGhosts){ g.mesh.visible=false; _flockGhostPool.push(g); } _flockGhosts.length=0; _flockHasCenter=false; _sparkPend=null; }
 function updateFlock(dt){
   if(_sparkPend){ spawnFlock(_sparkPend.key,_sparkPend.acc,!!_sparkPend.rainbow); _sparkPend=null; }   // spawn happens BEFORE the loop, so its cap-shifts never corrupt the iteration below
   if(_flock.length===0 && _flockGhosts.length===0) return;
-  const drag=Math.pow(FLOCK.dragPerSec,dt), tempo=Math.max(20,state.bpm)/60, twoPi=6.283;
+  const drag=Math.pow(FLOCK.dragPerSec,dt), sdt=Math.sqrt(dt), tempo=Math.max(20,state.bpm)/60, twoPi=6.283;   // sdt: mean-zero jitter is a random walk → scale by √dt so its diffusion is framerate-invariant
   for(let i=_flock.length-1;i>=0;i--){ const b=_flock[i]; b.age+=dt; const t=b.age/b.life;
     if(t>=1){ _recycleBird(b); _flock.splice(i,1); continue; }
-    b.vel.applyAxisAngle(_FUP, b.swirl*dt);                                              // bank/curl → the flock fans apart instead of spraying uniformly
-    b.vel.y += Math.sin(b.age*FLOCK.bob+b.twk)*FLOCK.bob*0.12*dt - FLOCK.grav*dt;         // wing-bob + gentle settle
-    b.vel.multiplyScalar(drag);                                                          // coast down so they glide, not rocket, into the distance
-    b.vel.x += (Math.random()-0.5)*FLOCK.jitter*dt; b.vel.z += (Math.random()-0.5)*FLOCK.jitter*dt;
+    if(b.age<b.burst){                                                                    // PHASE 1 — burst OUT from the letter
+      b.vel.applyAxisAngle(_FUP, b.swirl*dt);                                             // bank/curl → the flock fans apart instead of spraying uniformly
+      b.vel.y += Math.sin(b.age*FLOCK.bob+b.twk)*FLOCK.bob*0.12*dt - FLOCK.grav*dt;        // wing-bob + gentle settle
+      b.vel.multiplyScalar(drag);
+    } else {                                                                              // PHASE 2 — join the SHARED orbit around _flockCenter (tangential circling + radial spring toward orbR)
+      _fToC.copy(_flockCenter).sub(b.mesh.position); const d=_fToC.length()||1e-3; _fToC.multiplyScalar(1/d);   // unit vector toward the anchor, d = distance to it
+      _fTan.crossVectors(_FUP,_fToC); const tl=_fTan.length(); if(tl>1e-3) _fTan.multiplyScalar(1/tl); else _fTan.set(1,0,0);   // horizontal circling tangent (degenerate only straight over/under the anchor)
+      _fDir.copy(_fTan).multiplyScalar(FLOCK.orbitSpeed*_flockSpin).addScaledVector(_fToC,(d-b.orbR)*FLOCK.orbitPull);   // desired velocity = circle + spring toward the ring radius
+      _fDir.y += Math.sin(b.age*FLOCK.bob*0.5+b.twk)*0.6;                                  // vertical life so the swarm is a fuzzy shell, not a flat disk
+      b.vel.lerp(_fDir, Math.min(1, FLOCK.orbitSteer*dt));                                 // steer smoothly into orbit — the lerp sustains circling (no drag/grav here)
+    }
+    b.vel.x += (Math.random()-0.5)*FLOCK.jitter*sdt; b.vel.z += (Math.random()-0.5)*FLOCK.jitter*sdt;
     b.mesh.position.addScaledVector(b.vel,dt);
     b.tt+=dt; if(b.tt>=FLOCK.trailEvery && t<0.72){ b.tt=0; _dropGhost(b.mesh.position,b.col,b.mesh.scale.x*0.72); }   // comet-trail afterimage
     if(!b.branched && b.depth<2 && _flock.length<FLOCK.max && t>0.15 && t<0.6 && Math.random()<FLOCK.branchRate*dt){   // a bird occasionally sheds a child that veers off
       b.branched=true; _fOrig.copy(b.mesh.position);
-      _birthBird(b.col, b.base*0.8, b.life*(1-t)*0.9, b.vel.clone().applyAxisAngle(_FUP,(Math.random()-0.5)*1.1), b.swirl*(Math.random()<0.5?1.2:-1.2), b.depth+1);
+      _birthBird(b.col, b.base*0.8, b.life*(1-t)*0.9, _fDir.copy(b.vel).applyAxisAngle(_FUP,(Math.random()-0.5)*1.1), b.swirl*(Math.random()<0.5?1.2:-1.2), b.depth+1);   // reuse _fDir (idle here; _birthBird copies vel immediately) → zero-alloc hot loop
     }
     const twk=0.66+0.34*Math.sin(state.t*tempo*twoPi+b.twk), bloom=Math.min(1,b.age/0.14);   // tempo twinkle + a 140ms grow-in
     b.mesh.material.opacity=Math.max(0,(1-t)*twk);
     b.mesh.scale.setScalar(b.base*(0.5+bloom*0.7)*(0.8+0.4*(1-t))*(0.85+0.15*twk));
     b.mesh.rotation.z += b.spin*dt;
   }
+  if(_flock.length===0) _flockHasCenter=false;   // swarm fully dissolved → the next burst anchors a fresh orbit (new spot + direction)
   const gGrow=Math.pow(FLOCK.ghostGrowPerSec,dt);
   for(let i=_flockGhosts.length-1;i>=0;i--){ const g=_flockGhosts[i]; g.age+=dt; const gt=g.age/g.life;
     if(gt>=1){ g.mesh.visible=false; _flockGhostPool.push(g); _flockGhosts.splice(i,1); continue; }
@@ -1830,7 +1844,7 @@ function animate(frameNow){
   requestAnimationFrame(animate);
   if(document.hidden){ clock.getDelta(); return; }
   if(frameNow==null) frameNow=performance.now();
-  if(!state.running && _gpIndex===null && explosions.length===0 && ghosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;   // pad connected → poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples)
+  if(!state.running && _gpIndex===null && explosions.length===0 && ghosts.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;   // pad connected → poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
   if(!state.running) lastIdleFrame=frameNow;
   const dt=Math.min(clock.getDelta(),0.05);
   pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
