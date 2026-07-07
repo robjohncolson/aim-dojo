@@ -316,14 +316,14 @@ function loadToneOnce(){
 /* ========================= TUNABLES ========================= */
 const CFG = {
   // rhythm tempo
-  startBpm:48, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // default tempo 48bpm (user-picked sane default). gentler slowdown so a few misses don't crater the tempo
+  startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // START at the floor 20bpm: the groove is heavy multitasking (lead + off-beat tap + read the field) so it must ramp from dead-slow; diffT speeds it up as you improve
   // shared adaptive law
   upThreshold:0.80, downThreshold:0, windowSize:25, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Defaults: speed-up at 80% acc, slow-down only at 0% (never eases off). windowSize 25.
   // difficulty mapping
   radSlow:1.15,
   rangeStart:11, rangeMax:28, rangeNear:8, rangeBand:8, rangeHitStep:0.08, rangeMissStep:0.20, rangeStep:1.2, rangeStepDown:1.6,   // DISTANCE TRAINER (free-play): state.range (spawn shell far edge) now creeps SUB-PERCEPTUALLY per event — +rangeHitStep on a hit, -rangeMissStep on a miss (converges ~71% reach). rangeStep/rangeStepDown = the old CHUNKED march, now vestigial. -- skill-gated spawn distance (FREE-PLAY only): start close (8-11m), march the whole shell outward on sustained hits (maxed ~20-28m, freebies retired), pull it back when you struggle. spawnDist still governs the seeded daily so everyone gets the same run.
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
-  brownian:7, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity, speed cap (HIGH skill) → speed cap (LOW skill, lerp by diffT so low-tempo orbs drift slowly = small steps), LIGHT mean-reversion
+  brownian:4, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity (lowered 7→4 so the beat-JUKE reads as a clean cut instead of drowning in random drift), speed cap HIGH→LOW skill (lerp by diffT), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:false, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Defaults (user-picked): center circle (wasdHud) + timing text (wasdTapText) OFF -- letter only, both opt-in via settings.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
@@ -331,7 +331,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
-  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:70,   // grooveGroove:false = full Phase-1 kill-switch (reverts everything). grooveFreezePhase only shifts the WASD grid onto the "and" — NOT a kill-switch (juke + shot cue stay tied to grooveGroove).
+  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.4,   // grooveGroove:false = full kill-switch. JUKE: each beat the orb CUTS to grooveGlideSpeed in a new heading (±grooveJukeDeg) → a visible, leadable dart. grooveFreezeFloor: the WASD freeze can only CALM the field to this floor (never fully stop), so there's always a moving lead + a felt juke. grooveFreezePhase just shifts the WASD grid onto the "and".
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
@@ -398,7 +398,7 @@ let _combo=[0,1,2,3], _curCi=-1, _curMain=true, _baseMul=1, _mulEff=1, _wasdComb
 const _resolved=new Set();   // resolved note indices (one-press lock + miss-detection); replaces the single _resolvedIdx so a same-frame double-tap can claim the ADJACENT note instead of being eaten
 let _sparkPend=null;   // correct-tap → 3D star-flock burst signal {key,acc,rainbow}; consumed once by updateFlock, then nulled
 function _wasdResolve(offSec, main, win){ const ao=Math.abs(offSec), acc=ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,win-0.025))); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main) _baseMul=Math.pow(1-acc,1.5); else if(acc>0) _wasdCombo++; }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau (acc 1, matching the readout -> the field actually freezes); beyond it acc falls linearly over the rest of the window; damping (1-acc)^1.5 so decent-but-not-perfect taps still READ as calm
-function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(0, _baseMul*(1-steady)); }   // orb-motion multiplier: the last MAIN tap's damping, made calmer by the bonus combo (1=orbs move, 0=frozen)
+function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(CFG.grooveGroove?CFG.grooveFreezeFloor:0, _baseMul*(1-steady)); }   // orb-motion multiplier: last MAIN tap's damping, calmed by the bonus combo. In groove mode it FLOORS at grooveFreezeFloor (never fully frozen) so there's always a moving lead to shoot.
 function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
 const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]: black&white, then off-black-brown & off-white-pink
@@ -1911,7 +1911,7 @@ function animate(frameNow){
       }
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
-      const velCap=lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT()), velCap2=velCap*velCap;   // wander SPEED scales with skill → low-tempo orbs barely drift (small, sedate steps); fast only at high skill
+      const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
       if(doSnap){
         if(CFG.wasdRhythm && strobe){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);   // notes at HALF the orb-jump rate -> quarter/8th/16th as skill (diffT) rises
           const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
@@ -1930,7 +1930,7 @@ function animate(frameNow){
             tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
             const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>velCap2){ const f=velCap/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
           }
-          if(doJuke){ const _ja=(Math.random()*2-1)*CFG.grooveJukeDeg*0.017453293, _c=Math.cos(_ja), _s=Math.sin(_ja), _vx=tg.vel.x, _vz=tg.vel.z; tg.vel.x=_vx*_c-_vz*_s; tg.vel.z=_vx*_s+_vz*_c; }   // beat JUKE: rotate the horizontal heading up to ±grooveJukeDeg (a frozen orb barely moves, so the juke is felt most when the field is live)
+          if(doJuke){ let _ha=Math.atan2(tg.vel.z, tg.vel.x); if(!(tg.vel.x||tg.vel.z)) _ha=Math.random()*6.283; _ha+=(Math.random()*2-1)*CFG.grooveJukeDeg*0.017453293; tg.vel.x=Math.cos(_ha)*CFG.grooveGlideSpeed; tg.vel.z=Math.sin(_ha)*CFG.grooveGlideSpeed; }   // beat JUKE: CUT the heading ±grooveJukeDeg and set a steady glide speed → a visible dart you must re-lead each beat
           const ms=moveStep*mul;   // accuracy-scaled displacement: the better you time the beat, the less the field drifts this step
           p.x+=tg.vel.x*ms; p.y+=tg.vel.y*ms; p.z+=tg.vel.z*ms;
           if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
