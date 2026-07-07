@@ -1487,10 +1487,10 @@ function drawWasdLane(){
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
 const FLOCK={ max:190, ghostMax:60, burstBase:16, burstAcc:0.12, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 16..28; rainbow flock once the bonus combo is this hot
-  spawnDist:2.4, dropY:0.35, cone:0.5, speed:[3.0,5.6], up:[0.4,1.4],              // burst: erupt ~2.4m ahead + a touch below the crosshair; fly forward-out-up
+  spawnDist:2.4, dropY:0.35, cone:0.5, speed:[4.0,7.5], up:[0.3,1.0],              // burst: erupt ~2.4m ahead of the crosshair, fly forward-OUT into the room (less up-bias than before)
   swirl:0.85, dragPerSec:0.55, grav:0.7, bob:4.2, jitter:0.08,                      // burst-phase per-bird bank + coast-down + wing-bob + settle + √dt-scaled separation jitter
-  burst:[0.42,0.66], orbitRise:2.4, orbitRadius:[1.2,2.7], orbitSpeed:2.7, orbitPull:1.6, orbitSteer:2.8, centerEase:0.30,   // then settle into a SHARED orbit above the letter; later bursts join the same swarm
-  life:[3.6,5.2], spin:[1.6,5.0], base:[0.34,0.52],                                 // ~4-5s so the orbit is visible before they dissolve out
+  burst:[0.42,0.66], orbitFwd:7.5, orbitRise:3.2, orbitRadius:[2.6,5.2], orbitSpeed:3.6, orbitPull:1.6, orbitSteer:2.8, centerEase:0.30,   // anchor the orbit ~10m DOWNRANGE (not around the head); ~2x wider ring; later bursts join the same swarm
+  life:[4.2,6.0], spin:[1.6,5.0], base:[0.5,0.8],                                   // longer life + bigger stars so the distant, wide orbit reads before they dissolve
   trailEvery:0.06, ghostGrowPerSec:1.9, branchRate:0.28, gold:0xfff6c8,
   rainbow:[0xff4d4d,0xff9a3d,0xffd84a,0x5be86b,0x43d9ff,0x6aa8ff,0xc06bff] };
 const _flockGeo=(()=>{ const a=new THREE.BoxGeometry(0.62,0.09,0.09), b=new THREE.BoxGeometry(0.09,0.62,0.09);   // two merged crossed bars = a little 4-point star, like Formula Defense
@@ -1524,7 +1524,8 @@ function spawnFlock(key, acc, rainbow){
   if(reduceMotion) return;
   camera.getWorldDirection(_fFwd); _fRight.crossVectors(_fFwd,_FUP).normalize(); _fUp.crossVectors(_fRight,_fFwd).normalize();
   _fOrig.copy(camera.position).addScaledVector(_fFwd,FLOCK.spawnDist).addScaledVector(_fUp,-FLOCK.dropY);
-  _fToC.copy(_fOrig).addScaledVector(_FUP,FLOCK.orbitRise);   // this flock orbits just ABOVE where the letter burst, out of the crosshair line
+  _fTan.set(_fFwd.x,0,_fFwd.z); const fl=_fTan.length()||1e-3; _fTan.multiplyScalar(1/fl);   // horizontal forward → anchor sits downrange at a sane height regardless of aim pitch
+  _fToC.copy(_fOrig).addScaledVector(_fTan,FLOCK.orbitFwd).addScaledVector(_FUP,FLOCK.orbitRise);   // orbit anchor well DOWNRANGE + up: the swarm flies off into the room instead of hugging the head
   if(_flockHasCenter) _flockCenter.lerp(_fToC, FLOCK.centerEase); else { _flockCenter.copy(_fToC); _flockSpin=Math.random()<0.5?1:-1; _flockHasCenter=true; }   // live swarm migrates toward recent taps; a fresh one picks a new anchor + orbit direction
   const n=Math.min(FLOCK.max, Math.round(FLOCK.burstBase+acc*FLOCK.burstAcc));
   for(let i=0;i<n;i++){
