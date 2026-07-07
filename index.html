@@ -33,6 +33,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 @keyframes ring{0%{opacity:.55;transform:translate(-50%,-50%) scale(.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.7)}}
 
 #reticle{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;pointer-events:none;z-index:5}
+#fireRing{position:fixed;left:50%;top:50%;width:46px;height:46px;border:2px solid var(--rail);border-radius:50%;transform:translate(-50%,-50%) scale(var(--frs,2.6));opacity:var(--fro,0);pointer-events:none;z-index:4;display:none;will-change:transform,opacity}   /* groove: converging "fire NOW" ring — shrinks onto the crosshair, collapses on the beat */
+#fireRing.on{display:block}
+#fireRing.hot{border-color:var(--toxic);box-shadow:0 0 12px var(--toxic),0 0 4px var(--toxic)}   /* green = inside the fire window */
 #reticle .arm{position:absolute;background:var(--rail);box-shadow:0 0 6px var(--rail);opacity:.9}
 #reticle .h{top:50%;height:2px;transform:translateY(-50%)}
 #reticle .v{left:50%;width:2px;transform:translateX(-50%)}
@@ -217,6 +220,7 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 <div id="ghostToast" aria-hidden="true"></div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="lockBox" aria-hidden="true"></div>
+<div id="fireRing" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <canvas id="wasdHud" width="560" height="560" aria-hidden="true"></canvas>
 <div id="wasdGlyph" aria-hidden="true"></div>
@@ -331,7 +335,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
-  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenWindow:0.16,   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY while it GLOWS open — a window of grooveOpenWindow beats around the beat ("the one"); an off-beat hit CLANKS (no kill). JUKE now fires on the "and" (0.5) so the orb then glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
+  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenSec:[0.12,0.05],   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY if you FIRE inside a ±grooveOpenSec-SECOND window around the beat ("the one") — ms-based like osu/DDR, tightening ~120ms→50ms with skill (diffT); was a beat-fraction ≈ ±480ms at 20bpm (a free pass). Off-beat fire CLANKS (no kill). JUKE now fires on the "and" (0.5) so the orb then glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
@@ -1605,6 +1609,18 @@ function updateFloorBeat(){
   const gsh=nightGrid&&nightGrid.material.userData.shBeat;
   if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
 }
+const fireRingEl=gid('fireRing'); let _fireHot=false;
+function updateFireRing(){   // groove: a CONVERGING "fire NOW" ring at the crosshair — it shrinks onto the reticle and COLLAPSES on the beat (osu approach-circle / Hellsinger-arrows model; reads far better than a bare flash). Turns green inside the fire window = the exact "pull now" instant.
+  const el=fireRingEl; if(!el) return;
+  const on = CFG.grooveGroove && CFG.grooveVuln && !reduceMotion && state.running && toneReady && Tone.Transport.state==='started';
+  if(!on){ if(el.classList.contains('on')) el.classList.remove('on'); return; }
+  let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
+  const bps=60/Math.max(20,state.bpm), lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; hb-=lat/bps;   // heard timeline (matches the fire gate + glow)
+  const p2b=Math.ceil(hb)-hb;   // 1 just after a beat → 0 collapsing onto the next beat (sawtooth)
+  el.style.setProperty('--frs',(1+p2b*1.6).toFixed(3)); el.style.setProperty('--fro',(0.2+0.72*(1-p2b)).toFixed(3));   // 2.6× wide far from the beat → 1× (hugs the crosshair) ON the beat; brightens as it converges
+  const hot=_openAmt>0; if(hot!==_fireHot){ _fireHot=hot; el.classList.toggle('hot',hot); }
+  if(!el.classList.contains('on')) el.classList.add('on');
+}
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
 function spawnLandRing(x,z){
@@ -1895,7 +1911,8 @@ function animate(frameNow){
     if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
       let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
       const _bps=60/Math.max(20,state.bpm), _lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; hb-=_lat/_bps;   // heard timeline → the glow matches the audible beat
-      _openAmt=Math.max(0, 1-Math.abs(hb-Math.round(hb))/Math.max(0.01,CFG.grooveOpenWindow));
+      const _offSec=Math.abs(hb-Math.round(hb))*_bps, _winSec=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();   // ms window: seconds off the beat vs a skill-tightened band (NOT a beat-fraction, which blew out to ±480ms at 20bpm)
+      _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
       const _so=_openAmt>0?0.20+0.47*_openAmt:0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so;   // discontinuous floor: shielded=0.05, then POPS to >=0.20 the instant it's killable → a crisp on/off edge that matches orbOpen() exactly
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
@@ -2003,7 +2020,7 @@ function animate(frameNow){
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
-  try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){}   // WASD floor beat-tint + cursor feedback (free-play); guarded so a throw can't kill the frame
+  try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor beat-tint + cursor feedback + the converging fire-ring; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
   try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
