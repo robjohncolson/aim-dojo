@@ -331,7 +331,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
-  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.4,   // grooveGroove:false = full kill-switch. JUKE: each beat the orb CUTS to grooveGlideSpeed in a new heading (±grooveJukeDeg) → a visible, leadable dart. grooveFreezeFloor: the WASD freeze can only CALM the field to this floor (never fully stop), so there's always a moving lead + a felt juke. grooveFreezePhase just shifts the WASD grid onto the "and".
+  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25,   // grooveGroove:false = full kill-switch. JUKE: each beat the orb CUTS to grooveGlideSpeed in a new heading (±grooveJukeDeg) → a visible, leadable dart. grooveFreezeFloor: the WASD freeze can only CALM the field to this floor (never fully stop), so there's always a moving lead + a felt juke. grooveFreezePhase just shifts the WASD grid onto the "and".
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
