@@ -25,7 +25,7 @@ A first-person **rhythm shooter** in the Rez / Metal:Hellsinger lineage (it bega
 
 ## OPEN / PENDING (start here — but confirm with the user first)
 - **User read on the AUDIO tune** (item 7) — does the louder/brighter chord-following arp now read as a followable tune? Awaiting their verdict. If still not singing: try a distinct melody voice on top, or make the arp track kills, or add drum fills.
-- **Leaderboard board (2-column BPM/TIME)** — I re-columned and re-pointed the fetch but could NOT test the networked query. User to eyeball it; it fails gracefully to "offline" if the `runtime`/`peak_bpm` columns aren't present. **CSS note:** the board previously expected ~5 columns; now 2 — if the layout looks off, it's a cosmetic CSS tweak.
+- **Leaderboard board (2-column BPM/TIME)** — CSS **layout fixed** (c364e08: `.dojo-row` was still a 7-col grid after the 2-metric cut → now 4-col rank/name/BPM/TIME). The networked query/data still wants a live eyeball (I can't fetch the real board); it fails gracefully to "offline" if the `runtime`/`peak_bpm` columns aren't present.
 - **Dolly amount** — `7°/4°/0.5` is new. User to confirm it trains tracking without fighting aim; dial the 3 consts back if too much.
 - **No browser smoke-test happened this session.** Claude-in-Chrome ext was not connected; browser-harness needs a manual Chrome remote-debug handshake (profile-picker + Allow). Everything shipped on normal-render-identical + per-change adversarial review; **the USER is the visual verifier.** If you can get a browser connected, actually load `?low`, the pause menu, and the leaderboard.
 
