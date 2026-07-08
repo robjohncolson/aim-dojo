@@ -166,7 +166,6 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 .br-bpm{color:var(--plasma);text-align:right}
 .br-acc{color:var(--bone-dim);text-align:right;font-size:11px}
 .board-empty{color:var(--bone-dim);font-size:11px;letter-spacing:.1em;padding:6px 2px;text-align:center}
-.histbox{margin:2px 0 16px;border:1px solid var(--panel-edge);background:#0d110f;padding:9px 11px}
 .histhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:9.5px;letter-spacing:.16em;color:var(--bone-dim);margin-bottom:6px}
 .histsub{color:var(--rail);letter-spacing:.06em;white-space:nowrap}
 /* DOJO RECORDS board — multi-metric, tabbed sort (THE DOJO PIVOT) */
@@ -185,8 +184,6 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 #dojoFlash{position:fixed;left:50%;top:30%;transform:translateX(-50%);z-index:6;pointer-events:none;font:bold 15px var(--mono);letter-spacing:.14em;color:#ffd36b;text-shadow:0 0 10px rgba(255,211,107,.6),0 0 4px rgba(0,0,0,.9);opacity:0;white-space:nowrap}
 #dojoFlash.show{animation:dojoFlash 1.4s ease-out forwards}
 @keyframes dojoFlash{0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.8)}14%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.05)}26%{transform:translateX(-50%) translateY(0) scale(1)}72%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-16px)}}
-#histChart{display:block;width:100%;height:84px}
-
 @media (max-width:520px){ h1{font-size:30px} #speedVal{font-size:44px} }
 @media (prefers-reduced-motion: reduce){ #speedVal{transition:none;animation:none!important} #hitmark.fire{animation-duration:.001s} #beatRing.pulse{animation:none} }
 
@@ -267,10 +264,6 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
     <div class="dualcols"><button class="ghost" id="recordsBtn">🥋 RECORDS</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
 
     <div id="recordsWrap" style="display:none;margin-top:16px">
-      <div id="histBox" class="histbox" style="display:none">
-        <div class="histhead"><span>PATH EFFICIENCY · RECENT RUNS</span><span id="histSub" class="histsub"></span></div>
-        <canvas id="histChart"></canvas>
-      </div>
       <div id="dojoBox" class="boardbox">
         <div class="histhead"><span>🥋 DOJO RECORDS</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
         <div id="dojoTabs" class="dojo-tabs">
@@ -1228,20 +1221,13 @@ function changeBpm(delta,up){
 /* ========================= STATE + OUTCOMES ========================= */
 const state={ running:false, started:false, needsReset:false, t:0,
   bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart, maxHitDist:0, maxHitHeight:0,
-  hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0, pathScores:[], pathScoreSum:0, pathScoreHead:0, sessEffs:[], sessBpms:[], sessEffSum:0, sessBpmSum:0 };
+  hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0 };
 function pushReaction(v){
   const a=state.reactions;
   if(a.length<12) a.push(v); else { state.reactionSum-=a[state.reactionHead]; a[state.reactionHead]=v; state.reactionHead=(state.reactionHead+1)%12; }
   state.reactionSum+=v;
 }
 function avgReaction(){ return state.reactions.length ? state.reactionSum/state.reactions.length : null; }
-function pushPathScore(v){
-  const a=state.pathScores;
-  if(a.length<20) a.push(v); else { state.pathScoreSum-=a[state.pathScoreHead]; a[state.pathScoreHead]=v; state.pathScoreHead=(state.pathScoreHead+1)%20; }
-  state.pathScoreSum+=v;
-}
-function avgPathScore(){ return state.pathScores.length ? state.pathScoreSum/state.pathScores.length : null; }
-
 function kindScore(tg, atT){   // per-kind score: gold/mover ×bonus, speed bonus only if hit FAST after spawn. Daily only ever rolls kind 0/1, so this stays score===h.length-safe there.
   if(tg.kind===1) return CFG.goldScore;
   if(tg.kind===4) return CFG.moverScore;
@@ -1273,8 +1259,6 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   padRumble(good?[26,18,12][gradeIdx]:8, good?[0.7,0.5,0.35][gradeIdx]:0.2);   // graded haptic blip (FLAWLESS strongest → a whisper for a late GOOD); values mirror the iso game's tuning
   recordHit(tg);
   pushReaction(beats);
-  const ps=pathScoreOf(tg); pushPathScore(ps);
-  state.sessEffs.push(ps); state.sessBpms.push(state.bpm); state.sessEffSum+=ps; state.sessBpmSum+=state.bpm;   // full-session record (for the startup chart)
   pushEvent(good);   // timing-grade popup (FLAWLESS/PERFECT/…) removed per playtest — the distance/height flash (recordHit) is the only post-hit readout now
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
@@ -1824,7 +1808,7 @@ function endFlickBonus(){
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
   if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
 }
-function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or the saved/ranked stats (which read eff/bestStreak/maxBpm, never shots).
+function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
   if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
   tg.dead=true; tg._flickLocked=false;
   const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
@@ -1945,7 +1929,7 @@ function updateAssist(dt){
 const INK_OPT=3, TRAIL_R=12, TRAIL_MAX=90;  // beats-to-red; sphere radius; max samples/trail
 const TRAIL_UPDATE_STEP=1/20;
 const ghosts=[], trailMeshPool=[];
-const _aimCur=new THREE.Vector3(), _pathAim=new THREE.Vector3();
+const _aimCur=new THREE.Vector3();
 function setAimDir(out, p, y){
   if(p==null && y==null){
     if(aimDirty){ const cp=Math.cos(pitch); _aimDirCache.set(-Math.sin(yaw)*cp, Math.sin(pitch), -Math.cos(yaw)*cp); aimDirty=false; }
@@ -1999,12 +1983,6 @@ function retireTrail(tg, life){                          // hand the orb's trail
   ghosts.push({mesh:tg.trailMesh, mat:tg.trailMesh.material, age:0, life});
   tg.trailMesh=null;
 }
-function pathScoreOf(tg){
-  if(!tg || !tg.aim0 || tg.angPath<=0.15) return 1;     // barely moved → nothing meaningful to grade
-  return Math.max(0, Math.min(1, unitAngle(setAimDir(_pathAim), tg.aim0)/tg.angPath));  // great-circle chord ÷ angle travelled
-}
-function pathGrade(s){ return s>=0.93?'DIRECT':s>=0.82?'CLEAN':s>=0.66?'STEADY':'LOOSE'; }
-function pathTier(s){ return s>=0.93?'t4':s>=0.82?'t3':s>=0.66?'t2':'t1'; }
 function updateTrail(dt){
   if(state.running && targets.length){
     const cur=setAimDir(_aimCur);
@@ -2296,7 +2274,7 @@ function resetSession(){
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
-  Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
+  Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0});
   ensureRhythm();
   renderPrimary(false,false);
 }
@@ -2305,35 +2283,6 @@ document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement===canvas){ enterRunning(); }
   else { if(state.running) exitRunning(); }                  // guard: endChallenge already stopped the run synchronously — don't double-fire showPause
 });
-function loadSessions(){ try{ return JSON.parse(localStorage.getItem('aimdojo.sessions')||'[]'); }catch(e){ return []; } }
-function saveSession(){                                   // finalize the current run into localStorage history
-  if(!state.sessEffs || state.sessEffs.length<3) return;
-  const n=state.sessEffs.length;
-  const s={t:Date.now(), n, eff:state.sessEffSum/n, bpm:state.sessBpmSum/n, peak:state.maxBpm};
-  let h=loadSessions(); h.push(s); if(h.length>60) h=h.slice(-60);
-  try{ localStorage.setItem('aimdojo.sessions', JSON.stringify(h)); }catch(e){}
-  state.sessEffs=[]; state.sessBpms=[]; state.sessEffSum=0; state.sessBpmSum=0;
-}
-function renderHistory(){                                 // startup/pause chart: per-run path efficiency over time, points coloured by BPM
-  const box=gid('histBox'), cv=gid('histChart'); if(!box||!cv) return;
-  const h=loadSessions();
-  if(!h.length){ box.style.display='none'; return; }
-  box.style.display='block';
-  const last=h[h.length-1], sub=gid('histSub');
-  if(sub) sub.textContent=h.length+' run'+(h.length>1?'s':'')+' · last '+Math.round(last.eff*100)+'% @ '+Math.round(last.bpm)+' bpm';
-  const data=h.slice(-40), W=cv.clientWidth||300, H=84, dpr=Math.min(window.devicePixelRatio||1,2);
-  cv.width=W*dpr; cv.height=H*dpr; const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
-  const pL=6,pR=6,pT=8,pB=12, pw=W-pL-pR, ph=H-pT-pB, yMin=0.4, yMax=1.0;
-  const xAt=i=> data.length<2 ? pL+pw/2 : pL+(i/(data.length-1))*pw;
-  const yAt=e=> pT+(1-(Math.max(yMin,Math.min(yMax,e))-yMin)/(yMax-yMin))*ph;
-  c.font='9px monospace';
-  for(const gy of [0.5,0.75,1.0]){ const y=yAt(gy); c.strokeStyle='rgba(140,150,143,0.16)'; c.lineWidth=1; c.beginPath(); c.moveTo(pL,y); c.lineTo(W-pR,y); c.stroke();
-    c.fillStyle='rgba(140,150,143,0.55)'; c.fillText(Math.round(gy*100)+'%', pL, y-2); }
-  c.strokeStyle='rgba(67,217,255,0.30)'; c.lineWidth=1.5; c.beginPath();
-  data.forEach((d,i)=>{ const x=xAt(i),y=yAt(d.eff); i?c.lineTo(x,y):c.moveTo(x,y); }); c.stroke();
-  const bpmCol=b=>{ const t=Math.max(0,Math.min(1,(b-30)/142)); return 'rgb('+Math.round(67+188*t)+','+Math.round(217-150*t)+','+Math.round(255-200*t)+')'; };
-  data.forEach((d,i)=>{ c.fillStyle=bpmCol(d.bpm); c.beginPath(); c.arc(xAt(i),yAt(d.eff),2.7,0,6.2832); c.fill(); });
-}
 /* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
 const SB_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
@@ -2447,12 +2396,12 @@ function renderDojoBoard(rows, sort){
     dojoSort=s; try{ localStorage.setItem('aimdojo.dojosort', s); }catch(_e){} paint(); loadDojoBoard(); });
   paint();
 })();
-/* ---- collapsible 🥋 RECORDS section on the card (history chart + dojo board + name input live inside; closed by default) ---- */
+/* ---- collapsible 🥋 RECORDS section on the card (dojo board + name input live inside; closed by default) ---- */
 const recordsWrap=gid('recordsWrap'), recordsBtn=gid('recordsBtn');
 let recordsOpen=false, _namePrompted=false;
 function openRecords(){
   if(!recordsWrap || recordsOpen) return; recordsOpen=true; recordsWrap.style.display='block';
-  renderHistory(); renderDojoBests(); loadDojoBoard();   // re-render on expand: the chart canvas reads clientWidth, which is 0 while collapsed
+  renderDojoBests(); loadDojoBoard();
 }
 function closeRecords(){ if(!recordsWrap) return; recordsOpen=false; recordsWrap.style.display='none'; }
 if(recordsBtn) recordsBtn.addEventListener('click', ()=>{ recordsOpen ? closeRecords() : openRecords(); });
@@ -2473,8 +2422,8 @@ function showPause(){
     '<div class="chip"><div class="ck">TIME IN DOJO</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
     '<div class="chip"><div class="ck">FINAL BPM</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
     '<div class="chip"><div class="ck">PEAK BPM</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
-  overlay.classList.remove('hidden');   // unhide FIRST: renderHistory + the auto-openRecords path measure the chart canvas's clientWidth, which is 0 while the overlay is display:none
-  saveSession(); renderHistory(); submitDojo(); loadDojoBoard();
+  overlay.classList.remove('hidden');
+  submitDojo(); loadDojoBoard();
 }
 
 gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); reconcileTargetSounds(); });
@@ -2523,8 +2472,7 @@ const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.reques
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
 const preloadTone=()=>{ loadToneOnce().catch(()=>{}); };
 runIdle(preloadTone,700,1800);
-setTimeout(()=>{ renderHistory(); loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // history/leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
-window.addEventListener('beforeunload', saveSession);   // don't lose a run if the tab closes mid-play
+setTimeout(()=>{ loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
 })();
 </script>
 </body>
