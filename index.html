@@ -640,6 +640,8 @@ function updateSky(dt){
   _hor.copy(HOR_NIGHT).lerp(HOR_DAY, day).lerp(HOR_DUSK, tw*0.7);                           // horizon colour
   _zen.copy(ZEN_NIGHT).lerp(ZEN_DAY, day).lerp(ZEN_DUSK, tw*0.45);                          // zenith colour (deep)
   _haze.copy(_hor).lerp(WHITE, 0.03+0.25*day);                                              // soft brightened horizon band — near-dark at night, bright by day
+  // THEME AURA: a soft mood wash on the sky/fog while you play — enough that ICAROS feels emerald and CANON feels gold, not so much the day/night cycle disappears
+  if(state.running && activeTheme){ const w=0.07+0.08*Math.min(1,grooveI/2.2); _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.85); _zen.lerp(_moodCol,w*0.45); }
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
   scene.background.copy(_hor); scene.fog.color.copy(_hor); setScalarCached(scene.fog,'density',0.012-0.005*day,100000);  // background = horizon → no black seam; floor fades into the horizon
   if(starPts) setScalarCached(starPts.material.uniforms.uOpacity,'value',Math.max(0,1-day*1.15));
@@ -653,8 +655,8 @@ function updateSky(dt){
   if(nightGrid) setScalarCached(nightGrid.material,'opacity',0.55*(1-day));
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
-  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
-  hemiLight.color.copy(_sky); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
+  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && activeTheme) _amb.lerp(_moodCol, 0.10+0.10*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
+  hemiLight.color.copy(_sky); if(state.running && activeTheme) hemiLight.color.lerp(_moodCol, 0.08); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // light comes from whichever body is up
   skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',LOW?0:day*0.9);          // procedural clouds: drift + fade in with the day (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome, a clean gradient sky which is on-theme N64)
@@ -670,6 +672,7 @@ let skyT=0;
 const RING_POOL=[], RING_SPEED=4, RING_LIFE=7, RING_CELL=2;   // expansion snaps to the 2-unit grid → square steps out along grid lines
 const RING_OP_SCALE=100;                                      // opacity buckets trim redundant material writes
 const RING_COOL=new THREE.Color(0x43d9ff), RING_HOT=new THREE.Color(0x74e84a);
+const _moodCol=new THREE.Color(0x74e84a);   // active song's aura — tints rings, combo glow, sky wash
 const SQUARE=new THREE.BufferGeometry().setFromPoints([       // unit square in the floor plane; scaled out, its edges land on grid lines
   new THREE.Vector3(-1,0,-1), new THREE.Vector3(1,0,-1), new THREE.Vector3(1,0,1), new THREE.Vector3(-1,0,1)]);
 for(let k=0;k<12;k++){
@@ -688,7 +691,7 @@ function emitRing(){
   r.active=true; r.t0=state.t; r.intensity=0.42+Math.min(0.45, state.streak*0.02);
   activeRingCount++;
   r.rq=0; r.op=-1;
-  r.mesh.material.color.copy(RING_COOL).lerp(RING_HOT, heat);
+  r.mesh.material.color.copy(RING_COOL).lerp(_moodCol, 0.28+0.72*heat);   // song aura: cool rail → theme mood as the streak warms (was fixed toxic-green)
   r.mesh.visible=true; r.mesh.material.opacity=r.intensity;
 }
 function clearRings(){
@@ -829,66 +832,86 @@ let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
    Optional bassHold (Tone duration, default '8n') for long vs short notes. THE INVARIANT: a theme's SCALE must be
    CONSONANT over its WHOLE progression, so a kill/tap lands in key no matter which bar it falls on. A run rolls one
    via pickTheme (user pick on the card, or RANDOM) + brief ♪ name. Sources public-domain or original-in-tradition.
-   Add a theme = push {name,scale,root,triad,tune,arp,bass,bassHold?}; scale 8 slots, every triad 3, bass length 8. */
+   Add a theme = push {name,scale,root,triad,tune,arp,bass,bassHold?,mood?,skyBias?}; scale 8, triad 3, bass 8.
+   mood = hex aura (rings/glow/sky wash); skyBias = dayPhase seed when a run starts (0 sunrise · .25 noon · .5 sunset · .75 midnight). */
 const THEMES=[
   { name:'DOJO',      // A-minor pentatonic over Am · F · C · G — original zen: root on 1, fifth on 3
     scale:[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33],
     root:[55.00,43.65,65.41,49.00],
     triad:[[110,130.81,164.81],[110,130.81,174.61],[98.00,130.81,164.81],[98.00,123.47,146.83]],
     tune:[0,2,-1,-1, 4,3,-1,-1, 5,4,-1,-1, 2,0,-1,-1], arp:[0,1,2,1,0,1,2,1],
-    bass:[1,0,0,0, 1.5,0,0,0], bassHold:'8n' },
+    bass:[1,0,0,0, 1.5,0,0,0], bassHold:'8n', mood:0x74e84a, skyBias:0.82 },
   { name:'CANON',     // Pachelbel's Canon in D — 8-chord D·A·Bm·F#m·G·D·G·A; identity = WALKING half-note roots (the famous bass)
     scale:[293.66,329.63,369.99,440.00,493.88,587.33,659.25,739.99],
     root:[73.42,55.00,61.74,46.25,49.00,73.42,49.00,55.00],
     triad:[[110.00,146.83,185.00],[110.00,138.59,164.81],[123.47,146.83,185.00],[92.50,110.00,138.59],[98.00,123.47,146.83],[110.00,146.83,185.00],[98.00,123.47,146.83],[110.00,138.59,164.81]],
     tune:[7,5,4,-1, 3,2,3,-1, 5,4,2,-1, 1,2,0,-1], arp:[0,1,2,1,0,1,2,1],
-    bass:[1,0,0,0, 1,0,0,0], bassHold:'4n' },   // two half-notes per bar → root sequence D-A-Bm-… reads as the Canon walk
+    bass:[1,0,0,0, 1,0,0,0], bassHold:'4n', mood:0xffd84a, skyBias:0.14 },   // morning gold
   { name:'MOONLIGHT', // Beethoven Sonata No.14 mood — i·VI·III·VII; sparse brooding bass (one dark hit per bar)
     scale:[277.18,329.63,369.99,415.30,493.88,554.37,659.25,739.99],
     root:[69.30,55.00,82.41,61.74],
     triad:[[103.83,138.59,164.81],[110.00,138.59,164.81],[103.83,123.47,164.81],[92.50,123.47,155.56]],
     tune:[3,3,-1,-1, 4,3,2,-1, -1,-1,3,-1, 2,1,-1,-1], arp:[0,1,2,0,1,2,0,1],
-    bass:[1,0,0,0, 0,0,0,0], bassHold:'2n' },
+    bass:[1,0,0,0, 0,0,0,0], bassHold:'2n', mood:0x6aa8ff, skyBias:0.74 },   // moon-high night
   { name:'ICAROS',    // meditative drone — Em·G·Em·D; pulse on the 1s (i=0,2,4,6) so WASD "ands" lock BETWEEN the hits
     scale:[164.81,196.00,220.00,246.94,293.66,329.63,392.00,440.00],
     root:[41.20,49.00,41.20,73.42],
     triad:[[82.41,98.00,123.47],[98.00,123.47,146.83],[82.41,98.00,123.47],[110.00,146.83,185.00]],
     tune:[2,1,0,-1, -1,-1,-1,-1, 3,2,1,-1, -1,-1,0,-1], arp:[0,1,2,1,0,1,2,1],
-    bass:[1,0,1,0, 1,0,1,0], bassHold:'8n' },
+    bass:[1,0,1,0, 1,0,1,0], bassHold:'8n', mood:0x2dd4a8, skyBias:0.88 },   // deep jungle night
   { name:'CHANT',     // Gregorian / Dorian mood (original, plainchant style) — Dm·F·Dm·C; open sacred space, long held roots
     scale:[146.83,174.61,196.00,220.00,261.63,293.66,349.23,392.00],   // D-minor pentatonic (D F G A C …)
     root:[73.42,43.65,73.42,65.41],   // D2 · F1 · D2 · C2
     triad:[[146.83,174.61,220.00],[174.61,220.00,261.63],[146.83,174.61,220.00],[130.81,164.81,196.00]],
     tune:[0,-1,-1,2, -1,-1,3,-1, 2,-1,0,-1, -1,-1,-1,-1], arp:[0,1,0,2,0,1,0,2],
-    bass:[1,0,0,0, 0,0,0,0], bassHold:'2n' },
+    bass:[1,0,0,0, 0,0,0,0], bassHold:'2n', mood:0xc4a574, skyBias:0.80 },   // candlelit stone
   { name:'HYMN',      // church-hymn warmth (Amazing Grace / traditional I–IV–I–V feel) — G·C·G·D; amen walk
     scale:[196.00,220.00,246.94,293.66,329.63,392.00,440.00,493.88],   // G-major pentatonic
     root:[49.00,65.41,49.00,73.42],   // G1 · C2 · G1 · D2
     triad:[[98.00,123.47,146.83],[130.81,164.81,196.00],[98.00,123.47,146.83],[146.83,185.00,220.00]],
     tune:[4,2,0,-1, 1,2,4,-1, 5,4,2,-1, 3,2,0,-1], arp:[0,1,2,1,0,2,1,0],
-    bass:[1,0,0,0, 1,0,1.5,0], bassHold:'8n' },
+    bass:[1,0,0,0, 1,0,1.5,0], bassHold:'8n', mood:0xffe0b0, skyBias:0.08 },   // sunrise chapel
   { name:'JOY',       // Ode to Joy mood (Beethoven 9, public domain) — D·G·A·D; bright pulse that locks with WASD like Icaros
     scale:[293.66,329.63,369.99,440.00,493.88,587.33,659.25,739.99],   // D-major pentatonic
     root:[73.42,49.00,55.00,73.42],   // D2 · G1 · A1 · D2
     triad:[[146.83,185.00,220.00],[98.00,123.47,146.83],[110.00,138.59,164.81],[146.83,185.00,220.00]],
     tune:[0,1,2,3, 4,3,2,-1, 4,5,4,3, 2,1,0,-1], arp:[0,1,2,1,2,1,0,1],
-    bass:[1,0,1,0, 1,0,1.5,0], bassHold:'8n' },   // quarter pulse + fifth lift into the turnaround
+    bass:[1,0,1,0, 1,0,1.5,0], bassHold:'8n', mood:0xff9a3d, skyBias:0.20 },   // bright morning parade
   { name:'GREENS',    // Greensleeves (public domain) — Am·G·Em·Am; lilting pickup bass (not a square pulse)
     scale:[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33],   // A-minor pentatonic (same palette as DOJO, different walk)
     root:[55.00,49.00,41.20,55.00],   // A1 · G1 · E1 · A1
     triad:[[110.00,130.81,164.81],[98.00,123.47,146.83],[82.41,98.00,123.47],[110.00,130.81,164.81]],
     tune:[4,3,2,-1, 1,2,3,-1, 5,4,3,2, 1,0,-1,-1], arp:[0,2,1,2,0,1,2,1],
-    bass:[1,0,0,1.5, 0,0,1,0], bassHold:'8n' },   // 6/8-ish: root … fifth-pickup … root
+    bass:[1,0,0,1.5, 0,0,1,0], bassHold:'8n', mood:0x8fbc6a, skyBias:0.48 },   // golden-hour meadow
 ];
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
 let _themePick='RANDOM';   // 'RANDOM' or a THEMES[].name — set from the card chips; persisted as aimdojo.theme
-function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; BASS=t.bass; BASS_HOLD=t.bassHold||'8n'; }   // swap every array the voices read (incl. per-theme bassline)
+function applyMoodLook(){   // paint the run's aura into UI + ring palette (called whenever the active theme changes)
+  if(!activeTheme) return;
+  _moodCol.setHex(activeTheme.mood||0x74e84a);
+  const r=(_moodCol.r*255+0.5)|0, g=(_moodCol.g*255+0.5)|0, b=(_moodCol.b*255+0.5)|0;
+  try{ const cg=document.getElementById('comboGlow'); if(cg) cg.style.background='radial-gradient(125% 95% at 50% 50%, rgba(0,0,0,0) 54%, rgba('+r+','+g+','+b+',.20) 84%, rgba('+r+','+g+','+b+',.48) 100%)'; }catch(e){}
+  try{ const f=document.getElementById('dojoFlash'); if(f){ f.style.color='rgb('+r+','+g+','+b+')'; f.style.textShadow='0 0 12px rgba('+r+','+g+','+b+',.65),0 0 4px rgba(0,0,0,.9)'; } }catch(e){}
+}
+function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; BASS=t.bass; BASS_HOLD=t.bassHold||'8n'; applyMoodLook(); }   // swap audio arrays + visual aura
 function pickTheme(){   // resolve the run's song: fixed pick from the card, or random (never the same twice in a row)
   if(_themePick && _themePick!=='RANDOM'){
     let i=THEMES.findIndex(t=>t.name===_themePick); if(i<0) i=0;
-    _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true; return;
+    _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true;
+  } else {
+    let i; do{ i=(Math.random()*THEMES.length)|0; }while(THEMES.length>1 && i===_lastThemeI); _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true;
   }
-  let i; do{ i=(Math.random()*THEMES.length)|0; }while(THEMES.length>1 && i===_lastThemeI); _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true;
+  // each song opens in its own sky — Canon at sunrise, Moonlight under the moon, Icaros in deep night…
+  if(activeTheme && activeTheme.skyBias!=null) dayPhase=activeTheme.skyBias;
+}
+function themeBreath(){   // opening breath of the song: soft pad triad + root so you FEEL the key the instant the ♪ name flashes
+  if(!soundOn || !toneReady || !activeTheme) return;
+  try{
+    const t=Tone.now();
+    if(pad && CHORD_TRIAD && CHORD_TRIAD[0]) pad.triggerAttackRelease(CHORD_TRIAD[0], '2n', t, 0.14);
+    if(bass && CHORD_ROOT) bass.triggerAttackRelease(CHORD_ROOT[0], '2n', t, 0.62);
+    if(tune && PENTA) tune.triggerAttackRelease(PENTA[Math.min(4,PENTA.length-1)], '4n', t+0.05, 0.55);   // a single high note = the song's "hello"
+  }catch(e){}
 }
 function syncThemeChips(){
   const host=document.getElementById('themeChips'); if(!host) return;   // getElementById: called before the later gid() helper exists
@@ -2446,7 +2469,7 @@ function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b
   if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
   sub.textContent='your best · '+fmtTime(b.dur||0)+' · '+(b.bpm||0)+' bpm'; }
 function flashDojoRecord(label){ const f=el.dojoFlash; if(!f) return; setText(f, '★ NEW RECORD · '+label); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
-function flashTheme(){ const f=el.dojoFlash; if(!f||!activeTheme) return; setText(f, '♪ '+activeTheme.name); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }   // TUNE LIBRARY: brief "♪ MOONLIGHT" reveal at run start (same transient gold flash the records use)
+function flashTheme(){ const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook(); setText(f, '♪ '+activeTheme.name); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath(); }   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
 async function submitDojo(){
   if(state.hits<1) return;
   const s=dojoSession(), b=loadDojoBests();
