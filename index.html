@@ -1204,11 +1204,12 @@ function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb'
 function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
   const beats=(atT - tg.born)/(60/(atBpm!=null?atBpm:state.bpm));               // grade against the tempo at commit time too (it can step mid-flight in free-play)
-  let grade, good=true; const gradeIdx = beats<=1?0 : beats<=2?1 : 2;   // 0=FLAWLESS,1=PERFECT,2=EXCELLENT → graded hit tone
-  if(beats<=1.0) grade='FLAWLESS';
-  else if(beats<=2.0) grade='PERFECT';
-  else if(beats<=3.0) grade='EXCELLENT';
-  else { grade='GOOD'; good=false; }            // got it, but past the 3-beat target
+  const ext = tg.hpMax>1 ? tg.hpMax-1 : 0;   // MULTI-HIT: a tank legitimately needs (hpMax-1) extra on-beat pockets before the kill — don't grade the killing blow as "late" for that (beats itself stays spawn-relative so pushReaction + the clutch late-test keep their meaning)
+  let grade, good=true; const gradeIdx = beats<=1+ext?0 : beats<=2+ext?1 : 2;   // 0=FLAWLESS,1=PERFECT,2=EXCELLENT → graded hit tone
+  if(beats<=1.0+ext) grade='FLAWLESS';
+  else if(beats<=2.0+ext) grade='PERFECT';
+  else if(beats<=3.0+ext) grade='EXCELLENT';
+  else { grade='GOOD'; good=false; }            // got it, but past the target
   if(tg.kind===2){                                                          // DECOY: never scores — the hit IS the penalty (streak break + a wasted shot). Skip the grade path entirely; h/score untouched.
     state.streak=0; pushReaction(beats); pushEvent(false);
     showTiming('DECOY','don\'t shoot these','off');
@@ -1232,9 +1233,8 @@ function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF th
   if(soundOn && toneReady && shotCue){ try{ shotCue.triggerAttackRelease(150, '16n', Tone.now(), 0.5); }catch(e){} }
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.12);
 }
-function chipHit(tg, point){   // MULTI-HIT: a charged (on-beat) hit knocks a tank down one — counts as a good hit (shots + a positive event, so accuracy/groove build) but NO kill/score/streak (that's the LAST hit). Lighter thud + a bright pip; the floating number ticks down in updateTargetMarks.
+function chipHit(tg, point){   // MULTI-HIT: a charged (on-beat) hit knocks a tank down one — pure PROGRESS + feedback. It does NOT touch score/streak OR the accuracy/groove metrics, so a tank behaves like a normal orb for all accounting (one terminal event: the kill, or the expire), just needing more on-beat hits to get there. Lighter thud + a bright pip; the floating number ticks down in updateTargetMarks.
   tg.hp--;
-  state.shots++; pushEvent(true);
   if(soundOn && toneReady){ try{ const now=Tone.now(); if(kick) kick.triggerAttackRelease('C2','32n',now,0.45); if(tick) tick.triggerAttackRelease(880,'32n',now,0.5); }catch(e){} }
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.22);
 }
