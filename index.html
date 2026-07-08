@@ -1695,7 +1695,7 @@ function drawWasdLane(){
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
 const FLOCK={ max:190, ghostMax:60, burstBase:8, burstAcc:0.06, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 8..14; rainbow flock once the bonus combo is this hot
-  spawnDist:2.6, dropY:0.15, floorY:1.6, cone:0.42, speed:[3.6,6.2], up:[0.8,1.8], // FLOOR-SAFE: spawn mid-air downrange on the ground plane; floorY high enough that mesh extent never cuts the y=0 plane (was 0.55 — stars LOOKED under the floor). up bias keeps phase-1 from settling into the ground.
+  spawnDist:2.6, riseY:0.6, minY:EYE+0.6, cone:0.42, speed:[3.6,6.2], up:[0.8,1.8], // SKY-SIDE INVARIANT: keep every star ABOVE EYE LEVEL. A world point with y > camera.y always projects above the horizon line (any pitch), and above the horizon there is only sky — so a star can NEVER be drawn against the floor, and the ground read can't be corrupted. This is the actual fix for "stars under the floor": they were never below y=0 (old pads 0.55→1.6 chased a position bug that didn't exist). The real cause is that these are additive + depthWrite:false + fog:false = zero depth cues, so a bright near blob over the far fogged floor reads as sitting IN the ground. Keeping them sky-side removes the confusion entirely. minY is eye+0.6 so even a star pinned at the pad clears the horizon: its max world radius is 0.33 (geom radius 0.3165 x max scale 1.037) and camera shake lifts the eye by at most CFG.shakePos=0.14 -> lowest tip 4.27 > highest eye 4.14. If you ever raise base/shakePos, re-check that margin.
   swirl:0.85, dragPerSec:0.55, grav:0.35, bob:3.2, jitter:0.06,                      // softer grav so they don't dive; lighter jitter
   burst:[0.38,0.58], orbitFwd:8.0, orbitRise:2.4, orbitRadius:[2.2,3.6], orbitSpeed:3.4, orbitPull:1.5, orbitSteer:2.8, centerEase:0.28,   // HORIZONTAL RING (not a 3D sphere) — smaller radius + higher floor-relative center; old orbitRadius 5.2 + 3D spring could pull birds under y=0
   orbitBob:0.55,                                                                      // soft vertical bob around the ring height (not full radial Y pull)
@@ -1713,7 +1713,7 @@ const _flock=[], _flockPool=[], _flockGhosts=[], _flockGhostPool=[];   // live +
 const _FUP=new THREE.Vector3(0,1,0), _fFwd=new THREE.Vector3(), _fRight=new THREE.Vector3(), _fUp=new THREE.Vector3(), _fOrig=new THREE.Vector3(), _fDir=new THREE.Vector3(), _flockCenter=new THREE.Vector3(), _fToC=new THREE.Vector3(), _fTan=new THREE.Vector3();
 let _flockHasCenter=false, _flockSpin=1;   // shared orbit anchor: successive bursts pool into ONE swarm circling _flockCenter (direction _flockSpin) until it fully dissolves, then the next burst starts fresh
 function _flockMat(){ return new THREE.MeshBasicMaterial({transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:true, fog:false}); }   // additive; fog off so they don't "sink" into the horizon haze; depth-tested so orbs still occlude
-function _flockFloor(p){ if(p.y < FLOCK.floorY) p.y=FLOCK.floorY; }   // hard floor pad (mesh half-extent sits above y=0)
+function _flockMinY(p){ if(p.y < FLOCK.minY) p.y=FLOCK.minY; }   // hold the star sky-side (above eye level) so it never overlaps floor pixels
 function _acquireBird(){ const b=_flockPool.pop(); if(b){ b.mesh.visible=true; return b; }
   const m=new THREE.Mesh(_flockGeo,_flockMat()); m.renderOrder=2; scene.add(m); return {mesh:m, vel:new THREE.Vector3(), age:0, life:1, swirl:0, twk:0, spin:0, base:0.4, col:0xffffff, tt:0, depth:0, branched:false, burst:0.5, orbR:2}; }
 function _recycleBird(b){ b.mesh.visible=false; _flockPool.push(b); }
@@ -1722,7 +1722,7 @@ function _acquireGhost(){ const g=_flockGhostPool.pop(); if(g){ g.mesh.visible=t
 function _birthBird(col, base, life, vel, swirl, depth){
   if(_flock.length>=FLOCK.max) _recycleBird(_flock.shift());   // cap: retire the oldest (only reached from spawnFlock, BEFORE the update loop → never mutates the live loop)
   const b=_acquireBird(), mt=b.mesh.material; mt.color.setHex(col); mt.opacity=1;
-  b.mesh.position.copy(_fOrig); _flockFloor(b.mesh.position);
+  b.mesh.position.copy(_fOrig); _flockMinY(b.mesh.position);
   b.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); b.mesh.scale.setScalar(base*0.4);
   b.vel.copy(vel); if(b.vel.y<0.2) b.vel.y=0.2+Math.random()*0.4;   // never birth with a floor-diving velocity
   b.age=0; b.life=life; b.swirl=swirl; b.twk=Math.random()*6.283;
@@ -1731,7 +1731,7 @@ function _birthBird(col, base, life, vel, swirl, depth){
   b.burst=FLOCK.burst[0]+Math.random()*(FLOCK.burst[1]-FLOCK.burst[0]); b.orbR=FLOCK.orbitRadius[0]+Math.random()*(FLOCK.orbitRadius[1]-FLOCK.orbitRadius[0]); _flock.push(b); }
 function _dropGhost(pos, col, scl){ if(_flockGhosts.length>=FLOCK.ghostMax) return;
   const g=_acquireGhost(), mt=g.mesh.material; mt.color.setHex(col); mt.opacity=0.26;
-  g.mesh.position.copy(pos); _flockFloor(g.mesh.position);   // trails inherit floor pad (were the main "under the floor" ghost images)
+  g.mesh.position.copy(pos); _flockMinY(g.mesh.position);   // trails inherit floor pad (were the main "under the floor" ghost images)
   g.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); g.mesh.scale.setScalar(scl);
   g.age=0; g.life=0.5; g.spin=(Math.random()-0.5)*3; _flockGhosts.push(g); }
 function spawnFlock(key, acc, rainbow){
@@ -1742,10 +1742,10 @@ function spawnFlock(key, acc, rainbow){
   if(fl < 0.08){ _fTan.set(-Math.sin(yaw), 0, -Math.cos(yaw)); fl=1; }   // nearly straight up/down → fall back to look-yaw so the burst still has a stable downrange
   else _fTan.multiplyScalar(1/fl);
   _fRight.crossVectors(_fTan,_FUP).normalize();
-  const y0=Math.max(FLOCK.floorY, camera.position.y - FLOCK.dropY);   // eye-relative, floor-padded
+  const y0=Math.max(FLOCK.minY, camera.position.y + FLOCK.riseY);   // burst ORIGIN sits just ABOVE the eye → the whole flock lives sky-side of the horizon (see minY)
   _fOrig.set(camera.position.x + _fTan.x*FLOCK.spawnDist, y0, camera.position.z + _fTan.z*FLOCK.spawnDist);
-  _fToC.copy(_fOrig).addScaledVector(_fTan,FLOCK.orbitFwd); _fToC.y = Math.max(FLOCK.floorY + 2.4, y0 + FLOCK.orbitRise);   // ring height well above the floor pad
-  if(_flockHasCenter){ _flockCenter.lerp(_fToC, FLOCK.centerEase); if(_flockCenter.y < FLOCK.floorY+2.4) _flockCenter.y=FLOCK.floorY+2.4; }
+  _fToC.copy(_fOrig).addScaledVector(_fTan,FLOCK.orbitFwd); _fToC.y = Math.max(FLOCK.minY + 2.4, y0 + FLOCK.orbitRise);   // ring height well above the floor pad
+  if(_flockHasCenter){ _flockCenter.lerp(_fToC, FLOCK.centerEase); if(_flockCenter.y < FLOCK.minY+2.4) _flockCenter.y=FLOCK.minY+2.4; }
   else { _flockCenter.copy(_fToC); _flockSpin=Math.random()<0.5?1:-1; _flockHasCenter=true; }
   const n=Math.min(FLOCK.max, Math.round(FLOCK.burstBase+acc*FLOCK.burstAcc));
   for(let i=0;i<n;i++){
@@ -1762,7 +1762,7 @@ function updateFlock(dt){
   if(_flock.length===0 && _flockGhosts.length===0) return;
   const drag=Math.pow(FLOCK.dragPerSec,dt), sdt=Math.sqrt(dt), tempo=Math.max(20,state.bpm)/60, twoPi=6.283;
   // keep the shared orbit anchor from ever drifting under the pad (lerp residue / old sessions)
-  if(_flockHasCenter && _flockCenter.y < FLOCK.floorY+2.4) _flockCenter.y=FLOCK.floorY+2.4;
+  if(_flockHasCenter && _flockCenter.y < FLOCK.minY+2.4) _flockCenter.y=FLOCK.minY+2.4;
   for(let i=_flock.length-1;i>=0;i--){ const b=_flock[i]; b.age+=dt; const t=b.age/b.life;
     if(t>=1){ _recycleBird(b); _flock.splice(i,1); continue; }
     if(b.age<b.burst){                                                                    // PHASE 1 — burst OUT
@@ -1780,10 +1780,10 @@ function updateFlock(dt){
     }
     b.vel.x += (Math.random()-0.5)*FLOCK.jitter*sdt; b.vel.z += (Math.random()-0.5)*FLOCK.jitter*sdt;
     b.mesh.position.addScaledVector(b.vel,dt);
-    if(b.mesh.position.y < FLOCK.floorY){ b.mesh.position.y=FLOCK.floorY; if(b.vel.y<0) b.vel.y=Math.abs(b.vel.y)*0.35+0.15; }   // bounce up, don't stick to the pad
+    if(b.mesh.position.y < FLOCK.minY){ b.mesh.position.y=FLOCK.minY; if(b.vel.y<0) b.vel.y=Math.abs(b.vel.y)*0.35+0.15; }   // bounce up, don't stick to the pad
     b.tt+=dt; if(b.tt>=FLOCK.trailEvery && t<0.72){ b.tt=0; _dropGhost(b.mesh.position,b.col,b.mesh.scale.x*0.72); }
     if(!b.branched && b.depth<2 && _flock.length<FLOCK.max && t>0.15 && t<0.6 && Math.random()<FLOCK.branchRate*dt){
-      b.branched=true; _fOrig.copy(b.mesh.position); _flockFloor(_fOrig);
+      b.branched=true; _fOrig.copy(b.mesh.position); _flockMinY(_fOrig);
       _birthBird(b.col, b.base*0.8, b.life*(1-t)*0.9, _fDir.copy(b.vel).applyAxisAngle(_FUP,(Math.random()-0.5)*1.1), b.swirl*(Math.random()<0.5?1.2:-1.2), b.depth+1);
     }
     const twk=0.66+0.34*Math.sin(state.t*tempo*twoPi+b.twk), bloom=Math.min(1,b.age/0.14);
@@ -1795,7 +1795,7 @@ function updateFlock(dt){
   const gGrow=Math.pow(FLOCK.ghostGrowPerSec,dt);
   for(let i=_flockGhosts.length-1;i>=0;i--){ const g=_flockGhosts[i]; g.age+=dt; const gt=g.age/g.life;
     if(gt>=1){ g.mesh.visible=false; _flockGhostPool.push(g); _flockGhosts.splice(i,1); continue; }
-    _flockFloor(g.mesh.position);
+    _flockMinY(g.mesh.position);
     g.mesh.scale.multiplyScalar(gGrow); g.mesh.rotation.x+=g.spin*dt; g.mesh.rotation.y+=g.spin*0.6*dt;
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt));
   }
