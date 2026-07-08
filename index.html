@@ -348,6 +348,8 @@ const CFG = {
   // clutch flourish on a big ARC hit — RHYTHM-SAFE: a LOCALIZED camera FOV punch + explosion-only slow-mo + a shockwave ring. NEVER scales dt/Tone.Transport (that would desync the beat). Trigger = long-range OR last-second; clutchAnd:true → far AND late (rarer).
   clutch:true, clutchAnd:false, clutchRange:22, clutchLateBeats:2.4, clutchCooldown:1.1,
   clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
+  // RAIL-FLICK BONUS (#4): a FLAWLESS on-beat kill on a hot streak FREEZES orb motion (the beat clock keeps ticking); aiming becomes pure FLICK (crosshair literally ON an orb, no lead), tap ANY WASD/pad-face ON the beat to LOCK the pointed orb. Window ends → locked orbs detonate one-per-beat as a scored cascade. Trains FLICK (the complement to the core LEAD). No auto-aim. Set flickBonus:null to disable. All values are first guesses — tune by ear/eye.
+  flickBonus:{ streakGate:4, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // streakGate=min streak to earn it · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack)
   // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
   specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a 2-3 hit "tank" — needs multiple ON-BEAT hits, a floating number counts down.
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
@@ -393,6 +395,9 @@ let _jukeIdx=-1;   // last whole-beat index an orb-JUKE fired on (groove Phase 1
 function wasdBeats(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b - (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // WASD note grid, phase-shifted onto the "and" so the freeze PEAKS off-beat; the metronome / orb-strobe / juke / shot all stay on the RAW whole beat
 let _openAmt=1;   // orb-vulnerability glow 0..1 (peaks on the beat); recomputed each frame in the run loop
 function orbOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || _openAmt>0; }   // a shot only KILLS while the orb glows OPEN (on the beat); an off-beat hit clanks off the shield
+/* RAIL-FLICK BONUS (#4) state — freeze the field, flick-lock orbs on the beat, cascade-detonate. bonusActive spans BOTH the lock phase and the resolve/cascade phase (field stays frozen through both). Never scales dt/Tone.Transport (the beat MUST keep ticking so on-beat locking works). */
+let bonusActive=false, _bonusResolving=false, _bonusJustArmed=false, bonusEndsBeat=0, _bonusEntryBeat=0, _bonusCascadeBeat=0, _bonusLast=-999, _bonusGrace=0;
+const bonusLocks=[];   // orbs the player has flick-locked (detonated one-per-beat in the cascade)
 const WASD_CODES=['KeyW','KeyA','KeyS','KeyD'], WASD_GLYPH=['W','A','S','D'];   // WASD-rhythm TAP notes: physical key lanes + the player's visible key legends.
 function learnWasdGlyph(k, key){ const ch=(key||'').toLocaleUpperCase(); if(ch.length===1 && ch.trim()) WASD_GLYPH[k]=ch; }
 // Localize the lane letters to the player's layout (AZERTY→Z/Q/S/D, Cyrillic→Ц/Ф/Ы/В, …). Lane MATCHING is already physical (e.code in the keydown handler → the same inverted-T cluster on every keyboard); this only fixes the letter the HUD asks for. Chromium can answer at startup; Firefox/Safari self-correct as soon as each physical key is pressed.
@@ -993,6 +998,7 @@ function onGrid(time){
       try{ Tone.Draw.schedule(()=>{ if(state.running) emitRing(); }, time); }catch(e){ if(state.running) emitRing(); }
     }
   }
+  if(bonusActive){ grid8++; return; }                      // RAIL-FLICK BONUS: the beat/music above keep playing, but freeze NEW orb spawns while the flick mode holds the field
   // sparse, spaced groove — a cooldown after each orb forbids clustering; density sets the rate
   const active=activeTargetCount();
   let spawned=false;
@@ -1118,7 +1124,7 @@ function spawnTarget(opts){
   core.scale.setScalar(r*(reduceMotion?1:0.01));
   const snd=makeTargetSound(core);
   const life=opts.life!=null?opts.life:(60/state.bpm)*CFG.rhythmLifeBeats;   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
-  tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd;
+  tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
@@ -1226,6 +1232,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
   if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
+  if(good && gradeIdx<=0 && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS: a FLAWLESS on-beat kill on a hot streak earns the flick treat (armed AFTER this kill; state.streak already ++'d above)
   if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
 function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF the beat (shielded) → NO kill. It's a TIMING MISS: costs a shot + breaks the streak + feeds the adaptive engine, exactly like a whiff — so spray-and-pray can't beat the clock or inflate the leaderboard. A DISTINCT dull bonk (vs the whiff noise) so you know it was timing, not aim.
@@ -1246,12 +1253,14 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
   retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off'); sfx('expire'); }
 function fire(){
   if(!state.running) return;
+  if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at FIRE — pr.charged=orbOpen() at the trigger (in spawnProjectile); the connect-vs-clank at impact is a pure SPATIAL-lead outcome (arrival never re-grades timing), so the flight time is the game's problem, not the player's.
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
 function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND gamepad (face buttons / D-pad).
   if(!state.running) return;
+  if(bonusActive){ flickLockPress(); return; }   // RAIL-FLICK BONUS: any WASD/pad-face tap CONFIRMS a flick-lock (on-beat + crosshair on an orb) instead of driving the rhythm grid
   if(!CFG.wasdRhythm) return;
   const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
   let beats=wasdBeats();   // WASD grid shifted onto the "and" (groove phase); latency correction applied next
@@ -1419,6 +1428,7 @@ function simShotHits(M, V, T, tg){                                              
 }
 function updateArcPreview(dt){                                                               // thick low-opacity ribbon with scrolling dashes — IS the real shot's path (same plan spawnProjectile uses)
   if(!(CFG.projectile && CFG.projArc && state.running)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // ARC only. The arc ribbon is a STATIC functional aim aid -> shown even under reduced-motion (only the impact pulse is motion, gated just below)
+  if(bonusActive){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }   // RAIL-FLICK BONUS: no projectile in flick mode -> hide the shot-path ribbon
   ensureArcObjs();
   if(reduceMotion){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } }            // reduced-motion: the beat-pulsed impact rings are motion -> hide them (ribbon/landing/apex still show)
   else animateArcPulse();                                                                    // smooth every frame, off the last computed landing point
@@ -1459,7 +1469,7 @@ function ensureTargetMark(i){
   return targetMarks[i]={ring,drop,label,hlabel};
 }
 function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
-  if(!state.running){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
+  if(!state.running){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on','held'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
   const bl=60/Math.max(20,state.bpm), beat=reduceMotion?0:Math.pow(1-(state.t%bl)/bl, 1.6);   // reduced-motion -> beat=0 -> a static ring (no pulse)
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
@@ -1469,9 +1479,10 @@ function updateTargetMarks(){                                                 //
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
-    if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
-    else m.hlabel.classList.remove('on'); }
-  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
+    if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, 'LOCK'); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
+    else if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); m.hlabel.classList.remove('held'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
+    else m.hlabel.classList.remove('on','held'); }
+  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
 }
 /* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
@@ -1666,11 +1677,16 @@ function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','dec
 function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
-function scopeLockTarget(){ camera.getWorldDirection(_scAim); let best=null, bestDot=0.72;   // target nearest the crosshair, within ~44°
-  for(const tg of targets){ if(tg.dead) continue; _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included now -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
-    const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d; if(dot>bestDot){ bestDot=dot; best=tg; } } return best; }
+function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
+  for(const tg of targets){ if(tg.dead) continue;
+    if(tight && (tg._flickLocked || tg.kind===2)) continue;   // flick can't re-lock a locked orb, and you never flick-lock a decoy
+    _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included in the normal path -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
+    const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d;
+    if(tight){ if(dot>=Math.cos(Math.atan2(tg.radius*tg.sc*CFG.flickBonus.coneMul, d)) && dot>bestDot){ bestDot=dot; best=tg; } }   // dot >= cos(angular radius) == the crosshair is inside the orb's silhouette
+    else if(dot>bestDot){ bestDot=dot; best=tg; } } return best; }
 function updateScope(dt){
   if(!(CFG.projectile && CFG.scope && state.running)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
+  if(bonusActive){ hideScope(); scopeAccum=SCOPE_STEP; return; }   // RAIL-FLICK BONUS: updateFlickBonus owns lockBoxEl (the gold "lockable now" mark) during the bonus
   scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
   const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
   const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
@@ -1691,6 +1707,83 @@ function updateScope(dt){
     const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
     driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
   } else { hideEdgeTints(); }
+}
+/* ========================= RAIL-FLICK BONUS (#4) =========================
+   Earned by a FLAWLESS on-beat kill on a hot streak. Orb MOTION freezes (the beat clock keeps
+   ticking — we never touch dt/Tone.Transport); aiming becomes pure FLICK (crosshair literally ON
+   an orb, no lead). Tap ANY WASD / pad-face ON the beat to LOCK the pointed orb; each lock extends
+   the window. When it ends the locked orbs detonate in a one-per-beat cascade, each a scored bonus
+   kill. Trains FLICK — the complement to the core LEAD skill. No auto-aim. */
+function currentRawBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b; }   // raw whole-beat clock (no groove phase-shift) — drives the window countdown + cascade cadence
+function maybeArmFlickBonus(){   // called from gradeRhythmHit on a FLAWLESS good kill; the call site already checked good && gradeIdx<=0 && !bonusActive
+  if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
+  if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
+  if(state.t-_bonusLast<CFG.flickBonus.cooldown) return;                           // keep it a treat, not a strobe (mirrors clutch)
+  bonusActive=true; _bonusResolving=false; _bonusJustArmed=true; bonusLocks.length=0;   // _bonusJustArmed → updateFlickBonus clears in-flight projectiles NEXT (safely, after updateProjectiles' loop this frame)
+  _bonusGrace=CFG.flickBonus.graceMisses;
+  _bonusEntryBeat=currentRawBeat(); bonusEndsBeat=_bonusEntryBeat+CFG.flickBonus.baseBeats;
+  showTiming('FLICK','lock on the beat','perfect');
+  if(soundOn && toneReady){ try{ const t=beatSnap(); if(lead){ lead.triggerAttackRelease(PENTA[4],'8n',t,0.7); lead.triggerAttackRelease(PENTA[6],'8n',t+0.06,0.6); } if(chordSynth) chordSynth.triggerAttackRelease([PENTA[0],PENTA[2],PENTA[4]],'4n',t,0.4); }catch(e){} }   // a rising two-note "mode on" flourish + an open chord
+}
+function abortFlickBonus(){   // pause / reset: drop the mode with NO cascade payoff — un-flag locked orbs, unfreeze the field (they resume with full life)
+  if(!bonusActive) return;
+  for(const tg of bonusLocks) if(tg) tg._flickLocked=false;
+  bonusLocks.length=0; bonusActive=false; _bonusResolving=false; _bonusJustArmed=false;
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+}
+function flickLockPress(){   // a WASD/pad-face tap DURING the bonus: on-beat AND crosshair on an orb = LOCK; anything else = a missed attempt (one grace, then the cascade rolls)
+  if(_bonusResolving) return;                                                      // cascade already rolling — taps do nothing
+  const tg=scopeLockTarget(true);                                                  // tight, size-aware cone; skips already-locked orbs + decoys
+  if(tg && orbOpen()){                                                             // ON the beat (orb glowing) AND the crosshair is literally on an orb
+    tg._flickLocked=true; bonusLocks.push(tg);
+    bonusEndsBeat=Math.min(_bonusEntryBeat+CFG.flickBonus.capBeats, bonusEndsBeat+CFG.flickBonus.extendBeats);   // each lock buys +extendBeats, capped at capBeats from entry
+    if(soundOn && toneReady){ try{ const s=Math.min(bonusLocks.length-1,PENTA.length-1); if(lead) lead.triggerAttackRelease(PENTA[s],'16n',beatSnap(),0.72); if(tick) tick.triggerAttackRelease(1568,'32n',Tone.now(),0.6); }catch(e){} }   // lock chime climbs the pentatonic with each lock
+    if(!reduceMotion) popHitMarker();
+  } else {                                                                         // whiffed flick (no orb under the crosshair) or off-beat tap = a missed attempt
+    if(_bonusGrace>0){ _bonusGrace--; flashReticleBad(); if(soundOn&&toneReady) sfx('offbeat'); }   // one forgiven fumble so entering with nothing centered doesn't instantly end the mode
+    else startFlickResolve(currentRawBeat());                                      // grace spent → end the lock phase, roll the cascade
+  }
+}
+function startFlickResolve(atBeat){
+  _bonusResolving=true; _bonusCascadeBeat=Math.floor(atBeat)+1;                     // first detonation on the next whole beat
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+  if(!bonusLocks.length) endFlickBonus();                                           // nothing locked → just exit (no cascade, streak intact)
+}
+function endFlickBonus(){
+  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+}
+function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or the saved/ranked stats (which read eff/bestStreak/maxBpm, never shots).
+  if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
+  tg.dead=true; tg._flickLocked=false;
+  const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
+  recordHit(tg);
+  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
+  playHit(0); chordHit(state.streak);                                               // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak
+  retireTrail(tg, 0.55); killTarget(tg, true);                                      // clutch=true → the bigger GOLDEN burst reads these as bonus kills
+}
+function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
+  const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
+  if(!ts[2]){ if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); return; }
+  const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
+  lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
+  lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px'); lockBoxEl.style.setProperty('--pulse','1');
+  lockBoxEl.classList.add('on','lock'); lockBoxEl.classList.remove('decoy');
+}
+function updateFlickBonus(dt){
+  if(!bonusActive) return;
+  if(_bonusJustArmed){ _bonusJustArmed=false; clearProjectiles(); }                 // deferred: clear in-flight shots AFTER updateProjectiles' loop this frame (clearing mid-loop would corrupt its index)
+  const beat=currentRawBeat();
+  if(!_bonusResolving){                                                             // LOCK PHASE: preview the lockable orb + count the window down (in whole beats)
+    const tg=scopeLockTarget(true);
+    if(tg) showFlickBox(tg); else if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+    if(beat>=bonusEndsBeat) startFlickResolve(beat);
+  } else {                                                                          // RESOLVE PHASE: detonate one locked orb per beat, then unfreeze
+    if(beat>=_bonusCascadeBeat){
+      if(bonusLocks.length){ resolveFlickLock(bonusLocks.shift()); _bonusCascadeBeat=Math.floor(beat)+1; }
+      else endFlickBonus();
+    }
+  }
 }
 /* ---- wind HUD (free-play prototype): an arrow rotated to the wind direction RELATIVE TO YOUR VIEW + the strength ---- */
 const windHudEl=gid('windHud'), windArrowEl=windHudEl&&windHudEl.querySelector('.wh-arrow'), windMagEl=windHudEl&&windHudEl.querySelector('.wh-mag'), _windFwd=new THREE.Vector3();
@@ -1938,6 +2031,7 @@ function animate(frameNow){
         if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
         const _jb=Math.floor(beats - (CFG.grooveGroove?CFG.grooveFreezePhase:0)); if(CFG.grooveGroove && CFG.grooveJuke && _jb!==_jukeIdx){ doJuke=true; _jukeIdx=_jb; }   // JUKE on the "and" (off-beat) → the orb then glides predictably into the on-beat open window (a fair timed lead)
       }
+      if(bonusActive){ doSnap=false; doJuke=false; }         // RAIL-FLICK BONUS: HOLD the field (orbs freeze) while the flick mode runs. _quantIdx/_quantT already advanced in the strobe block above, so on unfreeze the next snap is a small step (no teleport, no beat-clock desync).
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
       const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
@@ -1976,7 +2070,8 @@ function animate(frameNow){
           const db=Math.max(0,Math.min(TARGET_AUDIO_BUCKETS, Math.round((d2-TARGET_AUDIO_NEAR2)*TARGET_AUDIO_BUCKET_SCALE)));
           if(db!==tg.snd.dBucket){ tg.snd.dBucket=db; const d=Math.sqrt(d2), t=(d-6)/22; tg.snd.lowpass.frequency.value=lerp(7000,1200,t); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,t); }
         } }
-        if(state.t>=tg.expireAt){ dropTarget(tg); onExpire(tg); }
+        if(bonusActive) tg.expireAt+=dt;                     // RAIL-FLICK BONUS: hold every orb's life clock during the freeze so nothing expires mid-bonus (and each resumes with full remaining life on unfreeze)
+        else if(state.t>=tg.expireAt){ dropTarget(tg); onExpire(tg); }
       }
     }
     if(reticleBadT>0){ reticleBadT-=dt; if(reticleBadT<=0) el.reticle.classList.remove('bad'); }
@@ -2026,6 +2121,7 @@ function animate(frameNow){
   updateTrail(dt);
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
+  try{ if(state.running) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor beat-tint + cursor feedback + the converging fire-ring; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
@@ -2055,6 +2151,7 @@ function enterRunning(){
   if(MOBILE) touchUI.classList.add('show');
 }
 function exitRunning(){
+  abortFlickBonus();   // RAIL-FLICK BONUS: pausing forfeits any pending cascade — un-flag locked orbs, unfreeze the field (they resume with full life)
   state.running=false; applyAudioState(); syncTransport();
   if(MOBILE) touchUI.classList.remove('show');
   showPause();
@@ -2101,6 +2198,7 @@ function resetSession(){
   clearRings();
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
+  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
   Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
   ensureRhythm();
