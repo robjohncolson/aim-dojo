@@ -332,6 +332,7 @@ const CFG = {
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
+  fireQuant:true, fireQuantDiv:16,   // FIRE QUANTIZE: a shot can only LAUNCH on the 1/fireQuantDiv-beat grid — at most one per grid step, so spamming caps at fireQuantDiv shots/beat and rapid fire becomes a DISCRETE grid-paced stream (rhythmic) instead of a smooth mag-dump. Isolated aimed shots fire immediately (the grid is far ahead of the last shot); only fast repeats get grid-paced. fireQuant:false → free-fire.
   // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
   grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenSec:[0.32,0.15],   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY while it's OPEN — glowing inside a ±grooveOpenSec-SECOND window around the beat ("the one") — and the kill is judged at the BULLET'S ARRIVAL, not the trigger. So you LAND the shot ONTO the orb on the beat (lead in time + space); ms-based ±320ms learning → ±150ms expert (diffT). Widened vs the old fire-on-trigger window because arrival-timing makes you guess flight time too. Off-beat LANDINGS clank (no kill). JUKE fires on the "and" (0.5) so the orb glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
@@ -399,6 +400,7 @@ let _openAmt=1;   // orb-vulnerability glow 0..1 (peaks on the beat); recomputed
 function orbOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || _openAmt>0; }   // a shot only KILLS while the orb glows OPEN (on the beat); an off-beat hit clanks off the shield
 function tankBeatPhase(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} const bps=60/Math.max(20,state.bpm), lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; const p=b-lat/bps; return p-Math.floor(p); }   // heard beat phase 0..1
 function tankOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || tankBeatPhase()<=CFG.tank.openFrac; }   // TANK VULN is a WIDE window: killable during the first CFG.tank.openFrac of EVERY beat (0.75 = the first three of four 16ths; the last one rests), vs the narrow orbOpen. So you UNLOAD several hits per beat and a rapid follow-up still counts — instead of "one hit closes the window."
+let _fireGrid=-1;   // FIRE QUANTIZE: last 1/fireQuantDiv-beat grid index a shot launched on (so at most one shot per grid step)
 /* RAIL-FLICK BONUS (#4) state — freeze the field, flick-lock orbs on the beat, cascade-detonate. bonusActive spans BOTH the lock phase and the resolve/cascade phase (field stays frozen through both). Never scales dt/Tone.Transport (the beat MUST keep ticking so on-beat locking works). */
 let bonusActive=false, _bonusResolving=false, _bonusJustArmed=false, bonusEndsBeat=0, _bonusEntryBeat=0, _bonusCascadeBeat=0, _bonusLast=-999, _bonusGrace=0;
 const bonusLocks=[];   // orbs the player has flick-locked (detonated one-per-beat in the cascade)
@@ -1289,6 +1291,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
 function fire(){
   if(!state.running) return;
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
+  if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
@@ -2233,7 +2236,7 @@ function resetSession(){
   clearRings();
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo();   // fresh balanced WASD combo per run (every key present)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
-  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
+  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
   Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0,pathScores:[],pathScoreSum:0,pathScoreHead:0,sessEffs:[],sessBpms:[],sessEffSum:0,sessBpmSum:0});
   ensureRhythm();
