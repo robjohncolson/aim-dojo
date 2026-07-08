@@ -1,78 +1,57 @@
-# CONTINUATION_PROMPT — aim-dojo rhythm-shooter (resume here, 2026-07-07)
+# CONTINUATION_PROMPT — aim-dojo rhythm-shooter (resume here, 2026-07-08)
 
-> Prior/older session notes live in git history. This supersedes them. Durable design record: memory file `aim-dojo-unified-vision.md`. Deploy facts: memory `aim-dojo-deploy-infra`.
+> Older session notes live in git history + prior versions of this file. This supersedes them. Durable design record: memory `aim-dojo-unified-vision.md` (read it — it holds the *why* behind every pivot). Deploy facts: memory `aim-dojo-deploy-infra`. Zen-feel guardrail: memory `aim-dojo-iso-zen-feel`.
 
 ## What aim-dojo is now
-A first-person **rhythm shooter** in the Rez / Metal: Hellsinger lineage (it began as a Quake-style aim trainer). Single file: **`index.html`** (~2340-line inline `<script>`, THREE.js r128 + Tone.js, no build). Live at **aim-dojo.vercel.app** — **push to `main` auto-deploys** in seconds (GH Pages is a mirror). This work is the WEB app only; the sibling Godot repos (aim-dojo-iso etc.) are separate.
+A first-person **rhythm shooter** in the Rez / Metal:Hellsinger lineage (it began as a Quake-style aim trainer). Single file: **`index.html`** (~2521-line inline `<script>`, THREE.js r128 + Tone.js, no build, localStorage). Live at **aim-dojo.vercel.app** — **push to `main` auto-deploys in ~5s** (GH Pages is a mirror). This is the WEB app only; the sibling Godot repos (aim-dojo-iso is the keeper, + aim-dojo-godot, godot-aim-spike) are SEPARATE codebases — see memory `aim-dojo-has-two-codebases`. HEAD at handoff: **c3da7a5**.
 
-**Core loop (works, feels good, live):** orbs GLOW on the beat = "fire NOW." You fire a ballistic arc; the shot is "charged" only if you pulled the trigger ON the beat (`pr.charged = orbOpen()` at fire — timing judged at the TRIGGER-PULL, not at arrival). A charged shot kills on hit; an off-beat shot CLANKS (no kill, costs a shot + your streak). You also tap W/A/S/D on the off-beat ("the and") to steady the field. **Aim is always the star — no auto-aim.**
+## THE CORE LOOP (this is the identity — do not regress it)
+**You lead the target in TIME as well as space, and the shot must LAND on the beat.**
+- Orbs GLOW open on the beat. You fire a ballistic arc. The kill is judged **at ARRIVAL/IMPACT**, not at the trigger: a shot kills only if the orb is OPEN (`orbOpen()` → `_openAmt>0`, latency-corrected) at the moment the projectile connects. Land off-beat → **CLANK** (no kill, costs a shot + your streak).
+- So you must release EARLY, leading in time, so the arc touches the orb exactly on the beat. This reversed the old "fire-on-trigger / fire-NOW crosshair" model — that fought the player's projectile-lead instinct. **DO NOT revert to trigger-timing or re-add a "fire now" indicator.** (User: "I love it, feels much better!!!")
+- You also tap **W/A/S/D on the off-beat ("the and")** to steady the field. Taps SING (pentatonic). **Aim is always the star — no auto-aim, ever.**
 
 ## What this long session built (all live + adversarially verified)
-- **Rhythm-shooter core:** fire-on-beat vulnerability judged at the trigger; ms-based fire window `CFG.grooveOpenSec:[0.25,0.10]` (±250ms learning → ±100ms expert — kept generous because it's aim+timing at once); crosshair turns GREEN in the window (but players watch the ORB glow — that's the real cue); off-beat = clank (costs shot+streak); orbs juke on the "and" and glide (never fully stop — `grooveFreezeFloor`); `startBpm:20`, ramps with skill.
-- **Deeper audio (2 passes), built ON the existing `grooveI` tier system:** WASD taps SING (lane→pentatonic, voice `tapSynth`); kills WALK UP the A-minor pentatonic with streak through a dedicated LEAD voice (`lead`); a PAD swell layers in at high `grooveI`; `chordHit` de-3rd'd to open fifths; `beatSnap()` grid-snaps kills+taps (tempo-adaptive). All new voices on `drumBus` (mute with pause), guarded.
-- **Multi-hit "tank" orbs:** a plain orb (free-play, `CFG.multiHitChance:0.22`) rolls 2-3 hp; each charged on-beat hit CHIPS it (pure progress — NO score/accuracy/groove effect), the last hit kills; a floating number counts down (reuses the dormant `.tgtKey` glyph). Grade cutoffs shifted by `(hpMax-1)` beats so a clean tank kill scores like a normal orb.
+1. **Arrival-timing core** (commit 3fbd2b2) — the reversal above. `CFG.grooveOpenSec:[0.32,0.15]` (widened for the harder skill). Gate lives in `updateProjectiles`: on impact → tank? `handleTankHit` : off-beat? `clankShot` : `gradeRhythmHit(hit, pr.pos)`.
+2. **Beat-quantized spawn** (e1bc799) — *distance encodes syncopation.* Orbs spawn only at distances where flight-time = an integer number of 16th-notes, so the correct release always falls on a rhythmic subdivision. `CFG.beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16]`, `beatSpawnDist(maxK)` solving `d = s·T·√(1−(gT/2s)²)`.
+3. **Fire quantize** (eff86f9→072c3b4→03a3099) — shots launch only on the **1/16-beat grid** (`CFG.fireQuant:true, fireQuantDiv:4`, `_fireGrid`). Can't hose the field; firing is selective/rhythmic. (Settled at 16th after 8th felt "too restrictive.")
+4. **Multi-hit "tank" orbs** (f5666bf→80ec995→2241003) — a bigger AMBER orb killed over **N consecutive MAIN beats**, using the *same* `orbOpen()` clock as everything else (this "one clock for the whole field" was the final fix after a long saga — earlier per-tank windows confused the user). Each hit walks a tone up + pops the shell + ticks a floating count down; last hit bursts it. `CFG.tank:{maxBpm:150, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16}`. `handleTankHit` gates on `if(!orbOpen())` for the main beat. Chips are **pure progress** (no score/accuracy side-effects — verified). Dead code left in place: `tankOpen/tankGlow/tankBeatPhase`.
+5. **Rail-flick bonus — CUT** (4299918). `CFG.flickBonus.on:false`, trigger guarded so the null path is safe; ~100 lines of dormant code remain. It hijacked WASD, needed a dense field we never spawn, and fought the lead identity. **Do not re-champion it** unless the user explicitly asks.
+6. **Tracking dolly** (ce9acc2, strengthened c3da7a5) — a slow, always-on, NON-beat-synced rotational view wander you counter to hold a target (tracking practice). `CFG.dolly:true, dollyYawDeg:7, dollyPitchDeg:4, dollySpeed:0.5`. It's a lissajous of `state.t` added ONLY to `camera.rotation.set(...,'YXZ')` — **rotation-only on purpose**: PLAYER_POS never moves, so ballistics/lead/timing are untouched. Tune the 3 consts if the user wants more/less.
+7. **"Make it sing" audio** (390b4e1→965a89d→39961bd) — harmonic movement: an **Am–F–C–G** progression (`CHORD_ROOT`, `CHORD_TRIAD`, indexed `ci=Math.floor(grid8/8)%4`), a continuous **chord-following arp tune** (`ARP_TRI=[0,1,2,1,0,1,2,1]`), brought forward (arp Volume −6, Filter 5200) after the user found it "too quiet to follow"; a full-bar `'1n'` PAD at `grooveI>=1.5`. Built ON the existing `grooveI` tier system. **User's read on whether it now reads as a followable tune is still PENDING** (they deferred for more playtime).
+8. **Low-rez perf mode** (995a9cd) — for weak GPUs (target: a 2014 Mac Mini; N64 crunch is welcome/charming). `LOW` resolved BEFORE renderer construction (antialias/DPR are construction-time). Sources: auto-`detectWeakGPU()`, `?low`/`?hi` query, `CFG.lowRez`, localStorage `aimdojo.lowRez`, pause toggle. In LOW: MSAA off, `DPR_MAX=0.5`, no reflection (`renderReflection` early-returns), cloudless sky (`uCloud=0`), chunky shards, `imageRendering:pixelated`. **Every LOW change is gated so the normal render is pixel-identical.** The user's iGPU auto-detects to LOW and they're happy ("lo res is good, I don't mind") — **do NOT loosen the detector.** Caught two recon-missed bugs here: reflection smoothstep edge-reversal (`uMirN/uMirF` fixed to `1e6/2e6`) and the cloud fbm threshold (forced `uCloud=0`).
+9. **Latency/offset calibration + pause settings** (5f4e3ae) — `_userOffsetSec` (localStorage `aimdojo.offsetMs`) folded into **`audioLat() = reportedLatency + _userOffsetSec`**, the single source of truth for all 4 timing gates. Pause-menu `#settingsBox`: **RESOLUTION** toggle (persist + reload), **AUDIO OFFSET** slider (live), **CALIBRATE FROM MY TAPS** (accumulates `_tapOffSum/_tapOffN` from WASD taps → folds the mean residual into the offset). This is the sanctioned exception to "no UI" — keep it minimal.
+10. **Records cleanup** (c3da7a5) — records are now just **length-of-time + BPM** everywhere: RANGE REPORT = TIME IN DOJO / FINAL BPM / PEAK BPM (`fmtTime()`); personal bests `{dur,bpm}`; `dojoSession()→{dur,bpm}`; the shared Supabase leaderboard board + sort tabs → **BPM + TIME** columns (the `runtime`/`peak_bpm` columns were already submitted). Legacy aim-trainer stats (kills/streak/accuracy/path/farthest/highest) are RETIRED from the UI. The "N in the dojo" presence counter is deprecated (`showPresence` hides it; realtime presence + opponent reticles still work). Removed the far/high/streak "★ NEW RECORD" per-hit flash.
 
-## ROADMAP (user wants all 5)
-- [x] #1 grid-tighten
-- [x] #2 lead line
-- [x] #3 multi-hit orbs
-- [ ] **#4 RAIL-FLICK BONUS — BUILD THIS NEXT**
-- [ ] #5 latency/offset calibration
+## OPEN / PENDING (start here — but confirm with the user first)
+- **User read on the AUDIO tune** (item 7) — does the louder/brighter chord-following arp now read as a followable tune? Awaiting their verdict. If still not singing: try a distinct melody voice on top, or make the arp track kills, or add drum fills.
+- **Leaderboard board (2-column BPM/TIME)** — I re-columned and re-pointed the fetch but could NOT test the networked query. User to eyeball it; it fails gracefully to "offline" if the `runtime`/`peak_bpm` columns aren't present. **CSS note:** the board previously expected ~5 columns; now 2 — if the layout looks off, it's a cosmetic CSS tweak.
+- **Dolly amount** — `7°/4°/0.5` is new. User to confirm it trains tracking without fighting aim; dial the 3 consts back if too much.
+- **No browser smoke-test happened this session.** Claude-in-Chrome ext was not connected; browser-harness needs a manual Chrome remote-debug handshake (profile-picker + Allow). Everything shipped on normal-render-identical + per-change adversarial review; **the USER is the visual verifier.** If you can get a browser connected, actually load `?low`, the pause menu, and the leaderboard.
 
-## NEXT TASK: build the RAIL-FLICK BONUS (#4) — design AGREED (Claude + Codex)
-**Loop:** a FLAWLESS on-beat kill on a hot streak triggers it → orb MOTION freezes (the beat clock keeps running) → aiming becomes FLICK (crosshair directly ON an orb, no lead) → tap ANY W/A/S/D ON the beat to LOCK the pointed orb → keep flicking + locking → the bonus ends → locked orbs detonate in a rhythmic cascade, scored as a bonus. Trains FLICK (the complement to the core LEAD skill). No auto-aim.
+## Possible cleanup (only if asked / between features)
+Dead code to consider removing: the disabled flick-bonus block (~100 lines), `tankOpen/tankGlow/tankBeatPhase`, and any now-unused records helpers (avgReaction/avgPathScore/clickPct). Not urgent; leaving it is fine.
 
-**Agreed design (Codex's two adjustments baked in):**
-- **Trigger:** `good && gradeIdx<=0` (FLAWLESS) AND `state.streak>=4` AND a cooldown (`_bonusLast`, mirror `_clutchLast`) AND `!reduceMotion` AND `!bonusActive`. A treat you earn.
-- **Freeze:** orbs HOLD — force the existing `doSnap=false` path (equivalently `_mulEff=0`), and gate spawns + expiry on `!bonusActive`. **NEVER scale `dt` or `Tone.Transport`** (hard codebase rule; the beat MUST keep ticking so on-beat locking works). `state.running` stays true.
-- **Flick target:** `scopeLockTarget()` with a TIGHT, size-aware cone (crosshair literally on the orb: `dot >= cos(atan(radius*sc/d))`), bypassing `simShotHits`/`computeShotPlan`. Real aim required.
-- **On-beat lock:** branch `wasdLanePress` at the top when `bonusActive` — if `orbOpen()` (on-beat) AND the crosshair is on an orb → lock it (push to `bonusLocks`, mark, sfx), then `return` before the rhythm grid. Any WASD key confirms (gamepad face/D-pad works free).
-- **ENDING (forgiving + capped — Codex's adjustments):** base window **2 beats**; each successful lock **+1 beat**; **hard cap 6–8 beats**; **ONE grace miss**; end on the first missed LOCK ATTEMPT (an off-beat tap), NOT merely a beat passing with no lock — so a player who enters with nothing centered doesn't instantly lose the mode before understanding it.
-- **Marks:** `#lockBox` = "lockable now" (reuse the gold `.lock` state); per-orb `.tgtKey`/`hlabel` = the persistent "LOCKED" set.
-- **Resolve:** cascade over `bonusLocks`, one per beat (drive off the strobe `_quantIdx` / Transport ticks), each scored FLAWLESS (route via `gradeRhythmHit` with a forced grade, or a small `resolveFlickLock`). Bigger cascade = bigger payoff.
-- **Suppress fire:** `fire()` early-returns when `bonusActive` (a flick launches no projectile); `clearProjectiles()` on entry.
-- **New CFG (`CFG.flickBonus*`):** `streakGate:4, cooldown:~1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, cone`.
-
-**Exact code seams (from a recon workflow — RE-VERIFY line numbers, they drift with every edit):**
-
-| Concern | Where |
-|---|---|
-| Arm bonus | `gradeRhythmHit` (~L1204), after the clutch trigger / before `killTarget` (~L1229) |
-| Freeze | `animate` motion block (~L1930): add `if(bonusActive){ doSnap=false; doJuke=false; }` before `else if(wantStrobe && !strobe)`. Guard expiry (~L1979) with `!bonusActive`. Gate `spawnRhythmOrb` in `onGrid` on `!bonusActive`. |
-| Flick target | `scopeLockTarget()` (~L1669) — add a `tight` param (size cone vs the flat 0.72). Call it directly from bonus code, NOT via `updateScope` (which does ballistic locking). |
-| On-beat gate | `orbOpen()` / `_openAmt` (~L395/394) |
-| WASD lock | `wasdLanePress(k)` (~L1253) — branch at the top |
-| Marks | `#lockBox` (`lockBoxEl` ~L1647, CSS ~L59); `.tgtKey`/`hlabel` in `updateTargetMarks` (~L1461/1472) |
-| Kill/score | `killTarget` (~L780), `gradeRhythmHit` (~L1204), `explodeAt` (~L743) |
-| Suppress fire | `fire()` (~L1247) early-return; `clearProjectiles()` (~L1338) |
-| New state | near `_openAmt` (~L394): `let bonusActive=false, bonusEndsBeat=0, _bonusLast=-999, _bonusGrace=0; const bonusLocks=[];` |
-| Frame tick | add `updateFlickBonus(dt)` to the guarded update cluster (~L2025) — count down the window (in beats via Transport), drive the cascade, end → resolve → unfreeze |
-| Reset | `resetSession` (~L2093/2102) — clear bonus state + `tg._flickLocked` |
-| Pause abort | `exitRunning` (~L2057) — abort/resolve bonus, unfreeze |
-
-**After building:** syntax-check → run an adversarial VERIFY workflow (it touches score/streak — verify has caught real HIGH bugs this session) → fix findings → ship. Verify specifically: pause-mid-bonus abort, in-flight projectiles cleared on entry, few-orbs-on-screen behavior, the grace-miss/cap logic, and no orb-motion↔beat-clock desync. Then #5.
-
-## THEN #5: latency/offset calibration
-The one universal rhythm-game feature still missing. Add a user offset (audio+input) so the fire window aligns with what the player HEARS on their device (Bluetooth adds 100–300ms). The code already latency-corrects via `rawCtx.outputLatency`; add a user-adjustable offset (a short calibration flow or a tunable) and grade against `noteTime + userOffset` in the heard timeline. Research convention: a guided A/V offset step; ms windows ~±16–35 perfect / ±60–130 good.
-
-## Key systems / tunables (for orientation)
-- **Groove/vuln (`CFG.groove*`, ~L334):** `grooveGroove` (master kill-switch → reverts to the plain game), `grooveFreezePhase:0.5` (WASD on the "and"), `grooveJukeDeg`, `grooveGlideSpeed`, `grooveFreezeFloor`, `grooveOpenSec:[0.25,0.10]` (fire window, in SECONDS), `grooveVuln`. Helpers: `wasdBeats()` (~L393) phase-shifts the WASD grid; `orbOpen()`/`_openAmt` (~L394) = the fire window (drives the orb glow AND the kill gate); `pr.charged=orbOpen()` set in `spawnProjectile` (~L1331).
-- **Audio:** `buildDrums()` (~L825) — voices on `drumBus`: kick/snare/hat/tick/shotCue/bass/arp/tapSynth/pad/lead. `onGrid()` (~L964) = the beat scheduler; `grooveI` tier 0–3 gates the layers (EXTEND HERE for more musical depth). `PENTA`/`ARP` (~L788), `playHit` (kills = lead melody), `chordHit`, `beatSnap()` (~L797), `sfx()`.
-- **Targets:** `spawnTarget` (~L1090); `tg` struct fields: kind/hp/hpMax/dead/radius/sc/born/expireAt/vel/mesh/shell. `updateTargetMarks` (~L1461), `killTarget` (~L780), `gradeRhythmHit` (~L1204), `chipHit` (~L1235). Multi-hit CFG (~L352).
+## Key systems / tunables (for orientation — RE-VERIFY line numbers, they drift)
+- **Groove/vuln (`CFG.groove*`):** `grooveGroove` (master kill-switch → plain game), `grooveOpenSec:[0.32,0.15]` (the arrival window, SECONDS), `grooveFreezePhase:0.5` (WASD on the "and"), `grooveJukeDeg`, `grooveGlideSpeed`, `grooveFreezeFloor`. `orbOpen()`/`_openAmt` = the beat window (drives orb glow AND the kill gate). `startBpm:20`, ramps with skill.
+- **Timing:** everything grades against **`audioLat()`** (reported outputLatency + user offset). Beat-quant spawn `beatSpawnDist()`; fire grid `_fireGrid`/`fireQuantDiv`.
+- **Audio:** `buildDrums()` — voices on `drumBus` (mute w/ pause): kick/snare/hat/tick/bass/**arp**/**tapSynth**/**pad**/**lead**. `onGrid()` = 8th-note scheduler; `grooveI` tier 0–3 gates layers (EXTEND HERE for depth). `PENTA` (A-minor pentatonic), `CHORD_ROOT`/`CHORD_TRIAD`/`ARP_TRI` (the progression + tune), `beatSnap()` (tempo-adaptive grid-snap).
+- **Targets:** `spawnTarget`/`spawnRhythmOrb`; `tg` fields kind/hp/hpMax/dead/radius/sc/born/expireAt/vel/mesh/shell. `updateTargetMarks`, `killTarget`, `gradeRhythmHit`, `handleTankHit`, `updateTanks`, `clankShot`. Projectiles: `updateProjectiles` (the impact gate), `fire()` (fire-quant early-return), `clearProjectiles()`.
+- **Render/LOW:** `LOW` const (construction-time), `detectWeakGPU()`, `DPR_MAX`, `renderReflection()` (LOW early-return), `uMirN/uMirF/uCloud` uniforms, `_lowPref`.
+- **Records/net:** `fmtTime`, `dojoSession`, `submitDojo`, `_dojoBest`, `renderDojoBests`, `loadDojoBoard`/`renderDojoBoard`, `_DOJO_SORTS`, `dojoSort` (Supabase table `aimdojo_dojo`, cols include `runtime`,`peak_bpm`,`client_id`,`name`).
 
 ## PROCESS (this is how the session worked — keep it)
-- **Syntax-check the inline script dynamically** (line 296 shifts after HTML edits):
+- **Syntax-check the inline script** (the `<script>` line shifts after HTML edits):
   ```bash
   F=index.html
   o=$(grep -nE "^<script>$" $F | tail -1 | cut -d: -f1)
   c=$(grep -nE "^</script>$" $F | tail -1 | cut -d: -f1)
-  sed -n "$((o+1)),$((c-1))p" $F > /tmp/g.js
-  node --check /tmp/g.js
+  sed -n "$((o+1)),$((c-1))p" $F > /tmp/g.js && node --check /tmp/g.js
   ```
-- **Verify win-condition/score/leaderboard code with an adversarial Workflow** (multi-lens review → per-finding skeptic verify). It has repeatedly caught HIGH bugs the author missed (free-clank spray exploit; tank-kill-scores-zero). Ultracode is ON → use workflows liberally for recon + verify.
-- **Ship:** `git add index.html && git commit && git push origin main` (auto-deploys). **Verify live:** `curl -s "aim-dojo.vercel.app/?cb=$RANDOM" | grep -c <marker>` (poll a few times — Vercel builds ~30–60s). Commit messages end with the `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` line.
-- **Audio/feel is EAR/EYE-judged** — ship a reasonable first pass with tunable consts, let the user react ("too hard/easy/loud/muddy"), tune the one number. All initial values are first guesses.
-- User prizes the **"zen" feel** — tune via CFG consts, don't add UI (the settings panel was stripped). `prefers-reduced-motion` disables motion effects (check it FIRST if the user says "an effect disappeared").
+- **Verify score/streak/clank/leaderboard code with an adversarial Workflow** (multi-lens review → per-finding skeptic verify). Ultracode is ON → use workflows liberally for recon + verify. It has repeatedly caught real HIGH bugs the author missed (free-clank spray exploit; tank-kill-scores-zero; the flick click-accuracy inflation).
+- **Ship:** `git add index.html && git commit && git push origin main` (auto-deploys ~5s). **Verify live:** poll a marker — `curl -s "https://aim-dojo.vercel.app/?cb=$RANDOM" | grep -c "<marker>"` a few times (run it as a background task). Commit messages end with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+- **Audio/feel is EAR/EYE-judged** — ship a reasonable first pass with tunable consts, let the user react, tune the one number. All initial values are first guesses.
+- **Zen feel is prized** (memory `aim-dojo-iso-zen-feel`) — tune via CFG consts, don't add UI (the old settings panel + HUD counters were deliberately deleted; don't re-add). The pause-menu SETTINGS (resolution + calibration) are the ONE sanctioned exception. `prefers-reduced-motion` disables motion/assist effects — **check it FIRST if the user says "an effect disappeared"** (memory `reduced-motion-hides-aim-assists`).
 
 ## Deploy / repo
-- Vercel primary (push→live in seconds), GH Pages mirror, Railway server = project reliable-harmony (memory `aim-dojo-deploy-infra`). Repo: github.com/robjohncolson/aim-dojo, branch `main`.
+Vercel primary (push→live seconds), GH Pages mirror, Railway server = project **reliable-harmony**, `ALLOW_ORIGIN=*` (memory `aim-dojo-deploy-infra`). Repo: github.com/robjohncolson/aim-dojo, branch `main`.
