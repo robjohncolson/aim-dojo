@@ -263,7 +263,7 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 
     <div id="pauseStats" style="display:none"></div>
     <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
-      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span style="letter-spacing:.14em">RESOLUTION</span><button class="ghost" id="resToggle" style="min-width:150px">—</button></div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span style="letter-spacing:.14em">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
       <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
       <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%">🎧 calibrate from my taps</button></div>
       <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:14px"></div>
@@ -2331,13 +2331,29 @@ const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
 function refreshSettings(){
   if(!settingsBox) return;
-  if(resToggle) resToggle.textContent = LOW ? 'LOW ▸ tap for HIGH' : 'HIGH ▸ tap for LOW';   // LOW = this session's actual mode
+  if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
+    resToggle.textContent = LOW ? 'LOW ▸ tap for HIGH' : 'HIGH ▸ tap for LOW';   // actual mode this session
+    resToggle.title = pref==='1' ? 'forced LOW (saved)' : pref==='0' ? 'forced HIGH (saved)' : (LOW ? 'auto → LOW' : 'auto → HIGH');
+  }
   const ms=Math.round(_userOffsetSec*1000);
   if(offSlider) offSlider.value=ms;
   if(offVal) offVal.textContent=ms+' ms';
   if(calibHint) calibHint.textContent = _tapOffN>=6 ? (_tapOffN+' taps logged — tap to auto-set') : 'play a bit (tap W/A/S/D on the beat), then calibrate';
 }
-if(resToggle) resToggle.addEventListener('click', ()=>{ try{ localStorage.setItem('aimdojo.lowRez', LOW?'0':'1'); }catch(e){} location.reload(); });   // resolution is construction-time (MSAA + geometry) → persist the choice and reload to apply it fully
+if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is construction-time (MSAA + DPR) → persist + reload. Strip ?low/?hi so URL flags can't override the saved choice.
+  e.preventDefault(); e.stopPropagation();
+  const wantLow = !LOW;
+  try{ localStorage.setItem('aimdojo.lowRez', wantLow ? '1' : '0'); }catch(err){}
+  try{
+    const u=new URL(location.href);
+    const raw=(u.search||'').replace(/^\?/,'').split('&').filter(p=>{ const k=p.split('=')[0]; return p && k!=='low' && k!=='hi'; });
+    const search=raw.length?('?'+raw.join('&')):'';
+    const hash=(u.hash||'').replace(/([#&])(low|hi)\b/g,'$1').replace(/#&+/g,'#').replace(/#$/,'');
+    const next=u.pathname+search+hash;
+    if(next===location.pathname+location.search+location.hash) location.reload();
+    else location.replace(next);   // navigation reloads with clean URL; localStorage preference wins
+  }catch(err){ location.reload(); }
+});
 if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)); _userOffsetSec=ms/1000; if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame, so the glow/windows shift as you drag
 if(calibBtn) calibBtn.addEventListener('click', ()=>{
   if(_tapOffN<6){ if(calibHint) calibHint.textContent='not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'; return; }
@@ -2482,7 +2498,11 @@ let _dojoBest=null, _dojoRecHit={far:false,high:false,streak:false};
 const _DOJO_SORTS={peak_bpm:1,runtime:1};                         // whitelist (also guards the order= query string) — records = BPM + length of time
 let dojoSort='peak_bpm'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
 function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
-function dojoSession(){ return { dur:Math.round(state.t), bpm:Math.round(state.maxBpm) }; }   // records = length of time + peak BPM
+function dojoSession(){ return {   // board metrics + legacy columns the table/Railway still require (NOT NULL)
+  dur:Math.round(state.t), bpm:Math.round(state.maxBpm),
+  far:Math.round((state.maxHitDist||0)*100)/100, high:Math.round((state.maxHitHeight||0)*100)/100,
+  streak:state.bestStreak|0, kills:state.hits|0
+}; }
 function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
   if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
   sub.textContent='your best · '+fmtTime(b.dur||0)+' · '+(b.bpm||0)+' bpm'; }
@@ -2497,7 +2517,8 @@ async function submitDojo(){
   renderDojoBests();
   if(!improved) return;                                        // nothing new to publish → skip the network write (don't spam on every pause)
   promptNameOnFirstRecord();
-  const row={ client_id:clientId(), name:playerName().slice(0,24), peak_bpm:s.bpm, runtime:s.dur };   // records simplified to peak BPM + length of time (the table's other columns are just left null for new rows)
+  // Railway /dojo + table NOT NULL still expect far/high/streak/kills; peak_bpm + runtime are the ranked metrics
+  const row={ client_id:clientId(), name:playerName().slice(0,24), peak_bpm:s.bpm, runtime:s.dur, far:s.far, high:s.high, streak:s.streak, kills:s.kills };
   try{
     const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/dojo' : SB_URL+'/rest/v1/aimdojo_dojo';
     const hdr = RAILWAY_URL ? {'Content-Type':'application/json'} : sbH({Prefer:'return=minimal'});
@@ -2506,14 +2527,23 @@ async function submitDojo(){
 }
 async function loadDojoBoard(){
   const list=gid('dojoList'); if(!list) return;
-  const col=_DOJO_SORTS[dojoSort]?dojoSort:'peak_bpm';            // whitelist-guarded before it touches the query string
+  let col=_DOJO_SORTS[dojoSort]?dojoSort:'peak_bpm';
+  // Prefer BPM+TIME. If `runtime` column isn't migrated yet (PostgREST 42703), fall back to peak_bpm-only so the board isn't "offline".
+  async function pull(withRuntime){
+    const sel=withRuntime?'client_id,name,peak_bpm,runtime':'client_id,name,peak_bpm';
+    const orderCol=(withRuntime && col==='runtime')?'runtime':'peak_bpm';
+    if(!withRuntime && col==='runtime') col='peak_bpm';
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select='+sel+'&order='+orderCol+'.desc&limit=300', {headers:sbH()});
+    return res;
+  }
   try{
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select=client_id,name,peak_bpm,runtime&order='+col+'.desc&limit=300', {headers:sbH()});
+    let res=await pull(true);
+    if(!res.ok){ const t=await res.text(); if(/runtime|42703/i.test(t)) res=await pull(false); else throw 0; }
     if(!res.ok) throw 0;
     const rows=await res.json(); const seen=new Set(), top=[];
-    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); top.push(r); if(top.length>=15) break; }   // each client's best in the sorted column (rows arrive col.desc)
+    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); if(r.runtime==null) r.runtime=0; top.push(r); if(top.length>=15) break; }
     renderDojoBoard(top, col);
-  }catch(e){ list.innerHTML='<div class="board-empty">dojo board offline (table not created yet)</div>'; }
+  }catch(e){ list.innerHTML='<div class="board-empty">dojo board offline — check Supabase table / network</div>'; }
 }
 function _dcell(v, col, sort, dist){ return '<span class="dc'+(col===sort?' on':'')+'">'+(v==null?'—':(dist?(+v).toFixed(1):v))+'</span>'; }
 function renderDojoBoard(rows, sort){

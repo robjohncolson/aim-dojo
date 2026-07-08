@@ -48,12 +48,27 @@ app.post('/dojo', async (req, res) => {
     if (rec && rec.hour === hk) { if (rec.count >= 120) return res.status(429).json({ err: 'rate' }); rec.count++; }
     else dojoSeen.set(client_id, { hour: hk, count: 1 });
 
-    const ins = await fetch(SB_URL + '/rest/v1/aimdojo_dojo', {
+    const base = { client_id, name, far: Math.round(far * 100) / 100, high: Math.round(high * 100) / 100, streak, peak_bpm, kills, runtime: Math.round(runtime * 100) / 100 };
+    let ins = await fetch(SB_URL + '/rest/v1/aimdojo_dojo', {
       method: 'POST',
       headers: { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ client_id, name, far: Math.round(far * 100) / 100, high: Math.round(high * 100) / 100, streak, peak_bpm, kills })
+      body: JSON.stringify(base)
     });
-    if (!ins.ok) return res.status(502).json({ err: 'db', detail: (await ins.text()).slice(0, 200) });
+    // If runtime column not migrated yet, retry without it so submits still land
+    if (!ins.ok) {
+      const detail = await ins.text();
+      if (/runtime|42703/i.test(detail)) {
+        const { runtime: _r, ...legacy } = base;
+        ins = await fetch(SB_URL + '/rest/v1/aimdojo_dojo', {
+          method: 'POST',
+          headers: { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify(legacy)
+        });
+        if (!ins.ok) return res.status(502).json({ err: 'db', detail: (await ins.text()).slice(0, 200) });
+      } else {
+        return res.status(502).json({ err: 'db', detail: detail.slice(0, 200) });
+      }
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ err: 'server' });

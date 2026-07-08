@@ -16,12 +16,14 @@ create table if not exists public.aimdojo_dojo (
   streak      int  not null check (streak    between 0 and 5000),  -- best streak this run
   peak_bpm    int  not null check (peak_bpm  between 0 and 400),   -- peak tempo (bpm); engine max 172
   kills       int  not null check (kills     between 0 and 5000),  -- total targets neutralized this session
+  runtime     real not null default 0 check (runtime >= 0 and runtime <= 7200),  -- length of run (seconds); ranked with peak_bpm
   created_at  timestamptz not null default now()
 );
 
 create index if not exists aimdojo_dojo_kills_idx  on public.aimdojo_dojo (kills    desc);
 create index if not exists aimdojo_dojo_streak_idx on public.aimdojo_dojo (streak   desc);
 create index if not exists aimdojo_dojo_bpm_idx    on public.aimdojo_dojo (peak_bpm desc);
+create index if not exists aimdojo_dojo_runtime_idx on public.aimdojo_dojo (runtime desc);
 create index if not exists aimdojo_dojo_far_idx    on public.aimdojo_dojo (far      desc);
 create index if not exists aimdojo_dojo_high_idx   on public.aimdojo_dojo (high     desc);
 create index if not exists aimdojo_dojo_client_idx on public.aimdojo_dojo (client_id);
