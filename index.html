@@ -821,7 +821,7 @@ let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
 const PENTA=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
 const ARP=[0,3,4,5,3,4,5,7];   // PENTA indices for the melodic-layer arp across the 8-step grid (an ascending A-minor-pentatonic figure) — kept for reference; the arp now follows the chord (ARP_TRI below)
 const ARP_TRI=[0,1,2,1,0,1,2,1];   // pass 2: the arp ARPEGGIATES the current chord's voiced triad (indices into CHORD_TRIAD[ci]) — a gentle up-down figure = CHORD TEXTURE bed (the followable HOOK is TUNE below)
-const TUNE=[0,2,3,4, 3,2,0,-1, 4,5,4,3, 2,3,4,5];   // pass 3: 16-step (2-bar) HOOK on PENTA indices; -1 = rest. Call (rise→fall→rest) + answer (slightly higher). Loops on grid8%16. Consonant over Am/F/C/G. First-guess — ear-tune the array if contour is wrong.
+const TUNE=[0,2,-1,-1, 4,3,-1,-1, 5,4,-1,-1, 2,0,-1,-1];   // pass 3b SPARSED (was dense 15/16 notes — read as busy): 2-note motifs + half-bar air. Call A-C… E-D… / answer G-E… C-A…. Same grid8%16 loop; -1=rest. If still busy: more -1; if buried: raise tune vol -5→-3.
 /* HARMONIC MOVEMENT — a 4-bar progression Am · F · C · G (one chord per bar), so the loop becomes a SONG. The A-minor-pentatonic kills/arp/WASD-taps/tune float over all four (every PENTA note is consonant against Am/F/C/G), so nothing needs to transpose — only the BASS root and the PAD triad move. The pad carries the audible harmony (bass is the sub-foundation, felt more than heard). TUNE is the hummable phrase; arp is the chime bed under it.
  */
 const CHORD_ROOT=[55.00, 43.65, 65.41, 49.00];   // A1 · F1 · C2 · G1 — sub-bass roots (the fifth = *1.5 on beat 3)
