@@ -349,7 +349,7 @@ const CFG = {
   clutch:true, clutchAnd:false, clutchRange:22, clutchLateBeats:2.4, clutchCooldown:1.1,
   clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
   // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
-  specialOrbs:true, decoyChance:0, goldScore:2,   // decoys off (decoyChance:0); goldScore = gold-orb kill multiplier
+  specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a 2-3 hit "tank" — needs multiple ON-BEAT hits, a floating number counts down.
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
@@ -1124,6 +1124,8 @@ function spawnTarget(opts){
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
+  tg.hp = (CFG.multiHit && _specialLive && kind===0 && rnd()<CFG.multiHitChance) ? (rnd()<0.5?2:3) : 1; tg.hpMax=tg.hp;   // multi-hit "tank": a plain orb (kind 0) rolls 2-3 hp (needs that many ON-BEAT hits). rnd()=plain Math.random (seeded daily was removed), so no determinism concern.
+  if(tg.hp>1){ tg.radius*=1.2; core.scale.setScalar(tg.radius*tg.sc); }                                                     // bigger = reads as tanky + fair to land the extra on-beat hits
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
     if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
@@ -1229,6 +1231,12 @@ function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF th
   state.shots++; state.streak=0; pushEvent(false); flashReticleBad();
   if(soundOn && toneReady && shotCue){ try{ shotCue.triggerAttackRelease(150, '16n', Tone.now(), 0.5); }catch(e){} }
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.12);
+}
+function chipHit(tg, point){   // MULTI-HIT: a charged (on-beat) hit knocks a tank down one — counts as a good hit (shots + a positive event, so accuracy/groove build) but NO kill/score/streak (that's the LAST hit). Lighter thud + a bright pip; the floating number ticks down in updateTargetMarks.
+  tg.hp--;
+  state.shots++; pushEvent(true);
+  if(soundOn && toneReady){ try{ const now=Tone.now(); if(kick) kick.triggerAttackRelease('C2','32n',now,0.45); if(tick) tick.triggerAttackRelease(880,'32n',now,0.5); }catch(e){} }
+  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.22);
 }
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
@@ -1345,7 +1353,8 @@ function updateProjectiles(dt){
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
       if(hit.kind!==2 && !pr.charged){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // the SHOT was fired OFF the beat (pr.charged set at fire) → CLANK: no kill, regardless of where it lands. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
-      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (shot was charged at fire): ARC impact thud (weight on connect)
+      if(hit.hp>1){ chipHit(hit, pr.pos); retireProjectile(i); continue; }   // MULTI-HIT tank: a charged (on-beat) hit CHIPS it down one; it survives until the last hit
+      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (final charged hit): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
@@ -1460,7 +1469,8 @@ function updateTargetMarks(){                                                 //
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
-    m.hlabel.classList.remove('on'); }
+    if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
+    else m.hlabel.classList.remove('on'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on'); }
 }
 /* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
