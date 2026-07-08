@@ -340,6 +340,8 @@ const CFG = {
   // juice
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
+  // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
+  dolly:true, dollyYawDeg:4, dollyPitchDeg:2.2, dollySpeed:0.35,
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -2034,7 +2036,11 @@ function animate(frameNow){
       shX=(Math.random()*2-1)*CFG.shakePos*s; shPY=(Math.random()*2-1)*CFG.shakePos*s; shZ=(Math.random()*2-1)*CFG.shakePos*s;
     }
   }
-  camera.rotation.set(pitch+recoilPitch+shP, yaw+recoilYaw+shY, shR, 'YXZ');
+  let _dollyY=0, _dollyP=0;                                    // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump.
+  if(CFG.dolly && !reduceMotion){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293;
+    _dollyY=CFG.dollyYawDeg*D*(0.62*Math.sin(_t*_w)+0.38*Math.sin(_t*_w*1.73+1.3));
+    _dollyP=CFG.dollyPitchDeg*D*(0.62*Math.sin(_t*_w*0.83+0.7)+0.38*Math.sin(_t*_w*1.31+2.1)); }
+  camera.rotation.set(pitch+recoilPitch+shP+_dollyP, yaw+recoilYaw+shY+_dollyY, shR, 'YXZ');
   camera.position.set(shX, EYE+shPY, shZ);
   if(clutchT>0){                                               // clutch FOV punch: a quick zoom-in that eases out. Purely visual — does NOT touch dt or the beat clock.
     clutchT=Math.max(0, clutchT-dt);
