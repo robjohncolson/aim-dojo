@@ -347,7 +347,7 @@ const CFG = {
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
-  dolly:true, dollyYawDeg:7, dollyPitchDeg:4, dollySpeed:0.5,
+  dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9,   // stronger tracking (Q3-style): ~2× amplitude + faster wander so you must actively counter the view to hold a target. Was 7/4/0.5 (too gentle). Dial back if nauseating; push yaw/speed higher for harder tracking.
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
