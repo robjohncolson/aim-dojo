@@ -256,6 +256,12 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
     </div>
 
     <div id="pauseStats" style="display:none"></div>
+    <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span style="letter-spacing:.14em">RESOLUTION</span><button class="ghost" id="resToggle" style="min-width:150px">—</button></div>
+      <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
+      <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%">🎧 calibrate from my taps</button></div>
+      <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:14px"></div>
+    </div>
 
     <button class="primary" id="beginBtn">▶ ENTER THE DOJO</button>
     <div class="dualcols"><button class="ghost" id="recordsBtn">🥋 RECORDS</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
@@ -379,7 +385,11 @@ const canvas = document.getElementById('scene');
 const DEVICE_DPR = window.devicePixelRatio || 1;
 /* LOW-REZ MODE — N64-crunch/low-cost render for weak GPUs (e.g. a 2014 Mac Mini). Forced via ?low in the URL or CFG.lowRez; auto-detected on software rasterizers + old pre-Xe Intel iGPUs; ?hi forces it OFF (escape hatch for a false positive). Resolved HERE because antialias + the initial DPR are construction-time-only. Pure render cost — ZERO gameplay/timing/audio change. */
 function detectWeakGPU(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl) return true; const ext=gl.getExtension('WEBGL_debug_renderer_info'), r=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=gl.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(e){} if(/swiftshader|llvmpipe|software|mesa|microsoft basic/i.test(r)) return true; if(/intel/i.test(r) && /(hd graphics|iris)/i.test(r) && !/(xe|iris plus|uhd|hd graphics 6)/i.test(r)) return true; return false; }catch(e){ return false; } }   // conservative: software + old Intel HD/Iris (4000/5000-class); excludes UHD/Iris Plus/Xe
-const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false : (/(?:^|[?&#])low\b/.test(location.search+location.hash) || CFG.lowRez===true || detectWeakGPU());
+const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=auto-detect
+const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false        // ?hi (this visit) wins
+  : /(?:^|[?&#])low\b/.test(location.search+location.hash) ? true                // then ?low (this visit)
+  : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
+  : (CFG.lowRez===true || detectWeakGPU());                                     // else auto-detect weak GPUs
 if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (18→8), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
 const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
 let renderDpr = DPR_MAX;
@@ -405,7 +415,7 @@ let _jukeIdx=-1;   // last whole-beat index an orb-JUKE fired on (groove Phase 1
 function wasdBeats(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b - (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // WASD note grid, phase-shifted onto the "and" so the freeze PEAKS off-beat; the metronome / orb-strobe / juke / shot all stay on the RAW whole beat
 let _openAmt=1;   // orb-vulnerability glow 0..1 (peaks on the beat); recomputed each frame in the run loop
 function orbOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || _openAmt>0; }   // a shot only KILLS while the orb glows OPEN (on the beat); an off-beat hit clanks off the shield
-function tankBeatPhase(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} const bps=60/Math.max(20,state.bpm), lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; const p=b-lat/bps; return p-Math.floor(p); }   // heard beat phase 0..1
+function tankBeatPhase(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} const bps=60/Math.max(20,state.bpm), lat=audioLat(); const p=b-lat/bps; return p-Math.floor(p); }   // heard beat phase 0..1 (audioLat = reported latency + user offset)
 function tankOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || tankBeatPhase()<=CFG.tank.openFrac; }   // TANK VULN is a WIDE window: killable during the first CFG.tank.openFrac of EVERY beat (0.75 = the first three of four 16ths; the last one rests), vs the narrow orbOpen. So you UNLOAD several hits per beat and a rapid follow-up still counts — instead of "one hit closes the window."
 function tankGlow(b){ const p=b-Math.floor(b), d=Math.min(p, Math.abs(p-0.5), 1-p); return 0.05+0.55*Math.max(0, 1-d/CFG.tank.blinkWin); }   // TANK glow BLINKS on the 8th-note grid (the "1" and the "and") — discrete "tap here" flashes, not a continuous plateau; the hit window (tankOpen) stays wide/forgiving underneath
 let _fireGrid=-1;   // FIRE QUANTIZE: last 1/fireQuantDiv-beat grid index a shot launched on (so at most one shot per grid step)
@@ -419,7 +429,7 @@ try{ if(navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboar
 let _combo=[0,1,2,3], _curCi=-1, _curMain=true, _baseMul=1, _mulEff=1, _wasdCombo=0, _noteFlashT=-999, _noteFlashHit=false, _spoilNote=-1, _spoilOff=0, _hitNote=-1, _hitOff=0, _tapOffMs=0, _tapShowT=-999, _tapAcc=0;   // WASD TAP notes: combo seq + current note index/key/window, is-main(on-beat), _baseMul=field damping from last main tap, _wasdCombo=bonus combo, _spoilNote/_hitNote=the frozen wrong/correct note + its off (beat-fraction), tap flash
 const _resolved=new Set();   // resolved note indices (one-press lock + miss-detection); replaces the single _resolvedIdx so a same-frame double-tap can claim the ADJACENT note instead of being eaten
 let _sparkPend=null;   // correct-tap → 3D star-flock burst signal {key,acc,rainbow}; consumed once by updateFlock, then nulled
-function _wasdResolve(offSec, main, win){ const ao=Math.abs(offSec), acc=ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,win-0.025))); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main) _baseMul=Math.pow(1-acc,1.5); else if(acc>0) _wasdCombo++; }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau (acc 1, matching the readout -> the field actually freezes); beyond it acc falls linearly over the rest of the window; damping (1-acc)^1.5 so decent-but-not-perfect taps still READ as calm
+function _wasdResolve(offSec, main, win){ const ao=Math.abs(offSec), acc=ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,win-0.025))); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapOffSum+=offSec; _tapOffN++; _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main) _baseMul=Math.pow(1-acc,1.5); else if(acc>0) _wasdCombo++; }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau (acc 1, matching the readout -> the field actually freezes); beyond it acc falls linearly over the rest of the window; damping (1-acc)^1.5 so decent-but-not-perfect taps still READ as calm
 function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(CFG.grooveGroove?CFG.grooveFreezeFloor:0, _baseMul*(1-steady)); }   // orb-motion multiplier: last MAIN tap's damping, calmed by the bonus combo. In groove mode it FLOORS at grooveFreezeFloor (never fully frozen) so there's always a moving lead to shoot.
 function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
@@ -801,6 +811,9 @@ function killTarget(tg, clutch){ dropTarget(tg); if(clutch) explodeAt(tg.mesh.po
 
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
+let _userOffsetSec = (function(){ try{ const v=parseFloat(localStorage.getItem('aimdojo.offsetMs')); return isFinite(v)?Math.max(-0.3,Math.min(0.4,v/1000)):0; }catch(e){ return 0; } })();   // LATENCY CALIBRATION: a persisted user audio/input offset (ms→sec), ADDED to the reported output latency so the beat windows line up with what the player actually HEARS on their device (Bluetooth adds 100-300ms the browser under-reports)
+function audioLat(){ return (((rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0)) + _userOffsetSec; }   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
+let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in the heard timeline) → powers the pause-menu "calibrate from my taps"
 let reverbInput=null, reverbQueued=false;
 let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss
 let gridId=null, grid8=0, cd=0, restSlots=0;
@@ -987,7 +1000,7 @@ function eighthSec(){ return (60/state.bpm)/2; }
 function timingErrorMs(){
   if(!toneReady) return 0;
   const e=60/state.bpm; let pos=Tone.Transport.seconds;   // grade against the beat (quarter note) = the tick
-  const lat=(rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0; pos-=lat;
+  const lat=audioLat(); pos-=lat;
   const k=Math.round(pos/e); return (pos - k*e)*1000;   // + = late, - = early
 }
 function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||i===6) return 0.62; return 0.45; }
@@ -1317,7 +1330,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
   let beats=wasdBeats();   // WASD grid shifted onto the "and" (groove phase); latency correction applied next
   const bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5, Math.max(CFG.wasdWindow, full*CFG.wasdWindowFrac));
-  const lat=(rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0; beats-=lat/bps;   // grade in the HEARD timeline (mirrors timingErrorMs) -- without this, high-latency audio makes every tap grade BEHIND and PERFECT unreachable
+  const lat=audioLat(); beats-=lat/bps;   // grade in the HEARD timeline (audioLat = reported latency + user offset) -- without this, high-latency audio makes every tap grade BEHIND and PERFECT unreachable
   const exact=beats*nd, lo=Math.floor(exact), hi=Math.ceil(exact);   // resolve the NEAREST UNRESOLVED note within window (so a same-frame double-tap claims the ADJACENT note instead of being eaten)
   let ci=-1; for(const c of (Math.abs(exact-lo)<=Math.abs(exact-hi)?[lo,hi]:[hi,lo])){ if(!_resolved.has(c) && Math.abs((beats-c/nd)*bps)<=w){ ci=c; break; } }
   if(ci<0) return;   // no unresolved note in this press's window -> stray/duplicate, ignored (no lock)
@@ -2067,7 +2080,7 @@ function animate(frameNow){
     state.t+=dt;
     if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
       let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
-      const _bps=60/Math.max(20,state.bpm), _lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; hb-=_lat/_bps;   // heard timeline → the glow matches the audible beat
+      const _bps=60/Math.max(20,state.bpm), _lat=audioLat(); hb-=_lat/_bps;   // heard timeline (reported latency + user offset) → the glow matches the audible beat
       const _offSec=Math.abs(hb-Math.round(hb))*_bps, _winSec=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();   // ms window: seconds off the beat vs a skill-tightened band (NOT a beat-fraction, which blew out to ±480ms at 20bpm)
       _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
       const _so=_openAmt>0?0.20+0.47*_openAmt:0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;   // TANK glows + is killable ON THE BEAT like every orb (just amber + takes N hits) — one clock for the whole field   // discontinuous floor: shielded=0.05, then POPS to >=0.20 the instant it's killable → a crisp on/off edge that matches orbOpen() exactly (tanks glow on the whole beat like everything else — hit them on the beat)
@@ -2198,6 +2211,26 @@ window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH
 const overlay=gid('overlay'), beginBtn=gid('beginBtn');
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
+/* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
+const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
+function refreshSettings(){
+  if(!settingsBox) return;
+  if(resToggle) resToggle.textContent = LOW ? 'LOW ▸ tap for HIGH' : 'HIGH ▸ tap for LOW';   // LOW = this session's actual mode
+  const ms=Math.round(_userOffsetSec*1000);
+  if(offSlider) offSlider.value=ms;
+  if(offVal) offVal.textContent=ms+' ms';
+  if(calibHint) calibHint.textContent = _tapOffN>=6 ? (_tapOffN+' taps logged — tap to auto-set') : 'play a bit (tap W/A/S/D on the beat), then calibrate';
+}
+if(resToggle) resToggle.addEventListener('click', ()=>{ try{ localStorage.setItem('aimdojo.lowRez', LOW?'0':'1'); }catch(e){} location.reload(); });   // resolution is construction-time (MSAA + geometry) → persist the choice and reload to apply it fully
+if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)); _userOffsetSec=ms/1000; if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame, so the glow/windows shift as you drag
+if(calibBtn) calibBtn.addEventListener('click', ()=>{
+  if(_tapOffN<6){ if(calibHint) calibHint.textContent='not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'; return; }
+  const avg=_tapOffSum/_tapOffN; _userOffsetSec=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg));   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
+  const ms=Math.round(_userOffsetSec*1000); if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
+  try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){}
+  if(calibHint) calibHint.textContent='applied '+(avg>=0?'+':'')+Math.round(avg*1000)+'ms from '+_tapOffN+' taps → offset '+ms+'ms';
+  _tapOffSum=0; _tapOffN=0;
+});
 if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>tap to shoot on the beat</span><span><b>❙❙</b>pause</span>'; }
 // first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
@@ -2433,6 +2466,7 @@ function showPause(){
   const avgNum=avgReaction();
   const avgR = avgNum==null?'—':avgNum.toFixed(1)+' beats';
   pauseStats.style.display='flex';
+  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); }
   pauseStats.innerHTML=
     '<div class="chip"><div class="ck">PEAK TEMPO</div><div class="cv amber">'+Math.round(state.maxBpm)+' bpm</div></div>'+
     '<div class="chip"><div class="ck">GOOD KILLS</div><div class="cv">'+state.hits+'</div></div>'+
