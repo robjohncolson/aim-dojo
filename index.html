@@ -332,7 +332,7 @@ const CFG = {
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   // rhythm GROOVE (Phase 1): syncopated tap/shoot + beat-juking orbs. Per metronome beat → 0.0: orbs JUKE + ideal SHOT pocket (graded vs perfectMs/goodMs) · 0.5: WASD tap/freeze PEAK (the "and"). grooveGroove:false reverts to the plain on-beat game.
-  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenSec:[0.25,0.10],   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY if you FIRE inside a ±grooveOpenSec-SECOND window around the beat ("the one") — ms-based, ~±250ms while learning tightening to ~±100ms with skill (diffT) — kept GENEROUS on purpose because you're AIMING and timing at once (unlike pure rhythm games, whose ±120ms assumes timing-only). Off-beat fire CLANKS (no kill). JUKE now fires on the "and" (0.5) so the orb then glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
+  grooveGroove:true, grooveFreezePhase:0.5, grooveJuke:true, grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25, grooveVuln:true, grooveOpenSec:[0.32,0.15],   // grooveGroove:false = full kill-switch. VULN (the mechanic): an orb is killable ONLY while it's OPEN — glowing inside a ±grooveOpenSec-SECOND window around the beat ("the one") — and the kill is judged at the BULLET'S ARRIVAL, not the trigger. So you LAND the shot ONTO the orb on the beat (lead in time + space); ms-based ±320ms learning → ±150ms expert (diffT). Widened vs the old fire-on-trigger window because arrival-timing makes you guess flight time too. Off-beat LANDINGS clank (no kill). JUKE fires on the "and" (0.5) so the orb glides predictably into the open window = a fair timed lead. grooveFreezeFloor: WASD freeze can only calm to this floor.
   spawnField:'full', audioAssist:true, baseRadPerPx:0.0022,
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
@@ -1254,7 +1254,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
 function fire(){
   if(!state.running) return;
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
-  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at FIRE — pr.charged=orbOpen() at the trigger (in spawnProjectile); the connect-vs-clank at impact is a pure SPATIAL-lead outcome (arrival never re-grades timing), so the flight time is the game's problem, not the player's.
+  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
 canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
@@ -1336,9 +1336,8 @@ function spawnProjectile(){
   const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
   const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
   if(soundOn && toneReady && arcWhoosh){ try{ const now=Tone.now(), ft=Math.max(0.2,Math.min(2.5,_T)); arcWhoosh.triggerAttackRelease(260, ft, now, 0.5); arcWhoosh.frequency.cancelScheduledValues(now); arcWhoosh.frequency.setValueAtTime(260, now); arcWhoosh.frequency.linearRampToValueAtTime(560, now+ft*0.9); }catch(e){} }   // rising flight whoosh over the arc
-  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // capture tempo too — it can step mid-flight (free-play adaptive engine)
-  pr.charged=orbOpen();   // groove VULN: was the TRIGGER pulled on the beat (while the orbs GLOW)? A charged shot KILLS on hit; a dud (off-beat) clanks. Judged HERE at the key press — the flight time is the game's problem, not the player's (that's what "arrive early" was forcing on them).
-  if(soundOn && toneReady && shotCue && CFG.grooveGroove && CFG.grooveVuln){ try{ shotCue.triggerAttackRelease(pr.charged?784:196, pr.charged?'16n':'8n', Tone.now(), pr.charged?0.5:0.4); }catch(e){} }   // instant fire-timing feedback at the trigger: bright G5 if ON the beat (charged), a low dud if OFF
+  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
+  // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
   if(projectiles.length>40){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest
@@ -1361,10 +1360,10 @@ function updateProjectiles(dt){
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
-      if(hit.kind!==2 && !pr.charged){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // the SHOT was fired OFF the beat (pr.charged set at fire) → CLANK: no kill, regardless of where it lands. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
-      if(hit.hp>1){ chipHit(hit, pr.pos); retireProjectile(i); continue; }   // MULTI-HIT tank: a charged (on-beat) hit CHIPS it down one; it survives until the last hit
-      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (final charged hit): ARC impact thud (weight on connect)
-      gradeRhythmHit(hit, pr.pos, pr.fireT, pr.fireBpm); retireProjectile(i); continue; }   // resolve at fire-time/-tempo
+      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(hit.hp>1){ chipHit(hit, pr.pos); retireProjectile(i); continue; }   // MULTI-HIT tank: an on-beat (open-at-impact) hit CHIPS it down one; it survives until the last hit
+      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
+      gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
@@ -1635,8 +1634,8 @@ function updateFloorBeat(){
   if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
 }
 let _fireHot=false;
-function updateFireRing(){   // groove FIRE CUE: the crosshair turns GREEN during the fire window = "LAUNCH now". Colour only — the crosshair never moves/scales, so aim stays rock-steady; the slow beat (audio + floor pulse) carries the anticipation. (Replaced the converging ring, which read as messy.)
-  const hot = CFG.grooveGroove && CFG.grooveVuln && state.running && _openAmt>0;
+function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens on the beat. That "LAUNCH now" cue rewarded pulling the trigger ON the beat — the exact instinct that fights landing the shot on the beat. Now the ORB GLOW is the sole "land it here now" cue (the beat pulse + audio carry the anticipation); the player LEADS the release and guesses the flight time. To bring the crosshair cue back as a PREDICTIVE "release now → land on beat" light, gate `hot` on a flight-time lookahead instead of `_openAmt>0`.
+  const hot = false;
   if(hot!==_fireHot){ _fireHot=hot; if(el.reticle) el.reticle.classList.toggle('fire',hot); }
 }
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
