@@ -1,662 +1,78 @@
-# Aim Dojo — Continuation / Handover
-
-Paste-in context for resuming work on **aim-dojo** in a new session.
-
-## ▶▶▶ START HERE — END OF SESSION (2026-07-05): the WEB app went full ZEN (settings panel + hunt mode + live HUD **DELETED**) and moved to **VERCEL**
-
-**Deploy loop changed.** Primary host is now **https://aim-dojo.vercel.app** — Vercel project `aim-dojo` (scope `roberts-projects-19fe2013`), GitHub-connected: every push to `main` auto-deploys in ~1–3 s (CLI authed on this machine; `.vercel/` gitignored). GH Pages (robjohncolson.github.io/aim-dojo) stays enabled as a legacy mirror for old links/QR codes — it failed a deploy with a transient GitHub error and then sat ~15 min in queue this session, which is what triggered the move. **Verify pushes against the Vercel URL, not Pages.** Railway anti-cheat server: project **`reliable-harmony`**, service `aim-dojo` (railway CLI authed as bobby); **`ALLOW_ORIGIN=*` since today** (was the Pages origin — would have CORS-blocked record submissions from the Vercel domain; the endpoint still validates + rate-limits, so `*` costs nothing real). `/health` returns ok.
-
-### Session commits (web repo, in order)
-- `ae01a28` **Pure-sine orb hums** — the per-orb hum oscillator AND gold's detuned twin are now `sine` (was lowpass-filtered triangle; the user: *"Cool, much better!"*). DECOY's "faintly wrong" tell is now only its sluggish 1.4 Hz tremolo. The short HIT chime (`synthHit`) is still a triangle blip — offered as a follow-up swap, not requested.
-- `4e04a67` **WASD lane letters localize to the player's keyboard layout** — lane MATCHING was already physical (`e.code` KeyW/A/S/D → the same inverted-T cluster on AZERTY/Dvorak/Cyrillic); this only fixes the HUD letter via `navigator.keyboard.getLayoutMap()` (Chromium-only, falls back to W/A/S/D). Japanese/JIS was never broken (QWERTY Latin; kana are secondary legends).
-- `0997c8a` **THE ZEN UI REDESIGN** — the user declared the game matured and picked the MOST aggressive option on every axis offered (delete settings entirely / remove hunt entirely / zen HUD sweep / collapse the start card). Net **−283 lines**. Method: 4 parallel removal-map agents → one edit pass → validate → 16-agent adversarial review (3 confirmed minor findings, all fixed pre-push). What changed:
-  - **ADVANCED settings panel DELETED** (HTML+CSS+JS: `applySettings`, `wireSeg`, `bind`, all sliders/segments, the modal + its Escape handler). Every tuned value is baked as a CFG literal = exactly what a fresh page load already played. ⚠️ **FOV is baked at 95** — the old slider *claimed* 70 but only APPLY ever set it and nobody pressed it; 95 is what the user actually played. Sensitivity baked at 3.00× (`radPerPx=CFG.baseRadPerPx*3`). **There is no settings UI — tune by editing CFG consts and pushing.**
-  - **FREE HUNT mode DELETED** — the game is rhythm-only. Gone: `state.mode`/`CFG.mode`, `state.speed`/`maxReached`, `changeSpeed`, `desiredCount`/`spawnGap`/`targetLife`, the per-frame hunt spawn block, CFG `startSpeed/minSpeed/maxSpeed/upStep/downStep/lifeSlow/lifeFast/gapSlow/gapFast/radFast`. `diffT()` is bpm-only. Audio-failure no longer falls back to hunt — `startRun` blocks at the card until Tone is ready.
-  - **Live HUD zen sweep** — DELETED: `#statBox` (6 live counters), `#gauge` (accuracy bar + gates, `renderGauge`), `#scopeHud` (θ/RANGE/FLIGHT/LEAD text block), `#scopeAim` (long-retired pip), `renderStats`. KEPT: TEMPO box, mute, reticle + `#lockBox` (breathe/LOCK/AVOID), deviation edge tints, WASD lane, wind HUD, presence, floor marks, `hitFlash`, `dojoFlash`. Stats now appear ONLY on the pause **RANGE REPORT** (`showPause` chips, now incl. **FARTHEST/HIGHEST**).
-  - **Start card = one breath** — lede is one line ("Find the orb, fire on the beat — the dojo does the rest."). Key legend + 🎧 note are **first-visit-only**: `aimdojo.seen` in localStorage + a tiny inline **head** script stamping `html.seen` pre-paint (CSS hides them — pure-JS hiding flashed because the game IIFE loads behind three.js). DOJO RECORDS board + path-efficiency chart moved into collapsed `#recordsWrap` behind a **🥋 RECORDS** ghost button; `openRecords()` re-renders the chart on expand (its canvas reads `clientWidth`, which is 0 while hidden). The name input auto-opens + focuses ONCE on the first improved record with no saved name (`promptNameOnFirstRecord` in `submitDojo`). `showPause` unhides the overlay BEFORE `renderHistory/submitDojo` (review finding: the chart otherwise rendered at a stretched 300 px fallback).
-- `cc6f2f0` gitignore `.vercel` (this push also proved the Vercel auto-deploy: live in ~1 s) · `0664eae` server docs → `ALLOW_ORIGIN=*`.
-- `56e07bd` **Gamepad COUCH-COMPLETE** (the user asked to "add gamepad support" — it already existed from `2ecbefd`, sticks/lanes/fire in-run only; this fills the gaps). **START (btn 9) or face-bottom = BEGIN/RESUME at the card, START = pause in-run** (exitPointerLock when locked so the existing flow shows the pause; pad-started runs never lock — a pad press is NOT a browser user activation). **Suspended-AudioContext guard** (the review's HIGH find): pad-first start on a never-touched page would enter a silent orb-less run (Transport frozen) — the viaPad path now resumes `rawCtx` and only enters when the resume actually resolves (<3 s + re-checked guards), else a "needs one real touch" card message; `initAudio`/`ensureListener` retry their resumes post-gesture (Firefox REJECTS the pre-gesture one; the THREE listener ctx for the orb hums is a SEPARATE context needing its own retry). `padBeginBlocked()` = no pad-begin while typing the record name / behind the share modal (checked at press AND in the deferred resume). Idle throttle exempts connected pads (menu polls every rAF, else sub-50 ms START taps drop at 20 Hz). **Grade-scaled rumble on hit** (26/18/12 ms by FLAWLESS/PERFECT/EXCELLENT, 8 ms late, 70 ms decoy-mistake — mirrors the iso haptics the user loved; `CFG.padRumble` kills it, values inline in `gradeRhythmHit`; async `playEffect` rejection caught). Connect toast now flags non-standard pad mappings "⚠ unmapped". Review: 4-lens adversarial workflow → 6 confirmed findings fixed → round-2 verifier confirmed all fixes + caught 2 new (deferred-path guard bypass, listener-ctx resume) → fixed.
-
-**Status: the zen redesign is LIVE on both hosts and awaiting the user's playtest feel-read; gamepad couch-play (`56e07bd`) is LIVE and untested on real hardware.** The sine hums + layout-aware letters are playtested and approved. Pad test checklist: press any pad button while the tab is focused (browser hides pads until then) → expect the 🎮 toast (⚠ unmapped = wrong browser mapping — use Chrome/Chromium, pad in XInput mode); START at the card should begin (on a fresh load with zero clicks it should show the "needs one real touch" message instead — click once, press START again); rumble on hits.
-
-### Known / deferred (nothing blocking)
-- **Pre-existing dead code, deliberately NOT fixed:** orb aim-trails never render — `tg.trailMesh=rhythm?newTrailMesh():null;` sits swallowed in the tail of a `//` comment inside `spawnTarget` (same bug class as the `e1cb786` CFG hotfix: a line-join ate code). AVG PATH grading is unaffected (`angPath` is tracked separately). Given the zen direction, decide whether trails are even wanted before "fixing".
-- `showToneBlock` still says "Tap BEGIN again" while the button reads ▶ ENTER THE DOJO (pre-existing, cosmetic).
-- No sensitivity slider anymore — if a different mouse feels off, it's the `*3` in `radPerPx=CFG.baseRadPerPx*3` (one line).
-- Memory updated: [[aim-dojo-iso-zen-feel]] now covers the WEB app too (**don't propose re-adding settings UI, hunt mode, or live counters**); new [[aim-dojo-deploy-infra]] (Vercel/Pages/Railway facts).
-
-**⚠️ EVERYTHING BELOW predates the zen redesign.** Any mention of the ADVANCED panel, FREE HUNT / mode switching, `#statBox`, `#gauge`, `#scopeHud`, or the Pages-first deploy-poll loop is now STALE for the web app. Still true and still matters: the build-blind validation pattern (extract inline script → `node --check` → dangling-ref grep for every removed symbol → adversarial review for risky diffs).
-
----
-
-## (history) ▶▶▶ END OF SESSION (2026-06-25→26): aim-dojo-iso is the active game (progression + variety/difficulty + haptics + dynamic-framing camera; plays "zen" on the S24 & Pixel 3; gamepad on web)
-
-**The map — "aim-dojo" is a web app + THREE nested Godot repos, ALL now on GitHub (private). Each is its OWN git repo (own `.git` + remote); the parent `Projects` repo is local-only and does NOT track them. To find work: `git -C <each> log`.**
-
-| Project | Repo (branch) | What it is | Latest |
-|---|---|---|---|
-| **aim-dojo-iso** ⭐ KEEPER | `robjohncolson/aim-dojo-iso` (master) | Isometric slingshot **rhythm** game — the one the user plays + likes ("simple, zen") | `e020719` Iso 2.6 |
-| aim-dojo (web) | `robjohncolson/aim-dojo` (main) | First-person Three.js/WebGL trainer, GitHub Pages | `2ecbefd` gamepad |
-| aim-dojo-godot | `robjohncolson/aim-dojo-godot` (master) | First-person 3D Godot port (Phase 1.1→1.3) | untouched today |
-| godot-aim-spike | `robjohncolson/godot-aim-spike` (main) | latency/groove de-risk prototype + tap mini-game | NOT the real game |
-
-### aim-dojo-iso — the keeper (dev focus is here)
-Isometric ortho `Camera3D`; touch **slingshot** (drag-pull-release ballistic, gravity arc, landing predictor); targets **drift + re-aim each beat**; **release ON the beat freezes the field (longer if PERFECT) + builds the baked-stem groove**; CALIBRATE flow (`fb7d911`); converge-bloom beat ring; PERFECT/AHEAD/BEHIND grade. `main.gd` ~820 lines, `extends Node3D`, **4-SPACE indent**. Persistence: `user://calib.cfg`, `user://scores.cfg`.
-
-Shipped TODAY (each built blind over SSH → validated `--check-only` + headless run → **adversarially reviewed by a 4-lens workflow** → fixed → re-exported → pushed → installed + playtested on the S24, later also the Pixel 3). Both devices run the latest (`e020719`):
-- **Iso 2.3 progression (`ed80753`):** points = `100 × combo-multiplier × rhythm-bonus`. The release grade is carried by the projectile to its hit (PERFECT 2.5× / GOOD 1.6× / off-beat 1×). **Combo grows ONLY on on-beat hits** → the 1×→4× multiplier requires rhythm; a whiff dents combo (−5), an off-beat hit holds it. best_points/best_combo persisted (atomic write + `.bak` + `_notification(APPLICATION_PAUSED)` save = Android-safe; debounced). Gold flash only on a new best combo. Juice: score/combo scale-punch.
-- **Iso 2.4 variety + adaptive difficulty (`940d5d3`):** target KINDS via node meta — NORMAL / FAR (small+distant, 2×) / SPEED (fast, 2×) / DECOY (don't shoot → `DECOY_PENALTY × mult` + combo halved). **Difficulty = on-beat combo / `DIFF_COMBO_FULL`(12)** — decoupled from the music groove so a deliberate slow player still ramps AND the music tuning is untouched. Drives kind weights, target count (≤`MAX_TARGETS`=3), drift speed (`DRIFT_DIFF_MAX`=1.7). `_ensure_real_target()` guarantees never-all-decoys; decoys only when >1 target. Collision iterates a per-frame snapshot + `is_instance_valid` so a 2nd in-flight shot can't hit a target spawned mid-frame.
-- **Iso 2.5 haptics (`85e0738`):** subtle vibration scaled by timing — PERFECT hit `28ms@0.75`, GOOD `18@0.5`, off-beat `10@0.3`; a decoy mistake a heavier `70@0.95`. Felt-not-seen → zen-friendly. `Input.vibrate_handheld()` + **`permissions/vibrate=true` in export_presets.cfg** (Godot does NOT auto-add it — verified `granted=true` on-device). `HAPTICS` const toggles it. Values are inline in `_on_hit`/`_on_decoy_hit`.
-- **Iso 2.6 dynamic framing camera + zoom-scaled swipe (`e020719`):** per the user's ask ("view is quite large and the players are quite small… zoom stayed tight around just the player and the targets, and the swipe size scaled proportionally"). Each frame the ortho cam sizes to the outermost active target: `want_size = 2×max-target-reach + ZOOM_MARGIN(10)`, clamped `[ZOOM_MIN 20, ZOOM_MAX 48]`, lerp-smoothed at `ZOOM_LERP 2.0` (starts at `ZOOM_MIN`; was fixed 46) — the view breathes OUT as difficulty spreads the field, i.e. it "zooms out as points rack up" with no timer. Aim swipe scales with zoom: `_pull_scale = PULL_REF_SIZE(48)/cam.size`, applied via `_pull_min()`/`_pull_max()` to the launch guard, power calc, and aim-preview/landing visibility — finger-feel stays constant at any zoom. Installed on BOTH devices; **awaiting the user's feel-read** (knobs: `ZOOM_MIN`/`ZOOM_MARGIN`/`ZOOM_LERP`; an optional score-driven zoom floor was offered).
-
-**⚠️ DESIGN VALUE — protect the "zen":** after playtesting 2.3–2.5 on the S24 (& Pixel 3) the user said *"feels good.. very simple, very zen."* and "looks good, feels good" — haptics is the clearest example of the right direction (felt, not seen/heard). Keep it calm/minimal — adaptive systems that stay out of the way, sparse HUD; **flag any feature that would make it busier/louder before building it.** (Memory: [[aim-dojo-iso-zen-feel]].) All balance is `const`s up top (`DIFF_COMBO_FULL`, `DECOY_CHANCE/PENALTY`, `DRIFT_DIFF_MAX`, `MAX_TARGETS`, kind values/weights) — tune by feel.
-
-### web aim-dojo — gamepad added (`2ecbefd`)
-8BitDo Pro / W3C standard mapping: **dual sticks = aim** (`CFG.padLookRate/padDeadzone/padExpo`), **face diamond + D-pad = WASD lanes by POSITION** (top/up=W, left=A, bottom/down=S, right=D), **ZL/ZR = fire**. The WASD keydown body was refactored into a shared `wasdLanePress(k)` (keyboard + gamepad). Polled in `animate()` via `navigator.getGamepads()`; no-ops with no controller. User confirmed it works.
-
-### Godot dev workflow (reuse this)
-- Editor `C:\Users\rober\Godot\Godot_v4.7-stable_win64.exe` / `..._console.exe` (CLI). Parse-check: `..._console.exe --headless --path <dir> --check-only --script main.gd`. Smoke: add `--quit-after 90`. Re-export: `..._console.exe --headless --path <dir> --export-debug "Android" "<name>.apk"`. Install: `adb install -r <apk>` (S24 = `SM-S921U1`; iso package `org.aimdojo.iso`; launch: `adb shell monkey -p org.aimdojo.iso -c android.intent.category.LAUNCHER 1`).
-- GOTCHAS: `get_output_latency()` = 0 on Android (∴ the calibration). `adb screencap` is BLACK for Godot's SurfaceView on Samsung — trust on-screen. No visual verify from headless SSH — lean on `--check-only` + headless run + the **4-lens review workflow** (it caught real bugs BOTH times: a corrupt-save window, a near-unhittable SPEED target, a difficulty cadence-ceiling). The "5 resources still in use at exit" line on a `--quit-after` run is a BENIGN audio force-quit warning, not a script error.
-
-### NEXT (zen-AWARE — the user prizes the calm; weigh every idea against [[aim-dojo-iso-zen-feel]] FIRST)
-- **Zen-aligned (favor these):** deepen the calm without adding pressure — more subtle haptic/audio/visual feedback (haptics was a hit), atmosphere polish (lighting/fog/floor/palette), and on-device **feel-tuning** of the iso `const`s. Fast to iterate now (user home, both phones connected: build → `adb -s <serial> install -r` → they feel it).
-- **Adds pressure → flag the zen tradeoff BEFORE building:** score-attack timed rounds (makes "best" = best round, but a countdown is stressful — the user explicitly steered away from it); online leaderboard (reuses the web app's Railway/Supabase board, but adds comparison/FOMO). The user picked HAPTICS over both when offered.
-
-**Everything below is HISTORY** — the calibration-saga correction, then the older web-app WASD handover. Accurate context, but the active game is `aim-dojo-iso` above.
-
----
-
-## (history) — calibration-saga correction (2026-06-25 cont.): keeper is aim-dojo-iso; fb7d911 was REAL all along
-
-**⚠️ CORRECTION — read this first; it supersedes the dated block below.** The "lost-calibration saga" was a mistake from searching the wrong repos. **`fb7d911` is REAL** — it's the HEAD commit of **`aim-dojo-iso`** ("Iso 2.2: in-app latency calibration"), a separate nested Godot repo I never searched. Nothing was lost or fabricated. `git cat-file -t fb7d911` failed only because it was run in the web repo + the parent `Projects` monorepo + the spike — never in `aim-dojo-iso`'s own object DB (git doesn't cross repo boundaries).
-
-**"aim-dojo" = a web app + THREE separate Godot projects, each its own nested git repo — ALL now on GitHub (private):**
-- **`aim-dojo-iso`** (`robjohncolson/aim-dojo-iso`) — **THE KEEPER** ("the isometric is good"). Isometric orthographic `Camera3D`; touch **slingshot** (drag-pull-release ballistic, gravity arc, landing predictor); targets drift + re-aim each beat; **releasing ON the beat freezes the field (longer if PERFECT) + builds the baked-stem groove**, off-beat decays it; CALIBRATE flow (`fb7d911`); converge-bloom beat ring; PERFECT/AHEAD/BEHIND grade; score/shots/accuracy. `main.gd` ~570 lines, `extends Node3D`, 4-space indent.
-- **`aim-dojo-godot`** (`robjohncolson/aim-dojo-godot`) — first-person 3D port (commits Phase 1.1 3D foundation → 1.2 ballistics → 1.3 fire-on-beat).
-- **`godot-aim-spike`** (`robjohncolson/godot-aim-spike`) — latency/groove DE-RISK prototype (2D tap-timing + a bolted-on scoring mini-game). NOT the real game; its calibration (`f78e17b`) was a redundant rebuild of what `aim-dojo-iso` already had.
-- **Web `aim-dojo`** — unchanged at `e50e309` this session (web calibration `c24ffbd` was added then reverted → net zero).
-
-The parent `Projects` repo is local-only and does NOT track these nested repos (they show as `??` embedded). **To find work: `git -C <each-project> log`.** **NEXT: develop `aim-dojo-iso` forward** (the user picked it as the keeper). Memory: [[aim-dojo-has-two-codebases]] (corrected).
-
----
-
-## (SUPERSEDED by the correction above) START HERE — END OF SESSION (2026-06-25): "the GODOT PORT" framing
-
-**ORIENTATION — "aim-dojo" is now TWO codebases. Do NOT assume the web one:**
-1. **Web app** — THIS repo (`aim-dojo/index.html`), GitHub Pages → https://robjohncolson.github.io/aim-dojo/ . At `e50e309`, **unchanged this session**, in sync with origin, clean. The 2026-06-24 WASD-rhythm handover below is still its live state.
-2. **Native Godot port** — `../godot-aim-spike/` — a SIBLING dir tracked by the **parent `Projects` repo, NOT this aim-dojo repo**. Godot 4.7 → Android APK = the "compiled aim-dojo" the user plays on their **Galaxy S24**. **This is where active development moved.** Single script `main.gd`. See `GODOT_PORT_SPEC.md` (this repo) + `../godot-aim-spike/PORT_PLAN.md`.
-
-### The lost-calibration saga (resolved)
-The prior session ended abruptly claiming "calibration committed (`fb7d911`)." **`fb7d911` exists in NO repo** (checked local/remote/reflog/stash/all blobs) — a **fabricated hash**. The real work sat **untracked** in `godot-aim-spike/` (was `?? untracked` in the Projects repo; never committed anywhere — the genuine loss risk). I first searched only the web repo and wrongly rebuilt web calibration; the user then clarified the working version is the **compiled Godot APK**. *Lesson: verify a claimed commit with `git cat-file -t <hash>` before trusting it.* Memory saved: [[aim-dojo-has-two-codebases]].
-
-### This session's commits
-- **Web (`aim-dojo`): NET ZERO** — added web calibration (`c24ffbd`) then **reverted** it; repo back at `e50e309` = origin/main, clean. (Web-calibration impl is recoverable from reflog / this transcript if ever wanted.)
-- **Godot (in the PARENT `Projects` repo — LOCAL, unpushed):**
-  - **`d4f172b`** — **versioned godot-aim-spike** (was 100% untracked). Source tracked; `aim-spike-debug.apk` (28 MB) + `.godot/` gitignored, rebuildable via export.
-  - **`f78e17b`** — **tap-latency CALIBRATE flow** in `main.gd`: CALIBRATE button (or `C` on desktop) → "TAP ON THE BEAT n/10" → **median** offset → `user://calib.cfg` (survives restarts) → subtracted from every grade. Fixes Godot `get_output_latency()`=0 on Android (the S24's uncompensated **+35 ms**). User confirmed it reproduces the original (tap 10 → autocorrects). Math proven on the web side too (on-beat late press → 0 ms across 20–172 bpm).
-  - **`67d8fde`** — **scoring rhythm mini-game** on the spike: judgment **PERFECT ≤25 / GREAT ≤60 / GOOD ≤120 / MISS** (ms); **score = base(100/60/20) × combo multiplier** (ramps to 6× at a 50-combo); **best score + best combo** persisted to `user://scores.cfg`; **juice** = combo/score scale-punch, PERFECT/GREAT burst ring, judgment-color hit-ring flash, groove-tinted bg, tier-gain screen flash. MISS breaks combo + drops groove hard; GOOD keeps combo but slips the tier.
-- **APK rebuilt + signed** with all of the above. Install: `adb install -r "C:\Users\rober\Downloads\Projects\godot-aim-spike\aim-spike-debug.apk"`.
-
-### Godot port status & NEXT STEP
-**Fully de-risked / greenlit:** both S24 latency gates PASSED (Gate 1 reactive latency, Gate 2 baked-tier-stem groove) **and** the last mandatory item — in-app latency calibration — is now DONE. Per `GODOT_PORT_SPEC.md` + `PORT_PLAN.md`, **next is Phase 1 — the playable rhythm-aim vertical slice** (3D look-around + beat-strobing orbs on the existing groove clock + arc-shot ballistics `computeShotPlan`/swept-collision = "near-verbatim GDScript" + tempo ramp). Foundation (clock/groove/calibration) is done; the spike is currently a 2D tap mini-game. The user chose to **polish the mini-game first** (done) → the **3D Phase-1 port is the next rung**.
-
-### Godot working facts
-- **Build/run:** editor `C:\Users\rober\Godot\Godot_v4.7-stable_win64.exe` (GUI) / `..._console.exe` (CLI/MCP). Parse-check: `..._console.exe --headless --path <dir> --check-only --script main.gd`. Smoke-run: add `--quit-after 90`. Re-export: `..._console.exe --headless --path "...\godot-aim-spike" --export-debug "Android" "aim-spike-debug.apk"`.
-- **`main.gd`:** `extends Node2D`, **4-SPACE indent (not tabs)**. Metronome + 4 phase-locked baked stems (`tier0-3.wav`) crossfade by groove tier (Gate-2 thesis = zero per-hit jitter). `song_pos()`=audio clock; `beat_offset()`=phase vs nearest beat; `_on_tap()` grades & scores; `_cal_*` = calibration; `ConfigFile` persistence (`user://calib.cfg`, `user://scores.cfg`).
-- **GOTCHAS:** `get_output_latency()`=**0 on Android** (∴ manual calibration). `adb screencap` is a **BLACK image** for Godot's SurfaceView on Samsung — trust on-screen, not screenshots. **No visual verify from headless SSH** — use `--check-only` + `--quit-after` + on-device eyes. Tune `SC_*` / multiplier cap / punch amounts / decay rates by feel on the S24.
-
-**Everything below is the WEB app's handover (2026-06-24 & earlier) — still accurate for `index.html`, but the active frontier is the Godot port above.**
-
-## ▶▶▶ START HERE — END OF SESSION (2026-06-24): WASD-rhythm at the converge-bloom round model
-The dojo pivot is DONE (see far below). The last two sessions were a long **build-blind iteration of the
-"WASD-on-rhythm steady-the-field" feature** — ~8 playtest round-trips. **Everything is committed, pushed, and LIVE;
-working tree clean. No uncommitted work.** Live site: https://robjohncolson.github.io/aim-dojo/
-
-### ✅ CURRENT STATE (LIVE = `e0e15f3`) — awaiting the user's next playtest
-**What the WASD feature is (free-play rhythm mode):** a rhythm-game overlay that steadies the orb field so you can aim.
-ONE circle CONVERGES to a center "hit-line" ring at each beat, then BLOOMS back out + fades (a late window); TAP the shown
-key as it lands — timing accuracy (AHEAD / PERFECT / BEHIND, shown 1s in ms) sets how much the orbs' motion is dampened.
-Notes ramp **quarter → 8th → 16th** with skill (rides the targets' `diffT`); off-beat **BONUS** notes stack a combo that
-calms the field further + lifts the groove. **One press per note; a wrong key greys the letter + freezes the circle.**
-Full as-built detail: the **MECHANIC section just below**. The user calls the dojo "genuinely fun," but the WASD
-visual/feel was heavily iterated — **read the journey before changing the visual; the user is picky and several
-approaches are dead (don't re-propose them).**
-
-**Deferred (low, self-correcting):** at very high tempo a same-frame double-tap can retro-miss one clean note (single
-`_resolvedIdx`; durable fix = a per-note resolution set). Rare; flagged in the MECHANIC section.
-
-**Supabase capprobe cleanup: ✅ DONE** — the user ran `delete from public.aimdojo_dojo where client_id='capprobe';`
-this session. Optional leftover ops (none blocking): drop the orphaned `aimdojo_daily` + `aimdojo_scores` tables; lock the
-dojo insert policy (`drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;`).
-
-### The WASD visual+mechanic JOURNEY (why each was reworked — the user is picky; do NOT re-propose a dead one)
-Each step shipped build-blind (node --check + dangling-ref greps + a multi-agent adversarial review). In order:
-1. **osu contracting COLOR-RINGS** (4 rings + corner legend) — rings re-shuffled each beat ("the green ring turned
-   yellow"), distracting.
-2. **3-note depth-approach** (opacity ∝ closeness) + fixed current-key letter — cleaner, but still busy.
-3. **ONE ring + GRADED damping** (binary freeze removed; accuracy scales motion).
-4. **HOLD notes** (press+hold to fill a gauge to the note length) — killed the "hold = 100%" exploit, but felt lethargic.
-5. **ANNULUS hold notes** (1 note / 4 beats; shrink→press→expand-to-fill; graded on release) — "too slow, press felt
-   backwards, disconnected from the orbs."
-6. **SINGLE-FOCUS + LIVE FREEZE** (hold a caught note to freeze the orbs live) — "still lethargic; toss the hold."
-7. **TAP notes** (no hold; tap-on-landing → accuracy damps the field; quarter→8th→16th; bonus combo = calmer + louder
-   groove) — the keeper direction.
-8. **+ one-press lock + AHEAD/BEHIND/PERFECT ms readout + wrong-key grey/freeze**, then **[LIVE] the CONVERGE-BLOOM round
-   model** (circle converges to center then blooms+fades = a real late window; a wrong key near the beat now reads).
-**Dead-ends — do NOT resurrect:** the multi-ring color highway; the hold/fill-gauge mechanic (lethargic); grading on
-release; the "annulus expand-to-fill"; the binary freeze. Also from earlier: per-orb floating letters (spam-cheesable),
-2D/3D note-highways, cardinal floor tiles, screen-edge quadrant flashes (see far below). The combo/freeze/damping CONCEPT
-survived; only the presentation churned.
-
-### The WASD-rhythm MECHANIC (ROUND model: circle CONVERGES to center at the beat then BLOOMS+fades, as of `e0e15f3`)
-Targets strobe (HOLD then JUMP on the beat grid). Layered on top: a **looping combo** (`_combo`, len `CFG.wasdComboLen:8`,
-`makeWasdCombo()` = shuffled [0,1,2,3] bags → every key appears; fixes "never saw A" `d037c8b`).
-**NOTE GRID — at HALF the orb-jump rate, ramps with skill:** orbs subdivide `spb∈[2,4,8]` by `diffT` (`beatQuantDivs/beatQuantT`); WASD notes use `nd=max(1,spb/2)` = **1/2/4 notes per beat = quarter → +8th → +16th**. **MAIN = whole beat** (`ci%nd===0`), **BONUS = the in-between 8th/16th**. Key = `_combo[ci%len]`.
-**ROUND MODEL (the in-focus note):** `ci=round(beats*nd)` = the NEAREST beat. ONE circle CONVERGES to the center ring (`Rin:46`) at the beat, then BLOOMS back out + fades — a real LATE window. `offSec=(beats-ci/nd)*(60/bpm)` is SIGNED: **<0 AHEAD** (before the beat / circle still outside Rin), **~0 PERFECT**, **>0 BEHIND** (after / circle blooming out). This REPLACED the old floor/anticipation/arm model — all that state (`_noteIdx/_noteKey/_noteStart/_noteW/_noteMain/_noteHit/_noteActive/_armIdx/_wasdDownT/_spoilFrac/_wasdHit`) is GONE.
-**GRADE ON PRESS (keydown):** `ci=round(beats*nd)`; `if(ci===_resolvedIdx) return` (**ONE press per note** — first commits, 2nd ignored); `w=min(full*0.5, max(wasdWindow:0.16, full*wasdWindowFrac:0.4))` (`full=(60/bpm)/nd`, capped at the half-interval); `if(|offSec|>w) return` (stray, no lock). Else `_resolvedIdx=ci`; correct → `_wasdResolve(offSec,main,w)` (`acc=1-|offSec|/w`; MAIN→`_baseMul=1-acc`, BONUS→`_wasdCombo++`; stores `_tapOffMs/_tapShowT`); **WRONG → `_spoilNote=ci`** (+`_spoilOff`): greys the letter + FREEZES the circle (visible through the bloom window — this is what makes a wrong tap near the beat actually register), `_baseMul=1` if main, `_wasdCombo=0`.
-**MISS** (snap, per subdivision): `ci=round(nb*nd)`; when it changes, if the retiring `_curCi` was unresolved (`_resolvedIdx!==_curCi`) → MISS (main→`_baseMul=1`, combo=0); on advance clear `_spoilNote` if it was that note. WASD-off/hunt → `_curCi=-1; _baseMul=1; _wasdCombo=0`.
-**DAMPING — `wasdMul()` every frame:** `if(!wasdRhythm) 1; else max(0, _baseMul*(1-min(wasdComboCap:0.8, _wasdCombo*wasdComboGain:0.14)))` → the field is as steady as your last MAIN tap, calmed further by the bonus combo. Strobe step: `const mul=wasdMul(); bj=brownianStep*mul; ms=moveStep*mul`.
-**BONUS combo also lifts the GROOVE** (`onGrid`): `gt += min(wasdGrooveMax:1.2, _wasdCombo*wasdGrooveGain:0.18)` (≤3) → music intensifies.
-**VISUAL (`drawWasdLane`):** hit-line ring at `Rin:46` (green/red tap flash); the in-focus circle converges (`off≤0`: `ra=Rin+(-off/half)*span`, `half=0.5/nd`) then blooms+fades (`off>0`: `ra=Rin+(off/half)*span*0.55`, alpha→0); **main=thick/bright, bonus=thin/dim**; spoiled→grey+frozen at `_spoilOff`; key LETTER below; green **combo pips**; a 1s **AHEAD/BEHIND/PERFECT ms readout** above the ring. Draw gated on `Tone.Transport.state==='started'` (no resume ghost). reduceMotion: no anim, letter only. **Free-play only → no determinism.** State: `_curCi/_curMain/_resolvedIdx/_baseMul/_wasdCombo/_noteFlashT/_noteFlashHit/_spoilNote/_spoilOff/_tapOffMs/_tapShowT`. **KNOWN (deferred, rare/self-correcting):** a same-frame straddle at very high tempo can retro-miss a clean hit (single `_resolvedIdx`; durable fix = track resolution in a per-note set). `_snapInterval` is vestigial write-only.
-**CRITICAL gotcha (bit us `ebc0e36`):** the const preamble `hudCanvas/hudCtx/WASD_COL/HUD_CSS/HUD_DPR` lives RIGHT BEFORE
-`function drawWasdLane`. A wholesale function-replace must START AT `function drawWasdLane` (NOT the header comment) so the
-preamble survives — else ReferenceError every frame, **silently swallowed** by `try{drawWasdLane()}catch(e){…once via
-drawWasdLane._e}`. Always re-grep those 5 decls after a draw rewrite.
-Tunables: **`wasdComboGain:0.14`/`wasdComboCap:0.8`** (bonus combo → field calming), **`wasdGrooveGain:0.18`/`wasdGrooveMax:1.2`**
-(combo → groove lift), `wasdWindow:0.16`, `wasdWindowFrac:0.4`, `wasdComboLen:8`. `WASD_GLYPH`, `WASD_COL` (W cyan/A green/
-S gold/D pink). The note subdivision rides `beatQuantDivs/beatQuantT` (shared with the targets — no separate ramp).
-
-### The VISUAL journey (why each was rejected — the user is picky here; don't re-propose a dead one)
-per-orb floating letters (spam-cheesable) → bigger + bottom timing bar (timing didn't register: window was
-before-snap-only + too tight → FIXED with the tempo-scaled window) → **single combo** (fixed the spam) → 2D
-scrolling note-lane overlay → **3D in-scene note-highway** that follows your yaw (user: "distracting") → **cardinal
-floor tiles** (N=W/W=A/S=S/E=D, grid-integrated, world-fixed; user: "still didn't go the way I'd hoped") →
-**[`4931041`] osu contracting color rings (4 rings + corner legend; user: shifting rings "turned yellow", distracting)** →
-**[`b0e642a`] 3-note depth-approach rings (opacity ∝ closeness) + fixed current-key letter** →
-**[`8bc6d95`] ONE ring + fixed current-key letter + GRADED accuracy damping** →
-**[`fc370a7`] HOLD NOTES: strike ring = fill gauge, hold to match note length** →
-**[`ebc0e36`] ANNULUS hold notes (1/4 beats, shrink→press→expand-to-fill, graded on release; user: too slow, press felt backwards, disconnected from orbs)** →
-**[`9b57799`] SINGLE-FOCUS + LIVE ORB-FREEZE (hold a caught note to freeze the orbs; user: still lethargic, toss the hold)** →
-**[`96f9824`] TAP notes (no hold): shrink→TAP-on-landing→accuracy damps the field; quarter→8th→16th; bonus off-beats stack a combo (calmer field + louder groove)** →
-**[`13efef4`] + one-press lock, AHEAD/BEHIND/PERFECT readout, wrong-key grey/freeze** →
-**[LIVE `e0e15f3`] CONVERGE-BLOOM round model: circle converges to center at the beat then expands back & fades (a real LATE window); wrong-key near the beat now reads** (current attempt — awaiting playtest verdict). The screen-half color flashes (quadrant
-overlays) were tried then **deprecated** at the user's request ("too busy; reserve the screen edge for the red
-target-direction cue"). The combo/freeze logic survived all of these unchanged — **only `drawWasdLane` + its
-DOM/CSS get rewritten each time.** `drawWasdLane()` is called from `animate` (try/catch'd, near `updateTargetMarks`).
-
-### Other post-pivot work SHIPPED + LIVE this session
-- `d6fd965` **Tempo-scaled projectile speed** — `projSpeedNow()=lerp(CFG.projSpeed:24, CFG.projSpeedFast:60, diffT())`
-  used in `computeShotPlan` + the ideal-arc solve, so the bullet keeps pace with faster orbs at high BPM (less lead).
-  Low tempo unchanged (=24). Tune `projSpeedFast` by ear. User liked it.
-- The **`/dojo` far cap** rode a saga: 50 → tightened to 42 (`c4e6aa4`) → reverted to **50** (`d6fd965`) because
-  tempo-scaled bullets can reach the room corners again. Server + `supabase-dojo.sql` both at 50 now.
-
-### Supabase manual ops (user's side)
-- **Probe-row cleanup: ✅ DONE (2026-06-24)** — the user ran `delete from public.aimdojo_dojo where client_id = 'capprobe';`
-  (the 5 bogus far=45 rows I left while testing the cap). Cap stays **50** (skipped the old `far<=42` ALTER).
-- Optional, still open (none blocking): lockdown `drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;` (server is
-  the sole writer); drop the orphaned `aimdojo_daily` + `aimdojo_scores` tables (dead since the pivot).
-
-### Memory
-Saved [[reduced-motion-hides-aim-assists]] — a work/managed machine with prefers-reduced-motion silently hides the
-arc/floor-HUD/edge-tints; looks like a regression. (Fixed in `adc5b55`: functional aim assists now always render;
-only true motion is suppressed.)
-
-
-The user: *"the main thing in this app is not the daily competitions but… the dojo is so satisfying."* The pivot is
-**DONE & LIVE.** The app is now the **free-play ARC distance trainer ("the dojo")** + a **global DOJO RECORDS
-leaderboard**. The daily challenge, ghosts, and railgun are **all removed.** Build-blind loop held throughout
-(node --check + dangling-ref greps + a multi-lens adversarial review per step; **0 confirmed findings** except the
-one far-cap fix noted below). Session commits, in order:
-- `809d378` **Right-click freezes the time-of-day** (`skyFrozen` gates the `dayPhase` advance in `updateSky`; reuses
-  `showGhostToast`/`#ghostToast` for the toast — that's why the toast helper SURVIVED the ghost purge).
-- `af0ed98` **Global DOJO RECORDS leaderboard (Phase A)** — `aimdojo_dojo` table (`supabase-dojo.sql`) + `/dojo`
-  Railway endpoint + the 🥋 board (5 sort tabs: kills/streak/bpm/far/high) + `submitDojo` on free-play run end +
-  localStorage personal bests + mid-run **★ NEW RECORD** flash. Review caught 1 real bug: the server `far` cap was
-  the ARC ballistic max (~36m) but railgun could hit a corner orb at the room diagonal (~46m) → raised to **50** in
-  both `server.js` and the SQL CHECK. (Railgun's since gone, so the cap *could* now tighten to ~40 — optional.)
-- `adc5b55` **Reduced-motion fix** — the trajectory arc / floor HUD / edge tints were gated OFF by
-  `prefers-reduced-motion` (they vanished on the user's work laptop and looked like a regression). Now the FUNCTIONAL
-  aim aids always render; only genuine motion (shake/clutch/combo-glow/beat-pulse/conveyor-scroll/lock-breathe) stays
-  suppressed. See [[reduced-motion-hides-aim-assists]] in memory.
-- `9b70d73` **Phase B Step 1 — ghosts removed** (racing/display layer; recording kept temporarily for the daily replay).
-- `dfae4b5` **Step 2a — daily made unreachable** + its code/UI/boards/pace/score-race/`/daily` endpoint removed.
-- `cda449a` **Step 2b — collapsed all dead `state.challenge` branches + removed orphans** (`mulberry32`/`strHash`/
-  `dayKey`/`challengeSeed`, the seeded-RNG machinery, ghost recording, `CFG.challenge*` keys). The daily is fully gone.
-- `32e9713` **Step 3 — railgun removed; ARC is the ONLY fire mode** (`fire()`→`spawnProjectile()`; tracer + hit-scan +
-  peak-BPM board gone; `#nameInput` relocated into the dojo header; `CFG.projectile` left as a vestigial always-true const).
-
-### Current app shape (as of this session)
-**Free-play only** (CFG.mode rhythm/hunt; ARC ballistic shot; the distance-trainer spawn shell `state.range`) +
-**realtime presence/opponent reticles** (Supabase Realtime, kept) + the **🥋 DOJO RECORDS** global board. Sky-freeze
-on right-click. No daily, no ghosts, no railgun, no seeded RNG (`rng` is always `Math.random`).
-
-### Remaining follow-ups (none blocking)
-- **OPS cleanup (user, in Supabase):** the `aimdojo_daily` and `aimdojo_scores` tables are now **orphaned** (nothing
-  reads/writes them) — `drop table public.aimdojo_daily;` + `drop table public.aimdojo_scores;` whenever.
-  `supabase-daily.sql` + `supabase-leaderboard.sql` are dead files. For the dojo board, once it's confirmed, optionally
-  `drop policy "aimdojo_dojo insert" on public.aimdojo_dojo;` (lock writes to the Railway service role).
-- **OPTIONAL:** tighten the `/dojo` `far` cap 50→~40 (`server.js` + `supabase-dojo.sql` CHECK; deploy server before the
-  SQL `ALTER`) now that hit-scan corner reach is gone. Harmless to leave at 50.
-- **Stale internal comments:** a handful still mention "daily"/"the daily"/"hit-scan" for historical param/determinism
-  context (e.g. `onHit`/`gradeRhythmHit` atT comments, the dead `else` in the animate ARC guard). Harmless; cosmetic.
-- **`CFG.projectile`** is now a vestigial always-true constant the `updateArcPreview`/`updateScope`/animate gates read;
-  could be fully collapsed for tidiness (low value).
-- **Self-ghost:** the user confirmed they never used it — removed with the ghost system (Step 1/2). Don't rebuild it.
-
-### NOTE on the sections below
-**Everything below `## ▶ START HERE` is now HISTORY** and describes systems that were REMOVED this session (daily,
-ghosts, railgun, pace ghost, score race, weekly seasons, the peak-BPM board). Read it for as-built context on the
-*current* systems (sky, targets, ARC/scope, floor HUD, edge tints, audio, realtime, the dojo board) but treat any
-daily/ghost/railgun detail as gone. The deprecated multiplayer/daily docs are retained only for archaeology.
-
-## ▶ START HERE (next session)
-The game is in great shape and the user says it's **"genuinely addicting."** **ALL FIVE `SPEC_NEXT.md`
-roadmap features are now SHIPPED + LIVE** — (1) juice pass, (2) self-ghost, (3) per-target ideal arc,
-(4) special orbs, (5) wind (free-play prototype) — plus a clutch-burst color bugfix. Each was built
-build-blind (syntax + logic + numeric checks + a multi-lens adversarial review with **0 confirmed findings**)
-and is **awaiting the user's playtest**. **Read `SPEC_NEXT.md` first** — every §1–§5 has the as-built notes,
-the **CFG tunables to adjust by ear/eye**, and the playtest questions.
-**Playtest round 1 happened (`ee2f662`):** user calls it "so far so good." Verdicts: **likes special orbs**
-(no change); **daily endgame is too fast at high BPM but that's ACCEPTED ("which is fine")** — do NOT ease the
-ramp unless asked; **daily felt overwhelming — "two cursors from two ghosts"** → FIXED with a **G-key ghost
-toggle** (none / your-best / top-scorer, default your-best); **per-target ideal arc worked but the numbers
-crowded the cursor** → REDESIGNED into a **seven-segment LED vertical-miss gauge on the lock box**
-(see Shipped #16). **STILL needs the user's feel feedback (not yet given): clutch (freq/zoom/slow), combo
-glow, wind, the self-ghost loop.** **Next session: ask about those + how the new LED gauge / ghost toggle feel.**
-Per playtest the floating **▲apex height number was RESTORED** (`cb25994`, user liked it — it gives context to
-the delta gauge); the **orb-top ↑height labels stay retired**. The delta gauge backdrop was also made
-**transparent** (`cb25994`) — dark LED-screen box + faint unlit ghost segments removed, only the lit red/green
-lettering shows (with a thin dark drop-shadow halo for legibility). Then the open work is the **promotions /
-deferrals** (none roadmap-blocking; see SPEC_NEXT "Open follow-ups"): promote **wind to the daily** (needs
-seeded wind + a clean cutover — user must greenlight), and the deferred **free-play self-ghost**.
-**Key gotchas that held (keep holding them):**
-- The clutch "slow-mo" must NOT scale `dt`/the master clock (would desync Tone.Transport). It's localized:
-  a camera FOV punch + an explosion-only `rec.slow` (`edt=dt*slow` inside the explosion loop ONLY).
-- **Daily determinism:** special orbs roll `rng` only when LIVE (latched per-run); wind is `0` in the daily.
-  Both keep the daily seeded-fair + bit-identical. Special orbs auto-cut into the daily at `specialDailyTs`
-  (`Date.UTC(2026,5,22)`); wind is NOT in the daily yet.
-- **Daily score invariant `score === h.length`** (server `score≤h.length`): gold pushes matching `h` entries;
-  decoys never score. Don't break this when touching scoring.
-Follow the build-blind loop (validate → dangling-ref grep → adversarial review for risky diffs → push → poll).
-
-## What it is
-A single-file, browser-based **rhythm + spatial-audio aim trainer** with a full day/night sky,
-adaptive difficulty, a multiplayer stack, and a **ballistic (projectile) shot mode with a firing-computer
-scope**. Built for the user (high-school math teacher, robjohncolson). Everything lives in **`index.html`**
-— no build step (~2260 lines; one big IIFE of JS after a Codex perf pass).
-
-- **Repo:** `github.com/robjohncolson/aim-dojo` (public). `gh` is authed as **robjohncolson**.
-- **Live:** https://robjohncolson.github.io/aim-dojo/ (GitHub Pages, deploys from `main` root).
-- **Tech (all CDN, no bundler):** Three.js r128, Tone.js 14.8.49, qrcodejs 1.0.0, @supabase/supabase-js@2.
-  (Tone.js + Supabase are now **lazy-loaded**; only Three.js loads eagerly — see the perf pass.)
-- **Working dir:** `C:\Users\rober\Downloads\Projects\aim-dojo` (its own git repo, nested in parent Projects).
-
-## ⚠️ Critical working constraints (read first)
-1. **BUILDING BLIND.** The browser-harness can't attach (Chrome's `chrome://inspect/#remote-debugging`
-   needs a one-time manual **Allow** the user hasn't done). **Every feature is verified by syntax + logic
-   only, never seen running.** The user playtests and reports back. Visual features (the trajectory viz,
-   scope, floor HUD) are tuned iteratively by eye — expect several round-trips.
-2. **Validation pattern** (use after EVERY edit): extract the inline `<script>` to a temp file and
-   `node --check` it:
-   ```bash
-   python - <<'PY'
-   s=open(r"C:\Users\rober\Downloads\Projects\aim-dojo\index.html",encoding="utf-8").read()
-   i=s.index('"use strict"'); a=s.rfind('<script>',0,i)+len('<script>'); b=s.index('</script>',i)
-   open(r"C:\Users\rober\AppData\Local\Temp\chk.js","w",encoding="utf-8").write(s[a:b])
-   PY
-   node --check "C:/Users/rober/AppData/Local/Temp/chk.js"
-   ```
-3. **ALSO grep for dangling refs after removing/renaming a symbol.** `node --check` only catches syntax,
-   NOT runtime `ReferenceError`. Removing a `const`/`let` while a reference survives = a freeze that passes
-   syntax check. This bit us TWICE (`arcLine`, `remotes`). After any rename/removal:
-   `python - <<'PY' ... re.findall(r'\bSYMBOL\b', js) ...` and confirm 0 stray uses.
-4. **Deploy loop:** edit `index.html` → `git add -A && git commit` (end msg with the Co-Authored-By line)
-   → `git push origin main` → Pages rebuilds in ~40–90s. Poll for a unique new string:
-   ```bash
-   for i in $(seq 1 12); do st=$(gh api repos/robjohncolson/aim-dojo/pages/builds/latest --jq .status);
-   has=$(curl -s "https://robjohncolson.github.io/aim-dojo/?cb=$RANDOM" | grep -c 'SOME_NEW_STRING');
-   echo "$st $has"; [ "$st" = built ] && [ "$has" -ge 1 ] && break; sleep 8; done
-   ```
-5. **Line numbers drift** (the Codex perf pass renumbered everything; we add code constantly). **Match by
-   text, not line number** when editing.
-6. **Review risky changes before pushing.** Pattern used this session: for large/gameplay-touching diffs,
-   run an adversarial review (multi-agent workflow, or a single Explore/general-purpose agent) over the
-   diff + file, verify each finding, fix, THEN push. Caught a real daily-leak bug and a reflection
-   regression before they shipped.
-
-## Files
-- `index.html` — the entire game (HTML + CSS + one big IIFE of JS).
-- `README.md`, `LICENSE` (MIT), `.gitignore`.
-- `supabase-leaderboard.sql` — `aimdojo_scores` (global peak-BPM board). **Run.** ✅
-- `supabase-daily.sql` — `aimdojo_daily` (daily challenge + `replay` ghost column). **Run.** ✅
-- `server/` — Railway anti-cheat (`server.js` Express, `package.json`, `.env.example`, `README.md`).
-  **DEPLOYED + live + locked down.** ✅ (see Supabase/Railway).
-
-## Architecture of `index.html` (mental map)
-One IIFE. **`animate()` is invoked LAST, at the very end of the IIFE bootstrap** (after all module-scope
-`const`/`let` exist) — do NOT move it earlier (that caused the original total-freeze TDZ). Major systems:
-
-- **Seeded RNG:** `rng`/`rnd()`, `mulberry32`, `strHash`, `dayKey` (UTC). Daily challenge reseeds so
-  everyone gets the same run. `Math.random` elsewhere.
-- **CFG** object — all tunables. **`projectile:true` (ARC is the DEFAULT shot type now), scope:true.**
-- **Scene/renderer/camera**, `PLAYER_POS=(0,EYE=4,0)` (player rotates via yaw/pitch).
-- **Sky/day-night/reflection/floor:** dome shader, `updateSky`, sun+moon orbit, planar sky reflection
-  (`reflRT`, `syncReflUniformSize`/`reflResDirty`), day checker floor + night grid. Largely as before;
-  the perf pass made textures **deferred** (`buildStars`, checker map built at idle).
-- **Targets:** pooled (`acquireTargetMesh`/`acquireTargetRecord`); `spawnTarget`; beat-locked `onGrid`;
-  brownian wander (off in the seeded challenge). Each `tg` has `.mesh/.shell/.vel/.radius/.born/.dead/.sc`.
-- **Firing:**
-  - **Railgun (hit-scan):** `fire()` → manual ray-sphere (the perf pass replaced `THREE.Raycaster`).
-  - **Ballistic (ARC) — the DEFAULT *and* the daily now:** `fire()` → `spawnProjectile()` when
-    `CFG.projectile || state.challenge`. Pooled projectiles, gravity-integrated, swept segment-vs-sphere
-    collision. **Rhythm graded by FIRE-TIME** (`atT` threaded into `gradeRhythmHit`/`onHit`), so "fire on
-    the beat" holds; the projectile adds the spatial lead+drop skill. A shot counts ONCE (hit XOR expire).
-    Railgun is the free-play FALLBACK (projSeg toggle off). The ARC guards are `(CFG.projectile ||
-    state.challenge)` in fire / the updateProjectiles animate-gate / `updateScope` / `updateArcPreview`.
-- **`computeShotPlan(M,V)` — THE shared shot helper (ARC section).** Launches from the **bottom-right
-  muzzle** (`BLADE_DX/DY/DZ`) with a velocity solved to land where the eye→crosshair parabola lands
-  (`_arcI`). Used by: `spawnProjectile` (real bullet), `updateArcPreview` (the dashed ribbon), and the
-  scope lock (`simShotHits`). So the **bullet flies exactly down the drawn ribbon.**
-- **Trajectory viz (`updateArcPreview`, ARC only, throttled ~20Hz):** a **thin, faint, SOLID camera-facing
-  ribbon** (`arcRibbon`, billboarded quad strip; `RIB_HALF:0.045`, opacity 0.16). The old scrolling
-  marching-dash texture was RETIRED (slimmed per playtest — `makeDashTex`/`DASH_PERIOD`/`arcLen` gone, no
-  `.material.map`). Plus `arcLand` (static landing ring) + `arcPulseA/B` (beat-pulsed rings at the impact,
-  still present). Lofted ballistics (`projSpeed:24, projGravity:16`) make the parabola visibly curved.
-  `animateArcPulse` runs every frame; geometry rebuild is throttled.
-- **Ballistic scope (`updateScope`, ARC only, throttled ~30Hz):** `scopeLockTarget` (nearest to crosshair)
-  → `simShotHits` (marches the REAL shot vs the moving target → **path-accurate LOCK**). Renders: a
-  **seeking→LOCK reticle** (`#lockBox`,
-  bracket around the target, gold "LOCK" when your shot would connect), and a HUD (`#scopeHud`:
-  θ→TGT / AIM elevation / RANGE / FLIGHT / LEAD; m/ft via `CFG.scopeUnits`). `projectPointScope` projects
-  world points to screen (mirrors `projectDir`). The gold **aim-pip** (`#scopeAim`) is **RETIRED** (element
-  + CSS kept, `scopeAimEl` never gets `.on`) — redundant once the orb holds still + the lock box exists.
-- **Floor HUD (`updateTargetMarks`, ALL modes, every frame):** under every live target — a **beat-synced
-  pulsing ring** on the floor + a **vertical dropline** + a floating **distance label** (`.tgtDist`, slant
-  range in m/ft). Pooled (`targetMarks`). `updateLandRings` + `spawnLandRing`: a big ring radiates out
-  where a ballistic shot hits the floor.
-- **Hit distance/height stats (`4174143`):** on every successful (non-decoy) hit, `recordHit(tg)` flashes the orb's
-  **distance-to-player + altitude** (`#hitFlash`, ~1s pop-fade) and tracks session bests `state.maxHitDist`/
-  `maxHitHeight` → **FARTHEST / HIGHEST** rows in `#statBox` (via `renderStats`, reset per session). Floor `.tgtDist`
-  label bumped to 14px (`3b24ab8`). The FLAWLESS/PERFECT timing popups were removed (`51e6e22`) — the flash is the only post-hit readout.
-- **Time-to-hit = pulsing reticle (`2ba1b95`):** when LOCKED, the lock box BREATHES (one expand/contract per projectile
-  FLIGHT = the time-to-hit) instead of a number — `_pulsePhase` drives `--pulse` (a `scale()` on `#lockBox`'s transform,
-  ±15%) in `updateScope`; quick shot = fast pulse. (Replaced an earlier `#tth` "N beats" text readout.)
-- **Adaptive engine:** `maybeAdjust`→`changeBpm`/`changeSpeed`. Skipped in the daily.
-- **Audio:** lazy Tone.js; synths + chord on hit. The daily refuses to start without audio (`startChallenge`
-  gates on `toneReady`).
-- **Leaderboards (Supabase, raw fetch, anon key embedded, RLS-protected):** global `aimdojo_scores`
-  (peak BPM; `submitScore` **skips ARC + challenge runs** to keep the board hit-scan-pure) + daily
-  `aimdojo_daily` (kills + `replay` ghost; `submitDaily` routes through Railway).
-- **Daily challenge:** `startChallenge` (seed from `dayKey`), fixed ease-in tempo ramp, `endChallenge`
-  (stops the run SYNCHRONOUSLY then releases pointer lock). **`EXIT DAILY → FREE PLAY` button** on the
-  pause overlay clears `state.challenge` and restores the start card (`exitChallenge`/`restoreStartCard`).
-  **The daily is now ARC** (projectile + scope + held-target strobe), not hit-scan. It stays seeded-fair
-  because the ARC path consumes NO rng/Math.random (firing never touches the seeded spawn stream) and
-  brownian stays off in the daily. The daily strobe steps off `Tone.Transport.ticks` — the same audio clock
-  as the spawn scheduler (`onGrid`) — so steps + spawns share one timeline. ARC tempo retuned
-  (`challengeMaxBpm:110`, `challengeEase:1.9` — eased both ways for ARC). Server anti-cheat unchanged
-  (score===h.length + hit-rate hold for ARC).
-- **Ghosts:** record aim @20Hz + hits → JSON `replay`; `loadGhost`/`updateGhost` draw the top scorer's
-  purple reticle.
-- **Realtime (Supabase Realtime):** `initRealtime` → presence ("N in the dojo") + `broadcastAim` (rides
-  k/s/c too) + green opponent reticles. **Live Score Race** (`renderScoreRace`): a kill ladder of everyone
-  on today's seed, gated to the challenge, "passed you!" flash. Gated so solo frames skip the work.
-- **Mobile:** touch controls; FIRE routes through `fire()`. Reduced-motion respected (gates the flashy bits
-  incl. the trajectory viz + floor HUD pulses).
-
-## Supabase / Railway — ALL DONE ✅
-- **Project:** `hgvnytaqmuybzbotosyj`. Anon key embedded (public by design, RLS-protected).
-- `aimdojo_scores` + `aimdojo_daily`: created.
-- **Railway verify server: deployed + wired + locked down.** `RAILWAY_URL =
-  'https://aim-dojo-production.up.railway.app'` (index.html). `/health` returns `{ok:true,configured:true}`.
-  Daily scores POST to `/daily` → server validates (replay parse, score≤hits, hit-rate≤8/s, UTC-day,
-  rate-limit) → service-role insert. The **anon-insert policy was dropped** (`drop policy "aimdojo_daily
-  insert"`), so the server is the sole writer to the daily board. Verified end-to-end this session.
-
-## Multiplayer roadmap — all stages + Live Score Race + Percentile Pace Ghost + Weekly Seasons ✅
-leaderboard → daily seeded challenge → ghosts → Railway-verified scores (DEPLOYED) → realtime presence +
-reticles → **Live Score Race** → **Percentile Pace Ghost** (live "DAILY PACE — ahead of X% of today's
-field" bar; `loadPaceField`/`updatePaceGhost`, top-center HUD, works SOLO since it races the *recorded*
-field) → **Weekly Seasons** (`loadSeasonBoard`, a standings board summing each player's best daily score
-this UTC week). Remaining roadmap ideas (not built): **shareable result card + streak** (next, mostly
-client-side); **Best-of-3 Duel brackets** (needs a realtime lobby/matchmaking — big lift, low confidence
-build-blind).
-
-### Percentile Pace Ghost — how it works (built)
-`updatePaceGhost` (daily branch, throttled ~6Hz via `PACE_STEP`) sweeps a monotonic `Int32Array` cursor
-per opponent run through that run's recorded **scoring-hit times** (`replay.h`, centiseconds) vs `state.t`,
-then renders `pct=round((below+ties*0.5)/paceTotal)`. `loadPaceField` fetches today's runs (deduped to each
-client's best, like `loadDailyBoard`) on `startChallenge`; `hidePace` clears it on every exit. Tiers: gold
-≥80% / red <40%; flash on climb (reduced-motion gated); "warming up" before your first kill (no false 50%).
-**Replay `h` now records SCORING hits only** (the `h.push` moved into the `if(good)` branch of
-`gradeRhythmHit`), so `h.length === score` and pace matches the board exactly — and the ghost reticle now
-flashes on scoring hits. Server `score≤h.length` / hit-rate checks still pass (h only got smaller).
-**Scaling note (not built):** `loadPaceField` downloads up to 120 FULL replays and parses each just to read
-`h` (the big `a[] aim path is wasted). If a single day's field ever gets large, add a server/Supabase
-h-only aggregate (RPC or a lightweight `pace` column) instead of fetching whole replays.
-
-### Weekly Seasons — how it works (built)
-`loadSeasonBoard` renders the `#seasonBox` standings (rank / name / total / "Nd" days-played) under the
-daily board. `seasonDays()` builds the **7 day-keys of the current UTC week (Mon–Sun)** via `dayKeyOf` —
-which MUST mirror `dayKey()`'s **non-padded** format (`2026-6-15`, not `06-15`), because the stored `day`
-strings aren't zero-padded so a lexical `day=gte` range query is WRONG; we query exact keys with
-`day=in.(...)`. Per player, take the **best score per day**, **sum** across the days played, sort by total
-(then days-played). Reuses `aimdojo_daily` — no new table/server/realtime. Wired into all three board
-refreshes (startup, run end, `submitDaily`). **Scaling note:** client-aggregates up to `limit=2000` rows;
-if a week's field gets large, move to a server aggregate (same path as the pace ghost).
-- **FPS/DPR readout (dev/validation):** visit `…/?fps` (or `#fps`) → live `N fps · dpr X.XX` top-left
-  during play (`_showFps`/`fpsEMA` in `animate`, EMA of rAF timestamps + `renderer.getPixelRatio()`).
-  Cross-device (no keyboard needed) → the way to finally validate the Codex perf pass on phones/school
-  machines. Gated to the URL flag; zero cost otherwise.
-
-## Defaults (`26584fd`, slider `value=` attrs + CFG, kept in sync by `applySettings`)
-window size **25** (`win`/`windowSize`), FOV **70** (`fov`), speed-up **80%** (`upThreshold`, `4cb03da`; was 100%) / slow-down **0%**
-(`upTh`/`downTh` → `upThreshold:1.0`/`downThreshold:0` — tempo stays ~fixed unless perfect/terrible; `upTh` slider max
-extended to 1), default tempo **20 bpm** (`startBpm`), orb density **1.00×** (`density`/`densityScale`). **Daily density
-DECOUPLED:** `onGrid` uses `CFG.challengeDensity` (0.55, the old default) in the daily, `densityScale` (the setting) in
-free-play → the daily is seeded-fair + byte-identical regardless of the user's density slider. Other settings affecting
-the daily: NONE (daily uses a fixed tempo ramp, not `startBpm`/`upThreshold`/`downThreshold`; `windowSize` is audio-only there).
-
-## Key tunables (in `CFG` unless noted)
-- **Ballistics:** `projSpeed:24`, `projGravity:16` (lofted for a visible arc; raise speed / lower gravity
-  to flatten — keep `projSpeed²/projGravity ≥ ~30` so far targets stay reachable), `projRadius`, `projLife`.
-  `projectile:true` (ARC default), `projArc:true`, `scope:true`, `scopeUnits:'m'`.
-- **Trajectory ribbon (ARC section consts):** `RIB_HALF:0.045` (thin), ribbon material opacity `0.16`
-  (faint, SOLID — dashes retired), `BLADE_DX/DY/DZ` (muzzle offset, bottom-right), `ARC_SAMP:30`.
-- **Floor HUD (`updateTargetMarks`):** ring radius `0.5+beat*0.38`, `Math.pow(...,1.6)` beat envelope,
-  marker color `0xffce5c`. **Land ring (`updateLandRings`):** `0.5+k*3.4` radius, `0.55s` life.
-- **Scope lock:** `simShotHits` radius margin (`+0.12`), lock cone in `scopeLockTarget` (`bestDot 0.72`).
-- **Arc-delta LED gauge (`updateScope` + `#arcDelta` CSS):** greens/vanishes on **LOCK** (`simShotHits`, same as the
-  gold lock box) — `CFG.arcMatchTol` is VESTIGIAL (no longer the trigger). Seven-seg geometry is fixed CSS (digit 12×20px, 2.5px bars);
-  blink timing in `@keyframes ledMatch`. Colors = `--blood` (red) / `--toxic` (green). To bring back the retired
-  floating apex number, un-retire the `#arcApexInfo` block in `updateArcPreview`.
-- **Daily ghost toggle:** `ghostMode` (0/1/2, default 1), key `G`, persisted `aimdojo.ghostmode`. To change the
-  default, edit `let ghostMode=1`. The cycle order is `(ghostMode+1)%3` → none→self→top.
-- **DISTANCE TRAINER — spawn distance (FREE-PLAY only, `b44a40a`):** `state.range` (spawn shell far edge,
-  `rangeStart:11`→`rangeMax:28`) now creeps **SUB-PERCEPTUALLY PER EVENT** in `pushEvent`: `+rangeHitStep:0.08`
-  on each hit, `-rangeMissStep:0.20` on a miss → drifts farther imperceptibly as you land shots, eases back when
-  you struggle (converges ~71% reach; equilibrium = `missStep/(missStep+hitStep)`). This REPLACED the old chunked
-  march (`rangeStep:1.2`/`rangeStepDown:1.6` via `changeRange` in `maybeAdjust` on sustained ≥80%/≤45% accuracy) —
-  those two CFG are now **vestigial**. `spawnTarget` still draws from `[max(rangeNear:8, range-rangeBand:8) .. range]`.
-  The daily stays on fixed `spawnDist` (`!state.challenge` gate in pushEvent + `maybeAdjust` returns early in the
-  daily). NOTE the `if(up||down) sinceAdjust=0` in `maybeAdjust` is still there for the bpm/speed cadence. The user
-  framed this as "the orbs move sub-perceptually further with successful hits" — a stealth distance trainer.
-- **Pace ghost (daily):** `PACE_STEP:1/6`, tier cutoffs 80/40, fetch `limit:120` (deduped). See the
-  Percentile Pace Ghost section above.
-- **Beat-quantized target motion (FREE-PLAY RHYTHM only):** `beatQuant:true`, `beatQuantDivs:[2,4,8]`
-  (1/2→1/4→1/8 beat), `beatQuantT:[0.40,0.75]`. **Wander SPEED is skill-scaled**: `velCap=lerp(brownianMaxSlow:1.4,
-  brownianMax:9, diffT())` (replaced the old fixed `BROWNIAN_MAX2`) so low-tempo orbs barely drift (small,
-  sedate steps) and only move fast at high skill — bpm sets the step *cadence*, velCap sets *how far* each
-  step travels. The orb HOLDS position+velocity between beat-grid ticks then STEPS, so the
-  cursor + target-locked aim guides (lock box, lead, range, floor ring — all read
-  `tg.mesh.position`+`tg.vel`) settle instead of fleeing. Phase-locked via `Tone.Transport.ticks/PPQ`;
-  subdivision steps by `diffT()` per `beatQuantDivs` (currently 1/2→1/4→1/8). Module state `_quantIdx`/`_quantT` (reset in resetSession).
-  On a snap, `scopeAccum`/`arcAccum` are forced so the guides recompute the same frame. Strobe-path wall
-  bounce reflects POSITION (large steps); continuous bounce unchanged. **Free-play AND the ARC daily strobe**
-  (gate `mode==='rhythm' && CFG.beatQuant && toneReady`, then `Tone.Transport.state==='started'`); both use
-  the `Tone.Transport.ticks` clock. Only **hunt** stays continuous (`doSnap=true` every frame → identical).
-  NOTE: the **trajectory ribbon is camera/crosshair-driven** (`updateArcPreview`), NOT target-driven — the
-  strobe does NOT calm it (it follows your aim by design). If ribbon scatter is ever the complaint, that's
-  a separate fix (smooth the crosshair / snap the ribbon's far end to the locked target).
-- **Difficulty/sky/spawn/trail:** as before (bpmUp/Down, thresholds, DAY_SLOW/FAST, spawnDist, etc.).
-
-## Codex WebGL perf pass (a9e0cdd) — know this before editing render code
-Lazy startup (only Three.js eager), deferred stars/checker/reflection textures, **adaptive DPR**
-(`setRenderDpr`/`updateRenderQuality`), throttled reflection/sky/realtime updates, **pooled**
-targets/beams/projectiles/explosions/trails, **manual ray-sphere hit-scan** (replaced `THREE.Raycaster`),
-cached DOM writes (`setText`/`setClassName`/`setStyle` with `._cache`), realtime work gated on solo frames.
-Reviewed clean (0 regressions) except one fixed: deferred checker map recompiled the floor shader and reset
-the reflection `uRes` — `setDayFloorTex` now re-marks `reflResDirty`. **Perf gains are unverified at runtime**
-(can't profile blind) — a real device FPS capture is the outstanding validation.
-
-## Shipped (recent work)
-**Playtest-accepted ("genuinely fun")** — tuning settled, no open round-trips:
-1. **Skill-gated spawn distance** (free-play) — starts close (8–11m), marches the spawn shell outward on
-   sustained ≥80% accuracy, pulls back when struggling.
-2. **Percentile Pace Ghost** (daily) — live "ahead of X% of today's field" bar; works SOLO.
-3. **Beat-quantized target motion** (free-play rhythm) — the orb HOLDS then STEPS on the beat; wander SPEED
-   tied to skill (sedate at low bpm via `velCap`, fast at high). The big "feel" win.
-4. **ARC guide cleanup** — aim-pip retired; trajectory ribbon slimmed to a thin/faint/SOLID arc; lock box +
-   landing ring + impact pulses kept.
-
-**Shipped, awaiting the user's eyes** (built + validated, not yet playtested in anger):
-5. **Weekly Seasons** board (see its how-it-works section).
-6. **FPS/DPR readout** at `…/?fps` — for the user to capture real-device perf.
-7. **Global board relabeled "RAILGUN · PEAK BPM"** — kept hit-scan-pure. NOTE: with ARC now the default +
-   the daily, this board is largely **dormant** (only fed by free-play RAILGUN runs via the toggle). The
-   daily/season boards are the real comp. Could relabel/repurpose to ARC later if desired.
-8. **Adaptive audio** — groove builds with streak (layered drums + bass via grooveI), timing-graded hits
-   (`playHit`), in-key misses, ARC flight whoosh + impact thud. **First pass — tune by ear.**
-9. **ARC daily** — the daily is now ARC (projectile + scope + held-target strobe), railgun soft-deprecated
-   to a free-play fallback. Deterministic via Tone.ticks + no rng in the ARC path; anti-cheat intact
-   (15-agent review). **Transition:** today's board may briefly mix railgun + ARC runs; clean from the next
-   UTC midnight. (To avoid even that, could gate ARC-daily to a future dayKey — not done; user said go.)
-10. **Recent UI/feel tweaks (playtest-driven):** daily ARC tempo eased to `challengeMaxBpm:110`/
-    `challengeEase:1.9` (was 128/1.5); free-play adaptive sliders open 0–95% (up) / 0–75% (down), slow-down
-    **default 5%**; **ARC info readouts** — landing-distance label (`#arcLandInfo`), apex tangent line
-    (`arcApex`) + height (`#arcApexInfo`), and a target **height** label that floats at the orb's TOP and
-    shows ONLY when the orb is above your shot's apex (`_arcApexY`/`_arcApexOn`); **daytime legibility** —
-    the ARC viz + floor-HUD rings switched additive→NORMAL blend with a bold warm **orange**, opacity
-    day-boosted via module `dayAmt` (exposed from `updateSky`), bigger landing/pulse rings, heavier label
-    outlines.
-
-11. **Juice pass + daily self-ghost (`368bd4f`, LIVE)** — see `SPEC_NEXT.md` §1/§2 for full as-built notes.
-    (a) **Combo color-lift:** warm vignette `#comboGlow` rides a smoothed `glowI` (streak-driven, rise-fast/fall-slow),
-    `!reduceMotion`-gated overlay. (b) **Clutch flourish** (long-range OR last-second; `CFG.clutchAnd:false`):
-    localized camera FOV punch (`clutchT`→`camFovBase`, restored exactly) + explosion-only slow-mo (`rec.slow`→`edt`,
-    **never** the master clock) + gold burst + camera-facing shockwave ring (`clutchRing`), with a `clutchCooldown`.
-    (c) **Daily self-ghost:** cyan `#selfGhostRet` racing your stored best on today's seed (localStorage
-    `aimdojo.selfghost`, daily-keyed, offline). New CFG: `comboGlow/glowMax/glowStreakFull/glowRiseK/glowFallK` +
-    `clutch/clutchAnd/clutchRange/clutchLateBeats/clutchCooldown/clutchTime/clutchZoom/clutchSlow/clutchBurst/clutchRingTime`.
-    **Tune by ear/eye + playtest; user not yet seen it run.**
-12. **Clutch-burst color fix (`503e9b6`)** — the shipped clutch explosion was rendering BLACK: `CLUTCH_COLOR` was a
-    `THREE.Color` object passed to `explodeAt`→`acquireFlash`/`acquireShards` which call `color.setHex(color)` (needs
-    an int → `Math.floor(obj)=NaN`→black). Made it a hex int. **Gotcha:** kill-burst colors MUST be hex ints, not `THREE.Color`.
-13. **Per-target ideal arc (`a5819f6`, LIVE)** — `#scopeHud` shows `IDEAL <loft>° loft · peak <apex>` for the locked
-    target (closed-form lofted-launch solve at `projSpeed`; lead-iterated intercept). Read-only; daily-deterministic. See SPEC_NEXT §3.
-14. **Special orbs (`fa42b21`, LIVE; decoys DISABLED `e06b59d`)** — gold bonus (×2, `score===h.length`-safe) + a
-    don't-hit decoy. **DECOYS ARE OFF (`decoyChance:0`)** — playtest verdict: the "don't-hit" orb made the correct
-    play passive/boring + hitting one was pure punishment. Gold bonus KEPT. All decoy code (kind 2, red AVOID
-    reticle `#lockBox.decoy`, `decoyDistMul` closer-spawn, scope-includes-decoys) is intact behind the 0 chance —
-    flip `decoyChance` back to re-enable, or rework into an ACTIVE challenge orb (don't-hit is the boring part).
-    `tg.kind` still rolled from `rng` when LIVE (latched per-run) → daily byte-identical. See SPEC_NEXT §4.
-    **NEW orb kinds (`9621b4d`, FREE-PLAY only — daily kind roll byte-identical, verified):** the kind roll now branches
-    `state.challenge` → DAILY gets gold-only at `goldChance:0.06` (unchanged); FREE-PLAY gets a richer mix — more gold
-    (`goldChanceFP:0.12`) + **SPEED** (kind 3, cyan `0x3fd0ff`: ×`speedScore:3` if hit within `speedWindow:0.8`s of
-    spawn else ×1, `speedLifeMul:0.7` shorter life) + **MOVER** (kind 4, purple `0xc77dff`: ×`moverScore:2`,
-    `moverVelMul:2.2` faster drift). Shared `kindScore(tg, atT)` drives both scoring paths (gold path unchanged → daily
-    `score===h.length` safe; free-play tracks no `h`). Per-kind spawn mods in `spawnTarget` (gold farther+smaller,
-    speed shorter life, mover faster vel). **STILL TODO (user greenlit): DOUBLE-TAP orb** — needs survive-first-hit
-    (orb takes 2 hits): branch `killTarget` in `onHit`/`gradeRhythmHit` on a `tg.taps` counter; deferred as the complex one.
-15. **Wind (`b517d4b`, LIVE) — FREE-PLAY PROTOTYPE, opt-in `?wind`/`CFG.wind`** — gentle per-run wind in all 4 ballistics
-    fns (ribbon still = bullet, verified), `uWind` cloud drift, `#windHud` arrow+strength. Daily = wind 0 (bit-identical).
-    NOT in the daily yet. See SPEC_NEXT §5. **Tune strength + cloud sign.**
-16. **Arc-delta LED gauge + daily ghost toggle (`ee2f662`, LIVE) — playtest-driven:**
-    (a) **Deviation cue = SCREEN-EDGE RED TINTS (`1b1adcb`→`69462ff`):** four fixed `.edgeTint` divs
-    (`#edgeTop/#edgeBot/#edgeLeft/#edgeRight`) — the screen edge you must aim TOWARD glows red, **opacity ∝ |delta|**:
-    **Δy<0** (arc below orb → aim up) → **TOP**; **Δy>0** → **BOTTOM**; **Δx>0** (arc right → aim left) → **LEFT**;
-    **Δx<0** → **RIGHT**. Bands are `5vh` (top/bottom) / `3.34vw` (sides), red→transparent gradient fading inward,
-    `z-index:3` (below the HUD so text stays readable). `driveEdgeTints(vMiss, lat)`/`hideEdgeTints`/`edgeOp(mag)`
-    (`EDGE_TOL:0.3`, `EDGE_K:0.30`, `EDGE_MAX:0.85`; `6b586ec` punchier). **CONVEYOR (`4cb03da`):** the bands SCROLL
-    toward the aim direction (top flows up for Δy<0 etc.) at speed ∝|delta| (slows as you centre, gone at lock) — CSS
-    `repeating-linear-gradient` bands + inward-fade `mask`; `driveEdgeTints` stores `_devY/_devX/_devShow`, per-frame
-    `updateEdgeTints(dt)` (in `animate`) scrolls `background-position` by `EDGE_FLOW(34)*|delta|*dt`. Miss from `simShotHits`
-    (`_scVMiss` vertical, `_scMissX/_scMissZ` → screen-right lateral in `updateScope`); `!reduceMotion`, non-decoy lock.
-    **DESIGN HISTORY (all superseded):** seven-seg LED numbers ("too gaudy") → triangle glyphs → inline-at-apex → arrows
-    on the lock-reticle sides (`.devarr`/`driveDevArrows`, GONE) → these edge tints. Apex label is back to just
-    `▲ <height>` (`#arcApexNum`, set in `updateArcPreview`). **If a direction feels inverted, flip the sign test in `driveEdgeTints`.**
-    **LOCK-ON — SIMPLIFIED (`0778c90`):** a 3D lock-on viz was tried and SCRAPPED (user: "messy squiggles…
-    overcomplicating"). Dead-ends, do NOT resurrect: two great circles at orb distance (`e0b5781`) → projected on the
-    SKY (radius 470, aim-oriented, `24e3dde`; read as a flat `+` because a huge circle is locally straight at the
-    crossing) → a tumbling wireframe sphere at the orb (`8296744`; read as squiggles). ALL removed (`lockSphere`/
-    `lockLine`/`updateLockSphere`/`setGaugeLocked`/`ledLockFlash` are GONE). **The lock indicator is just the gold
-    `#lockBox` reticle + the triangle gauges** (→ green `●` per centered axis). Keep it simple.
-    **DECOY reticle (`0778c90`):** `scopeLockTarget` no longer skips decoys (`kind===2`); a decoy shows a RED
-    **`#lockBox.decoy` 'AVOID'** box (never the gold `.lock`) and NO aim gauges (`tg.kind!==2` gate) — so you see +
-    dodge them. HUD-only → daily determinism untouched.
-    **Orb feel by kind (`0778c90`, FREE-PLAY ONLY):** in `spawnTarget`, AFTER the seeded kind roll (so no extra rnd —
-    daily byte-identical), gated `!state.challenge`: GOLD bonus spawns farther + smaller (`goldDistMul:1.35`,
-    `goldSizeMul:0.7`), DECOYS lunge closer (`decoyDistMul:0.6`). The daily keeps the original distances/sizes.
-    **METRIC HISTORY (important — don't regress):** v1 showed "your apex − the LOBBED ideal apex" — but you hit via
-    flatter arcs, so that read ≈ the ideal HEIGHT (~17) even when locked, and jumped 0→17 off-lock. `8e0eb30` switched
-    to the **vertical miss** (0 exactly where the arc crosses the orb), `999bda8` added the **lateral twin**, then the
-    numbers became **glyphs** (`1b1adcb`). DEAD-ENDS now GONE (don't reintroduce): an apex-match `arcMatchTol` window,
-    a green-blink-on-LOCK seven-seg state machine (`_arcDeltaState`/`ledMatch`/`renderArcDelta`), and the transparent-
-    LED tweaks (`cb25994`) — all superseded by the glyph rewrite; `CFG.arcMatchTol` is now fully unused (vestigial).
-    `simShotHits` tracks closest-approach miss components into `_scVMiss`/`_scMissX`/`_scMissZ`/`_scVMissOn`; its
-    hit-detection return is UNCHANGED (lock identical). `!reduceMotion`-gated. **Decluttered:** the floating
-    `▲apex` number (`#arcApexInfo`) was retired then **RESTORED** (`cb25994`, user liked it — gives context to the
-    delta); the apex tangent LINE was always kept. The per-target orb-top `↑height` labels (`m.hlabel`, element
-    kept/hidden) STAY retired; dropped the HUD `· peak ↑X` (kept `IDEAL <loft>°`). NOTE `_arcApexY/_arcApexOn` are now WRITE-ONLY in `updateArcPreview` (dead
-    state, harmless — left to avoid churning the hot path). Read-only → daily bit-identical.
-    (b) **Daily ghost toggle:** `G` cycles `ghostMode` 0 none / 1 your-best (cyan) / 2 top-scorer (purple), default
-    1 (one calm ghost, not two cursors), persisted `localStorage['aimdojo.ghostmode']`. `updateGhost` gated
-    `ghostMode!==2`, `updateSelfGhost` `ghostMode!==1`; `loadGhost`/`loadSelfGhost` gate their name-label;
-    `applyGhostMode` reconciles on toggle; `#ghostToast` confirms. `exitChallenge` now clears the purple ghost too
-    (review fix — was stranding a frozen reticle/label). Key guarded vs text inputs + the settings overlay.
-    Build-blind verified + a **4-lens adversarial review** (daily-determinism / runtime / CSS-DOM / ghost-regression):
-    7 raw findings, **2 confirmed (the projArc-coupling + the exitChallenge strand), both fixed**, 0 determinism issues.
-
-All verified via the build-blind loop (node --check + dangling-ref/wiring greps + numeric ballistics checks; date logic
-for seasons executed in node); the larger/risky features (pace ghost, beat-quant, ARC daily, juice+self-ghost, ideal-arc,
-special orbs, wind) got multi-agent adversarial reviews (0 confirmed findings on the recent batch).
-
-## Outstanding / likely next
-- **Tune the adaptive audio by ear** (first pass shipped, build-blind): groove build — the TARGET tier (0..3) is now a
-  **COMPOSITE** (`355444c`, in `onGrid`): `3*(grooveW·[streak/grooveStreakFull, click%→0..1 over grooveAccLo..Hi,
-  totalHits/grooveHitsFull])` with `grooveW:[.35,.3,.35]`, `grooveStreakFull:4`, `grooveHitsFull:25`, acc 0.4..0.9.
-  Replaced the streak-only `grooveCut` (was tough — one miss tanked it); click% + total-hits persist so a broken
-  streak holds ~tier 1-2. (Earlier: `[2,6,12]`→`[1,3,6]`→`[1,2,4]`→composite.) build/strip ease 0.5/0.1. **Groove
-  voices (`onGrid`):** tick (always) · kick (beats 1&3, +1 at tier 3) · snare (backbeat, tier 1+) · hat (on-beat→every
-  step at tier 2) · sub-bass (tier 2 root, +move at tier 3) · **MELODIC ARP** (`26584fd`, NEW: `arp` synth, pentatonic
-  `ARP[]`/`PENTA`, dotted echo — on beats at tier 2, every step at tier 3; self-guarded so it can't kill the drum build).
-  Possible next layers: phrase fills, busier tier-3 bass, top-end (open hat/clap). Other levels (`bass` -9, `arcWhoosh` -19), `playHit` brightness mults (1.5/1.25/1.0),
-  miss notes (220/110), the whoosh sweep (260→560) + impact thud. The user listens & reports.
-- **Target-tone gate (`538a6fd`→`e172584`):** the per-target spatial tone is no longer continuous — it's GATED to a
-  16th-note rhythm (`CFG.targetPulse:true`, `targetPulseOn:1`/`targetPulsePeriod:4` = a 16th note + 3 16ths rest) at
-  `state.bpm`. **Each target has its OWN phase** (`tg.gatePhase`/`tg.gOn`, init 0 at spawn) advancing at the shared
-  `_gateRate` — so targets that spawn at different beat-fractions pulse OFFSET from each other (not unison), per the
-  user. Impl: a `gateGain` node per sound (reverb send tapped post-gate so tails fill the rests); the per-target loop
-  in `animate` advances each phase + ramps `gateGain` via `setTargetAtTime` (5ms attack / 60ms release) on its own
-  on/off transitions. `targetPulse:false` → continuous. Audio only → daily-safe. **Tuning:** pattern
-  (`targetPulseOn`/`Period`); the rate free-runs at bpm (not hard-locked to Tone.Transport's downbeat).
-- **Capture real-device FPS/DPR** at `…/?fps` (phones/school machines) → finally validate the perf pass.
-- **Scope LOCK vs strobe (low, approximate):** `simShotHits`/lead predict LINEAR target motion, but targets
-  now STROBE (hold→jump) in ARC free-play AND the ARC daily — so LOCK can read true while a shot crosses a
-  snap and misses (and vice-versa). The continuous prediction ≈ correct on average over a multi-snap flight,
-  so it's a feedback-honesty nicety, not a bug. Real fix: make `simShotHits` step the target on the same
-  `beats`/`spb` grid (hold then `vel*moveStep`). Applies to both modes; defer until it actually annoys.
-- **Shareable result card + streak** — the recommended NEXT feature (mostly client-side: render an
-  end-of-run card → download / Web Share, + a localStorage daily streak). High retention value for a class.
-- **Best-of-3 Duel brackets** — needs a realtime lobby/matchmaking (presence/broadcast only today); big
-  lift, hard to verify build-blind. Deferred.
-- **Pace ghost + season scaling (if a field gets big):** both client-aggregate; move to a server/Supabase
-  aggregate if counts grow. Not needed at current scale.
-- **Known pre-existing ARC nuance (not fixed):** a perfectly-aimed point-blank lofted shot can miss because
-  `computeShotPlan` solves the eye→crosshair parabola from PLAYER_POS/eye, ignoring the down-right muzzle
-  offset (`BLADE_DX/DY`). The scope LOCK accounts for it; only matters if you ignore the firing computer.
-  Fixing it means touching `computeShotPlan` (risks the "bullet flies down the ribbon" invariant).
-- **Low-value / parked:** railgun θ/range readout (decoration — hit-scan needs no aiming computer) and floor
-  HUD ground-vs-slant (slant is the useful number, already shown) — assessed low-value, deliberately skipped.
-  Also: optional impact-pulse removal if it ever feels busy; a wiki/memory note (aim-dojo isn't in memory).
+# CONTINUATION_PROMPT — aim-dojo rhythm-shooter (resume here, 2026-07-07)
+
+> Prior/older session notes live in git history. This supersedes them. Durable design record: memory file `aim-dojo-unified-vision.md`. Deploy facts: memory `aim-dojo-deploy-infra`.
+
+## What aim-dojo is now
+A first-person **rhythm shooter** in the Rez / Metal: Hellsinger lineage (it began as a Quake-style aim trainer). Single file: **`index.html`** (~2340-line inline `<script>`, THREE.js r128 + Tone.js, no build). Live at **aim-dojo.vercel.app** — **push to `main` auto-deploys** in seconds (GH Pages is a mirror). This work is the WEB app only; the sibling Godot repos (aim-dojo-iso etc.) are separate.
+
+**Core loop (works, feels good, live):** orbs GLOW on the beat = "fire NOW." You fire a ballistic arc; the shot is "charged" only if you pulled the trigger ON the beat (`pr.charged = orbOpen()` at fire — timing judged at the TRIGGER-PULL, not at arrival). A charged shot kills on hit; an off-beat shot CLANKS (no kill, costs a shot + your streak). You also tap W/A/S/D on the off-beat ("the and") to steady the field. **Aim is always the star — no auto-aim.**
+
+## What this long session built (all live + adversarially verified)
+- **Rhythm-shooter core:** fire-on-beat vulnerability judged at the trigger; ms-based fire window `CFG.grooveOpenSec:[0.25,0.10]` (±250ms learning → ±100ms expert — kept generous because it's aim+timing at once); crosshair turns GREEN in the window (but players watch the ORB glow — that's the real cue); off-beat = clank (costs shot+streak); orbs juke on the "and" and glide (never fully stop — `grooveFreezeFloor`); `startBpm:20`, ramps with skill.
+- **Deeper audio (2 passes), built ON the existing `grooveI` tier system:** WASD taps SING (lane→pentatonic, voice `tapSynth`); kills WALK UP the A-minor pentatonic with streak through a dedicated LEAD voice (`lead`); a PAD swell layers in at high `grooveI`; `chordHit` de-3rd'd to open fifths; `beatSnap()` grid-snaps kills+taps (tempo-adaptive). All new voices on `drumBus` (mute with pause), guarded.
+- **Multi-hit "tank" orbs:** a plain orb (free-play, `CFG.multiHitChance:0.22`) rolls 2-3 hp; each charged on-beat hit CHIPS it (pure progress — NO score/accuracy/groove effect), the last hit kills; a floating number counts down (reuses the dormant `.tgtKey` glyph). Grade cutoffs shifted by `(hpMax-1)` beats so a clean tank kill scores like a normal orb.
+
+## ROADMAP (user wants all 5)
+- [x] #1 grid-tighten
+- [x] #2 lead line
+- [x] #3 multi-hit orbs
+- [ ] **#4 RAIL-FLICK BONUS — BUILD THIS NEXT**
+- [ ] #5 latency/offset calibration
+
+## NEXT TASK: build the RAIL-FLICK BONUS (#4) — design AGREED (Claude + Codex)
+**Loop:** a FLAWLESS on-beat kill on a hot streak triggers it → orb MOTION freezes (the beat clock keeps running) → aiming becomes FLICK (crosshair directly ON an orb, no lead) → tap ANY W/A/S/D ON the beat to LOCK the pointed orb → keep flicking + locking → the bonus ends → locked orbs detonate in a rhythmic cascade, scored as a bonus. Trains FLICK (the complement to the core LEAD skill). No auto-aim.
+
+**Agreed design (Codex's two adjustments baked in):**
+- **Trigger:** `good && gradeIdx<=0` (FLAWLESS) AND `state.streak>=4` AND a cooldown (`_bonusLast`, mirror `_clutchLast`) AND `!reduceMotion` AND `!bonusActive`. A treat you earn.
+- **Freeze:** orbs HOLD — force the existing `doSnap=false` path (equivalently `_mulEff=0`), and gate spawns + expiry on `!bonusActive`. **NEVER scale `dt` or `Tone.Transport`** (hard codebase rule; the beat MUST keep ticking so on-beat locking works). `state.running` stays true.
+- **Flick target:** `scopeLockTarget()` with a TIGHT, size-aware cone (crosshair literally on the orb: `dot >= cos(atan(radius*sc/d))`), bypassing `simShotHits`/`computeShotPlan`. Real aim required.
+- **On-beat lock:** branch `wasdLanePress` at the top when `bonusActive` — if `orbOpen()` (on-beat) AND the crosshair is on an orb → lock it (push to `bonusLocks`, mark, sfx), then `return` before the rhythm grid. Any WASD key confirms (gamepad face/D-pad works free).
+- **ENDING (forgiving + capped — Codex's adjustments):** base window **2 beats**; each successful lock **+1 beat**; **hard cap 6–8 beats**; **ONE grace miss**; end on the first missed LOCK ATTEMPT (an off-beat tap), NOT merely a beat passing with no lock — so a player who enters with nothing centered doesn't instantly lose the mode before understanding it.
+- **Marks:** `#lockBox` = "lockable now" (reuse the gold `.lock` state); per-orb `.tgtKey`/`hlabel` = the persistent "LOCKED" set.
+- **Resolve:** cascade over `bonusLocks`, one per beat (drive off the strobe `_quantIdx` / Transport ticks), each scored FLAWLESS (route via `gradeRhythmHit` with a forced grade, or a small `resolveFlickLock`). Bigger cascade = bigger payoff.
+- **Suppress fire:** `fire()` early-returns when `bonusActive` (a flick launches no projectile); `clearProjectiles()` on entry.
+- **New CFG (`CFG.flickBonus*`):** `streakGate:4, cooldown:~1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, cone`.
+
+**Exact code seams (from a recon workflow — RE-VERIFY line numbers, they drift with every edit):**
+
+| Concern | Where |
+|---|---|
+| Arm bonus | `gradeRhythmHit` (~L1204), after the clutch trigger / before `killTarget` (~L1229) |
+| Freeze | `animate` motion block (~L1930): add `if(bonusActive){ doSnap=false; doJuke=false; }` before `else if(wantStrobe && !strobe)`. Guard expiry (~L1979) with `!bonusActive`. Gate `spawnRhythmOrb` in `onGrid` on `!bonusActive`. |
+| Flick target | `scopeLockTarget()` (~L1669) — add a `tight` param (size cone vs the flat 0.72). Call it directly from bonus code, NOT via `updateScope` (which does ballistic locking). |
+| On-beat gate | `orbOpen()` / `_openAmt` (~L395/394) |
+| WASD lock | `wasdLanePress(k)` (~L1253) — branch at the top |
+| Marks | `#lockBox` (`lockBoxEl` ~L1647, CSS ~L59); `.tgtKey`/`hlabel` in `updateTargetMarks` (~L1461/1472) |
+| Kill/score | `killTarget` (~L780), `gradeRhythmHit` (~L1204), `explodeAt` (~L743) |
+| Suppress fire | `fire()` (~L1247) early-return; `clearProjectiles()` (~L1338) |
+| New state | near `_openAmt` (~L394): `let bonusActive=false, bonusEndsBeat=0, _bonusLast=-999, _bonusGrace=0; const bonusLocks=[];` |
+| Frame tick | add `updateFlickBonus(dt)` to the guarded update cluster (~L2025) — count down the window (in beats via Transport), drive the cascade, end → resolve → unfreeze |
+| Reset | `resetSession` (~L2093/2102) — clear bonus state + `tg._flickLocked` |
+| Pause abort | `exitRunning` (~L2057) — abort/resolve bonus, unfreeze |
+
+**After building:** syntax-check → run an adversarial VERIFY workflow (it touches score/streak — verify has caught real HIGH bugs this session) → fix findings → ship. Verify specifically: pause-mid-bonus abort, in-flight projectiles cleared on entry, few-orbs-on-screen behavior, the grace-miss/cap logic, and no orb-motion↔beat-clock desync. Then #5.
+
+## THEN #5: latency/offset calibration
+The one universal rhythm-game feature still missing. Add a user offset (audio+input) so the fire window aligns with what the player HEARS on their device (Bluetooth adds 100–300ms). The code already latency-corrects via `rawCtx.outputLatency`; add a user-adjustable offset (a short calibration flow or a tunable) and grade against `noteTime + userOffset` in the heard timeline. Research convention: a guided A/V offset step; ms windows ~±16–35 perfect / ±60–130 good.
+
+## Key systems / tunables (for orientation)
+- **Groove/vuln (`CFG.groove*`, ~L334):** `grooveGroove` (master kill-switch → reverts to the plain game), `grooveFreezePhase:0.5` (WASD on the "and"), `grooveJukeDeg`, `grooveGlideSpeed`, `grooveFreezeFloor`, `grooveOpenSec:[0.25,0.10]` (fire window, in SECONDS), `grooveVuln`. Helpers: `wasdBeats()` (~L393) phase-shifts the WASD grid; `orbOpen()`/`_openAmt` (~L394) = the fire window (drives the orb glow AND the kill gate); `pr.charged=orbOpen()` set in `spawnProjectile` (~L1331).
+- **Audio:** `buildDrums()` (~L825) — voices on `drumBus`: kick/snare/hat/tick/shotCue/bass/arp/tapSynth/pad/lead. `onGrid()` (~L964) = the beat scheduler; `grooveI` tier 0–3 gates the layers (EXTEND HERE for more musical depth). `PENTA`/`ARP` (~L788), `playHit` (kills = lead melody), `chordHit`, `beatSnap()` (~L797), `sfx()`.
+- **Targets:** `spawnTarget` (~L1090); `tg` struct fields: kind/hp/hpMax/dead/radius/sc/born/expireAt/vel/mesh/shell. `updateTargetMarks` (~L1461), `killTarget` (~L780), `gradeRhythmHit` (~L1204), `chipHit` (~L1235). Multi-hit CFG (~L352).
+
+## PROCESS (this is how the session worked — keep it)
+- **Syntax-check the inline script dynamically** (line 296 shifts after HTML edits):
+  ```bash
+  F=index.html
+  o=$(grep -nE "^<script>$" $F | tail -1 | cut -d: -f1)
+  c=$(grep -nE "^</script>$" $F | tail -1 | cut -d: -f1)
+  sed -n "$((o+1)),$((c-1))p" $F > /tmp/g.js
+  node --check /tmp/g.js
+  ```
+- **Verify win-condition/score/leaderboard code with an adversarial Workflow** (multi-lens review → per-finding skeptic verify). It has repeatedly caught HIGH bugs the author missed (free-clank spray exploit; tank-kill-scores-zero). Ultracode is ON → use workflows liberally for recon + verify.
+- **Ship:** `git add index.html && git commit && git push origin main` (auto-deploys). **Verify live:** `curl -s "aim-dojo.vercel.app/?cb=$RANDOM" | grep -c <marker>` (poll a few times — Vercel builds ~30–60s). Commit messages end with the `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` line.
+- **Audio/feel is EAR/EYE-judged** — ship a reasonable first pass with tunable consts, let the user react ("too hard/easy/loud/muddy"), tune the one number. All initial values are first guesses.
+- User prizes the **"zen" feel** — tune via CFG consts, don't add UI (the settings panel was stripped). `prefers-reduced-motion` disables motion effects (check it FIRST if the user says "an effect disappeared").
+
+## Deploy / repo
+- Vercel primary (push→live in seconds), GH Pages mirror, Railway server = project reliable-harmony (memory `aim-dojo-deploy-infra`). Repo: github.com/robjohncolson/aim-dojo, branch `main`.
