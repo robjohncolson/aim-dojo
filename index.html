@@ -173,6 +173,10 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 .dt{font:9.5px var(--mono);letter-spacing:.12em;color:var(--bone-dim);padding:3px 7px;border:1px solid var(--panel-edge);background:#0a0e0c;cursor:pointer;user-select:none}
 .dt:hover{color:var(--bone)}
 .dt.on{color:#0a0e0c;background:var(--plasma);border-color:var(--plasma)}
+.theme-pick{margin:14px 0 12px;pointer-events:auto}
+.theme-lab{font:9.5px var(--mono);letter-spacing:.16em;color:var(--bone-dim);margin:0 0 6px}
+.theme-chips{display:flex;flex-wrap:wrap;gap:4px}
+.theme-chips .dt{font-family:var(--mono);letter-spacing:.1em}
 .dojo-row{display:grid;grid-template-columns:20px 1fr 48px 56px;align-items:center;gap:6px;font-size:11.5px;padding:3px 3px}   /* rank · name · BPM · TIME (records simplified to 2 metrics; was a 7-col multi-stat grid) */
 .dojo-row:nth-child(odd):not(.head){background:rgba(255,255,255,.025)}
 .dojo-row.me{background:rgba(67,217,255,.12);outline:1px solid rgba(67,217,255,.25)}
@@ -250,6 +254,11 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
       <span><b>L-CLICK</b>fire on the beat</span>
       <span><b>WASD</b>tap the shown key on the beat &mdash; steadies the orbs</span>
       <span><b>ESC</b>pause</span>
+    </div>
+
+    <div id="themePick" class="theme-pick" aria-label="Song">
+      <div class="theme-lab">♪ SONG</div>
+      <div id="themeChips" class="theme-chips"></div>
     </div>
 
     <div id="pauseStats" style="display:none"></div>
@@ -819,8 +828,8 @@ let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
    1 = root, 1.5 = fifth, 2 = octave — rhythm is what makes themes distinct; absolute pitch still walks with root[]).
    Optional bassHold (Tone duration, default '8n') for long vs short notes. THE INVARIANT: a theme's SCALE must be
    CONSONANT over its WHOLE progression, so a kill/tap lands in key no matter which bar it falls on. A run rolls one
-   at random (pickTheme) + brief ♪ name. Sources public-domain or original-in-tradition. Add a theme = push
-   {name,scale,root,triad,tune,arp,bass,bassHold?}; scale 8 slots, every triad 3, bass length 8. */
+   via pickTheme (user pick on the card, or RANDOM) + brief ♪ name. Sources public-domain or original-in-tradition.
+   Add a theme = push {name,scale,root,triad,tune,arp,bass,bassHold?}; scale 8 slots, every triad 3, bass length 8. */
 const THEMES=[
   { name:'DOJO',      // A-minor pentatonic over Am · F · C · G — original zen: root on 1, fifth on 3
     scale:[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33],
@@ -872,9 +881,37 @@ const THEMES=[
     bass:[1,0,0,1.5, 0,0,1,0], bassHold:'8n' },   // 6/8-ish: root … fifth-pickup … root
 ];
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
+let _themePick='RANDOM';   // 'RANDOM' or a THEMES[].name — set from the card chips; persisted as aimdojo.theme
 function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; BASS=t.bass; BASS_HOLD=t.bassHold||'8n'; }   // swap every array the voices read (incl. per-theme bassline)
-function pickTheme(){ let i; do{ i=(Math.random()*THEMES.length)|0; }while(THEMES.length>1 && i===_lastThemeI); _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true; }   // roll a fresh theme per run, never the same one twice running
+function pickTheme(){   // resolve the run's song: fixed pick from the card, or random (never the same twice in a row)
+  if(_themePick && _themePick!=='RANDOM'){
+    let i=THEMES.findIndex(t=>t.name===_themePick); if(i<0) i=0;
+    _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true; return;
+  }
+  let i; do{ i=(Math.random()*THEMES.length)|0; }while(THEMES.length>1 && i===_lastThemeI); _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true;
+}
+function syncThemeChips(){
+  const host=document.getElementById('themeChips'); if(!host) return;   // getElementById: called before the later gid() helper exists
+  host.querySelectorAll('.dt').forEach(b=>{ b.classList.toggle('on', b.dataset.theme===_themePick); });
+}
+function setThemePick(name){
+  _themePick=name||'RANDOM';
+  try{ localStorage.setItem('aimdojo.theme', _themePick); }catch(e){}
+  syncThemeChips();
+  if(_themePick!=='RANDOM'){ const t=THEMES.find(x=>x.name===_themePick); if(t) applyTheme(t); }   // preview the arrays now (audio only starts on ENTER; flash still names it at run start)
+}
+function buildThemeChips(){
+  const host=document.getElementById('themeChips'); if(!host) return;
+  host.innerHTML='';
+  const add=(label,val)=>{ const b=document.createElement('button'); b.type='button'; b.className='dt'; b.dataset.theme=val; b.textContent=label;
+    b.addEventListener('click',()=>setThemePick(val)); host.appendChild(b); };
+  add('RANDOM','RANDOM'); THEMES.forEach(t=>add(t.name,t.name));
+  try{ const s=localStorage.getItem('aimdojo.theme'); if(s==='RANDOM'||THEMES.some(t=>t.name===s)) _themePick=s; }catch(e){}
+  syncThemeChips();
+  if(_themePick!=='RANDOM'){ const t=THEMES.find(x=>x.name===_themePick); if(t) applyTheme(t); }
+}
 applyTheme(THEMES[0]);   // populate the working arrays at load (before the first run rolls one) so nothing ever reads undefined
+buildThemeChips();       // card ♪ SONG chips (safe here: uses document.getElementById, not gid)
 function chordHit(streak){                               // an open (fifth) chord a 1/4-beat after a hit, rising with the streak — no 3rd, so it never clashes major/minor with the A-minor bed
   if(!soundOn || !toneReady || !chordSynth) return;
   try{ const root=PENTA[Math.min(streak, PENTA.length-1)];
@@ -2319,7 +2356,7 @@ document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunn
 
 function resetSession(){
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
-  pickTheme();   // TUNE LIBRARY: roll a fresh musical theme for this run (dojo / canon / moonlight / icaros)
+  pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
   _specialLive=specialOrbsLive();   // latch special-orb liveness for the whole run (constant-per-run → no mid-run gate flip)
   if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
   else { windX=0; windZ=0; }                                  // wind-off → no wind
