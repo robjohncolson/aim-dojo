@@ -840,12 +840,36 @@ const THEMES=[
     triad:[[103.83,138.59,164.81],[110.00,138.59,164.81],[103.83,123.47,164.81],[92.50,123.47,155.56]],
     tune:[3,3,-1,-1, 4,3,2,-1, -1,-1,3,-1, 2,1,-1,-1], arp:[0,1,2,0,1,2,0,1],
     bass:[1,0,0,0, 0,0,0,0], bassHold:'2n' },
-  { name:'ICAROS',    // meditative drone — Em·G·Em·D; pulse every quarter so the low E/G/D never leaves
+  { name:'ICAROS',    // meditative drone — Em·G·Em·D; pulse on the 1s (i=0,2,4,6) so WASD "ands" lock BETWEEN the hits
     scale:[164.81,196.00,220.00,246.94,293.66,329.63,392.00,440.00],
     root:[41.20,49.00,41.20,73.42],
     triad:[[82.41,98.00,123.47],[98.00,123.47,146.83],[82.41,98.00,123.47],[110.00,146.83,185.00]],
     tune:[2,1,0,-1, -1,-1,-1,-1, 3,2,1,-1, -1,-1,0,-1], arp:[0,1,2,1,0,1,2,1],
     bass:[1,0,1,0, 1,0,1,0], bassHold:'8n' },
+  { name:'CHANT',     // Gregorian / Dorian mood (original, plainchant style) — Dm·F·Dm·C; open sacred space, long held roots
+    scale:[146.83,174.61,196.00,220.00,261.63,293.66,349.23,392.00],   // D-minor pentatonic (D F G A C …)
+    root:[73.42,43.65,73.42,65.41],   // D2 · F1 · D2 · C2
+    triad:[[146.83,174.61,220.00],[174.61,220.00,261.63],[146.83,174.61,220.00],[130.81,164.81,196.00]],
+    tune:[0,-1,-1,2, -1,-1,3,-1, 2,-1,0,-1, -1,-1,-1,-1], arp:[0,1,0,2,0,1,0,2],
+    bass:[1,0,0,0, 0,0,0,0], bassHold:'2n' },
+  { name:'HYMN',      // church-hymn warmth (Amazing Grace / traditional I–IV–I–V feel) — G·C·G·D; amen walk
+    scale:[196.00,220.00,246.94,293.66,329.63,392.00,440.00,493.88],   // G-major pentatonic
+    root:[49.00,65.41,49.00,73.42],   // G1 · C2 · G1 · D2
+    triad:[[98.00,123.47,146.83],[130.81,164.81,196.00],[98.00,123.47,146.83],[146.83,185.00,220.00]],
+    tune:[4,2,0,-1, 1,2,4,-1, 5,4,2,-1, 3,2,0,-1], arp:[0,1,2,1,0,2,1,0],
+    bass:[1,0,0,0, 1,0,1.5,0], bassHold:'8n' },
+  { name:'JOY',       // Ode to Joy mood (Beethoven 9, public domain) — D·G·A·D; bright pulse that locks with WASD like Icaros
+    scale:[293.66,329.63,369.99,440.00,493.88,587.33,659.25,739.99],   // D-major pentatonic
+    root:[73.42,49.00,55.00,73.42],   // D2 · G1 · A1 · D2
+    triad:[[146.83,185.00,220.00],[98.00,123.47,146.83],[110.00,138.59,164.81],[146.83,185.00,220.00]],
+    tune:[0,1,2,3, 4,3,2,-1, 4,5,4,3, 2,1,0,-1], arp:[0,1,2,1,2,1,0,1],
+    bass:[1,0,1,0, 1,0,1.5,0], bassHold:'8n' },   // quarter pulse + fifth lift into the turnaround
+  { name:'GREENS',    // Greensleeves (public domain) — Am·G·Em·Am; lilting pickup bass (not a square pulse)
+    scale:[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33],   // A-minor pentatonic (same palette as DOJO, different walk)
+    root:[55.00,49.00,41.20,55.00],   // A1 · G1 · E1 · A1
+    triad:[[110.00,130.81,164.81],[98.00,123.47,146.83],[82.41,98.00,123.47],[110.00,130.81,164.81]],
+    tune:[4,3,2,-1, 1,2,3,-1, 5,4,3,2, 1,0,-1,-1], arp:[0,2,1,2,0,1,2,1],
+    bass:[1,0,0,1.5, 0,0,1,0], bassHold:'8n' },   // 6/8-ish: root … fifth-pickup … root
 ];
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
 function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; BASS=t.bass; BASS_HOLD=t.bassHold||'8n'; }   // swap every array the voices read (incl. per-theme bassline)
