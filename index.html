@@ -352,7 +352,8 @@ const CFG = {
   // RAIL-FLICK BONUS (#4): a FLAWLESS on-beat kill on a hot streak FREEZES orb motion (the beat clock keeps ticking); aiming becomes pure FLICK (crosshair literally ON an orb, no lead), tap ANY WASD/pad-face ON the beat to LOCK the pointed orb. Window ends → locked orbs detonate one-per-beat as a scored cascade. Trains FLICK (the complement to the core LEAD). No auto-aim. Set flickBonus:null to disable. All values are first guesses — tune by ear/eye.
   flickBonus:{ streakGate:3, gradeMax:1, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // streakGate=min streak to earn it · gradeMax=max grade index that arms it (0=FLAWLESS only, 1=also PERFECT) · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack). streakGate+gradeMax LOOSENED for eval — arrival-timing made FLAWLESS-at-streak-4 too rare to ever see the mode; re-tighten once it's felt.
   // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
-  specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a 2-3 hit "tank" — needs multiple ON-BEAT hits, a floating number counts down.
+  specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
+  tank:{ maxBpm:120, tripletMaxBpm:80, comboBeats:1.5, subWindowSec:[0.16,0.10], maxLeadSixteenths:4 },   // RHYTHMIC-COMBO TANK: first on-beat hit OPENS it, then you play a little figure ON the orb — 2-hp = two 8th-notes (hit the "and"), 3-hp = 8th-note TRIPLET (hit "trip"+"let"). maxBpm: tanks only spawn at/below this · tripletMaxBpm: 3-hp only at/below this (triplets get inhuman when fast) · comboBeats: window (beats) to finish the figure before it re-shields · subWindowSec: landing tolerance per sub-node (±160ms learning → ±100ms expert) · maxLeadSixteenths: tanks spawn CLOSE (≤ this many 16ths of lead) so the sub-rhythm is reactable.
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
@@ -1094,11 +1095,11 @@ function spawnRhythmOrb(){ spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
 function specialOrbsLive(){ return CFG.specialOrbs; }
 
-function beatSpawnDist(){   // BEAT-QUANTIZED SPAWN: return a distance whose ballistic flight time is an integer # of 16th-notes (k/16 beat), so landing the shot on the orb's beat means releasing exactly k sixteenths early — a rhythmic pocket. Model: a shot at speed s that returns to ~eye height at time T covers d = s·T·√(1−(gT/2s)²). Picks uniformly among the sixteenth-values reachable within the current skill-gated range; null → the caller falls back to the old cube-root distance.
+function beatSpawnDist(maxK){   // BEAT-QUANTIZED SPAWN: return a distance whose ballistic flight time is an integer # of 16th-notes (k/16 beat), so landing the shot on the orb's beat means releasing exactly k sixteenths early — a rhythmic pocket. Model: a shot at speed s that returns to ~eye height at time T covers d = s·T·√(1−(gT/2s)²). Picks uniformly among the sixteenth-values reachable within the current skill-gated range; maxK caps the lead (tanks pass a small maxK to spawn CLOSE). null → the caller falls back to the old cube-root distance.
   const s=projSpeedNow(), g=CFG.projGravity, beatLen=60/Math.max(20,state.bpm);
   const near=CFG.rangeNear, far=Math.min(CFG.rangeMax, state.range);
   const ok=[];
-  for(const k of CFG.beatSpawnSixteenths){ const T=(k/16)*beatLen, r=g*T/(2*s); if(r>=1) continue; const d=s*T*Math.sqrt(1-r*r); if(d>=near && d<=far) ok.push(d); }   // r>=1: shot can't return to height in time T at this speed → that k is unreachable now
+  for(const k of CFG.beatSpawnSixteenths){ if(maxK && k>maxK) continue; const T=(k/16)*beatLen, r=g*T/(2*s); if(r>=1) continue; const d=s*T*Math.sqrt(1-r*r); if(d>=near && d<=far) ok.push(d); }   // r>=1: shot can't return to height in time T at this speed → that k is unreachable now
   return ok.length ? ok[(rnd()*ok.length)|0] : null;
 }
 function spawnTarget(opts){
@@ -1129,17 +1130,22 @@ function spawnTarget(opts){
   const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*0.7;
   const tg=acquireTargetRecord();
   const vel=tg.vel.set(rnd()*2-1,(rnd()*2-1)*0.35,rnd()*2-1).normalize().multiplyScalar(dmag);
-  core.scale.setScalar(r*(reduceMotion?1:0.01));
+  core.scale.setScalar(r*(reduceMotion?1:0.01)); shell.scale.setScalar(1.55);   // reset shell scale (a pooled mesh may have been left mid-throb by a tank combo)
   const snd=makeTargetSound(core);
   const life=opts.life!=null?opts.life:(60/state.bpm)*CFG.rhythmLifeBeats;   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock
+  tg.comboOn=false; tg.comboSubs=null; tg.comboStartBeat=0; tg.comboEndBeat=0; tg._lastComboBeat=0;   // RHYTHMIC-COMBO TANK state (only used when hpMax>1)
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
-  tg.hp = (CFG.multiHit && _specialLive && kind===0 && rnd()<CFG.multiHitChance) ? (rnd()<0.5?2:3) : 1; tg.hpMax=tg.hp;   // multi-hit "tank": a plain orb (kind 0) rolls 2-3 hp (needs that many ON-BEAT hits). rnd()=plain Math.random (seeded daily was removed), so no determinism concern.
-  if(tg.hp>1){ tg.radius*=1.2; core.scale.setScalar(tg.radius*tg.sc); }                                                     // bigger = reads as tanky + fair to land the extra on-beat hits
+  let hp=1;   // RHYTHMIC-COMBO TANK (kind 0, free-play): tempo-gated so the figure stays playable — 2-hp (two 8ths) up to tank.maxBpm, 3-hp (8th-triplet) only up to tank.tripletMaxBpm
+  if(CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm && rnd()<CFG.multiHitChance){ hp=(state.bpm<=CFG.tank.tripletMaxBpm && rnd()<0.5)?3:2; }
+  tg.hp=hp; tg.hpMax=hp;
+  if(hp>1){ tg.radius*=1.2; core.scale.setScalar(tg.radius*tg.sc);                                                          // bigger = reads as tanky
+    shell.material=TARGET_SHELL_MAT.clone(); shell.material.__tankClone=true;                                              // own shell material → the combo glows at the SUBDIVISIONS (driven in updateTankCombos), not the shared whole-beat glow
+    if(CFG.beatSpawn){ const dS=beatSpawnDist(CFG.tank.maxLeadSixteenths); if(dS!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dS); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } } }   // tanks spawn CLOSE (short lead) so the sub-rhythm is reactable after the first hit sets the tempo
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
     if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
@@ -1248,10 +1254,61 @@ function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF th
   if(soundOn && toneReady && shotCue){ try{ shotCue.triggerAttackRelease(150, '16n', Tone.now(), 0.5); }catch(e){} }
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.12);
 }
-function chipHit(tg, point){   // MULTI-HIT: a charged (on-beat) hit knocks a tank down one — pure PROGRESS + feedback. It does NOT touch score/streak OR the accuracy/groove metrics, so a tank behaves like a normal orb for all accounting (one terminal event: the kill, or the expire), just needing more on-beat hits to get there. Lighter thud + a bright pip; the floating number ticks down in updateTargetMarks.
-  tg.hp--;
-  if(soundOn && toneReady){ try{ const now=Tone.now(); if(kick) kick.triggerAttackRelease('C2','32n',now,0.45); if(tick) tick.triggerAttackRelease(880,'32n',now,0.5); }catch(e){} }
-  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.22);
+/* ===== RHYTHMIC-COMBO TANK: a "tank" orb (hpMax 2-3) opens on the beat, then you play a little FIGURE on it — 2-hp = two 8th-notes (hit the "and"), 3-hp = an 8th-note TRIPLET ("trip"+"let"). Because beat-quant fixes the tank's distance, your lead is constant, so you just fire the pulsed figure. Chips are pure PROGRESS (no score/streak); only the final node scores. Landing off the beat/sub CLANKS; running out of time RE-SHIELDS. ===== */
+function heardBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} const bps=60/Math.max(20,state.bpm), lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; return b - lat/bps; }   // beat position in the HEARD timeline (matches the orb glow / orbOpen) → the combo grades sub-hits against what the player hears
+function handleTankHit(tg, point){
+  if(!tg.comboOn){                                          // FIRST HIT: land it ON the whole beat (like any orb) to OPEN the figure
+    if(!orbOpen()){ clankShot(tg, point); return; }
+    activateTankCombo(tg); return;
+  }
+  const targetBeat=tg.comboStartBeat + tg.comboSubs[0], offSec=Math.abs(heardBeat()-targetBeat)*(60/Math.max(20,state.bpm));   // must land on the NEXT pending sub-node, in order
+  const win=CFG.tank.subWindowSec[0] + (CFG.tank.subWindowSec[1]-CFG.tank.subWindowSec[0])*diffT();
+  if(offSec<=win){ tg.comboSubs.shift(); tg.hp--; if(tg.hp<=0) tankComboKill(tg, point); else tankSubChip(tg); }   // on the node → chip; last node → KILL
+  else clankShot(tg, point);                                // landed off the sub-rhythm → clank
+}
+function activateTankCombo(tg){
+  const b=heardBeat();
+  tg.comboOn=true; tg.comboStartBeat=Math.round(b);         // the whole beat the first hit landed on
+  tg.comboSubs = (tg.hpMax===2) ? [0.5] : [1/3, 2/3];       // 2-hp = the "and"; 3-hp = "trip"+"let" (8th-triplet)
+  tg.comboEndBeat = tg.comboStartBeat + CFG.tank.comboBeats;
+  tg._lastComboBeat=b; tg.hp=tg.hpMax-1;                    // the first hit consumed the "1" of the figure
+  if(soundOn && toneReady){ try{ const now=Tone.now(); if(tick) tick.triggerAttackRelease(1319,'16n',now,0.6); if(kick) kick.triggerAttackRelease('C2','32n',now,0.4); }catch(e){} }   // "opened" chime
+  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.25);
+}
+function tankSubChip(tg){                                   // a sub-node landed but not the last — pure progress, a bright pip
+  if(soundOn && toneReady){ try{ const now=Tone.now(); if(kick) kick.triggerAttackRelease('C2','32n',now,0.5); if(tick) tick.triggerAttackRelease(1047,'32n',now,0.6); }catch(e){} }
+  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.2);
+}
+function tankComboKill(tg, point){                          // the figure is complete → KILL, scored like a normal orb (gradeRhythmHit; the hpMax-1 grade shift already accounts for the extra nodes)
+  tg.comboOn=false;
+  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.75); }catch(e){} }
+  gradeRhythmHit(tg, point);
+}
+function resetTankCombo(tg){                                // window lapsed with nodes remaining → RE-SHIELD: back to needing a fresh on-beat first hit (no streak penalty; the tank keeps aging toward its normal expiry)
+  tg.comboOn=false; tg.hp=tg.hpMax; tg.comboSubs=null; if(tg.shell) tg.shell.scale.setScalar(1.55);
+}
+function updateTankCombos(dt){   // per-frame: drive the tank's OWN shell glow (whole-beat when closed = "open me on the beat"; at the pending SUB-node when open = "hit me here"), a scale THROB + an audible tick at each sub-node, and re-shield when the window lapses.
+  if(!state.running || bonusActive) return;                 // flick freeze (if enabled): leave tank combos paused
+  const b=heardBeat(), bl=60/Math.max(20,state.bpm);
+  const subWin=CFG.tank.subWindowSec[0] + (CFG.tank.subWindowSec[1]-CFG.tank.subWindowSec[0])*diffT();
+  for(const tg of targets){
+    if(tg.dead || tg.hpMax<=1 || !tg.shell) continue;
+    const mat=tg.shell.material, isClone=mat && mat.__tankClone;
+    if(tg.comboOn){
+      if(b > tg.comboEndBeat){ resetTankCombo(tg); if(isClone) mat.opacity=(_openAmt>0?0.20+0.47*_openAmt:0.05); continue; }   // lapsed → re-shield + revert to whole-beat glow
+      const tb=(tg.comboSubs && tg.comboSubs.length) ? tg.comboStartBeat+tg.comboSubs[0] : null;
+      if(tb!=null){
+        if(tg._lastComboBeat < tb && b >= tb && soundOn && toneReady && tick){ try{ tick.triggerAttackRelease(1568,'32n',Tone.now(),0.6); }catch(e){} }   // audible metronome AT each sub-node onset → you HEAR the 8th/triplet
+        const near=Math.max(0, 1 - Math.abs(b-tb)*bl/Math.max(0.01,subWin*2));   // ramp toward the node (a touch wider than the hit window, as a visual lead-in)
+        if(isClone) mat.opacity = near>0 ? 0.20+0.55*near : 0.05;   // the tank glows AT the sub-node, NOT the whole beat (functional cue → shown under reduced-motion, like every orb glow)
+        if(!reduceMotion) tg.shell.scale.setScalar(1.55*(1+0.5*near));   // the sphere OSCILLATES at the sub-nodes — decorative motion, so frozen under reduced-motion (the opacity glow + audio ticks still carry the rhythm)
+      }
+      tg._lastComboBeat=b;
+    } else {
+      if(isClone) mat.opacity=(_openAmt>0?0.20+0.47*_openAmt:0.05);   // unactivated: mirror the whole-beat glow — "open me on the beat"
+      tg.shell.scale.setScalar(1.55);
+    }
+  }
 }
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
@@ -1368,8 +1425,8 @@ function updateProjectiles(dt){
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
+      if(hit.hpMax>1){ handleTankHit(hit, pr.pos); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
       if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
-      if(hit.hp>1){ chipHit(hit, pr.pos); retireProjectile(i); continue; }   // MULTI-HIT tank: an on-beat (open-at-impact) hit CHIPS it down one; it survives until the last hit
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
@@ -2129,6 +2186,7 @@ function animate(frameNow){
   if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
   try{ if(state.running) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
+  try{ updateTankCombos(dt); }catch(e){ if(!updateTankCombos._e){ updateTankCombos._e=1; console.error('updateTankCombos',e); } }   // RHYTHMIC-COMBO TANK: sub-node glow/throb/tick + re-shield on lapse
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor beat-tint + cursor feedback + the converging fire-ring; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
