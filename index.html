@@ -812,40 +812,43 @@ let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=nul
 let gridId=null, grid8=0, cd=0, restSlots=0;
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
 /* ========================= TUNE LIBRARY =========================
-   Each THEME bundles the five things the whole audio engine reads: a melodic SCALE (kills/tank/WASD-taps/tune all
+   Each THEME bundles the things the whole audio engine reads: a melodic SCALE (kills/tank/WASD-taps/tune all
    index it — the old PENTA), a chord PROGRESSION as sub-bass ROOTs + voice-led pad TRIADs (one chord per bar, cycled
-   by ci in onGrid), a HOOK melody TUNE (scale indices; -1 = rest; loops on grid8 % tune.length), and the ARP figure
-   (triad indices). THE INVARIANT that keeps gameplay musical: a theme's SCALE must be CONSONANT over its WHOLE
-   progression, so a kill/tap lands in key no matter which bar it falls on (exactly as A-minor-pentatonic is over
-   Am-F-C-G). A run rolls one at random (pickTheme, in resetSession) + a brief on-screen name (flashTheme). Sources
-   are public-domain (Pachelbel d.1706 · Beethoven d.1827) or original in a traditional style. Scales: dojo=A-min,
-   canon=D-maj, moonlight=C#-min, icaros=E-min pentatonic. All NEW-theme note data is a first guess — ear-tune the
-   arrays freely; DOJO stays exactly as it was (the known-good zen loop). Add a theme = push a {name,scale,root,triad,
-   tune,arp} entry; scale must have 8 slots, every triad exactly 3. */
+   by ci in onGrid), a HOOK melody TUNE (scale indices; -1 = rest; loops on grid8 % tune.length), the ARP figure
+   (triad indices), and a BASSLINE (8 multipliers of the CURRENT bar's root, one per 8th in the bar; 0 = rest,
+   1 = root, 1.5 = fifth, 2 = octave — rhythm is what makes themes distinct; absolute pitch still walks with root[]).
+   Optional bassHold (Tone duration, default '8n') for long vs short notes. THE INVARIANT: a theme's SCALE must be
+   CONSONANT over its WHOLE progression, so a kill/tap lands in key no matter which bar it falls on. A run rolls one
+   at random (pickTheme) + brief ♪ name. Sources public-domain or original-in-tradition. Add a theme = push
+   {name,scale,root,triad,tune,arp,bass,bassHold?}; scale 8 slots, every triad 3, bass length 8. */
 const THEMES=[
-  { name:'DOJO',      // A-minor pentatonic over Am · F · C · G — the original zen loop (unchanged)
+  { name:'DOJO',      // A-minor pentatonic over Am · F · C · G — original zen: root on 1, fifth on 3
     scale:[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33],
     root:[55.00,43.65,65.41,49.00],
     triad:[[110,130.81,164.81],[110,130.81,174.61],[98.00,130.81,164.81],[98.00,123.47,146.83]],
-    tune:[0,2,-1,-1, 4,3,-1,-1, 5,4,-1,-1, 2,0,-1,-1], arp:[0,1,2,1,0,1,2,1] },
-  { name:'CANON',     // Pachelbel's Canon in D — the 8-chord loop D·A·Bm·F#m·G·D·G·A; D-major pentatonic floats over all 8
+    tune:[0,2,-1,-1, 4,3,-1,-1, 5,4,-1,-1, 2,0,-1,-1], arp:[0,1,2,1,0,1,2,1],
+    bass:[1,0,0,0, 1.5,0,0,0], bassHold:'8n' },
+  { name:'CANON',     // Pachelbel's Canon in D — 8-chord D·A·Bm·F#m·G·D·G·A; identity = WALKING half-note roots (the famous bass)
     scale:[293.66,329.63,369.99,440.00,493.88,587.33,659.25,739.99],
     root:[73.42,55.00,61.74,46.25,49.00,73.42,49.00,55.00],
     triad:[[110.00,146.83,185.00],[110.00,138.59,164.81],[123.47,146.83,185.00],[92.50,110.00,138.59],[98.00,123.47,146.83],[110.00,146.83,185.00],[98.00,123.47,146.83],[110.00,138.59,164.81]],
-    tune:[7,5,4,-1, 3,2,3,-1, 5,4,2,-1, 1,2,0,-1], arp:[0,1,2,1,0,1,2,1] },
-  { name:'MOONLIGHT', // Beethoven Sonata No.14 mvt.1 mood — i·VI·III·VII (C#m·A·E·B, all in C#-minor); C#-minor pentatonic
+    tune:[7,5,4,-1, 3,2,3,-1, 5,4,2,-1, 1,2,0,-1], arp:[0,1,2,1,0,1,2,1],
+    bass:[1,0,0,0, 1,0,0,0], bassHold:'4n' },   // two half-notes per bar → root sequence D-A-Bm-… reads as the Canon walk
+  { name:'MOONLIGHT', // Beethoven Sonata No.14 mood — i·VI·III·VII; sparse brooding bass (one dark hit per bar)
     scale:[277.18,329.63,369.99,415.30,493.88,554.37,659.25,739.99],
     root:[69.30,55.00,82.41,61.74],
     triad:[[103.83,138.59,164.81],[110.00,138.59,164.81],[103.83,123.47,164.81],[92.50,123.47,155.56]],
-    tune:[3,3,-1,-1, 4,3,2,-1, -1,-1,3,-1, 2,1,-1,-1], arp:[0,1,2,0,1,2,0,1] },
-  { name:'ICAROS',    // meditative Amazonian-style drone (original, not a transcription) — Em·G·Em·D; E-minor pentatonic
+    tune:[3,3,-1,-1, 4,3,2,-1, -1,-1,3,-1, 2,1,-1,-1], arp:[0,1,2,0,1,2,0,1],
+    bass:[1,0,0,0, 0,0,0,0], bassHold:'2n' },
+  { name:'ICAROS',    // meditative drone — Em·G·Em·D; pulse every quarter so the low E/G/D never leaves
     scale:[164.81,196.00,220.00,246.94,293.66,329.63,392.00,440.00],
     root:[41.20,49.00,41.20,73.42],
     triad:[[82.41,98.00,123.47],[98.00,123.47,146.83],[82.41,98.00,123.47],[110.00,146.83,185.00]],
-    tune:[2,1,0,-1, -1,-1,-1,-1, 3,2,1,-1, -1,-1,0,-1], arp:[0,1,2,1,0,1,2,1] },
+    tune:[2,1,0,-1, -1,-1,-1,-1, 3,2,1,-1, -1,-1,0,-1], arp:[0,1,2,1,0,1,2,1],
+    bass:[1,0,1,0, 1,0,1,0], bassHold:'8n' },
 ];
-let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
-function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; }   // swap the working arrays every voice reads (names unchanged so all call sites just adopt the new key)
+let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
+function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; BASS=t.bass; BASS_HOLD=t.bassHold||'8n'; }   // swap every array the voices read (incl. per-theme bassline)
 function pickTheme(){ let i; do{ i=(Math.random()*THEMES.length)|0; }while(THEMES.length>1 && i===_lastThemeI); _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true; }   // roll a fresh theme per run, never the same one twice running
 applyTheme(THEMES[0]);   // populate the working arrays at load (before the first run rolls one) so nothing ever reads undefined
 function chordHit(streak){                               // an open (fifth) chord a 1/4-beat after a hit, rising with the streak — no 3rd, so it never clashes major/minor with the A-minor bed
@@ -897,7 +900,7 @@ function buildDrums(){
     hat=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0}}).connect(hatFilt);
     tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(new Tone.Volume(3).connect(drumBus));
     shotCue=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.03}}).connect(new Tone.Volume(1).connect(drumBus));   // groove Phase 1 shot-timing feedback: its OWN voice + a distinct SINE timbre so it never voice-steals the (triangle) metronome tick
-    bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.004,decay:0.2,sustain:0.04,release:0.1}}).connect(new Tone.Filter(440,'lowpass').connect(new Tone.Volume(-9).connect(drumBus)));   // warm sub-bass for the higher groove tiers
+    bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.006,decay:0.28,sustain:0.18,release:0.22}}).connect(new Tone.Filter(520,'lowpass').connect(new Tone.Volume(-6).connect(drumBus)));   // THEME bassline voice — warmer + louder + longer sustain so root walks read as distinct lines (was -9 / short blips that all themes shared)
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(4200,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }   // CHORD-ARP BED (pass 3: ducked vol -6→-9 so the new TUNE hook can cut through; still bright enough to carry harmony)
     try{ tapSynth=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.002,decay:0.13,sustain:0,release:0.08}}).connect(new Tone.Filter(3200,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }   // WASD taps get a VOICE (were silent): the off-beat "and" taps play a pentatonic counter-melody — playing well = playing music
     try{ pad=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}}).connect(new Tone.Filter(1400,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }   // sustained PAD swell — layers in on the downbeat at high groove (the "Rez build" ceiling above tier 3)
@@ -1043,8 +1046,7 @@ function onGrid(time){
     if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick
     if(snare && tier>=1 && (i===2||i===6)) snare.triggerAttackRelease('16n',time, tier>=2?0.9:0.65);  // backbeat fades in
     if(hat && (tier>=2 || i%2===0)) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);   // beat-hats → every-step hats as it builds
-    if(bass && tier>=2 && i===0) bass.triggerAttackRelease(CHORD_ROOT[ci],'8n',time, 0.8);   // sub-bass ROOT of the current chord (Am-F-C-G) — the harmony's foundation
-    if(bass && tier>=3 && i===4) bass.triggerAttackRelease(CHORD_ROOT[ci]*1.5,'8n',time, 0.55);   // the FIFTH on beat 3 → a root-fifth walk that moves with the progression
+    if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(CHORD_ROOT[ci]*bm, BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root (0=rest, 1=root, 1.5=fifth, 2=oct). Enters at tier 1 so the walk is audible early — this is what makes themes sound different.
     if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, tier>=2?0.55:0.42);   // CHORD-ARP BED: arpeggiates the current chord (octave up) under the hook; softer velocity so TUNE owns the melody
     if(tune && tier>=1){ const tn=TUNE[grid8%TUNE.length]; if(tn>=0) tune.triggerAttackRelease(PENTA[tn], '8n', time, tier>=2?0.85:0.7); }   // HOOK: 16-step call/answer on PENTA; rests where TUNE[i]===-1; enters with the groove so the field starts singing once you're in the pocket
     if(pad && grooveI>=1.5 && i===0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5)));   // PAD = the audible HARMONY: the current chord's voice-led triad, now sustaining the FULL bar ('1n') for a richer bed; enters by mid-groove, velocity ramps with grooveI (the "Rez build")
