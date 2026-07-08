@@ -1596,7 +1596,7 @@ function drawWasdLane(){
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
 const FLOCK={ max:190, ghostMax:60, burstBase:8, burstAcc:0.06, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 8..14 (count halved — less flock mass; star size kept readable); rainbow flock once the bonus combo is this hot
-  spawnDist:2.4, dropY:0.35, cone:0.5, speed:[4.0,7.5], up:[0.3,1.0],              // burst: erupt ~2.4m ahead of the crosshair, fly forward-OUT into the room (less up-bias than before)
+  spawnDist:2.4, dropY:0.35, floorY:0.55, cone:0.5, speed:[4.0,7.5], up:[0.3,1.0], // burst: ~2.4m DOWNRANGE on the ground plane (not along aim pitch — that sank stars under the floor / flung them above the horizon). floorY = hard min world-Y so birds never pierce the ground.
   swirl:0.85, dragPerSec:0.55, grav:0.7, bob:4.2, jitter:0.08,                      // burst-phase per-bird bank + coast-down + wing-bob + settle + √dt-scaled separation jitter
   burst:[0.42,0.66], orbitFwd:7.5, orbitRise:3.2, orbitRadius:[2.6,5.2], orbitSpeed:3.6, orbitPull:1.6, orbitSteer:2.8, centerEase:0.30,   // anchor the orbit ~10m DOWNRANGE (not around the head); ~2x wider ring; later bursts join the same swarm
   life:[4.2,6.0], spin:[1.6,5.0], base:[0.5,0.8],                                   // longer life + bigger stars so the distant, wide orbit reads before they dissolve
@@ -1632,16 +1632,21 @@ function _dropGhost(pos, col, scl){ if(_flockGhosts.length>=FLOCK.ghostMax) retu
   g.age=0; g.life=0.5; g.spin=(Math.random()-0.5)*3; _flockGhosts.push(g); }
 function spawnFlock(key, acc, rainbow){
   if(reduceMotion) return;
-  camera.getWorldDirection(_fFwd); _fRight.crossVectors(_fFwd,_FUP).normalize(); _fUp.crossVectors(_fRight,_fFwd).normalize();
-  _fOrig.copy(camera.position).addScaledVector(_fFwd,FLOCK.spawnDist).addScaledVector(_fUp,-FLOCK.dropY);
-  _fTan.set(_fFwd.x,0,_fFwd.z); const fl=_fTan.length()||1e-3; _fTan.multiplyScalar(1/fl);   // horizontal forward → anchor sits downrange at a sane height regardless of aim pitch
+  // HORIZONTAL-ONLY placement: aim pitch used to leak into spawn Y (look-down → stars under the floor / through the horizon; look-up → stars above the skyline). Burst lives in the room in front of you, always above the ground plane.
+  camera.getWorldDirection(_fFwd);
+  _fTan.set(_fFwd.x,0,_fFwd.z); const fl=_fTan.length()||1e-3; _fTan.multiplyScalar(1/fl);   // ground-plane forward (zero pitch)
+  _fRight.crossVectors(_fTan,_FUP).normalize();                                               // right on the ground plane (stable even when looking nearly straight up/down)
+  const y0=Math.max(FLOCK.floorY, camera.position.y - FLOCK.dropY);                          // eye height − drop, never below the floor pad
+  _fOrig.set(camera.position.x + _fTan.x*FLOCK.spawnDist, y0, camera.position.z + _fTan.z*FLOCK.spawnDist);
   _fToC.copy(_fOrig).addScaledVector(_fTan,FLOCK.orbitFwd).addScaledVector(_FUP,FLOCK.orbitRise);   // orbit anchor well DOWNRANGE + up: the swarm flies off into the room instead of hugging the head
-  if(_flockHasCenter) _flockCenter.lerp(_fToC, FLOCK.centerEase); else { _flockCenter.copy(_fToC); _flockSpin=Math.random()<0.5?1:-1; _flockHasCenter=true; }   // live swarm migrates toward recent taps; a fresh one picks a new anchor + orbit direction
+  if(_fToC.y < FLOCK.floorY + 2) _fToC.y = FLOCK.floorY + 2;                                   // keep the shared orbit above the ground so the ring never drills into the floor
+  if(_flockHasCenter){ _flockCenter.lerp(_fToC, FLOCK.centerEase); if(_flockCenter.y < FLOCK.floorY+2) _flockCenter.y=FLOCK.floorY+2; }   // live swarm migrates toward recent taps; lift a leftover low anchor (pre-fix orbit under the floor)
+  else { _flockCenter.copy(_fToC); _flockSpin=Math.random()<0.5?1:-1; _flockHasCenter=true; }
   const n=Math.min(FLOCK.max, Math.round(FLOCK.burstBase+acc*FLOCK.burstAcc));
   for(let i=0;i<n;i++){
     const az=Math.random()*6.283, r=Math.random()*FLOCK.cone;
-    _fDir.copy(_fFwd).addScaledVector(_fRight,Math.cos(az)*r).addScaledVector(_fUp,Math.sin(az)*r).normalize()
-      .multiplyScalar(FLOCK.speed[0]+Math.random()*(FLOCK.speed[1]-FLOCK.speed[0])).addScaledVector(_fUp,FLOCK.up[0]+Math.random()*(FLOCK.up[1]-FLOCK.up[0]));
+    _fDir.copy(_fTan).addScaledVector(_fRight,Math.cos(az)*r).addScaledVector(_FUP,Math.sin(az)*r).normalize()   // cone on ground plane + world-up (not camera pitch)
+      .multiplyScalar(FLOCK.speed[0]+Math.random()*(FLOCK.speed[1]-FLOCK.speed[0])).addScaledVector(_FUP,FLOCK.up[0]+Math.random()*(FLOCK.up[1]-FLOCK.up[0]));
     const col=rainbow?FLOCK.rainbow[i%FLOCK.rainbow.length]:(acc>=100&&i%3===0?FLOCK.gold:WASD_HEX[key]);   // key colour; pale-gold sprinkled on a PERFECT; full rainbow on a hot combo
     _birthBird(col, FLOCK.base[0]+Math.random()*(FLOCK.base[1]-FLOCK.base[0]), FLOCK.life[0]+Math.random()*(FLOCK.life[1]-FLOCK.life[0]), _fDir, (Math.random()-0.5)*2*FLOCK.swirl, 0);
   }
@@ -1666,6 +1671,7 @@ function updateFlock(dt){
     }
     b.vel.x += (Math.random()-0.5)*FLOCK.jitter*sdt; b.vel.z += (Math.random()-0.5)*FLOCK.jitter*sdt;
     b.mesh.position.addScaledVector(b.vel,dt);
+    if(b.mesh.position.y < FLOCK.floorY){ b.mesh.position.y=FLOCK.floorY; if(b.vel.y<0) b.vel.y*=-0.25; }   // never pierce the ground (horizon-readable floor)
     b.tt+=dt; if(b.tt>=FLOCK.trailEvery && t<0.72){ b.tt=0; _dropGhost(b.mesh.position,b.col,b.mesh.scale.x*0.72); }   // comet-trail afterimage
     if(!b.branched && b.depth<2 && _flock.length<FLOCK.max && t>0.15 && t<0.6 && Math.random()<FLOCK.branchRate*dt){   // a bird occasionally sheds a child that veers off
       b.branched=true; _fOrig.copy(b.mesh.position);
