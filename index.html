@@ -1264,7 +1264,7 @@ function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF th
 }
 /* ===== MULTI-HIT TANK: a bigger AMBER orb that takes 2-3 ON-BEAT hits — "keep hitting the big one on the beat." Each hit chips it (a note walks UP + the shell pops + the count ticks down) as pure PROGRESS; the last hit pops it (scored like a normal orb, amber burst). Off-beat landings clank. Simple + rhythmic — no sub-figure. ===== */
 function handleTankHit(tg, point){
-  if(!tankOpen()){ clankShot(tg, point); return; }          // TANK: land in the WIDE open window (first ~3/4 of the beat) — off it (the last 16th) clanks
+  if(!orbOpen()){ clankShot(tg, point); return; }           // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
   tg.hp--;
   if(tg.hp<=0){ if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.75); }catch(e){} } gradeRhythmHit(tg, point); return; }   // last hit → KILL (scored; the hpMax-1 grade shift accounts for the extra hits)
   tankChip(tg);                                             // not the last → chip (pure progress: no score/streak/shots)
@@ -2051,7 +2051,7 @@ function animate(frameNow){
       const _bps=60/Math.max(20,state.bpm), _lat=(rawCtx&&(rawCtx.outputLatency||rawCtx.baseLatency))||0; hb-=_lat/_bps;   // heard timeline → the glow matches the audible beat
       const _offSec=Math.abs(hb-Math.round(hb))*_bps, _winSec=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();   // ms window: seconds off the beat vs a skill-tightened band (NOT a beat-fraction, which blew out to ±480ms at 20bpm)
       _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
-      const _so=_openAmt>0?0.20+0.47*_openAmt:0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=tankGlow(hb);   // TANK glows through its WIDE window (first openFrac of the beat), dims on the resting 16th — "unload while it's lit"   // discontinuous floor: shielded=0.05, then POPS to >=0.20 the instant it's killable → a crisp on/off edge that matches orbOpen() exactly (tanks glow on the whole beat like everything else — hit them on the beat)
+      const _so=_openAmt>0?0.20+0.47*_openAmt:0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;   // TANK glows + is killable ON THE BEAT like every orb (just amber + takes N hits) — one clock for the whole field   // discontinuous floor: shielded=0.05, then POPS to >=0.20 the instant it's killable → a crisp on/off edge that matches orbOpen() exactly (tanks glow on the whole beat like everything else — hit them on the beat)
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
