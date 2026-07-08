@@ -328,6 +328,7 @@ const CFG = {
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:false, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Defaults (user-picked): center circle (wasdHud) + timing text (wasdTapText) OFF -- letter only, both opt-in via settings.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
+  beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
@@ -349,7 +350,7 @@ const CFG = {
   clutch:true, clutchAnd:false, clutchRange:22, clutchLateBeats:2.4, clutchCooldown:1.1,
   clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
   // RAIL-FLICK BONUS (#4): a FLAWLESS on-beat kill on a hot streak FREEZES orb motion (the beat clock keeps ticking); aiming becomes pure FLICK (crosshair literally ON an orb, no lead), tap ANY WASD/pad-face ON the beat to LOCK the pointed orb. Window ends → locked orbs detonate one-per-beat as a scored cascade. Trains FLICK (the complement to the core LEAD). No auto-aim. Set flickBonus:null to disable. All values are first guesses — tune by ear/eye.
-  flickBonus:{ streakGate:4, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // streakGate=min streak to earn it · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack)
+  flickBonus:{ streakGate:3, gradeMax:1, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // streakGate=min streak to earn it · gradeMax=max grade index that arms it (0=FLAWLESS only, 1=also PERFECT) · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack). streakGate+gradeMax LOOSENED for eval — arrival-timing made FLAWLESS-at-streak-4 too rare to ever see the mode; re-tighten once it's felt.
   // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
   specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a 2-3 hit "tank" — needs multiple ON-BEAT hits, a floating number counts down.
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
@@ -1093,6 +1094,13 @@ function spawnRhythmOrb(){ spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
 function specialOrbsLive(){ return CFG.specialOrbs; }
 
+function beatSpawnDist(){   // BEAT-QUANTIZED SPAWN: return a distance whose ballistic flight time is an integer # of 16th-notes (k/16 beat), so landing the shot on the orb's beat means releasing exactly k sixteenths early — a rhythmic pocket. Model: a shot at speed s that returns to ~eye height at time T covers d = s·T·√(1−(gT/2s)²). Picks uniformly among the sixteenth-values reachable within the current skill-gated range; null → the caller falls back to the old cube-root distance.
+  const s=projSpeedNow(), g=CFG.projGravity, beatLen=60/Math.max(20,state.bpm);
+  const near=CFG.rangeNear, far=Math.min(CFG.rangeMax, state.range);
+  const ok=[];
+  for(const k of CFG.beatSpawnSixteenths){ const T=(k/16)*beatLen, r=g*T/(2*s); if(r>=1) continue; const d=s*T*Math.sqrt(1-r*r); if(d>=near && d<=far) ok.push(d); }   // r>=1: shot can't return to height in time T at this speed → that k is unreachable now
+  return ok.length ? ok[(rnd()*ok.length)|0] : null;
+}
 function spawnTarget(opts){
   opts=opts||{};
   const r=targetRadius();
@@ -1102,7 +1110,7 @@ function spawnTarget(opts){
     const minDot=Math.cos(THREE.MathUtils.degToRad(lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT())));
     let tries=0;
     do{
-      const az=rnd()*Math.PI*2, pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
+      const az=rnd()*Math.PI*2, pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)
       dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));
     }while(dir3.dot(a0)>minDot && ++tries<8);
   }else{
@@ -1110,12 +1118,12 @@ function spawnTarget(opts){
     _spawnFlat.set(_spawnFwd.x,0,_spawnFwd.z).normalize();
     _spawnRight.crossVectors(_spawnFlat,SPAWN_UP).normalize();
     const yawOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.yawSpreadDeg);
-    const pitOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.pitchSpreadDeg);
+    const pitOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);
     dir3=_spawnDir.copy(_spawnFlat).applyQuaternion(_spawnQYaw.setFromAxisAngle(SPAWN_UP,yawOff)).applyQuaternion(_spawnQPit.setFromAxisAngle(_spawnRight,pitOff));
   }
-  const far=state.range;  // skill-gated shell: state.range marches outward as you hit, eases back when you struggle
-  const d0=Math.max(CFG.rangeNear, far-CFG.rangeBand), d1=far;
-  const dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd()));   // cube-root warp → constant volumetric density (no bunching at the near edge)
+  let dist = CFG.beatSpawn ? beatSpawnDist() : null;        // BEAT-QUANTIZED distance (flight time = k/16 beat → release on a rhythmic subdivision)
+  if(dist==null){ const far=state.range, d0=Math.max(CFG.rangeNear, far-CFG.rangeBand), d1=far;   // fallback (beatSpawn off, or no feasible 16th at this tempo/reach): the old cube-root warp → constant volumetric density (no bunching at the near edge). state.range = skill-gated shell that marches outward as you hit, eases back when you struggle
+    dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd())); }
   _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist);
   _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos);
   const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*0.7;
@@ -1232,7 +1240,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
   if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
-  if(good && gradeIdx<=0 && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS: a FLAWLESS on-beat kill on a hot streak earns the flick treat (armed AFTER this kill; state.streak already ++'d above)
+  if(good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS: a FLAWLESS/PERFECT (gradeMax) on-beat kill on a hot streak earns the flick treat (armed AFTER this kill; state.streak already ++'d above)
   if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
 function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF the beat (shielded) → NO kill. It's a TIMING MISS: costs a shot + breaks the streak + feeds the adaptive engine, exactly like a whiff — so spray-and-pray can't beat the clock or inflate the leaderboard. A DISTINCT dull bonk (vs the whiff noise) so you know it was timing, not aim.
@@ -1714,7 +1722,7 @@ function updateScope(dt){
    the window. When it ends the locked orbs detonate in a one-per-beat cascade, each a scored bonus
    kill. Trains FLICK — the complement to the core LEAD skill. No auto-aim. */
 function currentRawBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b; }   // raw whole-beat clock (no groove phase-shift) — drives the window countdown + cascade cadence
-function maybeArmFlickBonus(){   // called from gradeRhythmHit on a FLAWLESS good kill; the call site already checked good && gradeIdx<=0 && !bonusActive
+function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
   if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
   if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
   if(state.t-_bonusLast<CFG.flickBonus.cooldown) return;                           // keep it a treat, not a strobe (mirrors clutch)
