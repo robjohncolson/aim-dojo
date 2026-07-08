@@ -342,6 +342,7 @@ const CFG = {
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
   dolly:true, dollyYawDeg:4, dollyPitchDeg:2.2, dollySpeed:0.35,
+  lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -376,11 +377,15 @@ const MOBILE = window.matchMedia('(pointer: coarse)').matches && HAS_TOUCH;
 /* ========================= SCENE ========================= */
 const canvas = document.getElementById('scene');
 const DEVICE_DPR = window.devicePixelRatio || 1;
-const DPR_MAX = Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);
+/* LOW-REZ MODE — N64-crunch/low-cost render for weak GPUs (e.g. a 2014 Mac Mini). Forced via ?low in the URL or CFG.lowRez; auto-detected on software rasterizers + old pre-Xe Intel iGPUs; ?hi forces it OFF (escape hatch for a false positive). Resolved HERE because antialias + the initial DPR are construction-time-only. Pure render cost — ZERO gameplay/timing/audio change. */
+function detectWeakGPU(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl) return true; const ext=gl.getExtension('WEBGL_debug_renderer_info'), r=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=gl.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(e){} if(/swiftshader|llvmpipe|software|mesa|microsoft basic/i.test(r)) return true; if(/intel/i.test(r) && /(hd graphics|iris)/i.test(r) && !/(xe|iris plus|uhd|hd graphics 6)/i.test(r)) return true; return false; }catch(e){ return false; } }   // conservative: software + old Intel HD/Iris (4000/5000-class); excludes UHD/Iris Plus/Xe
+const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false : (/(?:^|[?&#])low\b/.test(location.search+location.hash) || CFG.lowRez===true || detectWeakGPU());
+if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (18→8), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
+const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
 let renderDpr = DPR_MAX;
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
 function syncViewport(){ viewW=innerWidth; viewH=innerHeight; viewCX=viewW/2; viewCY=viewH/2; }
-const renderer = new THREE.WebGLRenderer({canvas, antialias:!MOBILE, powerPreference:'high-performance'});
+const renderer = new THREE.WebGLRenderer({canvas, antialias:!MOBILE && !LOW, powerPreference:'high-performance'});   // LOW: MSAA OFF — it costs 20-40% of frame time on weak iGPUs and fights the wanted crunchy edges
 renderer.setPixelRatio(renderDpr);
 renderer.setSize(viewW, viewH);
 const scene = new THREE.Scene();
@@ -422,11 +427,11 @@ const TILE_SETS=[['#0c0e14','#e6eaef'],['#221512','#f0dde2']];  // [dark,light]:
 const FLOOR_SIZE=620;
 let checkerTexes=[], dayTileIdx=(Math.random()*2)|0;
 function makeCheckerTex(dark, light){                        // 8×8 checker, tiled across the floor for daytime
-  const N=512, sq=N/8; const c=document.createElement('canvas'); c.width=c.height=N; const g=c.getContext('2d');
+  const N=LOW?128:512, sq=N/8; const c=document.createElement('canvas'); c.width=c.height=N; const g=c.getContext('2d');   // LOW: a checker is just squares — 128px cuts texture memory ~16×
   for(let y=0;y<8;y++) for(let x=0;x<8;x++){ g.fillStyle=((x+y)&1)?dark:light; g.fillRect(x*sq,y*sq,sq,sq); }
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping;
   t.magFilter=THREE.NearestFilter; t.minFilter=THREE.LinearMipmapLinearFilter; t.generateMipmaps=true;
-  t.anisotropy=Math.min(4, renderer.capabilities.getMaxAnisotropy());     // capped anisotropy keeps the checker stable without maxing sampler cost
+  t.anisotropy=LOW?1:Math.min(4, renderer.capabilities.getMaxAnisotropy());     // capped anisotropy keeps the checker stable without maxing sampler cost (LOW: 1 = no aniso sampler tax)
   return t;
 }
 function getCheckerTex(i){
@@ -457,7 +462,7 @@ function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper
   dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}));
   dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day
   dayFloor.material.onBeforeCompile=(sh)=>{                  // far floor shows the TRUE planar reflection of the sky (sun disc included → omega sunset); also dissolves the checker so no moiré
-    sh.uniforms.uMirN={value:18}; sh.uniforms.uMirF={value:140};
+    sh.uniforms.uMirN={value:LOW?1e6:18}; sh.uniforms.uMirF={value:LOW?2e6:140};   // LOW: push BOTH mirror edges past any floor distance → smoothstep(uMirN,uMirF,vMirD)=0 everywhere → the reflection mix contributes NOTHING (floor just fades to fog), so the far floor never samples the skipped reflection RT (no dark garbage)
     sh.uniforms.uRefl={value:reflRT.texture}; sh.uniforms.uRes={value:new THREE.Vector2(2,2)};
     sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};   // WASD floor beat-tint (luminance-weighted so the light tiles take the colour)
     sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
@@ -469,7 +474,7 @@ function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper
       ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, smoothstep(uMirN,uMirF,vMirD));');
     dayFloor.material.userData.sh=sh;
   };
-  nightGrid = new THREE.GridHelper(FLOOR, FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;
+  nightGrid = new THREE.GridHelper(FLOOR, LOW?80:FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;   // LOW: coarser grid (80 vs 310) — cheaper line buffer + reads as more Rez/N64; normal keeps FLOOR/2
   nightGrid.material.transparent = true; nightGrid.material.depthWrite = false; nightGrid.material.opacity = 0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
 })();
 
@@ -478,7 +483,7 @@ const skyGroup=new THREE.Group(); scene.add(skyGroup);        // the whole celes
 let starPts=null, starGeo=null;
 function buildStars(){
   if(starPts) return;
-  const N=560, R=340;
+  const N=LOW?200:560, R=340;   // LOW: ~2.7× fewer additive star quads
   const PAL=[[1,1,1],[0.82,0.9,1],[1,0.95,0.82],[1,0.79,0.42],[1,0.5,0.46],[0.55,0.72,1]]; // white, blue-white, warm, yellow, red, blue
   starGeo=new THREE.BufferGeometry();
   const pos=new Float32Array(N*3), col=new Float32Array(N*3);
@@ -506,7 +511,7 @@ function buildStars(){
       'uniform float uOpacity; varying vec3 vColor;',
       'void main(){ float d=length(gl_PointCoord-vec2(0.5)); float a=smoothstep(0.5,0.0,d)*uOpacity; if(a<=0.001) discard; gl_FragColor=vec4(vColor,a); }'
     ].join('\n')});
-  starPts=new THREE.Points(starGeo, mat); starPts.frustumCulled=false; starPts.layers.enable(1); skyGroup.add(starPts);
+  starPts=new THREE.Points(starGeo, mat); starPts.frustumCulled=false; if(!LOW) starPts.layers.enable(1); skyGroup.add(starPts);   // LOW: don't draw stars in the (skipped) reflection layer
 }
 function updateStars(t){ if(starPts && starPts.material.uniforms.uOpacity.value>0.01) starPts.material.uniforms.uTime.value=t; }
 // --- sun & moon: same tilted circular orbit, 180° apart, carried by skyGroup's rotation ---
@@ -528,7 +533,7 @@ moon.scale.set(34,34,1); moon.position.copy(sunU).multiplyScalar(-SUN_R); skyGro
 
 // --- day/night driver ---
 /* ---- gradient sky dome: deeper overhead, lighter at the horizon (a paraboloid-ish backdrop) ---- */
-const CLOUD_OCTAVES = MOBILE ? 2 : 3;
+const CLOUD_OCTAVES = LOW ? 1 : (MOBILE ? 2 : 3);   // LOW: 1 octave = ~3× fewer per-pixel sin() over the full-screen sky dome; still reads as drifting cloud banding (very PS1)
 const skyDomeMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, depthTest:false, fog:false,
   uniforms:{ uHor:{value:new THREE.Color(0x0e1626)}, uZen:{value:new THREE.Color(0x010109)}, uHaze:{value:new THREE.Color(0xbcd8f0)},
              uCloudCol:{value:new THREE.Color(0xffffff)}, uTime:{value:0}, uCloud:{value:0}, uWind:{value:new THREE.Vector2(0.006,0.004)} },
@@ -578,6 +583,7 @@ function syncReflUniformSize(){
   renderer.getDrawingBufferSize(_dbs); fsh.uniforms.uRes.value.copy(_dbs); reflResDirty=false;
 }
 function renderReflection(){
+  if(LOW) return;   // LOW: skip the entire second scene render (the mirror sky) — the biggest single GPU saving; uMirN=1e6 above makes the floor ignore the (unrendered) reflection RT and just fade to fog
   if(skyT-lastReflT<(state.running?REFL_INTERVAL:REFL_IDLE_INTERVAL)) return;
   lastReflT=skyT;
   camera.updateMatrixWorld();
@@ -594,7 +600,7 @@ const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  
 let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
 function setNightGrid(lineCol, cellCol){                      // recreate the grid lines in a new colour
   if(nightGrid){ scene.remove(nightGrid); nightGrid.geometry.dispose(); nightGrid.material.dispose(); }
-  nightGrid=new THREE.GridHelper(620, 310, lineCol, cellCol); nightGrid.position.y=0.02;
+  nightGrid=new THREE.GridHelper(620, LOW?80:310, lineCol, cellCol); nightGrid.position.y=0.02;   // LOW: coarser grid (80 vs 310); normal unchanged
   nightGrid.material.transparent=true; nightGrid.material.depthWrite=false; nightGrid.material.opacity=0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
 }
 const SKY_NIGHT=new THREE.Color(0x05060e), SKY_DAY=new THREE.Color(0x5e93cf), SKY_DUSK=new THREE.Color(0xd0743a);
@@ -639,7 +645,7 @@ function updateSky(dt){
   hemiLight.color.copy(_sky); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // light comes from whichever body is up
-  skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',day*0.9);          // procedural clouds: drift + fade in with the day
+  skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',LOW?0:day*0.9);          // procedural clouds: drift + fade in with the day (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome, a clean gradient sky which is on-theme N64)
   if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
   else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
@@ -718,7 +724,7 @@ if(pauseBtnT) pauseBtnT.addEventListener('touchstart', e=>{ e.preventDefault(); 
 
 /* ========================= JUICE (recoil, shake, explosions) ========================= */
 const PLAYER_POS = new THREE.Vector3(0, EYE, 0);
-const FLASH_GEO = new THREE.SphereGeometry(1,10,8);
+const FLASH_GEO = new THREE.SphereGeometry(1,LOW?6:10,LOW?4:8);   // LOW: chunkier explosion flash (normal keeps 10,8)
 let recoilPitch=0, recoilYaw=0, trauma=0;
 const explosions=[];
 const explosionRecordPool=[];
@@ -1049,8 +1055,8 @@ function teardownTransport(){
 
 /* ========================= TARGETS ========================= */
 const targets=[]; const TOXIC=0x74e84a;
-const TARGET_CORE_GEO=new THREE.SphereGeometry(1,16,10);
-const TARGET_SHELL_GEO=new THREE.SphereGeometry(1,10,8);
+const TARGET_CORE_GEO=new THREE.SphereGeometry(1,LOW?8:16,LOW?6:10);   // LOW: chunky faceted orb (~½ the tris, reads as N64/PS1); normal keeps the smooth 16,10
+const TARGET_SHELL_GEO=new THREE.SphereGeometry(1,LOW?6:10,LOW?4:8);   // LOW: chunkier glow shell
 const TARGET_CORE_MAT=new THREE.MeshBasicMaterial({color:TOXIC});
 const TARGET_SHELL_MAT=new THREE.MeshBasicMaterial({color:TOXIC,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
 // special orbs (variety): kind 0=normal, 1=gold (bonus), 2=decoy (don't-hit). Distinct SHARED materials swapped onto the pooled mesh per spawn (no per-orb allocation).
@@ -1531,7 +1537,7 @@ function updateTargetMarks(){                                                 //
 /* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
-const HUD_CSS=560, HUD_DPR=Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px
+const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
 function showWasdGlyph(key, spoiled, on){
   if(!wasdGlyphEl) return;
@@ -1543,13 +1549,14 @@ function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
   const on = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
-  if(hudCanvas.style.display==='none') hudCanvas.style.display='block';
+  const showHud=CFG.wasdHud || CFG.wasdTapText;   // does ANYTHING actually draw to the CANVAS? (the visible letter is a separate DOM element via showWasdGlyph) — if not, skip the full-canvas per-frame clearRect ENTIRELY (it was a ~1.25MPx clear yielding zero pixels in the default letter-only config)
+  if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
+  else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
   const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
-  hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H);
+  if(showHud){ hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
   // ---- the inner HIT-LINE ring (gated by the 'WASD center cue' toggle; the letter below keeps its OWN toggle so reduceMotion users never lose it) ----
-  const showHud=CFG.wasdHud;
   if(showHud){ hudCtx.globalAlpha=0.85; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
     hudCtx.globalAlpha=0.8; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
   // ---- the IN-FOCUS note (nearest beat): the circle CONVERGES to Rin at the beat, then BLOOMS back out + fades (the late window) ----
@@ -1582,6 +1589,7 @@ const FLOCK={ max:190, ghostMax:60, burstBase:8, burstAcc:0.06, rainbowCombo:6, 
   life:[4.2,6.0], spin:[1.6,5.0], base:[0.5,0.8],                                   // longer life + bigger stars so the distant, wide orbit reads before they dissolve
   trailEvery:0.06, ghostGrowPerSec:1.9, branchRate:0.28, gold:0xfff6c8,
   rainbow:[0xff4d4d,0xff9a3d,0xffd84a,0x5be86b,0x43d9ff,0x6aa8ff,0xc06bff] };
+if(LOW){ FLOCK.max=40; FLOCK.ghostMax=12; FLOCK.burstBase=4; }   // LOW: a combo burst could push ~250 individual additive draw calls exactly when the screen is busiest — thin it hard; fewer, chunkier stars still pop
 const _flockGeo=(()=>{ const a=new THREE.BoxGeometry(0.62,0.09,0.09), b=new THREE.BoxGeometry(0.09,0.62,0.09);   // two merged crossed bars = a little 4-point star, like Formula Defense
   const pa=a.attributes.position.array, pb=b.attributes.position.array, ia=a.index.array, ib=b.index.array;
   const pos=new Float32Array(pa.length+pb.length); pos.set(pa,0); pos.set(pb,pa.length);
