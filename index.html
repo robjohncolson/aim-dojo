@@ -274,7 +274,7 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
       <div id="dojoBox" class="boardbox">
         <div class="histhead"><span>🥋 DOJO RECORDS</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
         <div id="dojoTabs" class="dojo-tabs">
-          <span class="dt" data-sort="kills">KILLS</span><span class="dt" data-sort="streak">STREAK</span><span class="dt" data-sort="peak_bpm">BPM</span><span class="dt" data-sort="far">FARTHEST</span><span class="dt" data-sort="high">HIGHEST</span>
+          <span class="dt" data-sort="peak_bpm">BPM</span><span class="dt" data-sort="runtime">TIME</span>
         </div>
         <div id="dojoBests" class="histsub" style="margin:0 0 3px;text-align:left;white-space:normal"></div>
         <div id="dojoList" class="boardlist"><div class="board-empty">loading…</div></div>
@@ -347,7 +347,7 @@ const CFG = {
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
-  dolly:true, dollyYawDeg:4, dollyPitchDeg:2.2, dollySpeed:0.35,
+  dolly:true, dollyYawDeg:7, dollyPitchDeg:4, dollySpeed:0.5,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
@@ -1249,12 +1249,7 @@ function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb'
   if(dist>state.maxHitDist) state.maxHitDist=dist;
   if(h>state.maxHitHeight) state.maxHitHeight=h;
   if(el.hitFlash){ setText(el.hitFlash, '◎ '+fmtDist(dist)+'   ▲ '+fmtDist(h)); el.hitFlash.classList.remove('show'); void el.hitFlash.offsetWidth; el.hitFlash.classList.add('show'); }
-  if(_dojoBest && !reduceMotion){       // ★ NEW RECORD — flash when this run beats your stored personal best (once per metric per run)
-    if(!_dojoRecHit.far && _dojoBest.far>0 && dist>_dojoBest.far){ _dojoRecHit.far=true; flashDojoRecord('FARTHEST '+fmtDist(dist)); }
-    else if(!_dojoRecHit.high && _dojoBest.high>0 && h>_dojoBest.high){ _dojoRecHit.high=true; flashDojoRecord('HIGHEST '+fmtDist(h)); }
-    else if(!_dojoRecHit.streak && _dojoBest.streak>0 && state.bestStreak>_dojoBest.streak){ _dojoRecHit.streak=true; flashDojoRecord('STREAK '+state.bestStreak); }
-  }
-}
+}   // (the far/high/streak "★ NEW RECORD" flash was removed — records are now just time + BPM, which are end-of-run, not per-hit)
 function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
   const beats=(atT - tg.born)/(60/(atBpm!=null?atBpm:state.bpm));               // grade against the tempo at commit time too (it can step mid-flight in free-play)
@@ -2351,7 +2346,7 @@ function projectDir(dir){
 /* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
 let rtCh=null, lastBcast=0; const remotes=new Map();
 function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
-function showPresence(){ const el=gid('presence'); if(!el) return; const n=liveCount(); el.textContent=n>0?(n+' in the dojo'):''; el.classList.toggle('on', n>0); }
+function showPresence(){ const el=gid('presence'); if(el){ el.classList.remove('on'); el.textContent=''; } }   // DEPRECATED: the "N in the dojo" count is hidden (realtime presence + opponent reticles still work; just no on-screen counter)
 function newRemoteEl(){ const d=document.createElement('div'); d.className='liveRet'; d._shown=false; d._name=''; d._sx=d._sy=999999; document.body.appendChild(d); return d; }
 function initRealtime(){
   if(rtCh || !window.supabase) return;
@@ -2390,24 +2385,24 @@ function updateRemotes(dt){
 })();
 /* ===== DOJO RECORDS — global free-play leaderboard (THE DOJO PIVOT). Multi-metric, tabbed; submits session bests on free-play run end. ===== */
 let _dojoBest=null, _dojoRecHit={far:false,high:false,streak:false};
-const _DOJO_SORTS={kills:1,streak:1,peak_bpm:1,far:1,high:1};                         // whitelist (also guards the order= query string)
-let dojoSort='kills'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
+const _DOJO_SORTS={peak_bpm:1,runtime:1};                         // whitelist (also guards the order= query string) — records = BPM + length of time
+let dojoSort='peak_bpm'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
 function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
-function dojoSession(){ return { far:+state.maxHitDist.toFixed(2), high:+state.maxHitHeight.toFixed(2), streak:state.bestStreak, bpm:Math.round(state.maxBpm), kills:state.hits }; }
+function dojoSession(){ return { dur:Math.round(state.t), bpm:Math.round(state.maxBpm) }; }   // records = length of time + peak BPM
 function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
-  if(!(b.kills>0||b.far>0)){ sub.textContent=''; return; }
-  sub.textContent='you · '+(b.kills||0)+'K · '+(b.streak||0)+'⚡ · '+(b.bpm||0)+'bpm · '+fmtDist(b.far||0)+' · '+fmtDist(b.high||0); }
+  if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
+  sub.textContent='your best · '+fmtTime(b.dur||0)+' · '+(b.bpm||0)+' bpm'; }
 function flashDojoRecord(label){ const f=el.dojoFlash; if(!f) return; setText(f, '★ NEW RECORD · '+label); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
 async function submitDojo(){
   if(state.hits<1) return;
   const s=dojoSession(), b=loadDojoBests();
-  const improved = s.far>(b.far||0) || s.high>(b.high||0) || s.streak>(b.streak||0) || s.bpm>(b.bpm||0) || s.kills>(b.kills||0);
-  _dojoBest={ far:Math.max(b.far||0,s.far), high:Math.max(b.high||0,s.high), streak:Math.max(b.streak||0,s.streak), bpm:Math.max(b.bpm||0,s.bpm), kills:Math.max(b.kills||0,s.kills) };
+  const improved = s.dur>(b.dur||0) || s.bpm>(b.bpm||0);
+  _dojoBest={ dur:Math.max(b.dur||0,s.dur), bpm:Math.max(b.bpm||0,s.bpm) };
   try{ localStorage.setItem('aimdojo.dojobest', JSON.stringify(_dojoBest)); }catch(e){}
   renderDojoBests();
   if(!improved) return;                                        // nothing new to publish → skip the network write (don't spam on every pause)
   promptNameOnFirstRecord();
-  const row={ client_id:clientId(), name:playerName().slice(0,24), far:s.far, high:s.high, streak:s.streak, peak_bpm:s.bpm, kills:s.kills, runtime:Math.round(state.t) };
+  const row={ client_id:clientId(), name:playerName().slice(0,24), peak_bpm:s.bpm, runtime:s.dur };   // records simplified to peak BPM + length of time (the table's other columns are just left null for new rows)
   try{
     const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/dojo' : SB_URL+'/rest/v1/aimdojo_dojo';
     const hdr = RAILWAY_URL ? {'Content-Type':'application/json'} : sbH({Prefer:'return=minimal'});
@@ -2416,9 +2411,9 @@ async function submitDojo(){
 }
 async function loadDojoBoard(){
   const list=gid('dojoList'); if(!list) return;
-  const col=_DOJO_SORTS[dojoSort]?dojoSort:'kills';            // whitelist-guarded before it touches the query string
+  const col=_DOJO_SORTS[dojoSort]?dojoSort:'peak_bpm';            // whitelist-guarded before it touches the query string
   try{
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select=client_id,name,far,high,streak,peak_bpm,kills&order='+col+'.desc&limit=300', {headers:sbH()});
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select=client_id,name,peak_bpm,runtime&order='+col+'.desc&limit=300', {headers:sbH()});
     if(!res.ok) throw 0;
     const rows=await res.json(); const seen=new Set(), top=[];
     for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); top.push(r); if(top.length>=15) break; }   // each client's best in the sorted column (rows arrive col.desc)
@@ -2429,13 +2424,12 @@ function _dcell(v, col, sort, dist){ return '<span class="dc'+(col===sort?' on':
 function renderDojoBoard(rows, sort){
   const list=gid('dojoList'); if(!list) return;
   const head='<div class="dojo-row head"><span class="dr">#</span><span class="dn">NAME</span>'
-    +_dcell('FAR','far',sort,false)+_dcell('HIGH','high',sort,false)+_dcell('STK','streak',sort,false)+_dcell('BPM','peak_bpm',sort,false)+_dcell('K','kills',sort,false)+'</div>';
+    +_dcell('BPM','peak_bpm',sort,false)+_dcell('TIME','runtime',sort,false)+'</div>';
   if(!rows.length){ list.innerHTML=head+'<div class="board-empty">no dojo records yet — be the first</div>'; return; }
   const me=clientId();
   list.innerHTML=head+rows.map((r,i)=>'<div class="dojo-row'+(r.client_id===me?' me':'')+'">'
     +'<span class="dr">'+(i+1)+'</span><span class="dn">'+esc(r.name||'?')+'</span>'
-    +_dcell(r.far,'far',sort,true)+_dcell(r.high,'high',sort,true)+_dcell(r.streak,'streak',sort,false)
-    +_dcell(r.peak_bpm,'peak_bpm',sort,false)+_dcell(r.kills,'kills',sort,false)+'</div>').join('');
+    +_dcell(r.peak_bpm,'peak_bpm',sort,false)+'<span class="dc'+(sort==='runtime'?' on':'')+'">'+(r.runtime>0?fmtTime(r.runtime):'—')+'</span>'+'</div>').join('');
 }
 (function(){ const tabs=gid('dojoTabs'); if(!tabs) return;       // metric sort tabs
   function paint(){ tabs.querySelectorAll('.dt').forEach(t=>t.classList.toggle('on', t.dataset.sort===dojoSort)); }
@@ -2457,25 +2451,18 @@ function promptNameOnFirstRecord(){   // a personal record landed but no name is
   if(nm) return; _namePrompted=true; openRecords();
   const ni=gid('nameInput'); if(ni){ setTimeout(()=>{ try{ ni.focus(); }catch(e){} }, 60); }
 }
+function fmtTime(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }   // seconds → m:ss (records = length of time)
 function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
   ovLede.style.display='none'; keysRow.style.display='none'; phonesNote.style.display='none';
   beginBtn.textContent = '▶ RESUME';
-  const clickPct=state.shots?Math.round(state.hits/state.shots*100)+'%':'—';
-  const avgNum=avgReaction();
-  const avgR = avgNum==null?'—':avgNum.toFixed(1)+' beats';
   pauseStats.style.display='flex';
   if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); }
-  pauseStats.innerHTML=
-    '<div class="chip"><div class="ck">PEAK TEMPO</div><div class="cv amber">'+Math.round(state.maxBpm)+' bpm</div></div>'+
-    '<div class="chip"><div class="ck">GOOD KILLS</div><div class="cv">'+state.hits+'</div></div>'+
-    '<div class="chip"><div class="ck">BEST STREAK</div><div class="cv green">'+state.bestStreak+'</div></div>'+
-    '<div class="chip"><div class="ck">AVG BEATS/KILL</div><div class="cv">'+avgR+'</div></div>'+
-    '<div class="chip"><div class="ck">AVG PATH</div><div class="cv green">'+(state.pathScores.length?Math.round(avgPathScore()*100)+'%':'—')+'</div></div>'+
-    '<div class="chip"><div class="ck">CLICK ACCURACY</div><div class="cv">'+clickPct+'</div></div>'+
-    '<div class="chip"><div class="ck">FARTHEST</div><div class="cv">'+(state.maxHitDist?fmtDist(state.maxHitDist):'—')+'</div></div>'+
-    '<div class="chip"><div class="ck">HIGHEST</div><div class="cv">'+(state.maxHitHeight?fmtDist(state.maxHitHeight):'—')+'</div></div>';
+  pauseStats.innerHTML=                                          // RANGE REPORT simplified to the two records that matter for a rhythm-flow trainer: how LONG you held the flow + the TEMPO you reached
+    '<div class="chip"><div class="ck">TIME IN DOJO</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
+    '<div class="chip"><div class="ck">FINAL BPM</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
+    '<div class="chip"><div class="ck">PEAK BPM</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
   overlay.classList.remove('hidden');   // unhide FIRST: renderHistory + the auto-openRecords path measure the chart canvas's clientWidth, which is 0 while the overlay is display:none
   saveSession(); renderHistory(); submitDojo(); loadDojoBoard();
 }
