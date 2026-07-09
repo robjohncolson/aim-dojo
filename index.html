@@ -640,8 +640,8 @@ function updateSky(dt){
   _hor.copy(HOR_NIGHT).lerp(HOR_DAY, day).lerp(HOR_DUSK, tw*0.7);                           // horizon colour
   _zen.copy(ZEN_NIGHT).lerp(ZEN_DAY, day).lerp(ZEN_DUSK, tw*0.45);                          // zenith colour (deep)
   _haze.copy(_hor).lerp(WHITE, 0.03+0.25*day);                                              // soft brightened horizon band — near-dark at night, bright by day
-  // THEME AURA: a soft mood wash on the sky/fog while you play — enough that ICAROS feels emerald and CANON feels gold, not so much the day/night cycle disappears
-  if(state.running && activeTheme){ const w=0.07+0.08*Math.min(1,grooveI/2.2); _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.85); _zen.lerp(_moodCol,w*0.45); }
+  // THEME AURA (soft): a whisper of song color — dialed down so toxic orbs / WASD hues stay the stars of the palette
+  if(state.running && activeTheme){ const w=0.03+0.04*Math.min(1,grooveI/2.2); _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.7); _zen.lerp(_moodCol,w*0.3); }
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
   scene.background.copy(_hor); scene.fog.color.copy(_hor); setScalarCached(scene.fog,'density',0.012-0.005*day,100000);  // background = horizon → no black seam; floor fades into the horizon
   if(starPts) setScalarCached(starPts.material.uniforms.uOpacity,'value',Math.max(0,1-day*1.15));
@@ -655,8 +655,8 @@ function updateSky(dt){
   if(nightGrid) setScalarCached(nightGrid.material,'opacity',0.55*(1-day));
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
-  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && activeTheme) _amb.lerp(_moodCol, 0.10+0.10*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
-  hemiLight.color.copy(_sky); if(state.running && activeTheme) hemiLight.color.lerp(_moodCol, 0.08); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
+  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && activeTheme) _amb.lerp(_moodCol, 0.04+0.04*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
+  hemiLight.color.copy(_sky); if(state.running && activeTheme) hemiLight.color.lerp(_moodCol, 0.03); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // light comes from whichever body is up
   skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',LOW?0:day*0.9);          // procedural clouds: drift + fade in with the day (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome, a clean gradient sky which is on-theme N64)
@@ -901,6 +901,17 @@ const THEMES=[
           5,5,5,5, 7,7,5,4,  5,4,3,3, 4,4,-1,-1],
     arp:[0,2,1,2,0,1,2,0],
     bass:[1,0,1,0, 1,0,0,0], bassHold:'16n', mood:0x7dffb3, skyBias:0.28 },   // dual chirps — the crosswalk "beep-beep"
+  { name:'KAGOME',    // かごめかごめ — warabe uta / circle game (public domain). Haunting minor call everyone knows from childhood / anime.
+    // scale: A natural minor (A B C D E F G A) — the classic playground mode
+    // indices: 0=A3 1=B3 2=C4 3=D4 4=E4 5=F4 6=G4 7=A4
+    scale:[220.00,246.94,261.63,293.66,329.63,349.23,392.00,440.00],
+    root:[55.00,73.42,41.20,55.00],   // Am · Dm · Em · Am — closed circle under the game
+    triad:[[110.00,130.81,164.81],[146.83,174.61,220.00],[82.41,98.00,123.47],[110.00,130.81,164.81]],
+    // かごめかごめ / 籠の中の鳥は / いついつ出やる / 夜明けの晩に
+    tune:[4,4,5,4, 3,2,3,4,  3,3,4,3, 2,1,2,3,
+          4,5,6,5, 4,3,2,-1,  2,3,4,3, 2,1,0,-1],
+    arp:[0,1,0,2,0,1,2,1],
+    bass:[1,0,0,0, 1,0,1,0], bassHold:'8n', mood:0xb89cff, skyBias:0.76 },   // night-circle purple; sparse pulse bass
 ];
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
 let _themePick='RANDOM';   // 'RANDOM' or a THEMES[].name — set from the card chips; persisted as aimdojo.theme
@@ -2640,11 +2651,15 @@ function fmtTime(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+St
 function showPause(){
   if(!state.started) return;
   ovEyebrow.textContent='PAUSED'; ovTitle.innerHTML='RANGE <span class="acc">REPORT</span>';
-  ovLede.style.display='none'; keysRow.style.display='none'; phonesNote.style.display='none';
+  keysRow.style.display='none'; phonesNote.style.display='none';
+  // session recap: which song held the room + how long the flow lasted
+  const song=activeTheme?activeTheme.name:'—';
+  ovLede.style.display='block';
+  ovLede.innerHTML='♪ <b>'+song+'</b> · '+fmtTime(state.t)+' · peak <b>'+Math.round(state.maxBpm)+'</b> bpm';
   beginBtn.textContent = '▶ RESUME';
   pauseStats.style.display='flex';
   if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); }
-  pauseStats.innerHTML=                                          // RANGE REPORT simplified to the two records that matter for a rhythm-flow trainer: how LONG you held the flow + the TEMPO you reached
+  pauseStats.innerHTML=                                          // RANGE REPORT: how LONG you held the flow + the TEMPO you reached
     '<div class="chip"><div class="ck">TIME IN DOJO</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
     '<div class="chip"><div class="ck">FINAL BPM</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
     '<div class="chip"><div class="ck">PEAK BPM</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
