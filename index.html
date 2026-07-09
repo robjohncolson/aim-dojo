@@ -883,13 +883,18 @@ const THEMES=[
     triad:[[110.00,130.81,164.81],[98.00,123.47,146.83],[82.41,98.00,123.47],[110.00,130.81,164.81]],
     tune:[4,3,2,-1, 1,2,3,-1, 5,4,3,2, 1,0,-1,-1], arp:[0,2,1,2,0,1,2,1],
     bass:[1,0,0,1.5, 0,0,1,0], bassHold:'8n', mood:0x8fbc6a, skyBias:0.48 },   // golden-hour meadow
-  { name:'TORIYANSE', // 通りゃんせ — Japanese pedestrian-crossing jingle (traditional children's song, public domain). Bright C-major walk; short chirp bass like the signal.
-    scale:[261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25],   // C-major pentatonic (C D E G A …) — the electronic-crossing brightness
-    root:[65.41,49.00,65.41,49.00],   // C2 · G1 · C2 · G1 — simple street-crossing loop
-    triad:[[130.81,164.81,196.00],[98.00,123.47,146.83],[130.81,164.81,196.00],[98.00,123.47,146.83]],
-    tune:[2,3,3,4, 3,2,1,2, 3,4,3,2, 1,0,-1,-1],   // 通りゃんせ-ish call: E G G A · G E D E · G A G E · D C …
-    arp:[0,1,2,1,0,1,2,0],
-    bass:[1,0,1,0, 1,0,0,0], bassHold:'16n', mood:0x7dffb3, skyBias:0.28 },   // dual chirps then rest — the crosswalk "beep-beep"
+  { name:'TORIYANSE', // 通りゃんせ — Japanese pedestrian-crossing jingle (warabe uta, public domain). REAL tune is D-minor (Wikipedia score), NOT bright C major. Opening: A₂ A G | A A G E — the phrase everyone knows from the signal.
+    // scale indices: 0=D4 1=E4 2=F4 3=G4 4=A4 5=Bb4 6=C5 7=D5  (D natural minor hexatonic set the melody needs)
+    scale:[293.66,329.63,349.23,392.00,440.00,466.16,523.25,587.33],
+    root:[73.42,49.00,73.42,55.00],   // Dm · Gm · Dm · Am — minor walk under the warabe uta
+    triad:[[146.83,174.61,220.00],[196.00,233.08,293.66],[146.83,174.61,220.00],[220.00,261.63,329.63]],
+    // 32-step (4 bars) = one full "通りゃんせ…細道じゃ" so it can actually be recognized (was a wrong major phrase)
+    // bar1-2 通りゃんせ 通りゃんせ: A half, A q, G q | A q, A 8, G 8, E q, rest
+    // bar3-4 ここはどこの 細道じゃ: Bb… D Bb A | Bb A G G A rest  (from the standard score)
+    tune:[4,4,4,4, 4,4,3,3,  4,4,4,3, 1,1,-1,-1,
+          5,5,5,5, 7,7,5,4,  5,4,3,3, 4,4,-1,-1],
+    arp:[0,2,1,2,0,1,2,0],
+    bass:[1,0,1,0, 1,0,0,0], bassHold:'16n', mood:0x7dffb3, skyBias:0.28 },   // dual chirps — the crosswalk "beep-beep"
 ];
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
 let _themePick='RANDOM';   // 'RANDOM' or a THEMES[].name — set from the card chips; persisted as aimdojo.theme
