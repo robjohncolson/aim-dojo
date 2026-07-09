@@ -1494,50 +1494,44 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(good && CFG.flickBonus.on && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS (disabled — CFG.flickBonus.on:false): a FLAWLESS/PERFECT on-beat kill on a hot streak would arm the flick treat
   if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
-function missGrooveDuck(){   // half-beat musical flinch: volume dips then recovers; groove intensity snaps down (no field-speed C consequences)
-  const half=(60/Math.max(20,state.bpm))*0.5;
-  grooveI=Math.max(0, grooveI*0.5);
+function missGrooveDuck(heavy){   // short musical flinch (lighter than v1 — half-beat −16dB was too busy with shake+sparks)
+  const tDuck=(60/Math.max(20,state.bpm))*(heavy?0.35:0.22);
+  grooveI=Math.max(0, grooveI*(heavy?0.72:0.85));
   if(drumBus && toneReady){
     try{
-      const now=Tone.now(), base=-5;
+      const now=Tone.now(), base=-5, dip=heavy?-11:-8;
       drumBus.volume.cancelScheduledValues(now);
       drumBus.volume.setValueAtTime(base, now);
-      drumBus.volume.linearRampToValueAtTime(-16, now+0.04);
-      drumBus.volume.linearRampToValueAtTime(base, now+Math.max(0.12, half));
+      drumBus.volume.linearRampToValueAtTime(dip, now+0.03);
+      drumBus.volume.linearRampToValueAtTime(base, now+Math.max(0.1, tDuck));
     }catch(e){}
   }
 }
-function playClankSfx(){   // metal shield: low double-thud + grit (distinct from airy whiff)
+function playClankSfx(){   // one metal thud (no triple-layer stack)
   if(!soundOn || !toneReady) return;
   try{
     const now=Tone.now();
-    if(shotCue){ shotCue.triggerAttackRelease(78, '16n', now, 0.9); shotCue.triggerAttackRelease(52, '8n', now+0.03, 0.55); }
-    if(synthLow) synthLow.triggerAttackRelease(98, 0.12, now, 0.7);
-    if(noiseFire) noiseFire.triggerAttackRelease(0.055, now, 0.45);
+    if(shotCue) shotCue.triggerAttackRelease(72, '16n', now, 0.75);
+    if(synthLow) synthLow.triggerAttackRelease(92, 0.09, now, 0.55);
   }catch(e){}
 }
-function playWhiffSfx(){   // empty air: soft noise + thin drop (not a shield hit)
+function playWhiffSfx(){   // soft air miss only
   if(!soundOn || !toneReady) return;
-  try{
-    const now=Tone.now();
-    if(noiseFire) noiseFire.triggerAttackRelease(0.07, now, 0.6);
-    if(synthLow) synthLow.triggerAttackRelease(180, 0.09, now, 0.4);
-  }catch(e){}
+  try{ if(noiseFire) noiseFire.triggerAttackRelease(0.05, Tone.now(), 0.45); }catch(e){}
 }
-function missCamKick(strong){   // short FOV widen + optional recoil nibble
+function missCamKick(strong){   // subtle FOV only — trauma carries the rest
   if(reduceMotion) return;
-  missKickDur=strong?0.18:0.12; missKickT=missKickDur;
-  if(strong) recoilPitch=Math.min(recoilPitch+CFG.recoilKick*0.85, CFG.recoilMax);
+  missKickDur=strong?0.12:0.08; missKickT=missKickDur;
 }
-function clankShot(tg, point){   // OFF-beat landing on a shielded orb — timing miss. Heavier than a whiff: you almost had it.
+function clankShot(tg, point){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
   state.shots++; state.streak=0; pushEvent(false); flashReticleBad();
-  playClankSfx(); missGrooveDuck();
+  playClankSfx(); missGrooveDuck(true);
   if(!reduceMotion){
-    addTrauma(CFG.hitTrauma*0.62);   // much stronger than old 0.12 — clank should SHAKE
+    addTrauma(CFG.hitTrauma*0.38);   // was 0.62 — still > whiff, less storm
     missCamKick(true);
-    if(point) explodeAt(point, Math.max(0.28,(tg&&tg.radius?tg.radius*tg.sc:0.5)*0.6), 0xb8c4d4, 1, LOW?5:10);   // steel sparks at impact
+    if(point) explodeAt(point, Math.max(0.2,(tg&&tg.radius?tg.radius*tg.sc:0.5)*0.4), 0xb8c4d4, 1, LOW?3:6);   // small steel spark, not a kill burst
   }
-  try{ padRumble(40, 0.55); }catch(e){}
+  try{ padRumble(28, 0.4); }catch(e){}
 }
 /* ===== MULTI-HIT TANK: a bigger AMBER orb that takes 2-3 ON-BEAT hits — "keep hitting the big one on the beat." Each hit chips it (a note walks UP + the shell pops + the count ticks down) as pure PROGRESS; the last hit pops it (scored like a normal orb, amber burst). Off-beat landings clank. Simple + rhythmic — no sub-figure. ===== */
 function handleTankHit(tg, point){
@@ -1565,14 +1559,14 @@ function updateTanks(dt){   // per-frame: the per-chip shell "pop" (the amber ha
 }
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
-  flashReticleBad(); playWhiffSfx(); missGrooveDuck();
-  if(!reduceMotion){ addTrauma(CFG.hitTrauma*0.30); missCamKick(false); }   // weaker than clank — empty air, not a shield slam
-  try{ padRumble(22, 0.35); }catch(e){}
+  flashReticleBad(); playWhiffSfx(); missGrooveDuck(false);
+  if(!reduceMotion){ addTrauma(CFG.hitTrauma*0.18); missCamKick(false); }
+  try{ padRumble(16, 0.25); }catch(e){}
 }
-function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); return; }   // dodged a decoy → no penalty (avoiding it is the correct play)
+function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); return; }
   retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off');
-  playWhiffSfx(); missGrooveDuck();
-  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.22);
+  playWhiffSfx(); missGrooveDuck(false);
+  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.14);
 }
 function fire(){
   if(!state.running) return;
@@ -2418,11 +2412,11 @@ function animate(frameNow){
     const env=tIn<a ? tIn/a : Math.max(0, clutchT/(clutchDur-a));
     camera.fov=camFovBase - CFG.clutchZoom*env; camera.updateProjectionMatrix();
     if(clutchT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }   // restore exactly when the punch ends
-  } else if(missKickT>0){                                      // miss flinch: brief FOV widen (opposite of clutch) + trauma shake already running
+  } else if(missKickT>0){                                      // miss flinch: gentle FOV widen (was 5.5° — too shouty with trauma)
     missKickT=Math.max(0, missKickT-dt);
-    const a=missKickDur*0.2, tIn=missKickDur-missKickT;
+    const a=missKickDur*0.25, tIn=missKickDur-missKickT;
     const env=tIn<a ? tIn/a : Math.max(0, missKickT/(missKickDur-a));
-    camera.fov=camFovBase + 5.5*env; camera.updateProjectionMatrix();
+    camera.fov=camFovBase + 2.2*env; camera.updateProjectionMatrix();
     if(missKickT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }
   }
 
