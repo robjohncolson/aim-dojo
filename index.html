@@ -360,7 +360,7 @@ const CFG = {
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
   // clutch flourish on a big ARC hit — RHYTHM-SAFE: a LOCALIZED camera FOV punch + explosion-only slow-mo + a shockwave ring. NEVER scales dt/Tone.Transport (that would desync the beat). Trigger = long-range OR last-second; clutchAnd:true → far AND late (rarer).
   clutch:true, clutchAnd:false, clutchRange:22, clutchLateBeats:2.4, clutchCooldown:1.1,
-  clutchTime:0.34, clutchZoom:9, clutchSlow:0.42, clutchBurst:1.7, clutchRingTime:0.5,
+  clutchTime:0.42, clutchZoom:12, clutchSlow:0.36, clutchBurst:2.35, clutchRingTime:0.62,   // juice: bigger/longer golden pop on clutch + tank finale (was 0.34/9/0.42/1.7/0.5)
   // RAIL-FLICK BONUS (#4): a FLAWLESS on-beat kill on a hot streak FREEZES orb motion (the beat clock keeps ticking); aiming becomes pure FLICK (crosshair literally ON an orb, no lead), tap ANY WASD/pad-face ON the beat to LOCK the pointed orb. Window ends → locked orbs detonate one-per-beat as a scored cascade. Trains FLICK (the complement to the core LEAD). No auto-aim. Set flickBonus:null to disable. All values are first guesses — tune by ear/eye.
   flickBonus:{ on:false, streakGate:3, gradeMax:1, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // CUT (on:false) 2026-07-07 — hijacked WASD (killed the rhythm taps), needed a dense target field this game never spawns, fought the pure-LEAD identity. Code kept; on:true to revive. · streakGate=min streak to earn it · gradeMax=max grade index that arms it (0=FLAWLESS only, 1=also PERFECT) · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack). streakGate+gradeMax LOOSENED for eval — arrival-timing made FLAWLESS-at-streak-4 too rare to ever see the mode; re-tighten once it's felt.
   // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
@@ -812,7 +812,13 @@ function triggerClutch(tg){
   clutchT=clutchDur=CFG.clutchTime;                            // camera FOV punch timer (read in the camera block of animate)
   ensureClutchRing(); _clutchRingPos.copy(tg.mesh.position); clutchRingT=clutchRingDur=CFG.clutchRingTime;   // expanding shockwave ring at the impact
 }
-function killTarget(tg, clutch){ dropTarget(tg); if(clutch) explodeAt(tg.mesh.position, tg.radius*CFG.clutchBurst, CLUTCH_COLOR, CFG.clutchSlow); else explodeAt(tg.mesh.position, tg.radius, tg.hpMax>1?TANK_COLOR:KIND_COLOR[tg.kind||0]); removeTarget(tg); }   // tank pops amber, matching its skin
+function killTarget(tg, clutch){
+  dropTarget(tg);
+  if(clutch) explodeAt(tg.mesh.position, tg.radius*CFG.clutchBurst, CLUTCH_COLOR, CFG.clutchSlow);
+  else if(tg.hpMax>1) explodeAt(tg.mesh.position, tg.radius*1.55, TANK_COLOR, 0.55);   // tank finale: bigger amber burst + brief local slow (juice; still rhythm-safe — only the explosion ages slow)
+  else explodeAt(tg.mesh.position, tg.radius, KIND_COLOR[tg.kind||0]);
+  removeTarget(tg);
+}
 
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
@@ -915,7 +921,11 @@ function pickTheme(){   // resolve the run's song: fixed pick from the card, or 
   }
   // each song opens in its own sky — Canon at sunrise, Moonlight under the moon, Icaros in deep night…
   if(activeTheme && activeTheme.skyBias!=null) dayPhase=activeTheme.skyBias;
+  // remember last played song (even when RANDOM rolls) so the card can re-select it next visit
+  try{ if(activeTheme) localStorage.setItem('aimdojo.lastTheme', activeTheme.name); }catch(e){}
+  _tuneHold=-1;   // reset hook-hold state so a new song doesn't inherit the previous note
 }
+let _tuneHold=-1;   // last scale index held by the hook voice (−1 = none); repeated same-index steps extend one note instead of retriggering
 function themeBreath(){   // opening breath of the song: soft pad triad + root so you FEEL the key the instant the ♪ name flashes
   if(!soundOn || !toneReady || !activeTheme) return;
   try{
@@ -941,7 +951,12 @@ function buildThemeChips(){
   const add=(label,val)=>{ const b=document.createElement('button'); b.type='button'; b.className='dt'; b.dataset.theme=val; b.textContent=label;
     b.addEventListener('click',()=>setThemePick(val)); host.appendChild(b); };
   add('RANDOM','RANDOM'); THEMES.forEach(t=>add(t.name,t.name));
-  try{ const s=localStorage.getItem('aimdojo.theme'); if(s==='RANDOM'||THEMES.some(t=>t.name===s)) _themePick=s; }catch(e){}
+  // prefer explicit pick; else last-played song (so "I just did TORIYANSE" reopens on that chip)
+  try{
+    const s=localStorage.getItem('aimdojo.theme');
+    if(s==='RANDOM'||THEMES.some(t=>t.name===s)) _themePick=s;
+    else { const last=localStorage.getItem('aimdojo.lastTheme'); if(last&&THEMES.some(t=>t.name===last)) _themePick=last; }
+  }catch(e){}
   syncThemeChips();
   if(_themePick!=='RANDOM'){ const t=THEMES.find(x=>x.name===_themePick); if(t) applyTheme(t); }
 }
@@ -953,7 +968,7 @@ function chordHit(streak){                               // an open (fifth) chor
     chordSynth.triggerAttackRelease([root, root*1.5, root*2, root*3], '8n', Tone.now()+(60/state.bpm)*0.25, 0.45);
   }catch(e){}
 }
-function pickPenta(){ return PENTA[(Math.random()*PENTA.length)|0]; }
+function pickPenta(){ return PENTA[(Math.random()*PENTA.length)|0]; }   // active theme scale (PENTA is swapped by applyTheme)
 function beatSnap(){   // tempo-adaptive grid snap: the audio time of the NEXT 16th if it's within ~90ms, else now. Tightens fast-tempo runs to the grid WITHOUT laggy delay at the slow learning tempo (where 16ths are ~seconds apart, so it just plays now).
   try{ const bps=60/Math.max(20,state.bpm), beats=Tone.Transport.ticks/Tone.Transport.PPQ, toNext=(Math.ceil(beats*4)/4 - beats)*bps; return toNext<=0.09 ? Tone.now()+toNext : Tone.now(); }catch(e){ return Tone.now(); }
 }
@@ -1142,9 +1157,25 @@ function onGrid(time){
     if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick
     if(snare && tier>=1 && (i===2||i===6)) snare.triggerAttackRelease('16n',time, tier>=2?0.9:0.65);  // backbeat fades in
     if(hat && (tier>=2 || i%2===0)) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);   // beat-hats → every-step hats as it builds
+    // TIER-0 HUM: faint root + soft tick before the full groove so the song identity is present from the first bars (very quiet — doesn't fight learning)
+    if(tier===0){
+      if(bass && BASS && i===0) bass.triggerAttackRelease(CHORD_ROOT[ci], '4n', time, 0.28);
+      if(tick && i===0) tick.triggerAttackRelease(1568,'32n',time, 0.35);
+    }
     if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(CHORD_ROOT[ci]*bm, BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root (0=rest, 1=root, 1.5=fifth, 2=oct). Enters at tier 1 so the walk is audible early — this is what makes themes sound different.
     if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, tier>=2?0.55:0.42);   // CHORD-ARP BED: arpeggiates the current chord (octave up) under the hook; softer velocity so TUNE owns the melody
-    if(tune && tier>=1){ const tn=TUNE[grid8%TUNE.length]; if(tn>=0) tune.triggerAttackRelease(PENTA[tn], '8n', time, tier>=2?0.85:0.7); }   // HOOK: 16-step call/answer on PENTA; rests where TUNE[i]===-1; enters with the groove so the field starts singing once you're in the pocket
+    // HOOK with HOLD: repeated same-index steps (e.g. TORIYANSE's long A) do NOT retrigger — one sustained note until the pitch changes or a rest. Folk melodies sing instead of machine-gunning 8ths.
+    if(tune && tier>=1){
+      const tn=TUNE[grid8%TUNE.length];
+      if(tn<0){ _tuneHold=-1; }
+      else if(tn!==_tuneHold){
+        _tuneHold=tn;
+        let hold=1; const L=TUNE.length, g0=grid8;
+        while(hold<16 && TUNE[(g0+hold)%L]===tn) hold++;   // count consecutive same indices (cap 2 bars)
+        const dur=(hold<=1)?'8n':(hold===2)?'4n':(hold<=4)?'2n':'1n';
+        tune.triggerAttackRelease(PENTA[tn], dur, time, tier>=2?0.85:0.7);
+      }
+    }
     if(pad && grooveI>=1.5 && i===0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5)));   // PAD = the audible HARMONY: the current chord's voice-led triad, now sustaining the FULL bar ('1n') for a richer bed; enters by mid-groove, velocity ramps with grooveI (the "Rez build")
     if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker ALWAYS (the gameplay metronome)
   }catch(e){}
@@ -1402,20 +1433,23 @@ function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF th
 function handleTankHit(tg, point){
   if(!orbOpen()){ clankShot(tg, point); return; }           // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
   tg.hp--;
-  if(tg.hp<=0){ if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.75); }catch(e){} } gradeRhythmHit(tg, point); return; }   // last hit → KILL (scored; the hpMax-1 grade shift accounts for the extra hits)
+  if(tg.hp<=0){   // last hit → KILL with extra juice (kick + octave sparkle on the lead voice)
+    if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit; if(kick) kick.triggerAttackRelease('C1','8n',Tone.now(),0.95); if(v){ v.triggerAttackRelease(PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)], '8n', t, 0.9); v.triggerAttackRelease(PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)]*2, '16n', t+0.05, 0.55); } }catch(e){} }
+    gradeRhythmHit(tg, point); return;
+  }
   tankChip(tg);                                             // not the last → chip (pure progress: no score/streak/shots)
 }
 function tankChip(tg){
-  tg._chipT=0.22;                                           // shell scale-punch flash (animated in updateTanks)
+  tg._chipT=0.28;                                           // shell scale-punch flash (animated in updateTanks) — a hair longer
   const step=tg.hpMax - tg.hp;                              // 1,2,… as it charges up
   if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit; if(v) v.triggerAttackRelease(PENTA[Math.min(1+step, PENTA.length-1)], '16n', t, 0.7); if(kick) kick.triggerAttackRelease('C2','32n',Tone.now(),0.5); }catch(e){} }   // a note that WALKS UP with each hit — the tank sings a little rising run as it charges
-  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.3);
+  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.38);
 }
 function updateTanks(dt){   // per-frame: the per-chip shell "pop" (the amber halo punches out on a hit, then settles back). Reduced-motion → no punch (the note + count carry it).
   if(!state.running) return;
   for(const tg of targets){
     if(tg.dead || tg.hpMax<=1 || !tg.shell) continue;
-    if(tg._chipT>0 && !reduceMotion){ tg._chipT=Math.max(0, tg._chipT-dt); tg.shell.scale.setScalar(1.55*(1+0.6*(tg._chipT/0.22))); }
+    if(tg._chipT>0 && !reduceMotion){ tg._chipT=Math.max(0, tg._chipT-dt); tg.shell.scale.setScalar(1.55*(1+0.75*(tg._chipT/0.28))); }
     else { tg._chipT=0; tg.shell.scale.setScalar(1.55); }
   }
 }
@@ -1446,7 +1480,14 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(ci<0) return;   // no unresolved note in this press's window -> stray/duplicate, ignored (no lock)
   _resolved.add(ci);   // ONE press per note
   const offSec=(beats-ci/nd)*bps, ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0);
-  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc, rainbow:_wasdCombo>=FLOCK.rainbowCombo}; if(soundOn&&toneReady&&tapSynth){ try{ tapSynth.triggerAttackRelease(PENTA[k*2]*(_wasdCombo>=8?2:1), '16n', beatSnap(), 0.42); }catch(e){} } }   // correct: grade + FREEZE the circle + star-flock + the tap now SINGS (lane→pentatonic: W=A A=D S=G D=C, octave up on a hot combo)
+  if(k===ckey){ _wasdResolve(offSec, main, w); _hitNote=ci; _hitOff=beats-ci/nd; if(!reduceMotion) _sparkPend={key:ckey, acc:_tapAcc, rainbow:_wasdCombo>=FLOCK.rainbowCombo};
+    if(soundOn&&toneReady&&tapSynth){ try{
+      const t0=beatSnap(), f=PENTA[k*2]*(_wasdCombo>=8?2:1);
+      tapSynth.triggerAttackRelease(f, '16n', t0, 0.42);   // lane sings (W/A/S/D → scale degrees)
+      // TORIYANSE easter egg: correct tap on the "and" (off-beat) adds the crosswalk dual-chirp
+      if(activeTheme&&activeTheme.name==='TORIYANSE'&&!main){ const ch=PENTA[Math.min(4,PENTA.length-1)]; tapSynth.triggerAttackRelease(ch,'32n',t0+0.04,0.55); tapSynth.triggerAttackRelease(ch,'32n',t0+0.10,0.45); }
+    }catch(e){} }
+  }
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
 }
 document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; e.key refreshes the displayed local keycap on browsers without getLayoutMap()
@@ -2521,17 +2562,22 @@ async function submitDojo(){
   const improved = s.dur>(b.dur||0) || s.bpm>(b.bpm||0);
   _dojoBest={ dur:Math.max(b.dur||0,s.dur), bpm:Math.max(b.bpm||0,s.bpm) };
   try{ localStorage.setItem('aimdojo.dojobest', JSON.stringify(_dojoBest)); }catch(e){}
+  // remember YOUR best runtime for board display even if the remote `runtime` column isn't live yet
+  try{ const map=JSON.parse(localStorage.getItem('aimdojo.rtmap')||'{}'); map[clientId()]=Math.max(map[clientId()]||0, s.dur); localStorage.setItem('aimdojo.rtmap', JSON.stringify(map)); }catch(e){}
   renderDojoBests();
   if(!improved) return;                                        // nothing new to publish → skip the network write (don't spam on every pause)
   promptNameOnFirstRecord();
   // Railway /dojo + table NOT NULL still expect far/high/streak/kills; peak_bpm + runtime are the ranked metrics
   const row={ client_id:clientId(), name:playerName().slice(0,24), peak_bpm:s.bpm, runtime:s.dur, far:s.far, high:s.high, streak:s.streak, kills:s.kills };
   try{
-    const ep  = RAILWAY_URL ? RAILWAY_URL.replace(/\/+$/,'')+'/dojo' : SB_URL+'/rest/v1/aimdojo_dojo';
-    const hdr = RAILWAY_URL ? {'Content-Type':'application/json'} : sbH({Prefer:'return=minimal'});
-    await fetch(ep, {method:'POST', headers:hdr, body:JSON.stringify(row)}); loadDojoBoard();
+    // Railway (validated) + one Supabase write (with runtime if the column exists, else legacy without)
+    if(RAILWAY_URL){ try{ await fetch(RAILWAY_URL.replace(/\/+$/,'')+'/dojo', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(row)}); }catch(_e){} }
+    let res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo', {method:'POST', headers:sbH({Prefer:'return=minimal'}), body:JSON.stringify(row)});
+    if(!res.ok){ const t=await res.text(); if(/runtime|42703/i.test(t)){ await fetch(SB_URL+'/rest/v1/aimdojo_dojo', {method:'POST', headers:sbH({Prefer:'return=minimal'}), body:JSON.stringify({ client_id:row.client_id, name:row.name, peak_bpm:row.peak_bpm, far:row.far, high:row.high, streak:row.streak, kills:row.kills })}); } }
+    loadDojoBoard();
   }catch(e){}
 }
+function _localRuntime(cid){ try{ const map=JSON.parse(localStorage.getItem('aimdojo.rtmap')||'{}'); return +map[cid]||0; }catch(e){ return 0; } }
 async function loadDojoBoard(){
   const list=gid('dojoList'); if(!list) return;
   let col=_DOJO_SORTS[dojoSort]?dojoSort:'peak_bpm';
@@ -2544,24 +2590,31 @@ async function loadDojoBoard(){
     return res;
   }
   try{
-    let res=await pull(true);
-    if(!res.ok){ const t=await res.text(); if(/runtime|42703/i.test(t)) res=await pull(false); else throw 0; }
+    let res=await pull(true), hasRuntimeCol=true;
+    if(!res.ok){ const t=await res.text(); if(/runtime|42703/i.test(t)){ hasRuntimeCol=false; res=await pull(false); } else throw 0; }
     if(!res.ok) throw 0;
     const rows=await res.json(); const seen=new Set(), top=[];
-    for(const r of rows){ if(seen.has(r.client_id)) continue; seen.add(r.client_id); if(r.runtime==null) r.runtime=0; top.push(r); if(top.length>=15) break; }
-    renderDojoBoard(top, col);
+    for(const r of rows){
+      if(seen.has(r.client_id)) continue; seen.add(r.client_id);
+      // fill TIME: DB runtime if present, else local map for YOU (so your row isn't stuck on "—")
+      let rt=+r.runtime||0; if(!(rt>0)) rt=_localRuntime(r.client_id); r.runtime=rt;
+      top.push(r); if(top.length>=15) break;
+    }
+    if(col==='runtime') top.sort((a,b)=>(b.runtime||0)-(a.runtime||0));
+    renderDojoBoard(top, col, hasRuntimeCol);
   }catch(e){ list.innerHTML='<div class="board-empty">dojo board offline — check Supabase table / network</div>'; }
 }
 function _dcell(v, col, sort, dist){ return '<span class="dc'+(col===sort?' on':'')+'">'+(v==null?'—':(dist?(+v).toFixed(1):v))+'</span>'; }
-function renderDojoBoard(rows, sort){
+function renderDojoBoard(rows, sort, hasRuntimeCol){
   const list=gid('dojoList'); if(!list) return;
   const head='<div class="dojo-row head"><span class="dr">#</span><span class="dn">NAME</span>'
     +_dcell('BPM','peak_bpm',sort,false)+_dcell('TIME','runtime',sort,false)+'</div>';
   if(!rows.length){ list.innerHTML=head+'<div class="board-empty">no dojo records yet — be the first</div>'; return; }
   const me=clientId();
+  const note=(!hasRuntimeCol)?'<div class="board-empty" style="opacity:.75;margin-top:4px">TIME needs Supabase column <code>runtime</code> — run supabase-dojo-runtime.sql</div>':'';
   list.innerHTML=head+rows.map((r,i)=>'<div class="dojo-row'+(r.client_id===me?' me':'')+'">'
     +'<span class="dr">'+(i+1)+'</span><span class="dn">'+esc(r.name||'?')+'</span>'
-    +_dcell(r.peak_bpm,'peak_bpm',sort,false)+'<span class="dc'+(sort==='runtime'?' on':'')+'">'+(r.runtime>0?fmtTime(r.runtime):'—')+'</span>'+'</div>').join('');
+    +_dcell(r.peak_bpm,'peak_bpm',sort,false)+'<span class="dc'+(sort==='runtime'?' on':'')+'">'+(r.runtime>0?fmtTime(r.runtime):'—')+'</span>'+'</div>').join('')+note;
 }
 (function(){ const tabs=gid('dojoTabs'); if(!tabs) return;       // metric sort tabs
   function paint(){ tabs.querySelectorAll('.dt').forEach(t=>t.classList.toggle('on', t.dataset.sort===dojoSort)); }
