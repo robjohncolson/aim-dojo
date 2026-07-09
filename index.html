@@ -930,9 +930,11 @@ const DIFF_PRESETS={
     startBpm:28, bpmUp:2.5, bpmDown:2.5, brownianMax:11, patternConcurrency:3,
     projSpeed:28, projSpeedFast:72, multiHitChance:0.34, openGlowBoost:1.4 }
 };
-let _diffPick='DOJO';
+const DEFAULT_DIFF='SENSEI', DEFAULT_THEME='MOONLIGHT';   // the pair that sings: sparse melody + hard tracking (user pick 2026-07)
+const PREFS_GEN=2;   // bump once to re-apply new defaults over old DOJO/RANDOM localStorage
+let _diffPick=DEFAULT_DIFF;
 function applyDiff(name){
-  const p=DIFF_PRESETS[name]||DIFF_PRESETS.DOJO; _diffPick=p.label;
+  const p=DIFF_PRESETS[name]||DIFF_PRESETS[DEFAULT_DIFF]||DIFF_PRESETS.DOJO; _diffPick=p.label;
   for(const k of Object.keys(p)){ if(k==='label'||k==='tip') continue; CFG[k]=Array.isArray(p[k])?p[k].slice():p[k]; }
   try{ localStorage.setItem('aimdojo.diff', _diffPick); }catch(e){}
 }
@@ -948,11 +950,15 @@ function buildDiffChips(){
     const b=document.createElement('button'); b.type='button'; b.className='dt'; b.dataset.diff=k; b.textContent=k;
     b.addEventListener('click',()=>setDiffPick(k)); host.appendChild(b);
   }
-  try{ const s=localStorage.getItem('aimdojo.diff'); if(s&&DIFF_PRESETS[s]) _diffPick=s; }catch(e){}
+  try{
+    const g=parseInt(localStorage.getItem('aimdojo.prefsGen')||'0',10)||0;
+    if(g<PREFS_GEN){ localStorage.setItem('aimdojo.diff', DEFAULT_DIFF); localStorage.setItem('aimdojo.theme', DEFAULT_THEME); localStorage.setItem('aimdojo.prefsGen', String(PREFS_GEN)); }
+    const s=localStorage.getItem('aimdojo.diff'); if(s&&DIFF_PRESETS[s]) _diffPick=s; else _diffPick=DEFAULT_DIFF;
+  }catch(e){ _diffPick=DEFAULT_DIFF; }
   applyDiff(_diffPick); syncDiffChips();
 }
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
-let _themePick='RANDOM';   // 'RANDOM' or a THEMES[].name — set from the card chips; persisted as aimdojo.theme
+let _themePick=DEFAULT_THEME;   // fixed theme name or 'RANDOM' — default MOONLIGHT (simple hook = shot flow)
 function applyMoodLook(){   // paint the run's aura into UI + ring palette (called whenever the active theme changes)
   if(!activeTheme) return;
   _moodCol.setHex(activeTheme.mood||0x74e84a);
@@ -1000,18 +1006,20 @@ function buildThemeChips(){
   const add=(label,val)=>{ const b=document.createElement('button'); b.type='button'; b.className='dt'; b.dataset.theme=val; b.textContent=label;
     b.addEventListener('click',()=>setThemePick(val)); host.appendChild(b); };
   add('RANDOM','RANDOM'); THEMES.forEach(t=>add(t.name,t.name));
-  // prefer explicit pick; else last-played song (so "I just did TORIYANSE" reopens on that chip)
+  // explicit pick wins; else default MOONLIGHT (not RANDOM — sparse melody pairs best with SENSEI tracking)
   try{
     const s=localStorage.getItem('aimdojo.theme');
     if(s==='RANDOM'||THEMES.some(t=>t.name===s)) _themePick=s;
-    else { const last=localStorage.getItem('aimdojo.lastTheme'); if(last&&THEMES.some(t=>t.name===last)) _themePick=last; }
-  }catch(e){}
+    else _themePick=DEFAULT_THEME;
+  }catch(e){ _themePick=DEFAULT_THEME; }
   syncThemeChips();
   if(_themePick!=='RANDOM'){ const t=THEMES.find(x=>x.name===_themePick); if(t) applyTheme(t); }
+  else { const t=THEMES.find(x=>x.name===DEFAULT_THEME)||THEMES[0]; applyTheme(t); }   // RANDOM still previews moonlight bed until a run rolls
 }
-applyTheme(THEMES[0]);   // populate the working arrays at load (before the first run rolls one) so nothing ever reads undefined
+// seed working arrays to the default theme before chips load (MOONLIGHT — simple hook, easy shot rhythm)
+applyTheme(THEMES.find(t=>t.name===DEFAULT_THEME)||THEMES[0]);
 buildThemeChips();       // card ♪ SONG chips (safe here: uses document.getElementById, not gid)
-buildDiffChips();        // ⚔ ZEN / DOJO / SENSEI
+buildDiffChips();        // ⚔ ZEN / DOJO / SENSEI — default SENSEI
 function chordHit(streak){                               // an open (fifth) chord a 1/4-beat after a hit, rising with the streak — no 3rd, so it never clashes major/minor with the A-minor bed
   if(!soundOn || !toneReady || !chordSynth) return;
   try{ const root=PENTA[Math.min(streak, PENTA.length-1)];
