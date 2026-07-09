@@ -2671,20 +2671,24 @@ async function loadDojoBoard(){
   const list=gid('dojoList'); if(!list) return;
   ensureBoardGen();
   let col=_DOJO_SORTS[dojoSort]?dojoSort:'peak_bpm';
-  // Prefer BPM+TIME. If `runtime` column isn't migrated yet (PostgREST 42703), fall back to peak_bpm-only so the board isn't "offline".
-  // Cache-bust: never serve a browser-cached empty/stale board after a wipe.
+  // Prefer BPM+TIME. If `runtime` column isn't migrated yet (PostgREST 42703), fall back to peak_bpm-only.
+  // Cache: use cache:'no-store' ONLY — do NOT put &_=… in the query (PostgREST treats unknown params as filters → 400 → "offline").
   async function pull(withRuntime){
     const sel=withRuntime?'client_id,name,peak_bpm,runtime':'client_id,name,peak_bpm';
     const orderCol=(withRuntime && col==='runtime')?'runtime':'peak_bpm';
     if(!withRuntime && col==='runtime') col='peak_bpm';
-    const bust='&_='+Date.now();
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select='+sel+'&order='+orderCol+'.desc&limit=300'+bust, {headers:sbH(), cache:'no-store'});
-    return res;
+    return fetch(SB_URL+'/rest/v1/aimdojo_dojo?select='+sel+'&order='+orderCol+'.desc&limit=300', {
+      headers:sbH({'Cache-Control':'no-cache'}), cache:'no-store'
+    });
   }
   try{
     let res=await pull(true), hasRuntimeCol=true;
-    if(!res.ok){ const t=await res.text(); if(/runtime|42703/i.test(t)){ hasRuntimeCol=false; res=await pull(false); } else throw 0; }
-    if(!res.ok) throw 0;
+    if(!res.ok){
+      const t=await res.text();
+      if(/runtime|42703/i.test(t)){ hasRuntimeCol=false; res=await pull(false); }
+      else { list.innerHTML='<div class="board-empty">dojo board offline ('+res.status+')</div>'; return; }
+    }
+    if(!res.ok){ list.innerHTML='<div class="board-empty">dojo board offline ('+res.status+')</div>'; return; }
     const rows=await res.json();
     // Server empty = wipe won: drop local board caches so "your best" / TIME don't look like ghosts of old seasons
     if(!rows.length){ clearLocalDojoCaches(); renderDojoBests(); renderDojoBoard([], col, hasRuntimeCol); return; }
@@ -2697,7 +2701,7 @@ async function loadDojoBoard(){
     }
     if(col==='runtime') top.sort((a,b)=>(b.runtime||0)-(a.runtime||0));
     renderDojoBoard(top, col, hasRuntimeCol);
-  }catch(e){ list.innerHTML='<div class="board-empty">dojo board offline — check Supabase table / network</div>'; }
+  }catch(e){ list.innerHTML='<div class="board-empty">dojo board offline — network error</div>'; }
 }
 function _dcell(v, col, sort, dist){ return '<span class="dc'+(col===sort?' on':'')+'">'+(v==null?'—':(dist?(+v).toFixed(1):v))+'</span>'; }
 function renderDojoBoard(rows, sort, hasRuntimeCol){
