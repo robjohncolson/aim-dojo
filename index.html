@@ -398,6 +398,8 @@ const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false       
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
   : (CFG.lowRez===true || detectWeakGPU());                                     // else auto-detect weak GPUs
 if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (18→8), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
+/* GLOW LOOK (?glow, opt-in): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Not persisted. */
+const GLOW = !LOW && /(?:^|[?&#])glow\b/.test(location.search+location.hash);
 const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
 let renderDpr = DPR_MAX;
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
@@ -461,7 +463,7 @@ function setDayFloorTex(){
   const tex=getCheckerTex(dayTileIdx);
   if(dayFloor.material.map!==tex){ dayFloor.material.map=tex; dayFloor.material.needsUpdate=true; reflResDirty=true; }   // null->tex (first dawn) recompiles the floor shader & resets uRes to (2,2) — re-mark dirty so syncReflUniformSize re-syncs it (else the sky reflection smears)
 }
-let nightGrid=null, dayFloor=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight
+let nightGrid=null, dayFloor=null, glowGrid=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight. glowGrid: GLOW-only baked halo plane under the grid
 function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper (re-applied whenever setNightGrid recreates the helper)
   grid.material.onBeforeCompile=(sh)=>{
     sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};
@@ -471,6 +473,17 @@ function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper
     grid.material.userData.shBeat=sh;
   };
   grid.material.needsUpdate=true;
+}
+function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + pre-baked halo along all four edges (RepeatWrapping tiles it into the full lattice). Baked bloom: the corona the 1px GridHelper lines can't carry, without a post pass.
+  const N=128, c=document.createElement('canvas'); c.width=c.height=N; const g=c.getContext('2d');
+  const L=[[26,0.045],[14,0.09],[7,0.20],[3,0.80]];   // [strokeWidth, alpha] halo → core; drawn at both 0 and N so each edge's clipped half-halo tiles back together
+  for(const wa of L){ g.strokeStyle='rgba(255,255,255,'+wa[1]+')'; g.lineWidth=wa[0];
+    for(const p of [0,N]){ g.beginPath(); g.moveTo(p,0); g.lineTo(p,N); g.stroke(); g.beginPath(); g.moveTo(0,p); g.lineTo(N,p); g.stroke(); }
+  }
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.magFilter=THREE.LinearFilter; t.minFilter=THREE.LinearMipmapLinearFilter; t.generateMipmaps=true;
+  t.anisotropy=Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  t.repeat.set(FLOOR_SIZE/2, FLOOR_SIZE/2); return t;   // 2m cells — same pitch as GridHelper(620, 310) so halo sits under the crisp lines
 }
 (function buildArena(){
   const FLOOR=FLOOR_SIZE;                                     // floor stretches well past the fog → reads as a horizon
@@ -493,6 +506,10 @@ function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper
   };
   nightGrid = new THREE.GridHelper(FLOOR, LOW?80:FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;   // LOW: coarser grid (80 vs 310) — cheaper line buffer + reads as more Rez/N64; normal keeps FLOOR/2
   nightGrid.material.transparent = true; nightGrid.material.depthWrite = false; nightGrid.material.opacity = 0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
+  if(GLOW){   // halo layer between floor and grid lines; additive so white tile × material.color = tinted glow; recolored with each night's grid roll in setNightGrid
+    glowGrid=new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({map:makeGridGlowTex(), transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending, color:0x33b39e}));
+    glowGrid.rotation.x=-Math.PI/2; glowGrid.position.y=0.016; scene.add(glowGrid);
+  }
 })();
 
 /* ========================= SKY: stars, sun, moon, day/night ========================= */
@@ -540,11 +557,14 @@ function discTex(stops){
 const SUN_R=270, sunU=new THREE.Vector3(1,0,0.25).normalize(), skyV=new THREE.Vector3(0,1,0);
 const orbitAxis=new THREE.Vector3().crossVectors(sunU, skyV).normalize();
 const sunTex=discTex([[0,'rgba(255,250,232,1)'],[0.16,'rgba(255,241,196,1)'],[0.30,'rgba(255,205,120,0.8)'],[0.55,'rgba(255,150,70,0.22)'],[1,'rgba(255,140,60,0)']]);
-const moonTex=discTex([[0,'rgba(246,249,255,1)'],[0.40,'rgba(228,234,247,0.97)'],[0.5,'rgba(205,214,235,0.5)'],[0.72,'rgba(180,195,225,0.16)'],[1,'rgba(170,188,222,0)']]);
+const moonTex=discTex(GLOW
+  ? [[0,'rgba(255,255,255,1)'],[0.16,'rgba(242,247,255,1)'],[0.30,'rgba(216,228,250,0.60)'],[0.55,'rgba(192,207,238,0.22)'],[1,'rgba(176,193,228,0)']]   // GLOW: hot white core + wide soft corona (key-art moon)
+  : [[0,'rgba(246,249,255,1)'],[0.40,'rgba(228,234,247,0.97)'],[0.5,'rgba(205,214,235,0.5)'],[0.72,'rgba(180,195,225,0.16)'],[1,'rgba(170,188,222,0)']]);
 const sun=new THREE.Sprite(new THREE.SpriteMaterial({map:sunTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, fog:false}));
 sun.scale.set(54,54,1); sun.position.copy(sunU).multiplyScalar(SUN_R); skyGroup.add(sun);
 const moon=new THREE.Sprite(new THREE.SpriteMaterial({map:moonTex, transparent:true, depthWrite:false, fog:false}));
-moon.scale.set(34,34,1); moon.position.copy(sunU).multiplyScalar(-SUN_R); skyGroup.add(moon);
+const MOON_SCALE=GLOW?50:34;   // GLOW: bigger sprite so the baked corona reads at distance
+moon.scale.set(MOON_SCALE,MOON_SCALE,1); moon.position.copy(sunU).multiplyScalar(-SUN_R); skyGroup.add(moon);
 
 // clouds are now PROCEDURAL — FBM noise painted in the sky-dome shader (skyDomeMat): they drift, fade in with day, and reflect in the floor for free
 
@@ -560,7 +580,7 @@ const skyDomeMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:fals
     'float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }',
     'float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=hash(i),b=hash(i+vec2(1.0,0.0)),c=hash(i+vec2(0.0,1.0)),d=hash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
     'float fbm(vec2 p){ float v=0.0,a=0.5; for(int k=0;k<'+CLOUD_OCTAVES+';k++){ v+=a*vnoise(p); p=p*2.0+11.3; a*=0.5; } return v; }',
-    'void main(){ float el=vDir.y; vec3 c=mix(uHor,uZen,pow(clamp(el,0.0,1.0),0.30)); c=mix(c,uHaze,exp(-abs(el)/0.05)*0.55);',
+    'void main(){ float el=vDir.y; vec3 c=mix(uHor,uZen,pow(clamp(el,0.0,1.0),0.30)); c=mix(c,uHaze,exp(-abs(el)/'+(GLOW?'0.085':'0.05')+')*'+(GLOW?'0.62':'0.55')+');',   // GLOW: taller/stronger horizon haze band (the milky mist the key art has)
     '  if(el>0.03 && uCloud>0.001){ vec2 cuv=vDir.xz/el*0.55+uTime*uWind; float n=fbm(cuv); float cov=smoothstep(0.50,0.72,n)*smoothstep(0.05,0.32,el)*uCloud; c=mix(c,uCloudCol,cov); }',
     '  gl_FragColor=vec4(c,1.0); }'
   ].join('\n') });
@@ -619,9 +639,10 @@ function setNightGrid(lineCol, cellCol){                      // recreate the gr
   if(nightGrid){ scene.remove(nightGrid); nightGrid.geometry.dispose(); nightGrid.material.dispose(); }
   nightGrid=new THREE.GridHelper(620, LOW?80:310, lineCol, cellCol); nightGrid.position.y=0.02;   // LOW: coarser grid (80 vs 310); normal unchanged
   nightGrid.material.transparent=true; nightGrid.material.depthWrite=false; nightGrid.material.opacity=0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
+  if(glowGrid) glowGrid.material.color.setHex(lineCol);   // GLOW halo follows each night's grid colour roll
 }
 const SKY_NIGHT=new THREE.Color(0x05060e), SKY_DAY=new THREE.Color(0x5e93cf), SKY_DUSK=new THREE.Color(0xd0743a);
-const HOR_NIGHT=new THREE.Color(0x0e1626), HOR_DAY=new THREE.Color(0x9ec9ee), HOR_DUSK=new THREE.Color(0xef8a3c);  // horizon: lighter / warmer (haze)
+const HOR_NIGHT=new THREE.Color(GLOW?0x16203a:0x0e1626), HOR_DAY=new THREE.Color(0x9ec9ee), HOR_DUSK=new THREE.Color(0xef8a3c);  // horizon: lighter / warmer (haze). GLOW: night horizon lifted to a milkier indigo (sky+fog+background all follow _hor)
 const ZEN_NIGHT=new THREE.Color(0x010109), ZEN_DAY=new THREE.Color(0x0f4a92), ZEN_DUSK=new THREE.Color(0x3a2c70);  // zenith: deep, saturated overhead
 const WHITE=new THREE.Color(0xffffff);
 const LITE_NIGHT=new THREE.Color(0x44557f), LITE_DAY=new THREE.Color(0xfff1d6);
@@ -644,7 +665,7 @@ function updateSky(dt){
   _sky.copy(SKY_NIGHT).lerp(SKY_DAY, day).lerp(SKY_DUSK, tw*0.55);                          // overall tint (drives the lights)
   _hor.copy(HOR_NIGHT).lerp(HOR_DAY, day).lerp(HOR_DUSK, tw*0.7);                           // horizon colour
   _zen.copy(ZEN_NIGHT).lerp(ZEN_DAY, day).lerp(ZEN_DUSK, tw*0.45);                          // zenith colour (deep)
-  _haze.copy(_hor).lerp(WHITE, 0.03+0.25*day);                                              // soft brightened horizon band — near-dark at night, bright by day
+  _haze.copy(_hor).lerp(WHITE, (GLOW?0.10:0.03)+0.25*day);                                  // soft brightened horizon band — near-dark at night (GLOW: milkier), bright by day
   // THEME AURA (soft): a whisper of song color — dialed down so toxic orbs / WASD hues stay the stars of the palette
   if(state.running && activeTheme){ const w=0.03+0.04*Math.min(1,grooveI/2.2); _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.7); _zen.lerp(_moodCol,w*0.3); }
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
@@ -658,13 +679,14 @@ function updateSky(dt){
   }
   wasNight=deepNight;
   if(nightGrid) setScalarCached(nightGrid.material,'opacity',0.55*(1-day));
+  if(glowGrid){ const gop=0.9*(1-day); setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=gop>0.01; }   // GLOW halo fades with the grid; hidden by day so the plane isn't drawn at opacity 0
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
   _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && activeTheme) _amb.lerp(_moodCol, 0.04+0.04*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
   hemiLight.color.copy(_sky); if(state.running && activeTheme) hemiLight.color.lerp(_moodCol, 0.03); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // light comes from whichever body is up
-  skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',LOW?0:day*0.9);          // procedural clouds: drift + fade in with the day (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome, a clean gradient sky which is on-theme N64)
+  skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',LOW?0:(GLOW?Math.max(day*0.9,0.15):day*0.9));          // procedural clouds: drift + fade in with the day (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome). GLOW: faint mist banding survives at night (key-art sky is never pure gradient)
   if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
   else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
@@ -1712,7 +1734,8 @@ function updateProjectiles(dt){
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
-const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=0.065;   // ribbon half-width (a hair wider so ROYGBIV bands read)
+const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=GLOW?0.105:0.065;   // ribbon half-width (a hair wider so ROYGBIV bands read; GLOW: bolder key-art ribbon)
+const RIB_OP_BASE=GLOW?0.62:0.48, RIB_OP_DAY=GLOW?0.28:0.35;   // ribbon opacity = base + day*bonus (GLOW: more present at night, same ceiling by day)
 let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
 let _arcScroll=0;   // rainbow band scroll (muzzle → impact), advanced by projSpeed
@@ -1810,7 +1833,7 @@ function updateArcPreview(dt){                                                  
   else animateArcPulse();
   arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP){
     // still keep opacity current when throttled
-    if(arcRibbon.visible && arcRibbon.material.uniforms) arcRibbon.material.uniforms.uOpacity.value=0.48+0.35*dayAmt;
+    if(arcRibbon.visible && arcRibbon.material.uniforms) arcRibbon.material.uniforms.uOpacity.value=RIB_OP_BASE+RIB_OP_DAY*dayAmt;
     return;
   }
   arcAccum=0;
@@ -1825,7 +1848,7 @@ function updateArcPreview(dt){                                                  
     rp[vi+3]=_arcPts[k]+_ribOff.x; rp[vi+4]=_arcPts[k+1]+_ribOff.y; rp[vi+5]=_arcPts[k+2]+_ribOff.z;
   }
   arcRibbon.geometry.attributes.position.needsUpdate=true;
-  if(arcRibbon.material.uniforms) arcRibbon.material.uniforms.uOpacity.value=0.48+0.35*dayAmt;
+  if(arcRibbon.material.uniforms) arcRibbon.material.uniforms.uOpacity.value=RIB_OP_BASE+RIB_OP_DAY*dayAmt;
   arcRibbon.visible=true;
   arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.95,0.95,0.95); arcLand.material.opacity=0.8+0.18*dayAmt; arcLand.visible=_planLanded;
   arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
