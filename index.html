@@ -901,17 +901,6 @@ const THEMES=[
           5,5,5,5, 7,7,5,4,  5,4,3,3, 4,4,-1,-1],
     arp:[0,2,1,2,0,1,2,0],
     bass:[1,0,1,0, 1,0,0,0], bassHold:'16n', mood:0x7dffb3, skyBias:0.28 },   // dual chirps — the crosswalk "beep-beep"
-  { name:'CHOPSTICKS', // Classic "Chopsticks" parlor duet (Euphemia Allen 1877 as "The Celebrated Chop Waltz" — public domain). Often fondly mixed up with Mozart; the childhood two-finger classic. Bright C major.
-    // indices: 0=C4 1=D4 2=E4 3=F4 4=G4 5=A4 6=B4 7=C5
-    scale:[261.63,293.66,329.63,349.23,392.00,440.00,493.88,523.25],
-    root:[65.41,49.00,65.41,49.00],   // C · G · C · G — toy-piano I–V loop
-    triad:[[130.81,164.81,196.00],[98.00,123.47,146.83],[130.81,164.81,196.00],[98.00,123.47,146.83]],
-    // the bit every kid hammers: G G G G · A A G G · F F E E · D D C _
-    // then the answer climb: E E F F · G G G _ · G G A A · G F E D (into next loop)
-    tune:[4,4,4,4, 5,5,4,4,  3,3,2,2, 1,1,0,-1,
-          2,2,3,3, 4,4,4,-1,  4,4,5,5, 4,3,2,1],
-    arp:[0,1,2,1,0,1,2,1],
-    bass:[1,0,1,0, 1,0,1.5,0], bassHold:'8n', mood:0xffe08a, skyBias:0.18 },   // sunny parlor gold; playful root–fifth chops
 ];
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
 let _themePick='RANDOM';   // 'RANDOM' or a THEMES[].name — set from the card chips; persisted as aimdojo.theme
