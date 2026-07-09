@@ -353,7 +353,7 @@ const CFG = {
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
-  dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9,   // stronger tracking (Q3-style): ~2× amplitude + faster wander so you must actively counter the view to hold a target. Was 7/4/0.5 (too gentle). Dial back if nauseating; push yaw/speed higher for harder tracking.
+  dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false, openGlowBoost:1.05,   // dollyHuman: SENSEI-style irregular wander (not pure lissajous). openGlowBoost: scale orb open-shell opacity so tight windows still READ.
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
@@ -913,18 +913,21 @@ const THEMES=[
    Pure CFG packs — same game, different pressure. Applied on card pick; persisted aimdojo.diff.
    Aim-feel knobs live here (dolly / open window / juke / glide / BPM floor). */
 const DIFF_PRESETS={
-  ZEN:{ label:'ZEN', tip:'gentle tracking · wide beat window · soft juke',
-    dollyYawDeg:9, dollyPitchDeg:5, dollySpeed:0.48,
+  ZEN:{ label:'ZEN', tip:'soft tracking · lofted arc · wide window · few tanks',
+    dollyYawDeg:9, dollyPitchDeg:5, dollySpeed:0.48, dollyHuman:false,
     grooveOpenSec:[0.40,0.22], grooveJukeDeg:70, grooveGlideSpeed:2.6, grooveFreezeFloor:0.35,
-    startBpm:20, bpmUp:1.5, bpmDown:2, brownianMax:6.5, patternConcurrency:2 },
-  DOJO:{ label:'DOJO', tip:'the standard dojo (current balance)',
-    dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9,
+    startBpm:20, bpmUp:1.5, bpmDown:2, brownianMax:6.5, patternConcurrency:2,
+    projSpeed:20, projSpeedFast:48, multiHitChance:0.12, openGlowBoost:1.0 },
+  DOJO:{ label:'DOJO', tip:'standard dojo — balanced lead + tracking',
+    dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false,
     grooveOpenSec:[0.32,0.15], grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25,
-    startBpm:20, bpmUp:2, bpmDown:3, brownianMax:9, patternConcurrency:3 },
-  SENSEI:{ label:'SENSEI', tip:'hard tracking · tight window · snappy field',
-    dollyYawDeg:22, dollyPitchDeg:12, dollySpeed:1.2,
+    startBpm:20, bpmUp:2, bpmDown:3, brownianMax:9, patternConcurrency:3,
+    projSpeed:24, projSpeedFast:60, multiHitChance:0.22, openGlowBoost:1.05 },
+  SENSEI:{ label:'SENSEI', tip:'human dolly · flatter arc · tight window · more tanks',
+    dollyYawDeg:22, dollyPitchDeg:12, dollySpeed:1.15, dollyHuman:true,
     grooveOpenSec:[0.26,0.12], grooveJukeDeg:125, grooveGlideSpeed:4.4, grooveFreezeFloor:0.18,
-    startBpm:28, bpmUp:2.5, bpmDown:2.5, brownianMax:11, patternConcurrency:3 }
+    startBpm:28, bpmUp:2.5, bpmDown:2.5, brownianMax:11, patternConcurrency:3,
+    projSpeed:28, projSpeedFast:72, multiHitChance:0.34, openGlowBoost:1.4 }
 };
 let _diffPick='DOJO';
 function applyDiff(name){
@@ -1203,27 +1206,34 @@ function onGrid(time){
     if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick
     if(snare && tier>=1 && (i===2||i===6)) snare.triggerAttackRelease('16n',time, tier>=2?0.9:0.65);  // backbeat fades in
     if(hat && (tier>=2 || i%2===0)) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);   // beat-hats → every-step hats as it builds
+    const _isTori=activeTheme&&activeTheme.name==='TORIYANSE';
     // TIER-0 HUM: faint root + soft tick before the full groove so the song identity is present from the first bars (very quiet — doesn't fight learning)
     if(tier===0){
       if(bass && BASS && i===0) bass.triggerAttackRelease(CHORD_ROOT[ci], '4n', time, 0.28);
       if(tick && i===0) tick.triggerAttackRelease(1568,'32n',time, 0.35);
     }
-    if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(CHORD_ROOT[ci]*bm, BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root (0=rest, 1=root, 1.5=fifth, 2=oct). Enters at tier 1 so the walk is audible early — this is what makes themes sound different.
-    if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, tier>=2?0.55:0.42);   // CHORD-ARP BED: arpeggiates the current chord (octave up) under the hook; softer velocity so TUNE owns the melody
-    // HOOK with HOLD: repeated same-index steps (e.g. TORIYANSE's long A) do NOT retrigger — one sustained note until the pitch changes or a rest. Folk melodies sing instead of machine-gunning 8ths.
+    if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(CHORD_ROOT[ci]*bm, BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root
+    // TORIYANSE director's cut: at high groove, answering fifth chirps on the off-beats (the signal "talks back")
+    if(bass && _isTori && tier>=2 && (i===2||i===6)) bass.triggerAttackRelease(CHORD_ROOT[ci]*1.5, '16n', time, 0.42);
+    if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, tier>=2?0.55:0.42);
+    // HOOK with HOLD: repeated same-index steps do NOT retrigger — one sustained note until pitch changes or rest
     if(tune && tier>=1){
       const tn=TUNE[grid8%TUNE.length];
       if(tn<0){ _tuneHold=-1; }
       else if(tn!==_tuneHold){
         _tuneHold=tn;
         let hold=1; const L=TUNE.length, g0=grid8;
-        while(hold<16 && TUNE[(g0+hold)%L]===tn) hold++;   // count consecutive same indices (cap 2 bars)
+        while(hold<16 && TUNE[(g0+hold)%L]===tn) hold++;
         const dur=(hold<=1)?'8n':(hold===2)?'4n':(hold<=4)?'2n':'1n';
         tune.triggerAttackRelease(PENTA[tn], dur, time, tier>=2?0.85:0.7);
       }
     }
-    if(pad && grooveI>=1.5 && i===0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5)));   // PAD = the audible HARMONY: the current chord's voice-led triad, now sustaining the FULL bar ('1n') for a richer bed; enters by mid-groove, velocity ramps with grooveI (the "Rez build")
-    if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75); // shot-window marker ALWAYS (the gameplay metronome)
+    // PAD: full-bar triad. TORIYANSE gets it from mid-groove (tier≥1 / grooveI≥1) so the crossing always has a warm bed; others wait for the Rez build
+    if(pad && i===0){
+      if(_isTori && grooveI>=1.0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0)));
+      else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5)));
+    }
+    if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75);
   }catch(e){}
   if(i%2===0){
     try{ Tone.Draw.schedule(()=>pulseBeat(i===0), time); }catch(e){}
@@ -1530,8 +1540,8 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
     if(soundOn&&toneReady&&tapSynth){ try{
       const t0=beatSnap(), f=PENTA[k*2]*(_wasdCombo>=8?2:1);
       tapSynth.triggerAttackRelease(f, '16n', t0, 0.42);   // lane sings (W/A/S/D → scale degrees)
-      // TORIYANSE easter egg: correct tap on the "and" (off-beat) adds the crosswalk dual-chirp
-      if(activeTheme&&activeTheme.name==='TORIYANSE'&&!main){ const ch=PENTA[Math.min(4,PENTA.length-1)]; tapSynth.triggerAttackRelease(ch,'32n',t0+0.04,0.55); tapSynth.triggerAttackRelease(ch,'32n',t0+0.10,0.45); }
+      // TORIYANSE: dual crosswalk chirp only on PERFECT offs (≤25ms / 100% acc) so it stays special, not spammy
+      if(activeTheme&&activeTheme.name==='TORIYANSE'&&!main&&_tapAcc>=100){ const ch=PENTA[Math.min(4,PENTA.length-1)]; tapSynth.triggerAttackRelease(ch,'32n',t0+0.04,0.58); tapSynth.triggerAttackRelease(ch,'32n',t0+0.10,0.48); }
     }catch(e){} }
   }
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
@@ -2274,8 +2284,15 @@ function animate(frameNow){
   }
   let _dollyY=0, _dollyP=0;                                    // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump.
   if(CFG.dolly && !reduceMotion){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293;
-    _dollyY=CFG.dollyYawDeg*D*(0.62*Math.sin(_t*_w)+0.38*Math.sin(_t*_w*1.73+1.3));
-    _dollyP=CFG.dollyPitchDeg*D*(0.62*Math.sin(_t*_w*0.83+0.7)+0.38*Math.sin(_t*_w*1.31+2.1)); }
+    if(CFG.dollyHuman){   // SENSEI: irregular multi-harmonic wander + slow envelope — tracks like a strafing opponent, not a perfect machine orbit
+      const e=0.72+0.28*Math.sin(_t*0.19+0.5);
+      _dollyY=CFG.dollyYawDeg*D*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
+      _dollyP=CFG.dollyPitchDeg*D*e*(0.48*Math.sin(_t*_w*0.69+1.2)+0.28*Math.sin(_t*_w*1.88+0.4)+0.24*Math.sin(_t*_w*0.37+2.6));
+    } else {
+      _dollyY=CFG.dollyYawDeg*D*(0.62*Math.sin(_t*_w)+0.38*Math.sin(_t*_w*1.73+1.3));
+      _dollyP=CFG.dollyPitchDeg*D*(0.62*Math.sin(_t*_w*0.83+0.7)+0.38*Math.sin(_t*_w*1.31+2.1));
+    }
+  }
   camera.rotation.set(pitch+recoilPitch+shP+_dollyP, yaw+recoilYaw+shY+_dollyY, shR, 'YXZ');
   camera.position.set(shX, EYE+shPY, shZ);
   if(clutchT>0){                                               // clutch FOV punch: a quick zoom-in that eases out. Purely visual — does NOT touch dt or the beat clock.
@@ -2293,7 +2310,8 @@ function animate(frameNow){
       const _bps=60/Math.max(20,state.bpm), _lat=audioLat(); hb-=_lat/_bps;   // heard timeline (reported latency + user offset) → the glow matches the audible beat
       const _offSec=Math.abs(hb-Math.round(hb))*_bps, _winSec=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();   // ms window: seconds off the beat vs a skill-tightened band (NOT a beat-fraction, which blew out to ±480ms at 20bpm)
       _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
-      const _so=_openAmt>0?0.20+0.47*_openAmt:0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;   // TANK glows + is killable ON THE BEAT like every orb (just amber + takes N hits) — one clock for the whole field   // discontinuous floor: shielded=0.05, then POPS to >=0.20 the instant it's killable → a crisp on/off edge that matches orbOpen() exactly (tanks glow on the whole beat like everything else — hit them on the beat)
+      // openGlowBoost (SENSEI higher): tight windows still pop visually; shielded floor stays 0.05
+      const _so=_openAmt>0?Math.min(0.95, (0.20+0.47*_openAmt)*(CFG.openGlowBoost||1)):0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
@@ -2602,6 +2620,17 @@ function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b
   sub.textContent='your best · '+fmtTime(b.dur||0)+' · '+(b.bpm||0)+' bpm'; }
 function flashDojoRecord(label){ const f=el.dojoFlash; if(!f) return; setText(f, '★ NEW RECORD · '+label); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
 function flashTheme(){ const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook(); setText(f, '♪ '+activeTheme.name); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath(); }   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
+function noteSongPeak(){   // per-song personal bests — flash only when you set a new peak BPM or longest hold on THIS song
+  if(!activeTheme || state.t<15) return;
+  const name=activeTheme.name, dur=Math.round(state.t), bpm=Math.round(state.maxBpm);
+  let map={}; try{ map=JSON.parse(localStorage.getItem('aimdojo.songBest')||'{}'); }catch(e){}
+  const prev=map[name]||{dur:0,bpm:0}; let hit=null;
+  if(bpm>(prev.bpm||0)) hit='★ PEAK · '+name+' · '+bpm+' bpm';
+  else if(dur>(prev.dur||0) && dur>=45) hit='★ LONGEST · '+name+' · '+fmtTime(dur);
+  map[name]={ dur:Math.max(prev.dur||0,dur), bpm:Math.max(prev.bpm||0,bpm) };
+  try{ localStorage.setItem('aimdojo.songBest', JSON.stringify(map)); }catch(e){}
+  if(hit){ const f=el.dojoFlash; if(f){ setText(f, hit); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); } }
+}
 async function submitDojo(){
   if(state.hits<1) return;
   const s=dojoSession(), b=loadDojoBests();
@@ -2690,15 +2719,19 @@ function showPause(){
   // session recap: which song held the room + how long the flow lasted
   const song=activeTheme?activeTheme.name:'—';
   ovLede.style.display='block';
-  ovLede.innerHTML='♪ <b>'+song+'</b> · '+fmtTime(state.t)+' · peak <b>'+Math.round(state.maxBpm)+'</b> bpm';
+  ovLede.innerHTML='♪ <b>'+song+'</b> · '+fmtTime(state.t)+' · peak <b>'+Math.round(state.maxBpm)+'</b> bpm'
+    +( _diffPick && _diffPick!=='DOJO' ? ' · <span style="opacity:.8">'+_diffPick+'</span>' : '' );
   beginBtn.textContent = '▶ RESUME';
   pauseStats.style.display='flex';
   if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); }
-  pauseStats.innerHTML=                                          // RANGE REPORT: how LONG you held the flow + the TEMPO you reached
+  pauseStats.innerHTML=
     '<div class="chip"><div class="ck">TIME IN DOJO</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
     '<div class="chip"><div class="ck">FINAL BPM</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
     '<div class="chip"><div class="ck">PEAK BPM</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
   overlay.classList.remove('hidden');
+  // run-end breath: after a real hold, the song exhales once more (soft pad/root) — marks the session without a new UI panel
+  if(state.t>=25) themeBreath();
+  noteSongPeak();
   submitDojo(); loadDojoBoard();
 }
 
