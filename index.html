@@ -260,6 +260,10 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
       <div class="theme-lab">♪ SONG</div>
       <div id="themeChips" class="theme-chips"></div>
     </div>
+    <div id="diffPick" class="theme-pick" aria-label="Difficulty">
+      <div class="theme-lab">⚔ DOJO</div>
+      <div id="diffChips" class="theme-chips"></div>
+    </div>
 
     <div id="pauseStats" style="display:none"></div>
     <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
@@ -889,19 +893,60 @@ const THEMES=[
     triad:[[110.00,130.81,164.81],[98.00,123.47,146.83],[82.41,98.00,123.47],[110.00,130.81,164.81]],
     tune:[4,3,2,-1, 1,2,3,-1, 5,4,3,2, 1,0,-1,-1], arp:[0,2,1,2,0,1,2,1],
     bass:[1,0,0,1.5, 0,0,1,0], bassHold:'8n', mood:0x8fbc6a, skyBias:0.48 },   // golden-hour meadow
-  { name:'TORIYANSE', // 通りゃんせ — Japanese pedestrian-crossing jingle (warabe uta, public domain). REAL tune is D-minor (Wikipedia score), NOT bright C major. Opening: A₂ A G | A A G E — the phrase everyone knows from the signal.
-    // scale indices: 0=D4 1=E4 2=F4 3=G4 4=A4 5=Bb4 6=C5 7=D5  (D natural minor hexatonic set the melody needs)
+  { name:'TORIYANSE', // 通りゃんせ — Japanese pedestrian-crossing jingle (warabe uta, public domain). D-minor (Wikipedia score). Deepened: full opening + 天神さま + 行きはよいよい 帰りはこわい.
+    // scale indices: 0=D4 1=E4 2=F4 3=G4 4=A4 5=Bb4 6=C5 7=D5
     scale:[293.66,329.63,349.23,392.00,440.00,466.16,523.25,587.33],
-    root:[73.42,49.00,73.42,55.00],   // Dm · Gm · Dm · Am — minor walk under the warabe uta
-    triad:[[146.83,174.61,220.00],[196.00,233.08,293.66],[146.83,174.61,220.00],[220.00,261.63,329.63]],
-    // 32-step (4 bars) = one full "通りゃんせ…細道じゃ" so it can actually be recognized (was a wrong major phrase)
-    // bar1-2 通りゃんせ 通りゃんせ: A half, A q, G q | A q, A 8, G 8, E q, rest
-    // bar3-4 ここはどこの 細道じゃ: Bb… D Bb A | Bb A G G A rest  (from the standard score)
+    root:[73.42,49.00,58.27,55.00, 73.42,49.00,73.42,55.00],   // Dm · Gm · Bb · Am · (repeat) — longer progression under the 8-bar hook
+    triad:[[146.83,174.61,220.00],[196.00,233.08,293.66],[233.08,293.66,349.23],[220.00,261.63,329.63],
+           [146.83,174.61,220.00],[196.00,233.08,293.66],[146.83,174.61,220.00],[220.00,261.63,329.63]],
+    // 64-step (8 bars) — the childhood loop, not just the first two lines
+    // 1-2 通りゃんせ 通りゃんせ | 3-4 ここはどこの 細道じゃ
+    // 5-6 天神さまの 細道じゃ (same contour as 3-4) | 7-8 行きはよいよい 帰りはこわい (A A A A A A G | A A A G D D E)
     tune:[4,4,4,4, 4,4,3,3,  4,4,4,3, 1,1,-1,-1,
-          5,5,5,5, 7,7,5,4,  5,4,3,3, 4,4,-1,-1],
+          5,5,5,5, 7,7,5,4,  5,4,3,3, 4,4,-1,-1,
+          5,5,5,5, 7,7,5,4,  5,4,3,3, 4,4,-1,-1,
+          4,4,4,4, 4,4,3,3,  4,4,4,3, 0,0,1,-1],
     arp:[0,2,1,2,0,1,2,0],
-    bass:[1,0,1,0, 1,0,0,0], bassHold:'16n', mood:0x7dffb3, skyBias:0.28 },   // dual chirps — the crosswalk "beep-beep"
+    bass:[1,0,1,0, 1,0,0,0], bassHold:'16n', mood:0x7dffb3, skyBias:0.28 },
 ];
+/* ========================= DIFFICULTY PRESETS (ZEN / DOJO / SENSEI) =========================
+   Pure CFG packs — same game, different pressure. Applied on card pick; persisted aimdojo.diff.
+   Aim-feel knobs live here (dolly / open window / juke / glide / BPM floor). */
+const DIFF_PRESETS={
+  ZEN:{ label:'ZEN', tip:'gentle tracking · wide beat window · soft juke',
+    dollyYawDeg:9, dollyPitchDeg:5, dollySpeed:0.48,
+    grooveOpenSec:[0.40,0.22], grooveJukeDeg:70, grooveGlideSpeed:2.6, grooveFreezeFloor:0.35,
+    startBpm:20, bpmUp:1.5, bpmDown:2, brownianMax:6.5, patternConcurrency:2 },
+  DOJO:{ label:'DOJO', tip:'the standard dojo (current balance)',
+    dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9,
+    grooveOpenSec:[0.32,0.15], grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25,
+    startBpm:20, bpmUp:2, bpmDown:3, brownianMax:9, patternConcurrency:3 },
+  SENSEI:{ label:'SENSEI', tip:'hard tracking · tight window · snappy field',
+    dollyYawDeg:22, dollyPitchDeg:12, dollySpeed:1.2,
+    grooveOpenSec:[0.26,0.12], grooveJukeDeg:125, grooveGlideSpeed:4.4, grooveFreezeFloor:0.18,
+    startBpm:28, bpmUp:2.5, bpmDown:2.5, brownianMax:11, patternConcurrency:3 }
+};
+let _diffPick='DOJO';
+function applyDiff(name){
+  const p=DIFF_PRESETS[name]||DIFF_PRESETS.DOJO; _diffPick=p.label;
+  for(const k of Object.keys(p)){ if(k==='label'||k==='tip') continue; CFG[k]=Array.isArray(p[k])?p[k].slice():p[k]; }
+  try{ localStorage.setItem('aimdojo.diff', _diffPick); }catch(e){}
+}
+function syncDiffChips(){
+  const host=document.getElementById('diffChips'); if(!host) return;
+  host.querySelectorAll('.dt').forEach(b=>{ b.classList.toggle('on', b.dataset.diff===_diffPick); b.title=DIFF_PRESETS[b.dataset.diff]?DIFF_PRESETS[b.dataset.diff].tip:''; });
+}
+function setDiffPick(name){ applyDiff(name); syncDiffChips(); }
+function buildDiffChips(){
+  const host=document.getElementById('diffChips'); if(!host) return;
+  host.innerHTML='';
+  for(const k of ['ZEN','DOJO','SENSEI']){
+    const b=document.createElement('button'); b.type='button'; b.className='dt'; b.dataset.diff=k; b.textContent=k;
+    b.addEventListener('click',()=>setDiffPick(k)); host.appendChild(b);
+  }
+  try{ const s=localStorage.getItem('aimdojo.diff'); if(s&&DIFF_PRESETS[s]) _diffPick=s; }catch(e){}
+  applyDiff(_diffPick); syncDiffChips();
+}
 let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
 let _themePick='RANDOM';   // 'RANDOM' or a THEMES[].name — set from the card chips; persisted as aimdojo.theme
 function applyMoodLook(){   // paint the run's aura into UI + ring palette (called whenever the active theme changes)
@@ -962,6 +1007,7 @@ function buildThemeChips(){
 }
 applyTheme(THEMES[0]);   // populate the working arrays at load (before the first run rolls one) so nothing ever reads undefined
 buildThemeChips();       // card ♪ SONG chips (safe here: uses document.getElementById, not gid)
+buildDiffChips();        // ⚔ ZEN / DOJO / SENSEI
 function chordHit(streak){                               // an open (fifth) chord a 1/4-beat after a hit, rising with the streak — no 3rd, so it never clashes major/minor with the A-minor bed
   if(!soundOn || !toneReady || !chordSynth) return;
   try{ const root=PENTA[Math.min(streak, PENTA.length-1)];
