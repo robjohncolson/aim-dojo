@@ -356,9 +356,6 @@ const CFG = {
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
   dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false, openGlowBoost:1.05,   // dollyHuman: SENSEI-style irregular wander (not pure lissajous). openGlowBoost: scale orb open-shell opacity so tight windows still READ.
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
-  // WORLD FLOOR (Pass 1 cartographic albedo): opt-in via ?worldfloor (or CFG.worldFloor:true); ?classicfloor forces the checker stack. One opaque mask+recolor floor replaces base+dayFloor; nightGrid stays. See buildArena world branch.
-  worldFloor:false, worldFloorSpan:176, worldFloorMoodNight:0.03, worldFloorMoodDay:0.05,
-  worldFloorQuietNear:8, worldFloorQuietFar:18, worldFloorDetailNear:70, worldFloorDetailFar:120,
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -401,10 +398,6 @@ const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false       
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
   : (CFG.lowRez===true || detectWeakGPU());                                     // else auto-detect weak GPUs
 if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (18→8), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
-/* WORLD FLOOR flag — construction-time (material/shader diverge). Bounded-regex idiom matches ?hi/?low. classicfloor wins; neither flag persists. Default CFG.worldFloor:false → opt-in via ?worldfloor until verification flips the default. */
-const WORLD_FLOOR = /(?:^|[?&#])classicfloor\b/.test(location.search+location.hash) ? false
-  : /(?:^|[?&#])worldfloor\b/.test(location.search+location.hash) ? true
-  : !!CFG.worldFloor;
 const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
 let renderDpr = DPR_MAX;
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
@@ -468,7 +461,7 @@ function setDayFloorTex(){
   const tex=getCheckerTex(dayTileIdx);
   if(dayFloor.material.map!==tex){ dayFloor.material.map=tex; dayFloor.material.needsUpdate=true; reflResDirty=true; }   // null->tex (first dawn) recompiles the floor shader & resets uRes to (2,2) — re-mark dirty so syncReflUniformSize re-syncs it (else the sky reflection smears)
 }
-let nightGrid=null, dayFloor=null, worldFloor=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day). worldFloor: opt-in cartographic plane (dayFloor stays null in that branch — never alias the mesh or setDayFloorTex clobbers the atlas)
+let nightGrid=null, dayFloor=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight
 function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper (re-applied whenever setNightGrid recreates the helper)
   grid.material.onBeforeCompile=(sh)=>{
     sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};
@@ -479,166 +472,25 @@ function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper
   };
   grid.material.needsUpdate=true;
 }
-/* ---- WORLD FLOOR (Pass 1): static RGBA mask + MeshBasic recolor. Shared Color/float objects so sky/beat writes work before first compile (userData.sh is null until then). ---- */
-const WORLD_MAP_SEED=0xA17D0, WORLD_LAND_COVERAGE=0.42, WORLD_COAST_SOFT=0.025;
-const WORLD_GRID_CELL=LOW?8:2, WORLD_GRID_DAY=0.055, WORLD_RELIEF_NIGHT=0.02, WORLD_RELIEF_DAY=0.035;
-const WORLD_BEAT_BASE=0.25, WORLD_BEAT_DETAIL=1.0;
-const WORLD_OCEAN_NIGHT=new THREE.Color(0x080c13), WORLD_LAND_NIGHT=new THREE.Color(0x121a20), WORLD_COAST_NIGHT=new THREE.Color(0x1a2228);
-const WORLD_OCEAN_DAY=new THREE.Color(0x34464f), WORLD_LAND_DAY=new THREE.Color(0x626b66), WORLD_COAST_DAY=new THREE.Color(0x8a918a);
-const WORLD_OCEAN_DUSK=new THREE.Color(0x3a2e38), WORLD_LAND_DUSK=new THREE.Color(0x5a4a42), WORLD_COAST_DUSK=new THREE.Color(0x8a6e58);
-const _wfOcean=new THREE.Color().copy(WORLD_OCEAN_NIGHT), _wfLand=new THREE.Color().copy(WORLD_LAND_NIGHT), _wfCoast=new THREE.Color().copy(WORLD_COAST_NIGHT);
-const _wfBeatCol=new THREE.Color(0,0,0), _wfBeatAmt={value:0}, _wfDayAmt={value:0}, _wfGray=new THREE.Color();
-function worldHash01(i){ let x=(i+WORLD_MAP_SEED)|0; x=Math.imul(x^(x>>>16),0x7feb352d); x=Math.imul(x^(x>>>15),0x846ca68b); return ((x^(x>>>16))>>>0)/4294967296; }   // private seeded hash — never Math.random() (atlas must be deterministic)
-function worldNoise2(x,y){ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi, u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
-  const a=worldHash01(xi*374761393+yi*668265263), b=worldHash01((xi+1)*374761393+yi*668265263);
-  const c=worldHash01(xi*374761393+(yi+1)*668265263), d=worldHash01((xi+1)*374761393+(yi+1)*668265263);
-  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
-}
-function makeWorldAtlas(){   // R=land mask, G=coast band, B=interior variation, A=metric grid. INVARIANT: border texels are always ocean (fog is only ~32% at the ±span/2 edge; LOW day has no reflection to own the far floor).
-  const N=LOW?128:(MOBILE?256:512), span=CFG.worldFloorSpan, half=span*0.5, cell=WORLD_GRID_CELL;
-  const d=new Uint8Array(N*N*4);   // raw bytes → DataTexture. NOT canvas/putImageData: the 2D backing store is premultiplied, and A here is a DATA channel (grid) that is 0 on most texels — putImageData would zero R/G/B everywhere A=0 (map flattens to ocean)
-  // Elliptical continent lobes in world units (EYE=4, not 1.6m): quiet pad under origin (no coast through inner ~8u), 1–3 coasts readable in the ~12–60u band; outer border forced ocean.
-  const LOBES=[
-    {cx:6,cz:-4,rx:46,rz:38,rot:0.28}, {cx:-40,cz:30,rx:26,rz:20,rot:-0.55}, {cx:52,cz:36,rx:20,rz:16,rot:0.75},
-    {cx:-28,cz:-48,rx:22,rz:15,rot:0.18}, {cx:38,cz:-42,rx:17,rz:19,rot:-0.42}, {cx:-55,cz:-8,rx:14,rz:18,rot:0.9}
-  ];
-  const border=Math.max(2,(N*0.045)|0);   // explicit ocean border (≥~4.5% of atlas)
-  const thr=1-WORLD_LAND_COVERAGE;        // lower field → more land; tuned with noise amp
-  for(let py=0;py<N;py++){
-    for(let px=0;px<N;px++){
-      const i=(py*N+px)*4;
-      if(px<border||py<border||px>=N-border||py>=N-border){ d[i]=0; d[i+1]=0; d[i+2]=128; d[i+3]=0; continue; }   // ocean border invariant
-      const wx=(px/(N-1)-0.5)*span, wz=(py/(N-1)-0.5)*span;
-      // two-octave value-noise warp (CPU only — no runtime fbm in the floor shader)
-      const n1=worldNoise2(wx*0.035+3.1, wz*0.035-1.7), n2=worldNoise2(wx*0.09-8.2, wz*0.09+4.4);
-      const wwx=wx+(n1-0.5)*14+(n2-0.5)*5, wwz=wz+(n1-0.5)*12+(n2-0.5)*6;
-      let field=0;
-      for(let L=0;L<LOBES.length;L++){
-        const o=LOBES[L], ca=Math.cos(o.rot), sa=Math.sin(o.rot);
-        const dx=wwx-o.cx, dz=wwz-o.cz, lx=dx*ca+dz*sa, lz=-dx*sa+dz*ca;
-        const e=1-Math.sqrt((lx*lx)/(o.rx*o.rx)+(lz*lz)/(o.rz*o.rz));
-        if(e>field) field=e;
-      }
-      field+= (n1-0.5)*0.22+(n2-0.5)*0.10;
-      // quiet zone: pull field toward solid land under the player so no coastline crosses the inner ~8u dojo pad (EYE=4 look-down)
-      const r0=Math.hypot(wx,wz); if(r0<CFG.worldFloorQuietNear) field=Math.max(field, 0.55+(CFG.worldFloorQuietNear-r0)*0.04);
-      else if(r0<CFG.worldFloorQuietFar) field+= (1-(r0-CFG.worldFloorQuietNear)/(CFG.worldFloorQuietFar-CFG.worldFloorQuietNear))*0.08;
-      // hard ocean outside atlas span (belt-and-suspenders with border texels)
-      if(Math.abs(wx)>half*0.98||Math.abs(wz)>half*0.98) field=-1;
-      const soft=WORLD_COAST_SOFT+(LOW?0.02:0);
-      const land=Math.max(0,Math.min(1,(field-thr)/Math.max(1e-4,soft*4+0.12)));
-      const coast=Math.max(0,1-Math.abs(field-thr)/(soft*2.2+0.04))* (land>0.02&&land<0.98?1:Math.max(0,1-Math.abs(land-0.5)*2));
-      const coastM=Math.max(0,Math.min(1,coast));
-      const varN=LOW?0.5:worldNoise2(wx*0.12+11.0, wz*0.12-3.3);
-      const interior=land*(0.35+0.65*varN);
-      // metric chart grid in A (day-only in shader; night suppresses so it never fights nightGrid)
-      const gx=Math.abs(wx/cell-Math.floor(wx/cell+0.5)), gz=Math.abs(wz/cell-Math.floor(wz/cell+0.5));
-      const line=Math.min(gx,gz), grid=line<(LOW?0.06:0.04)?1:0;
-      d[i]=(land*255+0.5)|0; d[i+1]=(coastM*255+0.5)|0; d[i+2]=(interior*255+0.5)|0; d[i+3]=(grid*land*255+0.5)|0;
-    }
-  }
-  const t=new THREE.DataTexture(d, N, N, THREE.RGBAFormat);   // flipY=false → texture row py maps straight to wz=(py/(N-1)-0.5)*span, matching the shader's aUv=vWorldXZ/uSpan+0.5
-  t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;   // outside the 176u span samples the ocean border (no world tiling)
-  t.magFilter=THREE.LinearFilter; t.minFilter=THREE.LinearMipmapLinearFilter; t.generateMipmaps=true;
-  t.anisotropy=LOW?1:Math.min(MOBILE?2:4, renderer.capabilities.getMaxAnisotropy());
-  t.needsUpdate=true; return t;
-}
-function activeFloorSh(){ return (worldFloor&&worldFloor.material.userData.sh)||(dayFloor&&dayFloor.material.userData.sh)||null; }   // both uRes sync (~598) and beat (~2035) resolve the active floor shader through this
-function updateWorldFloorPalette(day, tw){   // CPU blend each sky tick: day + twilight are independent (day→0 while tw still varies at dusk) — a uDayAmt-only palette goes night-flat under an orange sky
-  _wfOcean.copy(WORLD_OCEAN_NIGHT).lerp(WORLD_OCEAN_DAY, day).lerp(WORLD_OCEAN_DUSK, tw*0.55);
-  _wfLand.copy(WORLD_LAND_NIGHT).lerp(WORLD_LAND_DAY, day).lerp(WORLD_LAND_DUSK, tw*0.5);
-  _wfCoast.copy(WORLD_COAST_NIGHT).lerp(WORLD_COAST_DAY, day).lerp(WORLD_COAST_DUSK, tw*0.6);
-  // theme mood: desaturate ~65% toward equal-luma gray, then whisper into land/coast only (never ocean/reflection)
-  if(state.running && activeTheme){
-    const w=CFG.worldFloorMoodNight+(CFG.worldFloorMoodDay-CFG.worldFloorMoodNight)*day;
-    const y=0.299*_moodCol.r+0.587*_moodCol.g+0.114*_moodCol.b; _wfGray.setRGB(y,y,y);
-    const mR=_moodCol.r*0.35+_wfGray.r*0.65, mG=_moodCol.g*0.35+_wfGray.g*0.65, mB=_moodCol.b*0.35+_wfGray.b*0.65;
-    _wfLand.r+=(mR-_wfLand.r)*w; _wfLand.g+=(mG-_wfLand.g)*w; _wfLand.b+=(mB-_wfLand.b)*w;
-    _wfCoast.r+=(mR-_wfCoast.r)*w*0.85; _wfCoast.g+=(mG-_wfCoast.g)*w*0.85; _wfCoast.b+=(mB-_wfCoast.b)*w*0.85;
-  }
-  _wfDayAmt.value=day;
-}
 (function buildArena(){
   const FLOOR=FLOOR_SIZE;                                     // floor stretches well past the fog → reads as a horizon
-  if(WORLD_FLOOR){
-    // replace-not-layer: one opaque worldFloor at y=0 (no base plane, no dayFloor). dayFloor stays null forever in this branch.
-    const atlas=makeWorldAtlas();
-    worldFloor=new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({map:atlas, color:0xffffff, depthWrite:true}));
-    worldFloor.rotation.x=-Math.PI/2; worldFloor.position.y=0; scene.add(worldFloor);
-    worldFloor.material.onBeforeCompile=(sh)=>{
-      // durable shared values (mutate in place from updateSky / updateFloorBeat — no material.needsUpdate, no recompile)
-      sh.uniforms.uOcean={value:_wfOcean}; sh.uniforms.uLand={value:_wfLand}; sh.uniforms.uCoast={value:_wfCoast};
-      sh.uniforms.uDayAmt=_wfDayAmt; sh.uniforms.uBeatCol={value:_wfBeatCol}; sh.uniforms.uBeatAmt=_wfBeatAmt;
-      sh.uniforms.uSpan={value:CFG.worldFloorSpan}; sh.uniforms.uFloorSize={value:FLOOR_SIZE};
-      sh.uniforms.uQuietN={value:CFG.worldFloorQuietNear}; sh.uniforms.uQuietF={value:CFG.worldFloorQuietFar};
-      sh.uniforms.uDetN={value:CFG.worldFloorDetailNear}; sh.uniforms.uDetF={value:CFG.worldFloorDetailFar};
-      sh.uniforms.uReliefN={value:WORLD_RELIEF_NIGHT}; sh.uniforms.uReliefD={value:WORLD_RELIEF_DAY}; sh.uniforms.uGridDay={value:WORLD_GRID_DAY};
-      sh.uniforms.uBeatBase={value:WORLD_BEAT_BASE}; sh.uniforms.uBeatDet={value:WORLD_BEAT_DETAIL};
-      const useRefl=!LOW;
-      if(useRefl){ sh.uniforms.uMirN={value:18}; sh.uniforms.uMirF={value:140}; sh.uniforms.uRefl={value:reflRT.texture}; sh.uniforms.uRes={value:new THREE.Vector2(2,2)}; }
-      sh.vertexShader='varying float vMirD; varying vec2 vWorldXZ;\n'+sh.vertexShader
-        .replace('#include <project_vertex>', '#include <project_vertex>\n vWorldXZ=(modelMatrix*vec4(transformed,1.0)).xz;')   // true world XZ after rot.x=-PI/2 (atlas authored in the same frame)
-        .replace('#include <fog_vertex>', '#include <fog_vertex>\n vMirD=-mvPosition.z;');
-      // Cartographic albedo BEFORE fog (fog_fragment must see final pre-fog color). Atlas UV from world XZ over worldFloorSpan, clamp → ocean border.
-      const uniHead='uniform vec3 uOcean,uLand,uCoast,uBeatCol; uniform float uDayAmt,uBeatAmt,uSpan,uFloorSize,uQuietN,uQuietF,uDetN,uDetF,uReliefN,uReliefD,uGridDay,uBeatBase,uBeatDet; varying float vMirD; varying vec2 vWorldXZ;\n'
-        +(useRefl?'uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes;\n':'');
-      sh.fragmentShader=uniHead+sh.fragmentShader.replace(
-        '#include <map_fragment>',
-        [
-          '#ifdef USE_MAP',
-          '  vec2 aUv=vWorldXZ/uSpan+0.5;',   // centered span; ClampToEdge border = forced ocean
-          '  vec4 m=texture2D(map,aUv);',
-          '  float land=m.r, coast=m.g, vari=m.b, grid=m.a;',
-          '  float r0=length(vWorldXZ);',
-          '  float quiet=1.0-smoothstep(uQuietN,uQuietF,r0);',   // soften underfoot (generator already keeps coasts out of the pad)
-          '  float detail=smoothstep(uDetN,uDetF,vMirD);',      // far: atlas yields to fog/reflection
-          '  coast*=1.0-quiet*0.85; vari=mix(0.5,vari,1.0-quiet*0.7);',
-          '  vec3 col=mix(uOcean,uLand,land);',
-          '  col=mix(col,uCoast,coast*(0.55+0.45*land));',
-          '  float relief=mix(uReliefN,uReliefD,uDayAmt)*land*(1.0-detail*0.5);',
-          '  col+= (vari-0.5)*relief*2.0;',
-          '  float gVis=grid*uGridDay*uDayAmt*(1.0-quiet);',     // day chart only — nightGrid owns night
-          '  col=mix(col, col*0.82, gVis);',
-          '  float beatW=uBeatAmt*mix(uBeatBase,uBeatDet,max(coast,gVis));',   // broad wash soft; coast/grid take full WASD hue
-          '  col=mix(col, col*uBeatCol, beatW);',
-          '  diffuseColor=vec4(col,1.0);',
-          '#endif'
-        ].join('\n')
-      );
-      // Reflection AFTER encoding/dithering (matches classic dayFloor). Mix by mirrorWeight * dayAmt so night never samples a stale daytime RT.
-      if(useRefl){
-        sh.fragmentShader=sh.fragmentShader.replace(
-          '#include <dithering_fragment>',
-          '#include <dithering_fragment>\n'+
-          ' vec3 reflCol=texture2D(uRefl, gl_FragCoord.xy/uRes).rgb;\n'+
-          ' float mirrorWeight=smoothstep(uMirN,uMirF,vMirD)*uDayAmt;\n'+
-          ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, mirrorWeight);'
-        );
-      }
-      worldFloor.material.userData.sh=sh;
-      if(useRefl && sh.uniforms.uRes){ try{ renderer.getDrawingBufferSize(sh.uniforms.uRes.value); reflResDirty=false; }catch(e){ reflResDirty=true; } }   // eager uRes sync on first compile (sky tick is 20Hz — don't wait a frame for the smear window)
-      else reflResDirty=true;
-    };
-  } else {
-    // classic branch preserved: base plane + transparent dayFloor checker + reflection patch
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14}));
-    floor.rotation.x = -Math.PI/2; scene.add(floor);
-    dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}));
-    dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day
-    dayFloor.material.onBeforeCompile=(sh)=>{                  // far floor shows the TRUE planar reflection of the sky (sun disc included → omega sunset); also dissolves the checker so no moiré
-      sh.uniforms.uMirN={value:LOW?1e6:18}; sh.uniforms.uMirF={value:LOW?2e6:140};   // LOW: push BOTH mirror edges past any floor distance → smoothstep(uMirN,uMirF,vMirD)=0 everywhere → the reflection mix contributes NOTHING (floor just fades to fog), so the far floor never samples the skipped reflection RT (no dark garbage)
-      sh.uniforms.uRefl={value:reflRT.texture}; sh.uniforms.uRes={value:new THREE.Vector2(2,2)};
-      sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};   // WASD floor beat-tint (luminance-weighted so the light tiles take the colour)
-      sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
-      sh.fragmentShader='uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes; uniform vec3 uBeatCol; uniform float uBeatAmt; varying float vMirD;\n'+sh.fragmentShader.replace(
-        '#include <dithering_fragment>',
-        '#include <dithering_fragment>\n'+
-        ' gl_FragColor.rgb=mix(gl_FragColor.rgb, gl_FragColor.rgb*uBeatCol, uBeatAmt);\n'+   // multiplicative beat-tint: bright tiles take the key hue (dark tiles stay dark) -> visible in daylight, not pastel
-        ' vec3 reflCol=texture2D(uRefl, gl_FragCoord.xy/uRes).rgb;\n'+
-        ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, smoothstep(uMirN,uMirF,vMirD));');
-      dayFloor.material.userData.sh=sh;
-    };
-  }
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14}));
+  floor.rotation.x = -Math.PI/2; scene.add(floor);
+  dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}));
+  dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day
+  dayFloor.material.onBeforeCompile=(sh)=>{                  // far floor shows the TRUE planar reflection of the sky (sun disc included → omega sunset); also dissolves the checker so no moiré
+    sh.uniforms.uMirN={value:LOW?1e6:18}; sh.uniforms.uMirF={value:LOW?2e6:140};   // LOW: push BOTH mirror edges past any floor distance → smoothstep(uMirN,uMirF,vMirD)=0 everywhere → the reflection mix contributes NOTHING (floor just fades to fog), so the far floor never samples the skipped reflection RT (no dark garbage)
+    sh.uniforms.uRefl={value:reflRT.texture}; sh.uniforms.uRes={value:new THREE.Vector2(2,2)};
+    sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};   // WASD floor beat-tint (luminance-weighted so the light tiles take the colour)
+    sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
+    sh.fragmentShader='uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes; uniform vec3 uBeatCol; uniform float uBeatAmt; varying float vMirD;\n'+sh.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      '#include <dithering_fragment>\n'+
+      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, gl_FragColor.rgb*uBeatCol, uBeatAmt);\n'+   // multiplicative beat-tint: bright tiles take the key hue (dark tiles stay dark) -> visible in daylight, not pastel
+      ' vec3 reflCol=texture2D(uRefl, gl_FragCoord.xy/uRes).rgb;\n'+
+      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, smoothstep(uMirN,uMirF,vMirD));');
+    dayFloor.material.userData.sh=sh;
+  };
   nightGrid = new THREE.GridHelper(FLOOR, LOW?80:FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;   // LOW: coarser grid (80 vs 310) — cheaper line buffer + reads as more Rez/N64; normal keeps FLOOR/2
   nightGrid.material.transparent = true; nightGrid.material.depthWrite = false; nightGrid.material.opacity = 0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
 })();
@@ -743,9 +595,8 @@ function updateRenderQuality(dt){
   else if(frameAvg<1/58 && renderDpr<DPR_MAX-0.01){ if(setRenderDpr(renderDpr+0.10)) perfCooldown=4.0; }
 }
 function syncReflUniformSize(){
-  // Claude addendum #1/#4: resolve worldFloor OR dayFloor (never dayFloor-only); guard uRes — LOW worldFloor compiles reflection out so uniforms.uRes is absent
-  const fsh=activeFloorSh();
-  if(!fsh || !reflResDirty || !fsh.uniforms.uRes) return;
+  const fsh=dayFloor && dayFloor.material.userData.sh;
+  if(!fsh || !reflResDirty) return;
   renderer.getDrawingBufferSize(_dbs); fsh.uniforms.uRes.value.copy(_dbs); reflResDirty=false;
 }
 function renderReflection(){
@@ -799,9 +650,7 @@ function updateSky(dt){
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
   scene.background.copy(_hor); scene.fog.color.copy(_hor); setScalarCached(scene.fog,'density',0.012-0.005*day,100000);  // background = horizon → no black seam; floor fades into the horizon
   if(starPts) setScalarCached(starPts.material.uniforms.uOpacity,'value',Math.max(0,1-day*1.15));
-  if(dayFloor){ if(day>0.01) setDayFloorTex(); setScalarCached(dayFloor.material,'opacity',day); }  // classic tiles fade in (world branch: dayFloor is null — never assign worldFloor here or setDayFloorTex clobbers the atlas)
-  if(worldFloor) updateWorldFloorPalette(day, tw);           // CPU ocean/land/coast (+ mood); twilight uses `tw` independent of dayAmt
-  syncReflUniformSize();                                     // unconditional — world branch never enters the dayFloor block; still must re-sync uRes on resize/adaptive DPR
+  if(dayFloor){ if(day>0.01) setDayFloorTex(); setScalarCached(dayFloor.material,'opacity',day); syncReflUniformSize(); }  // tiles fade in; keep the reflection sample resolution in sync
   const deepNight=day<0.04;                                  // each new night: roll a grid colour ≠ last, and flip the next day's tile set (hidden while invisible)
   if(deepNight && !wasNight){
     let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]);
@@ -2183,11 +2032,8 @@ function updateFloorBeat(){
     const bi=Math.round(beats), env=Math.max(0,1-Math.abs(beats-bi)*2), len=_combo.length, ckey=_combo[(((bi*nd)%len)+len)%len];   // wide soft pulse peaking on the WASD "and" (groove); colour = that note's MAIN key
     amt=CFG.floorBeatMax*env*env; _floorBeatCol.setHex(WASD_HEX[ckey]);
   }
-  // day wash: classic dayFloor and/or worldFloor (shared path via activeFloorSh). World also mirrors into _wfBeat* so pre-compile frames still land once userData.sh appears.
-  const dayBeat=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul);
-  _wfBeatAmt.value=dayBeat; _wfBeatCol.copy(_floorBeatCol);
-  const fsh=activeFloorSh();
-  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=dayBeat; fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker / cartographic daytime beat (boosted + clamped)
+  const fsh=dayFloor&&dayFloor.material.userData.sh;
+  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
   const gsh=nightGrid&&nightGrid.material.userData.shBeat;
   if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
 }
