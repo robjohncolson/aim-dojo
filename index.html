@@ -284,6 +284,7 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
         </div>
         <div id="dojoBests" class="histsub" style="margin:0 0 3px;text-align:left;white-space:normal"></div>
         <div id="dojoList" class="boardlist"><div class="board-empty">loading…</div></div>
+        <button type="button" class="ghost" id="clearLocalBests" style="width:100%;margin-top:8px;font-size:10px;letter-spacing:.1em;padding:8px">↺ CLEAR MY LOCAL BESTS</button>
       </div>
     </div>
   </div>
@@ -2606,6 +2607,19 @@ function updateRemotes(dt){
   ni.addEventListener('input', ()=>{ const v=ni.value.slice(0,24); _playerName=v.trim() || ('Guest-'+clientId().slice(-4)); try{ localStorage.setItem('aimdojo.name', v); }catch(e){} });
 })();
 /* ===== DOJO RECORDS — global free-play leaderboard (THE DOJO PIVOT). Multi-metric, tabbed; submits session bests on free-play run end. ===== */
+// BOARD_GEN: bump when the global board is wiped / schema meaning changes. On mismatch we drop local board caches so the app doesn't look "stale" after a Supabase truncate.
+const BOARD_GEN=3;
+function clearLocalDojoCaches(){
+  try{ localStorage.removeItem('aimdojo.dojobest'); localStorage.removeItem('aimdojo.rtmap'); localStorage.removeItem('aimdojo.songBest'); }catch(e){}
+  _dojoBest={};
+}
+function ensureBoardGen(){
+  try{
+    const g=parseInt(localStorage.getItem('aimdojo.boardGen')||'0',10)||0;
+    if(g<BOARD_GEN){ clearLocalDojoCaches(); localStorage.setItem('aimdojo.boardGen', String(BOARD_GEN)); }
+  }catch(e){}
+}
+ensureBoardGen();
 let _dojoBest=null, _dojoRecHit={far:false,high:false,streak:false};
 const _DOJO_SORTS={peak_bpm:1,runtime:1};                         // whitelist (also guards the order= query string) — records = BPM + length of time
 let dojoSort='peak_bpm'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
@@ -2655,24 +2669,30 @@ async function submitDojo(){
 function _localRuntime(cid){ try{ const map=JSON.parse(localStorage.getItem('aimdojo.rtmap')||'{}'); return +map[cid]||0; }catch(e){ return 0; } }
 async function loadDojoBoard(){
   const list=gid('dojoList'); if(!list) return;
+  ensureBoardGen();
   let col=_DOJO_SORTS[dojoSort]?dojoSort:'peak_bpm';
   // Prefer BPM+TIME. If `runtime` column isn't migrated yet (PostgREST 42703), fall back to peak_bpm-only so the board isn't "offline".
+  // Cache-bust: never serve a browser-cached empty/stale board after a wipe.
   async function pull(withRuntime){
     const sel=withRuntime?'client_id,name,peak_bpm,runtime':'client_id,name,peak_bpm';
     const orderCol=(withRuntime && col==='runtime')?'runtime':'peak_bpm';
     if(!withRuntime && col==='runtime') col='peak_bpm';
-    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select='+sel+'&order='+orderCol+'.desc&limit=300', {headers:sbH()});
+    const bust='&_='+Date.now();
+    const res=await fetch(SB_URL+'/rest/v1/aimdojo_dojo?select='+sel+'&order='+orderCol+'.desc&limit=300'+bust, {headers:sbH(), cache:'no-store'});
     return res;
   }
   try{
     let res=await pull(true), hasRuntimeCol=true;
     if(!res.ok){ const t=await res.text(); if(/runtime|42703/i.test(t)){ hasRuntimeCol=false; res=await pull(false); } else throw 0; }
     if(!res.ok) throw 0;
-    const rows=await res.json(); const seen=new Set(), top=[];
+    const rows=await res.json();
+    // Server empty = wipe won: drop local board caches so "your best" / TIME don't look like ghosts of old seasons
+    if(!rows.length){ clearLocalDojoCaches(); renderDojoBests(); renderDojoBoard([], col, hasRuntimeCol); return; }
+    const seen=new Set(), top=[], me=clientId();
     for(const r of rows){
       if(seen.has(r.client_id)) continue; seen.add(r.client_id);
-      // fill TIME: DB runtime if present, else local map for YOU (so your row isn't stuck on "—")
-      let rt=+r.runtime||0; if(!(rt>0)) rt=_localRuntime(r.client_id); r.runtime=rt;
+      // TIME: trust DB first; only backfill local runtime for YOUR client_id (never invent other players' times)
+      let rt=+r.runtime||0; if(!(rt>0) && r.client_id===me) rt=_localRuntime(me); r.runtime=rt;
       top.push(r); if(top.length>=15) break;
     }
     if(col==='runtime') top.sort((a,b)=>(b.runtime||0)-(a.runtime||0));
@@ -2706,6 +2726,14 @@ function openRecords(){
 }
 function closeRecords(){ if(!recordsWrap) return; recordsOpen=false; recordsWrap.style.display='none'; }
 if(recordsBtn) recordsBtn.addEventListener('click', ()=>{ recordsOpen ? closeRecords() : openRecords(); });
+(function(){ const b=gid('clearLocalBests'); if(!b) return;
+  b.addEventListener('click', ()=>{
+    clearLocalDojoCaches();
+    try{ localStorage.setItem('aimdojo.boardGen', String(BOARD_GEN)); }catch(e){}
+    renderDojoBests(); loadDojoBoard();
+    try{ showGhostToast('local bests cleared'); }catch(e){}
+  });
+})();
 function promptNameOnFirstRecord(){   // a personal record landed but no name is saved → open the records section once and point at the name field
   if(_namePrompted) return; let nm=''; try{ nm=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){}
   if(nm) return; _namePrompted=true; openRecords();
