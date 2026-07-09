@@ -780,27 +780,30 @@ function acquireShards(n, color){
 function releaseShards(rec){ rec.pts.visible=false; scene.remove(rec.pts); shardPool.push(rec); }
 function addRecoil(){ if(reduceMotion) return; recoilPitch=Math.min(recoilPitch+CFG.recoilKick, CFG.recoilMax); recoilYaw += (Math.random()*2-1)*CFG.recoilYaw; }
 function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt); }
-function explodeAt(pos, radius, color, slow){
+function explodeAt(pos, radius, color, slow, shardN){
   color=color||TOXIC;
   const flash=acquireFlash(color);
   flash.position.copy(pos);
   const flashBase=Math.max(0.3,radius*1.1); flash.scale.setScalar(flashBase);
   let shards=null,pts=null,geo=null,mat=null,vels=null;
   if(!reduceMotion){
-    const N=CFG.shards; shards=acquireShards(N,color); pts=shards.pts; geo=shards.geo; mat=shards.mat; vels=shards.vels;
+    const N=Math.max(1, Math.min(CFG.shards, shardN!=null?shardN:CFG.shards));
+    shards=acquireShards(N,color); pts=shards.pts; geo=shards.geo; mat=shards.mat; vels=shards.vels;
     const positions=geo.attributes.position.array;
-    const vo=(shardPatternCursor++ % SHARD_PATTERNS)*N*3;
+    // SHARD_VELS patterns are sized for CFG.shards; sample with wrap so smaller clank bursts still work
+    const vo=(shardPatternCursor++ % SHARD_PATTERNS)*CFG.shards*3;
     for(let i=0;i<N;i++){ positions[i*3]=pos.x; positions[i*3+1]=pos.y; positions[i*3+2]=pos.z;
-      const j=i*3; vels[j]=SHARD_VELS[vo+j]; vels[j+1]=SHARD_VELS[vo+j+1]; vels[j+2]=SHARD_VELS[vo+j+2]; }
+      const j=i*3, src=((vo+i*3)%(SHARD_VELS.length-2)); vels[j]=SHARD_VELS[src]*0.85; vels[j+1]=SHARD_VELS[src+1]*0.85; vels[j+2]=SHARD_VELS[src+2]*0.85; }
     geo.attributes.position.needsUpdate=true;
   }
   const rec=explosionRecordPool.pop() || {};
-  rec.shards=shards; rec.pts=pts; rec.geo=geo; rec.mat=mat; rec.vels=vels; rec.flash=flash; rec.flashBase=flashBase; rec.age=0; rec.life=0.55; rec.slow=slow||1;   // slow<1 → this burst evolves in slow-mo (clutch flourish) without touching the master clock
+  rec.shards=shards; rec.pts=pts; rec.geo=geo; rec.mat=mat; rec.vels=vels; rec.flash=flash; rec.flashBase=flashBase; rec.age=0; rec.life=shardN!=null?0.38:0.55; rec.slow=slow||1;
   explosions.push(rec);
 }
 /* ---- clutch flourish: a localized camera FOV punch + a camera-facing shockwave ring (the explosion-only slow-mo lives in the explosion loop via rec.slow). RHYTHM-SAFE — never scales dt or Tone.Transport. ---- */
 const CLUTCH_COLOR=0xffd27a;   // hex (NOT a THREE.Color): explodeAt → acquireFlash/acquireShards call color.setHex(color), which needs an int
 let clutchT=0, clutchDur=0, camFovBase=camera.fov, _clutchLast=-999;
+let missKickT=0, missKickDur=0.15;   // brief FOV flinch on clank/whiff (widens, opposite of clutch zoom-in)
 let clutchRing=null, clutchRingT=0, clutchRingDur=0; const _clutchRingPos=new THREE.Vector3();
 let glowI=0; const comboGlowEl=gid('comboGlow');
 function ensureClutchRing(){
@@ -1491,10 +1494,50 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(good && CFG.flickBonus.on && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS (disabled — CFG.flickBonus.on:false): a FLAWLESS/PERFECT on-beat kill on a hot streak would arm the flick treat
   if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
-function clankShot(tg, point){   // groove VULN: the shot HIT the orb but OFF the beat (shielded) → NO kill. It's a TIMING MISS: costs a shot + breaks the streak + feeds the adaptive engine, exactly like a whiff — so spray-and-pray can't beat the clock or inflate the leaderboard. A DISTINCT dull bonk (vs the whiff noise) so you know it was timing, not aim.
+function missGrooveDuck(){   // half-beat musical flinch: volume dips then recovers; groove intensity snaps down (no field-speed C consequences)
+  const half=(60/Math.max(20,state.bpm))*0.5;
+  grooveI=Math.max(0, grooveI*0.5);
+  if(drumBus && toneReady){
+    try{
+      const now=Tone.now(), base=-5;
+      drumBus.volume.cancelScheduledValues(now);
+      drumBus.volume.setValueAtTime(base, now);
+      drumBus.volume.linearRampToValueAtTime(-16, now+0.04);
+      drumBus.volume.linearRampToValueAtTime(base, now+Math.max(0.12, half));
+    }catch(e){}
+  }
+}
+function playClankSfx(){   // metal shield: low double-thud + grit (distinct from airy whiff)
+  if(!soundOn || !toneReady) return;
+  try{
+    const now=Tone.now();
+    if(shotCue){ shotCue.triggerAttackRelease(78, '16n', now, 0.9); shotCue.triggerAttackRelease(52, '8n', now+0.03, 0.55); }
+    if(synthLow) synthLow.triggerAttackRelease(98, 0.12, now, 0.7);
+    if(noiseFire) noiseFire.triggerAttackRelease(0.055, now, 0.45);
+  }catch(e){}
+}
+function playWhiffSfx(){   // empty air: soft noise + thin drop (not a shield hit)
+  if(!soundOn || !toneReady) return;
+  try{
+    const now=Tone.now();
+    if(noiseFire) noiseFire.triggerAttackRelease(0.07, now, 0.6);
+    if(synthLow) synthLow.triggerAttackRelease(180, 0.09, now, 0.4);
+  }catch(e){}
+}
+function missCamKick(strong){   // short FOV widen + optional recoil nibble
+  if(reduceMotion) return;
+  missKickDur=strong?0.18:0.12; missKickT=missKickDur;
+  if(strong) recoilPitch=Math.min(recoilPitch+CFG.recoilKick*0.85, CFG.recoilMax);
+}
+function clankShot(tg, point){   // OFF-beat landing on a shielded orb — timing miss. Heavier than a whiff: you almost had it.
   state.shots++; state.streak=0; pushEvent(false); flashReticleBad();
-  if(soundOn && toneReady && shotCue){ try{ shotCue.triggerAttackRelease(150, '16n', Tone.now(), 0.5); }catch(e){} }
-  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.12);
+  playClankSfx(); missGrooveDuck();
+  if(!reduceMotion){
+    addTrauma(CFG.hitTrauma*0.62);   // much stronger than old 0.12 — clank should SHAKE
+    missCamKick(true);
+    if(point) explodeAt(point, Math.max(0.28,(tg&&tg.radius?tg.radius*tg.sc:0.5)*0.6), 0xb8c4d4, 1, LOW?5:10);   // steel sparks at impact
+  }
+  try{ padRumble(40, 0.55); }catch(e){}
 }
 /* ===== MULTI-HIT TANK: a bigger AMBER orb that takes 2-3 ON-BEAT hits — "keep hitting the big one on the beat." Each hit chips it (a note walks UP + the shell pops + the count ticks down) as pure PROGRESS; the last hit pops it (scored like a normal orb, amber burst). Off-beat landings clank. Simple + rhythmic — no sub-figure. ===== */
 function handleTankHit(tg, point){
@@ -1522,10 +1565,15 @@ function updateTanks(dt){   // per-frame: the per-chip shell "pop" (the amber ha
 }
 function onWhiff(){
   state.shots++; state.streak=0; pushEvent(false);
-  flashReticleBad(); sfx('whiff');
+  flashReticleBad(); playWhiffSfx(); missGrooveDuck();
+  if(!reduceMotion){ addTrauma(CFG.hitTrauma*0.30); missCamKick(false); }   // weaker than clank — empty air, not a shield slam
+  try{ padRumble(22, 0.35); }catch(e){}
 }
 function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); return; }   // dodged a decoy → no penalty (avoiding it is the correct play)
-  retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off'); sfx('expire'); }
+  retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off');
+  playWhiffSfx(); missGrooveDuck();
+  if(!reduceMotion) addTrauma(CFG.hitTrauma*0.22);
+}
 function fire(){
   if(!state.running) return;
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
@@ -2370,6 +2418,12 @@ function animate(frameNow){
     const env=tIn<a ? tIn/a : Math.max(0, clutchT/(clutchDur-a));
     camera.fov=camFovBase - CFG.clutchZoom*env; camera.updateProjectionMatrix();
     if(clutchT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }   // restore exactly when the punch ends
+  } else if(missKickT>0){                                      // miss flinch: brief FOV widen (opposite of clutch) + trauma shake already running
+    missKickT=Math.max(0, missKickT-dt);
+    const a=missKickDur*0.2, tIn=missKickDur-missKickT;
+    const env=tIn<a ? tIn/a : Math.max(0, missKickT/(missKickDur-a));
+    camera.fov=camFovBase + 5.5*env; camera.updateProjectionMatrix();
+    if(missKickT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }
   }
 
   if(state.running){
