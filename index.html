@@ -833,7 +833,7 @@ let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in 
 let reverbInput=null, reverbQueued=false;
 let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
 let gridId=null, grid8=0, cd=0, restSlots=0;
-let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh;
+let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh, fireMuzzle=null, firePluck=null;
 /* ========================= TUNE LIBRARY =========================
    Each THEME bundles the things the whole audio engine reads: a melodic SCALE (kills/tank/WASD-taps/tune all
    index it — the old PENTA), a chord PROGRESSION as sub-bass ROOTs + voice-led pad TRIADs (one chord per bar, cycled
@@ -1092,7 +1092,9 @@ function initAudio(){
     synthLvl=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.002,decay:0.12,sustain:0,release:0.05}}).connect(out);
     noiseFire=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.05,sustain:0}}).connect(new Tone.Volume(-16).toDestination());
     try{ chordSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.3,sustain:0.05,release:0.5}}).connect(new Tone.Volume(-13).toDestination()); }catch(e){ chordSynth=null; }
-    try{ arcWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.01,decay:0.1,sustain:0.5,release:0.12}}).connect(new Tone.Volume(-19).toDestination()); }catch(e){ arcWhoosh=null; }   // ARC projectile flight whoosh (pitch sweeps up over the arc)
+    try{ arcWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.012,decay:0.12,sustain:0.35,release:0.14}}).connect(new Tone.Volume(-22).toDestination()); }catch(e){ arcWhoosh=null; }   // ARC flight whoosh (quieter bed under the new muzzle; pitch from theme scale)
+    try{ fireMuzzle=new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.001,decay:0.04,sustain:0,release:0.02}}).connect(new Tone.Filter(1600,'lowpass').connect(new Tone.Volume(-13).toDestination())); }catch(e){ fireMuzzle=null; }   // soft muzzle thump (brown noise — not a harsh white crack)
+    try{ firePluck=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.07,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination()); }catch(e){ firePluck=null; }   // in-key pluck so the launch sits with the song
     toneReady=true;
   }catch(e){ toneReady=false; audioInit=false; }
   applyAudioState();
@@ -1605,10 +1607,29 @@ const PROJ_MAT=new THREE.MeshBasicMaterial({color:0x9fe8ff});
 const projectileMeshPool=[], projectilePool=[];
 function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.Mesh(PROJ_GEO, PROJ_MAT); m.visible=true; scene.add(m); return m; }
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
+function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter in-key whoosh (sits with the theme, doesn't fight the bed)
+  if(!soundOn || !toneReady) return;
+  try{
+    const now=Tone.now();
+    const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)
+    const hi=(PENTA&&PENTA.length)?PENTA[Math.min(4,PENTA.length-1)]:440;
+    const sensei=(_diffPick==='SENSEI');
+    if(fireMuzzle) fireMuzzle.triggerAttackRelease(0.032, now, sensei?0.62:0.5);
+    if(firePluck) firePluck.triggerAttackRelease(lo*2, '32n', now, sensei?0.78:0.65);   // octave up = clear “shot” without stealing the lead melody
+    if(arcWhoosh){
+      const ft=Math.max(0.18, Math.min(2.2, flightT||0.6));
+      const a=lo*0.9, b=hi*1.05;
+      arcWhoosh.triggerAttackRelease(a, ft, now, sensei?0.38:0.32);
+      arcWhoosh.frequency.cancelScheduledValues(now);
+      arcWhoosh.frequency.setValueAtTime(a, now);
+      arcWhoosh.frequency.linearRampToValueAtTime(b, now+ft*0.85);
+    }
+  }catch(e){}
+}
 function spawnProjectile(){
   const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
   const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
-  if(soundOn && toneReady && arcWhoosh){ try{ const now=Tone.now(), ft=Math.max(0.2,Math.min(2.5,_T)); arcWhoosh.triggerAttackRelease(260, ft, now, 0.5); arcWhoosh.frequency.cancelScheduledValues(now); arcWhoosh.frequency.setValueAtTime(260, now); arcWhoosh.frequency.linearRampToValueAtTime(560, now+ft*0.9); }catch(e){} }   // rising flight whoosh over the arc
+  playFireLaunch(_T);
   pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
   // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
