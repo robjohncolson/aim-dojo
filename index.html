@@ -1652,13 +1652,13 @@ const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7,
 const RIB_OP_BASE=GLOW?0.62:0.48, RIB_OP_DAY=GLOW?0.28:0.35;   // ribbon opacity = base + day*bonus (GLOW: more present at night, same ceiling by day)
 let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
-let _arcScroll=0, _arcScroll16=-1;   // rainbow band scroll (muzzle → impact): average rate = projSpeed, advanced in discrete 16th-note steps (same audio clock as the rest of the groove)
+let _arcScroll=0;   // rainbow band scroll (muzzle → impact), advanced by projSpeed
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
 const _arcPts=new Float32Array(ARC_SAMP*3), _ribTan=new THREE.Vector3(), _ribOff=new THREE.Vector3(), _ribToCam=new THREE.Vector3();
 const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){ const th=i/16*6.2831853; a[i*3]=Math.cos(th); a[i*3+2]=Math.sin(th); }   // unit ring in the XZ (floor) plane
   const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();
-// Rainbow ribbon: bands run ACROSS the path (color constant on a cross-section), so stripes are ORTHOGONAL to a classic sky rainbow (which bands along the arc). Pattern scrolls muzzle→impact at projSpeedNow() *average* rate, but STEPS on 16th notes (arrival-timing subdivisions) instead of crawling continuously.
+// Rainbow ribbon: bands run ACROSS the path (color constant on a cross-section), so stripes are ORTHOGONAL to a classic sky rainbow (which bands along the arc). Pattern scrolls muzzle→impact at a rate tied to projSpeedNow().
 const ARC_RAIN_VS='varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }';
 const ARC_RAIN_FS=[
   'uniform float uScroll; uniform float uOpacity; uniform float uBands; varying vec2 vUv;',
@@ -1735,23 +1735,12 @@ function simShotHits(M, V, T, tg){                                              
   _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
 }
 function updateArcPreview(dt){                                                               // rainbow ribbon = real shot path (same plan spawnProjectile uses)
-  if(!(CFG.projectile && CFG.projArc && state.running)){ hideArc(); arcAccum=ARC_UPDATE_STEP; _arcScroll16=-1; return; }
-  if(bonusActive){ hideArc(); arcAccum=ARC_UPDATE_STEP; _arcScroll16=-1; return; }
+  if(!(CFG.projectile && CFG.projArc && state.running)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
+  if(bonusActive){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
   ensureArcObjs();
-  // ROYGBIV scroll: same average pace as continuous (projSpeedNow()*0.085), but quantized to 16th notes — holds between sixteenths, steps on the grid (Tone.Transport when live; state.t fallback)
+  // scroll ROYGBIV bands muzzle→impact every frame; speed scales with current projectile muzzle speed
   if(!reduceMotion){
-    let sixIdx=-1;
-    if(toneReady){ try{ sixIdx=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*4); }catch(e){ sixIdx=-1; } }
-    if(sixIdx<0) sixIdx=Math.floor(state.t/(60/Math.max(20,state.bpm))*4);
-    if(_arcScroll16<0) _arcScroll16=sixIdx;
-    else if(sixIdx!==_arcScroll16){
-      const n=sixIdx-_arcScroll16;   // normally 1; multi-step only on a hitch. Rewind / long gap → resync only (no backlog dump)
-      if(n>0 && n<=8){
-        const sixteenth=(60/Math.max(20,state.bpm))/4;
-        _arcScroll += n * sixteenth * (projSpeedNow() * 0.085);   // per-16th delta = continuous rate × 16th duration → same pace, stepped
-      }
-      _arcScroll16=sixIdx;
-    }
+    _arcScroll += dt * (projSpeedNow() * 0.085);   // faster bullets → faster stripe crawl
     if(arcRibbon.material.uniforms) arcRibbon.material.uniforms.uScroll.value=_arcScroll;
   }
   if(reduceMotion){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } }
