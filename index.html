@@ -950,13 +950,20 @@ for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SE
    Phase 3: graduate mid-run into full SENSEI (dolly + normal windows + specials). */
 const BEAT_SPAWN_SIXTEENTHS_FULL=CFG.beatSpawnSixteenths.slice();
 const TRAIN_NEED_WASD=12, TRAIN_NEED_ORB1=5, TRAIN_NEED_ORB2=8;
+const TRAIN_RANGE_NEAR=9, TRAIN_RANGE_FAR=20;   // phase-2 live range ramp endpoints (trainer-only; full dojo range law untouched)
 let trainMode=false, trainPhase=0, trainWasd=0, trainOrbs=0;
+let gateChosen=false;   // true after TRAIN/FULL (or resume path); pad START must not bypass the binary gate
 const trainCoachEl=typeof document!=='undefined'?document.getElementById('trainCoach'):null;
-let _trainCoachT=0;
-function showTrainCoach(msg){
+let _trainCoachT=0, _trainCoachEphemeral=false;
+function showTrainCoach(msg, ephemeral){
   if(!trainCoachEl) return;
   trainCoachEl.textContent=msg||''; trainCoachEl.classList.toggle('on', !!msg);
-  _trainCoachT=msg?8:0;   // auto-hide after a few seconds (re-shown on phase change)
+  _trainCoachEphemeral=!!ephemeral;
+  // training tips stay on; graduation/ephemeral messages auto-hide after a few seconds
+  _trainCoachT=msg?(ephemeral?5:0):0;
+}
+function wasdBeatsHeard(){   // letter/floor cues must match input grading + orb glow (audioLat-corrected). Trainer uses this so Bluetooth/offset users see the pocket they hear.
+  const bps=60/Math.max(20,state.bpm); return wasdBeats() - audioLat()/bps;
 }
 function applySenseiFull(){
   for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SENSEI_PACK[k].slice():SENSEI_PACK[k];
@@ -982,25 +989,31 @@ function setTrainPhase(p){
   } else if(p===1){
     CFG.patternConcurrency=1; CFG.minGap=7; CFG.densityScale=0.9; CFG.bpmUp=1;
     CFG.grooveOpenSec=[0.52,0.44];   // wide glow window — learn "land on the glow"
-    CFG.rangeStart=8; state.range=9; CFG.rangeMax=12;
+    CFG.rangeStart=8; state.range=TRAIN_RANGE_NEAR; CFG.rangeMax=12;
     CFG.beatSpawnSixteenths=[2,3,4];   // short flight only
-    CFG.wasdHud=true; CFG.wasdWindow=0.20; CFG.wasdWindowFrac=0.5;
+    CFG.wasdHud=!MOBILE; CFG.wasdWindow=0.20; CFG.wasdWindowFrac=0.5;
     CFG.openGlowBoost=1.55;
-    showTrainCoach('BETWEEN letter taps — shoot so the shot LANDS while the orb GLOWS');
+    showTrainCoach(MOBILE
+      ? 'Shoot so the shot LANDS while the orb GLOWS · wide window — learn the pocket'
+      : 'BETWEEN letter taps — shoot so the shot LANDS while the orb GLOWS');
   } else if(p===2){
     CFG.patternConcurrency=2; CFG.minGap=6; CFG.densityScale=1; CFG.bpmUp=1.5;
     CFG.grooveOpenSec=[0.40,0.30];
-    CFG.rangeMax=20; CFG.beatSpawnSixteenths=[2,3,4,6,8];
+    CFG.rangeStart=TRAIN_RANGE_NEAR; state.range=TRAIN_RANGE_NEAR; CFG.rangeMax=TRAIN_RANGE_FAR;
+    CFG.beatSpawnSixteenths=[2,3,4,6,8];
     CFG.wasdHud=false; CFG.wasdWindow=0.18; CFG.wasdWindowFrac=0.45;
     CFG.openGlowBoost=1.45;
     CFG.brownian=2.5; CFG.brownianMax=5;
-    showTrainCoach('ORBS FAN OUT — keep the letters, lead the shot');
+    showTrainCoach(MOBILE
+      ? 'ORBS FAN OUT — lead farther shots while they glow'
+      : 'ORBS FAN OUT — keep the letters, lead farther shots');
   } else {
     // graduate → full dojo mid-run
     trainMode=false; trainPhase=0;
     applySenseiFull();
+    _specialLive=specialOrbsLive();   // must re-latch AFTER full config (specials were forced off in train)
     state.range=Math.max(state.range, CFG.rangeStart);
-    showTrainCoach('TRAINING COMPLETE — full dojo. Dolly on. Trust the pockets.');
+    showTrainCoach('TRAINING COMPLETE — full dojo. Dolly on. Trust the pockets.', true);
     try{ showGhostToast('🥋 FULL DOJO'); }catch(e){}
   }
 }
@@ -1008,17 +1021,25 @@ function noteTrainWasd(acc){
   if(!trainMode || trainPhase!==0 || acc<40) return;
   trainWasd++;
   if(trainWasd>=TRAIN_NEED_WASD) setTrainPhase(1);
-  else if(trainWasd===1||trainWasd===Math.floor(TRAIN_NEED_WASD/2)) showTrainCoach('Letters '+trainWasd+'/'+TRAIN_NEED_WASD+' · match the floor colour flash');
+  else showTrainCoach('Letters '+trainWasd+'/'+TRAIN_NEED_WASD+' · match the floor colour flash');   // every tap (was 1 and 6 only — looked stuck)
 }
 function noteTrainOrb(){
+  // Count every on-glow kill that reached gradeRhythmHit (decoys never get here). Do NOT gate on reaction-age "good" — orbs live 5 beats; kills on beat 3–5 are still correct pedagogy.
   if(!trainMode || (trainPhase!==1 && trainPhase!==2)) return;
   trainOrbs++;
+  if(trainPhase===2){
+    // trainer-only live range ramp: admit ~12m+ pockets before hit 8 (full-dojo +0.08/hit law never reaches fan-out in 8 kills)
+    const t=Math.min(1, trainOrbs/TRAIN_NEED_ORB2);
+    state.range=TRAIN_RANGE_NEAR + t*(TRAIN_RANGE_FAR-TRAIN_RANGE_NEAR);
+    CFG.rangeMax=TRAIN_RANGE_FAR;
+  }
   if(trainPhase===1 && trainOrbs>=TRAIN_NEED_ORB1) setTrainPhase(2);
   else if(trainPhase===2 && trainOrbs>=TRAIN_NEED_ORB2) setTrainPhase(3);
-  else if(trainPhase===1) showTrainCoach('Glow hits '+trainOrbs+'/'+TRAIN_NEED_ORB1+' · still keep the letters');
+  else if(trainPhase===1) showTrainCoach(MOBILE?('Glow hits '+trainOrbs+'/'+TRAIN_NEED_ORB1):('Glow hits '+trainOrbs+'/'+TRAIN_NEED_ORB1+' · still keep the letters'));
   else if(trainPhase===2) showTrainCoach('Farther orbs '+trainOrbs+'/'+TRAIN_NEED_ORB2+' · then full dojo');
 }
 function beginAs(train){
+  gateChosen=true;
   trainMode=!!train;
   if(!trainMode){ trainPhase=0; trainWasd=0; trainOrbs=0; showTrainCoach(''); }
   // phase applied inside resetSession (enterRunning → resetSession on fresh start)
@@ -1536,8 +1557,9 @@ function gradeRhythmHit(tg, point, atT, atBpm){
     showTiming('DECOY','don\'t shoot these','off');
     popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); padRumble(70,0.9); retireTrail(tg, 0.3); killTarget(tg, false); return;
   }
-  if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); noteTrainOrb(); }   // GOLD = goldScore kills (gold/speed/mover multipliers); trainer progress on good orb landings
+  if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
   else state.streak=0;
+  noteTrainOrb();   // trainer: every on-glow kill counts (glow already gated at projectile connect); reaction-age "good" only affects score/streak
   padRumble(good?[26,18,12][gradeIdx]:8, good?[0.7,0.5,0.35][gradeIdx]:0.2);   // graded haptic blip (FLAWLESS strongest → a whisper for a late GOOD); values mirror the iso game's tuning
   recordHit(tg);
   pushReaction(beats);
@@ -1694,7 +1716,10 @@ function pollGamepad(dt){
   if(fB||dD) wasdLanePress(2);   // S
   if(fR||dR) wasdLanePress(3);   // D
   if(zL||zR) fire();             // fire() self-guards on state.running
-  if(!state.running){ if((st||fB) && !padBeginBlocked()) startRun(true); }   // overlay up: START or face-bottom = BEGIN/RESUME (viaPad skips pointer lock — a pad press isn't a browser user gesture, the lock request would be denied)
+  if(!state.running){
+    // START / face-bottom: RESUME after a choice exists; never bypass the binary TRAIN/FULL gate on cold load
+    if((st||fB) && !padBeginBlocked() && (state.started || gateChosen)) startRun(true);
+  }
   else if(st){ if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(e){} } else exitRunning(); }   // START pauses: exit the lock when held (pointerlockchange shows the pause), else pause directly (pad-started runs never lock)
 }
 // WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
@@ -1949,7 +1974,7 @@ function drawWasdLane(){
   // ---- the IN-FOCUS note (nearest beat): the circle CONVERGES to Rin at the beat, then BLOOMS back out + fades (the late window) ----
   let letterKey=_combo[0], spoiled=false, hitHeld=false;
   { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-    let beats=wasdBeats();
+    let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
     const ci=Math.round(beats*nd), ckey=_combo[((ci%len)+len)%len], main=((((ci%nd)+nd)%nd)===0); spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey;
     if(showHud && !reduceMotion){ const half=0.5/nd, off=spoiled?_spoilOff:(hit?_hitOff:(beats-ci/nd)); let ra,al;
       if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
@@ -2077,15 +2102,19 @@ function updateFlock(dt){
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt)*dens);
   }
 }
-/* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the WASD "and" (the shifted freeze peak via wasdBeats(); raw whole beat only when grooveGroove is off); reduceMotion-gated, free-play only ---- */
+/* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the WASD "and" (the shifted freeze peak via wasdBeats(); raw whole beat only when grooveGroove is off); reduceMotion-gated except trainer (needs a discrete colour cue) ---- */
 const _floorBeatCol=new THREE.Color();
 function updateFloorBeat(){
   let amt=0;
-  if(!MOBILE && CFG.floorBeat && !reduceMotion && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'){
-    let beats=wasdBeats();
+  const floorCueOn=!MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'
+    && (!reduceMotion || trainMode);   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off)
+  if(floorCueOn){
+    let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
     const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-    const bi=Math.round(beats), env=Math.max(0,1-Math.abs(beats-bi)*2), len=_combo.length, ckey=_combo[(((bi*nd)%len)+len)%len];   // wide soft pulse peaking on the WASD "and" (groove); colour = that note's MAIN key
-    amt=CFG.floorBeatMax*env*env; _floorBeatCol.setHex(WASD_HEX[ckey]);
+    const bi=Math.round(beats), off=Math.abs(beats-bi), len=_combo.length, ckey=_combo[(((bi*nd)%len)+len)%len];
+    if(trainMode && reduceMotion) amt=off<0.12?CFG.floorBeatMax:0;   // discrete flash (no soft envelope)
+    else { const env=Math.max(0,1-off*2); amt=CFG.floorBeatMax*env*env; }
+    _floorBeatCol.setHex(WASD_HEX[ckey]);
   }
   const fsh=dayFloor&&dayFloor.material.userData.sh;
   if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
@@ -2431,8 +2460,14 @@ function animate(frameNow){
   if(frameNow==null) frameNow=performance.now();
   if(!state.running && _gpIndex===null && explosions.length===0 && ghosts.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;   // pad connected → poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
   if(!state.running) lastIdleFrame=frameNow;
-  if(_trainCoachT>0){ _trainCoachT-=dt; if(_trainCoachT<=0 && trainCoachEl && trainMode){ /* keep last tip visible softly while training */ trainCoachEl.classList.add('on'); } }
-  const dt=Math.min(clock.getDelta(),0.05);
+  const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
+  if(_trainCoachT>0){
+    _trainCoachT-=dt;
+    if(_trainCoachT<=0){
+      _trainCoachT=0;
+      if(trainCoachEl && _trainCoachEphemeral){ trainCoachEl.classList.remove('on'); trainCoachEl.textContent=''; _trainCoachEphemeral=false; }   // hide graduation copy; training tips (_trainCoachT=0, persistent) stay
+    }
+  }
   pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
   updateRenderQuality(dt);
   if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
@@ -2675,9 +2710,11 @@ document.addEventListener('visibilitychange',()=>{
 function showToneBlock(reason){
   const l=gid('ovLede'); if(!l) return;
   if(reason==='challenge') l.innerHTML='<b>The daily challenge needs sound.</b> Audio did not start - reload the page, or unblock the audio library and browser audio.';
-  else if(reason==='start') l.innerHTML='<b>Sound did not start.</b> Tap BEGIN again, or unblock browser audio for this page.';
-  else if(reason==='pad') l.innerHTML='<b>Audio needs one real touch.</b> Click, tap, or press any key once — then press START on the pad again.';
-  else l.innerHTML=toneLoadFailed ? '<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap BEGIN again.' : '<b>Sound is still loading.</b> Tap BEGIN again in a moment.';
+  else if(reason==='start') l.innerHTML='<b>Sound did not start.</b> Tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again, or unblock browser audio for this page.';
+  else if(reason==='pad') l.innerHTML='<b>Audio needs one real touch.</b> Click/tap once on the page, then pick <b>I\'M NEW</b> or <b>I KNOW THIS</b> (or START to resume).';
+  else l.innerHTML=toneLoadFailed
+    ? '<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>I\'M NEW</b> / <b>I KNOW THIS</b> again.'
+    : '<b>Sound is still loading.</b> Wait a moment, then tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again.';
 }
 function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
@@ -2697,14 +2734,17 @@ function startRun(viaPad){
 }
 beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
 const beginTrainBtn=gid('beginTrain'), beginFullBtn=gid('beginFull');
-if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>beginAs(true));
-if(beginFullBtn) beginFullBtn.addEventListener('click', ()=>beginAs(false));
+function setGateReady(ready){
+  [beginTrainBtn, beginFullBtn].forEach(b=>{ if(!b) return; b.disabled=!ready; b.style.opacity=ready?'':'0.45'; b.style.cursor=ready?'pointer':'wait'; });
+}
+setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
+if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });
+if(beginFullBtn) beginFullBtn.addEventListener('click', ()=>{ if(beginFullBtn.disabled) return; beginAs(false); });
 document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
 
 function resetSession(){
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
-  _specialLive=specialOrbsLive();   // latch special-orb liveness for the whole run (constant-per-run → no mid-run gate flip)
   if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
   else { windX=0; windZ=0; }                                  // wind-off → no wind
   for(const t of targets) removeTarget(t); targets.length=0;
@@ -2716,10 +2756,13 @@ function resetSession(){
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
   Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0});
-  // apply run kind AFTER state reset so range/bpm land correctly
+  // apply run kind BEFORE special latch — otherwise train CFG.specialOrbs=false never reaches the latch and ~26% of trainer orbs are gold/speed/mover
   if(trainMode) setTrainPhase(MOBILE?1:0);   // mobile skips letter phase (no WASD)
-  else { applySenseiFull(); showTrainCoach(''); state.bpm=CFG.startBpm; state.maxBpm=CFG.startBpm; state.range=CFG.rangeStart; }
-  if(trainMode){ state.bpm=CFG.startBpm; state.maxBpm=CFG.startBpm; state.range=CFG.rangeStart; }
+  else { applySenseiFull(); showTrainCoach(''); }
+  state.bpm=CFG.startBpm; state.maxBpm=CFG.startBpm;
+  if(!trainMode) state.range=CFG.rangeStart;   // train phases set their own range; don't clobber
+  else if(trainPhase===0) state.range=CFG.rangeStart;
+  _specialLive=specialOrbsLive();   // latch AFTER config (train → false; full → true)
   ensureRhythm();
   renderPrimary(false,false);
 }
@@ -3000,8 +3043,8 @@ renderPrimary(false,false);
 animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
 const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.requestIdleCallback(fn,{timeout:timeout||delay||1000}); else setTimeout(fn,delay||0); };
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
-const preloadTone=()=>{ loadToneOnce().catch(()=>{}); };
-runIdle(preloadTone,700,1800);
+// Eager Tone fetch so the binary gate's first enabled click can init audio (was idle-deferred → cold double-click)
+loadToneOnce().then(()=>{ setGateReady(true); }).catch(()=>{ setGateReady(true); });   // still enable on failure so the user can see the error copy on click
 setTimeout(()=>{ loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
 })();
 </script>
