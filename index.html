@@ -173,10 +173,6 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 .dt{font:9.5px var(--mono);letter-spacing:.12em;color:var(--bone-dim);padding:3px 7px;border:1px solid var(--panel-edge);background:#0a0e0c;cursor:pointer;user-select:none}
 .dt:hover{color:var(--bone)}
 .dt.on{color:#0a0e0c;background:var(--plasma);border-color:var(--plasma)}
-.theme-pick{margin:14px 0 12px;pointer-events:auto}
-.theme-lab{font:9.5px var(--mono);letter-spacing:.16em;color:var(--bone-dim);margin:0 0 6px}
-.theme-chips{display:flex;flex-wrap:wrap;gap:4px}
-.theme-chips .dt{font-family:var(--mono);letter-spacing:.1em}
 .dojo-row{display:grid;grid-template-columns:20px 1fr 48px 56px;align-items:center;gap:6px;font-size:11.5px;padding:3px 3px}   /* rank · name · BPM · TIME (records simplified to 2 metrics; was a 7-col multi-stat grid) */
 .dojo-row:nth-child(odd):not(.head){background:rgba(255,255,255,.025)}
 .dojo-row.me{background:rgba(67,217,255,.12);outline:1px solid rgba(67,217,255,.25)}
@@ -254,15 +250,6 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
       <span><b>L-CLICK</b>fire on the beat</span>
       <span><b>WASD</b>tap the shown key on the beat &mdash; steadies the orbs</span>
       <span><b>ESC</b>pause</span>
-    </div>
-
-    <div id="themePick" class="theme-pick" aria-label="Song">
-      <div class="theme-lab">♪ SONG</div>
-      <div id="themeChips" class="theme-chips"></div>
-    </div>
-    <div id="diffPick" class="theme-pick" aria-label="Difficulty">
-      <div class="theme-lab">⚔ DOJO</div>
-      <div id="diffChips" class="theme-chips"></div>
     </div>
 
     <div id="pauseStats" style="display:none"></div>
@@ -935,55 +922,16 @@ const THEMES=[
     arp:[0,2,1,2,0,1,2,0],
     bass:[1,0,1,0, 1,0,0,0], bassHold:'16n', mood:0x7dffb3, skyBias:0.28 },
 ];
-/* ========================= DIFFICULTY PRESETS (ZEN / DOJO / SENSEI) =========================
-   Pure CFG packs — same game, different pressure. Applied on card pick; persisted aimdojo.diff.
-   Aim-feel knobs live here (dolly / open window / juke / glide / BPM floor). */
-const DIFF_PRESETS={
-  ZEN:{ label:'ZEN', tip:'soft tracking · lofted arc · wide window · few tanks',
-    dollyYawDeg:9, dollyPitchDeg:5, dollySpeed:0.48, dollyHuman:false,
-    grooveOpenSec:[0.40,0.22], grooveJukeDeg:70, grooveGlideSpeed:2.6, grooveFreezeFloor:0.35,
-    startBpm:20, bpmUp:1.5, bpmDown:2, brownianMax:6.5, patternConcurrency:2,
-    projSpeed:20, projSpeedFast:48, multiHitChance:0.12, openGlowBoost:1.0 },
-  DOJO:{ label:'DOJO', tip:'standard dojo — balanced lead + tracking',
-    dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false,
-    grooveOpenSec:[0.32,0.15], grooveJukeDeg:100, grooveGlideSpeed:3.5, grooveFreezeFloor:0.25,
-    startBpm:20, bpmUp:2, bpmDown:3, brownianMax:9, patternConcurrency:3,
-    projSpeed:24, projSpeedFast:60, multiHitChance:0.22, openGlowBoost:1.05 },
-  SENSEI:{ label:'SENSEI', tip:'human dolly · flatter arc · tight window · more tanks',
-    dollyYawDeg:22, dollyPitchDeg:12, dollySpeed:1.15, dollyHuman:true,
-    grooveOpenSec:[0.26,0.12], grooveJukeDeg:125, grooveGlideSpeed:4.4, grooveFreezeFloor:0.18,
-    startBpm:28, bpmUp:2.5, bpmDown:2.5, brownianMax:11, patternConcurrency:3,
-    projSpeed:28, projSpeedFast:72, multiHitChance:0.34, openGlowBoost:1.4 }
-};
-const DEFAULT_DIFF='SENSEI', DEFAULT_THEME='MOONLIGHT';   // the pair that sings: sparse melody + hard tracking (user pick 2026-07)
-const PREFS_GEN=2;   // bump once to re-apply new defaults over old DOJO/RANDOM localStorage
-let _diffPick=DEFAULT_DIFF;
-function applyDiff(name){
-  const p=DIFF_PRESETS[name]||DIFF_PRESETS[DEFAULT_DIFF]||DIFF_PRESETS.DOJO; _diffPick=p.label;
-  for(const k of Object.keys(p)){ if(k==='label'||k==='tip') continue; CFG[k]=Array.isArray(p[k])?p[k].slice():p[k]; }
-  try{ localStorage.setItem('aimdojo.diff', _diffPick); }catch(e){}
-}
-function syncDiffChips(){
-  const host=document.getElementById('diffChips'); if(!host) return;
-  host.querySelectorAll('.dt').forEach(b=>{ b.classList.toggle('on', b.dataset.diff===_diffPick); b.title=DIFF_PRESETS[b.dataset.diff]?DIFF_PRESETS[b.dataset.diff].tip:''; });
-}
-function setDiffPick(name){ applyDiff(name); syncDiffChips(); }
-function buildDiffChips(){
-  const host=document.getElementById('diffChips'); if(!host) return;
-  host.innerHTML='';
-  for(const k of ['ZEN','DOJO','SENSEI']){
-    const b=document.createElement('button'); b.type='button'; b.className='dt'; b.dataset.diff=k; b.textContent=k;
-    b.addEventListener('click',()=>setDiffPick(k)); host.appendChild(b);
-  }
-  try{
-    const g=parseInt(localStorage.getItem('aimdojo.prefsGen')||'0',10)||0;
-    if(g<PREFS_GEN){ localStorage.setItem('aimdojo.diff', DEFAULT_DIFF); localStorage.setItem('aimdojo.theme', DEFAULT_THEME); localStorage.setItem('aimdojo.prefsGen', String(PREFS_GEN)); }
-    const s=localStorage.getItem('aimdojo.diff'); if(s&&DIFF_PRESETS[s]) _diffPick=s; else _diffPick=DEFAULT_DIFF;
-  }catch(e){ _diffPick=DEFAULT_DIFF; }
-  applyDiff(_diffPick); syncDiffChips();
-}
-let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false, _lastThemeI=-1;
-let _themePick=DEFAULT_THEME;   // fixed theme name or 'RANDOM' — default MOONLIGHT (simple hook = shot flow)
+/* ========================= DIFFICULTY: SENSEI ONLY =========================
+   One pressure in this dojo (user constraint 2026-07-09): human dolly · flatter arc · tight window · more tanks.
+   ZEN/DOJO packs, the card pickers, and the aimdojo.diff/theme/prefsGen prefs were distractors — cut; git 10a216e has them. */
+const SENSEI_PACK={ dollyYawDeg:22, dollyPitchDeg:12, dollySpeed:1.15, dollyHuman:true,
+  grooveOpenSec:[0.26,0.12], grooveJukeDeg:125, grooveGlideSpeed:4.4, grooveFreezeFloor:0.18,
+  startBpm:28, bpmUp:2.5, bpmDown:2.5, brownianMax:11, patternConcurrency:3,
+  projSpeed:28, projSpeedFast:72, multiHitChance:0.34, openGlowBoost:1.4 };
+for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SENSEI_PACK[k].slice():SENSEI_PACK[k];
+const DEFAULT_THEME='MOONLIGHT';   // the one song of the dojo: sparse melody + hard tracking (user pick 2026-07)
+let PENTA, CHORD_ROOT, CHORD_TRIAD, TUNE, ARP_TRI, BASS, BASS_HOLD, activeTheme=null, _themeReveal=false;
 function applyMoodLook(){   // paint the run's aura into UI + ring palette (called whenever the active theme changes)
   if(!activeTheme) return;
   _moodCol.setHex(activeTheme.mood||0x74e84a);
@@ -992,18 +940,10 @@ function applyMoodLook(){   // paint the run's aura into UI + ring palette (call
   try{ const f=document.getElementById('dojoFlash'); if(f){ f.style.color='rgb('+r+','+g+','+b+')'; f.style.textShadow='0 0 12px rgba('+r+','+g+','+b+',.65),0 0 4px rgba(0,0,0,.9)'; } }catch(e){}
 }
 function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; BASS=t.bass; BASS_HOLD=t.bassHold||'8n'; applyMoodLook(); }   // swap audio arrays + visual aura
-function pickTheme(){   // resolve the run's song: fixed pick from the card, or random (never the same twice in a row)
-  if(_themePick && _themePick!=='RANDOM'){
-    let i=THEMES.findIndex(t=>t.name===_themePick); if(i<0) i=0;
-    _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true;
-  } else {
-    let i; do{ i=(Math.random()*THEMES.length)|0; }while(THEMES.length>1 && i===_lastThemeI); _lastThemeI=i; applyTheme(THEMES[i]); _themeReveal=true;
-  }
-  // each song opens in its own sky — Canon at sunrise, Moonlight under the moon, Icaros in deep night…
-  if(activeTheme && activeTheme.skyBias!=null) dayPhase=activeTheme.skyBias;
-  // remember last played song (even when RANDOM rolls) so the card can re-select it next visit
-  try{ if(activeTheme) localStorage.setItem('aimdojo.lastTheme', activeTheme.name); }catch(e){}
-  _tuneHold=-1;   // reset hook-hold state so a new song doesn't inherit the previous note
+function pickTheme(){   // one song in this dojo: MOONLIGHT (the other themes remain as inert data; the picker/RANDOM logic is in git)
+  applyTheme(THEMES.find(t=>t.name===DEFAULT_THEME)||THEMES[0]); _themeReveal=true;
+  if(activeTheme && activeTheme.skyBias!=null) dayPhase=activeTheme.skyBias;   // Moonlight always opens under the moon
+  _tuneHold=-1;   // reset hook-hold state so a new run doesn't inherit the previous note
 }
 let _tuneHold=-1;   // last scale index held by the hook voice (−1 = none); repeated same-index steps extend one note instead of retriggering
 function themeBreath(){   // opening breath of the song: soft pad triad + root so you FEEL the key the instant the ♪ name flashes
@@ -1015,36 +955,8 @@ function themeBreath(){   // opening breath of the song: soft pad triad + root s
     if(tune && PENTA) tune.triggerAttackRelease(PENTA[Math.min(4,PENTA.length-1)], '4n', t+0.05, 0.55);   // a single high note = the song's "hello"
   }catch(e){}
 }
-function syncThemeChips(){
-  const host=document.getElementById('themeChips'); if(!host) return;   // getElementById: called before the later gid() helper exists
-  host.querySelectorAll('.dt').forEach(b=>{ b.classList.toggle('on', b.dataset.theme===_themePick); });
-}
-function setThemePick(name){
-  _themePick=name||'RANDOM';
-  try{ localStorage.setItem('aimdojo.theme', _themePick); }catch(e){}
-  syncThemeChips();
-  if(_themePick!=='RANDOM'){ const t=THEMES.find(x=>x.name===_themePick); if(t) applyTheme(t); }   // preview the arrays now (audio only starts on ENTER; flash still names it at run start)
-}
-function buildThemeChips(){
-  const host=document.getElementById('themeChips'); if(!host) return;
-  host.innerHTML='';
-  const add=(label,val)=>{ const b=document.createElement('button'); b.type='button'; b.className='dt'; b.dataset.theme=val; b.textContent=label;
-    b.addEventListener('click',()=>setThemePick(val)); host.appendChild(b); };
-  add('RANDOM','RANDOM'); THEMES.forEach(t=>add(t.name,t.name));
-  // explicit pick wins; else default MOONLIGHT (not RANDOM — sparse melody pairs best with SENSEI tracking)
-  try{
-    const s=localStorage.getItem('aimdojo.theme');
-    if(s==='RANDOM'||THEMES.some(t=>t.name===s)) _themePick=s;
-    else _themePick=DEFAULT_THEME;
-  }catch(e){ _themePick=DEFAULT_THEME; }
-  syncThemeChips();
-  if(_themePick!=='RANDOM'){ const t=THEMES.find(x=>x.name===_themePick); if(t) applyTheme(t); }
-  else { const t=THEMES.find(x=>x.name===DEFAULT_THEME)||THEMES[0]; applyTheme(t); }   // RANDOM still previews moonlight bed until a run rolls
-}
-// seed working arrays to the default theme before chips load (MOONLIGHT — simple hook, easy shot rhythm)
+// seed working arrays to the song before anything plays (MOONLIGHT — simple hook, easy shot rhythm)
 applyTheme(THEMES.find(t=>t.name===DEFAULT_THEME)||THEMES[0]);
-buildThemeChips();       // card ♪ SONG chips (safe here: uses document.getElementById, not gid)
-buildDiffChips();        // ⚔ ZEN / DOJO / SENSEI — default SENSEI
 function chordHit(streak){                               // an open (fifth) chord a 1/4-beat after a hit, rising with the streak — no 3rd, so it never clashes major/minor with the A-minor bed
   if(!soundOn || !toneReady || !chordSynth) return;
   try{ const root=PENTA[Math.min(streak, PENTA.length-1)];
@@ -1685,7 +1597,7 @@ function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter i
     const now=Tone.now();
     const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)
     const hi=(PENTA&&PENTA.length)?PENTA[Math.min(4,PENTA.length-1)]:440;
-    const sensei=(_diffPick==='SENSEI');
+    const sensei=true;   // SENSEI-only dojo (difficulty picker cut 2026-07-09)
     if(fireMuzzle) fireMuzzle.triggerAttackRelease(0.032, now, sensei?0.62:0.5);
     if(firePluck) firePluck.triggerAttackRelease(lo*2, '32n', now, sensei?0.78:0.65);   // octave up = clear “shot” without stealing the lead melody
     if(arcWhoosh){
@@ -2890,8 +2802,7 @@ function showPause(){
   // session recap: which song held the room + how long the flow lasted
   const song=activeTheme?activeTheme.name:'—';
   ovLede.style.display='block';
-  ovLede.innerHTML='♪ <b>'+song+'</b> · '+fmtTime(state.t)+' · peak <b>'+Math.round(state.maxBpm)+'</b> bpm'
-    +( _diffPick && _diffPick!=='DOJO' ? ' · <span style="opacity:.8">'+_diffPick+'</span>' : '' );
+  ovLede.innerHTML='♪ <b>'+song+'</b> · '+fmtTime(state.t)+' · peak <b>'+Math.round(state.maxBpm)+'</b> bpm';   // no diff tag — everything is SENSEI now
   beginBtn.textContent = '▶ RESUME';
   pauseStats.style.display='flex';
   if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); }
