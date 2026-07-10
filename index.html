@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Aim Dojo — Rhythm &amp; Spatial Audio Trainer</title>
-<meta name="description" content="Aim Dojo — a browser-based rhythm and spatial-audio aim trainer. A woodblock tick sets the pulse: find it, track it, fire on the beat. No install.">
+<title>Moon Chorus — Rhythm Aim Trainer</title>
+<meta name="description" content="Before the first dinosaur, the Moon kept a song. Steady the Moonline, send rainbow links, and land them on each Echo's listening blink. Browser-only, no install.">
 <meta name="theme-color" content="#0b0d0c">
-<script>try{if(localStorage.getItem('aimdojo.seen'))document.documentElement.classList.add('seen')}catch(e){}</script><!-- stamp BEFORE first paint so returning players never see the first-visit legend flash (the game IIFE loads much later, behind three.js) -->
+<script>document.documentElement.classList.add('i18n-pending');var LANG=/(?:^|[?&#])en\b/.test(location.search+location.hash)?'en':/(?:^|[?&#])ja\b/.test(location.search+location.hash)?'ja':(/^ja/i.test((navigator.languages&&navigator.languages[0])||navigator.language||'')?'ja':'en');document.documentElement.lang=LANG;if(LANG==='ja')document.title='月の合唱 — リズムエイム・トレーナー';try{if(localStorage.getItem('aimdojo.seen'))document.documentElement.classList.add('seen')}catch(e){}</script><!-- language + seen stamp BEFORE first paint; the game IIFE loads much later, behind three.js -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Aim Dojo — Rhythm &amp; Spatial Audio Trainer">
-<meta property="og:description" content="Find it, track it, fire on the beat. A browser aim trainer driven by rhythm and 3D spatial audio. No install — just play.">
+<meta property="og:title" content="Moon Chorus — Rhythm Aim Trainer">
+<meta property="og:description" content="Before the first dinosaur, the Moon kept a song. Steady the Moonline, send rainbow links, and land them on each Echo's listening blink. Browser-only, no install.">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Aim Dojo — Rhythm &amp; Spatial Audio Trainer">
-<meta name="twitter:description" content="Find it, track it, fire on the beat. A browser aim trainer driven by rhythm and 3D spatial audio.">
+<meta name="twitter:title" content="Moon Chorus — Rhythm Aim Trainer">
+<meta name="twitter:description" content="Before the first dinosaur, the Moon kept a song. Steady the Moonline, send rainbow links, and land them on each Echo's listening blink. Browser-only, no install.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0d0c'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2343d9ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%2374e84a'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,7 +22,7 @@
   --void:#0b0d0c; --gunmetal:#161b19; --panel:#1d2421; --panel-edge:#2c3631;
   --steel:#41504a; --toxic:#74e84a; --plasma:#ff8a2b; --rail:#43d9ff; --blood:#ff4242;
   --bone:#d8e0d4; --bone-dim:#8c968f;
-  --mono:'Share Tech Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --mono:'Share Tech Mono',ui-monospace,'SF Mono',Menlo,Consolas,'Hiragino Kaku Gothic ProN','Yu Gothic Medium',Meiryo,'Noto Sans JP',monospace;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-family:var(--mono);color:var(--bone);-webkit-font-smoothing:antialiased}
@@ -63,6 +63,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #lockBox.lock::after{opacity:1}
 #lockBox.decoy{border-color:rgba(255,59,110,.95);box-shadow:0 0 12px rgba(255,59,110,.5),inset 0 0 8px rgba(255,59,110,.2)}
 #lockBox.decoy::after{content:'AVOID';color:rgba(255,95,135,.97);opacity:1}
+html[lang=ja] #lockBox::after{content:'ロック'}
+html[lang=ja] #lockBox.decoy::after{content:'よけて'}
 /* deviation EDGE TINTS: a red glow on the screen edge you must aim TOWARD — top = aim up (Δy<0) · bottom = aim down (Δy>0) · left = aim left (Δx>0) · right = aim right (Δx<0). opacity ∝ |delta| (set in updateScope). Top/bottom = 1/20 screen height, sides = 1/30 width, fading inward. */
 .edgeTint{position:fixed;pointer-events:none;z-index:3;opacity:0;will-change:opacity,background-position}
 #edgeTop{top:0;left:0;right:0;height:8vh;background:repeating-linear-gradient(to top, rgba(255,60,60,.95) 0, rgba(255,60,60,.95) 5px, rgba(255,60,60,0) 5px, rgba(255,60,60,0) 22px);-webkit-mask:linear-gradient(to bottom,#000,transparent);mask:linear-gradient(to bottom,#000,transparent)}
@@ -73,6 +75,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #windHud.on{display:flex}
 #windHud .wh-arrow{display:inline-block;font-size:17px;line-height:1;color:#dff2ff;text-shadow:0 0 7px rgba(140,225,255,.85);will-change:transform}
 #windHud .wh-mag::before{content:'WIND '}
+html[lang=ja] #windHud .wh-mag::before{content:'風 '}
 .tgtDist{position:fixed;left:0;top:0;font:14px var(--mono);color:rgba(255,214,120,1);text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-150%);white-space:nowrap;display:none}
 .tgtKey{position:fixed;left:0;top:0;font:bold 17px var(--mono);color:#cfe;background:rgba(10,14,12,.72);border:1px solid var(--panel-edge);border-radius:4px;padding:1px 7px;text-shadow:0 0 3px #000;pointer-events:none;z-index:5;transform:translate(var(--tx,0),var(--ty,0)) translate(-50%,-260%);white-space:nowrap;display:none}   /* WASD-rhythm: the orb's required key (green when just held) */
 .tgtKey.on{display:block}
@@ -131,6 +134,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 
 #overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
 #overlay.hidden{display:none}
+html.i18n-pending #overlay,html.i18n-pending #shareOverlay,html.i18n-pending #speedBox{visibility:hidden}   /* body parsing can yield before the post-card locale/touch swap; never paint the wrong card/HUD for one frame */
 .card{width:min(560px,92vw);max-height:92vh;overflow:auto;border:1px solid var(--panel-edge);background:linear-gradient(180deg,var(--panel),var(--gunmetal));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .eyebrow{font-size:11px;letter-spacing:.34em;color:var(--toxic);margin:0 0 6px}
 h1{font-size:40px;letter-spacing:.04em;margin:0 0 4px;line-height:.96}
@@ -139,6 +143,9 @@ h1 .acc{color:var(--plasma)}
 .lede b{color:var(--bone)}
 .phones{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--rail);border:1px solid rgba(67,217,255,.3);background:rgba(67,217,255,.06);padding:9px 12px;margin:0 0 18px}
 html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones note are first-visit only (html.seen stamped by the inline head script) */
+#ovLede .lede-return{display:none}
+html.seen #ovLede .lede-first{display:none}
+html.seen #ovLede .lede-return{display:inline}
 .keys{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 20px;font-size:12px;color:var(--bone-dim)}
 .keys b{color:var(--bone);background:#0d110f;border:1px solid var(--panel-edge);padding:2px 7px;margin-right:6px}
 .primary{pointer-events:auto;width:100%;padding:14px;border:1px solid var(--toxic);background:rgba(116,232,74,.10);color:var(--toxic);font-family:var(--mono);font-size:15px;letter-spacing:.18em;cursor:pointer;transition:background .15s}
@@ -150,6 +157,14 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 #modePick button:disabled{opacity:.45;cursor:wait;pointer-events:none}
 #trainCoach{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.12em;color:var(--rail);text-shadow:0 0 10px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.9);opacity:0;text-align:center;max-width:min(520px,92vw);line-height:1.45;transition:opacity .25s}
 #trainCoach.on{opacity:1}
+
+/* Japanese typography: keep Latin metrics monospaced, give CJK native glyphs and sane tracking. */
+html[lang=ja] h1{line-height:1.15}
+html[lang=ja] .eyebrow{letter-spacing:.12em}
+html[lang=ja] .lede,html[lang=ja] #trainCoach{line-height:1.6}
+html[lang=ja] :is(.mode-q,.keys,.primary,.ghost,#ghostToast,#hitFlash,#timing .g,#timing .s,#timing .p,#presence,#windHud,#speedLabel,#trainCoach,.board-empty,.histhead,.histsub,.dt,.dojo-row.head,#dojoFlash,.chip .ck,.copy-msg,#fireBtn,#pauseBtn){letter-spacing:.05em}
+html[lang=ja] #lockBox::after{letter-spacing:.05em}
+html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.05em!important}
 
 .dualcols{display:flex;gap:12px;margin-top:18px}
 .ghost{flex:1;pointer-events:auto;padding:12px;border:1px solid var(--panel-edge);background:transparent;color:var(--bone-dim);font-family:var(--mono);font-size:12px;letter-spacing:.16em;cursor:pointer;transition:.15s}
@@ -233,7 +248,7 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 <div id="dojoFlash" aria-hidden="true"></div>
 
 <div id="speedBox" class="hud">
-  <div id="speedLabel">TEMPO</div>
+  <div id="speedLabel">DRUM</div>
   <div id="speedVal">76<span class="x">bpm</span></div>
 </div>
 
@@ -242,49 +257,49 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 
 <div id="touch">
   <button id="pauseBtn" aria-label="Pause">❙❙</button>
-  <button id="fireBtn" aria-label="Fire">FIRE</button>
+  <button id="fireBtn" aria-label="Send the link">SEND</button>
 </div>
 
 <div id="overlay">
   <div class="card">
-    <p class="eyebrow" id="ovEyebrow">QUAKE&nbsp;III&nbsp;·&nbsp;RHYTHM&nbsp;TRAINER</p>
-    <h1 id="ovTitle">AIM <span class="acc">DOJO</span></h1>
-    <p class="lede" id="ovLede">Two pockets per beat: <b>tap the letter when it asks</b> (steadies the field), then <b>between taps</b> land shots when the orb glows.</p>
-    <div class="phones" id="phonesNote">🎧 Headphones help, but laptop speakers work too. Sound on.</div>
+    <p class="eyebrow" id="ovEyebrow">THE MOON'S LOST CHORUS</p>
+    <h1 id="ovTitle">MOON <span class="acc">CHORUS</span></h1>
+    <p class="lede" id="ovLede"><span class="lede-first">Before the first dinosaur, the Moon kept a song made from every mind it had met. Then the Great Silence scattered those voices across Earth inside locked Echo Orbs. You are the new Listener. <b>Step on the shown letter when the floor flashes</b> to steady the Moonline. <b>Send through the gap</b> so your rainbow link lands when an orb glows. Bring the lost voices home.</span><span class="lede-return">Step when the floor flashes. Send through the gap. Land on the glow.</span></p>
+    <div class="phones" id="phonesNote"><span aria-hidden="true">🎧</span><span id="phonesText">Headphones help — the World Drum lives in your ears. Sound on.</span></div>
 
     <div class="keys" id="keysRow">
-      <span><b>MOUSE</b>turn &amp; aim</span>
-      <span><b>WASD</b>tap the shown key on time &mdash; matches the floor flash</span>
-      <span><b>L-CLICK</b>between taps, fire so the shot lands while the orb glows</span>
-      <span><b>ESC</b>pause</span>
+      <span><b>MOUSE</b><span id="mouseDesc">turn &amp; aim</span></span>
+      <span><b>WASD</b><span id="wasdDesc">STEP on the shown letter when the floor flashes — steadies the Moonline</span></span>
+      <span><b>L-CLICK</b><span id="clickDesc">SEND through the gap — land it while the Echo glows</span></span>
+      <span><b>ESC</b><span id="escDesc">pause</span></span>
     </div>
 
     <div id="pauseStats" style="display:none"></div>
     <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
-      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span style="letter-spacing:.14em">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
-      <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
-      <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%">🎧 calibrate from my taps</button></div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="resolutionLabel" style="letter-spacing:.14em">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+      <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span id="offsetLabel" style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
+      <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
       <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:14px"></div>
     </div>
 
     <!-- Binary gate: new → trainer; not-new → full SENSEI. Hidden on RESUME. -->
     <div id="modePick">
-      <p class="mode-q" id="modeQ">First time here?</p>
-      <button type="button" class="primary" id="beginTrain" disabled>▶ I'M NEW — TRAIN ME</button>
-      <button type="button" class="ghost" id="beginFull" disabled style="width:100%;margin-top:10px;padding:12px">I KNOW THIS — FULL DOJO</button>
+      <p class="mode-q" id="modeQ">First night here?</p>
+      <button type="button" class="primary" id="beginTrain" disabled><span aria-hidden="true">▶</span> <span id="beginTrainLabel">I'M NEW — WAKE THE MOONLINE</span></button>
+      <button type="button" class="ghost" id="beginFull" disabled style="width:100%;margin-top:10px;padding:12px"><span id="beginFullLabel">I KNOW THIS — THE FULL NIGHT</span></button>
     </div>
-    <button class="primary" id="beginBtn" style="display:none">▶ ENTER THE DOJO</button>
-    <div class="dualcols"><button class="ghost" id="recordsBtn">🥋 RECORDS</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
+    <button class="primary" id="beginBtn" style="display:none"><span aria-hidden="true">▶</span> <span id="beginLabel">RESUME</span></button>
+    <div class="dualcols"><button class="ghost" id="recordsBtn"><span aria-hidden="true">✦</span> <span id="recordsLabel">RECORDS</span></button><button class="ghost" id="shareBtn"><span aria-hidden="true">⧉</span> <span id="shareLabel">SHARE</span></button></div>
 
     <div id="recordsWrap" style="display:none;margin-top:16px">
       <div id="dojoBox" class="boardbox">
-        <div class="histhead"><span>🥋 DOJO RECORDS</span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
+        <div class="histhead"><span><span aria-hidden="true">✦</span> <span id="recordsHeader">CHORUS RECORDS</span></span><span class="histsub"><input id="nameInput" maxlength="20" placeholder="your name" autocomplete="off" spellcheck="false"></span></div>
         <div id="dojoTabs" class="dojo-tabs">
           <span class="dt" data-sort="peak_bpm">BPM</span><span class="dt" data-sort="runtime">TIME</span>
         </div>
         <div id="dojoBests" class="histsub" style="margin:0 0 3px;text-align:left;white-space:normal"></div>
-        <div id="dojoList" class="boardlist"><div class="board-empty">loading…</div></div>
-        <button type="button" class="ghost" id="clearLocalBests" style="width:100%;margin-top:8px;font-size:10px;letter-spacing:.1em;padding:8px">↺ CLEAR MY LOCAL BESTS</button>
+        <div id="dojoList" class="boardlist"><div class="board-empty" id="boardLoading">loading…</div></div>
+        <button type="button" class="ghost" id="clearLocalBests" style="width:100%;margin-top:8px;font-size:10px;letter-spacing:.1em;padding:8px"><span aria-hidden="true">↺</span> <span id="clearLocalLabel">CLEAR MY LOCAL BESTS</span></button>
       </div>
     </div>
   </div>
@@ -292,23 +307,100 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 
 <div id="shareOverlay" class="hidden">
   <div class="card share-card">
-    <p class="eyebrow">SHARE&nbsp;·&nbsp;RUNS&nbsp;IN&nbsp;ANY&nbsp;BROWSER</p>
-    <h1>SHARE THE <span class="acc">DOJO</span></h1>
-    <p class="lede">Send this link to anyone — the dojo runs instantly in the browser, nothing to install. <b>Scan the code</b> with a phone camera, or copy the link.</p>
+    <p class="eyebrow" id="shareEyebrow">SHARE&nbsp;·&nbsp;RUNS&nbsp;IN&nbsp;ANY&nbsp;BROWSER</p>
+    <h1 id="shareTitle">SHARE THE <span class="acc">NIGHT</span></h1>
+    <p class="lede" id="shareLede">Send this link to anyone — the night opens instantly in the browser, nothing to install. <b>Scan the code</b> or <b>copy the link</b>.</p>
     <div class="qr" id="qrcode" aria-label="QR code linking to this page"></div>
     <div class="share-url">
       <input id="shareUrl" type="text" readonly aria-label="Shareable link">
       <button class="ghost" id="copyBtn">COPY</button>
     </div>
     <div class="copy-msg" id="copyMsg" role="status" aria-live="polite"></div>
-    <div class="dualcols"><button class="ghost" id="shareClose">← BACK</button></div>
+    <div class="dualcols"><button class="ghost" id="shareClose"><span aria-hidden="true">←</span> <span id="backLabel">BACK</span></button></div>
   </div>
 </div>
+
+<script>
+/* English lives at each surface; Japanese is the one flat display-only override table. */
+window.JA={
+  title:'月の合唱 — リズムエイム・トレーナー',
+  eyebrow:'月の失われた合唱', titleHtml:'月の<span class="acc">合唱</span>',
+  ledeFirstHtml:'恐竜より昔、月は 出会ったすべての心の声で ひとつの歌を守っていた。やがて「大いなる沈黙」が、その声たちを閉じた《こだま玉》にとじこめ、地球じゅうに散らした。きみは新しい「きき手」。<b>床が光ったら、見えている文字を踏んで</b>、月の糸をととのえよう。<b>あいだにリンクを送って</b>、玉が光るあいだに届けよう。失われた声を、家へ。',
+  ledeReturn:'床が光ったら踏む。送る。光る時に届ける。',
+  ledeMobileHtml:'虹のリンクを早めに送って、こだまが光るあいだに届けよう。れんしゅうは近くのこだまから。',
+  phones:'ヘッドホンがおすすめ。世界の太鼓は耳の中に。音を出してね。',
+  mouseDesc:'まわして ねらう', wasdDesc:'床が光ったら 見えている文字を踏む — 月の糸がととのう',
+  clickDesc:'あいだに送る — こだまが光るうちに届ける', escDesc:'ポーズ',
+  modeQ:'はじめての夜?', beginTrain:'はじめて — 月の糸をおしえて', beginFull:'もう知ってる — 満ちる夜へ', resume:'つづける',
+  records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
+  resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
+  recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
+  shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
+  shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
+  qrAria:'このページへのQRコード', shareUrlAria:'シェア用リンク', copy:'コピー', back:'もどる',
+  mobileDrag:'ドラッグ', mobileDragDesc:'まわして ねらう', mobileSend:'送る', mobileSendDesc:'こだまが光るうちに届ける', mobilePause:'ポーズ',
+  coachP0:'月の糸をととのえて · 床が光ったら その文字を踏む', coachP0Progress:'踏めた {n}/{N} · 床の色に合わせて',
+  coachP1:'あいだに送って · こだまが光るあいだにリンクを届ける', coachP1Mobile:'リンクを送って · 光るあいだに届けて',
+  coachP1Progress:'声 {n}/{N} · 足もとも忘れずに', coachP1ProgressMobile:'声 {n}/{N} · 光る時に届けて',
+  coachP2:'遠いこだまには早めに送る · 文字も踏みつづけて', coachP2Mobile:'遠いこだまには早めに送る · 先を読んで',
+  coachP2Progress:'遠い声 {n}/{N} · つぎは満ちる夜', coachGraduate:'合唱はきみをおぼえた · 月先生が満ちる夜をひらく',
+  fullNight:'満ちる夜', trainerToast:'月の糸のけいこ',
+  decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
+  tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', lock:'ロック',
+  gamepad:'ゲームパッド', unmapped:'未対応', songMoonlight:'月光',
+  resLow:'LOW ▸ タップでHIGH', resHigh:'HIGH ▸ タップでLOW', resForcedLow:'LOW固定 (保存済み)', resForcedHigh:'HIGH固定 (保存済み)', resAutoLow:'自動 → LOW', resAutoHigh:'自動 → HIGH',
+  calibReady:'{n}回ぶん記録 — タップで自動設定', calibPlay:'W/A/S/D をビートに合わせて踏んでから、調整してね', calibNotEnough:'まだ足りない — もう少し踏んでから', calibApplied:'{avg}ms を {n}回から適用 → 合計 {total}ms',
+  toneStartHtml:'<b>音が出なかった。</b>「はじめて」か「もう知ってる」をもういちど押してね。ダメならこのページの音のブロックを解除して。',
+  tonePadHtml:'<b>音を出すには一度画面にさわってね。</b>クリックかタップのあと、「はじめて」か「もう知ってる」を選んでね（つづきはSTARTでも）。',
+  toneFailedHtml:'<b>音を読みこめなかった。</b>通信か音のブロックを確かめて、「はじめて」か「もう知ってる」をもういちど押してね。',
+  toneLoadingHtml:'<b>まだ音を読みこんでいるよ。</b>少し待って、「はじめて」か「もう知ってる」をもういちど押してね。',
+  yourBest:'じぶんのベスト · {time} · {bpm} bpm', boardOffline:'きろくに届かない ({status})', boardNetwork:'きろくに届かない — 通信エラー', boardEmpty:'まだ誰もいない — 最初の声になろう',
+  peak:'さいこう', longest:'さいちょう', localCleared:'ベストを消した',
+  pauseFullEyebrow:'夜は待っている', pauseTrainEyebrow:'月の糸 · ステップ{n}', pauseFullTitleHtml:'きき手の<span class="acc">きろく</span>', pauseTrainTitleHtml:'つづけて<span class="acc">きこう</span>',
+  pauseFullLede:'<b>{song}</b> · {time} · さいこう <b>{bpm}</b> bpm', pauseTrainSteps:'けいこ · {time} · 踏めた <b>{n}/{N}</b>', pauseTrainVoices:'けいこ · {time} · 声 <b>{n}</b>',
+  chipTime:'夜にいた時間', chipFinal:'さいごのBPM', chipPeak:'さいこうのBPM',
+  copyOk:'コピーした', copyManual:'{keys} でコピーしてね', qrAlt:'{url} のQRコード'
+};
+(function(){
+  try{
+    var ja=LANG==='ja', J=window.JA;
+    function txt(id,key){var e=document.getElementById(id);if(e)e.textContent=J[key];}
+    function html(sel,key){var e=document.querySelector(sel);if(e)e.innerHTML=J[key];}
+    function attr(id,name,key){var e=document.getElementById(id);if(e)e.setAttribute(name,J[key]);}
+    if(ja){
+      document.title=J.title;
+      txt('speedLabel','drum'); txt('fireBtn','send'); attr('fireBtn','aria-label','sendAria'); attr('pauseBtn','aria-label','pauseAria'); attr('muteBtn','title','muteAria'); attr('muteBtn','aria-label','muteAria');
+      txt('ovEyebrow','eyebrow'); html('#ovTitle','titleHtml'); html('#ovLede .lede-first','ledeFirstHtml'); html('#ovLede .lede-return','ledeReturn');
+      txt('phonesText','phones'); txt('mouseDesc','mouseDesc'); txt('wasdDesc','wasdDesc'); txt('clickDesc','clickDesc'); txt('escDesc','escDesc');
+      txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginFullLabel','beginFull'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
+      txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
+      txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
+    }
+    var touch=((navigator.maxTouchPoints||0)>0||('ontouchstart' in window))&&window.matchMedia('(pointer: coarse)').matches;
+    if(touch){
+      var lede=document.getElementById('ovLede'), keys=document.getElementById('keysRow');
+      if(lede) lede.innerHTML=ja?J.ledeMobileHtml:'Send your rainbow link early enough to land while the Echo glows. Training starts with close Echoes and long blinks — no letters on touch.';
+      if(keys) keys.innerHTML=ja
+        ? '<span><b>'+J.mobileDrag+'</b>'+J.mobileDragDesc+'</span><span><b>'+J.mobileSend+'</b>'+J.mobileSendDesc+'</span><span><b>❙❙</b>'+J.mobilePause+'</span>'
+        : '<span><b>DRAG</b>turn &amp; aim</span><span><b>SEND</b>land while the Echo glows</span><span><b>❙❙</b>pause</span>';
+    }
+  }finally{ document.documentElement.classList.remove('i18n-pending'); }
+})();
+</script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
 "use strict";
+
+const IS_JA=document.documentElement.lang==='ja';
+const T=(key,en)=>(IS_JA&&window.JA&&window.JA[key]!=null)?window.JA[key]:en;
+function TF(key,en,values){
+  let out=T(key,en);
+  for(const name of Object.keys(values||{})) out=out.split('{'+name+'}').join(String(values[name]));
+  return out;
+}
+function songDisplay(name){ return name==='MOONLIGHT'?T('songMoonlight',name):name; }
 
 const TONE_JS='https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js';
 const lazyScripts={};
@@ -987,7 +1079,7 @@ function setTrainPhase(p){
   if(p===0){
     CFG.patternConcurrency=0; CFG.densityScale=0; CFG.bpmUp=0;
     CFG.wasdHud=true; CFG.wasdWindow=0.22; CFG.wasdWindowFrac=0.55;   // forgiving letter window + training rings
-    showTrainCoach('TAP THE LETTER when the floor flashes your colour · that pocket steadies the field');
+    showTrainCoach(T('coachP0','STEADY THE MOONLINE · tap the letter when the floor flashes'));
   } else if(p===1){
     CFG.patternConcurrency=1; CFG.minGap=7; CFG.densityScale=0.9; CFG.bpmUp=1;
     CFG.grooveOpenSec=[0.52,0.44];   // wide glow window — learn "land on the glow"
@@ -996,8 +1088,8 @@ function setTrainPhase(p){
     CFG.wasdHud=!MOBILE; CFG.wasdWindow=0.20; CFG.wasdWindowFrac=0.5;
     CFG.openGlowBoost=1.55;
     showTrainCoach(MOBILE
-      ? 'Shoot so the shot LANDS while the orb GLOWS · wide window — learn the pocket'
-      : 'BETWEEN letter taps — shoot so the shot LANDS while the orb GLOWS');
+      ? T('coachP1Mobile','SEND THE LINK · make it LAND while the Echo glows')
+      : T('coachP1','SEND THROUGH THE GAP · your link must LAND while the Echo glows'));
   } else if(p===2){
     CFG.patternConcurrency=2; CFG.minGap=6; CFG.densityScale=1; CFG.bpmUp=1.5;
     CFG.grooveOpenSec=[0.40,0.30];
@@ -1007,23 +1099,23 @@ function setTrainPhase(p){
     CFG.openGlowBoost=1.45;
     CFG.brownian=2.5; CFG.brownianMax=5;
     showTrainCoach(MOBILE
-      ? 'ORBS FAN OUT — lead farther shots while they glow'
-      : 'ORBS FAN OUT — keep the letters, lead farther shots');
+      ? T('coachP2Mobile','FAR ECHOES NEED AN EARLIER SEND · lead the link')
+      : T('coachP2','FAR ECHOES NEED AN EARLIER SEND · keep the letters steady'));
   } else {
     // graduate → full dojo mid-run
     trainMode=false; trainPhase=0;
     applySenseiFull();
     _specialLive=specialOrbsLive();   // must re-latch AFTER full config (specials were forced off in train)
     state.range=Math.max(state.range, CFG.rangeStart);
-    showTrainCoach('TRAINING COMPLETE — full dojo. Dolly on. Trust the pockets.', true);
-    try{ showGhostToast('🥋 FULL DOJO'); }catch(e){}
+    showTrainCoach(T('coachGraduate','THE CHORUS REMEMBERS YOU · MOON SENSEI OPENS THE FULL NIGHT'), true);
+    try{ showGhostToast('✦ '+T('fullNight','THE FULL NIGHT')); }catch(e){}
   }
 }
 function noteTrainWasd(acc){
   if(!trainMode || trainPhase!==0 || acc<40) return;
   trainWasd++;
   if(trainWasd>=TRAIN_NEED_WASD) setTrainPhase(1);
-  else showTrainCoach('Letters '+trainWasd+'/'+TRAIN_NEED_WASD+' · match the floor colour flash');   // every tap (was 1 and 6 only — looked stuck)
+  else showTrainCoach(TF('coachP0Progress','Steps {n}/{N} · match the floor flash',{n:trainWasd,N:TRAIN_NEED_WASD}));   // every tap (was 1 and 6 only — looked stuck)
 }
 function noteTrainOrb(){
   // Count every on-glow kill that reached gradeRhythmHit (decoys never get here). Do NOT gate on reaction-age "good" — orbs live 5 beats; kills on beat 3–5 are still correct pedagogy.
@@ -1037,8 +1129,10 @@ function noteTrainOrb(){
   }
   if(trainPhase===1 && trainOrbs>=TRAIN_NEED_ORB1) setTrainPhase(2);
   else if(trainPhase===2 && trainOrbs>=TRAIN_NEED_ORB2) setTrainPhase(3);
-  else if(trainPhase===1) showTrainCoach(MOBILE?('Glow hits '+trainOrbs+'/'+TRAIN_NEED_ORB1):('Glow hits '+trainOrbs+'/'+TRAIN_NEED_ORB1+' · still keep the letters'));
-  else if(trainPhase===2) showTrainCoach('Farther orbs '+trainOrbs+'/'+TRAIN_NEED_ORB2+' · then full dojo');
+  else if(trainPhase===1) showTrainCoach(MOBILE
+    ? TF('coachP1ProgressMobile','Voices {n}/{N} · land on the glow',{n:trainOrbs,N:TRAIN_NEED_ORB1})
+    : TF('coachP1Progress','Voices {n}/{N} · keep the steps steady',{n:trainOrbs,N:TRAIN_NEED_ORB1}));
+  else if(trainPhase===2) showTrainCoach(TF('coachP2Progress','Far voices {n}/{N} · then the Full Night',{n:trainOrbs,N:TRAIN_NEED_ORB2}));
 }
 function beginAs(train){
   gateChosen=true;
@@ -1556,7 +1650,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   else { grade='GOOD'; good=false; }            // got it, but past the target
   if(tg.kind===2){                                                          // DECOY: never scores — the hit IS the penalty (streak break + a wasted shot). Skip the grade path entirely; h/score untouched.
     state.streak=0; pushReaction(beats); pushEvent(false);
-    showTiming('DECOY','don\'t shoot these','off');
+    showTiming(T('decoy','NOT A VOICE'),T('decoySub','let it pass'),'off');
     popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); padRumble(70,0.9); retireTrail(tg, 0.3); killTarget(tg, false); return;
   }
   if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
@@ -1642,7 +1736,7 @@ function onWhiff(){
   try{ padRumble(16, 0.25); }catch(e){}
 }
 function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); return; }
-  retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming('MISS','too slow','off');
+  retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
   playWhiffSfx(); missGrooveDuck(false);
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.14);
 }
@@ -1681,7 +1775,7 @@ document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_COD
 
 /* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire, START = begin/pause/resume (face-bottom also begins at the card). Subtle rumble on hit. ===== */
 let _gpIndex=null, _gpPrev={};
-window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPrev={}; try{ showGhostToast('🎮 '+(e.gamepad.id||'gamepad').slice(0,22)+(e.gamepad.mapping==='standard'?'':' ⚠ unmapped')); }catch(_e){} });   // ⚠ = browser didn't give it the W3C standard layout (buttons/axes may not line up — try Chrome, or the pad's XInput mode)
+window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPrev={}; try{ showGhostToast('🎮 '+(e.gamepad.id||T('gamepad','gamepad')).slice(0,22)+(e.gamepad.mapping==='standard'?'':' ⚠ '+T('unmapped','unmapped'))); }catch(_e){} });   // ⚠ = browser didn't give it the W3C standard layout (buttons/axes may not line up — try Chrome, or the pad's XInput mode)
 window.addEventListener('gamepaddisconnected', e=>{ if(_gpIndex===e.gamepad.index){ _gpIndex=null; _gpPrev={}; } });
 function _gpAxis(v){ const dz=CFG.padDeadzone; if(Math.abs(v)<dz) return 0; const n=(v-Math.sign(v)*dz)/(1-dz); return Math.sign(n)*Math.pow(Math.abs(n), CFG.padExpo); }   // deadzone + expo response
 function padBeginBlocked(){   // a pad BEGIN/RESUME must not yank the player out of the record-name input, or start a run behind the open share modal (it sits above the card, so a mouse never could). Checked at press time AND in startRun's deferred resume path.
@@ -1726,7 +1820,7 @@ function pollGamepad(dt){
 }
 // WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
 // (no blur handler needed - TAP grading is immediate; no held/timestamp state)
-function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast(skyFrozen?'🌅 SKY FROZEN':'🌅 SKY RESUMED'); }
+function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast('🌅 '+(skyFrozen?T('skyFrozen','SKY FROZEN'):T('skyResumed','SKY RESUMED'))); }
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
@@ -1943,7 +2037,7 @@ function updateTargetMarks(){                                                 //
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
-    if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, 'LOCK'); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
+    if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, T('lock','LOCK')); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
     else if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); m.hlabel.classList.remove('held'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
     else m.hlabel.classList.remove('on','held'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
@@ -1992,7 +2086,7 @@ function drawWasdLane(){
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
-  if(CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?'PERFECT':(_tapOffMs<0?'AHEAD ':'BEHIND ')+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font='bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
+  if(CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?T('tapPerfect','PERFECT'):(_tapOffMs<0?T('tapAhead','AHEAD '):T('tapBehind','BEHIND '))+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font=IS_JA?'bold 16px "Share Tech Mono","Hiragino Kaku Gothic ProN","Yu Gothic Medium",Meiryo,"Noto Sans JP",monospace':'bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
   hudCtx.globalAlpha=1;
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
@@ -2211,7 +2305,6 @@ function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; t
   bonusActive=true; _bonusResolving=false; _bonusJustArmed=true; bonusLocks.length=0;   // _bonusJustArmed → updateFlickBonus clears in-flight projectiles NEXT (safely, after updateProjectiles' loop this frame)
   _bonusGrace=CFG.flickBonus.graceMisses;
   _bonusEntryBeat=currentRawBeat(); bonusEndsBeat=_bonusEntryBeat+CFG.flickBonus.baseBeats;
-  showTiming('FLICK','lock on the beat','perfect');
   if(soundOn && toneReady){ try{ const t=beatSnap(); if(lead){ lead.triggerAttackRelease(PENTA[4],'8n',t,0.7); lead.triggerAttackRelease(PENTA[6],'8n',t+0.06,0.6); } if(chordSynth) chordSynth.triggerAttackRelease([PENTA[0],PENTA[2],PENTA[4]],'4n',t,0.4); }catch(e){} }   // a rising two-note "mode on" flourish + an open chord
 }
 function abortFlickBonus(){   // pause / reset: drop the mode with NO cascade payoff — un-flag locked orbs, unfreeze the field (they resume with full life)
@@ -2646,7 +2739,7 @@ function animate(frameNow){
 window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH; camera.updateProjectionMatrix(); renderer.setSize(viewW,viewH); sizeRefl(); });
 
 /* ========================= OVERLAY ========================= */
-const overlay=gid('overlay'), beginBtn=gid('beginBtn');
+const overlay=gid('overlay'), beginBtn=gid('beginBtn'), beginLabel=gid('beginLabel');
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 /* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
@@ -2654,13 +2747,15 @@ const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), offSlider=gid(
 function refreshSettings(){
   if(!settingsBox) return;
   if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
-    resToggle.textContent = LOW ? 'LOW ▸ tap for HIGH' : 'HIGH ▸ tap for LOW';   // actual mode this session
-    resToggle.title = pref==='1' ? 'forced LOW (saved)' : pref==='0' ? 'forced HIGH (saved)' : (LOW ? 'auto → LOW' : 'auto → HIGH');
+    resToggle.textContent = LOW ? T('resLow','LOW ▸ tap for HIGH') : T('resHigh','HIGH ▸ tap for LOW');   // actual mode this session
+    resToggle.title = pref==='1' ? T('resForcedLow','forced LOW (saved)') : pref==='0' ? T('resForcedHigh','forced HIGH (saved)') : (LOW ? T('resAutoLow','auto → LOW') : T('resAutoHigh','auto → HIGH'));
   }
   const ms=Math.round(_userOffsetSec*1000);
   if(offSlider) offSlider.value=ms;
   if(offVal) offVal.textContent=ms+' ms';
-  if(calibHint) calibHint.textContent = _tapOffN>=6 ? (_tapOffN+' taps logged — tap to auto-set') : 'play a bit (tap W/A/S/D on the beat), then calibrate';
+  if(calibHint) calibHint.textContent = _tapOffN>=6
+    ? TF('calibReady','{n} taps logged — tap to auto-set',{n:_tapOffN})
+    : T('calibPlay','play a bit (tap W/A/S/D on the beat), then calibrate');
 }
 if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is construction-time (MSAA + DPR) → persist + reload. Strip ?low/?hi so URL flags can't override the saved choice.
   e.preventDefault(); e.stopPropagation();
@@ -2678,17 +2773,21 @@ if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is cons
 });
 if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)); _userOffsetSec=ms/1000; if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame, so the glow/windows shift as you drag
 if(calibBtn) calibBtn.addEventListener('click', ()=>{
-  if(_tapOffN<6){ if(calibHint) calibHint.textContent='not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'; return; }
+  if(_tapOffN<6){ if(calibHint) calibHint.textContent=T('calibNotEnough','not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'); return; }
   const avg=_tapOffSum/_tapOffN; _userOffsetSec=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg));   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
   const ms=Math.round(_userOffsetSec*1000); if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
   try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){}
-  if(calibHint) calibHint.textContent='applied '+(avg>=0?'+':'')+Math.round(avg*1000)+'ms from '+_tapOffN+' taps → offset '+ms+'ms';
+  if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
   _tapOffSum=0; _tapOffN=0;
 });
 if(MOBILE){
-  keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>land the shot while the orb glows</span><span><b>❙❙</b>pause</span>';
+  if(calibBtn && calibBtn.parentElement) calibBtn.parentElement.style.display='none';   // touch has no WASD samples, so tap-derived calibration can never complete
+  if(calibHint) calibHint.style.display='none';
+  keysRow.innerHTML='<span><b>'+T('mobileDrag','DRAG')+'</b>'+T('mobileDragDesc','turn &amp; aim')+'</span>'+
+    '<span><b>'+T('mobileSend','SEND')+'</b>'+T('mobileSendDesc','land while the Echo glows')+'</span>'+
+    '<span><b>❙❙</b>'+T('mobilePause','pause')+'</span>';
   // mobile skips WASD letter phase — start-card lede must not teach "tap the letter"
-  if(ovLede) ovLede.innerHTML='Drag to aim, then <b>fire so the shot lands while the orb glows</b>. Trainer starts with close orbs and a wide window — no letters on touch.';
+  if(ovLede) ovLede.innerHTML=T('ledeMobileHtml','Send your rainbow link early enough to land while the Echo glows. Training starts with close Echoes and long blinks — no letters on touch.');
 }
 // first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
@@ -2696,7 +2795,7 @@ function enterRunning(){
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
   state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
-  if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast('TRAINER'); }   // full runs name the song; trainer announces itself
+  if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast(T('trainerToast','MOONLINE TRAINING')); }   // full runs name the song; trainer announces itself
   if(trainMode && trainCoachEl && trainCoachEl.textContent) trainCoachEl.classList.add('on');
   reconcileTargetSounds();
   if(MOBILE) touchUI.classList.add('show');
@@ -2715,12 +2814,11 @@ document.addEventListener('visibilitychange',()=>{
 });
 function showToneBlock(reason){
   const l=gid('ovLede'); if(!l) return;
-  if(reason==='challenge') l.innerHTML='<b>The daily challenge needs sound.</b> Audio did not start - reload the page, or unblock the audio library and browser audio.';
-  else if(reason==='start') l.innerHTML='<b>Sound did not start.</b> Tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again, or unblock browser audio for this page.';
-  else if(reason==='pad') l.innerHTML='<b>Audio needs one real touch.</b> Click/tap once on the page, then pick <b>I\'M NEW</b> or <b>I KNOW THIS</b> (or START to resume).';
+  if(reason==='start') l.innerHTML=T('toneStartHtml','<b>Sound did not start.</b> Tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again, or unblock browser audio for this page.');
+  else if(reason==='pad') l.innerHTML=T('tonePadHtml','<b>Audio needs one real touch.</b> Click/tap once on the page, then pick <b>I\'M NEW</b> or <b>I KNOW THIS</b> (or START to resume).');
   else l.innerHTML=toneLoadFailed
-    ? '<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>I\'M NEW</b> / <b>I KNOW THIS</b> again.'
-    : '<b>Sound is still loading.</b> Wait a moment, then tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again.';
+    ? T('toneFailedHtml','<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>I\'M NEW</b> / <b>I KNOW THIS</b> again.')
+    : T('toneLoadingHtml','<b>Sound is still loading.</b> Wait a moment, then tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again.');
 }
 function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
@@ -2861,16 +2959,15 @@ function dojoSession(){ return {   // board metrics + legacy columns the table/R
 }; }
 function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
   if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
-  sub.textContent='your best · '+fmtTime(b.dur||0)+' · '+(b.bpm||0)+' bpm'; }
-function flashDojoRecord(label){ const f=el.dojoFlash; if(!f) return; setText(f, '★ NEW RECORD · '+label); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
-function flashTheme(){ const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook(); setText(f, '♪ '+activeTheme.name); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath(); }   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
+  sub.textContent=TF('yourBest','your best · {time} · {bpm} bpm',{time:fmtTime(b.dur||0),bpm:b.bpm||0}); }
+function flashTheme(){ const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook(); setText(f, '♪ '+songDisplay(activeTheme.name)); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath(); }   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
 function noteSongPeak(){   // per-song personal bests — flash only when you set a new peak BPM or longest hold on THIS song
   if(!activeTheme || state.t<15) return;
   const name=activeTheme.name, dur=Math.round(state.t), bpm=Math.round(state.maxBpm);
   let map={}; try{ map=JSON.parse(localStorage.getItem('aimdojo.songBest')||'{}'); }catch(e){}
   const prev=map[name]||{dur:0,bpm:0}; let hit=null;
-  if(bpm>(prev.bpm||0)) hit='★ PEAK · '+name+' · '+bpm+' bpm';
-  else if(dur>(prev.dur||0) && dur>=45) hit='★ LONGEST · '+name+' · '+fmtTime(dur);
+  if(bpm>(prev.bpm||0)) hit='★ '+T('peak','PEAK')+' · '+songDisplay(name)+' · '+bpm+' bpm';
+  else if(dur>(prev.dur||0) && dur>=45) hit='★ '+T('longest','LONGEST')+' · '+songDisplay(name)+' · '+fmtTime(dur);
   map[name]={ dur:Math.max(prev.dur||0,dur), bpm:Math.max(prev.bpm||0,bpm) };
   try{ localStorage.setItem('aimdojo.songBest', JSON.stringify(map)); }catch(e){}
   if(hit){ const f=el.dojoFlash; if(f){ setText(f, hit); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); } }
@@ -2916,9 +3013,9 @@ async function loadDojoBoard(){
     if(!res.ok){
       const t=await res.text();
       if(/runtime|42703/i.test(t)){ hasRuntimeCol=false; res=await pull(false); }
-      else { list.innerHTML='<div class="board-empty">dojo board offline ('+res.status+')</div>'; return; }
+      else { list.innerHTML='<div class="board-empty">'+TF('boardOffline','chorus board offline ({status})',{status:res.status})+'</div>'; return; }
     }
-    if(!res.ok){ list.innerHTML='<div class="board-empty">dojo board offline ('+res.status+')</div>'; return; }
+    if(!res.ok){ list.innerHTML='<div class="board-empty">'+TF('boardOffline','chorus board offline ({status})',{status:res.status})+'</div>'; return; }
     const rows=await res.json();
     // Server empty = wipe won: drop local board caches so "your best" / TIME don't look like ghosts of old seasons
     if(!rows.length){ clearLocalDojoCaches(); renderDojoBests(); renderDojoBoard([], col, hasRuntimeCol); return; }
@@ -2931,14 +3028,14 @@ async function loadDojoBoard(){
     }
     if(col==='runtime') top.sort((a,b)=>(b.runtime||0)-(a.runtime||0));
     renderDojoBoard(top, col, hasRuntimeCol);
-  }catch(e){ list.innerHTML='<div class="board-empty">dojo board offline — network error</div>'; }
+  }catch(e){ list.innerHTML='<div class="board-empty">'+T('boardNetwork','chorus board offline — network error')+'</div>'; }
 }
 function _dcell(v, col, sort, dist){ return '<span class="dc'+(col===sort?' on':'')+'">'+(v==null?'—':(dist?(+v).toFixed(1):v))+'</span>'; }
 function renderDojoBoard(rows, sort, hasRuntimeCol){
   const list=gid('dojoList'); if(!list) return;
   const head='<div class="dojo-row head"><span class="dr">#</span><span class="dn">NAME</span>'
     +_dcell('BPM','peak_bpm',sort,false)+_dcell('TIME','runtime',sort,false)+'</div>';
-  if(!rows.length){ list.innerHTML=head+'<div class="board-empty">no dojo records yet — be the first</div>'; return; }
+  if(!rows.length){ list.innerHTML=head+'<div class="board-empty">'+T('boardEmpty','the chorus is quiet — be the first voice')+'</div>'; return; }
   const me=clientId();
   const note=(!hasRuntimeCol)?'<div class="board-empty" style="opacity:.75;margin-top:4px">TIME needs Supabase column <code>runtime</code> — run supabase-dojo-runtime.sql</div>':'';
   list.innerHTML=head+rows.map((r,i)=>'<div class="dojo-row'+(r.client_id===me?' me':'')+'">'
@@ -2965,7 +3062,7 @@ if(recordsBtn) recordsBtn.addEventListener('click', ()=>{ recordsOpen ? closeRec
     clearLocalDojoCaches();
     try{ localStorage.setItem('aimdojo.boardGen', String(BOARD_GEN)); }catch(e){}
     renderDojoBests(); loadDojoBoard();
-    try{ showGhostToast('local bests cleared'); }catch(e){}
+    try{ showGhostToast(T('localCleared','local bests cleared')); }catch(e){}
   });
 })();
 function promptNameOnFirstRecord(){   // a personal record landed but no name is saved → open the records section once and point at the name field
@@ -2981,23 +3078,30 @@ function showModePick(show){
 }
 function showPause(){
   if(!state.started) return;
-  ovEyebrow.textContent=trainMode?('TRAINER · PHASE '+(trainPhase+1)):'PAUSED';
-  ovTitle.innerHTML=trainMode?'KEEP <span class="acc">GOING</span>':'RANGE <span class="acc">REPORT</span>';
+  ovEyebrow.textContent=trainMode
+    ? TF('pauseTrainEyebrow','MOONLINE · STEP {n}',{n:trainPhase+1})
+    : T('pauseFullEyebrow','THE NIGHT WAITS');
+  ovTitle.innerHTML=trainMode
+    ? T('pauseTrainTitleHtml','KEEP <span class="acc">LISTENING</span>')
+    : T('pauseFullTitleHtml','LISTENER\'S <span class="acc">REPORT</span>');
   keysRow.style.display='none'; phonesNote.style.display='none';
   // session recap: which song held the room + how long the flow lasted
-  const song=activeTheme?activeTheme.name:'—';
+  const song=activeTheme?songDisplay(activeTheme.name):'—';
   ovLede.style.display='block';
   ovLede.innerHTML=trainMode
-    ? ('Training · '+fmtTime(state.t)+(trainPhase===0?(' · letters <b>'+trainWasd+'/'+TRAIN_NEED_WASD+'</b>'):(' · glow hits <b>'+trainOrbs+'</b>')))
-    : ('♪ <b>'+song+'</b> · '+fmtTime(state.t)+' · peak <b>'+Math.round(state.maxBpm)+'</b> bpm');
-  beginBtn.textContent = '▶ RESUME';
+    ? (trainPhase===0
+      ? TF('pauseTrainSteps','Training · {time} · steps <b>{n}/{N}</b>',{time:fmtTime(state.t),n:trainWasd,N:TRAIN_NEED_WASD})
+      : TF('pauseTrainVoices','Training · {time} · voices <b>{n}</b>',{time:fmtTime(state.t),n:trainOrbs}))
+    : '♪ '+TF('pauseFullLede','<b>{song}</b> · {time} · peak <b>{bpm}</b> bpm',{song:song,time:fmtTime(state.t),bpm:Math.round(state.maxBpm)});
+  if(beginLabel) beginLabel.textContent=T('resume','RESUME');
+  else beginBtn.textContent='▶ '+T('resume','RESUME');
   showModePick(false);   // mid-run pause = resume only (not the new/experienced gate)
   pauseStats.style.display='flex';
   if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); }
   pauseStats.innerHTML=
-    '<div class="chip"><div class="ck">TIME IN DOJO</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
-    '<div class="chip"><div class="ck">FINAL BPM</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
-    '<div class="chip"><div class="ck">PEAK BPM</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
+    '<div class="chip"><div class="ck">'+T('chipTime','TIME IN THE NIGHT')+'</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
+    '<div class="chip"><div class="ck">'+T('chipFinal','FINAL BPM')+'</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
+    '<div class="chip"><div class="ck">'+T('chipPeak','PEAK BPM')+'</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
   overlay.classList.remove('hidden');
   // run-end breath: after a real hold, the song exhales once more (soft pad/root) — marks the session without a new UI panel
   if(state.t>=25) themeBreath();
@@ -3016,7 +3120,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
   function linkUrl(){ return (location.protocol==='file:') ? location.href : (location.origin+location.pathname); }
   function fallbackQR(url){
     const img=document.createElement('img');                 // fallback if the QR lib didn't load
-    img.alt='QR code for '+url;
+    img.alt=TF('qrAlt','QR code for {url}',{url:url});
     img.src='https://api.qrserver.com/v1/create-qr-code/?size=188x188&margin=0&data='+encodeURIComponent(url);
     qrBox.appendChild(img);
   }
@@ -3037,10 +3141,10 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('mut
   document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !shareOverlay.classList.contains('hidden')) closeShare(); });
   copyBtn.addEventListener('click', async ()=>{
     const url=shareUrlInput.value;
-    try{ await navigator.clipboard.writeText(url); copyMsg.textContent='LINK COPIED ✓'; }
+    try{ await navigator.clipboard.writeText(url); copyMsg.textContent=T('copyOk','LINK COPIED')+' ✓'; }
     catch(e){
-      try{ shareUrlInput.focus(); shareUrlInput.select(); document.execCommand('copy'); copyMsg.textContent='LINK COPIED ✓'; }
-      catch(_){ copyMsg.textContent='PRESS ⌘/CTRL+C TO COPY'; shareUrlInput.focus(); shareUrlInput.select(); }
+      try{ shareUrlInput.focus(); shareUrlInput.select(); document.execCommand('copy'); copyMsg.textContent=T('copyOk','LINK COPIED')+' ✓'; }
+      catch(_){ copyMsg.textContent=TF('copyManual','PRESS {keys} TO COPY',{keys:'⌘/CTRL+C'}); shareUrlInput.focus(); shareUrlInput.select(); }
     }
   });
 })();
