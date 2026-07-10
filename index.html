@@ -146,6 +146,8 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
 .primary:focus-visible,.ghost:focus-visible,#muteBtn:focus-visible,.primary:focus,.ghost:focus{outline:2px solid var(--rail);outline-offset:2px}
 #modePick{margin:0 0 4px}
 .mode-q{font-size:12px;letter-spacing:.16em;color:var(--bone-dim);text-align:center;margin:0 0 12px}
+/* Cold-load: buttons start disabled in HTML so they can't look clickable before listeners/Tone attach (throttled CDN was losing clicks for 4s+) */
+#modePick button:disabled{opacity:.45;cursor:wait;pointer-events:none}
 #trainCoach{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.12em;color:var(--rail);text-shadow:0 0 10px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.9);opacity:0;text-align:center;max-width:min(520px,92vw);line-height:1.45;transition:opacity .25s}
 #trainCoach.on{opacity:1}
 
@@ -268,8 +270,8 @@ html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones not
     <!-- Binary gate: new → trainer; not-new → full SENSEI. Hidden on RESUME. -->
     <div id="modePick">
       <p class="mode-q" id="modeQ">First time here?</p>
-      <button type="button" class="primary" id="beginTrain">▶ I'M NEW — TRAIN ME</button>
-      <button type="button" class="ghost" id="beginFull" style="width:100%;margin-top:10px;padding:12px">I KNOW THIS — FULL DOJO</button>
+      <button type="button" class="primary" id="beginTrain" disabled>▶ I'M NEW — TRAIN ME</button>
+      <button type="button" class="ghost" id="beginFull" disabled style="width:100%;margin-top:10px;padding:12px">I KNOW THIS — FULL DOJO</button>
     </div>
     <button class="primary" id="beginBtn" style="display:none">▶ ENTER THE DOJO</button>
     <div class="dualcols"><button class="ghost" id="recordsBtn">🥋 RECORDS</button><button class="ghost" id="shareBtn">⧉ SHARE</button></div>
@@ -2683,7 +2685,11 @@ if(calibBtn) calibBtn.addEventListener('click', ()=>{
   if(calibHint) calibHint.textContent='applied '+(avg>=0?'+':'')+Math.round(avg*1000)+'ms from '+_tapOffN+' taps → offset '+ms+'ms';
   _tapOffSum=0; _tapOffN=0;
 });
-if(MOBILE){ keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>land the shot while the orb glows</span><span><b>❙❙</b>pause</span>'; }
+if(MOBILE){
+  keysRow.innerHTML='<span><b>DRAG</b>turn &amp; aim</span><span><b>FIRE</b>land the shot while the orb glows</span><span><b>❙❙</b>pause</span>';
+  // mobile skips WASD letter phase — start-card lede must not teach "tap the letter"
+  if(ovLede) ovLede.innerHTML='Drag to aim, then <b>fire so the shot lands while the orb glows</b>. Trainer starts with close orbs and a wide window — no letters on touch.';
+}
 // first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
 function enterRunning(){
