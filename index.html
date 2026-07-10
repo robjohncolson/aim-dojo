@@ -385,8 +385,8 @@ const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false       
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
   : (CFG.lowRez===true || detectWeakGPU());                                     // else auto-detect weak GPUs
 if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (18→8), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
-/* GLOW LOOK (?glow, opt-in): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Not persisted. */
-const GLOW = !LOW && /(?:^|[?&#])glow\b/.test(location.search+location.hash);
+/* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
+const GLOW = !LOW;
 const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
 let renderDpr = DPR_MAX;
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
@@ -448,7 +448,7 @@ function getCheckerTex(i){
 function setDayFloorTex(){
   if(!dayFloor) return;
   const tex=getCheckerTex(dayTileIdx);
-  if(dayFloor.material.map!==tex){ dayFloor.material.map=tex; dayFloor.material.needsUpdate=true; reflResDirty=true; }   // null->tex (first dawn) recompiles the floor shader & resets uRes to (2,2) — re-mark dirty so syncReflUniformSize re-syncs it (else the sky reflection smears)
+  if(dayFloor.material.map!==tex) dayFloor.material.map=tex;   // A<->B swap only: the map is assigned at build time, so USE_MAP never changes → same program, no needsUpdate, no recompile, no uRes reset (the old null->tex first-dawn recompile + smear-guard dance is gone)
 }
 let nightGrid=null, dayFloor=null, glowGrid=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight. glowGrid: GLOW-only baked halo plane under the grid
 function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper (re-applied whenever setNightGrid recreates the helper)
@@ -476,19 +476,21 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
   const FLOOR=FLOOR_SIZE;                                     // floor stretches well past the fog → reads as a horizon
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14}));
   floor.rotation.x = -Math.PI/2; scene.add(floor);
-  dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}));
-  dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day
-  dayFloor.material.onBeforeCompile=(sh)=>{                  // far floor shows the TRUE planar reflection of the sky (sun disc included → omega sunset); also dissolves the checker so no moiré
-    sh.uniforms.uMirN={value:LOW?1e6:18}; sh.uniforms.uMirF={value:LOW?2e6:140};   // LOW: push BOTH mirror edges past any floor distance → smoothstep(uMirN,uMirF,vMirD)=0 everywhere → the reflection mix contributes NOTHING (floor just fades to fog), so the far floor never samples the skipped reflection RT (no dark garbage)
-    sh.uniforms.uRefl={value:reflRT.texture}; sh.uniforms.uRes={value:new THREE.Vector2(2,2)};
+  dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({map:getCheckerTex(dayTileIdx), transparent:true, opacity:0, depthWrite:false}));
+  dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day. Map assigned at BUILD time so USE_MAP is baked into the one and only compile (no first-dawn recompile hitch).
+  dayFloor.material.onBeforeCompile=(sh)=>{                  // far floor shows the TRUE planar reflection of the sky (sun disc included → omega sunset); also dissolves the checker so no moiré. LOW: reflection compiled OUT entirely — no sampler declared, no dead texture fetch (was a weight-0 mix that still fetched).
     sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};   // WASD floor beat-tint (luminance-weighted so the light tiles take the colour)
-    sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
-    sh.fragmentShader='uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes; uniform vec3 uBeatCol; uniform float uBeatAmt; varying float vMirD;\n'+sh.fragmentShader.replace(
-      '#include <dithering_fragment>',
-      '#include <dithering_fragment>\n'+
-      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, gl_FragColor.rgb*uBeatCol, uBeatAmt);\n'+   // multiplicative beat-tint: bright tiles take the key hue (dark tiles stay dark) -> visible in daylight, not pastel
-      ' vec3 reflCol=texture2D(uRefl, gl_FragCoord.xy/uRes).rgb;\n'+
-      ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, smoothstep(uMirN,uMirF,vMirD));');
+    let head='uniform vec3 uBeatCol; uniform float uBeatAmt;\n';
+    let tail=' gl_FragColor.rgb=mix(gl_FragColor.rgb, gl_FragColor.rgb*uBeatCol, uBeatAmt);\n';   // multiplicative beat-tint: bright tiles take the key hue (dark tiles stay dark) -> visible in daylight, not pastel
+    if(!LOW){
+      sh.uniforms.uMirN={value:18}; sh.uniforms.uMirF={value:140};
+      sh.uniforms.uRefl={value:reflRT.texture}; sh.uniforms.uRes={value:new THREE.Vector2(2,2)};
+      sh.vertexShader='varying float vMirD;\n'+sh.vertexShader.replace('#include <fog_vertex>','#include <fog_vertex>\n vMirD=-mvPosition.z;');
+      head+='uniform float uMirN,uMirF; uniform sampler2D uRefl; uniform vec2 uRes; varying float vMirD;\n';
+      tail+=' vec3 reflCol=texture2D(uRefl, gl_FragCoord.xy/uRes).rgb;\n'+
+            ' gl_FragColor.rgb=mix(gl_FragColor.rgb, reflCol, smoothstep(uMirN,uMirF,vMirD));';
+    }
+    sh.fragmentShader=head+sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n'+tail);
     dayFloor.material.userData.sh=sh;
   };
   nightGrid = new THREE.GridHelper(FLOOR, LOW?80:FLOOR/2, 0x33b39e, 0x1c3b34); nightGrid.position.y = 0.02;   // LOW: coarser grid (80 vs 310) — cheaper line buffer + reads as more Rez/N64; normal keeps FLOOR/2
@@ -603,7 +605,7 @@ function updateRenderQuality(dt){
 }
 function syncReflUniformSize(){
   const fsh=dayFloor && dayFloor.material.userData.sh;
-  if(!fsh || !reflResDirty) return;
+  if(!fsh || !reflResDirty || !fsh.uniforms.uRes) return;   // uRes guard: LOW compiles the reflection (and its uniforms) out entirely
   renderer.getDrawingBufferSize(_dbs); fsh.uniforms.uRes.value.copy(_dbs); reflResDirty=false;
 }
 function renderReflection(){
@@ -658,14 +660,14 @@ function updateSky(dt){
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
   scene.background.copy(_hor); scene.fog.color.copy(_hor); setScalarCached(scene.fog,'density',0.012-0.005*day,100000);  // background = horizon → no black seam; floor fades into the horizon
   if(starPts) setScalarCached(starPts.material.uniforms.uOpacity,'value',Math.max(0,1-day*1.15));
-  if(dayFloor){ if(day>0.01) setDayFloorTex(); setScalarCached(dayFloor.material,'opacity',day); syncReflUniformSize(); }  // tiles fade in; keep the reflection sample resolution in sync
+  if(dayFloor){ if(day>0.01) setDayFloorTex(); setScalarCached(dayFloor.material,'opacity',day); syncReflUniformSize(); dayFloor.visible=day>0.003; }  // tiles fade in; keep the reflection sample resolution in sync. visible toggle: at night the opacity-0 quad otherwise still rasterizes (checker + reflection fetches for nothing)
   const deepNight=day<0.04;                                  // each new night: roll a grid colour ≠ last, and flip the next day's tile set (hidden while invisible)
   if(deepNight && !wasNight){
     let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]);
     dayTileIdx=1-dayTileIdx; if(dayFloor && dayFloor.material.map) setDayFloorTex();
   }
   wasNight=deepNight;
-  if(nightGrid) setScalarCached(nightGrid.material,'opacity',0.55*(1-day));
+  if(nightGrid){ setScalarCached(nightGrid.material,'opacity',0.55*(1-day)); nightGrid.visible=day<0.995; }   // visible toggle: at full day the opacity-0 line buffer otherwise still submits
   if(glowGrid){ const gop=0.9*(1-day); setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=gop>0.01; }   // GLOW halo fades with the grid; hidden by day so the plane isn't drawn at opacity 0
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
