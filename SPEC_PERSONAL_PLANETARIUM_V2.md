@@ -1,9 +1,10 @@
 # Personal Planetarium v2 — Coherent Sky
 
-**Status:** approved direction (2026-07-11), **not implemented**  
-**Supersedes for next work:** `SPEC_PERSONAL_PLANETARIUM.md` (v1 Parcel A/B shipped; this plan is the coherence pass)  
+**Status:** Parcel C/D largely implemented (2026-07-11).  
+**Spin/horizon correction:** see **`SPEC_PERSONAL_PLANETARIUM_V2_1.md`** (rotating sphere — next work).  
+**Supersedes for content:** v1 stickers → v2 Δ/seals/sticks/☉ glyphs (keep).  
 **Repos:** Moon Chorus (`aim-dojo`) + true-sidereal desk (`sidereal`)  
-**Canonical path:** `aim-dojo/SPEC_PERSONAL_PLANETARIUM_V2.md`  
+**Canonical path (v2 content):** `aim-dojo/SPEC_PERSONAL_PLANETARIUM_V2.md`  
 **Sidereal pointer:** `sidereal/SPEC_PERSONAL_PLANETARIUM_V2.md`
 
 ---
