@@ -1,6 +1,7 @@
 # Personal Planetarium v2.1 — Rotating Celestial Sphere
 
-**Status:** approved direction (2026-07-11), **not implemented**  
+**Status:** Parcel G shipped (rotating sphere).  
+**Next:** **`SPEC_PERSONAL_PLANETARIUM_V2_2.md`** — natural vs theatre spin rate (default natural).  
 **Supersedes in part:** `SPEC_PERSONAL_PLANETARIUM_V2.md` hybrid-clock *interpretation*  
 **Keeps from v2:** skypack v2 fields (Δ, resonance_rank), 13 sticks, ☉/☽ as luminaries, Δ always on, any-hit seals ≤8, day atmosphere ~30%, no floor chart, aesthetic only  
 **Canonical path:** `aim-dojo/SPEC_PERSONAL_PLANETARIUM_V2_1.md`  
