@@ -1,9 +1,10 @@
-# Personal Planetarium — Implementation Plan
+# Personal Planetarium — Implementation Plan (v1, shipped)
 
-**Status:** approved direction (2026-07-11)  
+**Status:** Parcel A/B shipped (2026-07-11).  
+**Next work:** see **`SPEC_PERSONAL_PLANETARIUM_V2.md`** (coherent sky — constellations, hybrid clock, Δ, ☉=sun).  
 **Repos:** Moon Chorus (`aim-dojo`) + true-sidereal desk (`sidereal`)  
-**Canonical path:** `aim-dojo/SPEC_PERSONAL_PLANETARIUM.md`  
-**Sidereal pointer:** `sidereal/SPEC_PERSONAL_PLANETARIUM.md` (same content or symlink)
+**Canonical path (v1 historical):** `aim-dojo/SPEC_PERSONAL_PLANETARIUM.md`  
+**Sidereal pointer:** `sidereal/SPEC_PERSONAL_PLANETARIUM.md`
 
 ---
 
