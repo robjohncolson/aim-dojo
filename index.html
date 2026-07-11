@@ -435,7 +435,7 @@ const CFG = {
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle (decorative sky)
-  skyTheatreSec:300,                                     // THEATRE clock (clocked/clocked_chart): seconds per full revolution of the celestial SPHERE (one day/night) — spins orientation, never longitudes (v2.1 G2)
+  skyTheatreSec:300,                                     // THEATRE spin rate (clocked* with ?theatre=1 / skyTime=theatre — v2.2 opt-in, natural wall-clock pace is the default): seconds per full revolution of the celestial SPHERE — spins orientation, never longitudes (v2.1 G2)
   chartDottedArcs:false,                                 // v2 D9: dotted transit→natal arcs for the top few seals — default OFF (busy sky); flip for study sessions
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
@@ -505,6 +505,25 @@ const SKY_MODE=(function(){
   if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return fromUrl; }   // URL wins this visit + persists as the last choice (?sky=decorative to go back)
   try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return v; }catch(e){}
   return 'decorative';
+})();
+/* SPIN RATE (v2.2 Parcel I): how fast the celestial sphere TURNS — never what sits on it, never longitudes.
+   URL matrix:
+     ?sky=clocked                  natural sky, no birth data (zodiac sticks + real-ish ☉/☽ at wall-clock pace)
+     ?sky=clocked&theatre=1        accelerated day — full sphere turn in CFG.skyTheatreSec (alias ?skyTime=theatre)
+     ?sky=clocked_chart            natural + natal chart (needs local skypack)
+     ?sky=clocked_chart&theatre=1  accelerated + natal
+     ?sky=decorative               legacy art sky (own dayCycleSec clock; skyTime ignored)
+   Resolve: ?skyTime=natural|theatre > ?theatre=1|0 alias > localStorage aimdojo.skyTime > natural (§3 locked
+   default: honest real-pace sky; theatre is the opt-in spectacle). URL persists like skyMode (?theatre=0 to go back). */
+const SKY_TIMES=['natural','theatre'];
+const SKY_TIME=(function(){
+  const q=location.search+location.hash;
+  let fromUrl=null;
+  const m=q.match(/[?&#]skytime=([a-z]+)/i); if(m && SKY_TIMES.indexOf(m[1].toLowerCase())>=0) fromUrl=m[1].toLowerCase();
+  if(!fromUrl){ const t=q.match(/[?&#]theatre=([01])\b/); if(t) fromUrl=(t[1]==='1'?'theatre':'natural'); }
+  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyTime', fromUrl); }catch(e){} return fromUrl; }
+  try{ const v=localStorage.getItem('aimdojo.skyTime'); if(SKY_TIMES.indexOf(v)>=0) return v; }catch(e){}
+  return 'natural';
 })();
 function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15), 1|a); t=(t+Math.imul(t^(t>>>7), 61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }   // tiny seeded PRNG — clocked modes keep a STABLE star field across sessions (decorative keeps its fresh random sky)
 const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
@@ -743,14 +762,17 @@ function renderReflection(){
   renderer.setRenderTarget(reflRT); renderer.render(scene, mirrorCam); renderer.setRenderTarget(prev);
 }
 let dayPhase=0.82, skyFrozen=false;                          // dayPhase: 0=sunrise, .25=noon, .5=sunset, .75=midnight (start deep night). skyFrozen: right-click holds the time-of-day (keep a pretty sunset)
-/* ROTATING SPHERE CLOCK (v2.1 §2-4, SKY_MODE clocked/clocked_chart): dayPhase SEEDS from the civil clock (a noon
-   session opens under a noon sky) then accelerates through full cycles at CFG.skyTheatreSec — and it spins the
-   ENTIRE celestial sphere (sticks + chart + ☉/☽ together, see skySphere below), not just the lighting. Longitudes
-   stay epoch-true ON the sphere (Leo never slides away from ☉); the spin only changes which half faces the horizon.
-   Lighting reads the transformed ☉'s real elevation, so sky and light can't disagree. Sky-freeze pins the sphere
-   angle (G6). Civil mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. */
+/* ROTATING SPHERE CLOCK (v2.1 §2-4 + v2.2 spin rates, SKY_MODE clocked/clocked_chart): dayPhase spins the ENTIRE
+   celestial sphere (sticks + chart + ☉/☽ together, see skySphere below), not just the lighting. Longitudes stay
+   epoch-true ON the sphere (Leo never slides away from ☉); the spin only changes which half faces the horizon.
+   Lighting reads the transformed ☉'s real elevation, so sky and light can't disagree.
+   TWO RATES (SKY_TIME, v2.2): `natural` (default) — dayPhase IS the civil day fraction, re-read from the wall clock
+   every sky tick: the real sky at real pace, no easing, no integrate. `theatre` (opt-in) — seeded from civil at boot,
+   then integrated at CFG.skyTheatreSec per full turn for on-demand sunsets and the nocturnal chart side.
+   FREEZE (I5): both rates pin dayPhase while frozen; unfreeze in natural snaps to live now ("resume to now"),
+   unfreeze in theatre resumes the integrate from the pinned phase. Civil mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. */
 function clockedDayPhase(ms){ const d=new Date(ms); return ((d.getHours()+d.getMinutes()/60+d.getSeconds()/3600)/24 + 0.75) % 1; }
-if(SKY_MODE!=='decorative') dayPhase=clockedDayPhase(Date.now());
+if(SKY_MODE!=='decorative') dayPhase=clockedDayPhase(Date.now());   // theatre: the one-time civil seed; natural: redundant (re-read each tick) but keeps frame one honest
 const DAY_SLOW=0.32, DAY_FAST=4.2;                           // ease time: ~half the cycle in dawn/dusk, hurry through deep day/night (period preserved)
 const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  // night grid: green, amber, red ([line,cell])
 let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
@@ -777,7 +799,8 @@ function updateSky(dt){
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
   if(SKY_MODE==='decorative'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1; }   // right-click freeze: hold the current time-of-day (everything below recomputes from the frozen dayPhase)
-  else { if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }                       // THEATRE (v2.1): accelerated SPIN clock, seeded from civil time at boot; freeze pins the sphere angle (G6). Longitudes never ride it — only orientation does.
+  else if(SKY_TIME==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE (opt-in, v2.2 §5.2): accelerated spin, civil-seeded at boot; freeze pins the integrated phase and resumes from it. Longitudes never ride the spin — only orientation does.
+  else { if(!skyFrozen) dayPhase=clockedDayPhase(Date.now()); }                                            // NATURAL (default, v2.2 §5.1): pure civil fraction, re-read live each tick — no easing, no integrate. Freeze pins; unfreeze snaps to now.
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // decorative art sphere (stars + discs); in clocked* it only carries the no-fixture fallback stars
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
@@ -831,8 +854,9 @@ let skyT=0;
    Every sky tick the whole sphere is re-oriented: spin axis = local ecliptic pole tipped ecl.tiltDeg from vertical
    toward +Z (so bodies culminate at ~tiltDeg elevation toward the boot view −Z, rise +X / set −X), spun by
    sphereAngle = spinPhase·360° − sunLon  (spec §4.2 sketch, noonAnchor=0 in this frame → the pack ☉ culminates at
-   theatre noon, dayPhase .25). spinPhase = dayPhase (theatre-accelerated, CFG.skyTheatreSec, freeze pins it);
-   sunLon only moves with EPOCH (pack / approx), never with theatre — Leo rides with ☉, nothing slides along the
+   noon, dayPhase .25). spinPhase = dayPhase (v2.2 SKY_TIME: natural wall-clock pace by default, theatre-accelerated
+   at CFG.skyTheatreSec on opt-in; freeze pins it either way);
+   sunLon only moves with EPOCH (pack / approx), never with the spin — Leo rides with ☉, nothing slides along the
    zodiac. The HORIZON does the day/night editing: sprites get a CPU elevation test, line/point geometry a GPU
    world-Y fade — the nocturnal half of the chart is genuinely under the floor until the sphere carries it up.
    Lighting reads the REAL transformed ☉ elevation (no second fake sun path). Codex reference math (sidereal
