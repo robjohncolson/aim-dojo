@@ -346,7 +346,7 @@ window.JA={
   coachP2Progress:'遠い声 {n}/{N} · つぎは満ちる夜', coachGraduate:'合唱はきみをおぼえた · 月先生が満ちる夜をひらく',
   fullNight:'満ちる夜', trainerToast:'月の糸のけいこ',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
-  tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', lock:'ロック',
+  tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   gamepad:'ゲームパッド', unmapped:'未対応', songMoonlight:'月光',
   resLow:'LOW ▸ タップでHIGH', resHigh:'HIGH ▸ タップでLOW', resForcedLow:'LOW固定 (保存済み)', resForcedHigh:'HIGH固定 (保存済み)', resAutoLow:'自動 → LOW', resAutoHigh:'自動 → HIGH',
   calibReady:'{n}回ぶん記録 — タップで自動設定', calibPlay:'W/A/S/D をビートに合わせて踏んでから、調整してね', calibNotEnough:'まだ足りない — もう少し踏んでから', calibApplied:'{avg}ms を {n}回から適用 → 合計 {total}ms',
@@ -492,6 +492,19 @@ const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false       
 if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (18→8), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
+/* ========================= SKY MODE (personal planetarium — SPEC_PERSONAL_PLANETARIUM.md, Parcel B) =========================
+   decorative (default: today's artistic sky, untouched) · clocked (sky follows the real civil clock) · clocked_chart (clocked
+   + natal/transit glyphs from a local skypack). Resolve: ?sky= URL flag > localStorage aimdojo.skyMode > decorative.
+   AESTHETIC ONLY — no spawn/fire/groove/score/leaderboard path reads any of this. */
+const SKY_MODES=['decorative','clocked','clocked_chart'];
+const SKY_MODE=(function(){
+  const m=(location.search+location.hash).match(/[?&#]sky=([a-z_]+)/);
+  const fromUrl=(m && SKY_MODES.indexOf(m[1])>=0) ? m[1] : null;
+  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return fromUrl; }   // URL wins this visit + persists as the last choice (?sky=decorative to go back)
+  try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return v; }catch(e){}
+  return 'decorative';
+})();
+function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15), 1|a); t=(t+Math.imul(t^(t>>>7), 61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }   // tiny seeded PRNG — clocked modes keep a STABLE star field across sessions (decorative keeps its fresh random sky)
 const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
 let renderDpr = DPR_MAX;
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
@@ -612,18 +625,19 @@ let starPts=null, starGeo=null;
 function buildStars(){
   if(starPts) return;
   const N=LOW?200:560, R=340;   // LOW: ~2.7× fewer additive star quads
+  const srnd = SKY_MODE==='decorative' ? Math.random : mulberry32(0x5EED0108);   // CLOCKED sky: seeded → the same heavens return every session and ride the clocked sphere; decorative keeps its fresh random sky
   const PAL=[[1,1,1],[0.82,0.9,1],[1,0.95,0.82],[1,0.79,0.42],[1,0.5,0.46],[0.55,0.72,1]]; // white, blue-white, warm, yellow, red, blue
   starGeo=new THREE.BufferGeometry();
   const pos=new Float32Array(N*3), col=new Float32Array(N*3);
   const phase=new Float32Array(N), rate=new Float32Array(N);
   for(let k=0;k<N;k++){
-    const theta=Math.random()*Math.PI*2, sy=1-2*Math.random(), rr=Math.sqrt(Math.max(0,1-sy*sy));     // full sphere → rotation continually reveals new stars
+    const theta=srnd()*Math.PI*2, sy=1-2*srnd(), rr=Math.sqrt(Math.max(0,1-sy*sy));     // full sphere → rotation continually reveals new stars
     const sx=rr*Math.cos(theta), sz=rr*Math.sin(theta);
     pos[k*3]=sx*R; pos[k*3+1]=sy*R; pos[k*3+2]=sz*R;
-    const rnd=Math.random(), ci=rnd<0.34?0:(rnd<0.56?1:(rnd<0.72?2:(rnd<0.84?3:(rnd<0.92?4:5))));
-    const b=0.45+Math.random()*0.55;                                           // inherent brightness varies (fakes size)
+    const rv=srnd(), ci=rv<0.34?0:(rv<0.56?1:(rv<0.72?2:(rv<0.84?3:(rv<0.92?4:5))));
+    const b=0.45+srnd()*0.55;                                                  // inherent brightness varies (fakes size)
     col[k*3]=PAL[ci][0]*b; col[k*3+1]=PAL[ci][1]*b; col[k*3+2]=PAL[ci][2]*b;
-    phase[k]=Math.random()*6.283; rate[k]=0.6+Math.random()*2.4;
+    phase[k]=srnd()*6.283; rate[k]=0.6+srnd()*2.4;
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
   starGeo.setAttribute('color', new THREE.BufferAttribute(col,3));
@@ -726,6 +740,11 @@ function renderReflection(){
   renderer.setRenderTarget(reflRT); renderer.render(scene, mirrorCam); renderer.setRenderTarget(prev);
 }
 let dayPhase=0.82, skyFrozen=false;                          // dayPhase: 0=sunrise, .25=noon, .5=sunset, .75=midnight (start deep night). skyFrozen: right-click holds the time-of-day (keep a pretty sunset)
+/* CLOCKED sky (SKY_MODE clocked/clocked_chart): dayPhase follows the real civil clock instead of the decorative dayCycleSec spin.
+   Approx mapping (plan §3 ecliptic_dome_v1 — pleasing, not astronomical): local 06:00→sunrise(0) · 12:00→noon(.25) · 18:00→sunset(.5) · 00:00→midnight(.75),
+   so night practice feels like night when it IS night for the player. Sky-freeze pins the epoch; resume snaps back to now. */
+let _skyClockMs=Date.now();
+function clockedDayPhase(ms){ const d=new Date(ms); return ((d.getHours()+d.getMinutes()/60+d.getSeconds()/3600)/24 + 0.75) % 1; }
 const DAY_SLOW=0.32, DAY_FAST=4.2;                           // ease time: ~half the cycle in dawn/dusk, hurry through deep day/night (period preserved)
 const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  // night grid: green, amber, red ([line,cell])
 let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
@@ -751,7 +770,8 @@ function setScalarCached(obj, prop, value, scale){
 function updateSky(dt){
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
-  if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1;   // right-click freeze: hold the current time-of-day (everything below recomputes from the frozen dayPhase)
+  if(SKY_MODE==='decorative'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1; }   // right-click freeze: hold the current time-of-day (everything below recomputes from the frozen dayPhase)
+  else { if(!skyFrozen) _skyClockMs=Date.now(); dayPhase=clockedDayPhase(_skyClockMs); }               // CLOCKED: real civil time drives the heavens; freeze pins the epoch, resume snaps to now
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // carries stars + sun + moon around the orbit
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
@@ -784,9 +804,133 @@ function updateSky(dt){
   if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
   else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
+  if(chartSkyGroup) updateChartSky();                        // chart layer (clocked_chart only): day-fade + soft glyph breath — zero cost while the layer is absent
   if(day>0.02) renderReflection();                           // refresh the floor's sky reflection while the tiles are visible
 }
 let skyT=0;
+
+/* ========================= PERSONAL PLANETARIUM: chart layer (skypack → sky glyphs) =========================
+   SPEC_PERSONAL_PLANETARIUM.md Parcel B (B3–B5). Shows ONLY in ?sky=clocked_chart. AESTHETIC ONLY — spawn/fire/
+   groove/score/leaderboard never read skypack data, and the floor stays night-grid/day-checker (no chart below).
+   Projection ecliptic_dome_v1: body ecliptic longitude → azimuth on a faint belt at a fixed readable elevation
+   (real alt/az is v2); movers and natal ghosts share the same map so a conjunction reads as two glyphs stacking.
+   Pack loads off the boot path and soft-fails → plain clocked. Skypacks are LOCAL ONLY: never sent to Supabase,
+   share links, or multiplayer. */
+const SKY_CHART={ R:315, elevDeg:24, bandHalfDeg:1.6, signDropDeg:3.4,   // belt radius (inside the 340 star shell), belt elevation, band-line spread, sign-row drop below the belt
+  band:{alpha:0.09, col:0xaec6e8},             // ecliptic band — moon-milk whisper
+  sign:{alpha:0.20, scale:6.5, col:0x8fa8cc},  // 13 Midpoint sign glyphs (incl. ⛎) at arc midpoints
+  mover:{alpha:0.80, scale:10, col:0xeef3ff},  // live transit bodies — ☽ a touch larger (she owns this dojo)
+  ghost:{alpha:0.45, scale:7, col:0xb9c8e4},   // natal ghosts — same glyph, dimmer + smaller, normal blend (no bloom spam)
+  arc:{alphaLo:0.06, alphaHi:0.30, col:0x9fd8ff},   // resonance arcs (Moonline family) — brightness rides orb tightness
+  aspect:{alphaLo:0.22, alphaHi:0.62, scale:6},     // ☌ ☍ △ □ ⚹ seals at arc midpoints
+  caps:{sign:16, mover:16, ghost:16, res:24} };     // hard ceilings per pack family — a hostile/buggy pack can never balloon draw calls, 20Hz lists, or the texture cache
+let chartSkyGroup=null, _skypack=null;
+const _chartFade=[];    // {mat,a0[,pulseP]} every chart material — the layer melts toward a whisper in daylight (like the stars); tight seals also pulse
+const _chartBreath=[];  // {sp,s0,ph} mover/seal sprites — slow glyph breath (never populated under reduceMotion / LOW)
+const _glyphTexCache={};
+function glyphTex(ch){
+  ch=String(ch).slice(0,4);   // bound degenerate/hostile glyph strings — caps both raster cost and cache-key space
+  if(_glyphTexCache[ch]) return _glyphTexCache[ch];
+  const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  const FONT='"Segoe UI Symbol","Noto Sans Symbols 2","Noto Sans Symbols",serif';
+  g.font='92px '+FONT; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle='#fff';
+  const s=(ch.length<=2 ? ch+'\uFE0E' : ch);   // U+FE0E text-presentation selector: keeps ⛎ and friends monochrome where the font would serve color emoji
+  const w=g.measureText(s).width; if(w>112) g.font=Math.max(28,Math.floor(92*112/w))+'px '+FONT;   // multi-char fallbacks ('OPH') shrink to fit instead of clipping off the canvas
+  g.shadowColor='rgba(214,230,255,0.9)'; g.shadowBlur=14;
+  g.fillText(s,64,70); g.fillText(s,64,70);    // twice: crisp core inside the soft halo
+  const t=new THREE.CanvasTexture(c); _glyphTexCache[ch]=t; return t;
+}
+function chartLonDir(lon, elevDeg){   // ecliptic_dome_v1: J2000 longitude → unit direction on the belt
+  const az=lon*Math.PI/180, el=(elevDeg==null?SKY_CHART.elevDeg:elevDeg)*Math.PI/180, ce=Math.cos(el);
+  return new THREE.Vector3(Math.cos(az)*ce, Math.sin(el), -Math.sin(az)*ce);
+}
+function chartSlerp(a,b,t,out){   // arc ALONG the dome between two belt directions (an opposition sails right over the zenith)
+  const d=Math.max(-1,Math.min(1,a.dot(b))), th=Math.acos(d);
+  if(th<1e-4) return out.copy(a);
+  const s=Math.sin(th);
+  return out.copy(a).multiplyScalar(Math.sin((1-t)*th)/s).addScaledVector(b, Math.sin(t*th)/s).normalize();
+}
+function chartSprite(ch,colHex,alpha,scale,additive,pulseP,keepByDay){
+  const m=new THREE.SpriteMaterial({map:glyphTex(ch), transparent:true, depthWrite:false, fog:false, color:colHex, opacity:alpha,
+    blending:additive?THREE.AdditiveBlending:THREE.NormalBlending});
+  const sp=new THREE.Sprite(m); sp.scale.set(scale,scale,1);
+  _chartFade.push({mat:m, obj:sp, a0:alpha, keep:!!keepByDay, pulseP:(pulseP==null?null:pulseP)});
+  return sp;
+}
+function chartLine(pts,colHex,alpha,loop){
+  const m=new THREE.LineBasicMaterial({color:colHex, transparent:true, opacity:alpha, depthWrite:false, fog:false, blending:THREE.AdditiveBlending});
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  const ln=loop ? new THREE.LineLoop(geo,m) : new THREE.Line(geo,m);
+  _chartFade.push({mat:m, obj:ln, a0:alpha, keep:false, pulseP:null});
+  return ln;
+}
+function buildChartSky(pack){
+  if(chartSkyGroup) return; _skypack=pack;
+  chartSkyGroup=new THREE.Group(); scene.add(chartSkyGroup);   // BESIDE skyGroup on purpose: longitude→azimuth is epoch-static, so the belt must not spin with the day/night sphere (sky-freeze governs the clocked epoch, which the chart doesn't read)
+  const R=SKY_CHART.R, seg=LOW?64:128;
+  const bandOffs=LOW ? [0] : [-SKY_CHART.bandHalfDeg, SKY_CHART.bandHalfDeg];   // LOW: one loop instead of the bracketing pair
+  for(const dE of bandOffs){
+    const pts=[]; for(let i=0;i<seg;i++) pts.push(chartLonDir(i/seg*360, SKY_CHART.elevDeg+dE).multiplyScalar(R));
+    chartSkyGroup.add(chartLine(pts, SKY_CHART.band.col, SKY_CHART.band.alpha, true));
+  }
+  if(!LOW) for(const s of (pack.sign_band||[]).slice(0,SKY_CHART.caps.sign)){   // sign row sits just under the belt; LOW sheds these 13 sprites
+    const a=+s.lon_start_j2000||0, span=((((+s.lon_end_j2000||0)-a)+360)%360)||(360/13), mid=(a+span/2)%360;
+    const sp=chartSprite(s.glyph||String(s.id||'?').slice(0,3).toUpperCase(), SKY_CHART.sign.col, SKY_CHART.sign.alpha, SKY_CHART.sign.scale, true);
+    sp.position.copy(chartLonDir(mid, SKY_CHART.elevDeg-SKY_CHART.signDropDeg)).multiplyScalar(R); chartSkyGroup.add(sp);
+  }
+  const at={};   // 'm:'/'n:' + id → belt position (resonances connect mover → natal ghost)
+  for(const mv of (pack.movers||[]).slice(0,SKY_CHART.caps.mover)){
+    const sc=SKY_CHART.mover.scale*(mv.id==='moon'?1.3:(mv.id==='sun'?1.15:1));
+    const sp=chartSprite(mv.glyph||'?', SKY_CHART.mover.col, SKY_CHART.mover.alpha, sc, true, null, true);   // keepByDay: movers alone stay faintly visible in daylight
+    sp.position.copy(chartLonDir(+mv.lon_j2000||0)).multiplyScalar(R); chartSkyGroup.add(sp);
+    at['m:'+mv.id]=sp.position; if(!reduceMotion && !LOW) _chartBreath.push({sp:sp, s0:sc, ph:(+mv.lon_j2000||0)*0.11});
+  }
+  for(const ng of (pack.natal_ghosts||[]).slice(0,SKY_CHART.caps.ghost)){
+    const sp=chartSprite(ng.glyph||'?', SKY_CHART.ghost.col, SKY_CHART.ghost.alpha, SKY_CHART.ghost.scale, false);
+    sp.position.copy(chartLonDir(+ng.lon_j2000||0)).multiplyScalar(R); chartSkyGroup.add(sp);
+    at['n:'+ng.id]=sp.position;
+  }
+  if(!LOW){   // resonance arcs + aspect seals — LOW sheds the whole family (it's the priciest slice of the layer)
+    const ua=new THREE.Vector3(), ub=new THREE.Vector3(), u=new THREE.Vector3();
+    for(const rz of (pack.resonances||[]).slice(0,SKY_CHART.caps.res)){
+      const pa=at['m:'+rz.transit_body], pb=at['n:'+rz.natal_point]; if(!pa||!pb) continue;
+      const tight=(+rz.orb_limit>0) ? Math.max(0,Math.min(1, 1-(+rz.orb||0)/+rz.orb_limit)) : 0.5;   // 1 = exact aspect → brightest
+      ua.copy(pa).normalize(); ub.copy(pb).normalize();
+      const pts=[]; for(let i=0;i<=24;i++) pts.push(chartSlerp(ua,ub,i/24,u).clone().multiplyScalar(R*0.99));
+      chartSkyGroup.add(chartLine(pts, SKY_CHART.arc.col, SKY_CHART.arc.alphaLo+(SKY_CHART.arc.alphaHi-SKY_CHART.arc.alphaLo)*tight, false));
+      const aA=SKY_CHART.aspect.alphaLo+(SKY_CHART.aspect.alphaHi-SKY_CHART.aspect.alphaLo)*tight;
+      const sp=chartSprite(rz.aspect_glyph||'☌', SKY_CHART.arc.col, aA, SKY_CHART.aspect.scale, true, (tight>0.7 && !reduceMotion)?tight*9:null);   // only TIGHT seals get the slow pulse
+      sp.position.copy(chartSlerp(ua,ub,0.5,u)).multiplyScalar(R*0.99); chartSkyGroup.add(sp);
+      if(!reduceMotion) _chartBreath.push({sp:sp, s0:SKY_CHART.aspect.scale, ph:tight*9});
+    }
+  }
+}
+function updateChartSky(){   // called from updateSky (~20 Hz) only while the layer exists
+  const kAll=Math.max(0,1-dayAmt*1.15);   // whisper elements (band/signs/ghosts/arcs/seals) melt OUT by day exactly like the stars — and stop submitting draws (visible toggle below)
+  const kMov=1-dayAmt*0.72;               // movers stay faintly up in daylight (the moon you can spot at noon)
+  for(let i=0;i<_chartFade.length;i++){ const f=_chartFade[i];
+    let a=f.a0*(f.keep?kMov:kAll); if(f.pulseP!=null) a*=0.82+0.18*Math.sin(skyT*1.3+f.pulseP);
+    setScalarCached(f.mat,'opacity',a); f.obj.visible=a>0.004;
+  }
+  for(let i=0;i<_chartBreath.length;i++){ const b=_chartBreath[i]; if(!b.sp.visible) continue; const s=b.s0*(1+0.05*Math.sin(skyT*0.55+b.ph)); b.sp.scale.set(s,s,1); }
+}
+function skypackValid(p){ return !!p && p.schema_version===1 && p.type==='skypack' && p.projection==='ecliptic_dome_v1'
+  && [p.sign_band,p.movers,p.natal_ghosts,p.resonances].every(a=>a==null||Array.isArray(a)); }
+async function loadSkypack(){   // B3. Personal channels first: ?skypack= URL → skypack.json drop-in → localhost API (EXPLICIT ?skyApi opt-in — never a silent localhost dependency). A REQUESTED personal source that fails is NEVER papered over with the sample pack — it degrades to plain clocked + one toast. The in-repo synthetic sample only serves packless visitors, and announces itself.
+  const q=location.search+location.hash;
+  if(location.protocol==='file:') try{ console.log('skypack: file:// blocks fetch of local packs — serve over http(s), or pass ?skypack= with a CORS-enabled https URL'); }catch(e){}
+  const get=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); if(!r.ok) return {absent:true}; const p=await r.json(); return skypackValid(p)?{pack:p}:{invalid:true}; }catch(e){ return {absent:true}; } };
+  let personal=false;
+  const m=q.match(/[?&#]skypack=([^&#]+)/);
+  if(m){ personal=true; let u=m[1]; try{ u=decodeURIComponent(u); }catch(e){} const r=await get(u); if(r.pack) return r.pack; }
+  const drop=await get('skypack.json');
+  if(drop.pack) return drop.pack;
+  if(drop.invalid) personal=true;   // a PRESENT-but-broken drop-in is a failed personal pack, not "no pack"
+  if(/[?&#]skyApi\b/.test(q)){ personal=true; const r=await get('http://127.0.0.1:8742/api/skypack'); if(r.pack) return r.pack; }
+  if(personal) return null;         // you asked for YOUR chart and it failed — showing invented positions instead would be a lie
+  const smp=await get('fixtures/skypack_mock.json'); if(smp.pack){ smp.pack._sample=true; return smp.pack; }   // demo sky for packless visitors
+  return null;
+}
 
 /* ---- expanding ground rings = the beat pulse. A fresh ring every couple beats; on a streak they fire
        every beat and warm from rail-blue toward toxic-green. ---- */
@@ -1153,7 +1297,7 @@ function applyMoodLook(){   // paint the run's aura into UI + ring palette (call
 function applyTheme(t){ activeTheme=t; PENTA=t.scale; CHORD_ROOT=t.root; CHORD_TRIAD=t.triad; TUNE=t.tune; ARP_TRI=t.arp; BASS=t.bass; BASS_HOLD=t.bassHold||'8n'; applyMoodLook(); }   // swap audio arrays + visual aura
 function pickTheme(){   // one song in this dojo: MOONLIGHT (the other themes remain as inert data; the picker/RANDOM logic is in git)
   applyTheme(THEMES.find(t=>t.name===DEFAULT_THEME)||THEMES[0]); _themeReveal=true;
-  if(activeTheme && activeTheme.skyBias!=null) dayPhase=activeTheme.skyBias;   // Moonlight always opens under the moon
+  if(SKY_MODE==='decorative' && activeTheme && activeTheme.skyBias!=null) dayPhase=activeTheme.skyBias;   // Moonlight always opens under the moon (decorative only — a CLOCKED sky answers to the real clock, not the song)
   _tuneHold=-1;   // reset hook-hold state so a new run doesn't inherit the previous note
 }
 let _tuneHold=-1;   // last scale index held by the hook voice (−1 = none); repeated same-index steps extend one note instead of retriggering
@@ -3153,6 +3297,12 @@ renderPrimary(false,false);
 animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
 const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.requestIdleCallback(fn,{timeout:timeout||delay||1000}); else setTimeout(fn,delay||0); };
 runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
+if(SKY_MODE==='clocked_chart') runIdle(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; missing/invalid pack degrades to plain clocked with one quiet toast
+  if(!p){ showGhostToast('🌌 '+T('skyNoChart','SKY · CLOCKED — NO CHART')); return; }
+  const arm=()=>{ if(state.running){ setTimeout(arm,2000); return; }   // the one-shot ~30-texture glyph raster burst waits for a calm moment (menu/pause) — never a hitch mid-run in a rhythm game
+    buildChartSky(p); if(p._sample) showGhostToast('🌌 '+T('skyMockChart','SKY · SAMPLE CHART')); };
+  arm();
+}); },400,2500);
 // Eager Tone fetch so the binary gate's first enabled click can init audio (was idle-deferred → cold double-click)
 loadToneOnce().then(()=>{ setGateReady(true); }).catch(()=>{ setGateReady(true); });   // still enable on failure so the user can see the error copy on click
 setTimeout(()=>{ loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
