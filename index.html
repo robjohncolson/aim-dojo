@@ -299,6 +299,7 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
       <span><b>MOUSE</b><span id="mouseDesc">turn &amp; aim</span></span>
       <span><b>WASD</b><span id="wasdDesc">STEP on the shown letter when the floor flashes — steadies the Moonline</span></span>
       <span><b>L-CLICK</b><span id="clickDesc">SEND through the gap — land it while the Echo glows</span></span>
+      <span><b>R-CLICK</b><span id="freezeDesc">freeze / unfreeze the sky (time-of-day)</span></span>
       <span><b>ESC</b><span id="escDesc">pause</span></span>
     </div>
 
@@ -306,6 +307,7 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
     <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
       <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="resolutionLabel" style="letter-spacing:.14em">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
       <div id="skyMotionRow" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="skyMotionLabel" style="letter-spacing:.14em">SKY&nbsp;MOTION</span><button type="button" class="ghost" id="skyMotionToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+      <div id="beatCircleRow" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="beatCircleLabel" style="letter-spacing:.14em">BEAT&nbsp;CIRCLE</span><button type="button" class="ghost" id="beatCircleToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
       <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span id="offsetLabel" style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
       <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
       <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:14px"></div>
@@ -391,7 +393,8 @@ window.JA={
   ledeMobileHtml:'虹のリンクを早めに送って、こだまが光るあいだに届けよう。れんしゅうは近くのこだまから。',
   phones:'ヘッドホンがおすすめ。世界の太鼓は耳の中に。音を出してね。',
   mouseDesc:'まわして ねらう', wasdDesc:'床が光ったら 見えている文字を踏む — 月の糸がととのう',
-  clickDesc:'あいだに送る — こだまが光るうちに届ける', escDesc:'ポーズ',
+  clickDesc:'あいだに送る — こだまが光るうちに届ける', freezeDesc:'空をとめる / うごかす（時刻）', escDesc:'ポーズ',
+  beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
   modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
@@ -405,8 +408,8 @@ window.JA={
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
   qrAria:'このページへのQRコード', shareUrlAria:'シェア用リンク', copy:'コピー', back:'もどる',
   mobileDrag:'ドラッグ', mobileDragDesc:'まわして ねらう', mobileSend:'送る', mobileSendDesc:'こだまが光るうちに届ける', mobilePause:'ポーズ',
-  coachP0:'月の糸をととのえて · 床が光ったら その文字を踏む', coachP0Progress:'踏めた {n}/{N} · 床の色に合わせて',
-  coachP1:'あいだに送って · こだまが光るあいだにリンクを届ける', coachP1Mobile:'リンクを送って · 光るあいだに届けて',
+  coachP0:'月の糸をととのえて · 床が光ったら その文字を踏む · 右クリックで空をとめられる', coachP0Progress:'踏めた {n}/{N} · 床の色に合わせて',
+  coachP1:'あいだに送って · こだまが光るあいだにリンクを届ける · 右クリックで空をとめられる', coachP1Mobile:'リンクを送って · 光るあいだに届けて',
   coachP1Progress:'声 {n}/{N} · 足もとも忘れずに', coachP1ProgressMobile:'声 {n}/{N} · 光る時に届けて',
   coachP2:'遠いこだまには早めに送る · 文字も踏みつづけて', coachP2Mobile:'遠いこだまには早めに送る · 先を読んで',
   coachP2Progress:'遠い声 {n}/{N} · つぎは満ちる夜', coachGraduate:'合唱はきみをおぼえた · 月先生が満ちる夜をひらく',
@@ -445,7 +448,8 @@ window.JA={
       document.title=J.title;
       txt('speedLabel','drum'); txt('fireBtn','send'); attr('fireBtn','aria-label','sendAria'); attr('pauseBtn','aria-label','pauseAria'); attr('muteBtn','title','muteAria'); attr('muteBtn','aria-label','muteAria');
       txt('ovEyebrow','eyebrow'); html('#ovTitle','titleHtml'); html('#ovLede .lede-first','ledeFirstHtml'); html('#ovLede .lede-return','ledeReturn');
-      txt('phonesText','phones'); txt('mouseDesc','mouseDesc'); txt('wasdDesc','wasdDesc'); txt('clickDesc','clickDesc'); txt('escDesc','escDesc');
+      txt('phonesText','phones'); txt('mouseDesc','mouseDesc'); txt('wasdDesc','wasdDesc'); txt('clickDesc','clickDesc'); txt('freezeDesc','freezeDesc'); txt('escDesc','escDesc');
+      txt('beatCircleLabel','beatCircleLabel');
       txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
       txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
@@ -514,7 +518,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:4, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity (lowered 7→4 so the beat-JUKE reads as a clean cut instead of drowning in random drift), speed cap HIGH→LOW skill (lerp by diffT), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
-  wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:false, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Defaults (user-picked): center circle (wasdHud) + timing text (wasdTapText) OFF -- letter only, both opt-in via settings.
+  wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:false, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is opt-in via pause BEAT CIRCLE (and forced on in early training unless user forced OFF).
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle (decorative sky)
@@ -1800,6 +1804,13 @@ function showTrainCoach(msg, ephemeral){
 function wasdBeatsHeard(){   // letter/floor cues must match input grading + orb glow (audioLat-corrected). Trainer uses this so Bluetooth/offset users see the pocket they hear.
   const bps=60/Math.max(20,state.bpm); return wasdBeats() - audioLat()/bps;
 }
+function wasdHudPref(){ try{ return localStorage.getItem('aimdojo.wasdHud'); }catch(e){ return null; } }   // '1' force on · '0' force off · null = phase/default auto
+function applyWasdHudPref(phaseDefault){
+  const p=wasdHudPref();
+  if(p==='1') CFG.wasdHud=true;
+  else if(p==='0') CFG.wasdHud=false;
+  else if(phaseDefault!=null) CFG.wasdHud=!!phaseDefault;
+}
 function applySenseiFull(){
   for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SENSEI_PACK[k].slice():SENSEI_PACK[k];
   CFG.dolly=true; CFG.specialOrbs=true; CFG.multiHit=true; CFG.grooveJuke=true;
@@ -1807,9 +1818,10 @@ function applySenseiFull(){
   CFG.grooveOpenSec=SENSEI_PACK.grooveOpenSec.slice();
   CFG.minGap=5; CFG.densityScale=1; CFG.bpmUp=SENSEI_PACK.bpmUp; CFG.bpmDown=SENSEI_PACK.bpmDown;
   CFG.beatSpawnSixteenths=BEAT_SPAWN_SIXTEENTHS_FULL.slice();
-  CFG.rangeMax=28; CFG.rangeStart=11; CFG.wasdHud=false; CFG.wasdLetter=true; CFG.wasdWindow=0.16; CFG.wasdWindowFrac=0.4;
+  CFG.rangeMax=28; CFG.rangeStart=11; CFG.wasdLetter=true; CFG.wasdWindow=0.16; CFG.wasdWindowFrac=0.4;
   CFG.floorBeat=true; CFG.openGlowBoost=SENSEI_PACK.openGlowBoost;
   CFG.brownian=4; CFG.brownianMax=SENSEI_PACK.brownianMax!=null?SENSEI_PACK.brownianMax:11;
+  applyWasdHudPref(false);   // full night defaults circle OFF unless the player forced ON
 }
 function setTrainPhase(p){
   trainPhase=p; trainWasd=0; trainOrbs=0;
@@ -1819,26 +1831,29 @@ function setTrainPhase(p){
   CFG.brownian=1.2; CFG.brownianMax=2.5;
   if(p===0){
     CFG.patternConcurrency=0; CFG.densityScale=0; CFG.bpmUp=0;
-    CFG.wasdHud=true; CFG.wasdWindow=0.22; CFG.wasdWindowFrac=0.55;   // forgiving letter window + training rings
-    showTrainCoach(T('coachP0','STEADY THE MOONLINE · tap the letter when the floor flashes'));
+    CFG.wasdWindow=0.22; CFG.wasdWindowFrac=0.55;   // forgiving letter window + training rings
+    applyWasdHudPref(true);
+    showTrainCoach(T('coachP0','STEADY THE MOONLINE · tap the letter when the floor flashes · R-CLICK freezes the sky'));
   } else if(p===1){
     CFG.patternConcurrency=1; CFG.minGap=7; CFG.densityScale=0.9; CFG.bpmUp=1;
     CFG.grooveOpenSec=[0.52,0.44];   // wide glow window — learn "land on the glow"
     CFG.rangeStart=8; state.range=TRAIN_RANGE_NEAR; CFG.rangeMax=12;
     CFG.beatSpawnSixteenths=[2,3,4];   // short flight only
-    CFG.wasdHud=!MOBILE; CFG.wasdWindow=0.20; CFG.wasdWindowFrac=0.5;
+    CFG.wasdWindow=0.20; CFG.wasdWindowFrac=0.5;
     CFG.openGlowBoost=1.55;
+    applyWasdHudPref(!MOBILE);
     showTrainCoach(MOBILE
       ? T('coachP1Mobile','SEND THE LINK · make it LAND while the Echo glows')
-      : T('coachP1','SEND THROUGH THE GAP · your link must LAND while the Echo glows'));
+      : T('coachP1','SEND THROUGH THE GAP · land on the glow · R-CLICK freezes the sky'));
   } else if(p===2){
     CFG.patternConcurrency=2; CFG.minGap=6; CFG.densityScale=1; CFG.bpmUp=1.5;
     CFG.grooveOpenSec=[0.40,0.30];
     CFG.rangeStart=TRAIN_RANGE_NEAR; state.range=TRAIN_RANGE_NEAR; CFG.rangeMax=TRAIN_RANGE_FAR;
     CFG.beatSpawnSixteenths=[2,3,4,6,8];
-    CFG.wasdHud=false; CFG.wasdWindow=0.18; CFG.wasdWindowFrac=0.45;
+    CFG.wasdWindow=0.18; CFG.wasdWindowFrac=0.45;
     CFG.openGlowBoost=1.45;
     CFG.brownian=2.5; CFG.brownianMax=5;
+    applyWasdHudPref(false);
     showTrainCoach(MOBILE
       ? T('coachP2Mobile','FAR ECHOES NEED AN EARLIER SEND · lead the link')
       : T('coachP2','FAR ECHOES NEED AN EARLIER SEND · keep the letters steady'));
@@ -3485,7 +3500,7 @@ const overlay=gid('overlay'), beginBtn=gid('beginBtn'), beginLabel=gid('beginLab
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 /* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
-const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), skyMotionToggle=gid('skyMotionToggle'), skyMotionRow=gid('skyMotionRow'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
+const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), skyMotionToggle=gid('skyMotionToggle'), skyMotionRow=gid('skyMotionRow'), beatCircleToggle=gid('beatCircleToggle'), beatCircleRow=gid('beatCircleRow'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
 function refreshSettings(){
   if(!settingsBox) return;
   if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
@@ -3498,6 +3513,12 @@ function refreshSettings(){
     skyMotionToggle.textContent = SKY_TIME==='theatre' ? T('skyTheatreOn','THEATRE ▸ tap for NATURAL') : T('skyNaturalOn','NATURAL ▸ tap for THEATRE');
     skyMotionToggle.title = SKY_TIME==='theatre' ? T('skyTheatreHint','full sky spins ~every few minutes') : T('skyNaturalHint','sky follows real day/night');
   }
+  if(beatCircleToggle){
+    const on=!!CFG.wasdHud;
+    beatCircleToggle.textContent = on ? T('beatCircleOn','ON ▸ tap for OFF') : T('beatCircleOff','OFF ▸ tap for ON');
+    beatCircleToggle.title = on ? T('beatCircleHintOn','training-style beat circle visible') : T('beatCircleHintOff','training-style beat circle hidden');
+  }
+  if(beatCircleRow) beatCircleRow.style.display=MOBILE?'none':'flex';
   const ms=Math.round(_userOffsetSec*1000);
   if(offSlider) offSlider.value=ms;
   if(offVal) offVal.textContent=ms+' ms';
@@ -3509,6 +3530,7 @@ if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is cons
   e.preventDefault(); e.stopPropagation();
   const wantLow = !LOW;
   try{ localStorage.setItem('aimdojo.lowRez', wantLow ? '1' : '0'); }catch(err){}
+  try{ queueCloudPrefs({low_rez:wantLow}); }catch(err){}
   try{
     const u=new URL(location.href);
     const raw=(u.search||'').replace(/^\?/,'').split('&').filter(p=>{ const k=p.split('=')[0]; return p && k!=='low' && k!=='hi'; });
@@ -3526,8 +3548,19 @@ if(skyMotionToggle) skyMotionToggle.addEventListener('click', (e)=>{   // live t
   try{ localStorage.setItem('aimdojo.skyTime', SKY_TIME); }catch(err){}
   try{ dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }catch(err){}
   refreshSettings();
+  queueCloudPrefs({sky_time:SKY_TIME});
+});
+if(beatCircleToggle) beatCircleToggle.addEventListener('click', (e)=>{
+  e.preventDefault(); e.stopPropagation();
+  if(MOBILE) return;
+  const next=!CFG.wasdHud; CFG.wasdHud=next;
+  try{ localStorage.setItem('aimdojo.wasdHud', next?'1':'0'); }catch(err){}
+  refreshSettings();
+  queueCloudPrefs({wasd_hud:next});
+  try{ showGhostToast(next?T('beatCircleHintOn','BEAT CIRCLE ON'):T('beatCircleHintOff','BEAT CIRCLE OFF')); }catch(err){}
 });
 if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)); _userOffsetSec=ms/1000; if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame, so the glow/windows shift as you drag
+if(offSlider) offSlider.addEventListener('change', ()=>{ queueCloudPrefs({offset_ms:Math.round(_userOffsetSec*1000)}); });
 if(calibBtn) calibBtn.addEventListener('click', ()=>{
   if(_tapOffN<6){ if(calibHint) calibHint.textContent=T('calibNotEnough','not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'); return; }
   const avg=_tapOffSum/_tapOffN; _userOffsetSec=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg));   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
@@ -3536,6 +3569,75 @@ if(calibBtn) calibBtn.addEventListener('click', ()=>{
   if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
   _tapOffSum=0; _tapOffN=0;
 });
+
+/* ===== CLOUD PREFS (optional, signed-in only): Supabase aimdojo_prefs supersedes localStorage =====
+   Non-sensitive play prefs only — never birth data. Fail closed if the table is missing. */
+let _cloudPrefsTimer=null, _cloudPrefsPending=null, _cloudPrefsLoaded=false;
+function localPrefSnapshot(){
+  let low=null, wasd=null, sky=SKY_TIME, off=Math.round(_userOffsetSec*1000);
+  try{ low=localStorage.getItem('aimdojo.lowRez'); }catch(e){}
+  try{ wasd=localStorage.getItem('aimdojo.wasdHud'); }catch(e){}
+  return {
+    sky_time:(sky==='natural'||sky==='theatre')?sky:null,
+    wasd_hud:wasd==='1'?true:(wasd==='0'?false:null),
+    offset_ms:isFinite(off)?off:null,
+    low_rez:low==='1'?true:(low==='0'?false:null)
+  };
+}
+function applyCloudPrefsRow(row){
+  if(!row||typeof row!=='object') return;
+  if(row.sky_time==='natural'||row.sky_time==='theatre'){
+    SKY_TIME=row.sky_time;
+    try{ localStorage.setItem('aimdojo.skyTime', SKY_TIME); }catch(e){}
+    try{ dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }catch(e){}
+  }
+  if(typeof row.wasd_hud==='boolean'){
+    try{ localStorage.setItem('aimdojo.wasdHud', row.wasd_hud?'1':'0'); }catch(e){}
+    applyWasdHudPref(row.wasd_hud);
+  }
+  if(typeof row.offset_ms==='number'&&isFinite(row.offset_ms)){
+    const ms=Math.max(-120,Math.min(320,Math.round(row.offset_ms)));
+    _userOffsetSec=ms/1000;
+    try{ localStorage.setItem('aimdojo.offsetMs', String(ms)); }catch(e){}
+  }
+  if(typeof row.low_rez==='boolean'){
+    try{ localStorage.setItem('aimdojo.lowRez', row.low_rez?'1':'0'); }catch(e){}
+    // resolution is construction-time; a mismatch reloads once so the cloud pick wins
+    if(row.low_rez!==LOW){ try{ location.reload(); }catch(e){} return; }
+  }
+  try{ refreshSettings(); }catch(e){}
+}
+async function loadCloudPrefs(){
+  if(!_skyAuthClient||!_skyAuthSession||!_skyAuthSession.user) return;
+  try{
+    const res=await _skyAuthClient.from('aimdojo_prefs').select('sky_time,wasd_hud,offset_ms,low_rez').eq('user_id',_skyAuthSession.user.id).maybeSingle();
+    if(res.error){ _cloudPrefsLoaded=true; return; }   // missing table / RLS → stay local
+    if(res.data) applyCloudPrefsRow(res.data);
+    else {
+      // first signed-in session: seed the row from local picks so other devices can inherit later
+      const snap=localPrefSnapshot();
+      await _skyAuthClient.from('aimdojo_prefs').upsert({user_id:_skyAuthSession.user.id, ...snap, updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    }
+  }catch(e){}
+  _cloudPrefsLoaded=true;
+}
+function queueCloudPrefs(partial){
+  if(!_skyAuthClient||!_skyAuthSession||!_skyAuthSession.user) return;
+  _cloudPrefsPending=Object.assign({},_cloudPrefsPending||{},partial||{});
+  if(_cloudPrefsTimer!=null) clearTimeout(_cloudPrefsTimer);
+  _cloudPrefsTimer=setTimeout(async ()=>{
+    _cloudPrefsTimer=null;
+    const pending=_cloudPrefsPending; _cloudPrefsPending=null;
+    if(!pending||!_skyAuthSession||!_skyAuthSession.user) return;
+    try{
+      await _skyAuthClient.from('aimdojo_prefs').upsert({
+        user_id:_skyAuthSession.user.id,
+        ...pending,
+        updated_at:new Date().toISOString()
+      },{onConflict:'user_id'});
+    }catch(e){}
+  },400);
+}
 
 /* ===== SAVE MY SKY: optional magic-link auth + one private Railway natal profile =====
    This surface is pause-only and never participates in PLAY, training, score, realtime, or board data. */
@@ -3675,7 +3777,8 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
   _skyAuthUser=next;
   if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
   ctl.setAuthenticated(true); skyRenderAccount(true);
-  if(_skyProfileUser!==next){ _skyProfileUser=next; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); }
+  if(_skyProfileUser!==next){ _skyProfileUser=next; _cloudPrefsLoaded=false; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); loadCloudPrefs(); }
+  else if(!_cloudPrefsLoaded) loadCloudPrefs();
 }
 function skyAcceptAuthSession(session){   // synchronous account quarantine; no async Supabase call inside onAuthStateChange
   session=session||null; const next=session&&session.user?String(session.user.id||''):'';
