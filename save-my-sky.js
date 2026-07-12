@@ -282,7 +282,7 @@
               : validationFailure
                 ? detail || "Check date, time, timezone, and place"
                 : retryable
-                  ? "Personal sky is unavailable"
+                  ? detail || "Personal sky is unavailable"
                   : detail || "Personal sky request was not accepted",
             { status: status, retryable: retryable }
           );
@@ -318,10 +318,14 @@
         resetProfile();
         return state;
       }
-      state.profile = profile;
+      state.profile = profileWithoutPack(profile, profile);
       state.hasChart = true;
       state.pack = null;
       state.personalMode = false;
+
+      if (profile && isPersonalSkypack(profile.skypack)) {
+        return activatePack(profile.skypack, generation);
+      }
 
       var pack;
       try {
@@ -329,6 +333,22 @@
       } catch (error) {
         return staleOrThrow(error, generation);
       }
+      return activatePack(pack, generation);
+    }
+
+    function profileWithoutPack(profile, fallback) {
+      if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+        return fallback || null;
+      }
+      if (!Object.prototype.hasOwnProperty.call(profile, "skypack")) return profile;
+      var clean = {};
+      Object.keys(profile).forEach(function (key) {
+        if (key !== "skypack") clean[key] = profile[key];
+      });
+      return clean;
+    }
+
+    async function activatePack(pack, generation) {
       if (!isCurrent(generation)) return state;
       if (!isPersonalSkypack(pack)) {
         throw new SkyProfileError("invalid_response", "Personal sky returned an invalid chart", { retryable: true });
@@ -352,11 +372,16 @@
         return staleOrThrow(error, generation);
       }
       if (!isCurrent(generation)) return state;
-      state.profile = profile && typeof profile === "object" ? profile : payload;
+      state.profile = profileWithoutPack(profile, payload) || payload;
       state.hasChart = true;
       state.pack = null;
       state.personalMode = false;
       state.lastSaveCommitted = true;
+
+      // Prefer the pack embedded in the save response; fall back to GET /api/me/skypack.
+      if (profile && isPersonalSkypack(profile.skypack)) {
+        return activatePack(profile.skypack, generation);
+      }
 
       var pack;
       try {
@@ -364,13 +389,7 @@
       } catch (error) {
         return staleOrThrow(error, generation);
       }
-      if (!isCurrent(generation)) return state;
-      if (!isPersonalSkypack(pack)) {
-        throw new SkyProfileError("invalid_response", "Personal sky returned an invalid chart", { retryable: true });
-      }
-      state.pack = pack;
-      state.personalMode = true;
-      return state;
+      return activatePack(pack, generation);
     }
 
     async function clear() {

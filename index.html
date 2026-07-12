@@ -3623,12 +3623,14 @@ function skyRenderAccount(keepStatus){
 function skySoftFailure(error,action){
   const code=error&&error.code, status=error&&error.status;
   const detail=(error&&typeof error.message==='string')?error.message.trim():'';
+  const usableDetail=detail&&detail.length<=140&&!/^personal sky/i.test(detail)&&!/^check date/i.test(detail);
   // Prefer the real validation/API detail so free-text timezone mistakes aren't a mystery.
   if(code==='validation'||status===400||status===422){
-    if(detail&&detail.length<=120&&!/^check date/i.test(detail)&&detail!=='Personal sky request was not accepted') return detail.toUpperCase();
+    if(usableDetail) return detail.toUpperCase();
     return T('saveSkyCheckFields','CHECK DATE, TIME, TIMEZONE & PLACE');
   }
   if(code==='not_authenticated'||status===401||status===403) return T('saveSkyExpired','SKY LINK EXPIRED · SIGN IN AGAIN');
+  if(usableDetail&&(status===503||code==='service_unavailable'||/natal backend/i.test(detail))) return detail.toUpperCase();
   return action==='link'?T('saveSkyLinkFailed','SKY LINK COULD NOT SEND'):action==='clear'?T('saveSkyClearFailed','CHART COULD NOT CLEAR'):T('saveSkyUnavailable','PERSONAL SKY UNAVAILABLE');
 }
 function ensureSkyProfileController(){

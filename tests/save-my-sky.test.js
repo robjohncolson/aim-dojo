@@ -57,7 +57,9 @@ test("save posts only normalized natal fields and activates personal mode", asyn
     getAccessToken: () => "jwt-one",
     fetchImpl: async (url, init) => {
       calls.push({ url, init });
-      if (init.method === "POST") return response(200, JSON.parse(init.body));
+      if (init.method === "POST") {
+        return response(200, { ...JSON.parse(init.body), skypack: personalPack() });
+      }
       return response(200, personalPack());
     },
   });
@@ -68,9 +70,9 @@ test("save posts only normalized natal fields and activates personal mode", asyn
   assert.equal(state.hasChart, true);
   assert.equal(state.personalMode, true);
   assert.ok(isPersonalSkypack(state.pack));
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 1, "embedded skypack should avoid a second request");
   assert.equal(calls[0].url, "https://sidereal.example/api/me/natal");
-  assert.equal(calls[1].url, "https://sidereal.example/api/me/skypack");
+  assert.equal(state.profile.skypack, undefined);
   assert.deepEqual(JSON.parse(calls[0].init.body), {
     birth_date: "1983-11-29",
     birth_time: "22:24:00",
@@ -83,6 +85,24 @@ test("save posts only normalized natal fields and activates personal mode", asyn
   assert.equal(calls[0].init.headers.Authorization, "Bearer jwt-one");
   assert.equal(calls[0].init.cache, "no-store");
   assert.equal(calls[0].init.credentials, "omit");
+});
+
+test("save falls back to GET skypack when the POST response has no pack", async () => {
+  const calls = [];
+  const controller = createPersonalSkyController({
+    baseUrl: "https://sidereal.example/",
+    getAccessToken: () => "jwt-one",
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      if (init.method === "POST") return response(200, JSON.parse(init.body));
+      return response(200, personalPack());
+    },
+  });
+  controller.setAuthenticated(true);
+  const state = await controller.save(validBirth());
+  assert.equal(state.personalMode, true);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, "https://sidereal.example/api/me/skypack");
 });
 
 test("unknown time is sent as null and coordinates must be a valid pair", () => {
