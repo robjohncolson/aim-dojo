@@ -518,7 +518,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:4, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity (lowered 7→4 so the beat-JUKE reads as a clean cut instead of drowning in random drift), speed cap HIGH→LOW skill (lerp by diffT), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
-  wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:false, floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is opt-in via pause BEAT CIRCLE (and forced on in early training unless user forced OFF).
+  wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is opt-in via pause BEAT CIRCLE (and forced on in early training unless user forced OFF).
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle (decorative sky)
@@ -602,6 +602,7 @@ const SKY_MODE=(function(){
   try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return v; }catch(e){}
   return 'clocked';   // public ship: everyone gets the constellation sphere without a birth chart or desk
 })();
+// Cloud may later supersede skyMode via reload; URL always wins once for the session that set it.
 /* SPIN RATE (v2.2 + public settings): theatre (new-visitor default, accelerated full-sky spin) · natural (wall-clock).
    Pause SKY MOTION toggle persists aimdojo.skyTime (live, no reload). URL ?theatre=1 / ?skyTime= still works. */
 const SKY_TIMES=['natural','theatre'];
@@ -1690,7 +1691,7 @@ function killTarget(tg, clutch){
 }
 
 /* ========================= AUDIO ========================= */
-let listener=null, toneReady=false, audioInit=false, soundOn=true, rawCtx=null;
+let listener=null, toneReady=false, audioInit=false, soundOn=(function(){ try{ const v=localStorage.getItem('aimdojo.soundOn'); if(v==='0') return false; if(v==='1') return true; }catch(e){} return true; })(), rawCtx=null;
 let _userOffsetSec = (function(){ try{ const v=parseFloat(localStorage.getItem('aimdojo.offsetMs')); return isFinite(v)?Math.max(-0.3,Math.min(0.4,v/1000)):0; }catch(e){ return 0; } })();   // LATENCY CALIBRATION: a persisted user audio/input offset (ms→sec), ADDED to the reported output latency so the beat windows line up with what the player actually HEARS on their device (Bluetooth adds 100-300ms the browser under-reports)
 function audioLat(){ return (((rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0)) + _userOffsetSec; }   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
 let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in the heard timeline) → powers the pause-menu "calibrate from my taps"
@@ -3571,21 +3572,34 @@ if(calibBtn) calibBtn.addEventListener('click', ()=>{
 });
 
 /* ===== CLOUD PREFS (optional, signed-in only): Supabase aimdojo_prefs supersedes localStorage =====
-   Non-sensitive play prefs only — never birth data. Fail closed if the table is missing. */
+   Non-sensitive play prefs only — never birth data. Fail closed if the table/columns are missing.
+   Columns (v1+v2): sky_time, wasd_hud, offset_ms, low_rez, display_name, dojo_sort, sky_mode, sound_on, wasd_tap_text */
+const CLOUD_PREF_SELECT='sky_time,wasd_hud,offset_ms,low_rez,display_name,dojo_sort,sky_mode,sound_on,wasd_tap_text';
 let _cloudPrefsTimer=null, _cloudPrefsPending=null, _cloudPrefsLoaded=false;
 function localPrefSnapshot(){
-  let low=null, wasd=null, sky=SKY_TIME, off=Math.round(_userOffsetSec*1000);
+  let low=null, wasd=null, name='', sort=null, mode=null, tap=null;
   try{ low=localStorage.getItem('aimdojo.lowRez'); }catch(e){}
   try{ wasd=localStorage.getItem('aimdojo.wasdHud'); }catch(e){}
+  try{ name=(localStorage.getItem('aimdojo.name')||'').trim().slice(0,24); }catch(e){}
+  try{ const s=localStorage.getItem('aimdojo.dojosort'); if(s==='peak_bpm'||s==='runtime') sort=s; }catch(e){}
+  try{ const m=localStorage.getItem('aimdojo.skyMode'); if(m==='decorative'||m==='clocked'||m==='clocked_chart') mode=m; }catch(e){}
+  try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') tap=true; else if(t==='0') tap=false; }catch(e){}
+  const off=Math.round(_userOffsetSec*1000);
   return {
-    sky_time:(sky==='natural'||sky==='theatre')?sky:null,
+    sky_time:(SKY_TIME==='natural'||SKY_TIME==='theatre')?SKY_TIME:null,
     wasd_hud:wasd==='1'?true:(wasd==='0'?false:null),
     offset_ms:isFinite(off)?off:null,
-    low_rez:low==='1'?true:(low==='0'?false:null)
+    low_rez:low==='1'?true:(low==='0'?false:null),
+    display_name:name||null,
+    dojo_sort:sort,
+    sky_mode:mode||((SKY_MODE==='decorative'||SKY_MODE==='clocked'||SKY_MODE==='clocked_chart')?SKY_MODE:null),
+    sound_on:!!soundOn,
+    wasd_tap_text:tap
   };
 }
 function applyCloudPrefsRow(row){
   if(!row||typeof row!=='object') return;
+  let needsReload=false;
   if(row.sky_time==='natural'||row.sky_time==='theatre'){
     SKY_TIME=row.sky_time;
     try{ localStorage.setItem('aimdojo.skyTime', SKY_TIME); }catch(e){}
@@ -3602,19 +3616,45 @@ function applyCloudPrefsRow(row){
   }
   if(typeof row.low_rez==='boolean'){
     try{ localStorage.setItem('aimdojo.lowRez', row.low_rez?'1':'0'); }catch(e){}
-    // resolution is construction-time; a mismatch reloads once so the cloud pick wins
-    if(row.low_rez!==LOW){ try{ location.reload(); }catch(e){} return; }
+    if(row.low_rez!==LOW) needsReload=true;
+  }
+  if(typeof row.display_name==='string'){
+    const n=row.display_name.trim().slice(0,24);
+    try{ localStorage.setItem('aimdojo.name', n); }catch(e){}
+    _playerName=n||('Guest-'+clientId().slice(-4));
+    try{ const ni=gid('nameInput'); if(ni&&document.activeElement!==ni) ni.value=n; }catch(e){}
+  }
+  if(row.dojo_sort==='peak_bpm'||row.dojo_sort==='runtime'){
+    dojoSort=row.dojo_sort;
+    try{ localStorage.setItem('aimdojo.dojosort', dojoSort); }catch(e){}
+  }
+  if(row.sky_mode==='decorative'||row.sky_mode==='clocked'||row.sky_mode==='clocked_chart'){
+    try{ localStorage.setItem('aimdojo.skyMode', row.sky_mode); }catch(e){}
+    if(row.sky_mode!==SKY_MODE) needsReload=true;
+  }
+  if(typeof row.sound_on==='boolean'){
+    soundOn=row.sound_on;
+    try{ localStorage.setItem('aimdojo.soundOn', soundOn?'1':'0'); }catch(e){}
+    try{ const m=gid('muteBtn'); if(m){ m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; } applyAudioState(); reconcileTargetSounds(); }catch(e){}
+  }
+  if(typeof row.wasd_tap_text==='boolean'){
+    CFG.wasdTapText=row.wasd_tap_text;
+    try{ localStorage.setItem('aimdojo.wasdTapText', row.wasd_tap_text?'1':'0'); }catch(e){}
   }
   try{ refreshSettings(); }catch(e){}
+  if(needsReload){ try{ location.reload(); }catch(e){} }
 }
 async function loadCloudPrefs(){
   if(!_skyAuthClient||!_skyAuthSession||!_skyAuthSession.user) return;
   try{
-    const res=await _skyAuthClient.from('aimdojo_prefs').select('sky_time,wasd_hud,offset_ms,low_rez').eq('user_id',_skyAuthSession.user.id).maybeSingle();
-    if(res.error){ _cloudPrefsLoaded=true; return; }   // missing table / RLS → stay local
+    let res=await _skyAuthClient.from('aimdojo_prefs').select(CLOUD_PREF_SELECT).eq('user_id',_skyAuthSession.user.id).maybeSingle();
+    // v1 table without new columns: retry the original four so signed-in still works before migration SQL
+    if(res.error){
+      res=await _skyAuthClient.from('aimdojo_prefs').select('sky_time,wasd_hud,offset_ms,low_rez').eq('user_id',_skyAuthSession.user.id).maybeSingle();
+      if(res.error){ _cloudPrefsLoaded=true; return; }
+    }
     if(res.data) applyCloudPrefsRow(res.data);
     else {
-      // first signed-in session: seed the row from local picks so other devices can inherit later
       const snap=localPrefSnapshot();
       await _skyAuthClient.from('aimdojo_prefs').upsert({user_id:_skyAuthSession.user.id, ...snap, updated_at:new Date().toISOString()},{onConflict:'user_id'});
     }
@@ -3989,7 +4029,7 @@ function updateRemotes(dt){
 }
 (function(){ const ni=gid('nameInput'); if(!ni) return;                      // persist the player name as it's typed
   try{ ni.value=localStorage.getItem('aimdojo.name')||''; }catch(e){}
-  ni.addEventListener('input', ()=>{ const v=ni.value.slice(0,24); _playerName=v.trim() || ('Guest-'+clientId().slice(-4)); try{ localStorage.setItem('aimdojo.name', v); }catch(e){} });
+  ni.addEventListener('input', ()=>{ const v=ni.value.slice(0,24); _playerName=v.trim() || ('Guest-'+clientId().slice(-4)); try{ localStorage.setItem('aimdojo.name', v); }catch(e){} queueCloudPrefs({display_name:_playerName.slice(0,24)}); });
 })();
 /* ===== DOJO RECORDS — global free-play leaderboard (THE DOJO PIVOT). Multi-metric, tabbed; submits session bests on free-play run end. ===== */
 // BOARD_GEN: bump when the global board is wiped / schema meaning changes. On mismatch we drop local board caches so the app doesn't look "stale" after a Supabase truncate.
@@ -4102,7 +4142,7 @@ function renderDojoBoard(rows, sort, hasRuntimeCol){
 (function(){ const tabs=gid('dojoTabs'); if(!tabs) return;       // metric sort tabs
   function paint(){ tabs.querySelectorAll('.dt').forEach(t=>t.classList.toggle('on', t.dataset.sort===dojoSort)); }
   tabs.addEventListener('click', e=>{ const t=e.target.closest('.dt'); if(!t) return; const s=t.dataset.sort; if(!_DOJO_SORTS[s]||s===dojoSort) return;
-    dojoSort=s; try{ localStorage.setItem('aimdojo.dojosort', s); }catch(_e){} paint(); loadDojoBoard(); });
+    dojoSort=s; try{ localStorage.setItem('aimdojo.dojosort', s); }catch(_e){} queueCloudPrefs({dojo_sort:s}); paint(); loadDojoBoard(); });
   paint();
 })();
 /* ---- collapsible 🥋 RECORDS section on the card (dojo board + name input live inside; closed by default) ---- */
@@ -4166,7 +4206,8 @@ function showPause(){
   submitDojo(); loadDojoBoard();
 }
 
-gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); reconcileTargetSounds(); });
+(function(){ const m=gid('muteBtn'); if(m){ m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; } })();
+gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; try{ localStorage.setItem('aimdojo.soundOn', soundOn?'1':'0'); }catch(e){} queueCloudPrefs({sound_on:soundOn}); const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); reconcileTargetSounds(); });
 
 /* ========================= SHARE MODAL ========================= */
 (function(){

@@ -101,6 +101,27 @@ disables personal requests instead of falling through to another host. Set
 a Supabase service-role, secret, or JWT-signing key in this object or any
 browser file.
 
+### Cloud play preferences
+
+When signed in, non-sensitive settings sync to Supabase table `aimdojo_prefs`
+(own-row RLS) and **supersede** `localStorage` on load:
+
+| Column | Meaning |
+|--------|---------|
+| `sky_time` | `theatre` / `natural` |
+| `wasd_hud` | beat circle on/off |
+| `offset_ms` | audio offset |
+| `low_rez` | resolution preference |
+| `display_name` | records name |
+| `dojo_sort` | board sort (`peak_bpm` / `runtime`) |
+| `sky_mode` | `clocked` / `decorative` / `clocked_chart` (reload) |
+| `sound_on` | mute toggle |
+| `wasd_tap_text` | optional timing readout |
+
+Run SQL once: `supabase-prefs.sql`, then `supabase-prefs-v2.sql` for the extra columns.
+Without migration, the client falls back to the original four columns.
+Birth data never enters this table.
+
 In Supabase Auth, enable email magic links and add each exact deployed page
 origin/path (plus local development, for example `http://localhost:8931/`) to
 the allowed redirect URLs. The browser follows the current
