@@ -454,7 +454,7 @@ const CFG = {
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
-  skyListen:{ bodyPx:46, signPx:110, orbPx:64, lineSec:0.45, holdSec:90, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN (SPEC_SKY_LISTEN, clocked_chart+natural only): aim at a celestial body and fire → study card, not a shot. bodyPx/signPx = reticle pick radii (px); orbPx = combat-priority radius (an orb this close always gets the bullet); lineSec = muzzle→body listen-line life; holdSec = card stay time after content is shown (was 12s from click — API lag + reading made it vanish early; now 90s and timer restarts when the final card paints). Esc / new listen still dismiss immediately.
+  skyListen:{ bodyPx:46, signPx:72, orbBlockPad:1.85, orbBlockPx:28, lineSec:0.45, holdSec:90, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: bodyPx/signPx = reticle pick for sky only. Combat ALWAYS wins if an Echo sits on the aim ray (sphere test + projected screen radius + orbBlockPad/Px slack) — never Listen through an orb to a constellation behind it. signPx kept modest so big zodiac hitboxes don't steal shots.
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
@@ -1102,8 +1102,25 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
   _lsnP.copy(worldPos).project(camera);
   return Math.hypot(_lsnP.x*0.5*viewW, _lsnP.y*0.5*viewH);
 }
-function _lsnOrbNear(){ const r=CFG.skyListen.orbPx; for(const tg of targets){ if(tg.dead) continue; if(_lsnScreenPx(tg.mesh.position)<r) return true; } return false; }
-function pickCelestial(){   // priority (§3): transit body within bodyPx of the reticle, else sign sector within signPx; below the horizon = not pickable
+function _lsnOrbBlocksSky(){   // true if ANY live Echo sits between the camera and the sky along the reticle ray — combat must win (no Listen through a sphere to a constellation behind it)
+  // 1) ray–sphere in world space  2) screen-space: reticle inside projected orb disc + pad
+  camera.getWorldDirection(_lsnDir2);
+  const halfFovY=0.5*(camera.fov||95)*Math.PI/180, tanHalf=Math.tan(halfFovY)||0.5;
+  const pad=CFG.skyListen.orbBlockPad||1.85, pxPad=CFG.skyListen.orbBlockPx||28;
+  for(const tg of targets){
+    if(!tg || tg.dead || !tg.mesh) continue;
+    _lsnP.copy(tg.mesh.position).sub(camera.position);
+    const along=_lsnP.dot(_lsnDir2); if(along<=0.05) continue;   // behind / on camera
+    const wr=Math.max(0.25, (tg.radius||0.45)*(tg.sc!=null?tg.sc:1))*pad;
+    const perpSq=_lsnP.lengthSq()-along*along;
+    if(perpSq<=wr*wr) return true;   // aim ray pierces (or skims) the orb volume
+    // projected radius in px at this depth + generous margin (orb origin can be off-reticle while the disc still covers the crosshair)
+    const scrR=(wr/along)/tanHalf*(viewH*0.5)+pxPad;
+    if(_lsnScreenPx(tg.mesh.position)<scrR) return true;
+  }
+  return false;
+}
+function pickCelestial(){   // priority: transit body within bodyPx, else sign within signPx; horizon cull. Caller already ensured no orb blocks.
   const CL=CFG.skyListen; let best=null, bestD=CL.bodyPx;
   for(const id in _lsnMeta.bodies){ const b=_lsnMeta.bodies[id]; if(!b.pos) continue;
     _lsnW.copy(b.pos).applyQuaternion(skySphere.quaternion); if(_lsnW.y<HZ_HI) continue;
@@ -1117,7 +1134,7 @@ function pickCelestial(){   // priority (§3): transit body within bodyPx of the
 }
 function skyListenTry(){   // called from fire(); true = this press was a LISTEN (caller returns, nothing combat happens)
   if(SKY_MODE!=='clocked_chart' || SKY_TIME!=='natural' || !_lsnMeta) return false;   // gates (§2): personal chart under the REAL sky only — theatre/decorative/plain clocked always fight
-  if(_lsnOrbNear()) return false;                                                     // pattern #3: an orb near the reticle always gets the bullet
+  if(_lsnOrbBlocksSky()) return false;   // Echo between you and the sky → always launch a projectile, never a zodiac Listen
   const pick=pickCelestial(); if(!pick) return false;
   startListen(pick); return true;
 }
@@ -2262,7 +2279,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
 function fire(){
   if(!state.running) return;
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
-  if(skyListenTry()) return;   // SKY LISTEN (clocked_chart+natural study, SPEC_SKY_LISTEN): reticle on a celestial body with NO orb in the way → this press is a listen, not a shot. Returns before fire-quant so it neither consumes nor is blocked by the grid; zero shot/streak/clank/whiff side effects. Any orb near the reticle wins → normal combat below.
+  if(skyListenTry()) return;   // SKY LISTEN: only if NO Echo blocks the aim ray (ray–sphere + projected disc). Orb in front of sky → normal projectile. Clear sky hit → listen (no shot side effects).
   if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
