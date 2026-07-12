@@ -435,7 +435,7 @@ const CFG = {
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle (decorative sky)
-  skyTheatreSec:300,                                     // THEATRE spin rate (clocked* with ?theatre=1 / skyTime=theatre — v2.2 opt-in, natural wall-clock pace is the default): seconds per full revolution of the celestial SPHERE — spins orientation, never longitudes (v2.1 G2)
+  skyTheatreSec:300,                                     // THEATRE spin rate (the public default; natural remains saved/URL-selectable): seconds per full revolution of the celestial SPHERE — spins orientation, never longitudes (v2.1 G2)
   chartDottedArcs:false,                                 // legacy v2 key retained inertly; Parcel L removed dome seals/arcs so aspect meaning stays in the Listen HUD
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
@@ -511,7 +511,7 @@ const SKY_MODE=(function(){
   try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return v; }catch(e){}
   return 'clocked';   // public ship: everyone gets the constellation sphere without a birth chart or desk
 })();
-/* SPIN RATE (v2.2 + public settings): natural (default wall-clock) · theatre (accelerated full-sky spin).
+/* SPIN RATE (v2.2 + public settings): theatre (new-visitor default, accelerated full-sky spin) · natural (wall-clock).
    Pause SKY MOTION toggle persists aimdojo.skyTime (live, no reload). URL ?theatre=1 / ?skyTime= still works. */
 const SKY_TIMES=['natural','theatre'];
 let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without reload
@@ -521,7 +521,7 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
   if(!fromUrl){ const t=q.match(/[?&#]theatre=([01])\b/); if(t) fromUrl=(t[1]==='1'?'theatre':'natural'); }
   if(fromUrl){ try{ localStorage.setItem('aimdojo.skyTime', fromUrl); }catch(e){} return fromUrl; }
   try{ const v=localStorage.getItem('aimdojo.skyTime'); if(SKY_TIMES.indexOf(v)>=0) return v; }catch(e){}
-  return 'natural';
+  return 'theatre';
 })();
 function cleanSkyApiBase(value){
   if(typeof value!=='string' || !value.trim()) return '';
@@ -776,9 +776,9 @@ let dayPhase=0.82, skyFrozen=false;                          // dayPhase: 0=sunr
    celestial sphere (sticks + chart + ☉/☽ together, see skySphere below), not just the lighting. Longitudes stay
    epoch-true ON the sphere (Leo never slides away from ☉); the spin only changes which half faces the horizon.
    Lighting reads the transformed ☉'s real elevation, so sky and light can't disagree.
-   TWO RATES (SKY_TIME, v2.2): `natural` (default) — dayPhase IS the civil day fraction, re-read from the wall clock
-   every sky tick: the real sky at real pace, no easing, no integrate. `theatre` (opt-in) — seeded from civil at boot,
-   then integrated at CFG.skyTheatreSec per full turn for on-demand sunsets and the nocturnal chart side.
+   TWO RATES (SKY_TIME, v2.2): `theatre` (new-visitor default) — seeded from civil at boot, then integrated at
+   CFG.skyTheatreSec for a visible full-sky cycle. `natural` — dayPhase IS the civil day fraction, re-read from the wall clock
+   every sky tick: the real sky at real pace, no easing, no integrate. Saved preference and URL selection always win.
    FREEZE (I5): both rates pin dayPhase while frozen; unfreeze in natural snaps to live now ("resume to now"),
    unfreeze in theatre resumes the integrate from the pinned phase. Civil mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. */
 function clockedDayPhase(ms){ const d=new Date(ms); return ((d.getHours()+d.getMinutes()/60+d.getSeconds()/3600)/24 + 0.75) % 1; }
@@ -809,8 +809,8 @@ function updateSky(dt){
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
   if(SKY_MODE==='decorative'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1; }   // right-click freeze: hold the current time-of-day (everything below recomputes from the frozen dayPhase)
-  else if(SKY_TIME==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE (opt-in, v2.2 §5.2): accelerated spin, civil-seeded at boot; freeze pins the integrated phase and resumes from it. Longitudes never ride the spin — only orientation does.
-  else { if(!skyFrozen) dayPhase=clockedDayPhase(Date.now()); }                                            // NATURAL (default, v2.2 §5.1): pure civil fraction, re-read live each tick — no easing, no integrate. Freeze pins; unfreeze snaps to now.
+  else if(SKY_TIME==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE (public default, v2.2 §5.2): accelerated spin, civil-seeded at boot; freeze pins the integrated phase and resumes from it. Longitudes never ride the spin — only orientation does.
+  else { if(!skyFrozen) dayPhase=clockedDayPhase(Date.now()); }                                            // NATURAL (saved/URL-selectable, v2.2 §5.1): pure civil fraction, re-read live each tick — no easing, no integrate. Freeze pins; unfreeze snaps to now.
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // decorative art sphere (stars + discs); in clocked* it only carries the no-fixture fallback stars
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
@@ -865,8 +865,8 @@ let skyT=0;
    Every sky tick the whole sphere is re-oriented: spin axis = local ecliptic pole tipped ecl.tiltDeg from vertical
    toward +Z (so bodies culminate at ~tiltDeg elevation toward the boot view −Z, rise +X / set −X), spun by
    sphereAngle = spinPhase·360° − sunLon  (spec §4.2 sketch, noonAnchor=0 in this frame → the pack ☉ culminates at
-   noon, dayPhase .25). spinPhase = dayPhase (v2.2 SKY_TIME: natural wall-clock pace by default, theatre-accelerated
-   at CFG.skyTheatreSec on opt-in; freeze pins it either way);
+   noon, dayPhase .25). spinPhase = dayPhase (v2.2 SKY_TIME: theatre integrates at CFG.skyTheatreSec by default;
+   natural re-reads wall-clock pace; freeze pins either one);
    sunLon only moves with EPOCH (pack / approx), never with the spin — Leo rides with ☉, nothing slides along the
    zodiac. The HORIZON does the day/night editing: sprites get a CPU elevation test, line/point geometry a GPU
    world-Y fade — the nocturnal half of the chart is genuinely under the floor until the sphere carries it up.
@@ -888,7 +888,7 @@ const SKY_SIGN_GLYPHS={aries:'♈',taurus:'♉',gemini:'♊',cancer:'♋',leo:'�
 function canonicalSkySign(id){ id=String(id==null?'':id).toLowerCase(); return id==='scorpius'?'scorpio':(id==='capricornus'?'capricorn':id); }
 function skyGeometryRank(pack){ return pack&&pack.type==='skyday'?1:(pack&&pack._sample?0:2); }   // Meeus/fallback < synthetic sample < public day < real personal
 let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, _publicSkyPack=null, atmosAmt=0, _sunLonRad=0;
-let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyGlossary=null, _skyGlossaryReady=false;
+let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyDayAnnounced=false, _skyGlossary=null, _skyGlossaryReady=false;
 const _chartSignSprite=Object.create(null), _chartMoverSprite=Object.create(null);
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
 const SPH_TILT=SKY_CHART.ecl.tiltDeg*Math.PI/180;
@@ -1082,6 +1082,13 @@ function skydayValid(p){
   return SKY_SIGN_IDS.every(id=>signs[id])&&SKY_BODY_IDS.every(id=>bodies[id]);
 }
 function deviceSkyTimezone(){ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(e){ return 'UTC'; } }
+function announceSkyDay(pack){
+  if(_skyDayAnnounced) return;
+  _skyDayAnnounced=true;
+  const count=Array.isArray(pack&&pack.movers)?pack.movers.length:0, raw=pack&&typeof pack.cache_date==='string'?pack.cache_date:''; let stamp='';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) try{ stamp=new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',timeZone:'UTC'}).format(new Date(raw+'T12:00:00Z')).toUpperCase(); }catch(e){}
+  showGhostToast('SKY · '+(stamp?stamp+' · ':'')+count+' '+(count===1?'BODY':'BODIES'));
+}
 async function loadSkyDay(){
   if(SKY_MODE==='decorative') return null;
   const C=CFG.skyDay, ctl=(typeof AbortController!=='undefined')?new AbortController():null;
@@ -1202,7 +1209,7 @@ function pickCelestial(){   // priority: transit body within bodyPx, else sign w
   return best;
 }
 function skyListenTry(){   // called from fire(); true = this press was a LISTEN (caller returns, nothing combat happens)
-  if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta || !(_skyGlossaryReady||_publicSkyReady||_lsnNatalId())) return false;   // public definitions work in natural + theatre; geometry-only Listen remains available when day/personal data exists
+  if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta) return false;   // natural + theatre; even missing glossary/day assets may fall through to honest stick/Meeus geometry copy
   if(_lsnOrbBlocksSky()) return false;   // Echo between you and the sky → always launch a projectile, never a zodiac Listen
   const pick=pickCelestial(); if(!pick) return false;
   startListen(pick); return true;
@@ -1327,7 +1334,7 @@ function showListenCard(pick, data, skeleton){
   // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
   const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
   // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
-  const placeMax=hasPersonal?420:900;
+  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_lsnNatalId()&&!hasPersonal);
   if(skeleton){
     _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR);
     _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
@@ -1353,7 +1360,7 @@ function showListenCard(pick, data, skeleton){
     }
   }
   // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
-  _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR+'margin-top:6px;');
+  _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
   _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
                                     : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
   if(A && (A.title||A.text)){
@@ -1364,25 +1371,28 @@ function showListenCard(pick, data, skeleton){
     for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
     for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
     if(now.length) _lsnLine(card, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
-    if(natal.length) _lsnLine(card, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
+    if(_lsnNatalId()&&natal.length) _lsnLine(card, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
   }
+  if(deskFailed) _lsnLine(card, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
   _lsnLine(card, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
 }
-function fetchListen(pick,fallback){   // personal deep-desk only: static glossary already painted; timeout/offline leaves it untouched
+function fetchListen(pick,fallback){   // personal deep-desk only: static glossary paints first; timeout/offline adds one quiet natal-only fallback line
   const nid=_lsnNatalId(); if(!nid) return; const CL=CFG.skyListen, seq=++_lsn.seq, tz=deviceSkyTimezone(), natal='&natal_id='+encodeURIComponent(nid);
   const q=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
                               : 'kind=sign&sign='+encodeURIComponent(pick.id))+natal;
   const key=q+'|'+Math.floor(Date.now()/600000);   // 10-min epoch bucket
   if(_lsn.cache.has(key)){ if(_lsn.sel===pick) showListenCard(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
   const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+  const failed=()=>{ if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,Object.assign({},fallback||{},{_deskFailed:true}),false); };
   const to=setTimeout(()=>{ if(ctl) ctl.abort(); }, CL.apiMs);
   fetch(CL.api+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz), ctl?{signal:ctl.signal}:{})
     .then(r=>r.ok?r.json():null)
     .then(j=>{ clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
       const personal=ok&&ok.personal&&(ok.personal.available||ok.personal.title||ok.personal.text||(Array.isArray(ok.personal.highlights)&&ok.personal.highlights.length));
       if(ok&&personal){ _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
-        if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,mergePersonalListen(ok,fallback),false); } })
-    .catch(()=>{ clearTimeout(to); });
+        if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,mergePersonalListen(ok,fallback),false); }
+      else failed(); })
+    .catch(()=>{ clearTimeout(to); failed(); });
 }
 function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is fading or a selection is held
   const CL=CFG.skyListen;
@@ -3778,7 +3788,7 @@ else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick fig
   if(!stickGroup){ buildStars(); updateStars(skyT); }   // ANY miss — absent, invalid, or throwing fixture — degrades to the decorative stars, never an empty night
 }); },120,1500);
 if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyGlossary(); },140,1600);   // definitions are a static asset and never wait on either sky server
-if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers); failure leaves Meeus ☉/☽ + sticks + glossary untouched
+if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; announceSkyDay(p); }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers) and announced once per tab; failure leaves Meeus ☉/☽ + sticks + glossary untouched
 runIdle(()=>{ try{ renderer.compile(scene, camera); }catch(e){} },900,4000);   // pre-warm every scene material's shader (beat rings, grid variants, floor) during boot idle — no first-use compile can hitch a run's opening beats
 if(SKY_MODE==='clocked_chart') runIdle(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; missing/invalid pack degrades to plain clocked with one quiet toast
   if(!p){ showGhostToast('🌌 '+T('skyNoChart','SKY · CLOCKED — NO CHART')); return; }

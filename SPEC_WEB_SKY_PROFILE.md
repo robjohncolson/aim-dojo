@@ -2,7 +2,8 @@
 
 **Status:** approved direction (2026-07-12), **not fully implemented**  
 **Ship now (public game):** guest **clocked** sky + theatre setting — no birth chart, no ephemeris server required  
-**Next backend slice:** **`SPEC_PUBLIC_SKY_DAY.md`** — Railway `/api/sky-day` (public positions, day cache) + in-game glossary  
+**Shipped backend slice:** **`SPEC_PUBLIC_SKY_DAY.md`** — Railway `/api/sky-day` + glossary  
+**Next public UX:** **`SPEC_PUBLIC_SKY_POLISH.md`** — theatre default + guest Listen polish  
 **Later:** Supabase optional “Save my sky” (personal chart); owner may keep deep transits local  
 
 **Canonical path:** `aim-dojo/SPEC_WEB_SKY_PROFILE.md`  
