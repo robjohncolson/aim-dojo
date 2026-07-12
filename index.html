@@ -42,7 +42,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #reticle .x{position:absolute;left:50%;top:50%;width:24px;height:2px;border-radius:1px;background:var(--blood);box-shadow:0 0 6px var(--blood);display:none}   /* wrong-WASD-key feedback: a red X over the + crosshair (= asterisk), held until the note advances */
 #reticle .x1{transform:translate(-50%,-50%) rotate(45deg)} #reticle .x2{transform:translate(-50%,-50%) rotate(-45deg)}
 #reticle.spoil .x{display:block}
-#ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
+#ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:25;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
 #ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
 @keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
 #hitFlash{position:fixed;left:50%;top:57%;transform:translateX(-50%);z-index:6;pointer-events:none;font:13px var(--mono);letter-spacing:.08em;color:rgba(255,214,120,.96);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}   /* flashes the just-hit target's distance + height */
@@ -220,6 +220,33 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 .share-url input:focus{outline:2px solid var(--rail);outline-offset:1px}
 .share-url .ghost{flex:0 0 auto;padding:11px 16px}
 .copy-msg{font-size:11px;letter-spacing:.18em;color:var(--toxic);height:15px;margin-top:9px}
+
+/* ---- optional Save my sky (pause settings only) ---- */
+#settingsBox{max-width:430px!important}
+.sky-save{margin:12px 0 2px;border-top:1px solid var(--panel-edge);padding-top:10px;text-align:left}
+.sky-save summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;color:var(--rail);letter-spacing:.16em;list-style:none;padding:4px 0;user-select:none}
+.sky-save summary::-webkit-details-marker{display:none}
+.sky-save summary::after{content:'+';color:var(--bone-dim);font-size:15px;line-height:1}
+.sky-save[open] summary::after{content:'−'}
+.sky-save-help,.sky-save-note,.sky-save-status{margin:5px 0;color:var(--bone-dim);font-size:10.5px;line-height:1.45;letter-spacing:.02em}
+.sky-save-note{opacity:.78}
+.sky-save-status{min-height:15px;color:var(--rail)}
+.sky-save-account{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;color:var(--bone-dim);font-size:10px}
+.sky-save-account span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--bone)}
+.sky-save-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.sky-save-field{display:flex;flex-direction:column;gap:3px;min-width:0;color:var(--bone-dim);font-size:9.5px;letter-spacing:.1em}
+.sky-save-field.wide{grid-column:1/-1}
+.sky-save input{width:100%;min-width:0;border:1px solid var(--panel-edge);background:#0d110f;color:var(--bone);font:11px var(--mono);padding:7px 8px;border-radius:0}
+.sky-save input:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
+.sky-save input:disabled{opacity:.45}
+.sky-save-check{display:flex;align-items:center;gap:7px;margin:8px 0 2px;color:var(--bone-dim);font-size:10.5px;cursor:pointer}
+.sky-save-check input{width:auto;margin:0;accent-color:var(--rail)}
+.sky-save-actions{display:flex;gap:7px;margin-top:9px}
+.sky-save .ghost{padding:8px 9px;font-size:10px;letter-spacing:.1em}
+.sky-save button:disabled,.sky-save input:disabled{cursor:not-allowed}
+.sky-save button:disabled{opacity:.4}
+.sky-save[aria-busy=true] button{opacity:.55;pointer-events:none}
+@media (max-width:520px){.sky-save-grid{grid-template-columns:1fr}.sky-save-field.wide{grid-column:auto}.sky-save-actions{flex-wrap:wrap}.sky-save-actions .ghost{min-width:42%}}
 </style>
 </head>
 <body>
@@ -281,6 +308,35 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
       <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span id="offsetLabel" style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
       <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
       <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:14px"></div>
+      <details id="saveSkyDetails" class="sky-save">
+        <summary><span id="saveSkyTitle">SAVE MY SKY</span></summary>
+        <p class="sky-save-help" id="saveSkyHelp">Optional · play works without it. Email a private sky link, then open it in this browser to save one chart.</p>
+        <form id="saveSkyAuthView" autocomplete="off">
+          <label class="sky-save-field" for="saveSkyEmail"><span id="saveSkyEmailLabel">EMAIL</span>
+            <input id="saveSkyEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="saveSkyHelp saveSkyStatus" required>
+          </label>
+          <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkyLink"><span id="saveSkyLinkLabel">EMAIL SKY LINK</span></button></div>
+        </form>
+        <div id="saveSkyProfileView" hidden>
+          <div class="sky-save-account"><span id="saveSkyAccount"></span><button type="button" class="ghost" id="saveSkySignOut"><span id="saveSkySignOutLabel">SIGN OUT</span></button></div>
+          <form id="saveSkyForm" aria-describedby="saveSkyEpistemic saveSkyStatus" autocomplete="off">
+            <div class="sky-save-grid">
+              <label class="sky-save-field" for="saveSkyDate"><span id="saveSkyDateLabel">BIRTH DATE</span><input id="saveSkyDate" type="date" required></label>
+              <label class="sky-save-field" for="saveSkyTime"><span id="saveSkyTimeLabel">BIRTH TIME</span><input id="saveSkyTime" type="time" required></label>
+            </div>
+            <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
+            <div class="sky-save-grid">
+              <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span><input id="saveSkyTz" type="text" maxlength="100" placeholder="America/New_York" autocomplete="off" required></label>
+              <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country" autocomplete="off"></label>
+              <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="40.7128"></label>
+              <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="-74.0060"></label>
+            </div>
+            <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button><button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button></div>
+          </form>
+        </div>
+        <p class="sky-save-note" id="saveSkyEpistemic">Symbolic study, not predictions. Birth details stay in your private profile and never enter records.</p>
+        <div class="sky-save-status" id="saveSkyStatus" role="status" aria-live="polite"></div>
+      </details>
     </div>
 
     <!-- Always enter through Moonline training (no skip-to-full gate). Hidden on RESUME. -->
@@ -334,6 +390,11 @@ window.JA={
   modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
+  saveSkyTitle:'わたしの空を保存', saveSkyHelp:'任意 · 保存しなくても遊べる。私用リンクをメールで受け取り、このブラウザで開いて1つのチャートを保存。',
+  saveSkyEmail:'メール', saveSkyLink:'空のリンクをメール', saveSkySignOut:'サインアウト',
+  saveSkyDate:'生年月日', saveSkyTime:'出生時刻', saveSkyUnknown:'時刻不明', saveSkyTz:'タイムゾーン',
+  saveSkyPlace:'場所', saveSkyLat:'緯度', saveSkyLon:'経度', saveSkySubmit:'チャートを保存', saveSkyClear:'チャートを消去',
+  saveSkyEpistemic:'象徴を学ぶためのメモで、予言ではない。出生情報は私用プロフィールにだけ保存され、きろくには入らない。',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
   shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
@@ -359,6 +420,14 @@ window.JA={
   pauseFullEyebrow:'夜は待っている', pauseTrainEyebrow:'月の糸 · ステップ{n}', pauseFullTitleHtml:'きき手の<span class="acc">きろく</span>', pauseTrainTitleHtml:'つづけて<span class="acc">きこう</span>',
   pauseFullLede:'<b>{song}</b> · {time} · さいこう <b>{bpm}</b> bpm', pauseTrainSteps:'けいこ · {time} · 踏めた <b>{n}/{N}</b>', pauseTrainVoices:'けいこ · {time} · 声 <b>{n}</b>',
   chipTime:'夜にいた時間', chipFinal:'さいごのBPM', chipPeak:'さいこうのBPM',
+  saveSkyBothCoords:'緯度と経度を両方入れてね', saveSkySignedIn:'サインイン中', saveSkyLinked:'空をつないだ', saveSkySaved:'チャートを保存した',
+  saveSkyNoChart:'サインイン中 · チャートなし', saveSkySavedLinked:'チャート保存 · 空をつないだ', saveSkySavedUnavailable:'チャート保存 · 私用の空に届かない',
+  saveSkyCheckFields:'日付・時刻・タイムゾーン・場所を確認', saveSkyExpired:'空のリンクが期限切れ · もう一度サインイン', saveSkyLinkFailed:'空のリンクを送れなかった',
+  saveSkyClearFailed:'チャートを消せなかった', saveSkyUnavailable:'私用の空に届かない', saveSkyChecking:'保存した空を確認中…', saveSkyNotConfigured:'わたしの空はまだ設定されていない',
+  saveSkyNeedsWeb:'わたしの空は HTTP(S) が必要 · 遊ぶことはできる', saveSkyAuthUnavailable:'空のリンクに届かない · 遊ぶことはできる', saveSkyAuthLoading:'空のリンクを準備中…',
+  saveSkySending:'私用の空リンクを送信中…', saveSkyCheckEmail:'メールを確認 · このブラウザで開いてね · 遊ぶことはできる', saveSkySaving:'チャートを保存中…', saveSkyClearing:'チャートを消去中…',
+  saveSkyCleared:'チャートを消去した', saveSkySigningOut:'サインアウト中…', saveSkySignOutFailed:'サインアウトできなかった',
+  saveSkyDecorative:'チャート保存 · デコレーションの空を使用中',
   copyOk:'コピーした', copyManual:'{keys} でコピーしてね', qrAlt:'{url} のQRコード'
 };
 (function(){
@@ -374,6 +443,8 @@ window.JA={
       txt('phonesText','phones'); txt('mouseDesc','mouseDesc'); txt('wasdDesc','wasdDesc'); txt('clickDesc','clickDesc'); txt('escDesc','escDesc');
       txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
+      txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
+      txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
       txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
     }
     var touch=((navigator.maxTouchPoints||0)>0||('ontouchstart' in window))&&window.matchMedia('(pointer: coarse)').matches;
@@ -388,6 +459,7 @@ window.JA={
 })();
 </script>
 
+<script src="save-my-sky.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
@@ -420,6 +492,12 @@ function loadToneOnce(){
 }
 
 /* ========================= TUNABLES ========================= */
+/* Deployment-only Save my sky overrides. Keep this object out of URLs/localStorage: its
+   personalApi receives Supabase Bearer tokens. The checked-in values are public client
+   credentials (anon key), never a service-role/server secret. */
+const SIDEREAL_RUNTIME=(window.__SIDEREAL__ && typeof window.__SIDEREAL__==='object') ? window.__SIDEREAL__ : {};
+const DEFAULT_SKY_SUPABASE_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
+const DEFAULT_SKY_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
 const CFG = {
   // rhythm tempo
   startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // START at the floor 20bpm: the groove is heavy multitasking (lead + off-beat tap + read the field) so it must ramp from dead-slow; diffT speeds it up as you improve
@@ -455,7 +533,11 @@ const CFG = {
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:72, orbBlockPad:1.85, orbBlockPx:28, lineSec:0.45, holdSec:90, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: bodyPx/signPx = reticle pick for sky only. Combat ALWAYS wins if an Echo sits on the aim ray (sphere test + projected screen radius + orbBlockPad/Px slack) — never Listen through an orb to a constellation behind it. signPx kept modest so big zodiac hitboxes don't steal shots.
-  skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi). Personal natal Listen stays on skyListen.api (localhost desk).
+  skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
+  saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
+  supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
+  supabaseAnonKey:(typeof SIDEREAL_RUNTIME.supabaseAnonKey==='string'&&SIDEREAL_RUNTIME.supabaseAnonKey)||DEFAULT_SKY_SUPABASE_ANON_KEY,
+  personalApi:(typeof SIDEREAL_RUNTIME.personalApi==='string'&&SIDEREAL_RUNTIME.personalApi)||'',   // trusted deployment config only; never ?skyApi/localStorage
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
@@ -527,6 +609,14 @@ function cleanSkyApiBase(value){
   if(typeof value!=='string' || !value.trim()) return '';
   try{ const u=new URL(value.trim()); if((u.protocol!=='http:'&&u.protocol!=='https:') || u.username || u.password) return ''; u.search=''; u.hash=''; return u.toString().replace(/\/+$/,''); }catch(e){ return ''; }
 }
+/* SECURITY: this base may receive a user JWT and raw birth fields. It is derived only
+   from checked-in/deployment config — never the public ?skyApi/localStorage override. */
+function cleanPrivateApiBase(value){ try{ return window.AimDojoSaveMySky?window.AimDojoSaveMySky.cleanApiBase(value):''; }catch(e){ return ''; } }
+function selectConfiguredPersonalApiBase(){
+  try{ return window.AimDojoSaveMySky?window.AimDojoSaveMySky.selectPersonalApiBase(CFG.personalApi,CFG.skyDay.api):''; }catch(e){ return ''; }
+}
+const PERSONAL_API_BASE=selectConfiguredPersonalApiBase();   // a nonblank invalid personalApi fails closed; it never silently falls through to another token recipient
+const SUPABASE_AUTH_URL=cleanPrivateApiBase(CFG.supabaseUrl);
 const SKY_DAY_API_BASE=(function(){   // valued URL override is PUBLIC sky-day only; never redirects natal data away from the explicitly local skyListen.api
   const q=location.search+location.hash, m=q.match(/[?&#]skyApi=([^&#]+)/i); let fromUrl='';
   if(m){ try{ fromUrl=cleanSkyApiBase(decodeURIComponent(m[1])); }catch(e){ fromUrl=''; }
@@ -886,8 +976,9 @@ const SKY_SIGN_IDS=['aries','taurus','gemini','cancer','leo','virgo','libra','sc
 const SKY_BODY_SET=Object.fromEntries(SKY_BODY_IDS.map(id=>[id,true])), SKY_SIGN_SET=Object.fromEntries(SKY_SIGN_IDS.map(id=>[id,true]));
 const SKY_SIGN_GLYPHS={aries:'♈',taurus:'♉',gemini:'♊',cancer:'♋',leo:'♌',virgo:'♍',libra:'♎',scorpio:'♏',ophiuchus:'⛎',sagittarius:'♐',capricorn:'♑',aquarius:'♒',pisces:'♓'};
 function canonicalSkySign(id){ id=String(id==null?'':id).toLowerCase(); return id==='scorpius'?'scorpio':(id==='capricornus'?'capricorn':id); }
-function skyGeometryRank(pack){ return pack&&pack.type==='skyday'?1:(pack&&pack._sample?0:2); }   // Meeus/fallback < synthetic sample < public day < real personal
+function skyGeometryRank(pack){ return pack&&pack.type==='skyday'?1:(pack&&pack._sample?0:2); }   // Meeus/fallback < synthetic sample < public day < legacy personal; authenticated personal is applied explicitly at rank 3
 let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, _publicSkyPack=null, atmosAmt=0, _sunLonRad=0;
+let _remotePersonalSky=false, _personalListenExpected=false, _skyAuthSession=null;   // authenticated Save my sky state; separate from legacy local natal_id packs
 let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyDayAnnounced=false, _skyGlossary=null, _skyGlossaryReady=false;
 const _chartSignSprite=Object.create(null), _chartMoverSprite=Object.create(null);
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
@@ -946,6 +1037,7 @@ function buildChartSky(pack,rank){
   rank=(rank==null?skyGeometryRank(pack):rank); if(!pack || rank<_chartPackRank || rank<_chartQueuedRank) return false;
   if(_lsn && _lsn.sel) clearListen(true);   // metadata is replaced atomically below; never leave a selection pointing at the previous epoch
   if(!chartSkyGroup){ chartSkyGroup=new THREE.Group(); skySphere.add(chartSkyGroup); }   // persistent group: public day sprites are updated in place when a real personal pack wins later
+  chartSkyGroup.visible=true;
   const C=SKY_CHART, R=C.R, personal=rank>=2, packSigns=[];
   for(const raw of (pack.sign_band||[]).slice(0,C.caps.sign)){   // 13 readable sign glyphs (incl. ⛎); cheap enough to retain in LOW
     if(!raw || raw.id==null) continue;
@@ -1046,6 +1138,25 @@ function queueSkyGeometry(pack,rank,onBuilt){
 function skypackValid(p){ return !!p && (p.schema_version===1||p.schema_version===2) && p.type==='skypack'
   && (p.projection==='ecliptic_dome_v1'||p.projection==='ecliptic_band_v2')   // v2 packs are additive over v1 — projection id remains input compatibility, not a visible rail
   && [p.sign_band,p.movers,p.natal_ghosts,p.resonances,p.same_body_delta,p.resonance_rank].every(a=>a==null||Array.isArray(a)); }
+function linkRemotePersonalSky(pack){
+  if(SKY_MODE==='decorative') return false;   // explicit legacy art mode stays isolated; a later clocked load will restore this saved pack
+  if(!skypackValid(pack) || pack.privacy!=='user_private' || typeof pack.natal_id!=='string' || !pack.natal_id) return false;
+  const ok=queueSkyGeometry(pack,3); if(ok){ _remotePersonalSky=true; _personalListenExpected=true; if(_lsn&&_lsn.cache) _lsn.cache.clear(); }   // rank 3: authenticated profile wins a late legacy local/drop-in rank-2 pack
+  return ok;
+}
+function downgradePersonalSky(){   // authenticated profile authority: no stale remote OR legacy personal pack after no-chart/DELETE/sign-out
+  cancelSkyLinkedToast();
+  try{ clearListen(true); }catch(e){}
+  _remotePersonalSky=false; _skypack=null;
+  if(_lsn&&_lsn.cache) _lsn.cache.clear();
+  if(chartSkyGroup) chartSkyGroup.visible=false;   // luminaries/sticks are separate children and remain available offline
+  _chartPackRank=-1; _chartQueuedRank=-1; _lumPackRank=0;
+  const now=approxLuminaryLons();
+  if(_lum) retuneLuminaries({movers:[{id:'sun',lon_j2000:now.sun},{id:'moon',lon_j2000:now.moon}]},0);
+  _lsnMeta=null;
+  if(_publicSkyPack && skydayValid(_publicSkyPack)) queueSkyGeometry(_publicSkyPack,1);
+  else refreshPublicListenMeta();
+}
 async function loadSkypack(allowSample){   // B3. Personal channels first: ?skypack= URL → skypack.json drop-in → localhost API (EXPLICIT ?skyApi opt-in — never a silent localhost dependency). A REQUESTED personal source that fails is NEVER papered over with the sample pack — it degrades to plain clocked + one toast. The in-repo synthetic sample only serves packless visitors, and announces itself. allowSample:false (clocked luminary retune) skips the sample entirely — approx-now lons are more honest than a synthetic chart.
   const q=location.search+location.hash;
   if(location.protocol==='file:') try{ console.log('skypack: file:// blocks fetch of local packs — serve over http(s), or pass ?skypack= with a CORS-enabled https URL'); }catch(e){}
@@ -1154,8 +1265,8 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
 
 /* ========================= SKY LISTEN (Parcels K + N — study, not combat) =========================
    In clocked or clocked_chart, natural or theatre: a clear celestial pick becomes LISTEN — a brief muzzle line,
-   gold constellation/existing glyph, and an immediate static glossary card. A real local natal pack may enrich it
-   from the explicitly local "deep desk" (:8742). A listen NEVER spawns a projectile and NEVER touches shots,
+   gold constellation/existing glyph, and an immediate static glossary card. A saved authenticated chart may enrich it
+   from Railway; legacy natal-id packs keep the explicitly local "deep desk" (:8742). A listen NEVER spawns a projectile and NEVER touches shots,
    streak, clank, whiff or the fire grid — the single integration point is one early-return in fire().
    Dismiss: new listen · holdSec after the FINAL card paints (not from the fire click). Esc is PAUSE only — never steals the card. All copy is symbolic study language, never fate. */
 let _stickFig=null, _lsnMeta=null;            // fallback centroids + ☉/☽ first; exact day/personal pack metadata atomically replaces them
@@ -1232,7 +1343,7 @@ function startListen(pick){
   emphasizeListenGlyphs(pick);
   if(pick.kind==='body') showListenGhost(pick);   // one faint natal memory mark, created lazily and never added to the pick maps
   const fallback=glossaryListenData(pick); showListenCard(pick,fallback,false);   // definitions are static: never make a public player wait on localhost/Railway
-  if(_lsnNatalId()) fetchListen(pick,fallback);   // personal enrichment is local-only and optional
+  if(_personalListenExpected || _lsnNatalId()) fetchListen(pick,fallback);   // authenticated Railway profile or backward-compatible local desk
 }
 function clearListen(hideCard){
   _lsn.sel=null; _lsn.holdT=-1; _lsn.seq++;
@@ -1303,6 +1414,7 @@ function _lsnNatalId(){   // pack natal_id for personal transit block — meta f
   if(_skypack && typeof _skypack.natal_id==='string' && _skypack.natal_id) return _skypack.natal_id;
   return null;
 }
+function _listenPersonalExpected(){ return !!(_personalListenExpected || _lsnNatalId()); }
 function glossaryListenData(pick){
   const G=_skyGlossary; if(!G||!pick) return null; const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign);
   const S=SKY_SIGN_SET[signId]?G.signs[signId]:null;
@@ -1334,7 +1446,7 @@ function showListenCard(pick, data, skeleton){
   // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
   const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
   // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
-  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_lsnNatalId()&&!hasPersonal);
+  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
   if(skeleton){
     _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR);
     _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
@@ -1376,23 +1488,32 @@ function showListenCard(pick, data, skeleton){
   if(deskFailed) _lsnLine(card, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
   _lsnLine(card, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
 }
-function fetchListen(pick,fallback){   // personal deep-desk only: static glossary paints first; timeout/offline adds one quiet natal-only fallback line
-  const nid=_lsnNatalId(); if(!nid) return; const CL=CFG.skyListen, seq=++_lsn.seq, tz=deviceSkyTimezone(), natal='&natal_id='+encodeURIComponent(nid);
-  const q=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
-                              : 'kind=sign&sign='+encodeURIComponent(pick.id))+natal;
-  const key=q+'|'+Math.floor(Date.now()/600000);   // 10-min epoch bucket
+function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
+  const CL=CFG.skyListen, seq=++_lsn.seq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
+  if(!authMode&&!nid) return;
+  const core=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
+                                  : 'kind=sign&sign='+encodeURIComponent(pick.id));
+  const userKey=authMode&&_skyAuthSession&&_skyAuthSession.user ? String(_skyAuthSession.user.id||'user') : String(nid||'none');
+  const q=core+(authMode?'':('&natal_id='+encodeURIComponent(nid)));
+  const key=(authMode?'auth:':'desk:')+userKey+'|'+q+'|'+Math.floor(Date.now()/600000);   // identity + 10-min epoch bucket
   if(_lsn.cache.has(key)){ if(_lsn.sel===pick) showListenCard(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
-  const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
   const failed=()=>{ if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,Object.assign({},fallback||{},{_deskFailed:true}),false); };
-  const to=setTimeout(()=>{ if(ctl) ctl.abort(); }, CL.apiMs);
-  fetch(CL.api+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz), ctl?{signal:ctl.signal}:{})
-    .then(r=>r.ok?r.json():null)
-    .then(j=>{ clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
+  let to=null, request;
+  if(authMode){
+    const personal=ensureSkyProfileController();
+    if(!personal||!personal.state.authenticated){ failed(); return; }   // never leak a remote pack's user id into the legacy localhost natal_id channel
+    request=personal.getListen({kind:pick.kind,body:pick.kind==='body'?pick.id:'',sign:pick.kind==='sign'?pick.id:(pick.meta&&pick.meta.sign)||'',tz:tz});
+  }else{
+    const ctl=(typeof AbortController!=='undefined')?new AbortController():null; to=setTimeout(()=>{ if(ctl) ctl.abort(); },CL.apiMs);
+    request=fetch(CL.api.replace(/\/+$/,'')+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz),ctl?{signal:ctl.signal}:{}).then(r=>r.ok?r.json():null);
+  }
+  Promise.resolve(request)
+    .then(j=>{ if(to) clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
       const personal=ok&&ok.personal&&(ok.personal.available||ok.personal.title||ok.personal.text||(Array.isArray(ok.personal.highlights)&&ok.personal.highlights.length));
       if(ok&&personal){ _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
         if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,mergePersonalListen(ok,fallback),false); }
       else failed(); })
-    .catch(()=>{ clearTimeout(to); failed(); });
+    .catch(()=>{ if(to) clearTimeout(to); failed(); });
 }
 function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is fading or a selection is held
   const CL=CFG.skyListen;
@@ -2387,7 +2508,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   }
   else { _spoilNote=ci; _spoilOff=beats-ci/nd; if(main) _baseMul=1; _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil: grey the letter + FREEZE the circle until the next beat, break the combo
 }
-document.addEventListener('keydown', e=>{ if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; e.key refreshes the displayed local keycap on browsers without getLayoutMap()
+document.addEventListener('keydown', e=>{ const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane
 
 /* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire, START = begin/pause/resume (face-bottom also begins at the card). Subtle rumble on hit. ===== */
 let _gpIndex=null, _gpPrev={};
@@ -2395,8 +2516,8 @@ window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPr
 window.addEventListener('gamepaddisconnected', e=>{ if(_gpIndex===e.gamepad.index){ _gpIndex=null; _gpPrev={}; } });
 function _gpAxis(v){ const dz=CFG.padDeadzone; if(Math.abs(v)<dz) return 0; const n=(v-Math.sign(v)*dz)/(1-dz); return Math.sign(n)*Math.pow(Math.abs(n), CFG.padExpo); }   // deadzone + expo response
 function padBeginBlocked(){   // a pad BEGIN/RESUME must not yank the player out of the record-name input, or start a run behind the open share modal (it sits above the card, so a mouse never could). Checked at press time AND in startRun's deferred resume path.
-  const ae=document.activeElement, s=gid('shareOverlay');
-  return (!!ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) || (!!s && !s.classList.contains('hidden'));
+  const ae=document.activeElement, s=gid('shareOverlay'), sky=gid('saveSkyDetails');
+  return (!!ae && (ae.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) || (!!sky&&sky.open) || (!!s && !s.classList.contains('hidden'));
 }
 function padRumble(ms, mag){   // felt-not-seen hit feedback (mirrors the iso game's haptics). No-op without a pad or actuator support.
   if(!CFG.padRumble || _gpIndex===null || !navigator.getGamepads) return;
@@ -3410,6 +3531,165 @@ if(calibBtn) calibBtn.addEventListener('click', ()=>{
   if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
   _tapOffSum=0; _tapOffN=0;
 });
+
+/* ===== SAVE MY SKY: optional magic-link auth + one private Railway natal profile =====
+   This surface is pause-only and never participates in PLAY, training, score, realtime, or board data. */
+const skySave={
+  details:gid('saveSkyDetails'), authView:gid('saveSkyAuthView'), profileView:gid('saveSkyProfileView'), status:gid('saveSkyStatus'),
+  email:gid('saveSkyEmail'), link:gid('saveSkyLink'), account:gid('saveSkyAccount'), signOut:gid('saveSkySignOut'), form:gid('saveSkyForm'),
+  date:gid('saveSkyDate'), time:gid('saveSkyTime'), unknown:gid('saveSkyUnknown'), tz:gid('saveSkyTz'), place:gid('saveSkyPlace'),
+  lat:gid('saveSkyLat'), lon:gid('saveSkyLon'), clear:gid('saveSkyClear')
+};
+let _skyAuthClient=null, _skyProfileController=null, _skyAuthUser='', _skyProfileUser='', _skyUiSeq=0, _skyAuthEventSeq=0, _skyUiBusy=false, _skyFormDirty=false, _skyLinkedToastTimer=null;
+function cancelSkyLinkedToast(){ if(_skyLinkedToastTimer!=null){ clearTimeout(_skyLinkedToastTimer); _skyLinkedToastTimer=null; } }
+function skySetStatus(text,busy){
+  _skyUiBusy=!!busy; if(skySave.status) skySave.status.textContent=text||'';
+  if(skySave.details){
+    skySave.details.setAttribute('aria-busy',busy?'true':'false');
+    skySave.details.querySelectorAll('button,input').forEach(control=>{ control.disabled=!!busy; });
+    if(!busy){ skySyncTimeUnknown(); if(skySave.clear) skySave.clear.disabled=!_personalListenExpected; }
+  }
+}
+function skyDefaultTz(){ return deviceSkyTimezone(); }
+function skySyncTimeUnknown(){ if(!skySave.time||!skySave.unknown) return; skySave.time.disabled=skySave.unknown.checked; skySave.time.required=!skySave.unknown.checked; }
+function skySyncCoordinatePair(){
+  if(!skySave.lat||!skySave.lon) return; const any=skySave.lat.value.trim()!==''||skySave.lon.value.trim()!=='';
+  skySave.lat.required=any; skySave.lon.required=any; skySave.lat.setCustomValidity(''); skySave.lon.setCustomValidity('');
+  if(any&&skySave.lat.value.trim()==='') skySave.lat.setCustomValidity(T('saveSkyBothCoords','Add both latitude and longitude'));
+  if(any&&skySave.lon.value.trim()==='') skySave.lon.setCustomValidity(T('saveSkyBothCoords','Add both latitude and longitude'));
+}
+function skyClearForm(){
+  if(!skySave.form) return; skySave.form.reset(); _skyFormDirty=false; if(skySave.tz) skySave.tz.value=skyDefaultTz(); skySyncTimeUnknown(); skySyncCoordinatePair();
+}
+function skyFillForm(profile,force){
+  if(!profile||!skySave.form||(_skyFormDirty&&!force)) return;
+  skySave.date.value=typeof profile.birth_date==='string'?profile.birth_date:'';
+  skySave.time.value=typeof profile.birth_time==='string'?profile.birth_time.slice(0,5):'';
+  skySave.unknown.checked=profile.time_unknown===true;
+  skySave.tz.value=typeof profile.tz==='string'&&profile.tz?profile.tz:skyDefaultTz();
+  skySave.place.value=typeof profile.place_label==='string'?profile.place_label:'';
+  skySave.lat.value=profile.lat==null?'':String(profile.lat); skySave.lon.value=profile.lon==null?'':String(profile.lon);
+  _skyFormDirty=false; skySyncTimeUnknown(); skySyncCoordinatePair();
+}
+function skyRenderAccount(keepStatus){
+  if(!skySave.details) return;
+  const signedIn=!!(_skyAuthSession&&_skyAuthSession.access_token);
+  if(skySave.authView) skySave.authView.hidden=signedIn;
+  if(skySave.profileView) skySave.profileView.hidden=!signedIn;
+  if(skySave.account){ const u=_skyAuthSession&&_skyAuthSession.user; skySave.account.textContent=(u&&typeof u.email==='string'&&u.email)||T('saveSkySignedIn','SIGNED IN'); }
+  if(skySave.clear) skySave.clear.disabled=!_personalListenExpected;
+  if(!keepStatus&&!_skyUiBusy){
+    const state=_skyProfileController&&_skyProfileController.state;
+    skySetStatus(!signedIn?'':(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):_personalListenExpected?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySaved','CHART SAVED')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED')),false);
+  }
+}
+function skySoftFailure(error,action){
+  const code=error&&error.code, status=error&&error.status;
+  if(code==='validation'||status===400||status===422) return T('saveSkyCheckFields','CHECK DATE, TIME, TIMEZONE & PLACE');
+  if(code==='not_authenticated'||status===401||status===403) return T('saveSkyExpired','SKY LINK EXPIRED · SIGN IN AGAIN');
+  return action==='link'?T('saveSkyLinkFailed','SKY LINK COULD NOT SEND'):action==='clear'?T('saveSkyClearFailed','CHART COULD NOT CLEAR'):T('saveSkyUnavailable','PERSONAL SKY UNAVAILABLE');
+}
+function ensureSkyProfileController(){
+  if(_skyProfileController) return _skyProfileController;
+  if(!CFG.saveMySky||!PERSONAL_API_BASE||!window.AimDojoSaveMySky) return null;
+  try{ _skyProfileController=window.AimDojoSaveMySky.createPersonalSkyController({baseUrl:PERSONAL_API_BASE,timeoutMs:CFG.skyListen.apiMs,getAccessToken:()=>_skyAuthSession&&_skyAuthSession.access_token}); }
+  catch(e){ _skyProfileController=null; }
+  return _skyProfileController;
+}
+function skyApplyControllerState(state,announce){
+  if(!state) return false;
+  _personalListenExpected=!!state.hasChart;
+  if(state.profile) skyFillForm(state.profile,announce);
+  let linked=false; if(state.personalMode&&state.pack) linked=linkRemotePersonalSky(state.pack);
+  skyRenderAccount(true);
+  if(announce){
+    if(linked){ const toastTicket=_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySavedLinked','CHART SAVED · SKY LINKED'),false); showGhostToast('CHART SAVED'); _skyLinkedToastTimer=setTimeout(()=>{ _skyLinkedToastTimer=null; if(toastTicket===_skyUiSeq&&_remotePersonalSky) showGhostToast('SKY LINKED'); },950); }
+    else if(state.hasChart){ skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
+  }
+  return linked;
+}
+async function skyLoadSavedProfile(ticket){
+  const ctl=ensureSkyProfileController(); if(!ctl||ticket!==_skyUiSeq||!_skyAuthSession) return;
+  skySetStatus(T('saveSkyChecking','CHECKING SAVED SKY…'),true);
+  try{
+    const state=await ctl.load(); if(ticket!==_skyUiSeq) return;
+    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
+    skySetStatus(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):state.hasChart?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED'),false);
+    skyRenderAccount(true);
+  }catch(error){
+    if(ticket!==_skyUiSeq) return; const state=ctl.state;
+    if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); }
+    else skySetStatus(skySoftFailure(error,'load'),false);
+    skyRenderAccount(true);
+  }
+}
+function skyHandleSession(session){   // called outside Supabase's auth callback (current supabase-js callbacks must stay synchronous)
+  const ctl=ensureSkyProfileController(), next=session&&session.user?String(session.user.id||''):'';
+  if(!ctl){ skySetStatus(T('saveSkyNotConfigured','SAVE MY SKY IS NOT CONFIGURED'),false); return; }
+  if(_skyAuthUser!==next) skySetStatus('',false);   // cancel a busy save/load surface when auth switches or signs out
+  if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; if(_chartPackRank>=2) downgradePersonalSky(); }
+  _skyAuthUser=next;
+  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
+  ctl.setAuthenticated(true); skyRenderAccount(true);
+  if(_skyProfileUser!==next){ _skyProfileUser=next; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); }
+}
+function skyAcceptAuthSession(session){   // synchronous account quarantine; no async Supabase call inside onAuthStateChange
+  session=session||null; const next=session&&session.user?String(session.user.id||''):'';
+  if(next!==_skyAuthUser){
+    ++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
+    _personalListenExpected=false; try{ clearListen(true); }catch(e){} if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(_chartPackRank>=2) downgradePersonalSky();
+    _skyProfileUser=''; _skyAuthUser=next; if(skySave.email) skySave.email.value=''; skyClearForm();
+  }
+  _skyAuthSession=session; skyRenderAccount(true);
+  const authTicket=++_skyAuthEventSeq; setTimeout(()=>{ if(authTicket===_skyAuthEventSeq) skyHandleSession(session); },0);
+}
+async function initSaveMySky(){
+  if(!skySave.details) return;
+  if(!CFG.saveMySky){ skySave.details.hidden=true; return; }
+  skyClearForm(); skyRenderAccount(true);
+  if(!ensureSkyProfileController()||!SUPABASE_AUTH_URL||typeof CFG.supabaseAnonKey!=='string'||!CFG.supabaseAnonKey){ skySetStatus(T('saveSkyNotConfigured','SAVE MY SKY IS NOT CONFIGURED'),false); return; }
+  if(location.protocol!=='http:'&&location.protocol!=='https:'){ skySetStatus(T('saveSkyNeedsWeb','SAVE MY SKY NEEDS HTTP(S) · PLAY STILL WORKS'),false); return; }
+  try{
+    await loadScriptOnce(SUPABASE_JS); if(!window.supabase) throw new Error('Supabase unavailable');
+    _skyAuthClient=window.supabase.createClient(SUPABASE_AUTH_URL,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce',storageKey:'aimdojo.sky.auth'}});
+    _skyAuthClient.auth.onAuthStateChange((_event,session)=>{ skyAcceptAuthSession(session); });
+    const result=await _skyAuthClient.auth.getSession(); if(result.error) throw result.error; skyAcceptAuthSession(result.data&&result.data.session);
+  }catch(error){ skySetStatus(T('saveSkyAuthUnavailable','SKY LINK UNAVAILABLE · PLAY STILL WORKS'),false); }
+}
+if(skySave.unknown) skySave.unknown.addEventListener('change',skySyncTimeUnknown);
+if(skySave.lat) skySave.lat.addEventListener('input',skySyncCoordinatePair);
+if(skySave.lon) skySave.lon.addEventListener('input',skySyncCoordinatePair);
+if(skySave.form) skySave.form.addEventListener('input',()=>{ _skyFormDirty=true; });
+if(skySave.authView) skySave.authView.addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(_skyUiBusy) return;
+  if(!_skyAuthClient){ skySetStatus(T('saveSkyAuthLoading','SKY LINK IS STILL WAKING…'),false); return; }
+  if(!skySave.email||!skySave.email.value.trim()||!skySave.email.checkValidity()){ if(skySave.email) skySave.email.reportValidity(); return; }
+  const email=skySave.email.value.trim(); skySetStatus(T('saveSkySending','SENDING PRIVATE SKY LINK…'),true);
+  try{ const redirect=location.origin+location.pathname; const result=await _skyAuthClient.auth.signInWithOtp({email:email,options:{emailRedirectTo:redirect}}); if(result.error) throw result.error;
+    skySetStatus(T('saveSkyCheckEmail','CHECK YOUR EMAIL · OPEN THE LINK IN THIS BROWSER · PLAY STILL WORKS'),false); showGhostToast('SKY LINK SENT');
+  }catch(error){ const msg=skySoftFailure(error,'link'); skySetStatus(msg,false); showGhostToast(msg); }
+});
+if(skySave.form) skySave.form.addEventListener('submit',async e=>{
+  e.preventDefault(); if(_skyUiBusy) return; skySyncTimeUnknown(); skySyncCoordinatePair(); if(!skySave.form.checkValidity()){ skySave.form.reportValidity(); return; }
+  const ctl=ensureSkyProfileController(); if(!ctl||!_skyAuthSession){ skySetStatus(T('saveSkyExpired','SKY LINK EXPIRED · SIGN IN AGAIN'),false); return; }
+  const raw={birth_date:skySave.date.value,birth_time:skySave.time.value,time_unknown:skySave.unknown.checked,tz:skySave.tz.value,place_label:skySave.place.value,lat:skySave.lat.value,lon:skySave.lon.value};
+  const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySaving','SAVING CHART…'),true);
+  try{ const state=await ctl.save(raw); if(ticket!==_skyUiSeq) return; if(!state.hasChart) return; skyApplyControllerState(state,true); }
+  catch(error){ if(ticket!==_skyUiSeq) return; const state=ctl.state; if(state&&state.lastSaveCommitted){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,true); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
+    else { const msg=skySoftFailure(error,'save'); skySetStatus(msg,false); showGhostToast(msg); } skyRenderAccount(true); }
+});
+if(skySave.clear) skySave.clear.addEventListener('click',async ()=>{
+  if(_skyUiBusy) return; const ctl=ensureSkyProfileController(); if(!ctl||!_skyAuthSession) return; const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkyClearing','CLEARING CHART…'),true);
+  try{ await ctl.clear(); if(ticket!==_skyUiSeq) return; _personalListenExpected=false; if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
+  catch(error){ if(ticket!==_skyUiSeq) return; const msg=skySoftFailure(error,'clear'); skySetStatus(msg,false); showGhostToast(msg); }
+});
+if(skySave.signOut) skySave.signOut.addEventListener('click',async ()=>{
+  if(_skyUiBusy||!_skyAuthClient) return; cancelSkyLinkedToast(); skySetStatus(T('saveSkySigningOut','SIGNING OUT…'),true);
+  try{ const result=await _skyAuthClient.auth.signOut(); if(result.error) throw result.error; }
+  catch(error){ skySetStatus(T('saveSkySignOutFailed','SIGN OUT COULD NOT FINISH'),false); }
+});
+if(skySave.details){ if(!CFG.saveMySky) skySave.details.hidden=true; else skyClearForm(); }
 if(MOBILE){
   if(calibBtn && calibBtn.parentElement) calibBtn.parentElement.style.display='none';   // touch has no WASD samples, so tap-derived calibration can never complete
   if(calibHint) calibHint.style.display='none';
@@ -3506,8 +3786,8 @@ document.addEventListener('pointerlockchange',()=>{
   else { if(state.running) exitRunning(); }                  // guard: endChallenge already stopped the run synchronously — don't double-fire showPause
 });
 /* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
-const SB_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
+const SB_URL=DEFAULT_SKY_SUPABASE_URL;
+const SB_KEY=DEFAULT_SKY_SUPABASE_ANON_KEY;
 const RAILWAY_URL='https://aim-dojo-production.up.railway.app';   // verify-server (Railway): daily scores validated server-side before insert; empty = submit straight to Supabase
 const SUPABASE_JS='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'}, extra||{}); }
@@ -3532,7 +3812,7 @@ function newRemoteEl(){ const d=document.createElement('div'); d.className='live
 function initRealtime(){
   if(rtCh || !window.supabase) return;
   try{
-    const sb=window.supabase.createClient(SB_URL, SB_KEY, {realtime:{params:{eventsPerSecond:14}}});
+    const sb=window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{params:{eventsPerSecond:14}}});
     rtCh=sb.channel('aimdojo-room', {config:{presence:{key:clientId()}, broadcast:{self:false}}});
     rtCh.on('presence',{event:'sync'}, showPresence);
     rtCh.on('broadcast',{event:'aim'}, ({payload})=>{ if(!payload || payload.id===clientId()) return;
@@ -3789,8 +4069,10 @@ else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick fig
 }); },120,1500);
 if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyGlossary(); },140,1600);   // definitions are a static asset and never wait on either sky server
 if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; announceSkyDay(p); }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers) and announced once per tab; failure leaves Meeus ☉/☽ + sticks + glossary untouched
+runIdle(()=>{ initSaveMySky(); },320,2400);   // restored auth/profile is optional and nonblocking; guests make no /api/me/* call
 runIdle(()=>{ try{ renderer.compile(scene, camera); }catch(e){} },900,4000);   // pre-warm every scene material's shader (beat rings, grid variants, floor) during boot idle — no first-use compile can hitch a run's opening beats
-if(SKY_MODE==='clocked_chart') runIdle(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; missing/invalid pack degrades to plain clocked with one quiet toast
+if(SKY_MODE==='clocked_chart') runIdle(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; an authenticated profile is authoritative over every legacy source
+  if(_skyAuthSession) return;
   if(!p){ showGhostToast('🌌 '+T('skyNoChart','SKY · CLOCKED — NO CHART')); return; }
   const rank=skyGeometryRank(p); queueSkyGeometry(p,rank,()=>{ if(p._sample) showGhostToast('🌌 '+T('skyMockChart','SKY · SAMPLE CHART')); });   // real personal rank wins any load race; synthetic sample never overrides a valid public day
 }); },400,2500);

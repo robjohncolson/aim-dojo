@@ -5,7 +5,7 @@ woodblock tick on every beat to count by. An orb appears on a beat, somewhere ar
 **beat 1 you find it, beat 2 you track it, beat 3 you fire**. The tempo (or world speed)
 adapts automatically to how well you're hitting.
 
-It's a single, self-contained HTML file — no build step, no install. Three.js renders the 3D
+It's a small static site — no build step, no install. Three.js renders the 3D
 arena and Tone.js + the Web Audio API drive the rhythm and the distance-aware spatial sound
 (close orbs are dry and loud, far ones quiet and washed in reverb).
 
@@ -63,10 +63,68 @@ https://aim-dojo.vercel.app/?skyApi=http://127.0.0.1:8742
 
 A valid `skyApi` URL is persisted as `localStorage['aimdojo.skyApi']`; clear
 that key to return to the configured production base. A build may instead set
-`CFG.skyDay.api` in `index.html`. The selected base is used only
-for anonymous `/api/sky-day` geometry. Personal natal `sky-listen` enrichment
-remains explicitly local on `CFG.skyListen.api` and is requested only when a
-real personal skypack supplies `natal_id`.
+`CFG.skyDay.api` in `index.html`. The selected override is used only for
+anonymous `/api/sky-day` geometry. It never receives an auth token or birth
+details.
+
+### Optional Save my sky
+
+The pause settings include a collapsed **SAVE MY SKY** section. Play and
+training never require it. A user can request a Supabase email magic link,
+save one private birth profile to Sidereal Railway, and clear or replace that
+profile later. A saved profile enables authenticated `/api/me/skypack` geometry
+and personal `/api/sky-listen` notes; without one, the existing public
+sky-day and static glossary remain the complete path.
+An explicitly selected `?sky=decorative` keeps the legacy art sky isolated;
+the profile stays saved and links again on a `clocked`/`clocked_chart` load.
+
+The checked-in deployment has public browser defaults for the Supabase URL,
+anon key, and Sidereal Railway URL. A host can inject different public client
+configuration before the main game script runs:
+
+```html
+<script>
+window.__SIDEREAL__ = {
+  saveMySky: true,
+  supabaseUrl: "https://YOUR_PROJECT.supabase.co",
+  supabaseAnonKey: "YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY",
+  personalApi: "https://YOUR-SIDEREAL.up.railway.app"
+};
+</script>
+```
+
+`personalApi` defaults to the fixed configured `CFG.skyDay.api` host. It does
+not follow `?skyApi` or `localStorage['aimdojo.skyApi']`; those are intentionally
+anonymous-only overrides. A nonblank invalid `personalApi` fails closed and
+disables personal requests instead of falling through to another host. Set
+`saveMySky: false` to hide the section. Never put
+a Supabase service-role, secret, or JWT-signing key in this object or any
+browser file.
+
+In Supabase Auth, enable email magic links and add each exact deployed page
+origin/path (plus local development, for example `http://localhost:8931/`) to
+the allowed redirect URLs. The browser follows the current
+[`signInWithOtp`](https://supabase.com/docs/reference/javascript/auth-signinwithotp)
+flow and keeps only the Supabase-managed session. Birth-form drafts are not
+written to local storage, URLs, share links, realtime presence, or the dojo
+leaderboard.
+Because this client uses Supabase's
+[`PKCE` flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow), open the
+emailed link in the same browser/device that requested it; the initiating
+browser holds the verifier needed to finish the session exchange.
+
+The Sidereal API must allow the deployed origin through its sky CORS allowlist
+and must be configured to verify access tokens from the same Supabase project.
+For local Sidereal development, inject `personalApi: "http://127.0.0.1:8742"`
+and serve Aim Dojo over HTTP; `file://` remains fine for guest play but cannot
+complete a magic-link/CORS flow.
+
+Client checks use Node's built-in runner and need no install:
+
+```bash
+node --check save-my-sky.js
+node --test tests/*.test.js
+```
 
 ## Tech
 
