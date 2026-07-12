@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "type": "sky_glossary",
+  "system": "midpoint_v1",
+  "note": "Static symbolic study copy for Moon Chorus Sky Listen. Definitions are reflective prompts, not predictions, diagnoses, financial advice, or fixed character claims.",
+  "signs": {
+    "aries": {
+      "glyph": "♈",
+      "title": "Aries",
+      "text": "Aries is symbolically associated with initiation, direct action, and the courage to meet a situation plainly. Its working tension is between decisive movement and enough pause to choose a useful direction.",
+      "keywords": ["initiative", "directness", "courage"]
+    },
+    "taurus": {
+      "glyph": "♉",
+      "title": "Taurus",
+      "text": "Taurus is traditionally associated with steadiness, sensory presence, and careful stewardship of what has value. Its symbolism asks how persistence can provide continuity without becoming resistance to necessary change.",
+      "keywords": ["stability", "sensation", "stewardship"]
+    },
+    "gemini": {
+      "glyph": "♊",
+      "title": "Gemini",
+      "text": "Gemini is associated with curiosity, language, comparison, and the movement of information between people. Its working tension is to stay adaptable while giving important questions enough sustained attention.",
+      "keywords": ["curiosity", "language", "connection"]
+    },
+    "cancer": {
+      "glyph": "♋",
+      "title": "Cancer",
+      "text": "Cancer is traditionally read through belonging, protection, memory, and sensitivity to emotional atmosphere. Its symbolism considers how care can create shelter while still allowing honest movement beyond familiar patterns.",
+      "keywords": ["belonging", "protection", "memory"]
+    },
+    "leo": {
+      "glyph": "♌",
+      "title": "Leo",
+      "text": "Leo is symbolically associated with creative presence, generosity, play, and the wish to be genuinely seen. Its working tension is to cultivate confident expression that also makes room for other people to shine.",
+      "keywords": ["creativity", "warmth", "recognition"]
+    },
+    "virgo": {
+      "glyph": "♍",
+      "title": "Virgo",
+      "text": "Virgo is associated with discernment, craft, practical service, and attention to the details that make a system work. Its symbolism asks for useful refinement while cautioning against treating every imperfection as a failure.",
+      "keywords": ["discernment", "craft", "service"]
+    },
+    "libra": {
+      "glyph": "♎",
+      "title": "Libra",
+      "text": "Libra is traditionally associated with reciprocity, proportion, perspective, and the art of negotiating shared space. Its working tension is to seek fairness without losing contact with a clear personal position.",
+      "keywords": ["reciprocity", "balance", "perspective"]
+    },
+    "scorpio": {
+      "glyph": "♏",
+      "title": "Scorpio",
+      "text": "Scorpio is symbolically associated with depth, trust, guarded resources, and change that exposes what is essential. Its symbolism asks for emotional honesty and responsible power rather than control for its own sake.",
+      "keywords": ["depth", "trust", "transformation"]
+    },
+    "ophiuchus": {
+      "glyph": "⛎",
+      "title": "Ophiuchus",
+      "text": "Ophiuchus is treated here as a first-class sign associated with integration, liminal passages, and knowledge tested under pressure. Its symbolism concerns holding contradictions long enough to form a wiser response, not making medical or fated claims.",
+      "keywords": ["integration", "liminality", "tested knowledge"]
+    },
+    "sagittarius": {
+      "glyph": "♐",
+      "title": "Sagittarius",
+      "text": "Sagittarius is associated with exploration, conviction, broad context, and the search for a meaningful orientation. Its working tension is to pursue a larger horizon while remaining answerable to evidence and lived detail.",
+      "keywords": ["meaning", "exploration", "conviction"]
+    },
+    "capricorn": {
+      "glyph": "♑",
+      "title": "Capricorn",
+      "text": "Capricorn is traditionally associated with responsibility, structure, endurance, and mastery earned over time. Its symbolism asks how ambition and boundaries can support meaningful work without reducing worth to achievement.",
+      "keywords": ["responsibility", "structure", "mastery"]
+    },
+    "aquarius": {
+      "glyph": "♒",
+      "title": "Aquarius",
+      "text": "Aquarius is symbolically associated with independent thought, collective systems, experimentation, and future-facing questions. Its working tension is to contribute an original perspective without becoming detached from particular people and consequences.",
+      "keywords": ["independence", "systems", "community"]
+    },
+    "pisces": {
+      "glyph": "♓",
+      "title": "Pisces",
+      "text": "Pisces is associated with imagination, empathy, permeability, and awareness of experiences that resist tidy categories. Its symbolism asks for compassion and creative openness together with boundaries that keep sensitivity workable.",
+      "keywords": ["imagination", "empathy", "permeability"]
+    }
+  },
+  "planets": {
+    "sun": {
+      "glyph": "☉",
+      "title": "Sun",
+      "text": "The Sun symbolizes coherent identity, purpose, and the wish to express a central organizing principle. It is traditionally read as a direction of conscious development, not proof of a fixed personality.",
+      "keywords": ["identity", "purpose", "vital expression"]
+    },
+    "moon": {
+      "glyph": "☽",
+      "title": "Moon",
+      "text": "The Moon symbolizes changing needs, memory, habit, and instinctive adaptation to an environment. Its placement is traditionally used to reflect on familiar emotional rhythms rather than to predict behavior.",
+      "keywords": ["needs", "memory", "adaptation"]
+    },
+    "mercury": {
+      "glyph": "☿",
+      "title": "Mercury",
+      "text": "Mercury symbolizes perception, language, exchange, and the methods used to organize information. Its placement offers a working metaphor for how attention moves and meaning is communicated.",
+      "keywords": ["perception", "language", "reasoning"]
+    },
+    "venus": {
+      "glyph": "♀",
+      "title": "Venus",
+      "text": "Venus symbolizes attraction, values, pleasure, and the practices through which relationship and aesthetic preference are cultivated. It does not determine compatibility or financial outcomes.",
+      "keywords": ["attraction", "values", "relating"]
+    },
+    "mars": {
+      "glyph": "♂",
+      "title": "Mars",
+      "text": "Mars symbolizes agency, desire, conflict, and the capacity to act with force or precision. Its placement can frame reflection on assertion and effort without implying inevitable aggression.",
+      "keywords": ["agency", "desire", "assertion"]
+    },
+    "jupiter": {
+      "glyph": "♃",
+      "title": "Jupiter",
+      "text": "Jupiter symbolizes expansion, confidence, teaching, and the search for a larger frame of meaning. Its traditional reading includes both generative opportunity and the need to notice excess.",
+      "keywords": ["expansion", "meaning", "confidence"]
+    },
+    "saturn": {
+      "glyph": "♄",
+      "title": "Saturn",
+      "text": "Saturn symbolizes limits, responsibility, time, and structures that are tested through sustained effort. It is best read as a language for boundaries and maturation, not punishment or doom.",
+      "keywords": ["limits", "responsibility", "time"]
+    },
+    "uranus": {
+      "glyph": "♅",
+      "title": "Uranus",
+      "text": "Uranus symbolizes disruption, independence, experimentation, and breaks from an established pattern. Its placement can describe a field of symbolic revision without promising sudden events.",
+      "keywords": ["disruption", "independence", "innovation"]
+    },
+    "neptune": {
+      "glyph": "♆",
+      "title": "Neptune",
+      "text": "Neptune symbolizes imagination, idealization, ambiguity, and the loosening of ordinary boundaries. Its placement invites discernment between inspiration and projection without making clinical claims.",
+      "keywords": ["imagination", "idealization", "dissolution"]
+    },
+    "pluto": {
+      "glyph": "♇",
+      "title": "Pluto",
+      "text": "Pluto symbolizes power, depth, compulsion, and processes of symbolic breakdown and renewal. It is a reflective metaphor for consequential change, not a forecast of crisis.",
+      "keywords": ["power", "depth", "renewal"]
+    },
+    "north_node": {
+      "glyph": "☊",
+      "title": "North Node",
+      "text": "The North Node is traditionally treated as a symbolic orientation toward unfamiliar development and constructive stretch. It is a calculated point, not a planet or a command about destiny.",
+      "keywords": ["development", "stretch", "orientation"]
+    },
+    "south_node": {
+      "glyph": "☋",
+      "title": "South Node",
+      "text": "The South Node is traditionally treated as a symbolic field of familiarity, inherited habits, and capacities already close at hand. It can be read as material to use consciously rather than a past that must be rejected.",
+      "keywords": ["familiarity", "inheritance", "available capacity"]
+    }
+  },
+  "planet_in_sign": {
+    "sun:gemini": {
+      "title": "Sun in Gemini",
+      "text": "Sun in Gemini traditionally links purpose with curiosity, language, and comparison. The study question is how a central direction can stay coherent while gathering several perspectives."
+    },
+    "moon:taurus": {
+      "title": "Moon in Taurus",
+      "text": "Moon in Taurus symbolically joins changing needs and memory with steadiness and sensory presence. Reflection centers on making continuity supportive without treating every change as a threat."
+    },
+    "mercury:gemini": {
+      "title": "Mercury in Gemini",
+      "text": "Mercury in Gemini traditionally emphasizes quick perception, language, and exchange. Its useful tension is between agile connection and enough sustained attention to carry an idea through."
+    },
+    "venus:leo": {
+      "title": "Venus in Leo",
+      "text": "Venus in Leo symbolically joins values and relating with warmth, creativity, and recognition. It invites generous expression while leaving room for affection that does not depend entirely on applause."
+    },
+    "mars:taurus": {
+      "title": "Mars in Taurus",
+      "text": "Mars in Taurus traditionally brings agency and desire into a steady, tangible rhythm. The reflective task is to use persistence as durable effort while staying responsive when the chosen method needs revision."
+    },
+    "jupiter:cancer": {
+      "title": "Jupiter in Cancer",
+      "text": "Jupiter in Cancer symbolically joins expansion and meaning with belonging, protection, and memory. Growth is considered through forms of care that shelter development without closing the wider world out."
+    },
+    "saturn:pisces": {
+      "title": "Saturn in Pisces",
+      "text": "Saturn in Pisces traditionally joins limits and responsibility with imagination, empathy, and permeability. The study prompt is how clear boundaries can give compassion and creative sensitivity a workable form."
+    },
+    "uranus:taurus": {
+      "title": "Uranus in Taurus",
+      "text": "Uranus in Taurus symbolically brings experimentation into questions of stability, resources, and stewardship. It invites practical revision that tests new forms without confusing disruption with improvement."
+    },
+    "neptune:pisces": {
+      "title": "Neptune in Pisces",
+      "text": "Neptune in Pisces traditionally amplifies imagination, empathy, idealization, and ambiguity. Its reflective work is to welcome subtle perception while distinguishing inspiration from projection."
+    },
+    "pluto:capricorn": {
+      "title": "Pluto in Capricorn",
+      "text": "Pluto in Capricorn symbolically joins power and renewal with responsibility, structure, and long time scales. It asks which systems need consequential change without treating control as the same thing as mastery."
+    },
+    "north_node:aquarius": {
+      "title": "North Node in Aquarius",
+      "text": "North Node in Aquarius is traditionally read as a symbolic stretch toward independent thought, experimentation, and conscious participation in collective systems. It describes a study direction, not destiny."
+    },
+    "south_node:leo": {
+      "title": "South Node in Leo",
+      "text": "South Node in Leo symbolically gathers familiar capacities for creative presence, warmth, and recognition. The reflection is how to use those strengths consciously without making attention the only measure of value."
+    }
+  }
+}

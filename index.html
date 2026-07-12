@@ -455,6 +455,7 @@ const CFG = {
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:72, orbBlockPad:1.85, orbBlockPx:28, lineSec:0.45, holdSec:90, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: bodyPx/signPx = reticle pick for sky only. Combat ALWAYS wins if an Echo sits on the aim ray (sphere test + projected screen radius + orbBlockPad/Px slack) — never Listen through an orb to a constellation behind it. signPx kept modest so big zodiac hitboxes don't steal shots.
+  skyDay:{ api:'', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Parcel N): empty api falls through to skyListen.api/local desk. Production: ?skyApi=https://<railway-host> persists aimdojo.skyApi; personal Listen stays on skyListen.api.
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
@@ -496,7 +497,7 @@ if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; 
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
 /* ========================= SKY MODE (personal planetarium — SPEC_PERSONAL_PLANETARIUM.md, Parcel B) =========================
-   Public default: clocked (zodiac sticks + ☉/☽, no ephemeris server). decorative = legacy art sky.
+   Public default: clocked (static zodiac + Meeus ☉/☽ offline, upgraded by the optional public day API). decorative = legacy art sky.
    clocked_chart = personal pack (local/dev or future Railway). Resolve: ?sky= > localStorage > clocked.
    skyGen 1: one-time clear of stale skyMode so returning players land on the new public sky once.
    AESTHETIC ONLY — no spawn/fire/groove/score/leaderboard path reads any of this. */
@@ -521,6 +522,18 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
   if(fromUrl){ try{ localStorage.setItem('aimdojo.skyTime', fromUrl); }catch(e){} return fromUrl; }
   try{ const v=localStorage.getItem('aimdojo.skyTime'); if(SKY_TIMES.indexOf(v)>=0) return v; }catch(e){}
   return 'natural';
+})();
+function cleanSkyApiBase(value){
+  if(typeof value!=='string' || !value.trim()) return '';
+  try{ const u=new URL(value.trim()); if((u.protocol!=='http:'&&u.protocol!=='https:') || u.username || u.password) return ''; u.search=''; u.hash=''; return u.toString().replace(/\/+$/,''); }catch(e){ return ''; }
+}
+const SKY_DAY_API_BASE=(function(){   // valued URL override is PUBLIC sky-day only; never redirects natal data away from the explicitly local skyListen.api
+  const q=location.search+location.hash, m=q.match(/[?&#]skyApi=([^&#]+)/i); let fromUrl='';
+  if(m){ try{ fromUrl=cleanSkyApiBase(decodeURIComponent(m[1])); }catch(e){ fromUrl=''; }
+    if(fromUrl) try{ localStorage.setItem('aimdojo.skyApi',fromUrl); }catch(e){} }
+  if(fromUrl) return fromUrl;
+  try{ const saved=cleanSkyApiBase(localStorage.getItem('aimdojo.skyApi')||''); if(saved) return saved; }catch(e){}
+  return cleanSkyApiBase(CFG.skyDay.api)||cleanSkyApiBase(CFG.skyListen.api)||'http://127.0.0.1:8742';
 })();
 function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15), 1|a); t=(t+Math.imul(t^(t>>>7), 61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }   // tiny seeded PRNG — clocked modes keep a STABLE star field across sessions (decorative keeps its fresh random sky)
 const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
@@ -868,7 +881,15 @@ const SKY_CHART={ R:315,   // chart radius (inside the 330 stick shell and the 3
   ghost:{alpha:0.35, scale:5, col:0xffd24a, k:1.8},               // Parcel L: one faint gold natal marker only while its body is being Listened to; never pickable
   stick:{R:330, ptAlpha:0.5, ptCol:0xcfe0f5, ptSize:4, lnAlpha:0.16, lnCol:0xaec6e8, kPt:1.0, kLn:1.3, maxStars:120, maxEdges:80, maxFigs:16},   // D4: zodiac stick figures (public geometry fixture, schema caps enforced here too)
   caps:{sign:16, mover:16, ghost:16} };    // hard ceilings per pack family — a hostile/buggy pack can never balloon draw calls or the glyph cache
-let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, atmosAmt=0, _sunLonRad=0;   // atmosAmt: dome day-weight from updateSky (=dayAmt in decorative, ~30% of it in clocked*). _sunLonRad: epoch solar lon anchoring the spin formula
+const SKY_BODY_IDS=['sun','moon','mercury','venus','mars','jupiter','saturn','uranus','neptune','pluto','north_node','south_node'];
+const SKY_SIGN_IDS=['aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','ophiuchus','sagittarius','capricorn','aquarius','pisces'];
+const SKY_BODY_SET=Object.fromEntries(SKY_BODY_IDS.map(id=>[id,true])), SKY_SIGN_SET=Object.fromEntries(SKY_SIGN_IDS.map(id=>[id,true]));
+const SKY_SIGN_GLYPHS={aries:'♈',taurus:'♉',gemini:'♊',cancer:'♋',leo:'♌',virgo:'♍',libra:'♎',scorpio:'♏',ophiuchus:'⛎',sagittarius:'♐',capricorn:'♑',aquarius:'♒',pisces:'♓'};
+function canonicalSkySign(id){ id=String(id==null?'':id).toLowerCase(); return id==='scorpius'?'scorpio':(id==='capricornus'?'capricorn':id); }
+function skyGeometryRank(pack){ return pack&&pack.type==='skyday'?1:(pack&&pack._sample?0:2); }   // Meeus/fallback < synthetic sample < public day < real personal
+let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, _publicSkyPack=null, atmosAmt=0, _sunLonRad=0;
+let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyGlossary=null, _skyGlossaryReady=false;
+const _chartSignSprite=Object.create(null), _chartMoverSprite=Object.create(null);
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
 const SPH_TILT=SKY_CHART.ecl.tiltDeg*Math.PI/180;
 const SPH_POLE=new THREE.Vector3(0, Math.cos(SPH_TILT), Math.sin(SPH_TILT));   // world spin axis: local ecliptic pole tipped toward +Z → culmination toward −Z (boot view)
@@ -921,54 +942,49 @@ function chartSprite(tex,colHex,alpha,sx,sy,additive,pulseP,k){   // k = day-mel
   sp.userData.chartFadeIndex=_chartFade.length; _chartFade.push(fade);
   return sp;
 }
-function buildChartSky(pack){
-  if(chartSkyGroup) return; _skypack=pack;
-  chartSkyGroup=new THREE.Group(); skySphere.add(chartSkyGroup);   // epoch glyph lons are sphere-LOCAL; the diurnal spin carries the clean chart + sticks together (theatre changes orientation, never longitudes)
-  const C=SKY_CHART, R=C.R, signSprite=Object.create(null);
-  for(const s of (pack.sign_band||[]).slice(0,C.caps.sign)){   // 13 readable sign glyphs (incl. ⛎); cheap enough to retain in LOW
-    if(!s) continue;   // null entries in a hand-edited pack must not abort the build mid-way
-    const a=+s.lon_start_j2000||0, span=((((+s.lon_end_j2000||0)-a)+360)%360)||(360/13), mid=(a+span/2)%360;
-    const sp=chartSprite(glyphTex(s.glyph||String(s.id||'?').slice(0,3).toUpperCase()), C.sign.col, C.sign.alpha, C.sign.scale, C.sign.scale, true, null, C.sign.k);
-    sp.position.copy(eclipticDir(mid, C.sign.latOff)).multiplyScalar(R); chartSkyGroup.add(sp);
-    if(s.id!=null) signSprite[String(s.id)]=sp;
+function buildChartSky(pack,rank){
+  rank=(rank==null?skyGeometryRank(pack):rank); if(!pack || rank<_chartPackRank || rank<_chartQueuedRank) return false;
+  if(_lsn && _lsn.sel) clearListen(true);   // metadata is replaced atomically below; never leave a selection pointing at the previous epoch
+  if(!chartSkyGroup){ chartSkyGroup=new THREE.Group(); skySphere.add(chartSkyGroup); }   // persistent group: public day sprites are updated in place when a real personal pack wins later
+  const C=SKY_CHART, R=C.R, personal=rank>=2, packSigns=[];
+  for(const raw of (pack.sign_band||[]).slice(0,C.caps.sign)){   // 13 readable sign glyphs (incl. ⛎); cheap enough to retain in LOW
+    if(!raw || raw.id==null) continue;
+    const id=canonicalSkySign(raw.id); if(!SKY_SIGN_SET[id]) continue;
+    const a=wrapDeg(raw.lon_start_j2000,0), span=(((wrapDeg(raw.lon_end_j2000,a)-a)+360)%360)||(360/13), mid=(a+span/2)%360;
+    const glyph=(typeof raw.glyph==='string'&&raw.glyph)?raw.glyph:SKY_SIGN_GLYPHS[id]; let sp=_chartSignSprite[id];
+    if(!sp){ sp=chartSprite(glyphTex(glyph),C.sign.col,C.sign.alpha,C.sign.scale,C.sign.scale,true,null,C.sign.k); sp.userData.skyGlyph=glyph; _chartSignSprite[id]=sp; chartSkyGroup.add(sp); }
+    else if(sp.userData.skyGlyph!==glyph){ sp.material.map=glyphTex(glyph); sp.material.needsUpdate=true; sp.userData.skyGlyph=glyph; }
+    sp.position.copy(eclipticDir(mid,C.sign.latOff)).multiplyScalar(R); packSigns.push({id:id,glyph:glyph,a:a,span:span,mid:mid,sprite:sp});
   }
-  const at=Object.create(null), moverSprite=Object.create(null), moverLon=Object.create(null), ghostLon=Object.create(null);   // live sprite/position + epoch lons; natal lons remain metadata-only until Listen
+  const at=Object.create(null), moverSprite=Object.create(null), moverLon=Object.create(null), ghostLon=Object.create(null);
   for(const mv of (pack.movers||[]).slice(0,C.caps.mover)){
-    if(!mv) continue;
-    if(mv.id!=null) _lsnBody[String(mv.id)]={name:(typeof mv.name==='string'?mv.name:String(mv.id)), glyph:(typeof mv.glyph==='string'?mv.glyph:'?'), sign:(typeof mv.sign==='string'?mv.sign:null)};   // SKY LISTEN display metadata (study card copy)
-    const isSun=mv.id==='sun', isMoon=mv.id==='moon';
-    if((isSun||isMoon) && _lum && _lum[mv.id]){   // ☉/☽ already live on the sphere; Listen emphasizes these same glyphs rather than creating a second representation
-      at['m:'+mv.id]=_lum[mv.id].glyph.position; moverSprite[mv.id]=_lum[mv.id].glyph; moverLon[mv.id]=_lum[mv.id].lon;
+    if(!mv || mv.id==null) continue; const id=String(mv.id); if(!SKY_BODY_SET[id]) continue;
+    const lon=wrapDeg(mv.lon_j2000,0), glyph=(typeof mv.glyph==='string'&&mv.glyph)?mv.glyph:'?', sign=canonicalSkySign(mv.sign);
+    _lsnBody[id]={name:(typeof mv.name==='string'&&mv.name)?mv.name:id, glyph:glyph, sign:SKY_SIGN_SET[sign]?sign:null};
+    if((id==='sun'||id==='moon') && _lum && _lum[id]){   // ☉/☽ reuse the existing fallback glyphs; no duplicate luminary is ever created
+      at['m:'+id]=_lum[id].glyph.position; moverSprite[id]=_lum[id].glyph; moverLon[id]=lon;
     }else{
-      const lon=wrapDeg(mv.lon_j2000,0);
-      const sp=chartSprite(glyphTex(mv.glyph||'?'), C.mover.col, C.mover.alpha, C.mover.scale, C.mover.scale, true, null, C.mover.k);
-      sp.position.copy(eclipticDir(lon,0)).multiplyScalar(R); chartSkyGroup.add(sp);
-      at['m:'+mv.id]=sp.position; moverSprite[mv.id]=sp;
-      if(!reduceMotion && !LOW) _chartBreath.push({sp:sp, s0:C.mover.scale, ph:lon*0.11});
-      moverLon[mv.id]=lon;
+      let sp=_chartMoverSprite[id];
+      if(!sp){ sp=chartSprite(glyphTex(glyph),C.mover.col,C.mover.alpha,C.mover.scale,C.mover.scale,true,null,C.mover.k); sp.userData.skyGlyph=glyph; _chartMoverSprite[id]=sp; chartSkyGroup.add(sp); if(!reduceMotion&&!LOW) _chartBreath.push({sp:sp,s0:C.mover.scale,ph:lon*0.11}); }
+      else if(sp.userData.skyGlyph!==glyph){ sp.material.map=glyphTex(glyph); sp.material.needsUpdate=true; sp.userData.skyGlyph=glyph; }
+      sp.position.copy(eclipticDir(lon,0)).multiplyScalar(R); at['m:'+id]=sp.position; moverSprite[id]=sp; moverLon[id]=lon;
     }
   }
-  for(const ng of (pack.natal_ghosts||[]).slice(0,C.caps.ghost)){
-    if(!ng || ng.id==null) continue;
-    ghostLon[String(ng.id)]=wrapDeg(ng.lon_j2000,0);   // metadata only: no idle ghost sprite; one selected-body ring may appear during Listen
+  if(personal) for(const ng of (pack.natal_ghosts||[]).slice(0,C.caps.ghost)){
+    if(!ng || ng.id==null || !SKY_BODY_SET[String(ng.id)]) continue;
+    ghostLon[String(ng.id)]=wrapDeg(ng.lon_j2000,0);   // metadata only: selected-body Listen may reveal one faint, non-pickable marker
   }
-  // SKY LISTEN metadata (Parcel K, study-only): everything the reticle can pick + the geometry-fallback card copy.
-  // Built HERE because this is the one place with pack lons, metadata-only natal lons and the live glyph sprites all in hand.
   const signs=Object.create(null), signArcs=[];
-  for(const s of (pack.sign_band||[]).slice(0,C.caps.sign)){ if(!s || s.id==null) continue;
-    const a=wrapDeg(s.lon_start_j2000,0), span=((((+s.lon_end_j2000||0)-a)+360)%360)||(360/13), mid=(a+span/2)%360;
-    const sprite=signSprite[String(s.id)]||null;
-    signs[String(s.id)]={ glyph:(typeof s.glyph==='string'?s.glyph:'?'), lon:mid, pos:sprite?sprite.position:eclipticDir(mid, C.sign.latOff).multiplyScalar(R), sprite:sprite };
-    signArcs.push({id:String(s.id), a:a, span:span});
-  }
+  for(const s of packSigns){ signs[s.id]={glyph:s.glyph,lon:s.mid,pos:s.sprite.position,sprite:s.sprite}; signArcs.push({id:s.id,a:s.a,span:s.span}); }
   const signOf=lon=>{ for(const sa of signArcs){ if(((lon-sa.a+360)%360)<sa.span) return sa.id; } return null; };
   const bodies=Object.create(null);
   for(const id in moverLon){ const inf=_lsnBody[id]||{};
-    bodies[id]={ name:inf.name||id, glyph:inf.glyph||'?', sign:inf.sign||signOf(moverLon[id]), lon:moverLon[id],
-      pos:at['m:'+id], sprite:moverSprite[id]||null, delta:(id in ghostLon)?shortestArcDeg(moverLon[id], ghostLon[id]):null };
+    bodies[id]={name:inf.name||id,glyph:inf.glyph||'?',sign:inf.sign||signOf(moverLon[id]),lon:moverLon[id],pos:at['m:'+id],sprite:moverSprite[id]||null,delta:(id in ghostLon)?shortestArcDeg(moverLon[id],ghostLon[id]):null};
   }
-  _lsnMeta={bodies:bodies, signs:signs, ghostLon:ghostLon, signOf:signOf,
-    natalId:(typeof pack.natal_id==='string'?pack.natal_id:null)};
+  _chartPackRank=rank;
+  _lsnMeta={source:personal?'personal':(rank===1?'day':'sample'),bodies:bodies,signs:signs,ghostLon:ghostLon,signOf:signOf,natalId:(personal&&typeof pack.natal_id==='string'?pack.natal_id:null)};
+  if(personal) _skypack=pack;
+  return true;
 }
 function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere layer exists
   for(let i=0;i<_chartFade.length;i++){ const f=_chartFade[i];
@@ -1006,14 +1022,26 @@ function buildLuminaries(sunLon, moonLon){   // v2.1 G4: ☉ and ☽ live ON the
   _sunLonRad=(_lum.sun.lon)*Math.PI/180;
   sun.visible=false; moon.visible=false;   // retire the art discs in clocked*: one ☉, one ☽, no independent second sun path (v2.1 §4.5; decorative never runs this)
 }
-function retuneLuminaries(pack){   // a loaded skypack's epoch lons override the boot approximation — bodies slide ALONG the ecliptic among the stars (epoch), never with theatre (spin)
-  if(!_lum || !pack) return;
+function retuneLuminaries(pack,rank){   // source-ranked epoch update: a late public response can never overwrite a real personal sky
+  rank=(rank==null?skyGeometryRank(pack):rank); if(!_lum || !pack || rank<_lumPackRank) return false; _lumPackRank=rank;
   for(const mv of (pack.movers||[]).slice(0,SKY_CHART.caps.mover)){ if(!mv) continue;   // same hostile-pack bound as buildChartSky, so luminary glyphs and Listen metadata share one epoch longitude
     const t=mv.id==='sun'?_lum.sun:(mv.id==='moon'?_lum.moon:null); if(!t) continue;
     const lon=wrapDeg(mv.lon_j2000, t.lon); t.lon=lon;   // invalid lon → keep the honest boot approximation (buildChartSky then anchors to this same lon)
     t.glyph.position.copy(eclipticDir(lon,0)).multiplyScalar(SKY_CHART.R); t.glow.position.copy(t.glyph.position);
     if(mv.id==='sun') _sunLonRad=lon*Math.PI/180;
   }
+  return true;
+}
+function queueSkyGeometry(pack,rank,onBuilt){
+  if(!pack) return false; rank=(rank==null?skyGeometryRank(pack):rank); if(rank<_chartQueuedRank || rank<_lumPackRank) return false;
+  if(_lsn && _lsn.sel) clearListen(true);   // retune + metadata upsert are one synchronous epoch switch, never a mixed active card
+  const priorLumRank=_lumPackRank;
+  retuneLuminaries(pack,rank);
+  let built=false; try{ built=buildChartSky(pack,rank); }catch(e){}
+  if(!built){ _lumPackRank=priorLumRank; return false; }   // let a later lower source recover if sprite allocation ever fails mid-upgrade
+  _chartQueuedRank=Math.max(_chartQueuedRank,rank);
+  if(onBuilt) onBuilt();
+  return true;
 }
 function skypackValid(p){ return !!p && (p.schema_version===1||p.schema_version===2) && p.type==='skypack'
   && (p.projection==='ecliptic_dome_v1'||p.projection==='ecliptic_band_v2')   // v2 packs are additive over v1 — projection id remains input compatibility, not a visible rail
@@ -1028,10 +1056,39 @@ async function loadSkypack(allowSample){   // B3. Personal channels first: ?skyp
   const drop=await get('skypack.json');
   if(drop.pack) return drop.pack;
   if(drop.invalid) personal=true;   // a PRESENT-but-broken drop-in is a failed personal pack, not "no pack"
-  if(/[?&#]skyApi\b/.test(q)){ personal=true; const r=await get('http://127.0.0.1:8742/api/skypack'); if(r.pack) return r.pack; }
+  if(/[?&#]skyApi(?:=1)?(?=[&#]|$)/i.test(q)){ personal=true; const r=await get(CFG.skyListen.api.replace(/\/+$/,'')+'/api/skypack'); if(r.pack) return r.pack; }   // legacy bare ?skyApi means LOCAL personal desk; a valued ?skyApi=https://… is reserved for public sky-day
   if(personal || allowSample===false) return null;   // you asked for YOUR chart and it failed — showing invented positions instead would be a lie
   const smp=await get('fixtures/skypack_mock.json'); if(smp.pack){ smp.pack._sample=true; return smp.pack; }   // demo sky for packless visitors
   return null;
+}
+function skyGlossaryValid(g){
+  if(!g || g.schema_version!==1 || g.type!=='sky_glossary' || g.system!=='midpoint_v1') return false;
+  const objs=[g.signs,g.planets,g.planet_in_sign]; if(objs.some(o=>!o||typeof o!=='object'||Array.isArray(o))) return false;
+  const rec=r=>!!r&&typeof r==='object'&&!Array.isArray(r)&&typeof r.glyph==='string'&&r.glyph&&typeof r.title==='string'&&r.title&&typeof r.text==='string'&&r.text;
+  return SKY_SIGN_IDS.every(id=>rec(g.signs[id])) && SKY_BODY_IDS.every(id=>rec(g.planets[id]));
+}
+async function loadSkyGlossary(){
+  try{ const r=await fetch('fixtures/sky_glossary_v1.json',{cache:'no-store'}); if(!r.ok) return null; const g=await r.json(); if(!skyGlossaryValid(g)) return null;
+    _skyGlossary=g; _skyGlossaryReady=true; refreshPublicListenMeta(); return g; }catch(e){ return null; }
+}
+function skydayValid(p){
+  if(!p || p.schema_version!==1 || p.type!=='skyday' || p.system!=='midpoint_v1' || p.privacy!=='public' || p.projection!=='ecliptic_band_v2' || ('natal_id' in p)) return false;
+  if(!Array.isArray(p.sign_band)||p.sign_band.length!==SKY_SIGN_IDS.length||!Array.isArray(p.movers)||p.movers.length!==SKY_BODY_IDS.length) return false;
+  if(!['natal_ghosts','resonances','same_body_delta','resonance_rank'].every(k=>Array.isArray(p[k])&&p[k].length===0)) return false;
+  const signs=Object.create(null), bodies=Object.create(null), finiteNum=n=>typeof n==='number'&&isFinite(n);
+  for(const s of p.sign_band){ const id=canonicalSkySign(s&&s.id); if(!SKY_SIGN_SET[id]||signs[id]||!finiteNum(s.lon_start_j2000)||!finiteNum(s.lon_end_j2000)||typeof s.glyph!=='string'||!s.glyph) return false; signs[id]=true; }
+  for(const m of p.movers){ const id=String(m&&m.id); if(!SKY_BODY_SET[id]||bodies[id]||!finiteNum(m.lon_j2000)||!finiteNum(m.degree_in_sign)||typeof m.glyph!=='string'||!m.glyph||typeof m.name!=='string'||!m.name||typeof m.retro!=='boolean') return false;
+    const sign=canonicalSkySign(m.sign); if(!SKY_SIGN_SET[sign]) return false; bodies[id]=true; }
+  return SKY_SIGN_IDS.every(id=>signs[id])&&SKY_BODY_IDS.every(id=>bodies[id]);
+}
+function deviceSkyTimezone(){ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(e){ return 'UTC'; } }
+async function loadSkyDay(){
+  if(SKY_MODE==='decorative') return null;
+  const C=CFG.skyDay, ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+  const to=setTimeout(()=>{ if(ctl) ctl.abort(); },Math.max(1000,+C.timeoutMs||8000));
+  const path=(typeof C.path==='string'&&C.path.charAt(0)==='/')?C.path:'/api/sky-day';
+  try{ const r=await fetch(SKY_DAY_API_BASE+path+'?tz='+encodeURIComponent(deviceSkyTimezone()),ctl?{signal:ctl.signal}:{}); if(!r.ok) return null;
+    const p=await r.json(); return skydayValid(p)?p:null; }catch(e){ return null; }finally{ clearTimeout(to); }
 }
 /* D4: zodiac stick figures — the 13 ecliptic constellations (incl. ⛎ Ophiuchus, equal citizen) as faint additive
    stars + thin connecting lines, from the PUBLIC static fixture fixtures/zodiac_sticks_v1.json (approximate J2000
@@ -1046,7 +1103,7 @@ function stickPtTex(){ if(_stickPtTexC) return _stickPtTexC;
 }
 function buildZodiacSticks(cat){
   if(stickGroup) return;
-  const S=SKY_CHART.stick, R=S.R, stars=[], edges=[], figMap={};
+  const S=SKY_CHART.stick, R=S.R, stars=[], edges=[], figMap={}, signMeta=Object.create(null);
   for(const f of (cat.figures||[]).slice(0,S.maxFigs)){
     if(!f || !Array.isArray(f.stars) || !Array.isArray(f.edges)
        || f.stars.some(st=>!Array.isArray(st)||!isFinite(+st[0])||!isFinite(+st[1]))
@@ -1057,7 +1114,10 @@ function buildZodiacSticks(cat){
       const a=base+(+e[0]|0), b=base+(+e[1]|0);
       if(a>=base && b>=base && a<base+take && b<base+take && a!==b) edges.push(stars[a], stars[b]);
     }
-    if(f.id!=null) figMap[String(f.id)]={p0:base, p1:stars.length, v0:e0, v1:edges.length};   // per-figure vertex ranges — SKY LISTEN paints these gold (K4)
+    if(f.id!=null){ const fid=String(f.id), sid=canonicalSkySign(fid), center=new THREE.Vector3();
+      for(let i=base;i<stars.length;i++) center.add(stars[i]); if(center.lengthSq()>1e-9) center.normalize().multiplyScalar(SKY_CHART.R);
+      figMap[fid]={p0:base,p1:stars.length,v0:e0,v1:edges.length};   // per-figure vertex ranges — SKY LISTEN paints these gold (K4)
+      if(SKY_SIGN_SET[sid]&&center.lengthSq()>1e-9) signMeta[sid]={glyph:SKY_SIGN_GLYPHS[sid],pos:center,lon:null,sprite:null}; }
   }
   if(!stars.length) return;
   stickGroup=new THREE.Group(); skySphere.add(stickGroup);   // v2.1 G1: ON the sphere — the constellations ARE the sphere's skin; the diurnal spin carries them past the horizon with the planets (no more wallpaper)
@@ -1078,24 +1138,33 @@ function buildZodiacSticks(cat){
     if(!LOW) lns.layers.enable(1);
   }
   if(!LOW) pts.layers.enable(1);   // constellations shimmer in the floor reflection alongside the dome
-  _stickFig={map:figMap, pGeo:pGeo, lGeo:lGeo};   // SKY LISTEN handle (null until sticks exist)
+  _stickFig={map:figMap,pGeo:pGeo,lGeo:lGeo,signs:signMeta};   // static centroids make glossary sign Listen possible even when every API is offline
+  refreshPublicListenMeta();
 }
 function sticksValid(c){ return !!c && c.type==='zodiac_sticks' && Array.isArray(c.figures); }
 async function loadSticks(){ try{ const r=await fetch('fixtures/zodiac_sticks_v1.json',{cache:'no-store'}); if(!r.ok) return null; const c=await r.json(); return sticksValid(c)?c:null; }catch(e){ return null; } }
 if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.sun, l0.moon); }   // v2.1 G5: both clocked modes get sphere luminaries from frame one (two tiny glyph rasters — no fetch, no boot risk); a personal pack retunes the lons when it lands
 
-/* ========================= SKY LISTEN (SPEC_SKY_LISTEN Parcel K — study, not combat) =========================
-   In clocked_chart + natural ONLY: reticle on a celestial body with no orb in the way → fire becomes LISTEN — a
-   brief muzzle→body line, gold constellation + large gold existing glyph, and a study card from the local sidereal
-   "deep desk" (:8742, soft-fail to pack geometry). A listen NEVER spawns a projectile and NEVER touches shots,
+/* ========================= SKY LISTEN (Parcels K + N — study, not combat) =========================
+   In clocked or clocked_chart, natural or theatre: a clear celestial pick becomes LISTEN — a brief muzzle line,
+   gold constellation/existing glyph, and an immediate static glossary card. A real local natal pack may enrich it
+   from the explicitly local "deep desk" (:8742). A listen NEVER spawns a projectile and NEVER touches shots,
    streak, clank, whiff or the fire grid — the single integration point is one early-return in fire().
    Dismiss: new listen · holdSec after the FINAL card paints (not from the fire click). Esc is PAUSE only — never steals the card. All copy is symbolic study language, never fate. */
-let _stickFig=null, _lsnMeta=null;            // filled by buildZodiacSticks / buildChartSky (chart mode only → gates below stay false elsewhere)
+let _stickFig=null, _lsnMeta=null;            // fallback centroids + ☉/☽ first; exact day/personal pack metadata atomically replaces them
 const _lsnBody={};                            // mover display metadata collected during the chart build
 const _lsn={sel:null, line:null, lineT:-1, ghost:null, emphasis:[], card:null, holdT:-1, seq:0, cache:new Map(), goldFig:null};
 const _lsnW=new THREE.Vector3(), _lsnP=new THREE.Vector3(), _lsnDir2=new THREE.Vector3(), _lsnRt=new THREE.Vector3(), _LSN_UP=new THREE.Vector3(0,1,0);
 const LSN_SIGN_FIG={scorpio:'scorpius', capricorn:'capricornus'};   // pack sign ids ↔ fixture figure ids
 const LSN_GOLD=new THREE.Color(0xffd24a), LSN_DIM=0.5;
+function refreshPublicListenMeta(){   // API-independent pick map: constellation centroids + honest Meeus ☉/☽ (sign left unknown until a pack supplies boundaries)
+  if(_chartPackRank>=0) return;
+  const signs=Object.create(null), bodies=Object.create(null), ghostLon=Object.create(null);
+  if(_stickFig&&_stickFig.signs) for(const id in _stickFig.signs){ const s=_stickFig.signs[id]; signs[id]={glyph:SKY_SIGN_GLYPHS[id]||s.glyph||'?',pos:s.pos,lon:null,sprite:null}; }
+  if(_lum) for(const id of ['sun','moon']){ const t=_lum[id]; if(!t) continue; bodies[id]={name:id==='sun'?'Sun':'Moon',glyph:id==='sun'?'☉':'☽',sign:null,lon:t.lon,pos:t.glyph.position,sprite:t.glyph,delta:null}; }
+  _lsnMeta={source:'fallback',bodies:bodies,signs:signs,ghostLon:ghostLon,signOf:()=>null,natalId:null};
+}
+refreshPublicListenMeta();
 function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centre); huge when behind the camera
   camera.getWorldDirection(_lsnDir2);
   _lsnP.copy(worldPos).sub(camera.position); if(_lsnP.dot(_lsnDir2)<=0) return 1e9;
@@ -1133,7 +1202,7 @@ function pickCelestial(){   // priority: transit body within bodyPx, else sign w
   return best;
 }
 function skyListenTry(){   // called from fire(); true = this press was a LISTEN (caller returns, nothing combat happens)
-  if(SKY_MODE!=='clocked_chart' || SKY_TIME!=='natural' || !_lsnMeta) return false;   // gates (§2): personal chart under the REAL sky only — theatre/decorative/plain clocked always fight
+  if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta || !(_skyGlossaryReady||_publicSkyReady||_lsnNatalId())) return false;   // public definitions work in natural + theatre; geometry-only Listen remains available when day/personal data exists
   if(_lsnOrbBlocksSky()) return false;   // Echo between you and the sky → always launch a projectile, never a zodiac Listen
   const pick=pickCelestial(); if(!pick) return false;
   startListen(pick); return true;
@@ -1155,8 +1224,8 @@ function startListen(pick){
   goldFigure(pick.kind==='sign' ? pick.id : pick.meta.sign);
   emphasizeListenGlyphs(pick);
   if(pick.kind==='body') showListenGhost(pick);   // one faint natal memory mark, created lazily and never added to the pick maps
-  showListenCard(pick, null, true);
-  fetchListen(pick);
+  const fallback=glossaryListenData(pick); showListenCard(pick,fallback,false);   // definitions are static: never make a public player wait on localhost/Railway
+  if(_lsnNatalId()) fetchListen(pick,fallback);   // personal enrichment is local-only and optional
 }
 function clearListen(hideCard){
   _lsn.sel=null; _lsn.holdT=-1; _lsn.seq++;
@@ -1227,6 +1296,21 @@ function _lsnNatalId(){   // pack natal_id for personal transit block — meta f
   if(_skypack && typeof _skypack.natal_id==='string' && _skypack.natal_id) return _skypack.natal_id;
   return null;
 }
+function glossaryListenData(pick){
+  const G=_skyGlossary; if(!G||!pick) return null; const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign);
+  const S=SKY_SIGN_SET[signId]?G.signs[signId]:null;
+  if(pick.kind==='sign') return S?{type:'sky_glossary',placement:{status:'ready',title:S.title,text:S.text},personal:{available:false}}:null;
+  const P=G.planets[pick.id], exact=S&&G.planet_in_sign[pick.id+':'+signId]; if(!P&&!S) return null;
+  let title=exact&&exact.title, text=exact&&exact.text;
+  if(!text && P && S){ const pk=Array.isArray(P.keywords)?P.keywords:[], sk=Array.isArray(S.keywords)?S.keywords:[];
+    title=P.title+' in '+S.title;
+    text=(pk.length>=2&&sk.length>=2)?(title+' traditionally joins '+pk[0]+' and '+pk[1]+' with '+sk[0]+' and '+sk[1]+'. It is a symbolic lens for reflection, not a fixed character claim or prediction.'):(P.text+' '+S.text); }
+  else if(!text){ const one=P||S; title=one.title; text=one.text; }
+  return {type:'sky_glossary',placement:{status:'ready',title:title,text:text},personal:{available:false}};
+}
+function mergePersonalListen(data,fallback){
+  if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
+}
 function showListenCard(pick, data, skeleton){
   // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
   // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
@@ -1236,47 +1320,37 @@ function showListenCard(pick, data, skeleton){
   const card=_lsn.card; card.textContent=''; card.style.display='block';
   // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
   if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
-  const m=pick.meta||{}, signId=pick.kind==='sign'?pick.id:m.sign;
-  const signGlyph=(signId && _lsnMeta.signs[signId])?_lsnMeta.signs[signId].glyph:'';
+  const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
+  const signGlyph=signMeta?signMeta.glyph:(SKY_SIGN_GLYPHS[signId]||'');
   const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
   const A=data&&data.placement, P=data&&data.personal;
   // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
   const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
   // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
-  const placeMax=hasPersonal?420:900, personMax=520;
+  const placeMax=hasPersonal?420:900;
   if(skeleton){
     _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR);
     _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
                                       : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
     _lsnLine(card, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
   }
-  // YOUR CHART first when we have personal transit notes (the relation the player cares about)
-  _lsnLine(card, T('yourChartHdr','YOUR CHART'), HDR);
+  // YOUR CHART appears only after the optional personal desk actually returns content; a natal pack alone never displaces or nags over the glossary.
   if(hasPersonal){
+    _lsnLine(card, T('yourChartHdr','YOUR CHART'), HDR);
     if(P.title) _lsnLine(card, _lsnClip(P.title, 110), TTL);
     if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(card, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
-    if(P.text) _lsnLine(card, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');   // short overview — per-seal essays below
-    // Each transit seal with its meaning (not glyph-only row)
+    if(P.text) _lsnLine(card, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
     if(Array.isArray(P.highlights) && P.highlights.length){
       _lsnLine(card, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
-      const nSeal=hasPersonal?3:4;   // room budget under aim lock (no scrollbar)
-      for(const h of P.highlights.slice(0,nSeal)){
+      for(const h of P.highlights.slice(0,3)){
         if(!h) continue;
         const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
-        if(h.title) _lsnLine(card, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title, 100), 'margin-top:4px;color:var(--rail);font-size:11px;');
-        else _lsnLine(card, seal, 'margin-top:4px;color:var(--rail);font-size:11px;');
-        if(h.text) _lsnLine(card, _lsnClip(h.text, 280), 'color:var(--bone-dim);margin-bottom:3px;');
-        else if(!h.title) _lsnLine(card, seal, 'color:var(--bone-dim);');
+        if(h.title) _lsnLine(card, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
+        else _lsnLine(card,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
+        if(h.text) _lsnLine(card,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
+        else if(!h.title) _lsnLine(card,seal,'color:var(--bone-dim);');
       }
     }
-  } else if(pick.kind==='body' && m.delta!=null && isFinite(+m.delta)){
-    _lsnLine(card, 'Δ '+Math.round(+m.delta)+'° from your natal '+_lsnCap(m.name||pick.id), 'color:var(--bone-dim);margin-bottom:6px;');
-    if(!_lsnNatalId()) _lsnLine(card, T('skyPersonalNA','personal notes unavailable · need local pack natal_id + desk :8742'), 'color:var(--bone-dim);margin-bottom:6px;');
-    else _lsnLine(card, T('skyPersonalDesk','desk quiet · geometry only (is :8742 up?)'), 'color:var(--bone-dim);margin-bottom:6px;');
-  } else if(pick.kind==='sign'){
-    _lsnLine(card, T('skySignPersonal','constellation study · placement text below'), 'color:var(--bone-dim);margin-bottom:6px;');
-  } else {
-    _lsnLine(card, T('skyPersonalNA','personal notes unavailable · need local pack natal_id + desk :8742'), 'color:var(--bone-dim);margin-bottom:6px;');
   }
   // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
   _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR+'margin-top:6px;');
@@ -1286,34 +1360,29 @@ function showListenCard(pick, data, skeleton){
     if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(card, _lsnClip(A.title, 100));
     if(A.text) _lsnLine(card, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
   } else if(pick.kind==='body') _lsnLine(card, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
-  else { const natal=[], now=[];
-    for(const id in _lsnMeta.ghostLon){ if(_lsnMeta.signOf(_lsnMeta.ghostLon[id])===pick.id) natal.push((_lsnMeta.bodies[id]||{}).glyph||id); }
-    for(const id in _lsnMeta.bodies){ if(_lsnMeta.bodies[id].sign===pick.id) now.push(_lsnMeta.bodies[id].glyph); }
+  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
+    for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
+    for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
     if(now.length) _lsnLine(card, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
     if(natal.length) _lsnLine(card, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
   }
   _lsnLine(card, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
 }
-function fetchListen(pick){   // deep-desk call (§6): async, cached, seq-guarded — a stale response never repaints a newer listen; timeout/offline → geometry fallback
-  const CL=CFG.skyListen, seq=++_lsn.seq;
-  let tz='UTC'; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(e){}
-  const nid=_lsnNatalId();
-  const natal=nid?('&natal_id='+encodeURIComponent(nid)):'';
+function fetchListen(pick,fallback){   // personal deep-desk only: static glossary already painted; timeout/offline leaves it untouched
+  const nid=_lsnNatalId(); if(!nid) return; const CL=CFG.skyListen, seq=++_lsn.seq, tz=deviceSkyTimezone(), natal='&natal_id='+encodeURIComponent(nid);
   const q=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
                               : 'kind=sign&sign='+encodeURIComponent(pick.id))+natal;
   const key=q+'|'+Math.floor(Date.now()/600000);   // 10-min epoch bucket
-  if(_lsn.cache.has(key)){ if(_lsn.sel===pick) showListenCard(pick, _lsn.cache.get(key), false); return; }
+  if(_lsn.cache.has(key)){ if(_lsn.sel===pick) showListenCard(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
   const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
   const to=setTimeout(()=>{ if(ctl) ctl.abort(); }, CL.apiMs);
   fetch(CL.api+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz), ctl?{signal:ctl.signal}:{})
     .then(r=>r.ok?r.json():null)
     .then(j=>{ clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
-      // Don't cache incomplete personal when we expected a natal chart (retry next listen if desk was slow/down)
-      if(ok && (!nid || (ok.personal && (ok.personal.available || ok.personal.title || ok.personal.text)))){
-        _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
-      }
-      if(seq===_lsn.seq && _lsn.sel===pick) showListenCard(pick, ok, false); })
-    .catch(()=>{ clearTimeout(to); if(seq===_lsn.seq && _lsn.sel===pick) showListenCard(pick, null, false); });
+      const personal=ok&&ok.personal&&(ok.personal.available||ok.personal.title||ok.personal.text||(Array.isArray(ok.personal.highlights)&&ok.personal.highlights.length));
+      if(ok&&personal){ _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
+        if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,mergePersonalListen(ok,fallback),false); } })
+    .catch(()=>{ clearTimeout(to); });
 }
 function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is fading or a selection is held
   const CL=CFG.skyListen;
@@ -3708,14 +3777,12 @@ else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick fig
   if(c) try{ buildZodiacSticks(c); }catch(e){}
   if(!stickGroup){ buildStars(); updateStars(skyT); }   // ANY miss — absent, invalid, or throwing fixture — degrades to the decorative stars, never an empty night
 }); },120,1500);
+if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyGlossary(); },140,1600);   // definitions are a static asset and never wait on either sky server
+if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers); failure leaves Meeus ☉/☽ + sticks + glossary untouched
 runIdle(()=>{ try{ renderer.compile(scene, camera); }catch(e){} },900,4000);   // pre-warm every scene material's shader (beat rings, grid variants, floor) during boot idle — no first-use compile can hitch a run's opening beats
-if(SKY_MODE==='clocked') runIdle(()=>{ loadSkypack(false).then(p=>{ if(p) retuneLuminaries(p); }); },600,3000);   // v2.1: quiet epoch upgrade — a personal pack's ☉/☽ lons replace the boot approximation (no sample, no chart layer, no toast)
 if(SKY_MODE==='clocked_chart') runIdle(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; missing/invalid pack degrades to plain clocked with one quiet toast
   if(!p){ showGhostToast('🌌 '+T('skyNoChart','SKY · CLOCKED — NO CHART')); return; }
-  retuneLuminaries(p);   // epoch lons land immediately (four position writes, no raster); the heavier chart build still waits for a calm moment below
-  const arm=()=>{ if(state.running){ setTimeout(arm,2000); return; }   // the one-shot ~30-texture glyph raster burst waits for a calm moment (menu/pause) — never a hitch mid-run in a rhythm game
-    try{ buildChartSky(p); }catch(e){} if(p._sample) showGhostToast('🌌 '+T('skyMockChart','SKY · SAMPLE CHART')); };   // a throwing pack must never take the boot path down with it
-  arm();
+  const rank=skyGeometryRank(p); queueSkyGeometry(p,rank,()=>{ if(p._sample) showGhostToast('🌌 '+T('skyMockChart','SKY · SAMPLE CHART')); });   // real personal rank wins any load race; synthetic sample never overrides a valid public day
 }); },400,2500);
 // Eager Tone fetch so the binary gate's first enabled click can init audio (was idle-deferred → cold double-click)
 loadToneOnce().then(()=>{ setGateReady(true); }).catch(()=>{ setGateReady(true); });   // still enable on failure so the user can see the error copy on click

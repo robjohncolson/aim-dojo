@@ -44,6 +44,27 @@ It's a static site, so any static host works. This repo is published with **GitH
 (Settings → Pages → Deploy from branch → `main` / root). The QR code and share link use the
 page's own URL at runtime, so they work wherever it's hosted.
 
+### Public sky API
+
+The default `clocked` sky always works from static assets: constellation sticks,
+Meeus Sun/Moon positions, and the in-game symbolic glossary. It also makes a
+soft, timed request to the Sidereal public day endpoint so all 12 major movers
+can appear when that service is available.
+
+Local development defaults to `http://127.0.0.1:8742`. Point a visit at a
+Railway deployment with an HTTPS base URL:
+
+```text
+https://aim-dojo.vercel.app/?skyApi=https://your-sidereal.up.railway.app
+```
+
+A valid `skyApi` URL is persisted as `localStorage['aimdojo.skyApi']`; clear
+that key to return to the configured local default. A production build may
+instead set `CFG.skyDay.api` in `index.html`. The selected base is used only
+for anonymous `/api/sky-day` geometry. Personal natal `sky-listen` enrichment
+remains explicitly local on `CFG.skyListen.api` and is requested only when a
+real personal skypack supplies `natal_id`.
+
 ## Tech
 
 - [Three.js](https://threejs.org/) r128 (3D scene, WebGL)
