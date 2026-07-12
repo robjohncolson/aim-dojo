@@ -151,6 +151,23 @@ test("a committed profile is distinguishable when the follow-up pack fails", asy
   assert.equal(controller.state.lastSaveCommitted, true);
 });
 
+test("400 responses surface the server detail as a validation error", async () => {
+  const controller = createPersonalSkyController({
+    baseUrl: "https://sidereal.example",
+    getAccessToken: () => "jwt",
+    fetchImpl: async () => response(400, { detail: "tz must be an IANA timezone name" }),
+  });
+  controller.setAuthenticated(true);
+
+  await assert.rejects(controller.save(validBirth()), (error) => {
+    assert.equal(error.code, "validation");
+    assert.equal(error.status, 400);
+    assert.match(error.message, /IANA timezone/i);
+    return true;
+  });
+  assert.equal(controller.state.lastSaveCommitted, false);
+});
+
 test("a failed edit does not masquerade as a newly committed profile", async () => {
   let failPost = false;
   const controller = createPersonalSkyController({

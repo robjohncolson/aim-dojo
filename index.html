@@ -236,14 +236,15 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 .sky-save-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .sky-save-field{display:flex;flex-direction:column;gap:3px;min-width:0;color:var(--bone-dim);font-size:9.5px;letter-spacing:.1em}
 .sky-save-field.wide{grid-column:1/-1}
-.sky-save input{width:100%;min-width:0;border:1px solid var(--panel-edge);background:#0d110f;color:var(--bone);font:11px var(--mono);padding:7px 8px;border-radius:0}
-.sky-save input:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
-.sky-save input:disabled{opacity:.45}
+.sky-save input,.sky-save select{width:100%;min-width:0;border:1px solid var(--panel-edge);background:#0d110f;color:var(--bone);font:11px var(--mono);padding:7px 8px;border-radius:0}
+.sky-save select{appearance:auto;cursor:pointer}
+.sky-save input:focus,.sky-save select:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
+.sky-save input:disabled,.sky-save select:disabled{opacity:.45}
 .sky-save-check{display:flex;align-items:center;gap:7px;margin:8px 0 2px;color:var(--bone-dim);font-size:10.5px;cursor:pointer}
 .sky-save-check input{width:auto;margin:0;accent-color:var(--rail)}
 .sky-save-actions{display:flex;gap:7px;margin-top:9px}
 .sky-save .ghost{padding:8px 9px;font-size:10px;letter-spacing:.1em}
-.sky-save button:disabled,.sky-save input:disabled{cursor:not-allowed}
+.sky-save button:disabled,.sky-save input:disabled,.sky-save select:disabled{cursor:not-allowed}
 .sky-save button:disabled{opacity:.4}
 .sky-save[aria-busy=true] button{opacity:.55;pointer-events:none}
 @media (max-width:520px){.sky-save-grid{grid-template-columns:1fr}.sky-save-field.wide{grid-column:auto}.sky-save-actions{flex-wrap:wrap}.sky-save-actions .ghost{min-width:42%}}
@@ -326,10 +327,14 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
             </div>
             <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
             <div class="sky-save-grid">
-              <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span><input id="saveSkyTz" type="text" maxlength="100" placeholder="America/New_York" autocomplete="off" required></label>
-              <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country" autocomplete="off"></label>
-              <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="40.7128"></label>
-              <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="-74.0060"></label>
+              <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span>
+                <select id="saveSkyTz" required autocomplete="off" aria-describedby="saveSkyStatus">
+                  <option value="">Select timezone…</option>
+                </select>
+              </label>
+              <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country (optional)" autocomplete="off"></label>
+              <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="optional"></label>
+              <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="optional"></label>
             </div>
             <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button><button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button></div>
           </form>
@@ -3546,11 +3551,43 @@ function skySetStatus(text,busy){
   _skyUiBusy=!!busy; if(skySave.status) skySave.status.textContent=text||'';
   if(skySave.details){
     skySave.details.setAttribute('aria-busy',busy?'true':'false');
-    skySave.details.querySelectorAll('button,input').forEach(control=>{ control.disabled=!!busy; });
+    skySave.details.querySelectorAll('button,input,select').forEach(control=>{ control.disabled=!!busy; });
     if(!busy){ skySyncTimeUnknown(); if(skySave.clear) skySave.clear.disabled=!_personalListenExpected; }
   }
 }
 function skyDefaultTz(){ return deviceSkyTimezone(); }
+const SKY_TZ_OPTIONS=[
+  'UTC',
+  'America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Anchorage','Pacific/Honolulu',
+  'America/Toronto','America/Vancouver','America/Mexico_City','America/Sao_Paulo','America/Argentina/Buenos_Aires',
+  'Europe/London','Europe/Dublin','Europe/Paris','Europe/Berlin','Europe/Madrid','Europe/Rome','Europe/Amsterdam',
+  'Europe/Warsaw','Europe/Athens','Europe/Istanbul','Europe/Moscow',
+  'Africa/Cairo','Africa/Johannesburg','Africa/Lagos','Africa/Nairobi',
+  'Asia/Dubai','Asia/Kolkata','Asia/Bangkok','Asia/Singapore','Asia/Hong_Kong','Asia/Shanghai','Asia/Tokyo','Asia/Seoul',
+  'Australia/Perth','Australia/Sydney','Pacific/Auckland'
+];
+function skyEnsureTzOption(value){
+  if(!skySave.tz||typeof value!=='string'||!value) return;
+  const exists=[].some.call(skySave.tz.options,opt=>opt.value===value);
+  if(!exists){ const opt=document.createElement('option'); opt.value=value; opt.textContent=value; skySave.tz.appendChild(opt); }
+}
+function skyPopulateTzSelect(){
+  if(!skySave.tz||skySave.tz.tagName!=='SELECT'||skySave.tz.dataset.ready==='1') return;
+  const preferred=skyDefaultTz();
+  const zones=SKY_TZ_OPTIONS.slice();
+  if(preferred&&zones.indexOf(preferred)<0) zones.unshift(preferred);
+  skySave.tz.innerHTML='';
+  const blank=document.createElement('option'); blank.value=''; blank.textContent='Select timezone…'; skySave.tz.appendChild(blank);
+  for(const z of zones){ const opt=document.createElement('option'); opt.value=z; opt.textContent=z===preferred?(z+' · device'):z; skySave.tz.appendChild(opt); }
+  skySave.tz.dataset.ready='1';
+  if(preferred) skySave.tz.value=preferred;
+}
+function skySetTzValue(value){
+  skyPopulateTzSelect();
+  const next=(typeof value==='string'&&value.trim())?value.trim():skyDefaultTz();
+  skyEnsureTzOption(next);
+  if(skySave.tz) skySave.tz.value=next;
+}
 function skySyncTimeUnknown(){ if(!skySave.time||!skySave.unknown) return; skySave.time.disabled=skySave.unknown.checked; skySave.time.required=!skySave.unknown.checked; }
 function skySyncCoordinatePair(){
   if(!skySave.lat||!skySave.lon) return; const any=skySave.lat.value.trim()!==''||skySave.lon.value.trim()!=='';
@@ -3559,14 +3596,14 @@ function skySyncCoordinatePair(){
   if(any&&skySave.lon.value.trim()==='') skySave.lon.setCustomValidity(T('saveSkyBothCoords','Add both latitude and longitude'));
 }
 function skyClearForm(){
-  if(!skySave.form) return; skySave.form.reset(); _skyFormDirty=false; if(skySave.tz) skySave.tz.value=skyDefaultTz(); skySyncTimeUnknown(); skySyncCoordinatePair();
+  if(!skySave.form) return; skySave.form.reset(); _skyFormDirty=false; skySetTzValue(skyDefaultTz()); skySyncTimeUnknown(); skySyncCoordinatePair();
 }
 function skyFillForm(profile,force){
   if(!profile||!skySave.form||(_skyFormDirty&&!force)) return;
   skySave.date.value=typeof profile.birth_date==='string'?profile.birth_date:'';
   skySave.time.value=typeof profile.birth_time==='string'?profile.birth_time.slice(0,5):'';
   skySave.unknown.checked=profile.time_unknown===true;
-  skySave.tz.value=typeof profile.tz==='string'&&profile.tz?profile.tz:skyDefaultTz();
+  skySetTzValue(typeof profile.tz==='string'&&profile.tz?profile.tz:skyDefaultTz());
   skySave.place.value=typeof profile.place_label==='string'?profile.place_label:'';
   skySave.lat.value=profile.lat==null?'':String(profile.lat); skySave.lon.value=profile.lon==null?'':String(profile.lon);
   _skyFormDirty=false; skySyncTimeUnknown(); skySyncCoordinatePair();
@@ -3585,7 +3622,12 @@ function skyRenderAccount(keepStatus){
 }
 function skySoftFailure(error,action){
   const code=error&&error.code, status=error&&error.status;
-  if(code==='validation'||status===400||status===422) return T('saveSkyCheckFields','CHECK DATE, TIME, TIMEZONE & PLACE');
+  const detail=(error&&typeof error.message==='string')?error.message.trim():'';
+  // Prefer the real validation/API detail so free-text timezone mistakes aren't a mystery.
+  if(code==='validation'||status===400||status===422){
+    if(detail&&detail.length<=120&&!/^check date/i.test(detail)&&detail!=='Personal sky request was not accepted') return detail.toUpperCase();
+    return T('saveSkyCheckFields','CHECK DATE, TIME, TIMEZONE & PLACE');
+  }
   if(code==='not_authenticated'||status===401||status===403) return T('saveSkyExpired','SKY LINK EXPIRED · SIGN IN AGAIN');
   return action==='link'?T('saveSkyLinkFailed','SKY LINK COULD NOT SEND'):action==='clear'?T('saveSkyClearFailed','CHART COULD NOT CLEAR'):T('saveSkyUnavailable','PERSONAL SKY UNAVAILABLE');
 }
@@ -3646,7 +3688,7 @@ function skyAcceptAuthSession(session){   // synchronous account quarantine; no 
 async function initSaveMySky(){
   if(!skySave.details) return;
   if(!CFG.saveMySky){ skySave.details.hidden=true; return; }
-  skyClearForm(); skyRenderAccount(true);
+  skyPopulateTzSelect(); skyClearForm(); skyRenderAccount(true);
   if(!ensureSkyProfileController()||!SUPABASE_AUTH_URL||typeof CFG.supabaseAnonKey!=='string'||!CFG.supabaseAnonKey){ skySetStatus(T('saveSkyNotConfigured','SAVE MY SKY IS NOT CONFIGURED'),false); return; }
   if(location.protocol!=='http:'&&location.protocol!=='https:'){ skySetStatus(T('saveSkyNeedsWeb','SAVE MY SKY NEEDS HTTP(S) · PLAY STILL WORKS'),false); return; }
   try{
@@ -3689,7 +3731,7 @@ if(skySave.signOut) skySave.signOut.addEventListener('click',async ()=>{
   try{ const result=await _skyAuthClient.auth.signOut(); if(result.error) throw result.error; }
   catch(error){ skySetStatus(T('saveSkySignOutFailed','SIGN OUT COULD NOT FINISH'),false); }
 });
-if(skySave.details){ if(!CFG.saveMySky) skySave.details.hidden=true; else skyClearForm(); }
+if(skySave.details){ if(!CFG.saveMySky) skySave.details.hidden=true; else { skyPopulateTzSelect(); skyClearForm(); } }
 if(MOBILE){
   if(calibBtn && calibBtn.parentElement) calibBtn.parentElement.style.display='none';   // touch has no WASD samples, so tap-derived calibration can never complete
   if(calibHint) calibHint.style.display='none';

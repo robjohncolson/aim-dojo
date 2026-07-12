@@ -256,9 +256,34 @@
           var status = Number.isInteger(response.status) ? response.status : null;
           var authFailure = status === 401 || status === 403;
           var retryable = status === 408 || status === 429 || (status !== null && status >= 500);
+          var validationFailure = status === 400 || status === 422;
+          var detail = null;
+          try {
+            var errorBody = await response.json();
+            if (errorBody && typeof errorBody.detail === "string" && errorBody.detail.trim()) {
+              detail = errorBody.detail.trim().slice(0, 180);
+            } else if (errorBody && Array.isArray(errorBody.detail) && errorBody.detail.length) {
+              var first = errorBody.detail[0];
+              if (first && typeof first.msg === "string" && first.msg.trim()) detail = first.msg.trim().slice(0, 180);
+            }
+          } catch (_) {
+            detail = null;
+          }
           throw new SkyProfileError(
-            authFailure ? "not_authenticated" : retryable ? "service_unavailable" : "request_failed",
-            authFailure ? "Sign in again to link your sky" : retryable ? "Personal sky is unavailable" : "Personal sky request was not accepted",
+            authFailure
+              ? "not_authenticated"
+              : validationFailure
+                ? "validation"
+                : retryable
+                  ? "service_unavailable"
+                  : "request_failed",
+            authFailure
+              ? "Sign in again to link your sky"
+              : validationFailure
+                ? detail || "Check date, time, timezone, and place"
+                : retryable
+                  ? "Personal sky is unavailable"
+                  : detail || "Personal sky request was not accepted",
             { status: status, retryable: retryable }
           );
         }
