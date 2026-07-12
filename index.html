@@ -277,16 +277,16 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
     <div id="pauseStats" style="display:none"></div>
     <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
       <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="resolutionLabel" style="letter-spacing:.14em">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+      <div id="skyMotionRow" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="skyMotionLabel" style="letter-spacing:.14em">SKY&nbsp;MOTION</span><button type="button" class="ghost" id="skyMotionToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
       <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span id="offsetLabel" style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
       <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
       <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:14px"></div>
     </div>
 
-    <!-- Binary gate: new → trainer; not-new → full SENSEI. Hidden on RESUME. -->
+    <!-- Always enter through Moonline training (no skip-to-full gate). Hidden on RESUME. -->
     <div id="modePick">
-      <p class="mode-q" id="modeQ">First night here?</p>
-      <button type="button" class="primary" id="beginTrain" disabled><span aria-hidden="true">▶</span> <span id="beginTrainLabel">I'M NEW — WAKE THE MOONLINE</span></button>
-      <button type="button" class="ghost" id="beginFull" disabled style="width:100%;margin-top:10px;padding:12px"><span id="beginFullLabel">I KNOW THIS — THE FULL NIGHT</span></button>
+      <p class="mode-q" id="modeQ">The night is waiting.</p>
+      <button type="button" class="primary" id="beginTrain" disabled><span aria-hidden="true">▶</span> <span id="beginTrainLabel">PLAY — WAKE THE MOONLINE</span></button>
     </div>
     <button class="primary" id="beginBtn" style="display:none"><span aria-hidden="true">▶</span> <span id="beginLabel">RESUME</span></button>
     <div class="dualcols"><button class="ghost" id="recordsBtn"><span aria-hidden="true">✦</span> <span id="recordsLabel">RECORDS</span></button><button class="ghost" id="shareBtn"><span aria-hidden="true">⧉</span> <span id="shareLabel">SHARE</span></button></div>
@@ -331,7 +331,7 @@ window.JA={
   phones:'ヘッドホンがおすすめ。世界の太鼓は耳の中に。音を出してね。',
   mouseDesc:'まわして ねらう', wasdDesc:'床が光ったら 見えている文字を踏む — 月の糸がととのう',
   clickDesc:'あいだに送る — こだまが光るうちに届ける', escDesc:'ポーズ',
-  modeQ:'はじめての夜?', beginTrain:'はじめて — 月の糸をおしえて', beginFull:'もう知ってる — 満ちる夜へ', resume:'つづける',
+  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
@@ -372,7 +372,7 @@ window.JA={
       txt('speedLabel','drum'); txt('fireBtn','send'); attr('fireBtn','aria-label','sendAria'); attr('pauseBtn','aria-label','pauseAria'); attr('muteBtn','title','muteAria'); attr('muteBtn','aria-label','muteAria');
       txt('ovEyebrow','eyebrow'); html('#ovTitle','titleHtml'); html('#ovLede .lede-first','ledeFirstHtml'); html('#ovLede .lede-return','ledeReturn');
       txt('phonesText','phones'); txt('mouseDesc','mouseDesc'); txt('wasdDesc','wasdDesc'); txt('clickDesc','clickDesc'); txt('escDesc','escDesc');
-      txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginFullLabel','beginFull'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
+      txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
       txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
     }
@@ -436,7 +436,7 @@ const CFG = {
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle (decorative sky)
   skyTheatreSec:300,                                     // THEATRE spin rate (clocked* with ?theatre=1 / skyTime=theatre — v2.2 opt-in, natural wall-clock pace is the default): seconds per full revolution of the celestial SPHERE — spins orientation, never longitudes (v2.1 G2)
-  chartDottedArcs:false,                                 // v2 D9: dotted transit→natal arcs for the top few seals — default OFF (busy sky); flip for study sessions
+  chartDottedArcs:false,                                 // legacy v2 key retained inertly; Parcel L removed dome seals/arcs so aspect meaning stays in the Listen HUD
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
   fireQuant:true, fireQuantDiv:4,   // FIRE QUANTIZE: at most one shot per 1/fireQuantDiv-beat step, so spamming caps at fireQuantDiv shots/beat. 4 = 16th notes ("1-e-and-a", 4/beat) — discrete + selective (no hosing) but enough room to correct a whiff (8th notes / 2 felt too restrictive). A single aimed shot still fires immediately (the grid is far ahead of the last shot); only fast repeats are blocked. Dial 2 (8ths, strict) ↔ 8/16 (looser); fireQuant:false → free-fire.
@@ -453,7 +453,8 @@ const CFG = {
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
-  projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:2.6,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob.
+  projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
+  skyListen:{ bodyPx:46, signPx:110, orbPx:64, lineSec:0.45, holdSec:90, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN (SPEC_SKY_LISTEN, clocked_chart+natural only): aim at a celestial body and fire → study card, not a shot. bodyPx/signPx = reticle pick radii (px); orbPx = combat-priority radius (an orb this close always gets the bullet); lineSec = muzzle→body listen-line life; holdSec = card stay time after content is shown (was 12s from click — API lag + reading made it vanish early; now 90s and timer restarts when the final card paints). Esc / new listen still dismiss immediately.
   scope:true, scopeUnits:'m', arcMatchTol:0.5,   // ballistic firing-computer overlay (ARC mode only) + distance unit ('m' | 'ft'). arcMatchTol = VESTIGIAL (apex match window, m) — the arc-delta LED gauge now greens on LOCK (your shot would connect), not an apex window, so it can't disagree with the gold lock box
   // combo color-lift: a warm screen-edge vignette that rides state.streak (rise fast / fall slow, like the audio groove). Pure overlay, reduce-motion gated.
   comboGlow:true, glowMax:0.40, glowStreakFull:16, glowRiseK:10, glowFallK:2.6,
@@ -495,28 +496,24 @@ if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; 
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
 /* ========================= SKY MODE (personal planetarium — SPEC_PERSONAL_PLANETARIUM.md, Parcel B) =========================
-   decorative (default: today's artistic sky, untouched) · clocked (sky follows the real civil clock) · clocked_chart (clocked
-   + natal/transit glyphs from a local skypack). Resolve: ?sky= URL flag > localStorage aimdojo.skyMode > decorative.
+   Public default: clocked (zodiac sticks + ☉/☽, no ephemeris server). decorative = legacy art sky.
+   clocked_chart = personal pack (local/dev or future Railway). Resolve: ?sky= > localStorage > clocked.
+   skyGen 1: one-time clear of stale skyMode so returning players land on the new public sky once.
    AESTHETIC ONLY — no spawn/fire/groove/score/leaderboard path reads any of this. */
 const SKY_MODES=['decorative','clocked','clocked_chart'];
+const SKY_PREF_GEN=1;
+try{ const g=parseInt(localStorage.getItem('aimdojo.skyGen')||'0',10)||0; if(g<SKY_PREF_GEN){ localStorage.setItem('aimdojo.skyGen',String(SKY_PREF_GEN)); localStorage.removeItem('aimdojo.skyMode'); } }catch(e){}
 const SKY_MODE=(function(){
   const m=(location.search+location.hash).match(/[?&#]sky=([a-z_]+)/);
   const fromUrl=(m && SKY_MODES.indexOf(m[1])>=0) ? m[1] : null;
-  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return fromUrl; }   // URL wins this visit + persists as the last choice (?sky=decorative to go back)
+  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return fromUrl; }
   try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return v; }catch(e){}
-  return 'decorative';
+  return 'clocked';   // public ship: everyone gets the constellation sphere without a birth chart or desk
 })();
-/* SPIN RATE (v2.2 Parcel I): how fast the celestial sphere TURNS — never what sits on it, never longitudes.
-   URL matrix:
-     ?sky=clocked                  natural sky, no birth data (zodiac sticks + real-ish ☉/☽ at wall-clock pace)
-     ?sky=clocked&theatre=1        accelerated day — full sphere turn in CFG.skyTheatreSec (alias ?skyTime=theatre)
-     ?sky=clocked_chart            natural + natal chart (needs local skypack)
-     ?sky=clocked_chart&theatre=1  accelerated + natal
-     ?sky=decorative               legacy art sky (own dayCycleSec clock; skyTime ignored)
-   Resolve: ?skyTime=natural|theatre > ?theatre=1|0 alias > localStorage aimdojo.skyTime > natural (§3 locked
-   default: honest real-pace sky; theatre is the opt-in spectacle). URL persists like skyMode (?theatre=0 to go back). */
+/* SPIN RATE (v2.2 + public settings): natural (default wall-clock) · theatre (accelerated full-sky spin).
+   Pause SKY MOTION toggle persists aimdojo.skyTime (live, no reload). URL ?theatre=1 / ?skyTime= still works. */
 const SKY_TIMES=['natural','theatre'];
-const SKY_TIME=(function(){
+let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without reload
   const q=location.search+location.hash;
   let fromUrl=null;
   const m=q.match(/[?&#]skytime=([a-z]+)/i); if(m && SKY_TIMES.indexOf(m[1].toLowerCase())>=0) fromUrl=m[1].toLowerCase();
@@ -840,6 +837,7 @@ function updateSky(dt){
   else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
   if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull + soft glyph breath — zero cost while absent
+  if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
   if(day>0.02) renderReflection();                           // refresh the floor's sky reflection while the tiles are visible
 }
 let skyT=0;
@@ -849,7 +847,7 @@ let skyT=0;
    spawn/fire/groove/score/leaderboard never read skypack data, and the floor stays night-grid/day-checker (no chart
    below). Pack loads off the boot path and soft-fails → plain clocked. Skypacks are LOCAL ONLY: never sent to
    Supabase, share links, or multiplayer.
-   MODEL (v2.1 §2/§4): ONE SPHERE. Sticks, ecliptic band, planets, ☉/☽, Δ and seals are all children of `skySphere`,
+   MODEL (v2.1 §2/§4 + visual simplify Parcel L): ONE SPHERE. Sticks, sign/body glyphs and ☉/☽ are children of `skySphere`,
    placed once in the sphere-LOCAL frame where the ecliptic is the sphere's EQUATOR (great circle, eclipticDir).
    Every sky tick the whole sphere is re-oriented: spin axis = local ecliptic pole tipped ecl.tiltDeg from vertical
    toward +Z (so bodies culminate at ~tiltDeg elevation toward the boot view −Z, rise +X / set −X), spun by
@@ -859,21 +857,17 @@ let skyT=0;
    sunLon only moves with EPOCH (pack / approx), never with the spin — Leo rides with ☉, nothing slides along the
    zodiac. The HORIZON does the day/night editing: sprites get a CPU elevation test, line/point geometry a GPU
    world-Y fade — the nocturnal half of the chart is genuinely under the floor until the sphere carries it up.
-   Lighting reads the REAL transformed ☉ elevation (no second fake sun path). Codex reference math (sidereal
-   sky_sphere.py, Parcel F) pending — formulas mirror the spec sketch; revisit constants if Codex lands offset. */
+   Lighting reads the REAL transformed ☉ elevation (no second fake sun path). Reference frame math lives in
+   sidereal sky_sphere.py; Parcel L changes only visual density, never this spin/horizon behavior. */
 const SKY_CHART={ R:315,   // chart radius (inside the 330 stick shell and the 340 star shell)
   ecl:{tiltDeg:58, latMax:60},   // tiltDeg: spin-axis tip from vertical = culmination elevation of the ecliptic; latMax clamps hostile star latitudes
   dayAtmos:0.30,                                     // D7: daytime atmosphere weight in clocked* (~30% — atmosphere is scenery, glyphs center stage)
-  band:{alpha:0.09, col:0xaec6e8, halfLatDeg:1.6},   // ecliptic band — moon-milk whisper (bracketing pair at ±halfLat)
-  sign:{alpha:0.20, scale:6.5, col:0x8fa8cc, latOff:-6, k:1.7},   // 13 Midpoint sign glyphs (incl. ⛎) at arc midpoints, dropped below the band
-  mover:{alpha:0.80, scale:10, col:0xeef3ff, k:0.9},              // live transit planets (the moon you can still spot at noon)
+  sign:{alpha:0.45, scale:12, listenScale:16, col:0x8fa8cc, latOff:-6, k:1.7},   // Parcel L: readable idle sign glyphs; selected sign (or selected body's sign) goes gold at 16
+  mover:{alpha:0.80, scale:14, listenScale:25, col:0xeef3ff, k:0.9},              // Parcel L: readable idle movers; Listen matches the ☉ glyph weight
   lum:{glowSun:46, glyphSun:25, glowMoon:36, glyphMoon:21, aGlyphSun:0.95, aGlowSun:0.8, aGlyphMoon:0.9, aGlowMoon:0.7, colSun:0xfff1d0, colMoon:0xeef3ff},   // D2: ☉/☽ ARE the luminaries — glyph over a soft disc under-glow (the old art-disc textures, reused) at ~art-disc weight
-  ghost:{alpha:0.30, scale:3.4, col:0xb9c8e4, k:1.8},             // natal ghosts — tiny dim RINGS, never a second sun (Δ carries the birth offset)
-  delta:{alpha:0.5, col:0xcfe0f5, latOff:-5.2, sx:7.5, sy:3, k:1.2},   // D5: soft always-on Δ labels below each mover with a natal twin
-  seal:{alphaLo:0.22, alphaHi:0.62, scale:6, col:0x9fd8ff, latOff:5.4, latStep:4.2, max:8, pulseTop:3, k:1.3},   // D6: ☌ ☍ △ □ ⚹ at the TRANSIT body — tightest-first, hard cap, alpha by tightness
-  arc:{alpha:0.18, col:0x9fd8ff, top:3, k:1.8},                   // D9: optional dotted transit→natal arcs (CFG.chartDottedArcs, default off)
+  ghost:{alpha:0.35, scale:5, col:0xffd24a, k:1.8},               // Parcel L: one faint gold natal marker only while its body is being Listened to; never pickable
   stick:{R:330, ptAlpha:0.5, ptCol:0xcfe0f5, ptSize:4, lnAlpha:0.16, lnCol:0xaec6e8, kPt:1.0, kLn:1.3, maxStars:120, maxEdges:80, maxFigs:16},   // D4: zodiac stick figures (public geometry fixture, schema caps enforced here too)
-  caps:{sign:16, mover:16, ghost:16, res:512} };    // hard ceilings per pack family — a hostile/buggy pack can never balloon draw calls, 20Hz lists, or the texture cache (res bounds the SORT; only seal.max ever draw)
+  caps:{sign:16, mover:16, ghost:16} };    // hard ceilings per pack family — a hostile/buggy pack can never balloon draw calls or the glyph cache
 let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, atmosAmt=0, _sunLonRad=0;   // atmosAmt: dome day-weight from updateSky (=dayAmt in decorative, ~30% of it in clocked*). _sunLonRad: epoch solar lon anchoring the spin formula
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
 const SPH_TILT=SKY_CHART.ecl.tiltDeg*Math.PI/180;
@@ -881,8 +875,8 @@ const SPH_POLE=new THREE.Vector3(0, Math.cos(SPH_TILT), Math.sin(SPH_TILT));   /
 const _qBase=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), SPH_TILT);   // rests the local equator (the ecliptic) onto the tilted spin plane
 const _qSpin=new THREE.Quaternion(), _hzV=new THREE.Vector3();
 const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)
-const _chartFade=[];    // {mat,a0[,pulseP]} every chart material — the layer melts toward a whisper in daylight (like the stars); tight seals also pulse
-const _chartBreath=[];  // {sp,s0,ph} mover/seal sprites — slow glyph breath (never populated under reduceMotion / LOW)
+const _chartFade=[];    // {mat,a0[,pulseP]} every chart material — the clean glyph/stick layer melts toward a whisper in daylight
+const _chartBreath=[];  // {sp,s0,ph} mover/luminary sprites — slow glyph breath (never populated under reduceMotion / LOW)
 const _glyphTexCache={};
 function glyphTex(ch){
   ch=String(ch).slice(0,4);   // bound degenerate/hostile glyph strings — caps both raster cost and cache-key space
@@ -896,18 +890,8 @@ function glyphTex(ch){
   g.fillText(s,64,70); g.fillText(s,64,70);    // twice: crisp core inside the soft halo
   const t=new THREE.CanvasTexture(c); _glyphTexCache[ch]=t; return t;
 }
-function chartTextTex(txt){   // small canvas label (Δ readouts) — crisp core inside a soft halo, same family as glyphTex
-  txt=String(txt).slice(0,8);
-  const c=document.createElement('canvas'); c.width=192; c.height=64; const g=c.getContext('2d');
-  const FONT='"Segoe UI Symbol","Noto Sans Symbols 2","Noto Sans Symbols",serif';
-  g.font='44px '+FONT; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle='#fff';
-  const w=g.measureText(txt).width; if(w>176) g.font=Math.max(20,Math.floor(44*176/w))+'px '+FONT;
-  g.shadowColor='rgba(214,230,255,0.9)'; g.shadowBlur=10;
-  g.fillText(txt,96,34); g.fillText(txt,96,34);
-  return new THREE.CanvasTexture(c);
-}
 let _ringTexC=null;
-function ringTex(){   // natal-ghost marker: a thin soft ring — a dot of memory, not a second sun
+function ringTex(){   // selected-body natal marker: a thin soft ring — memory dust, never an idle second sun
   if(_ringTexC) return _ringTexC;
   const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
   g.strokeStyle='rgba(255,255,255,0.95)'; g.lineWidth=5; g.shadowColor='rgba(214,230,255,0.9)'; g.shadowBlur=6;
@@ -929,105 +913,72 @@ function horizonFadeMat(m){   // v2.1 G3 (GPU side): line/point geometry fades o
 }
 function shortestArcDeg(a,b){ let d=Math.abs(((a-b)%360+360)%360); return d>180?360-d:d; }   // Δ ∈ [0,180] — same math skypack v2 ships as same_body_delta
 function wrapDeg(x,fb){ x=+x; return isFinite(x)?(((x%360)+360)%360):fb; }   // longitude intake: [0,360) or the caller's fallback. Wrapping matters — a finite-but-huge lon (−5e300) would swallow the per-frame spin term in sunA−_sunLonRad and freeze the whole sphere
-function chartSlerp(a,b,t,out){   // arc ALONG the dome between two belt directions (an opposition sails right over the zenith)
-  const d=Math.max(-1,Math.min(1,a.dot(b))), th=Math.acos(d);
-  if(th<1e-4) return out.copy(a);
-  const s=Math.sin(th);
-  return out.copy(a).multiplyScalar(Math.sin((1-t)*th)/s).addScaledVector(b, Math.sin(t*th)/s).normalize();
-}
 function chartSprite(tex,colHex,alpha,sx,sy,additive,pulseP,k){   // k = day-melt coefficient: opacity = a0·max(0, 1 − atmosAmt·k). hz:true → CPU horizon cull in updateChartSky (v2.1 G3)
   const m=new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false, fog:false, color:colHex, opacity:alpha,
     blending:additive?THREE.AdditiveBlending:THREE.NormalBlending});
   const sp=new THREE.Sprite(m); sp.scale.set(sx,sy,1);
-  _chartFade.push({mat:m, obj:sp, a0:alpha, k:(k==null?1.5:k), pulseP:(pulseP==null?null:pulseP), hz:true});
+  const fade={mat:m, obj:sp, a0:alpha, k:(k==null?1.5:k), pulseP:(pulseP==null?null:pulseP), hz:true, enabled:true};
+  sp.userData.chartFadeIndex=_chartFade.length; _chartFade.push(fade);
   return sp;
-}
-function chartLine(pts,colHex,alpha,loop,k,dashed){   // lines fade at the horizon per-VERTEX on the GPU (horizonFadeMat), so hz:false here
-  const m=horizonFadeMat(dashed ? new THREE.LineDashedMaterial({color:colHex, transparent:true, opacity:alpha, depthWrite:false, fog:false, blending:THREE.AdditiveBlending, dashSize:3.2, gapSize:5.2})
-                 : new THREE.LineBasicMaterial({color:colHex, transparent:true, opacity:alpha, depthWrite:false, fog:false, blending:THREE.AdditiveBlending}));
-  const geo=new THREE.BufferGeometry().setFromPoints(pts);
-  const ln=loop ? new THREE.LineLoop(geo,m) : new THREE.Line(geo,m);
-  if(dashed) ln.computeLineDistances();   // LineDashedMaterial needs per-vertex distances or it renders solid
-  _chartFade.push({mat:m, obj:ln, a0:alpha, k:(k==null?1.5:k), pulseP:null, hz:false});
-  return ln;
 }
 function buildChartSky(pack){
   if(chartSkyGroup) return; _skypack=pack;
-  chartSkyGroup=new THREE.Group(); skySphere.add(chartSkyGroup);   // v2.1 G1: ON the sphere — epoch lons are sphere-LOCAL; the diurnal spin carries band, ghosts, Δ and seals together with the sticks (theatre spins orientation, never longitudes)
-  const C=SKY_CHART, R=C.R, seg=LOW?64:128;
-  const bandOffs=LOW ? [0] : [-C.band.halfLatDeg, C.band.halfLatDeg];   // LOW: one loop instead of the bracketing pair
-  for(const dL of bandOffs){
-    const pts=[]; for(let i=0;i<seg;i++) pts.push(eclipticDir(i/seg*360, dL).multiplyScalar(R));
-    chartSkyGroup.add(chartLine(pts, C.band.col, C.band.alpha, true, 1.5));
-  }
-  if(!LOW) for(const s of (pack.sign_band||[]).slice(0,C.caps.sign)){   // sign row sits just under the band (Midpoint sectors, glyphs not words); LOW sheds these 13 sprites
+  chartSkyGroup=new THREE.Group(); skySphere.add(chartSkyGroup);   // epoch glyph lons are sphere-LOCAL; the diurnal spin carries the clean chart + sticks together (theatre changes orientation, never longitudes)
+  const C=SKY_CHART, R=C.R, signSprite=Object.create(null);
+  for(const s of (pack.sign_band||[]).slice(0,C.caps.sign)){   // 13 readable sign glyphs (incl. ⛎); cheap enough to retain in LOW
     if(!s) continue;   // null entries in a hand-edited pack must not abort the build mid-way
     const a=+s.lon_start_j2000||0, span=((((+s.lon_end_j2000||0)-a)+360)%360)||(360/13), mid=(a+span/2)%360;
     const sp=chartSprite(glyphTex(s.glyph||String(s.id||'?').slice(0,3).toUpperCase()), C.sign.col, C.sign.alpha, C.sign.scale, C.sign.scale, true, null, C.sign.k);
     sp.position.copy(eclipticDir(mid, C.sign.latOff)).multiplyScalar(R); chartSkyGroup.add(sp);
+    if(s.id!=null) signSprite[String(s.id)]=sp;
   }
-  const at=Object.create(null), moverLon=Object.create(null), ghostLon=Object.create(null);   // 'm:'/'n:' + id → band position; lons for Δ + seal placement. Null-proto: pack ids like 'toString' can't alias Object.prototype into phantom Δ pairs
+  const at=Object.create(null), moverSprite=Object.create(null), moverLon=Object.create(null), ghostLon=Object.create(null);   // live sprite/position + epoch lons; natal lons remain metadata-only until Listen
   for(const mv of (pack.movers||[]).slice(0,C.caps.mover)){
     if(!mv) continue;
+    if(mv.id!=null) _lsnBody[String(mv.id)]={name:(typeof mv.name==='string'?mv.name:String(mv.id)), glyph:(typeof mv.glyph==='string'?mv.glyph:'?'), sign:(typeof mv.sign==='string'?mv.sign:null)};   // SKY LISTEN display metadata (study card copy)
     const isSun=mv.id==='sun', isMoon=mv.id==='moon';
-    if((isSun||isMoon) && _lum && _lum[mv.id]){   // v2.1 G1: ☉/☽ already live on the sphere (lumGroup, built at boot, retuned to this pack's lons) — anchor Δ/seals to the glyph AND to its retuned longitude, one source of truth even when the pack entry is degenerate (never a seal 180° from its sun)
-      at['m:'+mv.id]=_lum[mv.id].glyph.position; moverLon[mv.id]=_lum[mv.id].lon;
+    if((isSun||isMoon) && _lum && _lum[mv.id]){   // ☉/☽ already live on the sphere; Listen emphasizes these same glyphs rather than creating a second representation
+      at['m:'+mv.id]=_lum[mv.id].glyph.position; moverSprite[mv.id]=_lum[mv.id].glyph; moverLon[mv.id]=_lum[mv.id].lon;
     }else{
       const lon=wrapDeg(mv.lon_j2000,0);
       const sp=chartSprite(glyphTex(mv.glyph||'?'), C.mover.col, C.mover.alpha, C.mover.scale, C.mover.scale, true, null, C.mover.k);
       sp.position.copy(eclipticDir(lon,0)).multiplyScalar(R); chartSkyGroup.add(sp);
-      at['m:'+mv.id]=sp.position;
+      at['m:'+mv.id]=sp.position; moverSprite[mv.id]=sp;
       if(!reduceMotion && !LOW) _chartBreath.push({sp:sp, s0:C.mover.scale, ph:lon*0.11});
       moverLon[mv.id]=lon;
     }
   }
   for(const ng of (pack.natal_ghosts||[]).slice(0,C.caps.ghost)){
-    if(!ng) continue;
-    const lon=wrapDeg(ng.lon_j2000,0);
-    const sp=chartSprite(ringTex(), C.ghost.col, C.ghost.alpha, C.ghost.scale, C.ghost.scale, false, null, C.ghost.k);
-    sp.position.copy(eclipticDir(lon,0)).multiplyScalar(R); chartSkyGroup.add(sp);
-    at['n:'+ng.id]=sp.position; ghostLon[ng.id]=lon;
+    if(!ng || ng.id==null) continue;
+    ghostLon[String(ng.id)]=wrapDeg(ng.lon_j2000,0);   // metadata only: no idle ghost sprite; one selected-body ring may appear during Listen
   }
-  // D5: Δ = shortest arc now↔natal per body, always on (soft). Prefer skypack v2 same_body_delta; else derive from the v1 lons. LOW: sheds the label textures.
-  if(!LOW){
-    const packDelta=Object.create(null); for(const d of (pack.same_body_delta||[])) if(d && d.id!=null) packDelta[d.id]=+d.delta_deg;
-    for(const id in moverLon){ if(!(id in ghostLon)) continue;
-      const dd=(packDelta[id]!=null && isFinite(packDelta[id])) ? packDelta[id] : shortestArcDeg(moverLon[id], ghostLon[id]);
-      const sp=chartSprite(chartTextTex('Δ'+Math.round(dd)+'°'), C.delta.col, C.delta.alpha, C.delta.sx, C.delta.sy, false, null, C.delta.k);
-      sp.position.copy(eclipticDir(moverLon[id], C.delta.latOff)).multiplyScalar(R*0.995); chartSkyGroup.add(sp);
-    }
+  // SKY LISTEN metadata (Parcel K, study-only): everything the reticle can pick + the geometry-fallback card copy.
+  // Built HERE because this is the one place with pack lons, metadata-only natal lons and the live glyph sprites all in hand.
+  const signs=Object.create(null), signArcs=[];
+  for(const s of (pack.sign_band||[]).slice(0,C.caps.sign)){ if(!s || s.id==null) continue;
+    const a=wrapDeg(s.lon_start_j2000,0), span=((((+s.lon_end_j2000||0)-a)+360)%360)||(360/13), mid=(a+span/2)%360;
+    const sprite=signSprite[String(s.id)]||null;
+    signs[String(s.id)]={ glyph:(typeof s.glyph==='string'?s.glyph:'?'), lon:mid, pos:sprite?sprite.position:eclipticDir(mid, C.sign.latOff).multiplyScalar(R), sprite:sprite };
+    signArcs.push({id:String(s.id), a:a, span:span});
   }
-  // D6: any-hit seals — tightest-first (orb/orb_limit), hard cap (LOW: top 3), alpha by tightness, drawn AT the transit body.
-  // skypack v2 resonance_rank is a pre-sorted convenience; we re-sort defensively so a v1 pack behaves identically.
-  const seals=(Array.isArray(pack.resonance_rank)&&pack.resonance_rank.length ? pack.resonance_rank : (pack.resonances||[]))
-    .slice(0,C.caps.res)   // hostile-pack sort bound ONLY (real packs run ~44) — generous so the tasteful cap below is what decides
-    .filter(rz=>rz && at['m:'+rz.transit_body] && +rz.orb_limit>0)
-    .sort((a,b)=>((+a.orb||0)/+a.orb_limit)-((+b.orb||0)/+b.orb_limit))   // sort BEFORE capping: the tightest hits always win a seat (bobby's pack proved slice-first drops its #1, pluto△moon)
-    .slice(0, LOW?3:C.seal.max);
-  const stack=Object.create(null);   // per-body shelf (null-proto): a body with several hits stacks its seals upward instead of overprinting
-  const ua=new THREE.Vector3(), ub=new THREE.Vector3(), u=new THREE.Vector3();
-  seals.forEach((rz,i)=>{
-    const tight=Math.max(0,Math.min(1, 1-(+rz.orb||0)/+rz.orb_limit));   // 1 = exact aspect → brightest
-    const lvl=stack[rz.transit_body]=(stack[rz.transit_body]||0)+1;
-    const aA=C.seal.alphaLo+(C.seal.alphaHi-C.seal.alphaLo)*tight;
-    const sp=chartSprite(glyphTex(rz.aspect_glyph||'☌'), C.seal.col, aA, C.seal.scale, C.seal.scale, true, (i<C.seal.pulseTop && !reduceMotion)?tight*9:null, C.seal.k);   // only the tightest few pulse
-    sp.position.copy(eclipticDir(moverLon[rz.transit_body], C.seal.latOff+(lvl-1)*C.seal.latStep)).multiplyScalar(R*0.99); chartSkyGroup.add(sp);
-    if(!reduceMotion && !LOW) _chartBreath.push({sp:sp, s0:C.seal.scale, ph:tight*9});
-    if(CFG.chartDottedArcs && !LOW && i<C.arc.top && at['n:'+rz.natal_point]){   // D9 (default off): dotted transit→natal arc along the dome for the top few
-      ua.copy(at['m:'+rz.transit_body]).normalize(); ub.copy(at['n:'+rz.natal_point]).normalize();
-      const pts=[]; for(let j=0;j<=24;j++) pts.push(chartSlerp(ua,ub,j/24,u).clone().multiplyScalar(R*0.985));
-      chartSkyGroup.add(chartLine(pts, C.arc.col, C.arc.alpha, false, C.arc.k, true));
-    }
-  });
+  const signOf=lon=>{ for(const sa of signArcs){ if(((lon-sa.a+360)%360)<sa.span) return sa.id; } return null; };
+  const bodies=Object.create(null);
+  for(const id in moverLon){ const inf=_lsnBody[id]||{};
+    bodies[id]={ name:inf.name||id, glyph:inf.glyph||'?', sign:inf.sign||signOf(moverLon[id]), lon:moverLon[id],
+      pos:at['m:'+id], sprite:moverSprite[id]||null, delta:(id in ghostLon)?shortestArcDeg(moverLon[id], ghostLon[id]):null };
+  }
+  _lsnMeta={bodies:bodies, signs:signs, ghostLon:ghostLon, signOf:signOf,
+    natalId:(typeof pack.natal_id==='string'?pack.natal_id:null)};
 }
 function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere layer exists
   for(let i=0;i<_chartFade.length;i++){ const f=_chartFade[i];
+    if(f.enabled===false){ f.obj.visible=false; continue; }
     let a=f.a0*Math.max(0,1-atmosAmt*f.k);   // D7: per-family day-melt against the ATMOSPHERE weight — at theatre noon (atmos≈0.30) the layer dims but never vanishes; ☉ (k=0.1) barely blinks
     if(f.hz){ _hzV.copy(f.obj.position).applyQuaternion(skySphere.quaternion); a*=smooth(HZ_LO,HZ_HI,_hzV.y); }   // v2.1 G3 (CPU side): sprites set below the horizon — the sphere's spin decides which half of the chart you get
     if(f.pulseP!=null) a*=0.82+0.18*Math.sin(skyT*1.3+f.pulseP);
     setScalarCached(f.mat,'opacity',a); f.obj.visible=a>0.004;
   }
-  for(let i=0;i<_chartBreath.length;i++){ const b=_chartBreath[i]; if(!b.sp.visible) continue; const s=b.s0*(1+0.05*Math.sin(skyT*0.55+b.ph)); b.sp.scale.set(s,s,1); }
+  for(let i=0;i<_chartBreath.length;i++){ const b=_chartBreath[i]; if(!b.sp.visible || b.sp.userData.listenSelected) continue; const s=b.s0*(1+0.05*Math.sin(skyT*0.55+b.ph)); b.sp.scale.set(s,s,1); }
 }
 function approxLuminaryLons(){   // v2.1 §Modes fallback: Meeus low-precision solar (±0.01°) + lunar (±1°) ecliptic longitudes for RIGHT NOW — real astronomy in 6 lines, not Swiss Ephemeris. Equinox-of-date vs the pack's J2000 differs by ~0.4° (precession) — invisible at glyph scale. A loaded pack always overrides (retuneLuminaries).
   const n=Date.now()/86400000-10957.5, rad=Math.PI/180;   // days since J2000.0
@@ -1057,7 +1008,7 @@ function buildLuminaries(sunLon, moonLon){   // v2.1 G4: ☉ and ☽ live ON the
 }
 function retuneLuminaries(pack){   // a loaded skypack's epoch lons override the boot approximation — bodies slide ALONG the ecliptic among the stars (epoch), never with theatre (spin)
   if(!_lum || !pack) return;
-  for(const mv of (pack.movers||[]).slice(0,SKY_CHART.caps.mover)){ if(!mv) continue;   // same hostile-pack bound as buildChartSky, so glyph and Δ/seal anchors can never see different sun entries
+  for(const mv of (pack.movers||[]).slice(0,SKY_CHART.caps.mover)){ if(!mv) continue;   // same hostile-pack bound as buildChartSky, so luminary glyphs and Listen metadata share one epoch longitude
     const t=mv.id==='sun'?_lum.sun:(mv.id==='moon'?_lum.moon:null); if(!t) continue;
     const lon=wrapDeg(mv.lon_j2000, t.lon); t.lon=lon;   // invalid lon → keep the honest boot approximation (buildChartSky then anchors to this same lon)
     t.glyph.position.copy(eclipticDir(lon,0)).multiplyScalar(SKY_CHART.R); t.glow.position.copy(t.glyph.position);
@@ -1065,7 +1016,7 @@ function retuneLuminaries(pack){   // a loaded skypack's epoch lons override the
   }
 }
 function skypackValid(p){ return !!p && (p.schema_version===1||p.schema_version===2) && p.type==='skypack'
-  && (p.projection==='ecliptic_dome_v1'||p.projection==='ecliptic_band_v2')   // v2 packs are additive over v1 — both render through the same band
+  && (p.projection==='ecliptic_dome_v1'||p.projection==='ecliptic_band_v2')   // v2 packs are additive over v1 — projection id remains input compatibility, not a visible rail
   && [p.sign_band,p.movers,p.natal_ghosts,p.resonances,p.same_body_delta,p.resonance_rank].every(a=>a==null||Array.isArray(a)); }
 async function loadSkypack(allowSample){   // B3. Personal channels first: ?skypack= URL → skypack.json drop-in → localhost API (EXPLICIT ?skyApi opt-in — never a silent localhost dependency). A REQUESTED personal source that fails is NEVER papered over with the sample pack — it degrades to plain clocked + one toast. The in-repo synthetic sample only serves packless visitors, and announces itself. allowSample:false (clocked luminary retune) skips the sample entirely — approx-now lons are more honest than a synthetic chart.
   const q=location.search+location.hash;
@@ -1095,36 +1046,266 @@ function stickPtTex(){ if(_stickPtTexC) return _stickPtTexC;
 }
 function buildZodiacSticks(cat){
   if(stickGroup) return;
-  const S=SKY_CHART.stick, R=S.R, stars=[], edges=[];
+  const S=SKY_CHART.stick, R=S.R, stars=[], edges=[], figMap={};
   for(const f of (cat.figures||[]).slice(0,S.maxFigs)){
     if(!f || !Array.isArray(f.stars) || !Array.isArray(f.edges)
        || f.stars.some(st=>!Array.isArray(st)||!isFinite(+st[0])||!isFinite(+st[1]))
        || f.edges.some(e=>!Array.isArray(e))) continue;   // whole-figure validity — dropping single bad stars would shift the edge indexing
-    const base=stars.length, take=Math.min(f.stars.length, Math.max(0,S.maxStars-base));   // schema caps re-enforced: a hostile fixture can never balloon the buffers
+    const base=stars.length, e0=edges.length, take=Math.min(f.stars.length, Math.max(0,S.maxStars-base));   // schema caps re-enforced: a hostile fixture can never balloon the buffers
     for(let i=0;i<take;i++){ const st=f.stars[i]; stars.push(eclipticDir(+st[0]||0, +st[1]||0).multiplyScalar(R)); }
     for(const e of f.edges){ if(edges.length>=S.maxEdges*2) break;
       const a=base+(+e[0]|0), b=base+(+e[1]|0);
       if(a>=base && b>=base && a<base+take && b<base+take && a!==b) edges.push(stars[a], stars[b]);
     }
+    if(f.id!=null) figMap[String(f.id)]={p0:base, p1:stars.length, v0:e0, v1:edges.length};   // per-figure vertex ranges — SKY LISTEN paints these gold (K4)
   }
   if(!stars.length) return;
   stickGroup=new THREE.Group(); skySphere.add(stickGroup);   // v2.1 G1: ON the sphere — the constellations ARE the sphere's skin; the diurnal spin carries them past the horizon with the planets (no more wallpaper)
   const pGeo=new THREE.BufferGeometry().setFromPoints(stars);
-  const pMat=horizonFadeMat(new THREE.PointsMaterial({map:stickPtTex(), color:S.ptCol, size:S.ptSize, sizeAttenuation:false, transparent:true, opacity:S.ptAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
+  const pCol=new Float32Array(stars.length*3).fill(1);   // vertex colors start WHITE (× material colour = identical render); gold emphasis rewrites ranges
+  pGeo.setAttribute('color', new THREE.BufferAttribute(pCol,3));
+  const pMat=horizonFadeMat(new THREE.PointsMaterial({map:stickPtTex(), color:S.ptCol, size:S.ptSize, sizeAttenuation:false, vertexColors:true, transparent:true, opacity:S.ptAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
   const pts=new THREE.Points(pGeo,pMat); pts.frustumCulled=false; stickGroup.add(pts);
   _chartFade.push({mat:pMat, obj:pts, a0:S.ptAlpha, k:S.kPt, pulseP:null, hz:false});
+  let lGeo=null;
   if(edges.length){
-    const lGeo=new THREE.BufferGeometry().setFromPoints(edges);
-    const lMat=horizonFadeMat(new THREE.LineBasicMaterial({color:S.lnCol, transparent:true, opacity:S.lnAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
+    lGeo=new THREE.BufferGeometry().setFromPoints(edges);
+    const lCol=new Float32Array(edges.length*3).fill(1);
+    lGeo.setAttribute('color', new THREE.BufferAttribute(lCol,3));
+    const lMat=horizonFadeMat(new THREE.LineBasicMaterial({color:S.lnCol, vertexColors:true, transparent:true, opacity:S.lnAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
     const lns=new THREE.LineSegments(lGeo,lMat); lns.frustumCulled=false; stickGroup.add(lns);
     _chartFade.push({mat:lMat, obj:lns, a0:S.lnAlpha, k:S.kLn, pulseP:null, hz:false});
     if(!LOW) lns.layers.enable(1);
   }
   if(!LOW) pts.layers.enable(1);   // constellations shimmer in the floor reflection alongside the dome
+  _stickFig={map:figMap, pGeo:pGeo, lGeo:lGeo};   // SKY LISTEN handle (null until sticks exist)
 }
 function sticksValid(c){ return !!c && c.type==='zodiac_sticks' && Array.isArray(c.figures); }
 async function loadSticks(){ try{ const r=await fetch('fixtures/zodiac_sticks_v1.json',{cache:'no-store'}); if(!r.ok) return null; const c=await r.json(); return sticksValid(c)?c:null; }catch(e){ return null; } }
 if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.sun, l0.moon); }   // v2.1 G5: both clocked modes get sphere luminaries from frame one (two tiny glyph rasters — no fetch, no boot risk); a personal pack retunes the lons when it lands
+
+/* ========================= SKY LISTEN (SPEC_SKY_LISTEN Parcel K — study, not combat) =========================
+   In clocked_chart + natural ONLY: reticle on a celestial body with no orb in the way → fire becomes LISTEN — a
+   brief muzzle→body line, gold constellation + large gold existing glyph, and a study card from the local sidereal
+   "deep desk" (:8742, soft-fail to pack geometry). A listen NEVER spawns a projectile and NEVER touches shots,
+   streak, clank, whiff or the fire grid — the single integration point is one early-return in fire().
+   Dismiss: new listen · holdSec after the FINAL card paints (not from the fire click). Esc is PAUSE only — never steals the card. All copy is symbolic study language, never fate. */
+let _stickFig=null, _lsnMeta=null;            // filled by buildZodiacSticks / buildChartSky (chart mode only → gates below stay false elsewhere)
+const _lsnBody={};                            // mover display metadata collected during the chart build
+const _lsn={sel:null, line:null, lineT:-1, ghost:null, emphasis:[], card:null, holdT:-1, seq:0, cache:new Map(), goldFig:null};
+const _lsnW=new THREE.Vector3(), _lsnP=new THREE.Vector3(), _lsnDir2=new THREE.Vector3(), _lsnRt=new THREE.Vector3(), _LSN_UP=new THREE.Vector3(0,1,0);
+const LSN_SIGN_FIG={scorpio:'scorpius', capricorn:'capricornus'};   // pack sign ids ↔ fixture figure ids
+const LSN_GOLD=new THREE.Color(0xffd24a), LSN_DIM=0.5;
+function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centre); huge when behind the camera
+  camera.getWorldDirection(_lsnDir2);
+  _lsnP.copy(worldPos).sub(camera.position); if(_lsnP.dot(_lsnDir2)<=0) return 1e9;
+  _lsnP.copy(worldPos).project(camera);
+  return Math.hypot(_lsnP.x*0.5*viewW, _lsnP.y*0.5*viewH);
+}
+function _lsnOrbNear(){ const r=CFG.skyListen.orbPx; for(const tg of targets){ if(tg.dead) continue; if(_lsnScreenPx(tg.mesh.position)<r) return true; } return false; }
+function pickCelestial(){   // priority (§3): transit body within bodyPx of the reticle, else sign sector within signPx; below the horizon = not pickable
+  const CL=CFG.skyListen; let best=null, bestD=CL.bodyPx;
+  for(const id in _lsnMeta.bodies){ const b=_lsnMeta.bodies[id]; if(!b.pos) continue;
+    _lsnW.copy(b.pos).applyQuaternion(skySphere.quaternion); if(_lsnW.y<HZ_HI) continue;
+    const d=_lsnScreenPx(_lsnW); if(d<bestD){ bestD=d; best={kind:'body', id:id, meta:b, world:_lsnW.clone()}; } }
+  if(best) return best;
+  bestD=CL.signPx;
+  for(const id in _lsnMeta.signs){ const s=_lsnMeta.signs[id];
+    _lsnW.copy(s.pos).applyQuaternion(skySphere.quaternion); if(_lsnW.y<HZ_HI) continue;
+    const d=_lsnScreenPx(_lsnW); if(d<bestD){ bestD=d; best={kind:'sign', id:id, meta:s, world:_lsnW.clone()}; } }
+  return best;
+}
+function skyListenTry(){   // called from fire(); true = this press was a LISTEN (caller returns, nothing combat happens)
+  if(SKY_MODE!=='clocked_chart' || SKY_TIME!=='natural' || !_lsnMeta) return false;   // gates (§2): personal chart under the REAL sky only — theatre/decorative/plain clocked always fight
+  if(_lsnOrbNear()) return false;                                                     // pattern #3: an orb near the reticle always gets the bullet
+  const pick=pickCelestial(); if(!pick) return false;
+  startListen(pick); return true;
+}
+function _lsnMuzzle(out){   // same muzzle as computeShotPlan's M — WITHOUT touching the shared plan globals (_arcI/_planLanded stay combat-only)
+  camera.getWorldDirection(_lsnDir2);
+  _lsnRt.crossVectors(_lsnDir2,_LSN_UP); if(_lsnRt.lengthSq()<1e-6) _lsnRt.set(1,0,0); else _lsnRt.normalize();
+  return out.set(PLAYER_POS.x+_lsnRt.x*BLADE_DX+_lsnDir2.x*BLADE_DZ, PLAYER_POS.y-BLADE_DY+_lsnDir2.y*BLADE_DZ, PLAYER_POS.z+_lsnRt.z*BLADE_DX+_lsnDir2.z*BLADE_DZ);
+}
+function startListen(pick){
+  clearListen(false);
+  _lsn.sel=pick; _lsn.holdT=state.t;
+  if(!_lsn.line){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
+    _lsn.line=new THREE.Line(g, new THREE.LineBasicMaterial({color:0x9fd8ff, transparent:true, opacity:0.55, depthWrite:false, fog:false, blending:THREE.AdditiveBlending}));
+    _lsn.line.frustumCulled=false; scene.add(_lsn.line); }
+  const lp=_lsn.line.geometry.attributes.position; _lsnMuzzle(_lsnP);
+  lp.setXYZ(0,_lsnP.x,_lsnP.y,_lsnP.z); lp.setXYZ(1,pick.world.x,pick.world.y,pick.world.z); lp.needsUpdate=true;
+  _lsn.line.material.opacity=0.55; _lsn.line.visible=true; _lsn.lineT=state.t;
+  goldFigure(pick.kind==='sign' ? pick.id : pick.meta.sign);
+  emphasizeListenGlyphs(pick);
+  if(pick.kind==='body') showListenGhost(pick);   // one faint natal memory mark, created lazily and never added to the pick maps
+  showListenCard(pick, null, true);
+  fetchListen(pick);
+}
+function clearListen(hideCard){
+  _lsn.sel=null; _lsn.holdT=-1; _lsn.seq++;
+  if(_lsn.line){ _lsn.line.visible=false; } _lsn.lineT=-1;
+  restoreListenGlyphs(); hideListenGhost();
+  restoreFigures();
+  if(hideCard!==false && _lsn.card) _lsn.card.style.display='none';
+}
+function emphasizeListenGlyphs(pick){   // Parcel L: mutate the existing sprites — no duplicate globe/planet representation
+  restoreListenGlyphs(); const C=SKY_CHART;
+  if(pick.kind==='body'){
+    emphasizeListenGlyph(pick.meta.sprite, C.mover.listenScale);
+    const sign=pick.meta.sign&&_lsnMeta.signs[pick.meta.sign]; if(sign) emphasizeListenGlyph(sign.sprite, C.sign.listenScale);
+  }else emphasizeListenGlyph(pick.meta.sprite, C.sign.listenScale);
+}
+function emphasizeListenGlyph(sp,scale){
+  if(!sp || !sp.material || _lsn.emphasis.some(e=>e.sp===sp)) return;
+  const fi=sp.userData.chartFadeIndex, fade=(fi==null?null:_chartFade[fi]);
+  _lsn.emphasis.push({sp:sp, sx:sp.scale.x, sy:sp.scale.y, col:sp.material.color.clone(), fade:fade, a0:fade?fade.a0:null});
+  sp.userData.listenSelected=true; sp.material.color.copy(LSN_GOLD); sp.scale.set(scale,scale,1);
+  if(fade) fade.a0=Math.max(0.95,fade.a0);   // updateChartSky owns opacity; boost its source rather than fighting the 20 Hz fade pass
+}
+function restoreListenGlyphs(){
+  for(const e of _lsn.emphasis){ e.sp.material.color.copy(e.col); e.sp.scale.set(e.sx,e.sy,1); e.sp.userData.listenSelected=false; if(e.fade) e.fade.a0=e.a0; }
+  _lsn.emphasis.length=0;
+}
+function showListenGhost(pick){
+  if(!_lsnMeta || !(pick.id in _lsnMeta.ghostLon)) return;
+  if(!_lsn.ghost){ const C=SKY_CHART.ghost;
+    _lsn.ghost=chartSprite(ringTex(), C.col, C.alpha, C.scale, C.scale, false, null, C.k); chartSkyGroup.add(_lsn.ghost); }
+  _lsn.ghost.position.copy(eclipticDir(_lsnMeta.ghostLon[pick.id],0)).multiplyScalar(SKY_CHART.R*0.99);
+  const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=true; _lsn.ghost.visible=true;
+}
+function hideListenGhost(){ if(!_lsn.ghost) return; const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=false; _lsn.ghost.visible=false; }
+function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(let i=i0;i<i1;i++){ a.setXYZ(i,r,g,b); } a.needsUpdate=true; }
+function goldFigure(signId){   // selected figure gold, the rest dimmed — pure vertex-colour rewrite, zero extra draw calls; additive blending makes darker = dimmer
+  restoreFigures();
+  if(!signId || !_stickFig) return;
+  const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
+  const S=SKY_CHART.stick, pb=new THREE.Color(S.ptCol), lb=new THREE.Color(S.lnCol);
+  _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+  _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
+  if(_stickFig.lGeo){
+    _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
+  }
+  _lsn.goldFig=fid;
+}
+function restoreFigures(){
+  if(_lsn.goldFig==null || !_stickFig) return;
+  _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, 1,1,1);
+  if(_stickFig.lGeo) _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, 1,1,1);
+  _lsn.goldFig=null;
+}
+function _lsnCap(s){ s=String(s); return s.charAt(0).toUpperCase()+s.slice(1); }
+function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if(style) d.style.cssText=style; d.textContent=txt; parent.appendChild(d); return d; }
+function _lsnClip(s, max){   // prefer end-of-sentence within max; avoid mid-word chops (Ophiuchus essays were dying mid-clause)
+  s=String(s==null?'':s).replace(/\s+/g,' ').trim(); if(!s) return '';
+  if(s.length<=max) return s;
+  const head=s.slice(0,max);
+  let cut=-1;
+  for(const re of [/[.!?…]["')\]]?\s/g, /;\s/g, /,\s/g]){ let m; while((m=re.exec(head))) cut=m.index+m[0].length; if(cut>Math.floor(max*0.45)) break; }
+  if(cut<Math.floor(max*0.45)){ const sp=head.lastIndexOf(' '); cut=sp>Math.floor(max*0.45)?sp:max; }
+  return s.slice(0,cut).trim()+(cut<s.length?'…':'');
+}
+function _lsnNatalId(){   // pack natal_id for personal transit block — meta first, then live pack fallback
+  if(_lsnMeta && typeof _lsnMeta.natalId==='string' && _lsnMeta.natalId) return _lsnMeta.natalId;
+  if(_skypack && typeof _skypack.natal_id==='string' && _skypack.natal_id) return _skypack.natal_id;
+  return null;
+}
+function showListenCard(pick, data, skeleton){
+  // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
+  // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
+  if(!_lsn.card){ const d=document.createElement('div'); d.id='skyListenCard';
+    d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
+    document.body.appendChild(d); _lsn.card=d; }
+  const card=_lsn.card; card.textContent=''; card.style.display='block';
+  // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
+  if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
+  const m=pick.meta||{}, signId=pick.kind==='sign'?pick.id:m.sign;
+  const signGlyph=(signId && _lsnMeta.signs[signId])?_lsnMeta.signs[signId].glyph:'';
+  const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
+  const A=data&&data.placement, P=data&&data.personal;
+  // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
+  const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
+  // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
+  const placeMax=hasPersonal?420:900, personMax=520;
+  if(skeleton){
+    _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR);
+    _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                      : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+    _lsnLine(card, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
+  }
+  // YOUR CHART first when we have personal transit notes (the relation the player cares about)
+  _lsnLine(card, T('yourChartHdr','YOUR CHART'), HDR);
+  if(hasPersonal){
+    if(P.title) _lsnLine(card, _lsnClip(P.title, 110), TTL);
+    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(card, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
+    if(P.text) _lsnLine(card, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');   // short overview — per-seal essays below
+    // Each transit seal with its meaning (not glyph-only row)
+    if(Array.isArray(P.highlights) && P.highlights.length){
+      _lsnLine(card, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
+      const nSeal=hasPersonal?3:4;   // room budget under aim lock (no scrollbar)
+      for(const h of P.highlights.slice(0,nSeal)){
+        if(!h) continue;
+        const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
+        if(h.title) _lsnLine(card, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title, 100), 'margin-top:4px;color:var(--rail);font-size:11px;');
+        else _lsnLine(card, seal, 'margin-top:4px;color:var(--rail);font-size:11px;');
+        if(h.text) _lsnLine(card, _lsnClip(h.text, 280), 'color:var(--bone-dim);margin-bottom:3px;');
+        else if(!h.title) _lsnLine(card, seal, 'color:var(--bone-dim);');
+      }
+    }
+  } else if(pick.kind==='body' && m.delta!=null && isFinite(+m.delta)){
+    _lsnLine(card, 'Δ '+Math.round(+m.delta)+'° from your natal '+_lsnCap(m.name||pick.id), 'color:var(--bone-dim);margin-bottom:6px;');
+    if(!_lsnNatalId()) _lsnLine(card, T('skyPersonalNA','personal notes unavailable · need local pack natal_id + desk :8742'), 'color:var(--bone-dim);margin-bottom:6px;');
+    else _lsnLine(card, T('skyPersonalDesk','desk quiet · geometry only (is :8742 up?)'), 'color:var(--bone-dim);margin-bottom:6px;');
+  } else if(pick.kind==='sign'){
+    _lsnLine(card, T('skySignPersonal','constellation study · placement text below'), 'color:var(--bone-dim);margin-bottom:6px;');
+  } else {
+    _lsnLine(card, T('skyPersonalNA','personal notes unavailable · need local pack natal_id + desk :8742'), 'color:var(--bone-dim);margin-bottom:6px;');
+  }
+  // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
+  _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR+'margin-top:6px;');
+  _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                    : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+  if(A && (A.title||A.text)){
+    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(card, _lsnClip(A.title, 100));
+    if(A.text) _lsnLine(card, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
+  } else if(pick.kind==='body') _lsnLine(card, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
+  else { const natal=[], now=[];
+    for(const id in _lsnMeta.ghostLon){ if(_lsnMeta.signOf(_lsnMeta.ghostLon[id])===pick.id) natal.push((_lsnMeta.bodies[id]||{}).glyph||id); }
+    for(const id in _lsnMeta.bodies){ if(_lsnMeta.bodies[id].sign===pick.id) now.push(_lsnMeta.bodies[id].glyph); }
+    if(now.length) _lsnLine(card, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
+    if(natal.length) _lsnLine(card, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
+  }
+  _lsnLine(card, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
+}
+function fetchListen(pick){   // deep-desk call (§6): async, cached, seq-guarded — a stale response never repaints a newer listen; timeout/offline → geometry fallback
+  const CL=CFG.skyListen, seq=++_lsn.seq;
+  let tz='UTC'; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(e){}
+  const nid=_lsnNatalId();
+  const natal=nid?('&natal_id='+encodeURIComponent(nid)):'';
+  const q=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
+                              : 'kind=sign&sign='+encodeURIComponent(pick.id))+natal;
+  const key=q+'|'+Math.floor(Date.now()/600000);   // 10-min epoch bucket
+  if(_lsn.cache.has(key)){ if(_lsn.sel===pick) showListenCard(pick, _lsn.cache.get(key), false); return; }
+  const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+  const to=setTimeout(()=>{ if(ctl) ctl.abort(); }, CL.apiMs);
+  fetch(CL.api+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz), ctl?{signal:ctl.signal}:{})
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{ clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
+      // Don't cache incomplete personal when we expected a natal chart (retry next listen if desk was slow/down)
+      if(ok && (!nid || (ok.personal && (ok.personal.available || ok.personal.title || ok.personal.text)))){
+        _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
+      }
+      if(seq===_lsn.seq && _lsn.sel===pick) showListenCard(pick, ok, false); })
+    .catch(()=>{ clearTimeout(to); if(seq===_lsn.seq && _lsn.sel===pick) showListenCard(pick, null, false); });
+}
+function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is fading or a selection is held
+  const CL=CFG.skyListen;
+  if(_lsn.lineT>=0 && _lsn.line){ const k=(state.t-_lsn.lineT)/CL.lineSec;
+    if(k>=1){ _lsn.line.visible=false; _lsn.lineT=-1; }
+    else setScalarCached(_lsn.line.material,'opacity',0.55*(1-k)); }
+  if(_lsn.sel && state.t-_lsn.holdT>=CL.holdSec) clearListen(true);
+}
+// Esc is reserved for pause / pointer-lock exit — do not clear Listen on Escape (it fought the pause menu).
 
 /* ---- expanding ground rings = the beat pulse. A fresh ring every couple beats; on a streak they fire
        every beat and warm from rail-blue toward toxic-green. ---- */
@@ -1375,7 +1556,7 @@ const SENSEI_PACK={ dollyYawDeg:22, dollyPitchDeg:12, dollySpeed:1.15, dollyHuma
   startBpm:28, bpmUp:2.5, bpmDown:2.5, brownianMax:11, patternConcurrency:3,
   projSpeed:28, projSpeedFast:72, multiHitChance:0.34, openGlowBoost:1.4 };
 for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SENSEI_PACK[k].slice():SENSEI_PACK[k];
-/* ---- NEWBIE TRAINER ---- binary gate on the card (I'M NEW / I KNOW THIS).
+/* ---- NEWBIE TRAINER ---- always entered from PLAY — WAKE THE MOONLINE (no skip-to-full gate).
    Phase 0: WASD only — letter + floor-flash sync, dedicated soft soundtrack, no orbs, no dolly.
    Phase 1: orbs appear close with WIDE open windows; still no dolly.
    Phase 2: fan range out, tighten slightly; still no dolly.
@@ -2081,6 +2262,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
 function fire(){
   if(!state.running) return;
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
+  if(skyListenTry()) return;   // SKY LISTEN (clocked_chart+natural study, SPEC_SKY_LISTEN): reticle on a celestial body with NO orb in the way → this press is a listen, not a shot. Returns before fire-quant so it neither consumes nor is blocked by the grid; zero shot/streak/clank/whiff side effects. Any orb near the reticle wins → normal combat below.
   if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
@@ -2197,7 +2379,7 @@ function spawnProjectile(){
   // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
-  if(projectiles.length>40){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest
+  if(projectiles.length>64){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest (raised 40→64 with K1's full-length lofts: fire-quant × a 7.5s max arc can hold ~45 live shots legitimately)
 }
 function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
 function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
@@ -2221,11 +2403,11 @@ function updateProjectiles(dt){
       if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
-    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring
+    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring. GROUND/wall are the real ends — projLife is only the NaN/runaway safety (K1: high lofts fly their full arc to the floor)
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
-const ARC_UPDATE_STEP=1/20, ARC_MAX=72, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=GLOW?0.105:0.065;   // ribbon half-width (a hair wider so ROYGBIV bands read; GLOW: bolder key-art ribbon)
+const ARC_UPDATE_STEP=1/20, ARC_MAX=430, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=GLOW?0.105:0.065;   // ribbon half-width (a hair wider so ROYGBIV bands read; GLOW: bolder key-art ribbon). ARC_MAX 430×(1/30s) ≈ 14.3s of plan integration — covers projLife so the PLAN reaches the ground exactly like the bullet (K1); flat shots still break out of the loop in <80 steps
 const RIB_OP_BASE=GLOW?0.62:0.48, RIB_OP_DAY=GLOW?0.28:0.35;   // ribbon opacity = base + day*bonus (GLOW: more present at night, same ceiling by day)
 let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
@@ -3081,12 +3263,18 @@ const overlay=gid('overlay'), beginBtn=gid('beginBtn'), beginLabel=gid('beginLab
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 /* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
-const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
+const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), skyMotionToggle=gid('skyMotionToggle'), skyMotionRow=gid('skyMotionRow'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
 function refreshSettings(){
   if(!settingsBox) return;
   if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
     resToggle.textContent = LOW ? T('resLow','LOW ▸ tap for HIGH') : T('resHigh','HIGH ▸ tap for LOW');   // actual mode this session
     resToggle.title = pref==='1' ? T('resForcedLow','forced LOW (saved)') : pref==='0' ? T('resForcedHigh','forced HIGH (saved)') : (LOW ? T('resAutoLow','auto → LOW') : T('resAutoHigh','auto → HIGH'));
+  }
+  // SKY MOTION: only meaningful on clocked* (constellation sphere). Decorative uses the old art day cycle.
+  if(skyMotionRow) skyMotionRow.style.display=(SKY_MODE==='decorative')?'none':'flex';
+  if(skyMotionToggle && SKY_MODE!=='decorative'){
+    skyMotionToggle.textContent = SKY_TIME==='theatre' ? T('skyTheatreOn','THEATRE ▸ tap for NATURAL') : T('skyNaturalOn','NATURAL ▸ tap for THEATRE');
+    skyMotionToggle.title = SKY_TIME==='theatre' ? T('skyTheatreHint','full sky spins ~every few minutes') : T('skyNaturalHint','sky follows real day/night');
   }
   const ms=Math.round(_userOffsetSec*1000);
   if(offSlider) offSlider.value=ms;
@@ -3108,6 +3296,14 @@ if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is cons
     if(next===location.pathname+location.search+location.hash) location.reload();
     else location.replace(next);   // navigation reloads with clean URL; localStorage preference wins
   }catch(err){ location.reload(); }
+});
+if(skyMotionToggle) skyMotionToggle.addEventListener('click', (e)=>{   // live toggle — no reload; reseed phase so NATURAL snaps to wall clock and THEATRE starts from "now"
+  e.preventDefault(); e.stopPropagation();
+  if(SKY_MODE==='decorative') return;
+  SKY_TIME = (SKY_TIME==='theatre') ? 'natural' : 'theatre';
+  try{ localStorage.setItem('aimdojo.skyTime', SKY_TIME); }catch(err){}
+  try{ dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }catch(err){}
+  refreshSettings();
 });
 if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)); _userOffsetSec=ms/1000; if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame, so the glow/windows shift as you drag
 if(calibBtn) calibBtn.addEventListener('click', ()=>{
@@ -3140,6 +3336,7 @@ function enterRunning(){
 }
 function exitRunning(){
   abortFlickBonus();   // RAIL-FLICK BONUS: pausing forfeits any pending cascade — un-flag locked orbs, unfreeze the field (they resume with full life)
+  try{ clearListen(true); }catch(e){}   // drop study card with pause (Esc = pause only; card must not linger under the overlay)
   state.running=false; applyAudioState(); syncTransport();
   if(MOBILE) touchUI.classList.remove('show');
   if(trainCoachEl) trainCoachEl.classList.remove('on');   // coach is in-world only
@@ -3152,11 +3349,11 @@ document.addEventListener('visibilitychange',()=>{
 });
 function showToneBlock(reason){
   const l=gid('ovLede'); if(!l) return;
-  if(reason==='start') l.innerHTML=T('toneStartHtml','<b>Sound did not start.</b> Tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again, or unblock browser audio for this page.');
-  else if(reason==='pad') l.innerHTML=T('tonePadHtml','<b>Audio needs one real touch.</b> Click/tap once on the page, then pick <b>I\'M NEW</b> or <b>I KNOW THIS</b> (or START to resume).');
+  if(reason==='start') l.innerHTML=T('toneStartHtml','<b>Sound did not start.</b> Tap <b>PLAY</b> again, or unblock browser audio for this page.');
+  else if(reason==='pad') l.innerHTML=T('tonePadHtml','<b>Audio needs one real touch.</b> Click/tap once on the page, then tap <b>PLAY</b> (or RESUME).');
   else l.innerHTML=toneLoadFailed
-    ? T('toneFailedHtml','<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>I\'M NEW</b> / <b>I KNOW THIS</b> again.')
-    : T('toneLoadingHtml','<b>Sound is still loading.</b> Wait a moment, then tap <b>I\'M NEW</b> or <b>I KNOW THIS</b> again.');
+    ? T('toneFailedHtml','<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>PLAY</b> again.')
+    : T('toneLoadingHtml','<b>Sound is still loading.</b> Wait a moment, then tap <b>PLAY</b> again.');
 }
 function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
@@ -3175,13 +3372,12 @@ function startRun(viaPad){
   else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
 }
 beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
-const beginTrainBtn=gid('beginTrain'), beginFullBtn=gid('beginFull');
+const beginTrainBtn=gid('beginTrain');
 function setGateReady(ready){
-  [beginTrainBtn, beginFullBtn].forEach(b=>{ if(!b) return; b.disabled=!ready; b.style.opacity=ready?'':'0.45'; b.style.cursor=ready?'pointer':'wait'; });
+  if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
 }
 setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
-if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });
-if(beginFullBtn) beginFullBtn.addEventListener('click', ()=>{ if(beginFullBtn.disabled) return; beginAs(false); });
+if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
 document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
 
 function resetSession(){
