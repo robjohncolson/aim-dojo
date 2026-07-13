@@ -442,7 +442,7 @@ window.JA={
   saveSkyDate:'生年月日', saveSkyTime:'出生時刻', saveSkyUnknown:'時刻不明', saveSkyTz:'タイムゾーン',
   saveSkyPlace:'場所', saveSkyLat:'緯度', saveSkyLon:'経度', saveSkySubmit:'チャートを保存', saveSkyClear:'チャートを消去',
   saveSkyEpistemic:'象徴を学ぶためのメモで、予言ではない。出生情報は私用プロフィールにだけ保存され、きろくには入らない。',
-  transitEssayButton:'今日の空のノート', transitEssayPending:'今日のノートを書いています…', transitEssayReady:'空のノートができました', transitEssayUnavailable:'ノートを用意できません · 遊ぶことはできる',
+  transitEssayButton:'今日の空のノート', transitEssayPending:'今日のノートを書いています…', transitEssayReady:'空のノートができました', transitEssayUnavailable:'ノートを用意できません · タップでもう一度',
   transitEssayWatchpoints:'注目するところ', transitEssayBack:'ポーズにもどる', transitEssayFallback:'象徴を学ぶためのノートで、予言ではない。',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
   shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
@@ -577,11 +577,13 @@ const CFG = {
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
-  dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false, openGlowBoost:1.05,   // dollyHuman: SENSEI-style irregular wander (not pure lissajous). openGlowBoost: scale orb open-shell opacity so tight windows still READ.
+  dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false, openGlowBoost:1.35,   // dollyHuman: SENSEI-style irregular wander (not pure lissajous). openGlowBoost: stronger free-play open-shell bloom (lens-like vulnerability bubble; no RGB post).
   // DISTANCE-BALANCED DOLLY: camera wander is angular, so far orbs drift more screen-pixels for the same yaw/pitch. Scale dolly by nearest live target distance (near = fuller chase, far = calmer hold).
   dollyNearMul:1.18, dollyFarMul:0.36, dollyDistNear:8, dollyDistFar:26,
   // FIRE POCKET EARLY: center the open-window glow slightly BEFORE the audible beat so pre-emptive releases (≈¼ beat early) feel rewarded, not late.
   grooveFireEarlyBeat:0.25,
+  // OPEN BUBBLE: additive shell inflates slightly while open (reads as a soft lens/aura around the core — the pre-chromatic vulnerability look, amplified).
+  openShellScale:1.55, openShellScalePeak:1.82,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
@@ -3439,8 +3441,8 @@ function animate(frameNow){
       const _ideal=Math.round(hb+_early)-_early;
       const _offSec=Math.abs(hb-_ideal)*_bps, _winSec=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();   // ms window: seconds off the early pocket vs a skill-tightened band
       _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
-      // openGlowBoost (SENSEI higher): tight windows still pop visually; shielded floor stays 0.05
-      const _so=_openAmt>0?Math.min(0.95, (0.20+0.47*_openAmt)*(CFG.openGlowBoost||1)):0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
+      // openGlowBoost: free-play boosted for a clearer vulnerability bubble; shielded floor stays dim
+      const _so=_openAmt>0?Math.min(0.98, (0.28+0.55*_openAmt)*(CFG.openGlowBoost||1)):0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
@@ -3472,6 +3474,14 @@ function animate(frameNow){
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
         if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
+        // Vulnerability bubble: inflate the additive shell while open so the open window reads as a soft lens/aura (no RGB fringe).
+        const _sh=tg.mesh.userData.shell;
+        if(_sh){
+          const base=CFG.openShellScale!=null?CFG.openShellScale:1.55, peak=CFG.openShellScalePeak!=null?CFG.openShellScalePeak:1.82;
+          const a=(CFG.grooveGroove&&CFG.grooveVuln)?_openAmt:0;
+          const pulse=a>0?(base+(peak-base)*a*(0.92+0.08*Math.sin(state.t*11+ (tg.idx||0)))):base;
+          _sh.scale.setScalar(pulse);
+        }
         const p=tg.mesh.position;
         if(doSnap){ const mul=_mulEff;                  // strobe step scaled by the enveloped WASD freeze: 1=full move, 0=frozen (falls instantly on a clean tap, rises clipped after a break)
           if(brownianStep){                                  // brownian wander
@@ -3797,8 +3807,10 @@ function renderTransitEssayUi(){
     return;
   }
   const ready=_transitEssayPhase==='ready'&&_transitEssay&&_transitEssay.status==='ready';
+  const canRetry=_transitEssayPhase==='unavailable'||_transitEssayPhase==='hidden';
   if(transitEssayUi.button){
-    transitEssayUi.button.disabled=!ready;
+    // Ready → open reader. Unavailable → click retries enqueue (helps after a failed server day).
+    transitEssayUi.button.disabled=!(ready||canRetry)||_transitEssayPhase==='pending';
     transitEssayUi.button.classList.toggle('ready',ready);
     if(_transitEssayPhase==='pending') transitEssayUi.button.setAttribute('aria-busy','true'); else transitEssayUi.button.removeAttribute('aria-busy');
   }
@@ -3808,7 +3820,7 @@ function renderTransitEssayUi(){
       : ready
         ? T('transitEssayReady','SKY NOTE READY')
         : _transitEssayPhase==='unavailable'
-          ? T('transitEssayUnavailable','NOTE UNAVAILABLE · PLAY STILL WORKS')
+          ? T('transitEssayUnavailable','NOTE UNAVAILABLE · TAP TO RETRY')
           : '';
   }
 }
@@ -3876,11 +3888,12 @@ async function transitEssayRequest(seq,enqueue){
   }finally{ if(_transitEssayInFlightSeq===seq) _transitEssayInFlightSeq=0; }
   if(followup==='enqueue'&&transitEssayStillCurrent(seq)) transitEssayRequest(seq,true);
 }
-function startTransitEssayFlow(){
+function startTransitEssayFlow(force){
   const ctl=_skyProfileController;
   if(!transitEssayEligible()||!ctl||typeof ctl.enqueueTransitEssay!=='function'||typeof ctl.getTransitEssay!=='function'){ renderTransitEssayUi(); return; }
   const activation=_skyAuthUser+'|'+String(ctl.state.generation);
-  if(_transitEssayActivationKey===activation) return;
+  // force=true (manual retry from the pause button) ignores the one-shot activation key
+  if(!force&&_transitEssayActivationKey===activation&&(_transitEssayPhase==='pending'||_transitEssayPhase==='ready')) return;
   ++_transitEssaySeq; transitEssayClearPollTimer(); closeTransitEssayReader(false); transitEssayClearReader();
   _transitEssay=null; _transitEssayPhase='pending'; _transitEssayPollStep=0; _transitEssayStartedAt=Date.now(); _transitEssayActive=true; _transitEssayInFlightSeq=0;
   _transitEssayFlowUser=_skyAuthUser; _transitEssayActivationKey=activation; _transitEssayNoneRequeued=false; _transitEssayPendingToast=null;
@@ -3909,7 +3922,10 @@ function openTransitEssayReader(){
   if(transitEssayUi.epistemic) transitEssayUi.epistemic.textContent=record.epistemic||T('transitEssayFallback','Symbolic study notes, not predictions.');
   transitEssayUi.reader.classList.remove('hidden'); if(transitEssayUi.card){ try{ transitEssayUi.card.focus(); }catch(e){} }
 }
-if(transitEssayUi.button) transitEssayUi.button.addEventListener('click',openTransitEssayReader);
+if(transitEssayUi.button) transitEssayUi.button.addEventListener('click',()=>{
+  if(_transitEssayPhase==='ready') openTransitEssayReader();
+  else if(_transitEssayPhase==='unavailable'||_transitEssayPhase==='hidden') startTransitEssayFlow(true);
+});
 if(transitEssayUi.close) transitEssayUi.close.addEventListener('click',()=>{ closeTransitEssayReader(true); });
 if(transitEssayUi.reader) transitEssayUi.reader.addEventListener('click',e=>{ if(e.target===transitEssayUi.reader) closeTransitEssayReader(true); });
 document.addEventListener('keydown',e=>{
