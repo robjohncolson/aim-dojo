@@ -193,8 +193,11 @@
       cache_date: raw.cache_date,
     };
     if (raw.status === "failed") {
-      if (raw.detail !== "Transit essay generation failed.") invalid();
-      result.detail = "Transit essay generation failed.";
+      // Accept optional server detail; never require a brittle exact string.
+      result.detail =
+        typeof raw.detail === "string" && raw.detail.trim()
+          ? raw.detail.trim().slice(0, 180)
+          : "Transit essay generation failed.";
       return result;
     }
     if (raw.status !== "ready") return result;
