@@ -104,9 +104,10 @@ test("natural uses a full local-sky attitude while theatre keeps the original sp
 
   const update = html.match(/function updateSky\(dt\)\{[\s\S]*?\n\}\nlet skyT=/);
   assert.ok(update);
-  assert.match(update[0], /else if\(SKY_TIME==='theatre'\)\{ if\(!skyFrozen\) dayPhase=/);
+  assert.match(update[0], /const skyTime=\(templeActive&&CFG\.skyTemple\.forceNaturalInTemple\)\?'natural':SKY_TIME/);
+  assert.match(update[0], /else if\(skyTime==='theatre'\)\{ if\(!skyFrozen\) dayPhase=/);
   assert.match(update[0], /else \{ dayPhase=clockedDayPhase\(Date\.now\(\)\); skyFrozen=false; \}/);
-  assert.match(update[0], /const localAttitude=SKY_TIME==='natural'&&applyNaturalSkyAttitude\(Date\.now\(\)\)/);
+  assert.match(update[0], /const localAttitude=skyTime==='natural'&&applyNaturalSkyAttitude\(Date\.now\(\)\)/);
   assert.match(update[0], /if\(!localAttitude\)[\s\S]*?_qSpin\.setFromAxisAngle\(SPH_POLE, sunA-_sunLonRad\)/);
   assert.match(update[0], /skySphere\.quaternion\.copy\(_qSpin\)\.multiply\(_qBase\)/);
   assert.match(update[0], /sunDir\.copy\(_lum\.sun\.glyph\.position\)\.applyQuaternion\(skySphere\.quaternion\)\.normalize\(\)/);

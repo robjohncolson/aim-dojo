@@ -169,6 +169,17 @@ html.seen #ovLede .lede-return{display:inline}
 #trainCoach{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.12em;color:var(--rail);text-shadow:0 0 10px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.9);opacity:0;text-align:center;max-width:min(520px,92vw);line-height:1.45;transition:opacity .25s}
 #trainCoach.on{opacity:1}
 
+/* Sky Temple investigation is deliberately separate from the retired in-dojo Listen card. */
+#skyTemplePanel{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:11;width:min(360px,38vw);max-width:calc(100vw - 36px);padding:14px 16px;border:1px solid rgba(255,210,74,.52);background:rgba(8,12,12,.9);box-shadow:0 18px 55px rgba(0,0,0,.58),inset 0 0 28px rgba(255,210,74,.035);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone)}
+#skyTemplePanel.on{opacity:1;visibility:visible}
+.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:8px}
+.sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em}
+.sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line}
+.sky-temple-hint{font:9.5px/1.4 var(--mono);color:var(--bone-dim);letter-spacing:.045em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22)}
+body.temple-active :is(#speedBox,#beatRing,#pocketLaw,#lockBox,#edgeTop,#edgeBot,#edgeLeft,#edgeRight,#wasdHud,#wasdGlyph,#windHud,#hitmark,#timing,#assist,#hitFlash,#dojoFlash,#trainCoach,#comboGlow,#presence,.tgtDist,.tgtKey,.liveRet){display:none!important}
+body.temple-active #reticle .arm,body.temple-active #reticle .dot{background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.9)}
+@media (max-width:720px){#skyTemplePanel{left:14px;right:14px;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:none;width:auto}}
+
 /* Japanese typography: keep Latin metrics monospaced, give CJK native glyphs and sane tracking. */
 html[lang=ja] h1{line-height:1.15}
 html[lang=ja] .eyebrow{letter-spacing:.12em}
@@ -358,6 +369,12 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 
 <button id="muteBtn" title="Toggle sound" aria-label="Toggle sound">♪</button>
 <div id="trainCoach" aria-live="polite"></div>
+<aside id="skyTemplePanel" role="status" aria-live="polite" aria-hidden="true">
+  <div class="sky-temple-kicker" id="skyTempleKicker">SKY TEMPLE</div>
+  <div class="sky-temple-title" id="skyTempleTitle"></div>
+  <div class="sky-temple-meta" id="skyTempleMeta"></div>
+  <div class="sky-temple-hint" id="skyTempleHint">RETICLE + FIRE TO INVESTIGATE · E / ESC TO LEAVE</div>
+</aside>
 
 <div id="touch">
   <button id="pauseBtn" aria-label="Pause">❙❙</button>
@@ -556,6 +573,8 @@ window.JA={
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
+  skyTempleKicker:'空の神殿', skyTempleHint:'照準 + 発射でしらべる · E / ESC でもどる', skyTempleEmpty:'空に照準を合わせてしらべる',
+  skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
   pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
@@ -620,6 +639,7 @@ window.JA={
 
 <script src="observer-location.js"></script>
 <script src="local-sky.js"></script>
+<script src="sky-temple.js"></script>
 <script src="save-my-sky.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -627,6 +647,7 @@ window.JA={
 "use strict";
 
 const IS_JA=document.documentElement.lang==='ja';
+const SKY_TEMPLE_DATA=window.AimDojoSkyTemple||null;
 const T=(key,en)=>(IS_JA&&window.JA&&window.JA[key]!=null)?window.JA[key]:en;
 function TF(key,en,values){
   let out=T(key,en);
@@ -704,6 +725,7 @@ const CFG = {
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
+  skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -778,6 +800,8 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
   try{ const v=localStorage.getItem('aimdojo.skyTime'); if(SKY_TIMES.indexOf(v)>=0) return v; }catch(e){}
   return 'natural';   // public default: real-time sky pace (theatre remains opt-in via pause / ?theatre=1)
 })();
+let templeActive=false, _skySelectHeld=false, _skySelectUsed=false, _skySel=null;
+let _templeBlend=0, _templeFocus=null, _templeEscapeGuard=false, _templeNeedsRelock=false;
 /* Observer location is local device data, separate from natal/profile data and every
    share, dojo, leaderboard, URL, and cloud-pref channel. Null keeps the old civil-spin fallback. */
 const OBSERVER_PREFS=window.AimDojoObserver||null;
@@ -1109,7 +1133,7 @@ function setDayFloorTex(){
   const tex=getCheckerTex(dayTileIdx);
   if(dayFloor.material.map!==tex) dayFloor.material.map=tex;   // A<->B swap only: the map is assigned at build time, so USE_MAP never changes → same program, no needsUpdate, no recompile, no uRes reset (the old null->tex first-dawn recompile + smear-guard dance is gone)
 }
-let nightGrid=null, dayFloor=null, glowGrid=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight. glowGrid: GLOW-only baked halo plane under the grid
+let baseFloor=null, nightGrid=null, dayFloor=null, glowGrid=null, dayAmt=0;   // dayAmt: 0 (night) .. 1 (day), exposed from updateSky so the ARC viz/labels can boost contrast in daylight. Sky Temple dissolves all four visual floor layers together.
 function patchGridBeat(grid){   // WASD floor beat-tint for the night GridHelper (re-applied whenever setNightGrid recreates the helper)
   grid.material.onBeforeCompile=(sh)=>{
     sh.uniforms.uBeatCol={value:new THREE.Color(0,0,0)}; sh.uniforms.uBeatAmt={value:0};
@@ -1133,8 +1157,8 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
 }
 (function buildArena(){
   const FLOOR=FLOOR_SIZE;                                     // floor stretches well past the fog → reads as a horizon
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14}));
-  floor.rotation.x = -Math.PI/2; scene.add(floor);
+  baseFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14,transparent:true,opacity:1}));
+  baseFloor.rotation.x = -Math.PI/2; scene.add(baseFloor);
   dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({map:getCheckerTex(dayTileIdx), transparent:true, opacity:0, depthWrite:false}));
   dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day. Map assigned at BUILD time so USE_MAP is baked into the one and only compile (no first-dawn recompile hitch).
   dayFloor.material.onBeforeCompile=(sh)=>{                  // far floor shows the TRUE planar reflection of the sky (sun disc included → omega sunset); also dissolves the checker so no moiré. LOW: reflection compiled OUT entirely — no sampler declared, no dead texture fetch (was a weight-0 mix that still fetched).
@@ -1312,16 +1336,21 @@ function setScalarCached(obj, prop, value, scale){
   if(obj[k]!==q){ obj[k]=q; obj[prop]=q/scale; }
 }
 function updateSky(dt){
+  const templeTarget=templeActive?1:0, templeStep=dt/Math.max(0.05,CFG.skyTemple.floorDissolveSec||0.8);
+  if(_templeBlend<templeTarget) _templeBlend=Math.min(templeTarget,_templeBlend+templeStep);
+  else if(_templeBlend>templeTarget) _templeBlend=Math.max(templeTarget,_templeBlend-templeStep);
+  const floorAlpha=1-_templeBlend;
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
+  const skyTime=(templeActive&&CFG.skyTemple.forceNaturalInTemple)?'natural':SKY_TIME;
   if(SKY_MODE==='decorative'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1; }   // decorative: freeze holds pretty lighting
-  else if(SKY_TIME==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE: accelerated spin; freeze pins phase
+  else if(skyTime==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE: accelerated spin; freeze pins phase
   else { dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }   // NATURAL: always live wall clock — freeze disabled; dayPhase remains the no-location fallback
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // decorative art sphere (stars + discs); in clocked* it only carries the no-fixture fallback stars
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
   if(SKY_MODE!=='decorative'){                               // one attitude drives the whole celestial sphere; lighting reads the transformed ☉ below
-    const localAttitude=SKY_TIME==='natural'&&applyNaturalSkyAttitude(Date.now());
+    const localAttitude=skyTime==='natural'&&applyNaturalSkyAttitude(Date.now());
     if(!localAttitude){                                     // THEATRE unchanged; also the documented playable fallback while natural location is unset
       _qSpin.setFromAxisAngle(SPH_POLE, sunA-_sunLonRad);    // sphereAngle = spinPhase·360° − sunLon: epoch ☉ culminates at theatre/fallback noon and every layer co-rotates
       skySphere.quaternion.copy(_qSpin).multiply(_qBase);
@@ -1335,23 +1364,24 @@ function updateSky(dt){
   _zen.copy(ZEN_NIGHT).lerp(ZEN_DAY, atmos).lerp(ZEN_DUSK, tw*0.45);                        // zenith colour (deep)
   _haze.copy(_hor).lerp(WHITE, (GLOW?0.10:0.03)+0.25*atmos);                                // soft brightened horizon band — near-dark at night (GLOW: milkier), bright by day
   // THEME AURA (soft): a whisper of song color — dialed down so toxic orbs / WASD hues stay the stars of the palette
-  if(state.running && activeTheme){ const w=0.03+0.04*Math.min(1,grooveI/2.2); _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.7); _zen.lerp(_moodCol,w*0.3); }
+  if(state.running && !templeActive && activeTheme){ const w=0.03+0.04*Math.min(1,grooveI/2.2); _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.7); _zen.lerp(_moodCol,w*0.3); }
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
   scene.background.copy(_hor); scene.fog.color.copy(_hor); setScalarCached(scene.fog,'density',0.012-0.005*day,100000);  // background = horizon → no black seam; floor fades into the horizon
   if(starPts) setScalarCached(starPts.material.uniforms.uOpacity,'value',Math.max(0,1-atmos*1.15));   // atmos: decorative identical (atmos===day); clocked* fallback stars ride the quieter dome
-  if(dayFloor){ if(day>0.01) setDayFloorTex(); setScalarCached(dayFloor.material,'opacity',day); syncReflUniformSize(); dayFloor.visible=day>0.003; }  // tiles fade in; keep the reflection sample resolution in sync. visible toggle: at night the opacity-0 quad otherwise still rasterizes (checker + reflection fetches for nothing)
+  if(baseFloor){ setScalarCached(baseFloor.material,'opacity',floorAlpha); baseFloor.visible=floorAlpha>0.003; }
+  if(dayFloor){ if(day>0.01) setDayFloorTex(); setScalarCached(dayFloor.material,'opacity',day*floorAlpha); syncReflUniformSize(); dayFloor.visible=day*floorAlpha>0.003; }  // tiles fade in; Sky Temple multiplies every floor layer toward zero
   const deepNight=day<0.04;                                  // each new night: roll a grid colour ≠ last, and flip the next day's tile set (hidden while invisible)
   if(deepNight && !wasNight){
     let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]);
     dayTileIdx=1-dayTileIdx; if(dayFloor && dayFloor.material.map) setDayFloorTex();
   }
   wasNight=deepNight;
-  if(nightGrid){ setScalarCached(nightGrid.material,'opacity',0.55*(1-day)); nightGrid.visible=day<0.995; }   // visible toggle: at full day the opacity-0 line buffer otherwise still submits
-  if(glowGrid){ const gop=0.9*(1-day); setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=gop>0.01; }   // GLOW halo fades with the grid; hidden by day so the plane isn't drawn at opacity 0
+  if(nightGrid){ const nop=0.55*(1-day)*floorAlpha; setScalarCached(nightGrid.material,'opacity',nop); nightGrid.visible=nop>0.003; }
+  if(glowGrid){ const gop=0.9*(1-day)*floorAlpha; setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=gop>0.01; }
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
-  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && activeTheme) _amb.lerp(_moodCol, 0.04+0.04*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
-  hemiLight.color.copy(_sky); if(state.running && activeTheme) hemiLight.color.lerp(_moodCol, 0.03); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
+  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && !templeActive && activeTheme) _amb.lerp(_moodCol, 0.04+0.04*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
+  hemiLight.color.copy(_sky); if(state.running && !templeActive && activeTheme) hemiLight.color.lerp(_moodCol, 0.03); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // key light from the sun when up (in clocked* sunDir IS the transformed ☉ — v2.1 §4.4); below the horizon, the negation is a soft night fill from the opposite sky, not a physical moon
   skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',LOW?0:(GLOW?Math.max(atmos*0.9,0.15):atmos*0.9));          // procedural clouds: drift + fade in with the day, at atmosphere weight (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome). GLOW: faint mist banding survives at night (key-art sky is never pure gradient)
@@ -1359,8 +1389,9 @@ function updateSky(dt){
   else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
   if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull + soft glyph breath — zero cost while absent
+  if(templeActive) updateSkyTempleVisuals();
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
-  if(day>0.02) renderReflection();                           // refresh the floor's sky reflection while the tiles are visible
+  if(day*floorAlpha>0.02) renderReflection();                // no mirror pass after the temple floor has dissolved
 }
 let skyT=0;
 
@@ -1480,10 +1511,11 @@ function buildChartSky(pack,rank){
     else if(sp.userData.skyGlyph!==glyph){ sp.material.map=glyphTex(glyph); sp.material.needsUpdate=true; sp.userData.skyGlyph=glyph; }
     sp.position.copy(eclipticDir(mid,C.sign.latOff)).multiplyScalar(R); packSigns.push({id:id,glyph:glyph,a:a,span:span,mid:mid,sprite:sp});
   }
-  const at=Object.create(null), moverSprite=Object.create(null), moverLon=Object.create(null), ghostLon=Object.create(null);
+  const at=Object.create(null), moverSprite=Object.create(null), moverLon=Object.create(null), moverRecord=Object.create(null), ghostLon=Object.create(null), templeGhosts=Object.create(null);
   for(const mv of (pack.movers||[]).slice(0,C.caps.mover)){
     if(!mv || mv.id==null) continue; const id=String(mv.id); if(!SKY_BODY_SET[id]) continue;
     const lon=wrapDeg(mv.lon_j2000,0), glyph=(typeof mv.glyph==='string'&&mv.glyph)?mv.glyph:'?', sign=canonicalSkySign(mv.sign);
+    moverRecord[id]=(SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord)?SKY_TEMPLE_DATA.normalizeBodyRecord(mv,'transit'):null;
     _lsnBody[id]={name:(typeof mv.name==='string'&&mv.name)?mv.name:id, glyph:glyph, sign:SKY_SIGN_SET[sign]?sign:null};
     if((id==='sun'||id==='moon') && _lum && _lum[id]){   // ☉/☽ reuse the existing fallback glyphs; no duplicate luminary is ever created
       at['m:'+id]=_lum[id].glyph.position; moverSprite[id]=_lum[id].glyph; moverLon[id]=lon;
@@ -1496,18 +1528,22 @@ function buildChartSky(pack,rank){
   }
   if(personal) for(const ng of (pack.natal_ghosts||[]).slice(0,C.caps.ghost)){
     if(!ng || ng.id==null || !SKY_BODY_SET[String(ng.id)]) continue;
-    ghostLon[String(ng.id)]=wrapDeg(ng.lon_j2000,0);   // metadata only: selected-body Listen may reveal one faint, non-pickable marker
+    const id=String(ng.id); ghostLon[id]=wrapDeg(ng.lon_j2000,0);
+    const body=(SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord)?SKY_TEMPLE_DATA.normalizeBodyRecord(ng,'natal'):null;
+    if(body) templeGhosts[id]=body;
   }
   const signs=Object.create(null), signArcs=[];
   for(const s of packSigns){ signs[s.id]={glyph:s.glyph,lon:s.mid,pos:s.sprite.position,sprite:s.sprite}; signArcs.push({id:s.id,a:s.a,span:s.span}); }
   const signOf=lon=>{ for(const sa of signArcs){ if(((lon-sa.a+360)%360)<sa.span) return sa.id; } return null; };
   const bodies=Object.create(null);
   for(const id in moverLon){ const inf=_lsnBody[id]||{};
-    bodies[id]={name:inf.name||id,glyph:inf.glyph||'?',sign:inf.sign||signOf(moverLon[id]),lon:moverLon[id],pos:at['m:'+id],sprite:moverSprite[id]||null,delta:(id in ghostLon)?shortestArcDeg(moverLon[id],ghostLon[id]):null};
+    bodies[id]={name:inf.name||id,glyph:inf.glyph||'?',sign:inf.sign||signOf(moverLon[id]),lon:moverLon[id],pos:at['m:'+id],sprite:moverSprite[id]||null,delta:(id in ghostLon)?shortestArcDeg(moverLon[id],ghostLon[id]):null,temple:moverRecord[id]||null};
   }
+  const aspects=(personal&&SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeAspectRecords)?SKY_TEMPLE_DATA.normalizeAspectRecords(pack,{maxLines:CFG.skyTemple.maxAspectLines}):[];
   _chartPackRank=rank;
-  _lsnMeta={source:personal?'personal':(rank===1?'day':'sample'),bodies:bodies,signs:signs,ghostLon:ghostLon,signOf:signOf,natalId:(personal&&typeof pack.natal_id==='string'?pack.natal_id:null)};
+  _lsnMeta={source:personal?'personal':(rank===1?'day':'sample'),bodies:bodies,signs:signs,ghostLon:ghostLon,templeGhosts:templeGhosts,aspects:aspects,signOf:signOf,natalId:(personal&&typeof pack.natal_id==='string'?pack.natal_id:null)};
   if(personal) _skypack=pack;
+  if(templeActive) rebuildSkyTempleGeometry();
   return true;
 }
 function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere layer exists
@@ -1558,12 +1594,14 @@ function retuneLuminaries(pack,rank){   // source-ranked epoch update: a late pu
 }
 function queueSkyGeometry(pack,rank,onBuilt){
   if(!pack) return false; rank=(rank==null?skyGeometryRank(pack):rank); if(rank<_chartQueuedRank || rank<_lumPackRank) return false;
+  const selected=_skySel?{kind:_skySel.kind,id:_skySel.id}:null;
   if(_lsn && _lsn.sel) clearListen(true);   // retune + metadata upsert are one synchronous epoch switch, never a mixed active card
   const priorLumRank=_lumPackRank;
   retuneLuminaries(pack,rank);
   let built=false; try{ built=buildChartSky(pack,rank); }catch(e){}
-  if(!built){ _lumPackRank=priorLumRank; return false; }   // let a later lower source recover if sprite allocation ever fails mid-upgrade
+  if(!built){ _lumPackRank=priorLumRank; rebindSkySelection(selected); return false; }   // let a later lower source recover if sprite allocation ever fails mid-upgrade
   _chartQueuedRank=Math.max(_chartQueuedRank,rank);
+  rebindSkySelection(selected);
   if(onBuilt) onBuilt();
   return true;
 }
@@ -1588,6 +1626,7 @@ function downgradePersonalSky(){   // authenticated profile authority: no stale 
   _lsnMeta=null;
   if(_publicSkyPack && skydayValid(_publicSkyPack)) queueSkyGeometry(_publicSkyPack,1);
   else refreshPublicListenMeta();
+  if(templeActive){ _templeFocus=null; rebuildSkyTempleGeometry(); }   // deletion/sign-out immediately removes private ghosts, chords, and panel data
 }
 async function loadSkypack(allowSample){   // B3. Personal channels first: ?skypack= URL → skypack.json drop-in → localhost API (EXPLICIT ?skyApi opt-in — never a silent localhost dependency). A REQUESTED personal source that fails is NEVER papered over with the sample pack — it degrades to plain clocked + one toast. The in-repo synthetic sample only serves packless visitors, and announces itself. allowSample:false (clocked luminary retune) skips the sample entirely — approx-now lons are more honest than a synthetic chart.
   const q=location.search+location.hash;
@@ -1713,7 +1752,7 @@ function refreshPublicListenMeta(){   // API-independent pick map: constellation
   const signs=Object.create(null), bodies=Object.create(null), ghostLon=Object.create(null);
   if(_stickFig&&_stickFig.signs) for(const id in _stickFig.signs){ const s=_stickFig.signs[id]; signs[id]={glyph:SKY_SIGN_GLYPHS[id]||s.glyph||'?',pos:s.pos,lon:null,sprite:null}; }
   if(_lum) for(const id of ['sun','moon']){ const t=_lum[id]; if(!t) continue; bodies[id]={name:id==='sun'?'Sun':'Moon',glyph:id==='sun'?'☉':'☽',sign:null,lon:t.lon,pos:t.glyph.position,sprite:t.glyph,delta:null}; }
-  _lsnMeta={source:'fallback',bodies:bodies,signs:signs,ghostLon:ghostLon,signOf:()=>null,natalId:null};
+  _lsnMeta={source:'fallback',bodies:bodies,signs:signs,ghostLon:ghostLon,templeGhosts:Object.create(null),aspects:[],signOf:()=>null,natalId:null};
 }
 refreshPublicListenMeta();
 function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centre); huge when behind the camera
@@ -1754,14 +1793,23 @@ function pickCelestial(){   // priority: transit body within bodyPx, else sign w
     const d=_lsnScreenPx(_lsnW); if(d<bestD){ bestD=d; best={kind:'sign', id:id, meta:s, world:_lsnW.clone()}; } }
   return best;
 }
-function skyListenTry(){   // called from fire(); true = this press was a LISTEN or a dismiss (caller returns, nothing combat happens)
+function rebindSkySelection(selected){
+  if(!selected||!_lsnMeta) return false;
+  const meta=selected.kind==='body'?_lsnMeta.bodies[selected.id]:(selected.kind==='sign'?_lsnMeta.signs[selected.id]:null);
+  if(!meta||!meta.pos) return false;
+  const pick={kind:selected.kind,id:selected.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
+  _skySel=pick; _lsn.sel=pick; _lsn.holdT=state.t;
+  goldFigure(pick.kind==='sign'?pick.id:pick.meta.sign); emphasizeListenGlyphs(pick);
+  return true;
+}
+function skyListenTry(){   // true consumes an intentional held-E selection gesture; ordinary fire never enters this path
+  if(!CFG.skyTemple.enabled) return false;
+  if(CFG.skyTemple.selectRequiresHold && !_skySelectHeld) return false;
   if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta) return false;   // natural + theatre; even missing glossary/day assets may fall through to honest stick/Meeus geometry copy
   if(_lsnOrbBlocksSky()) return false;   // Echo between you and the sky → always launch a projectile, never a zodiac Listen
   const pick=pickCelestial();
   if(!pick){
-    // Empty sky while a card is open → dismiss (no shot). Clears "overstays its welcome" without waiting for holdSec.
-    if(_lsn.sel){ clearListen(true); return true; }
-    return false;
+    clearListen(true); return true;   // held-E empty sky clears the mark and never leaks into combat
   }
   startListen(pick); return true;
 }
@@ -1772,7 +1820,7 @@ function _lsnMuzzle(out){   // same muzzle as computeShotPlan's M — WITHOUT to
 }
 function startListen(pick){
   clearListen(false);
-  _lsn.sel=pick; _lsn.holdT=state.t;
+  _lsn.sel=pick; _skySel=pick; _lsn.holdT=state.t;
   if(!_lsn.line){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
     _lsn.line=new THREE.Line(g, new THREE.LineBasicMaterial({color:0x9fd8ff, transparent:true, opacity:0.55, depthWrite:false, fog:false, blending:THREE.AdditiveBlending}));
     _lsn.line.frustumCulled=false; scene.add(_lsn.line); }
@@ -1781,12 +1829,13 @@ function startListen(pick){
   _lsn.line.material.opacity=0.55; _lsn.line.visible=true; _lsn.lineT=state.t;
   goldFigure(pick.kind==='sign' ? pick.id : pick.meta.sign);
   emphasizeListenGlyphs(pick);
-  if(pick.kind==='body') showListenGhost(pick);   // one faint natal memory mark, created lazily and never added to the pick maps
-  const fallback=glossaryListenData(pick); showListenCard(pick,fallback,false);   // definitions are static: never make a public player wait on localhost/Railway
-  if(_personalListenExpected || _lsnNatalId()) fetchListen(pick,fallback);   // authenticated Railway profile or backward-compatible local desk
+  if(CFG.skyTemple.legacyListenCard){
+    const fallback=glossaryListenData(pick); showListenCard(pick,fallback,false);
+    if(_personalListenExpected || _lsnNatalId()) fetchListen(pick,fallback);
+  }else if(_lsn.card) _lsn.card.style.display='none';
 }
 function clearListen(hideCard){
-  _lsn.sel=null; _lsn.holdT=-1; _lsn.seq++;
+  _lsn.sel=null; _skySel=null; _lsn.holdT=-1; _lsn.seq++;
   if(_lsn.line){ _lsn.line.visible=false; } _lsn.lineT=-1;
   restoreListenGlyphs(); hideListenGhost();
   restoreFigures();
@@ -1989,9 +2038,196 @@ function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is f
   if(_lsn.lineT>=0 && _lsn.line){ const k=(state.t-_lsn.lineT)/CL.lineSec;
     if(k>=1){ _lsn.line.visible=false; _lsn.lineT=-1; }
     else setScalarCached(_lsn.line.material,'opacity',0.55*(1-k)); }
-  if(_lsn.sel && state.t-_lsn.holdT>=CL.holdSec) clearListen(true);
+  if(CFG.skyTemple.legacyListenCard && _lsn.sel && state.t-_lsn.holdT>=CL.holdSec) clearListen(true);
 }
-// Esc is reserved for pause / pointer-lock exit — do not clear Listen on Escape (it fought the pause menu).
+
+/* ========================= SKY TEMPLE (silent, data-first investigation) ========================= */
+const _templeUi={
+  panel:document.getElementById('skyTemplePanel'), kicker:document.getElementById('skyTempleKicker'),
+  title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'), hint:document.getElementById('skyTempleHint')
+};
+if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPLE');
+if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','RETICLE + FIRE TO INVESTIGATE · E / ESC TO LEAVE');
+const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
+let _templeAspectMesh=null, _templeHighlight=null;
+const _templeAspects=[], _templeNatal=[];
+const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new THREE.Vector3(), _templeTmp=new THREE.Vector3();
+function _templeDisposeChildren(){
+  while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
+    if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
+    if(obj.material && obj.material.dispose) obj.material.dispose();
+  }
+  _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
+}
+function _templeAspectColor(id){
+  if(id==='square') return new THREE.Color(0xff8a78);
+  if(id==='opposition') return new THREE.Color(0x88bfff);
+  if(id==='trine') return new THREE.Color(0x8fe3c0);
+  if(id==='sextile') return new THREE.Color(0xa8d8ff);
+  return new THREE.Color(0xffd66f);
+}
+function rebuildSkyTempleGeometry(){
+  const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
+    :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}
+      :(_templeFocus.kind==='body'?{kind:'body',id:_templeFocus.body&&_templeFocus.body.id}
+        :(_templeFocus.kind==='sign'?{kind:'sign',id:_templeFocus.pick&&_templeFocus.pick.id}:null))));
+  _templeDisposeChildren();
+  const meta=_lsnMeta, R=SKY_CHART.R;
+  if(!meta){ _templeGroup.visible=false; return; }
+  const ghosts=meta.templeGhosts||Object.create(null);
+  for(const id of Object.keys(ghosts).slice(0,SKY_CHART.caps.ghost)){
+    const body=ghosts[id]; if(!body || !isFinite(body.lonJ2000)) continue;
+    const mat=new THREE.SpriteMaterial({map:glyphTex(body.glyph||'·'),color:0xc9d4ff,transparent:true,opacity:0,depthWrite:false,fog:false,blending:THREE.AdditiveBlending});
+    const sprite=new THREE.Sprite(mat), size=SKY_CHART.ghost.scale*0.9;
+    sprite.position.copy(eclipticDir(body.lonJ2000,0)).multiplyScalar(R*0.985); sprite.scale.set(size,size,1); sprite.renderOrder=3;
+    _templeGroup.add(sprite); _templeNatal.push({kind:'natal',id:id,body:body,sprite:sprite,local:sprite.position.clone(),baseScale:size});
+  }
+  const records=Array.isArray(meta.aspects)?meta.aspects.slice(0,Math.min(24,CFG.skyTemple.maxAspectLines||24)):[];
+  if(records.length){
+    const pos=new Float32Array(records.length*6), col=new Float32Array(records.length*6);
+    records.forEach((record,i)=>{
+      const start=eclipticDir(record.transit.lonJ2000,0).multiplyScalar(R*0.992);
+      const end=eclipticDir(record.natal.lonJ2000,0).multiplyScalar(R*0.985);
+      pos.set([start.x,start.y,start.z,end.x,end.y,end.z],i*6);
+      const c=_templeAspectColor(record.aspectId), light=0.24+0.76*Math.max(0,Math.min(1,record.tightness||0)); c.multiplyScalar(light);
+      col.set([c.r,c.g,c.b,c.r,c.g,c.b],i*6);
+      _templeAspects.push({kind:'aspect',record:record,start:start,end:end,index:i});
+    });
+    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+    const mat=horizonFadeMat(new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
+    _templeAspectMesh=new THREE.LineSegments(geo,mat); _templeAspectMesh.frustumCulled=false; _templeGroup.add(_templeAspectMesh);
+    const hGeo=new THREE.BufferGeometry(); hGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+    const hMat=horizonFadeMat(new THREE.LineBasicMaterial({color:0xffdf72,transparent:true,opacity:0,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
+    _templeHighlight=new THREE.Line(hGeo,hMat); _templeHighlight.frustumCulled=false; _templeHighlight.visible=false; _templeGroup.add(_templeHighlight);
+  }
+  _templeGroup.visible=templeActive;
+  if(templeActive){
+    let rebound=_templeFocus;
+    if(priorFocus&&priorFocus.kind==='aspect') rebound=_templeAspects.find(item=>item.record&&item.record.key===priorFocus.key)||null;
+    else if(priorFocus&&priorFocus.kind==='natal') rebound=_templeNatal.find(item=>item.id===priorFocus.id)||null;
+    else if(priorFocus&&priorFocus.kind==='body'){
+      const meta=_lsnMeta.bodies[priorFocus.id], pick=meta?{kind:'body',id:priorFocus.id,meta:meta}:null, body=_templeBodyFromPick(pick);
+      rebound=body?{kind:'body',body:body,pick:pick}:null;
+    }else if(priorFocus&&priorFocus.kind==='sign'){
+      const meta=_lsnMeta.signs[priorFocus.id]; rebound=meta?{kind:'sign',pick:{kind:'sign',id:priorFocus.id,meta:meta}}:null;
+    }
+    setSkyTempleFocus(rebound);
+  }
+}
+function updateSkyTempleVisuals(){
+  _templeGroup.visible=templeActive;
+  if(!templeActive) return;
+  const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
+  if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',0.5*_templeBlend*dim);
+  if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?0.98*_templeBlend:0);
+  for(const pick of _templeNatal){
+    _templeTmp.copy(pick.local).applyQuaternion(skySphere.quaternion);
+    const hz=smooth(HZ_LO,HZ_HI,_templeTmp.y), focused=_templeFocus===pick;
+    pick.sprite.material.color.setHex(focused?0xffd24a:0xc9d4ff);
+    setScalarCached(pick.sprite.material,'opacity',(focused?0.92:0.46)*hz*_templeBlend);
+    const s=pick.baseScale*(focused?1.28:1); pick.sprite.scale.set(s,s,1); pick.sprite.visible=hz*_templeBlend>0.01;
+  }
+}
+function _templeScreen(local,out){
+  _templeTmp.copy(local).applyQuaternion(skySphere.quaternion);
+  camera.getWorldDirection(_templeFwd); _templeA.copy(_templeTmp).sub(camera.position);
+  if(_templeA.dot(_templeFwd)<=0.05) return false;
+  _templeTmp.project(camera); out.x=(_templeTmp.x+1)*viewW*0.5; out.y=(1-_templeTmp.y)*viewH*0.5; return isFinite(out.x)&&isFinite(out.y);
+}
+function pickSkyTempleAspect(){
+  if(!SKY_TEMPLE_DATA||!SKY_TEMPLE_DATA.rayToSegment) return null;
+  let best=null,bestD=CFG.skyTemple.aspectPickPx||18;
+  camera.getWorldDirection(_templeFwd);
+  const tanHalf=Math.tan((camera.fov||95)*Math.PI/360)||1;
+  for(const item of _templeAspects){
+    _templeA.copy(item.start).applyQuaternion(skySphere.quaternion); _templeB.copy(item.end).applyQuaternion(skySphere.quaternion);
+    const hit=SKY_TEMPLE_DATA.rayToSegment(camera.position,_templeFwd,_templeA,_templeB);
+    if(!hit||hit.rayT<=0.05||!hit.segmentPoint||hit.segmentPoint.y<HZ_LO) continue;
+    const worldPerPx=(2*Math.max(0.1,hit.rayT)*tanHalf)/Math.max(1,viewH), d=hit.distance/worldPerPx;
+    if(d<bestD){ bestD=d; best=item; }
+  }
+  return best;
+}
+function pickSkyTempleNatal(){
+  let best=null,bestD=CFG.skyListen.bodyPx; const p={x:0,y:0};
+  for(const item of _templeNatal){
+    _templeTmp.copy(item.local).applyQuaternion(skySphere.quaternion); if(_templeTmp.y<HZ_HI || !_templeScreen(item.local,p)) continue;
+    const d=Math.hypot(p.x-viewCX,p.y-viewCY); if(d<bestD){ bestD=d; best=item; }
+  }
+  return best;
+}
+function _templeBodyFromPick(pick){
+  if(!pick||pick.kind!=='body'||!pick.meta) return null;
+  if(pick.meta.temple) return pick.meta.temple;
+  return SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord?SKY_TEMPLE_DATA.normalizeBodyRecord({id:pick.id,lon_j2000:pick.meta.lon,sign:pick.meta.sign},'transit'):null;
+}
+function renderSkyTemplePanel(){
+  if(!_templeUi.panel) return;
+  _templeUi.panel.classList.toggle('on',templeActive); _templeUi.panel.setAttribute('aria-hidden',templeActive?'false':'true');
+  if(!templeActive) return;
+  let title='',lines=[];
+  if(_templeFocus&&_templeFocus.kind==='aspect'&&SKY_TEMPLE_DATA){
+    const model=SKY_TEMPLE_DATA.aspectPanelData(_templeFocus.record);
+    if(model){ title=model.title; if(model.detail) lines.push(model.detail); if(model.transitPlacement) lines.push(model.transitPlacement); if(model.natalPlacement) lines.push(model.natalPlacement); if(model.rank) lines.push('tightness #'+model.rank); }
+  }else if(_templeFocus&&_templeFocus.kind==='natal'&&SKY_TEMPLE_DATA){
+    const model=SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body); if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
+  }else if(_templeFocus&&_templeFocus.kind==='body'&&SKY_TEMPLE_DATA){
+    const model=SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body); if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
+  }else if(_templeFocus&&_templeFocus.kind==='sign'){
+    const m=_templeFocus.pick.meta||{}; title=(m.glyph?m.glyph+' ':'')+_lsnCap(_templeFocus.pick.id); if(isFinite(m.lon)) lines.push(Math.round(m.lon*10)/10+'°');
+  }
+  if(!title) title=T('skyTempleEmpty','Aim into the sky to investigate');
+  _templeUi.title.textContent=title; _templeUi.meta.textContent=lines.join('\n');
+}
+function setSkyTempleFocus(focus){
+  _templeFocus=focus||null;
+  if(_templeHighlight){
+    const aspect=_templeFocus&&_templeFocus.kind==='aspect'?_templeFocus:null; _templeHighlight.visible=!!aspect;
+    if(aspect){ const p=_templeHighlight.geometry.attributes.position; p.setXYZ(0,aspect.start.x,aspect.start.y,aspect.start.z); p.setXYZ(1,aspect.end.x,aspect.end.y,aspect.end.z); p.needsUpdate=true; }
+  }
+  const focusPick=_templeFocus&&(_templeFocus.kind==='body'||_templeFocus.kind==='sign')?_templeFocus.pick:null;
+  const goldPick=focusPick||_skySel;
+  if(goldPick){ goldFigure(goldPick.kind==='sign'?goldPick.id:goldPick.meta.sign); emphasizeListenGlyphs(goldPick); }
+  else { restoreListenGlyphs(); restoreFigures(); }
+  renderSkyTemplePanel(); updateSkyTempleVisuals();
+}
+function clearSkyTempleFocus(){ setSkyTempleFocus(null); }
+function focusSkyTempleReticle(){
+  if(!templeActive) return false;
+  const aspect=pickSkyTempleAspect(); if(aspect){ setSkyTempleFocus(aspect); return true; }
+  const natal=pickSkyTempleNatal(); if(natal){ setSkyTempleFocus(natal); return true; }
+  const pick=pickCelestial();
+  if(pick&&pick.kind==='body'){ const body=_templeBodyFromPick(pick); if(body){ setSkyTempleFocus({kind:'body',body:body,pick:pick}); return true; } }
+  if(pick&&pick.kind==='sign'){ setSkyTempleFocus({kind:'sign',pick:pick}); return true; }
+  clearSkyTempleFocus(); return true;
+}
+function enterSkyTemple(){
+  if(!CFG.skyTemple.enabled || templeActive || !state.running || !_skySel) return false;
+  templeActive=true; rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
+  abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
+  clearProjectiles(); clearRings(); resetFlock(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;
+  hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
+  if(_lsn.line){ _lsn.line.visible=false; _lsn.lineT=-1; }
+  if(_lsn.card) _lsn.card.style.display='none';
+  document.body.classList.add('temple-active'); rebuildSkyTempleGeometry();
+  let focus=null;
+  if(_skySel.kind==='body'){ const body=_templeBodyFromPick(_skySel); if(body) focus={kind:'body',body:body,pick:_skySel}; }
+  else if(_skySel.kind==='sign') focus={kind:'sign',pick:_skySel};
+  setSkyTempleFocus(focus); applyAudioState(); syncTransport(); clock.getDelta();
+  try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
+  return true;
+}
+function exitSkyTemple(options){
+  if(!templeActive) return false; options=options||{};
+  templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null;
+  document.body.classList.remove('temple-active'); _templeGroup.visible=false;
+  if(_templeUi.panel){ _templeUi.panel.classList.remove('on'); _templeUi.panel.setAttribute('aria-hidden','true'); }
+  if(_skySel){ goldFigure(_skySel.kind==='sign'?_skySel.id:_skySel.meta.sign); emphasizeListenGlyphs(_skySel); }
+  else { restoreListenGlyphs(); restoreFigures(); }
+  if(options.audio!==false) applyAudioState(); if(options.resume!==false) syncTransport(); clock.getDelta();
+  if(options.toast!==false) try{ showGhostToast(T('skyTempleExited','BACK TO DOJO')); }catch(e){}
+  return true;
+}
 
 /* ---- expanding ground rings = the beat pulse. A fresh ring every couple beats; on a streak they fire
        every beat and warm from rail-blue toward toxic-green. ---- */
@@ -2156,7 +2392,7 @@ function audioLat(){ return (((rawCtx && (rawCtx.outputLatency||rawCtx.baseLaten
 let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in the heard timeline) → powers the pause-menu "calibrate from my taps"
 let reverbInput=null, reverbQueued=false;
 let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
-let gridId=null, grid8=0, cd=0, restSlots=0;
+let gridId=null, grid8=0, cd=0, restSlots=0, rhythmGeneration=0;   // invalidates Tone.Draw work queued across Temple/pause/session boundaries
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh, fireMuzzle=null, firePluck=null;
 /* ========================= TUNE LIBRARY =========================
    Each THEME bundles the things the whole audio engine reads: a melodic SCALE (kills/tank/WASD-taps/tune all
@@ -2493,8 +2729,9 @@ function playHit(gradeIdx){                               // graded kill tone = 
   }catch(e){}
 }
 function applyAudioState(){
-  if(listener) listener.setMasterVolume((state.running && soundOn)?1:0);
-  if(drumBus) drumBus.mute = !(state.running && soundOn);
+  if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);
+  if(drumBus) drumBus.mute = !(state.running && !templeActive && soundOn);
+  try{ if(window.Tone&&Tone.Destination) Tone.Destination.mute=!!(templeActive||!soundOn); }catch(e){}   // silence direct-routed combat notes already scheduled before Temple entry
 }
 
 // continuous, position-aware hum: osc -> tremolo -> lowpass -> [dry: panner] + [wet send -> reverb]
@@ -2570,7 +2807,8 @@ function timingErrorMs(){
 }
 function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||i===6) return 0.62; return 0.45; }
 function onGrid(time){
-  if(!state.running){ grid8++; return; }
+  if(!state.running || templeActive){ grid8++; return; }
+  const rhythmEpoch=rhythmGeneration;
   const i=grid8%8;
   const ci=Math.floor(grid8/8)%CHORD_ROOT.length;   // HARMONIC MOVEMENT: chord index into the ACTIVE theme's progression (8 grid steps = 1 bar); length varies (dojo/moonlight/icaros=4 bars, canon=8)
   // TRAINER SOUNDTRACK: spare, didactic — loud "and" ticks so WASD syncs with the floor flash; full Moonlight arrangement only after graduation
@@ -2585,7 +2823,7 @@ function onGrid(time){
       if(hat && trainPhase>=1 && andStep) hat.triggerAttackRelease('32n',time, 0.28);
       if(arp && trainPhase>=2 && (i===0||i===4)) arp.triggerAttackRelease(CHORD_TRIAD[ci][0]*2,'16n',time, 0.35);
     }catch(e){}
-    if(i%2===0){ try{ Tone.Draw.schedule(()=>pulseBeat(i===0), time); }catch(e){} }
+    if(i%2===0){ try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){} }
     // phase 0: no orbs. phase 1+: sparse spawn (CFG.patternConcurrency already gated)
     if(bonusActive){ grid8++; return; }
     const active=activeTargetCount(); let spawned=false;
@@ -2593,7 +2831,7 @@ function onGrid(time){
     else if(trainPhase>=1 && active<CFG.patternConcurrency && (i%2===0)){
       let p=CFG.densityScale*metricWeight(i); if(restSlots>=CFG.maxRestSlots) p=1;
       if(rnd()<p){
-        try{ Tone.Draw.schedule(()=>{ if(state.running) spawnRhythmOrb(); }, time); }catch(e){ if(state.running) spawnRhythmOrb(); }
+        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }
         spawned=true; cd=CFG.minGap;
       }
     }
@@ -2639,10 +2877,10 @@ function onGrid(time){
     if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75);
   }catch(e){}
   if(i%2===0){
-    try{ Tone.Draw.schedule(()=>pulseBeat(i===0), time); }catch(e){}
+    try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){}
     const beatIdx=i/2;                                        // 0..3 across the grid cycle
     if(beatIdx%2===0 || state.streak>=8){                     // base: a ring every 2 beats; on a streak: every beat
-      try{ Tone.Draw.schedule(()=>{ if(state.running) emitRing(); }, time); }catch(e){ if(state.running) emitRing(); }
+      try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }
     }
   }
   if(bonusActive){ grid8++; return; }                      // RAIL-FLICK BONUS: the beat/music above keep playing, but freeze NEW orb spawns while the flick mode holds the field
@@ -2656,7 +2894,7 @@ function onGrid(time){
       let p = CFG.densityScale*metricWeight(i);   // free-play orb density
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
-        try{ Tone.Draw.schedule(()=>{ if(state.running) spawnRhythmOrb(); }, time); }catch(e){ if(state.running) spawnRhythmOrb(); }
+        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }
         spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
       }
     }
@@ -2672,7 +2910,7 @@ function ensureRhythm(){
 }
 function syncTransport(){
   if(!toneReady) return;
-  if(state.running){ if(Tone.Transport.state!=='started') Tone.Transport.start('+0.05'); }
+  if(state.running && !templeActive){ if(Tone.Transport.state!=='started') Tone.Transport.start(); }
   else { if(Tone.Transport.state==='started') Tone.Transport.pause(); }
 }
 function teardownTransport(){
@@ -2747,7 +2985,7 @@ function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
 function diffT(){ return Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))); }
 function targetRadius(){ return lerp(CFG.radSlow, 0.62, diffT()); }
 function activeTargetCount(){ return targets.length; }
-function spawnRhythmOrb(){ spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats}); }
+function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats}); }
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
 function specialOrbsLive(){ return CFG.specialOrbs; }
 
@@ -2759,6 +2997,7 @@ function beatSpawnDist(maxK){   // BEAT-QUANTIZED SPAWN: return a distance whose
   return ok.length ? ok[(rnd()*ok.length)|0] : null;
 }
 function spawnTarget(opts){
+  if(templeActive) return null;
   opts=opts||{};
   const r=targetRadius();
   const core=acquireTargetMesh(), shell=core.userData.shell;
@@ -2812,7 +3051,7 @@ function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); 
 function reconcileTargetSounds(){
   for(const tg of targets){
     if(!soundOn){ if(tg.snd){ stopTargetSound(tg.snd); tg.snd=null; } }
-    else if(state.running && listener && !tg.snd){ tg.snd=makeTargetSound(tg.mesh); voiceTargetSound(tg.snd, tg.kind); tg.sndAccum=999; }
+    else if(state.running && !templeActive && listener && !tg.snd){ tg.snd=makeTargetSound(tg.mesh); voiceTargetSound(tg.snd, tg.kind); tg.sndAccum=999; }
   }
 }
 
@@ -2967,15 +3206,21 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
 }
 function fire(){
   if(!state.running) return;
+  if(templeActive){ focusSkyTempleReticle(); return; }
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
-  if(skyListenTry()) return;   // SKY LISTEN: only if NO Echo blocks the aim ray (ray–sphere + projected disc). Orb in front of sky → normal projectile. Clear sky hit → listen (no shot side effects).
+  if(_skySelectHeld){ _skySelectUsed=true; if(skyListenTry()) return; }   // held E explicitly owns sky selection; an Echo under the reticle still falls through to combat
   if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
-canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click dismisses Listen first; only theatre/decorative may then freeze the sky
+canvas.addEventListener('mousedown', e=>{
+  if(e.button===0){
+    if(_templeNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _templeNeedsRelock=false; try{ canvas.requestPointerLock(); }catch(_e){} return; }
+    fire();
+  }else if(e.button===2) toggleSkyFreeze();
+});   // after Esc leaves Temple, the next click restores pointer lock before combat resumes
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
 function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND gamepad (face buttons / D-pad).
-  if(!state.running) return;
+  if(!state.running || templeActive) return;
   if(bonusActive){ flickLockPress(); return; }   // RAIL-FLICK BONUS: any WASD/pad-face tap CONFIRMS a flick-lock (on-beat + crosshair on an orb) instead of driving the rhythm grid
   if(!CFG.wasdRhythm) return;
   const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
@@ -3003,7 +3248,21 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   }
   else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample
 }
-document.addEventListener('keydown', e=>{ const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane
+function isTypingTarget(t){ return !!(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))); }
+document.addEventListener('keydown', e=>{ const t=e.target; if(isTypingTarget(t)) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane
+document.addEventListener('keydown',e=>{
+  if(!CFG.skyTemple.enabled || e.code!==CFG.skyTemple.enterKey || e.repeat || !state.running || isTypingTarget(e.target)) return;
+  e.preventDefault();
+  if(templeActive){ _skySelectHeld=false; _skySelectUsed=false; exitSkyTemple(); return; }
+  _skySelectHeld=true; _skySelectUsed=false;
+});
+document.addEventListener('keyup',e=>{
+  if(!CFG.skyTemple.enabled || e.code!==CFG.skyTemple.enterKey) return;
+  const held=_skySelectHeld, used=_skySelectUsed; _skySelectHeld=false; _skySelectUsed=false;
+  if(!held || used || !state.running || templeActive || isTypingTarget(e.target)) return;
+  if(_skySel){ e.preventDefault(); enterSkyTemple(); }
+});
+window.addEventListener('blur',()=>{ _skySelectHeld=false; _skySelectUsed=false; });
 
 /* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire, START = begin/pause/resume (face-bottom also begins at the card). Subtle rumble on hit. ===== */
 let _gpIndex=null, _gpPrev={};
@@ -3058,6 +3317,7 @@ function dismissListenIfOpen(){   // pointer-lock friendly: no free mouse needed
   return true;
 }
 function toggleSkyFreeze(){
+  if(templeActive){ skyFrozen=false; return; }
   // R-CLICK while a Listen chip is open → dismiss first (under pointer lock you cannot hit the ×)
   if(state.running && dismissListenIfOpen()) return;
   // NATURAL = live sky: no freeze (Stellarium-like). Decorative + THEATRE keep freeze for pretty lighting.
@@ -3071,11 +3331,17 @@ canvas.addEventListener('contextmenu', e=>e.preventDefault());
 document.addEventListener('keydown', e=>{
   if(e.repeat || !state.running) return;
   const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-  // X / Q / Backspace close the study chip without pausing (Esc stays pause-only)
+  // X clears temple focus; outside temple the same pointer-lock-safe keys clear the gold sky mark.
   if(e.code==='KeyX'||e.code==='KeyQ'||e.code==='Backspace'){
-    if(dismissListenIfOpen()){ e.preventDefault(); }
+    if(templeActive){ clearSkyTempleFocus(); e.preventDefault(); }
+    else if(dismissListenIfOpen()){ e.preventDefault(); }
   }
 });
+document.addEventListener('keydown',e=>{
+  if(e.code!=='Escape' || !state.running || isTypingTarget(e.target)) return;
+  if(templeActive){ e.preventDefault(); e.stopImmediatePropagation(); _templeEscapeGuard=true; exitSkyTemple(); setTimeout(()=>{ _templeEscapeGuard=false; },300); }
+  else if(document.pointerLockElement!==canvas){ e.preventDefault(); exitRunning(); }
+},true);
 
 /* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
 let windX=0, windZ=0;   // free-play prototype wind (horizontal accel m/s²); 0 in the daily → every ballistics integration below is bit-identical to no-wind
@@ -3228,7 +3494,7 @@ function simShotHits(M, V, T, tg){                                              
   _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
 }
 function updateArcPreview(dt){                                                               // rainbow ribbon = real shot path (same plan spawnProjectile uses)
-  if(!(CFG.projectile && CFG.projArc && state.running)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
+  if(!(CFG.projectile && CFG.projArc && state.running && !templeActive)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
   if(bonusActive){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
   ensureArcObjs();
   // scroll ROYGBIV bands muzzle→impact every frame; speed scales with current projectile muzzle speed
@@ -3281,7 +3547,7 @@ function ensureTargetMark(i){
   return targetMarks[i]={ring,drop,label,hlabel};
 }
 function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
-  if(!state.running){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on','held'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
+  if(!state.running || templeActive){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on','held'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
   const bl=60/Math.max(20,state.bpm), beat=reduceMotion?0:Math.pow(1-(state.t%bl)/bl, 1.6);   // reduced-motion -> beat=0 -> a static ring (no pulse)
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
@@ -3309,7 +3575,7 @@ function showWasdGlyph(key, spoiled, on){
 }
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
-  const on = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
+  const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
   const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
   if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
@@ -3476,7 +3742,7 @@ function updateFlock(dt){
 const _floorBeatCol=new THREE.Color();
 function updateFloorBeat(){
   let amt=0;
-  const floorCueOn=!MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'
+  const floorCueOn=!templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'
     && (!reduceMotion || trainMode);   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off)
   if(floorCueOn){
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
@@ -3547,7 +3813,7 @@ function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null
     if(tight){ if(dot>=Math.cos(Math.atan2(tg.radius*tg.sc*CFG.flickBonus.coneMul, d)) && dot>bestDot){ bestDot=dot; best=tg; } }   // dot >= cos(angular radius) == the crosshair is inside the orb's silhouette
     else if(dot>bestDot){ bestDot=dot; best=tg; } } return best; }
 function updateScope(dt){
-  if(!(CFG.projectile && CFG.scope && state.running)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
+  if(!(CFG.projectile && CFG.scope && state.running && !templeActive)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
   if(bonusActive){ hideScope(); scopeAccum=SCOPE_STEP; return; }   // RAIL-FLICK BONUS: updateFlickBonus owns lockBoxEl (the gold "lockable now" mark) during the bonus
   scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
   const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
@@ -3681,7 +3947,7 @@ let reticleBadT=0;
 function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
 let _spoilShown=false;
 function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
-  const active = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
+  const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;
   if(active && _spoilNote>=0){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
   if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
@@ -3862,7 +4128,7 @@ function animate(frameNow){
     }
   }
   let _dollyY=0, _dollyP=0;                                    // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump.
-  if(CFG.dolly && !reduceMotion){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul();
+  if(CFG.dolly && !reduceMotion && !templeActive){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul();
     if(CFG.dollyHuman){   // SENSEI: irregular multi-harmonic wander + slow envelope — tracks like a strafing opponent, not a perfect machine orbit
       const e=0.72+0.28*Math.sin(_t*0.19+0.5);
       _dollyY=CFG.dollyYawDeg*D*_dm*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
@@ -3888,7 +4154,7 @@ function animate(frameNow){
     if(missKickT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }
   }
 
-  if(state.running){
+  if(state.running && !templeActive){
     state.t+=dt;
     if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
       let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
@@ -4004,7 +4270,7 @@ function animate(frameNow){
   skyT += dt; skyAccum += dt; starAccum += dt;
   if(starAccum>=STAR_UPDATE_STEP){ updateStars(skyT); starAccum=0; }
   if(skyAccum>=SKY_UPDATE_STEP){ updateSky(skyAccum); skyAccum=0; }
-  if(state.running && activeRingCount>0){
+  if(state.running && !templeActive && activeRingCount>0){
     const spb=60/state.bpm;
     for(const r of RING_POOL){
       if(!r.active) continue;
@@ -4018,9 +4284,9 @@ function animate(frameNow){
   } else clearRings();
   updateAssist(dt);
   updateTrail(dt);
-  if(CFG.projectile) try{ if(state.running) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
+  if(CFG.projectile) try{ if(state.running&&!templeActive) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
   else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
-  try{ if(state.running) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
+  try{ if(state.running&&!templeActive) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
   try{ updateTanks(dt); }catch(e){ if(!updateTanks._e){ updateTanks._e=1; console.error('updateTanks',e); } }   // MULTI-HIT TANK: the per-chip shell pop
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
@@ -4029,7 +4295,7 @@ function animate(frameNow){
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
-  if(state.running && rtCh) broadcastAim();                   // share my aim with others in the room
+  if(state.running && !templeActive && rtCh) broadcastAim();  // temple investigation stays out of the dojo reticle channel
   if(rtCh || remotes.size) updateRemotes(dt);   // draw live reticles only when realtime state exists
   renderer.render(scene,camera);
 }
@@ -4806,6 +5072,7 @@ if(MOBILE){
 // first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
 function enterRunning(){
+  if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
   closeTransitEssayReader(false); state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
@@ -4816,6 +5083,8 @@ function enterRunning(){
   if(MOBILE) touchUI.classList.add('show');
 }
 function exitRunning(){
+  if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
+  rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false;
   abortFlickBonus();   // RAIL-FLICK BONUS: pausing forfeits any pending cascade — un-flag locked orbs, unfreeze the field (they resume with full life)
   try{ clearListen(true); }catch(e){}   // drop study card with pause (Esc = pause only; card must not linger under the overlay)
   state.running=false; applyAudioState(); syncTransport();
@@ -4827,7 +5096,7 @@ function exitRunning(){
 }
 document.addEventListener('visibilitychange',()=>{
   transitEssayVisibilityChanged(); skyBriefVisibilityChanged();
-  if(document.hidden){ if(state.running) exitRunning(); clock.getDelta(); }
+  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); clock.getDelta(); }
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); }
 });
 function showToneBlock(reason){
@@ -4864,6 +5133,8 @@ if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn
 document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
 
 function resetSession(){
+  if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
+  rhythmGeneration++;
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
   if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
@@ -4889,8 +5160,10 @@ function resetSession(){
 }
 
 document.addEventListener('pointerlockchange',()=>{
-  if(document.pointerLockElement===canvas){ enterRunning(); }
-  else { if(state.running) exitRunning(); }                  // guard: endChallenge already stopped the run synchronously — don't double-fire showPause
+  if(document.pointerLockElement===canvas){ _templeEscapeGuard=false; _templeNeedsRelock=false; enterRunning(); }
+  else if(_templeEscapeGuard){ _templeEscapeGuard=false; _templeNeedsRelock=true; }
+  else if(templeActive){ exitSkyTemple(); _templeNeedsRelock=true; }
+  else if(state.running) exitRunning();                  // guard: endChallenge already stopped the run synchronously — don't double-fire showPause
 });
 /* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
 const SB_URL=DEFAULT_SKY_SUPABASE_URL;

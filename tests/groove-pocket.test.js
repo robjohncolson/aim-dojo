@@ -151,6 +151,7 @@ function floorFrame(expected, beats, pocketEnabled = true) {
       wasdRhythm: true,
     },
     MOBILE: false,
+    templeActive: false,
     Tone: { Transport: { state: "started" } },
     WASD_HEX: [0x102030, 0x405060, 0x708090, 0xa0b0c0],
     _combo: [0, 1, 2, 3],
