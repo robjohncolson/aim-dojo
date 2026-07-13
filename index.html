@@ -490,7 +490,7 @@ window.JA={
   fullNight:'満ちる夜', trainerToast:'月の糸のけいこ',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
-  skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'× で閉じる · または空をクリック',
+  skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
   pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
@@ -1612,8 +1612,8 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
    gold constellation/existing glyph, and an immediate static glossary card. A saved authenticated chart may enrich it
    from Railway; legacy natal-id packs keep the explicitly local "deep desk" (:8742). A listen NEVER spawns a projectile and NEVER touches shots,
    streak, clank, whiff or the fire grid — the single integration point is one early-return in fire().
-   Dismiss: × on card · fire into empty sky (no celestial / no orb) · new listen · holdSec auto after final card paints.
-   Esc is PAUSE only — never steals the card. All copy is symbolic study language, never fate. */
+    Dismiss (pointer-lock safe): R-CLICK · X/Q/Backspace · fire into empty sky · new listen · holdSec auto.
+   Esc is PAUSE only. The card × is cosmetic under lock (mouse aims, never free for UI). All copy is symbolic study language, never fate. */
 let _stickFig=null, _lsnMeta=null;            // fallback centroids + ☉/☽ first; exact day/personal pack metadata atomically replaces them
 const _lsnBody={};                            // mover display metadata collected during the chart build
 const _lsn={sel:null, line:null, lineT:-1, ghost:null, emphasis:[], card:null, cardBody:null, dismissBtn:null, holdT:-1, seq:0, cache:new Map(), goldFig:null};
@@ -1815,7 +1815,7 @@ function showListenCard(pick, data, skeleton){
   card.style.display='block';
   if(_lsn.dismissBtn){
     _lsn.dismissBtn.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
-    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','Close · or click empty sky'):'Close · or click empty sky';
+    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','R-CLICK or X to close'):'R-CLICK or X to close';
   }
   // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
   if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
@@ -1867,7 +1867,7 @@ function showListenCard(pick, data, skeleton){
   }
   if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
   _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
-  _lsnLine(body, T('skyListenDismissHint','× close · or click empty sky'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
+  _lsnLine(body, T('skyListenDismissHint','R-CLICK or X to close · empty sky also works'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
 }
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
@@ -2964,8 +2964,25 @@ function pollGamepad(dt){
 }
 // WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
 // (no blur handler needed - TAP grading is immediate; no held/timestamp state)
-function toggleSkyFreeze(){ skyFrozen=!skyFrozen; showGhostToast('🌅 '+(skyFrozen?T('skyFrozen','SKY FROZEN'):T('skyResumed','SKY RESUMED'))); }
+function dismissListenIfOpen(){   // pointer-lock friendly: no free mouse needed (× is useless while aiming)
+  if(!_lsn.sel) return false;
+  clearListen(true);
+  return true;
+}
+function toggleSkyFreeze(){
+  // R-CLICK while a Listen chip is open → dismiss first (under pointer lock you cannot hit the ×)
+  if(state.running && dismissListenIfOpen()) return;
+  skyFrozen=!skyFrozen; showGhostToast('🌅 '+(skyFrozen?T('skyFrozen','SKY FROZEN'):T('skyResumed','SKY RESUMED')));
+}
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('keydown', e=>{
+  if(e.repeat || !state.running) return;
+  const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  // X / Q / Backspace close the study chip without pausing (Esc stays pause-only)
+  if(e.code==='KeyX'||e.code==='KeyQ'||e.code==='Backspace'){
+    if(dismissListenIfOpen()){ e.preventDefault(); }
+  }
+});
 
 /* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
 let windX=0, windZ=0;   // free-play prototype wind (horizontal accel m/s²); 0 in the daily → every ballistics integration below is bit-identical to no-wind
