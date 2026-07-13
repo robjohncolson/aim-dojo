@@ -222,6 +222,54 @@
     return result;
   }
 
+  var SKY_BRIEF_EPISTEMIC = "Symbolic study notes, not predictions. Not medical, legal, or financial advice.";
+
+  function normalizeSkyBriefResponse(raw) {
+    function invalid() {
+      throw new SkyProfileError(
+        "invalid_response",
+        "Personal sky returned an invalid sky brief",
+        { retryable: true }
+      );
+    }
+
+    function cleanText(value, minLength, maxLength) {
+      if (typeof value !== "string") invalid();
+      var text = value.trim();
+      if (text.length < minLength || text.length > maxLength || /[\u0000]/.test(text)) invalid();
+      return text;
+    }
+
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) invalid();
+    if (raw.status !== "ready" && raw.status !== "failed") invalid();
+    if (typeof raw.cache_date !== "string" || !validCalendarDate(raw.cache_date)) invalid();
+    if (typeof raw.has_essay !== "boolean") invalid();
+    if (raw.epistemic !== SKY_BRIEF_EPISTEMIC) invalid();
+
+    var result = {
+      status: raw.status,
+      cache_date: raw.cache_date,
+      timezone: cleanText(raw.timezone, 1, 128),
+      text: "",
+      has_essay: raw.has_essay,
+      epistemic: SKY_BRIEF_EPISTEMIC,
+    };
+
+    if (raw.status === "ready") {
+      if (typeof raw.text !== "string" || !raw.text.trim() || raw.text.length > 100000 || /[\u0000\r]/.test(raw.text)) invalid();
+      if (raw.text.indexOf(result.epistemic) === -1) invalid();
+      // Preserve the server-rendered UTF-8 document exactly for COPY BRIEF.
+      result.text = raw.text;
+      return result;
+    }
+
+    if (raw.has_essay) invalid();
+    // A soft-failure payload must never become preview/copy material.
+    result.text = "";
+    if (typeof raw.detail === "string" && raw.detail.trim()) result.detail = raw.detail.trim().slice(0, 180);
+    return result;
+  }
+
   function createPersonalSkyController(options) {
     options = options || {};
     var baseUrl = cleanApiBase(options.baseUrl);
@@ -500,6 +548,20 @@
       return normalizeTransitEssayResponse(await request("/api/me/transit-essay", {}));
     }
 
+    function requireSkyBriefAccess() {
+      if (!state.authenticated) {
+        throw new SkyProfileError("not_authenticated", "Sign in to copy today's sky brief");
+      }
+      if (!state.hasChart) {
+        throw new SkyProfileError("no_chart", "Save your sky before requesting today's sky brief");
+      }
+    }
+
+    async function getSkyBrief() {
+      requireSkyBriefAccess();
+      return normalizeSkyBriefResponse(await request("/api/me/sky-brief", {}));
+    }
+
     return {
       state: state,
       setAuthenticated: setAuthenticated,
@@ -509,6 +571,7 @@
       getListen: getListen,
       enqueueTransitEssay: enqueueTransitEssay,
       getTransitEssay: getTransitEssay,
+      getSkyBrief: getSkyBrief,
     };
   }
 
@@ -519,6 +582,7 @@
     selectPersonalApiBase: selectPersonalApiBase,
     isPersonalSkypack: isPersonalSkypack,
     normalizeTransitEssayResponse: normalizeTransitEssayResponse,
+    normalizeSkyBriefResponse: normalizeSkyBriefResponse,
     createPersonalSkyController: createPersonalSkyController,
   };
 });

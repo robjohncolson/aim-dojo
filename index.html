@@ -262,6 +262,18 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 .sky-note .ghost.ready{border-color:var(--rail);color:var(--rail);box-shadow:0 0 14px rgba(67,217,255,.14)}
 .sky-note .ghost:disabled{cursor:not-allowed;opacity:.42}
 .sky-note-status{min-height:15px;margin:5px 0 0;color:var(--bone-dim);font-size:10px;line-height:1.4;letter-spacing:.03em}
+.sky-brief{margin:11px 0 2px;padding-top:10px;border-top:1px solid var(--panel-edge);text-align:left}
+.sky-brief[hidden]{display:none}
+.sky-brief-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:7px}
+.sky-brief-title{color:var(--rail);font-size:10.5px;letter-spacing:.13em}
+.sky-brief-status{color:var(--bone-dim);font-size:9.5px;letter-spacing:.06em;text-align:right}
+.sky-brief-preview{display:block;width:100%;height:12rem;max-height:12rem;resize:vertical;overflow:auto;border:1px solid var(--panel-edge);border-radius:0;background:#0d110f;color:var(--bone);padding:9px 10px;font:10.5px/1.5 var(--mono);letter-spacing:0;white-space:pre;tab-size:2}
+.sky-brief-preview:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
+.sky-brief-preview[hidden]{display:none}
+.sky-brief-actions{display:flex;margin-top:7px}
+.sky-brief-actions .ghost{width:100%;padding:9px 10px;font-size:10.5px;letter-spacing:.13em}
+.sky-brief-actions .ghost:disabled{cursor:not-allowed;opacity:.42}
+.sky-brief-private{margin:6px 0 0;color:var(--bone-dim);font-size:9.5px;line-height:1.4;letter-spacing:.02em;opacity:.82}
 #transitEssayReader{position:fixed;inset:0;z-index:32;display:flex;align-items:center;justify-content:center;padding:18px;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.84),rgba(8,11,10,.97));backdrop-filter:blur(4px)}
 #transitEssayReader.hidden{display:none}
 .transit-essay-card{width:min(680px,94vw);max-height:min(86vh,760px);overflow-y:auto;text-align:left;padding:28px 30px}
@@ -381,6 +393,12 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
         <button type="button" class="ghost" id="transitEssayButton" aria-describedby="transitEssayStatus" disabled><span aria-hidden="true">✦</span> <span id="transitEssayButtonLabel">TODAY'S SKY NOTE</span></button>
         <div class="sky-note-status" id="transitEssayStatus" role="status" aria-live="polite"></div>
       </div>
+      <section id="skyBriefBlock" class="sky-brief" hidden aria-labelledby="skyBriefTitle" aria-describedby="skyBriefPrivate">
+        <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">TODAY'S SKY BRIEF</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
+        <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Today's sky brief preview" hidden></textarea>
+        <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY BRIEF</span></button></div>
+        <p class="sky-brief-private" id="skyBriefPrivate">Private · for pasting into another study tool · not shared with the board</p>
+      </section>
     </div>
 
     <!-- Always enter through Moonline training (no skip-to-full gate). Hidden on RESUME. -->
@@ -457,6 +475,8 @@ window.JA={
   saveSkyEpistemic:'象徴を学ぶためのメモで、予言ではない。出生情報は私用プロフィールにだけ保存され、きろくには入らない。',
   transitEssayButton:'今日の空のノート', transitEssayPending:'今日のノートを書いています…', transitEssayReady:'空のノートができました', transitEssayUnavailable:'ノートを用意できません · タップでもう一度',
   transitEssayWatchpoints:'注目するところ', transitEssayBack:'ポーズにもどる', transitEssayFallback:'象徴を学ぶためのノートで、予言ではない。',
+  skyBriefTitle:'今日の空のブリーフ', skyBriefLoading:'今日の空をまとめています…', skyBriefReady:'準備完了 · {date}', skyBriefUnavailable:'空のブリーフを用意できません',
+  skyBriefCopy:'ブリーフをコピー', skyBriefCopied:'ブリーフをコピーした', skyBriefPrivate:'私用 · ほかの学習ツールに貼り付けるため · きろくには共有されない', skyBriefPreviewAria:'今日の空のブリーフのプレビュー', skyBriefCopyManual:'{keys} でコピーしてね',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
   shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
@@ -515,6 +535,7 @@ window.JA={
       txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
       txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
       txt('transitEssayButtonLabel','transitEssayButton'); txt('transitEssayReaderEyebrow','transitEssayButton'); txt('transitEssayReaderWatchTitle','transitEssayWatchpoints'); txt('transitEssayReaderCloseLabel','transitEssayBack'); txt('transitEssayReaderEpistemic','transitEssayFallback');
+      txt('skyBriefTitle','skyBriefTitle'); txt('skyBriefCopyLabel','skyBriefCopy'); txt('skyBriefPrivate','skyBriefPrivate'); attr('skyBriefPreview','aria-label','skyBriefPreviewAria');
       txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
     }
     var touch=((navigator.maxTouchPoints||0)>0||('ontouchstart' in window))&&window.matchMedia('(pointer: coarse)').matches;
@@ -4066,10 +4087,15 @@ const transitEssayUi={
   date:gid('transitEssayReaderDate'), body:gid('transitEssayReaderBody'), watchSection:gid('transitEssayReaderWatchSection'),
   watchpoints:gid('transitEssayReaderWatchpoints'), epistemic:gid('transitEssayReaderEpistemic'), close:gid('transitEssayReaderClose')
 };
+const skyBriefUi={
+  block:gid('skyBriefBlock'), title:gid('skyBriefTitle'), status:gid('skyBriefStatus'), preview:gid('skyBriefPreview'),
+  copy:gid('skyBriefCopy'), copyLabel:gid('skyBriefCopyLabel'), private:gid('skyBriefPrivate')
+};
 const TRANSIT_ESSAY_POLL_DELAYS=[8000,10000,12000,15000], TRANSIT_ESSAY_MAX_MS=180000;
 let _skyAuthClient=null, _skyProfileController=null, _skyAuthUser='', _skyProfileUser='', _skyUiSeq=0, _skyAuthEventSeq=0, _skyUiBusy=false, _skyFormDirty=false, _skyLinkedToastTimer=null;
 let _transitEssay=null, _transitEssayPhase='hidden', _transitEssaySeq=0, _transitEssayPollTimer=null, _transitEssayPollStep=0, _transitEssayStartedAt=0;
 let _transitEssayActive=false, _transitEssayInFlightSeq=0, _transitEssayFlowUser='', _transitEssayActivationKey='', _transitEssayNoneRequeued=false, _transitEssayPendingToast=null;
+let _skyBrief=null, _skyBriefPhase='hidden', _skyBriefSeq=0, _skyBriefFlowUser='', _skyBriefRecordUser='', _skyBriefRecordGeneration=-1;
 const _transitEssayToastKeys=new Set();
 function cancelSkyLinkedToast(){ if(_skyLinkedToastTimer!=null){ clearTimeout(_skyLinkedToastTimer); _skyLinkedToastTimer=null; } }
 function transitEssayClearPollTimer(){ if(_transitEssayPollTimer!=null){ clearTimeout(_transitEssayPollTimer); _transitEssayPollTimer=null; } }
@@ -4226,6 +4252,92 @@ if(transitEssayUi.reader) transitEssayUi.reader.addEventListener('click',e=>{ if
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&transitEssayUi.reader&&!transitEssayUi.reader.classList.contains('hidden')){ e.preventDefault(); e.stopImmediatePropagation(); closeTransitEssayReader(true); }
 },true);
+function skyBriefEligible(){
+  const ctl=_skyProfileController;
+  return !!(_skyAuthSession&&_skyAuthSession.access_token&&_skyAuthUser&&ctl&&ctl.state&&ctl.state.authenticated&&ctl.state.hasChart);
+}
+function skyBriefPauseOpen(){
+  return !!(state.started&&!state.running&&!document.hidden&&overlay&&!overlay.classList.contains('hidden')&&settingsBox&&settingsBox.style.display!=='none');
+}
+function skyBriefRecordCurrent(){
+  const ctl=_skyProfileController;
+  return !!(_skyBrief&&_skyBrief.status==='ready'&&_skyBriefRecordUser===_skyAuthUser&&ctl&&ctl.state&&_skyBriefRecordGeneration===ctl.state.generation);
+}
+function renderSkyBriefUi(){
+  if(!skyBriefUi.block) return;
+  const eligible=skyBriefEligible(), ready=eligible&&skyBriefRecordCurrent();
+  skyBriefUi.block.hidden=!eligible||state.running||!state.started;
+  if(skyBriefUi.title) skyBriefUi.title.textContent=T('skyBriefTitle',"TODAY'S SKY BRIEF");
+  if(skyBriefUi.copyLabel) skyBriefUi.copyLabel.textContent=T('skyBriefCopy','COPY BRIEF');
+  if(skyBriefUi.private) skyBriefUi.private.textContent=T('skyBriefPrivate','Private · for pasting into another study tool · not shared with the board');
+  if(skyBriefUi.preview){ skyBriefUi.preview.value=ready?_skyBrief.text:''; skyBriefUi.preview.hidden=!ready; }
+  if(skyBriefUi.copy) skyBriefUi.copy.disabled=!ready;
+  if(_skyBriefPhase==='loading') skyBriefUi.block.setAttribute('aria-busy','true'); else skyBriefUi.block.removeAttribute('aria-busy');
+  if(skyBriefUi.status){
+    skyBriefUi.status.textContent=!eligible
+      ? ''
+      : _skyBriefPhase==='loading'
+        ? T('skyBriefLoading','LOADING…')
+        : _skyBriefPhase==='unavailable'
+          ? T('skyBriefUnavailable','UNAVAILABLE')
+          : ready
+            ? TF('skyBriefReady','READY · {date}',{date:_skyBrief.cache_date})
+            : '';
+  }
+}
+function skyBriefReset(){
+  ++_skyBriefSeq; _skyBrief=null; _skyBriefPhase='hidden'; _skyBriefFlowUser=''; _skyBriefRecordUser=''; _skyBriefRecordGeneration=-1;
+  renderSkyBriefUi();
+}
+function skyBriefStillCurrent(seq,user,generation){
+  const ctl=_skyProfileController;
+  return seq===_skyBriefSeq&&user===_skyBriefFlowUser&&user===_skyAuthUser&&skyBriefEligible()&&skyBriefPauseOpen()&&ctl&&ctl.state&&ctl.state.generation===generation;
+}
+async function fetchSkyBriefForPause(){
+  const ctl=_skyProfileController;
+  if(!skyBriefEligible()||!skyBriefPauseOpen()||!ctl||typeof ctl.getSkyBrief!=='function'){ renderSkyBriefUi(); return; }
+  const seq=++_skyBriefSeq, user=_skyAuthUser, generation=ctl.state.generation;
+  if(!skyBriefRecordCurrent()){ _skyBrief=null; _skyBriefRecordUser=''; _skyBriefRecordGeneration=-1; }
+  _skyBriefPhase='loading'; _skyBriefFlowUser=user; renderSkyBriefUi();
+  try{
+    const record=await ctl.getSkyBrief();
+    if(!skyBriefStillCurrent(seq,user,generation)) return;
+    if(record&&record.status==='ready'){ _skyBrief=record; _skyBriefRecordUser=user; _skyBriefRecordGeneration=generation; _skyBriefPhase='ready'; }
+    else _skyBriefPhase='unavailable';
+  }catch(error){
+    if(!skyBriefStillCurrent(seq,user,generation)) return;
+    _skyBriefPhase='unavailable';
+  }
+  renderSkyBriefUi();
+}
+function skyBriefCopyStillCurrent(seq,user,generation,record){
+  const ctl=_skyProfileController;
+  return seq===_skyBriefSeq&&record===_skyBrief&&user===_skyAuthUser&&skyBriefEligible()&&skyBriefPauseOpen()&&skyBriefRecordCurrent()&&ctl&&ctl.state&&ctl.state.generation===generation;
+}
+async function copySkyBrief(){
+  const record=_skyBrief;
+  if(!record||record.status!=='ready'||!skyBriefEligible()||!skyBriefPauseOpen()||!skyBriefRecordCurrent()) return;
+  const seq=_skyBriefSeq, user=_skyAuthUser, generation=_skyProfileController.state.generation;
+  let copied=false;
+  try{
+    if(!navigator.clipboard||typeof navigator.clipboard.writeText!=='function') throw new Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(record.text); copied=true;
+  }catch(error){
+    if(!skyBriefCopyStillCurrent(seq,user,generation,record)) return;
+    try{
+      if(skyBriefUi.preview){ skyBriefUi.preview.hidden=false; skyBriefUi.preview.focus(); skyBriefUi.preview.select(); }
+      copied=typeof document.execCommand==='function'&&document.execCommand('copy')===true;
+    }catch(_error){ copied=false; }
+  }
+  if(!skyBriefCopyStillCurrent(seq,user,generation,record)) return;
+  if(copied) showGhostToast(T('skyBriefCopied','BRIEF COPIED'));
+  else if(skyBriefUi.status){
+    skyBriefUi.status.textContent=TF('skyBriefCopyManual','PRESS {keys} TO COPY',{keys:'⌘/CTRL+C'});
+    if(skyBriefUi.preview){ try{ skyBriefUi.preview.focus(); skyBriefUi.preview.select(); }catch(error){} }
+  }
+}
+function skyBriefVisibilityChanged(){ if(!document.hidden&&skyBriefPauseOpen()) fetchSkyBriefForPause(); }
+if(skyBriefUi.copy) skyBriefUi.copy.addEventListener('click',copySkyBrief);
 function skySetStatus(text,busy){
   _skyUiBusy=!!busy; if(skySave.status) skySave.status.textContent=text||'';
   if(skySave.details){
@@ -4329,21 +4441,22 @@ function skyApplyControllerState(state,announce){
     if(linked){ const toastTicket=_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySavedLinked','CHART SAVED · SKY LINKED'),false); showGhostToast('CHART SAVED'); _skyLinkedToastTimer=setTimeout(()=>{ _skyLinkedToastTimer=null; if(toastTicket===_skyUiSeq&&_remotePersonalSky) showGhostToast('SKY LINKED'); },950); }
     else if(state.hasChart){ skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
   }
-  if(state.hasChart) startTransitEssayFlow(); else transitEssayReset();
+  if(state.hasChart){ startTransitEssayFlow(); fetchSkyBriefForPause(); }
+  else { transitEssayReset(); skyBriefReset(); }
   return linked;
 }
 async function skyLoadSavedProfile(ticket){
   const ctl=ensureSkyProfileController(); if(!ctl||ticket!==_skyUiSeq||!_skyAuthSession) return;
   skySetStatus(T('saveSkyChecking','CHECKING SAVED SKY…'),true);
   try{
-    const state=await ctl.load(); if(ticket!==_skyUiSeq) return;
-    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { transitEssayReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
+    const pending=ctl.load(); renderSkyBriefUi(); const state=await pending; if(ticket!==_skyUiSeq) return;
+    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
     skySetStatus(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):state.hasChart?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED'),false);
     skyRenderAccount(true);
   }catch(error){
     if(ticket!==_skyUiSeq) return; const state=ctl.state;
-    if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); startTransitEssayFlow(); }
-    else skySetStatus(skySoftFailure(error,'load'),false);
+    if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); startTransitEssayFlow(); fetchSkyBriefForPause(); }
+    else { skyBriefReset(); skySetStatus(skySoftFailure(error,'load'),false); }
     skyRenderAccount(true);
   }
 }
@@ -4351,9 +4464,9 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
   const ctl=ensureSkyProfileController(), next=session&&session.user?String(session.user.id||''):'';
   if(!ctl){ skySetStatus(T('saveSkyNotConfigured','SAVE MY SKY IS NOT CONFIGURED'),false); return; }
   if(_skyAuthUser!==next) skySetStatus('',false);   // cancel a busy save/load surface when auth switches or signs out
-  if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; if(_chartPackRank>=2) downgradePersonalSky(); }
+  if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); }
   _skyAuthUser=next;
-  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; transitEssayReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
+  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; transitEssayReset(); skyBriefReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
   ctl.setAuthenticated(true); skyRenderAccount(true);
   if(_skyProfileUser!==next){ _skyProfileUser=next; _cloudPrefsLoaded=false; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); loadCloudPrefs(); }
   else if(!_cloudPrefsLoaded) loadCloudPrefs();
@@ -4361,11 +4474,11 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
 function skyAcceptAuthSession(session){   // synchronous account quarantine; no async Supabase call inside onAuthStateChange
   session=session||null; const next=session&&session.user?String(session.user.id||''):'';
   if(next!==_skyAuthUser){
-    ++_skyUiSeq; cancelSkyLinkedToast(); transitEssayReset(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
+    ++_skyUiSeq; cancelSkyLinkedToast(); transitEssayReset(); skyBriefReset(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
     _personalListenExpected=false; try{ clearListen(true); }catch(e){} if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(_chartPackRank>=2) downgradePersonalSky();
     _skyProfileUser=''; _skyAuthUser=next; if(skySave.email) skySave.email.value=''; skyClearForm();
   }
-  _skyAuthSession=session; skyRenderAccount(true);
+  _skyAuthSession=session; skyRenderAccount(true); renderSkyBriefUi();
   const authTicket=++_skyAuthEventSeq; setTimeout(()=>{ if(authTicket===_skyAuthEventSeq) skyHandleSession(session); },0);
 }
 async function initSaveMySky(){
@@ -4400,14 +4513,14 @@ if(skySave.form) skySave.form.addEventListener('submit',async e=>{
   const ctl=ensureSkyProfileController(); if(!ctl||!_skyAuthSession){ skySetStatus(T('saveSkyExpired','SKY LINK EXPIRED · SIGN IN AGAIN'),false); return; }
   const raw={birth_date:skySave.date.value,birth_time:skySave.time.value,time_unknown:skySave.unknown.checked,tz:skySave.tz.value,place_label:skySave.place.value,lat:skySave.lat.value,lon:skySave.lon.value};
   const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySaving','SAVING CHART…'),true);
-  try{ const state=await ctl.save(raw); if(ticket!==_skyUiSeq) return; if(!state.hasChart) return; skyApplyControllerState(state,true); }
-  catch(error){ if(ticket!==_skyUiSeq) return; const state=ctl.state; if(state&&state.lastSaveCommitted){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,true); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); startTransitEssayFlow(); }
-    else { const msg=skySoftFailure(error,'save'); skySetStatus(msg,false); showGhostToast(msg); } skyRenderAccount(true); }
+  try{ const pending=ctl.save(raw); renderSkyBriefUi(); const state=await pending; if(ticket!==_skyUiSeq) return; if(!state.hasChart) return; skyApplyControllerState(state,true); }
+  catch(error){ if(ticket!==_skyUiSeq) return; const state=ctl.state; if(state&&state.lastSaveCommitted){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,true); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); startTransitEssayFlow(); fetchSkyBriefForPause(); }
+    else { const msg=skySoftFailure(error,'save'); skySetStatus(msg,false); showGhostToast(msg); } skyRenderAccount(true); if(state&&state.hasChart&&!state.lastSaveCommitted) fetchSkyBriefForPause(); }
 });
 if(skySave.clear) skySave.clear.addEventListener('click',async ()=>{
   if(_skyUiBusy) return; const ctl=ensureSkyProfileController(); if(!ctl||!_skyAuthSession) return; const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkyClearing','CLEARING CHART…'),true);
-  try{ await ctl.clear(); if(ticket!==_skyUiSeq) return; _personalListenExpected=false; transitEssayReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
-  catch(error){ if(ticket!==_skyUiSeq) return; const msg=skySoftFailure(error,'clear'); skySetStatus(msg,false); showGhostToast(msg); }
+  try{ const pending=ctl.clear(); renderSkyBriefUi(); await pending; if(ticket!==_skyUiSeq) return; _personalListenExpected=false; transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
+  catch(error){ if(ticket!==_skyUiSeq) return; const msg=skySoftFailure(error,'clear'); skySetStatus(msg,false); showGhostToast(msg); if(ctl.state&&ctl.state.hasChart) fetchSkyBriefForPause(); }
 });
 if(skySave.signOut) skySave.signOut.addEventListener('click',async ()=>{
   if(_skyUiBusy||!_skyAuthClient) return; cancelSkyLinkedToast(); skySetStatus(T('saveSkySigningOut','SIGNING OUT…'),true);
@@ -4447,7 +4560,7 @@ function exitRunning(){
   scheduleReverbBuild(120);
 }
 document.addEventListener('visibilitychange',()=>{
-  transitEssayVisibilityChanged();
+  transitEssayVisibilityChanged(); skyBriefVisibilityChanged();
   if(document.hidden){ if(state.running) exitRunning(); clock.getDelta(); }
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); }
 });
@@ -4735,12 +4848,13 @@ function showPause(){
   else beginBtn.textContent='▶ '+T('resume','RESUME');
   showModePick(false);   // mid-run pause = resume only (not the new/experienced gate)
   pauseStats.style.display='flex';
-  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); renderTransitEssayUi(); }
+  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); renderTransitEssayUi(); renderSkyBriefUi(); }
   pauseStats.innerHTML=
     '<div class="chip"><div class="ck">'+T('chipTime','TIME IN THE NIGHT')+'</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
     '<div class="chip"><div class="ck">'+T('chipFinal','FINAL BPM')+'</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
     '<div class="chip"><div class="ck">'+T('chipPeak','PEAK BPM')+'</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
   overlay.classList.remove('hidden');
+  fetchSkyBriefForPause();
   // run-end breath: after a real hold, the song exhales once more (soft pad/root) — marks the session without a new UI panel
   if(state.t>=25) themeBreath();
   noteSongPeak();

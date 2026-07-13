@@ -9,6 +9,7 @@ const {
   selectPersonalApiBase,
   isPersonalSkypack,
   normalizeTransitEssayResponse,
+  normalizeSkyBriefResponse,
   createPersonalSkyController,
 } = require("../save-my-sky.js");
 
@@ -64,6 +65,32 @@ function readyTransitEssay(overrides = {}) {
     model: "test-transit-model",
     source: "ai-deepseek",
     generated_at: "2026-07-12T02:00:00+00:00",
+    ...overrides,
+  };
+}
+
+function readySkyBrief(overrides = {}) {
+  const epistemic = "Symbolic study notes, not predictions. Not medical, legal, or financial advice.";
+  return {
+    status: "ready",
+    cache_date: "2026-07-13",
+    timezone: "America/New_York",
+    text: [
+      "# Moon Chorus sky brief",
+      "date: 2026-07-13 (America/New_York)",
+      `epistemic: ${epistemic}`,
+      "",
+      "## Natal placements",
+      "Sun · Scorpio · 12.3°",
+      "",
+      "## Today's movers (transit)",
+      "Mars · Leo · 4.1°",
+      "",
+      "## Transit → natal contacts",
+      "Transit Mars square natal Moon · orb 1.2° · applying",
+    ].join("\n"),
+    has_essay: false,
+    epistemic,
     ...overrides,
   };
 }
@@ -244,6 +271,89 @@ test("transit essay responses are validated before UI code receives them", () =>
   }
 });
 
+test("sky brief responses are normalized without changing the copy document", () => {
+  const ready = readySkyBrief();
+  const raw = {
+    ...ready,
+    facts: { lat: 35.68, lon: 139.69 },
+    email: "must-not-reach-ui@example.com",
+  };
+  const normalized = normalizeSkyBriefResponse(raw);
+
+  assert.deepEqual(normalized, ready);
+  assert.equal(normalized.text, raw.text, "COPY BRIEF receives the exact server-rendered text");
+  assert.equal(Object.hasOwn(normalized, "facts"), false);
+  assert.equal(Object.hasOwn(normalized, "email"), false);
+  assert.deepEqual(
+    normalizeSkyBriefResponse({
+      ...ready,
+      status: "failed",
+      text: "must never become preview or clipboard content",
+      has_essay: false,
+      detail: "  ephemeris unavailable  ",
+    }),
+    {
+      status: "failed",
+      cache_date: ready.cache_date,
+      timezone: ready.timezone,
+      text: "",
+      has_essay: false,
+      epistemic: ready.epistemic,
+      detail: "ephemeris unavailable",
+    }
+  );
+
+  for (const invalid of [
+    null,
+    [],
+    { ...ready, status: "pending" },
+    { ...ready, cache_date: "07/13/2026" },
+    { ...ready, timezone: "" },
+    { ...ready, text: "" },
+    { ...ready, text: ready.text.replace(ready.epistemic, "missing footer") },
+    { ...ready, has_essay: "false" },
+    { ...ready, epistemic: "" },
+    { ...ready, epistemic: "Any echoed disclaimer is not sufficient." },
+    { ...ready, status: "failed", text: "", has_essay: true },
+  ]) {
+    assert.throws(
+      () => normalizeSkyBriefResponse(invalid),
+      (error) => error instanceof SkyProfileError && error.code === "invalid_response"
+    );
+  }
+});
+
+test("signed chart gets the private sky brief with current Bearer token and no body", async () => {
+  const calls = [];
+  let token = "jwt-old";
+  const brief = readySkyBrief();
+  const controller = createPersonalSkyController({
+    baseUrl: "https://sidereal.example/",
+    getAccessToken: () => token,
+    fetchImpl: async (url, init) => {
+      if (url.endsWith("/api/me/natal")) return response(200, { birth_date: "1983-11-29" });
+      if (url.endsWith("/api/me/skypack")) return response(200, personalPack());
+      calls.push({ url, init });
+      return response(200, brief);
+    },
+  });
+  controller.setAuthenticated(true);
+  await controller.load();
+  token = "jwt-current";
+
+  assert.deepEqual(await controller.getSkyBrief(), brief);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://sidereal.example/api/me/sky-brief");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer jwt-current");
+  assert.equal(calls[0].init.headers.Accept, "application/json");
+  assert.equal(calls[0].init.headers["Content-Type"], undefined);
+  assert.equal(calls[0].init.body, undefined);
+  assert.equal(calls[0].init.cache, "no-store");
+  assert.equal(calls[0].init.credentials, "omit");
+  assert.equal(calls[0].init.redirect, "error");
+});
+
 test("signed chart enqueues and polls the private transit essay with no request body", async () => {
   const calls = [];
   let token = "jwt-old";
@@ -290,7 +400,7 @@ test("signed chart enqueues and polls the private transit essay with no request 
   }
 });
 
-test("guest and authenticated no-chart transit essay calls fail before fetch", async () => {
+test("guest and authenticated no-chart private study calls fail before fetch", async () => {
   let calls = 0;
   const controller = createPersonalSkyController({
     baseUrl: "https://sidereal.example",
@@ -301,14 +411,14 @@ test("guest and authenticated no-chart transit essay calls fail before fetch", a
     },
   });
 
-  for (const method of ["enqueueTransitEssay", "getTransitEssay"]) {
+  for (const method of ["enqueueTransitEssay", "getTransitEssay", "getSkyBrief"]) {
     await assert.rejects(
       controller[method](),
       (error) => error instanceof SkyProfileError && error.code === "not_authenticated"
     );
   }
   controller.setAuthenticated(true);
-  for (const method of ["enqueueTransitEssay", "getTransitEssay"]) {
+  for (const method of ["enqueueTransitEssay", "getTransitEssay", "getSkyBrief"]) {
     await assert.rejects(
       controller[method](),
       (error) => error instanceof SkyProfileError && error.code === "no_chart"

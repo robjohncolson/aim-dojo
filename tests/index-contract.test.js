@@ -45,6 +45,182 @@ test("Today's sky note control is chart-gated inside pause settings", () => {
   assert.match(status[0], /\baria-live="polite"/i);
 });
 
+test("Today's sky brief is a chart-gated pause block with private copy controls", () => {
+  const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
+  assert.ok(pauseBlock);
+  const briefBlock = pauseBlock[0].match(/<section id="skyBriefBlock"[^>]*>[\s\S]*?<\/section>/);
+  assert.ok(briefBlock, "sky brief controls are inside pause-only settings");
+  assert.ok(pauseBlock[0].indexOf('id="skyBriefBlock"') > pauseBlock[0].indexOf('id="saveSkyDetails"'));
+  assert.match(briefBlock[0], /\shidden(?:\s|>|=)/i);
+  assert.match(briefBlock[0], /id="skyBriefTitle"[^>]*>TODAY(?:&apos;|&#39;|')S SKY BRIEF</i);
+
+  const status = briefBlock[0].match(/<[^>]+\bid="skyBriefStatus"[^>]*>/i);
+  assert.ok(status);
+  assert.match(status[0], /\brole="status"/i);
+  assert.match(status[0], /\baria-live="polite"/i);
+
+  const preview = briefBlock[0].match(/<textarea[^>]*\bid="skyBriefPreview"[^>]*>/i);
+  assert.ok(preview);
+  assert.match(preview[0], /\breadonly(?:\s|>|=)/i);
+  assert.match(preview[0], /\bhidden(?:\s|>|=)/i);
+  assert.doesNotMatch(preview[0], /\bname=/i);
+
+  const copy = briefBlock[0].match(/<button[^>]*\bid="skyBriefCopy"[^>]*>/i);
+  assert.ok(copy);
+  assert.match(copy[0], /\btype="button"/i);
+  assert.match(copy[0], /\bdisabled(?:\s|>|=)/i);
+  assert.match(briefBlock[0], /Private · for pasting into another study tool · not shared with the board/);
+
+  const shareBlock = html.match(/<div id="shareOverlay"[\s\S]*?<\/div>\s*<script>/);
+  assert.ok(shareBlock);
+  assert.doesNotMatch(shareBlock[0], /skyBrief|SKY BRIEF|COPY BRIEF/i);
+});
+
+test("sky brief fetch is pause-only, fail-soft, and stale-account guarded", () => {
+  const gate = html.match(/function skyBriefPauseOpen\(\)[\s\S]*?\n\}/);
+  assert.ok(gate);
+  assert.match(gate[0], /state\.started/);
+  assert.match(gate[0], /!state\.running/);
+  assert.match(gate[0], /!document\.hidden/);
+  assert.match(gate[0], /overlay\.classList\.contains\('hidden'\)/);
+
+  const fetchBrief = html.match(/async function fetchSkyBriefForPause\(\)[\s\S]*?\n\}/);
+  assert.ok(fetchBrief);
+  assert.ok(fetchBrief[0].indexOf("!skyBriefPauseOpen()") < fetchBrief[0].indexOf("ctl.getSkyBrief()"));
+  assert.match(fetchBrief[0], /try\{[\s\S]*ctl\.getSkyBrief\(\)[\s\S]*\}catch\(error\)\{/);
+  assert.ok((fetchBrief[0].match(/_skyBriefPhase='unavailable'/g) || []).length >= 2);
+  assert.match(fetchBrief[0], /if\(!skyBriefRecordCurrent\(\)\)\{ _skyBrief=null/);
+  assert.doesNotMatch(fetchBrief[0], /enqueue|setTimeout|enterRunning|startRun/);
+
+  const renderBrief = html.match(/function renderSkyBriefUi\(\)[\s\S]*?\n\}/);
+  assert.ok(renderBrief);
+  assert.ok(renderBrief[0].indexOf("_skyBriefPhase==='unavailable'") < renderBrief[0].indexOf("TF('skyBriefReady'"));
+  assert.match(renderBrief[0], /const eligible=skyBriefEligible\(\), ready=eligible&&skyBriefRecordCurrent\(\)/);
+
+  const stale = html.match(/function skyBriefStillCurrent\(seq,user,generation\)[\s\S]*?\n\}/);
+  assert.ok(stale);
+  assert.match(stale[0], /seq===_skyBriefSeq/);
+  assert.match(stale[0], /user===_skyAuthUser/);
+  assert.match(stale[0], /skyBriefEligible\(\)/);
+  assert.match(stale[0], /skyBriefPauseOpen\(\)/);
+  assert.match(stale[0], /ctl\.state\.generation===generation/);
+
+  const currentRecord = html.match(/function skyBriefRecordCurrent\(\)[\s\S]*?\n\}/);
+  assert.ok(currentRecord);
+  assert.match(currentRecord[0], /_skyBriefRecordUser===_skyAuthUser/);
+  assert.match(currentRecord[0], /_skyBriefRecordGeneration===ctl\.state\.generation/);
+
+  const pause = html.match(/function showPause\(\)[\s\S]*?\n\}\n\n\(function\(\)/);
+  assert.ok(pause);
+  assert.ok(pause[0].indexOf("overlay.classList.remove('hidden')") < pause[0].indexOf("fetchSkyBriefForPause()"));
+  const animate = html.match(/function animate\(frameNow\)[\s\S]*?\/\* ========================= OVERLAY/);
+  assert.ok(animate);
+  assert.doesNotMatch(animate[0], /fetchSkyBriefForPause|getSkyBrief/);
+  for (const combatPath of [
+    html.match(/function fire\(\)[\s\S]*?\n\}/),
+    html.match(/function wasdLanePress\(k\)[\s\S]*?\n\}/),
+    html.match(/function enterRunning\(\)[\s\S]*?\n\}/),
+    html.match(/function startRun\(viaPad\)[\s\S]*?\n\}/),
+  ]) {
+    assert.ok(combatPath);
+    assert.doesNotMatch(combatPath[0], /getSkyBrief|fetchSkyBriefForPause|\bawait\b/);
+  }
+
+  const accept = html.match(/function skyAcceptAuthSession\(session\)[\s\S]*?\n\}/);
+  const clear = html.match(/if\(skySave\.clear\)[\s\S]*?if\(skySave\.signOut\)/);
+  assert.ok(accept);
+  assert.ok(clear);
+  assert.match(accept[0], /skyBriefReset\(\)/);
+  assert.match(clear[0], /skyBriefReset\(\)/);
+});
+
+test("COPY BRIEF uses the full server text with clipboard fallback and localized chrome", () => {
+  const render = html.match(/function renderSkyBriefUi\(\)[\s\S]*?\n\}/);
+  assert.ok(render);
+  assert.match(render[0], /preview\.value=ready\?_skyBrief\.text:''/);
+  assert.doesNotMatch(render[0], /innerHTML|\.text\.trim|T\([^\n]*_skyBrief\.text/);
+
+  const copy = html.match(/async function copySkyBrief\(\)[\s\S]*?\n\}/);
+  assert.ok(copy);
+  assert.match(copy[0], /navigator\.clipboard\.writeText\(record\.text\)/);
+  assert.match(copy[0], /skyBriefUi\.preview\.select\(\)/);
+  assert.match(copy[0], /document\.execCommand\('copy'\)===true/);
+  assert.match(copy[0], /showGhostToast\(T\('skyBriefCopied','BRIEF COPIED'\)\)/);
+  assert.ok(copy[0].indexOf("skyBriefPauseOpen()") < copy[0].indexOf("navigator.clipboard.writeText"));
+  assert.ok(copy[0].indexOf("await navigator.clipboard.writeText(record.text)") < copy[0].lastIndexOf("skyBriefCopyStillCurrent(seq,user,generation,record)"));
+  assert.ok(copy[0].lastIndexOf("skyBriefCopyStillCurrent(seq,user,generation,record)") < copy[0].indexOf("showGhostToast"));
+  assert.match(html, /skyBriefUi\.copy\.addEventListener\('click',copySkyBrief\)/);
+  assert.equal((html.match(/navigator\.clipboard\.writeText\(record\.text\)/g) || []).length, 1);
+  assert.equal((html.match(/copySkyBrief/g) || []).length, 2, "brief copy runs only from its user click handler");
+  for (const key of ["skyBriefTitle", "skyBriefLoading", "skyBriefReady", "skyBriefUnavailable", "skyBriefCopy", "skyBriefCopied", "skyBriefPrivate"]) {
+    assert.match(html, new RegExp(`${key}:`), `${key} is present in window.JA`);
+  }
+});
+
+test("clipboard denial exercises the COPY BRIEF fallback without crossing a stale pause", async () => {
+  const currentSource = html.match(/function skyBriefCopyStillCurrent\(seq,user,generation,record\)[\s\S]*?\n\}/);
+  const copySource = html.match(/async function copySkyBrief\(\)[\s\S]*?\n\}/);
+  assert.ok(currentSource);
+  assert.ok(copySource);
+
+  function contextFor(onWrite) {
+    const events = [];
+    const record = { status: "ready", text: "full server brief\nwith every section" };
+    const context = {
+      _skyBrief: record,
+      _skyBriefSeq: 7,
+      _skyAuthUser: "user-one",
+      _skyProfileController: { state: { generation: 4 } },
+      skyBriefEligible: () => true,
+      skyBriefPauseOpen: () => true,
+      skyBriefRecordCurrent: () => true,
+      skyBriefUi: {
+        preview: {
+          hidden: true,
+          focus: () => events.push("focus"),
+          select: () => events.push("select"),
+        },
+        status: { textContent: "" },
+      },
+      navigator: { clipboard: { writeText: (text) => onWrite(text, events, context) } },
+      document: {
+        execCommand: (command) => {
+          events.push(`exec:${command}`);
+          return true;
+        },
+      },
+      showGhostToast: (text) => events.push(`toast:${text}`),
+      T: (_key, english) => english,
+      TF: (_key, english, values) => english.replace("{keys}", values.keys),
+    };
+    vm.runInNewContext(`${currentSource[0]}\n${copySource[0]}\nthis.runCopy = copySkyBrief;`, context);
+    return { context, events, record };
+  }
+
+  const fallback = contextFor(async (text, events) => {
+    events.push(`write:${text}`);
+    throw new Error("permission denied");
+  });
+  await fallback.context.runCopy();
+  assert.deepEqual(fallback.events, [
+    `write:${fallback.record.text}`,
+    "focus",
+    "select",
+    "exec:copy",
+    "toast:BRIEF COPIED",
+  ]);
+
+  let pauseOpen = true;
+  const stale = contextFor(async (_text, events, context) => {
+    events.push("write");
+    pauseOpen = false;
+    context.skyBriefPauseOpen = () => pauseOpen;
+    throw new Error("permission denied after resume");
+  });
+  await stale.context.runCopy();
+  assert.deepEqual(stale.events, ["write"], "resume suppresses fallback controls and toast");
+});
+
 test("pause reader has all private note fields and a non-resuming close control", () => {
   for (const id of [
     "transitEssayReader",
@@ -136,18 +312,18 @@ test("dojo submission allowlist contains no profile or birth fields", () => {
   assert.ok(row, "leaderboard row literal is present");
   const keys = [...row[0].matchAll(/(?:\{|,)\s*([a-z_]+)\s*:/g)].map((match) => match[1]);
   assert.deepEqual(keys, ["client_id", "name", "peak_bpm", "runtime", "far", "high", "streak", "kills"]);
-  assert.doesNotMatch(row[0], /birth|\bplace\b|\blat\b|\blon\b|\btz\b|profile|natal|essay|sky.?note|headline|body|watchpoint|epistemic/i);
+  assert.doesNotMatch(row[0], /birth|\bplace\b|\blat\b|\blon\b|\btz\b|profile|natal|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|body|watchpoint|epistemic/i);
 });
 
-test("share links and dojo POST bodies cannot receive essay content", () => {
+test("share links and dojo POST bodies cannot receive private study content", () => {
   const shareLink = html.match(/function linkUrl\(\)\{[^}]*\}/);
   assert.ok(shareLink);
   assert.match(shareLink[0], /location\.origin\+location\.pathname/);
-  assert.doesNotMatch(shareLink[0], /location\.(?:search|hash)|URLSearchParams|essay|sky.?note|headline|body|watchpoint|epistemic/i);
+  assert.doesNotMatch(shareLink[0], /location\.(?:search|hash)|URLSearchParams|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|body|watchpoint|epistemic/i);
 
   const submit = html.match(/async function submitDojo\(\)[\s\S]*?function _localRuntime/);
   assert.ok(submit);
-  assert.doesNotMatch(submit[0], /essay|sky.?note|headline|watchpoint|epistemic|birth|\bplace\b|\blat\b|\blon\b|\btz\b|profile|natal/i);
+  assert.doesNotMatch(submit[0], /essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|watchpoint|epistemic|birth|\bplace\b|\blat\b|\blon\b|\btz\b|profile|natal/i);
 });
 
 test("token-bearing base is fixed config, never the public URL override", () => {
