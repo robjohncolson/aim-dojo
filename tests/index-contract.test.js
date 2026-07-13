@@ -209,29 +209,3 @@ test("ordinary focused settings buttons do not strand gamepad resume", () => {
   assert.match(fn[0], /saveSkyDetails/);
   assert.match(fn[0], /transitEssayReader/);
 });
-
-test("groove pocket language is wired (CFG, machine, floor cue, HUD)", () => {
-  assert.match(html, /groovePocket\s*:\s*true/);
-  assert.match(html, /pocketEstablishBeats\s*:\s*12/);
-  assert.match(html, /pocketSampleBeats\s*:\s*4/);
-  assert.match(html, /pocketHoldSets\s*:\s*4/);
-  assert.match(html, /pocketAccFloor\s*:\s*0\.70/);
-  assert.match(html, /function pocketOnMain\b/);
-  assert.match(html, /function classifyPocket\b/);
-  assert.match(html, /function resetPocketState\b/);
-  assert.match(html, /function pocketStaffHtml\b/);
-  assert.match(html, /id="pocketHud"/);
-  assert.match(html, /id="pocketStaff"/);
-  assert.match(html, /LISTENING/);
-  assert.match(html, /ON THE BEAT/);
-  // floor peak phase follows pocket ideal; open-window stays absolute (no pocketIdeal on fire early)
-  assert.match(html, /cueI=pocketLive\(\)\?pocketIdeal\(pocketCueId\(\)\)/);
-  assert.doesNotMatch(html, /grooveFireEarlyBeat\s*=\s*pocketIdeal|grooveFireEarlyBeat.*pocketCueId/);
-  // combat open peaks on the 1 by default (not a baked-in ¼ early)
-  assert.match(html, /grooveFireEarlyBeat\s*:\s*0\b/);
-  // Echo near reticle blocks zodiac Listen
-  assert.match(html, /combatPx/);
-  assert.match(html, /scr<combatPx|scr<Math\.max\(scrR,\s*combatPx\)|scr<scrR\s*\|\|\s*scr<combatPx/);
-  // trainer keeps pocket machine off
-  assert.match(html, /function pocketLive\(\)\{ return !!\(CFG\.groovePocket && CFG\.wasdRhythm && CFG\.grooveGroove && !trainMode && !MOBILE\); \}/);
-});

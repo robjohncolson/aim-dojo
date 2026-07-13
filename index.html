@@ -44,29 +44,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #reticle.spoil .x{display:block}
 #ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:25;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
 #ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
-/* GROOVE POCKET coach — phase + help + 4-beat notation; always readable while free-play pocket is live */
-#pocketHud{position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:12;pointer-events:none;text-align:center;max-width:min(480px,96vw);opacity:0;transition:opacity .2s;text-shadow:0 0 8px rgba(0,0,0,.95),0 1px 2px #000;background:rgba(4,8,12,.42);padding:8px 14px 10px;border-radius:8px;border:1px solid rgba(230,235,245,.12)}
-#pocketHud.on{opacity:.98}
-#pocketHud .ph-phase{font:14px var(--mono);letter-spacing:.16em;color:var(--rail)}
-#pocketHud .ph-help{font:11px/1.35 var(--mono);letter-spacing:.04em;color:var(--bone-dim);margin-top:4px}
-#pocketHud .ph-count{font:11px var(--mono);letter-spacing:.12em;color:rgba(116,232,74,.95);margin-top:6px}
-#pocketHud .ph-staff{display:flex;flex-direction:column;align-items:center;gap:6px;margin:10px auto 2px}
-#pocketHud .ph-staff:empty{display:none}
-#pocketHud .ph-row{display:flex;align-items:center;gap:8px;opacity:.38}
-#pocketHud .ph-row.on{opacity:1}
-#pocketHud .ph-tag{font:10px var(--mono);letter-spacing:.12em;color:var(--bone-dim);min-width:62px;text-align:right}
-#pocketHud .ph-bar{display:flex;gap:6px;padding:4px 10px 6px;border-radius:4px;background:rgba(0,0,0,.4);border:1px solid rgba(230,235,245,.18)}
-#pocketHud .ph-beat{position:relative;width:38px;height:30px;border-bottom:2px solid rgba(230,235,245,.45)}
-#pocketHud .ph-beat::before{content:'';position:absolute;left:50%;bottom:-2px;width:1px;height:9px;background:rgba(230,235,245,.35);transform:translateX(-50%)}
-#pocketHud .ph-beat.now{border-bottom-color:var(--rail);box-shadow:0 2px 0 var(--rail)}
-#pocketHud .ph-note{position:absolute;bottom:1px;font:22px/1 Georgia,"Times New Roman",serif;color:var(--bone);transform:translateX(-50%);text-shadow:0 0 8px rgba(0,0,0,.95)}
-#pocketHud .ph-note.push{left:16%;color:#b8f0a0}
-#pocketHud .ph-note.on{left:50%;color:#9fd8ff}
-#pocketHud .ph-note.layback{left:84%;color:#ff8ab8}
-#pocketHud.phase-sample .ph-phase{color:#ffd36b}
-#pocketHud.phase-hold .ph-phase{color:#74e84a}
-#pocketHud.phase-establish .ph-phase{color:var(--rail)}
-html[lang=ja] #pocketHud .ph-phase,html[lang=ja] #pocketHud .ph-help,html[lang=ja] #pocketHud .ph-count,html[lang=ja] #pocketHud .ph-tag{letter-spacing:.04em}
 @keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
 #hitFlash{position:fixed;left:50%;top:57%;transform:translateX(-50%);z-index:6;pointer-events:none;font:13px var(--mono);letter-spacing:.08em;color:rgba(255,214,120,.96);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}   /* flashes the just-hit target's distance + height */
 #hitFlash.show{animation:hitFlash 1s ease-out forwards}
@@ -310,12 +287,6 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
 <canvas id="wasdHud" width="560" height="560" aria-hidden="true"></canvas>
 <div id="wasdGlyph" aria-hidden="true"></div>
-<div id="pocketHud" class="hud" aria-live="polite" aria-hidden="true">
-  <div class="ph-phase" id="pocketPhase"></div>
-  <div class="ph-help" id="pocketHelp"></div>
-  <div class="ph-staff" id="pocketStaff" aria-hidden="true"></div>
-  <div class="ph-count" id="pocketCount"></div>
-</div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
@@ -486,12 +457,7 @@ window.JA={
   fullNight:'満ちる夜', trainerToast:'月の糸のけいこ',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
-  pocketFocus:'びーとにのる', pocketListen:'リスニング', pocketHold:'こののりで', pocketRefocus:'みなおし · びーとにもどる',
-  pocketPush:'プッシュ', pocketOn:'オン', pocketLayback:'レイバック',
-  pocketHudFocus:'びーとにのる', pocketHudListen:'リスニング', pocketHudHold:'キープ',
-  pocketHelpFocus:'まんなかで踏む · 3小節でしゅうちゅう', pocketHelpListen:'すきなのりをみせて · はやい / まんなか / おそい · 採点なし',
-  pocketHelpHoldPush:'はやめに踏む · 譜面どおりにキープ', pocketHelpHoldOn:'びーとまんなか · 譜面どおりにキープ', pocketHelpHoldLay:'おそめに踏む · 譜面どおりにキープ',
-  pocketBar:'小節', pocketAcc:'せいど',
+  pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   gamepad:'ゲームパッド', unmapped:'未対応', songMoonlight:'月光',
   resLow:'LOW ▸ タップでHIGH', resHigh:'HIGH ▸ タップでLOW', resForcedLow:'LOW固定 (保存済み)', resForcedHigh:'HIGH固定 (保存済み)', resAutoLow:'自動 → LOW', resAutoHigh:'自動 → HIGH',
   calibReady:'{n}回ぶん記録 — タップで自動設定', calibPlay:'W/A/S/D をビートに合わせて踏んでから、調整してね', calibNotEnough:'まだ足りない — もう少し踏んでから', calibApplied:'{avg}ms を {n}回から適用 → 合計 {total}ms',
@@ -617,9 +583,9 @@ const CFG = {
   dollyStrength:0.5, dollySkillRamp:true,   // ramp: ~0.35× at low skill → full dollyStrength at high skill (trainer already forces dolly off)
   // OPEN WINDOW PHASE: 0 = peak on the audible 1 (default). Non-zero shifts the vulnerability center early (beats). WASD pocket language is SEPARATE — do not couple combat open timing to push/on/layback.
   grooveFireEarlyBeat:0,
-  // GROOVE POCKET LANGUAGE (WASD only): establish on → sample push/on/layback → hold that pocket; accuracy floor resets to establish. Does NOT move Transport/juke/open-window.
-  groovePocket:true, pocketEstablishBeats:12, pocketSampleBeats:4, pocketHoldSets:4, pocketHoldSetBeats:4, pocketAccFloor:0.70, pocketAccWindow:12, pocketOffsetBeat:0.25, pocketBinEdge:0.125,   // establish = 3 bars of 4 (musical phrase); sample 1 bar; hold 4 bars
-  pocketCircleCue:true, pocketColPush:0xb8f0a0, pocketColOn:0x9fd8ff, pocketColLay:0xff8ab8, pocketMainDim:0.28, pocketGhostAlpha:0.34, pocketTargetAlpha:0.92, pocketLateScale:0.55, pocketStaffMode:'slim',
+  // ROLLING GROOVE POCKET (free-play desktop WASD only): the last 16 mains estimate feel; one expected pocket governs freeze + floor PEAK timing. Transport/juke/open-window and floor HUE stay absolute/letter-based.
+  groovePocket:true, pocketBufferLen:16, pocketMinSamples:8, pocketExpectBeats:4, pocketLead:0.06, pocketLeadHard:0.12, pocketHysteresisBars:2, pocketWeakFloor:0.35, pocketOffsetBeat:0.25, pocketBinEdge:0.125,
+  pocketCircleCue:false, pocketColPush:0xb8f0a0, pocketColOn:0x9fd8ff, pocketColLay:0xff8ab8, pocketMainDim:0.28, pocketTargetAlpha:0.92, pocketLateScale:0.55, pocketStaffMode:'off',
   // OPEN LENS BUBBLE: keep the classic additive shell but SMOKIER (lower opacity) and a bit LARGER while open — soft glass/smoke, not a bright neon flare.
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
@@ -759,17 +725,31 @@ function learnWasdGlyph(k, key){ const ch=(key||'').toLocaleUpperCase(); if(ch.l
 try{ if(navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(m=>{ WASD_CODES.forEach((c,i)=>learnWasdGlyph(i,m.get(c))); }).catch(()=>{}); }catch(e){}
 let _combo=[0,1,2,3], _curCi=-1, _curMain=true, _baseMul=1, _mulEff=1, _wasdCombo=0, _noteFlashT=-999, _noteFlashHit=false, _spoilNote=-1, _spoilOff=0, _hitNote=-1, _hitOff=0, _tapOffMs=0, _tapShowT=-999, _tapAcc=0;   // WASD TAP notes: combo seq + current note index/key/window, is-main(on-beat), _baseMul=field damping from last main tap, _wasdCombo=bonus combo, _spoilNote/_hitNote=the frozen wrong/correct note + its off (beat-fraction), tap flash
 const _resolved=new Set();   // resolved note indices (one-press lock + miss-detection); replaces the single _resolvedIdx so a same-frame double-tap can claim the ADJACENT note instead of being eaten
+let _resolvedNd=null;   // subdivision density attached to _resolved/_curCi/_hitNote/_spoilNote; remapped when difficulty crosses a grid threshold
 let _sparkPend=null;   // correct-tap → 3D star-flock burst signal {key,acc,rainbow}; consumed once by updateFlock, then nulled
-/* ---- GROOVE POCKET LANGUAGE (SPEC_GROOVE_POCKET): establish (3×4) → LISTENING (1 bar) → hold (4 bars); coach HUD + notation show expected pocket. ---- */
-let _pocketPhase='establish', _pocketCount=0, _activePocket='on', _sampleVotes={push:0,on:0,layback:0}, _pocketHits=[];
-let pocketHudEl=(typeof document!=='undefined')?document.getElementById('pocketHud'):null;
-let pocketPhaseEl=(typeof document!=='undefined')?document.getElementById('pocketPhase'):null;
-let pocketHelpEl=(typeof document!=='undefined')?document.getElementById('pocketHelp'):null;
-let pocketStaffEl=(typeof document!=='undefined')?document.getElementById('pocketStaff'):null;
-let pocketCountEl=(typeof document!=='undefined')?document.getElementById('pocketCount'):null;
-function pocketBindEls(){ if(pocketHudEl||typeof document==='undefined') return; pocketHudEl=document.getElementById('pocketHud'); pocketPhaseEl=document.getElementById('pocketPhase'); pocketHelpEl=document.getElementById('pocketHelp'); pocketStaffEl=document.getElementById('pocketStaff'); pocketCountEl=document.getElementById('pocketCount'); }
+/* ---- ROLLING GROOVE POCKET (SPEC_POCKET_BUFFER): 16 main events continuously teach three clocks; one stable expected pocket governs freeze + floor phase for the next bar. ---- */
+let _pocketBuffer=[], _expectedPocket='on', _pocketBarCount=0, _pocketCandidate=null, _pocketCandidateStreak=0, _pocketMissScan=null;
+const _pocketResolvedMains=new Set();   // stable whole-main ids; unlike ci=m*nd these survive subdivision-density changes before the late miss sweep
 function pocketLive(){ return !!(CFG.groovePocket && CFG.wasdRhythm && CFG.grooveGroove && !trainMode && !MOBILE); }
 function pocketIdeal(id){ const o=CFG.pocketOffsetBeat||0.25; if(id==='push') return -o; if(id==='layback') return o; return 0; }
+function pocketExpected(){ return _expectedPocket==='push'||_expectedPocket==='layback'?_expectedPocket:'on'; }
+function remapWasdNoteIndex(ci, fromNd, toNd){
+  if(!Number.isFinite(ci)||!Number.isFinite(fromNd)||fromNd<=0||!Number.isFinite(toNd)||toNd<=0) return null;
+  const raw=ci*toNd/fromNd, mapped=Math.round(raw);
+  return Math.abs(raw-mapped)<=1e-9?mapped:null;
+}
+function syncWasdResolutionGrid(nd){   // keep common note positions resolved; discard notes that do not exist on the new density instead of letting raw ci collide with future events
+  const nextNd=Math.max(1,Math.round(Number.isFinite(nd)?nd:1));
+  if(_resolvedNd==null){ _resolvedNd=nextNd; return; }
+  if(nextNd===_resolvedNd) return;
+  const fromNd=_resolvedNd, nextResolved=new Set();
+  _resolved.forEach(ci=>{ const mapped=remapWasdNoteIndex(ci,fromNd,nextNd); if(mapped!=null) nextResolved.add(mapped); });
+  _resolved.clear(); nextResolved.forEach(ci=>_resolved.add(ci));
+  const marker=ci=>{ if(ci<0) return -1; const mapped=remapWasdNoteIndex(ci,fromNd,nextNd); return mapped==null?-1:mapped; };
+  _curCi=marker(_curCi); _spoilNote=marker(_spoilNote); _hitNote=marker(_hitNote);
+  _curMain=_curCi>=0?((((_curCi%nextNd)+nextNd)%nextNd)===0):true;
+  _resolvedNd=nextNd;
+}
 /** Fixed pocket-circle radius for a raw beat offset. Optional geometry args keep the helper pure/testable while drawWasdLane supplies its live canvas dimensions. */
 function radiusForIdeal(ideal, innerRadius=46, radiusSpan=226, half=0.5){
   const Rin=Number.isFinite(innerRadius)?innerRadius:46, span=Math.max(0,Number.isFinite(radiusSpan)?radiusSpan:226), h=Math.max(0.0001,Number.isFinite(half)?half:0.5), I=Number.isFinite(ideal)?ideal:0;
@@ -781,181 +761,160 @@ function pocketColorCss(id){
   const fallback=id==='push'?0xb8f0a0:(id==='layback'?0xff8ab8:0x9fd8ff), raw=id==='push'?CFG.pocketColPush:(id==='layback'?CFG.pocketColLay:CFG.pocketColOn);
   return '#'+Math.round(Math.max(0,Math.min(0xffffff,Number.isFinite(raw)?raw:fallback))).toString(16).padStart(6,'0');
 }
-function pocketCueId(){ return (pocketLive() && _pocketPhase==='hold') ? (_activePocket||'on') : 'on'; }
 function classifyPocket(offBeats){ let o=offBeats; while(o>0.5) o-=1; while(o<=-0.5) o+=1; const e=CFG.pocketBinEdge||0.125; if(o<-e) return 'push'; if(o>e) return 'layback'; return 'on'; }
-function pocketAcc(){ if(!_pocketHits.length) return 1; let g=0; for(let i=0;i<_pocketHits.length;i++) if(_pocketHits[i]) g++; return g/_pocketHits.length; }
-function pocketPushHit(good){ _pocketHits.push(!!good); const w=CFG.pocketAccWindow||12; while(_pocketHits.length>w) _pocketHits.shift(); }
-function pocketLabel(id){ if(id==='push') return T('pocketPush','PUSH'); if(id==='layback') return T('pocketLayback','LAYBACK'); return T('pocketOn','ON'); }
-function pocketMajority(){   // unique max → that pocket. Ties: prefer on, then previous if tied, else on (never arbitrary tops[0])
-  const v=_sampleVotes, scores=[['on',v.on|0],['push',v.push|0],['layback',v.layback|0]];
-  let best=scores[0][1]; for(const s of scores) if(s[1]>best) best=s[1];
-  if(best<=0) return 'on';   // no votes
-  const tops=scores.filter(s=>s[1]===best).map(s=>s[0]);
-  if(tops.length===1) return tops[0];
-  if(tops.includes('on')) return 'on';
-  if(tops.includes(_activePocket)) return _activePocket;
-  return 'on';
+function wasdTapAccuracy(offSec, win){
+  const ao=Math.abs(Number.isFinite(offSec)?offSec:0), w=Number.isFinite(win)?win:0;
+  return ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,w-0.025)));
 }
-function pocketClaimIdeals(){   // which ±offsets may claim a MAIN note this phase (sample = any pocket)
+function pocketAccuracy(offBeats, ideal, bps, win){   // exact same 25ms plateau + linear tail used by _wasdResolve
+  return wasdTapAccuracy(((Number.isFinite(offBeats)?offBeats:0)-(Number.isFinite(ideal)?ideal:0))*(Number.isFinite(bps)?bps:0),win);
+}
+function pocketIntentSample(offBeats, bps, win, expectedAtHit){
+  const accOn=pocketAccuracy(offBeats,0,bps,win), accPush=pocketAccuracy(offBeats,pocketIdeal('push'),bps,win), accLay=pocketAccuracy(offBeats,pocketIdeal('layback'),bps,win);
+  let best='on', top=accOn; if(accPush>top){ best='push'; top=accPush; } if(accLay>top){ best='layback'; top=accLay; }
+  const weak=Number.isFinite(CFG.pocketWeakFloor)?Math.max(0,Math.min(1,CFG.pocketWeakFloor)):0.35;
+  return {accOn,accPush,accLay,best:top>=weak?best:null,offBeats:Number.isFinite(offBeats)?offBeats:null,expectedAtHit:expectedAtHit||pocketExpected()};
+}
+function pocketAppendSample(sample){
+  sample=sample||{};
+  const clamp=v=>Math.max(0,Math.min(1,Number.isFinite(v)?v:0)), expected=sample.expectedAtHit==='push'||sample.expectedAtHit==='layback'?sample.expectedAtHit:'on';
+  const entry={accOn:clamp(sample.accOn),accPush:clamp(sample.accPush),accLay:clamp(sample.accLay),best:sample.best==='on'||sample.best==='push'||sample.best==='layback'?sample.best:null,offBeats:Number.isFinite(sample.offBeats)?sample.offBeats:null,expectedAtHit:expected};
+  _pocketBuffer.push(entry); const cap=Math.max(1,Math.floor(Number.isFinite(CFG.pocketBufferLen)?CFG.pocketBufferLen:16)); while(_pocketBuffer.length>cap) _pocketBuffer.shift();
+  return entry;
+}
+function pocketIntentEstimate(buffer, previousExpected){
+  const rows=Array.isArray(buffer)?buffer:[], n=rows.length, means={on:0,push:0,layback:0};
+  for(const s of rows){ means.on+=Number.isFinite(s.accOn)?s.accOn:0; means.push+=Number.isFinite(s.accPush)?s.accPush:0; means.layback+=Number.isFinite(s.accLay)?s.accLay:0; }
+  if(n){ means.on/=n; means.push/=n; means.layback/=n; }
+  const max=Math.max(means.on,means.push,means.layback), eps=1e-9, tops=['on','push','layback'].filter(id=>Math.abs(means[id]-max)<=eps), previous=previousExpected==='push'||previousExpected==='layback'?previousExpected:'on';
+  const winner=tops.length===1?tops[0]:(tops.includes('on')?'on':(tops.includes(previous)?previous:'on')), second=Math.max(...['on','push','layback'].filter(id=>id!==winner).map(id=>means[id]));
+  return {winner,means,lead:tops.length===1?Math.max(0,means[winner]-second):0,sampleCount:n};
+}
+function pocketClaimIdeals(){   // all three clocks must remain claimable so a new feel can teach the rolling buffer (especially at nd=4)
   if(!pocketLive()) return null;
   const o=CFG.pocketOffsetBeat||0.25;
-  if(_pocketPhase==='sample') return [-o,0,o];
-  if(_pocketPhase==='hold') return [pocketIdeal(_activePocket||'on')];
-  return [0];   // establish: on only
+  return [-o,0,o];
 }
-/** Resolve a WASD press to a note. When pocket is live, prefer unresolved MAIN notes (ci%nd===0) so a ±¼ tap is not stolen by an adjacent 16th/8th bonus note. */
+/** Resolve the oldest legal pocket MAIN unless a bonus is genuinely closer; MAIN wins the nd=4 ±¼ equal-distance tie. */
 function claimWasdNote(beats, nd, bps, w){
+  syncWasdResolutionGrid(nd);
   const ideals=pocketClaimIdeals();
+  if(ideals&&_pocketMissScan==null) pocketArmMissFrontier(beats,bps,w);
+  let mainClaim=null, mainD=Infinity;
   if(ideals){
-    let best=null, bestD=Infinity;
     const k0=Math.floor(beats)-1, k1=Math.ceil(beats)+1;
     for(let k=k0;k<=k1;k++){
       const ci=k*nd;
-      if(_resolved.has(ci)) continue;
+      if((_pocketMissScan!=null&&k<=_pocketMissScan)||_pocketResolvedMains.has(k)) continue;   // stable whole-main/frontier ids are authoritative; ci can collide after nd changes
+      let candidateD=Infinity;
       for(let i=0;i<ideals.length;i++){
         const dSec=Math.abs(beats-(k+ideals[i]))*bps;
-        if(dSec<=w && dSec<bestD){ bestD=dSec; best={ci, offBeats:beats-k, main:true}; }
+        if(dSec<candidateD) candidateD=dSec;
       }
+      if(candidateD<=w){ mainD=candidateD; mainClaim={ci,offBeats:beats-k,main:true,mainBeat:k}; break; }   // overlapping nd=1 windows resolve oldest-first so buffer/bar chronology cannot invert
     }
-    if(best) return best;
   }
   // legacy: nearest unresolved subdivision (bonus notes, or non-pocket mode)
   const exact=beats*nd, lo=Math.floor(exact), hi=Math.ceil(exact);
-  let ci=-1; for(const c of (Math.abs(exact-lo)<=Math.abs(exact-hi)?[lo,hi]:[hi,lo])){ if(!_resolved.has(c) && Math.abs((beats-c/nd)*bps)<=w){ ci=c; break; } }
-  if(ci<0) return null;
-  return {ci, offBeats:beats-ci/nd, main:((((ci%nd)+nd)%nd)===0)};
+  let legacyClaim=null, legacyD=Infinity; for(const c of (Math.abs(exact-lo)<=Math.abs(exact-hi)?[lo,hi]:[hi,lo])){
+    const isMain=((((c%nd)+nd)%nd)===0), mainBeat=isMain?Math.round(c/nd):null;
+    if((ideals&&isMain)?((_pocketMissScan!=null&&mainBeat<=_pocketMissScan)||_pocketResolvedMains.has(mainBeat)):_resolved.has(c)) continue;
+    const dSec=Math.abs((beats-c/nd)*bps);
+    if(dSec<=w){ legacyD=dSec; legacyClaim={ci:c,offBeats:beats-c/nd,main:isMain,mainBeat}; break; }
+  }
+  if(mainClaim && (!legacyClaim||legacyClaim.main||mainD<=legacyD+1e-9)) return mainClaim;
+  return legacyClaim;
 }
-let _pocketMissScan=null;   // last whole WASD-beat main index swept for silent misses; null = not armed yet (avoid backfill storm)
-function pocketSweepMisses(beats, nd){   // mains past layback+slop without a resolve → pocket miss (stopping input must still advance phases / allow <70% reset)
-  if(!pocketLive()) return;
-  const late=(CFG.pocketOffsetBeat||0.25)+0.12;
-  const due=Math.floor(beats-late);
+function pocketMissDue(beats, bps, w){
+  const late=(CFG.pocketOffsetBeat||0.25)+(Number.isFinite(bps)&&bps>0&&Number.isFinite(w)?w/bps:0.12);
+  return Math.ceil(beats-late)-1;   // strictly past the final legal instant; equality still belongs to the player's claim window
+}
+function pocketArmMissFrontier(beats, bps, w){
+  const due=pocketMissDue(beats,bps,w);
+  if(isFinite(due)) _pocketMissScan=Math.max(due,Math.ceil(beats)-1);
+  return _pocketMissScan;
+}
+function pocketSkipMisses(beats, bps, w){   // bonus play freezes pocket progress: advance the frontier without back-filling samples later
+  const due=pocketMissDue(beats,bps,w);
   if(!isFinite(due)) return;
-  // Arm on first tick at the current frontier — do NOT count every historical main as a miss
-  if(_pocketMissScan==null){ _pocketMissScan=due; return; }
+  const skipThrough=Math.max(due,Math.ceil(beats)-1);   // also skip a main whose center passed during bonus even while its layback window remains open
+  if(_pocketMissScan==null||skipThrough>_pocketMissScan) _pocketMissScan=skipThrough;
+  _pocketResolvedMains.forEach(m=>{ if(m<_pocketMissScan-2) _pocketResolvedMains.delete(m); });
+}
+function pocketSweepMisses(beats, nd, bps, w){   // mains past the full legal layback window append zero intent samples
+  if(!pocketLive()) return;
+  syncWasdResolutionGrid(nd);
+  const due=pocketMissDue(beats,bps,w);
+  if(!isFinite(due)) return;
+  // Arm from activation time, not just the already-expired frontier: a run/trainer graduation must not back-fill an in-flight pre-pocket main.
+  if(_pocketMissScan==null){ pocketArmMissFrontier(beats,bps,w); return; }
   if(due<=_pocketMissScan) return;
   for(let m=_pocketMissScan+1;m<=due;m++){
     const ci=m*nd;
-    if(_resolved.has(ci)) continue;
+    if(_pocketResolvedMains.has(m)) continue;
+    _pocketResolvedMains.add(m);
     _resolved.add(ci);
     _baseMul=1; _wasdCombo=0;
     pocketOnMainMiss();
   }
   _pocketMissScan=due;
+  _pocketResolvedMains.forEach(m=>{ if(m<due-2) _pocketResolvedMains.delete(m); });
 }
-function pocketBarTotal(n){ return Math.max(1, Math.ceil(n/4)); }
-function pocketBarNow(count, n){ return Math.min(pocketBarTotal(n), Math.floor(Math.max(0,count)/4)+1); }
-function pocketBeatInBar(count){ return (Math.max(0,count)%4); }   // 0..3 index of next beat in the current bar (after count hits)
-function pocketBarHtml(pocketId, hiBeat, active){   // one 4-beat bar of notation; hiBeat = which beat cell is "now". ● always renders; ♩ as secondary glyph.
-  let h='<div class="ph-row'+(active?' on':'')+'"><span class="ph-tag">'+pocketLabel(pocketId)+'</span><div class="ph-bar">';
-  for(let i=0;i<4;i++) h+='<span class="ph-beat'+(i===hiBeat?' now':'')+'"><span class="ph-note '+pocketId+'" aria-hidden="true">●</span></span>';
-  return h+'</div></div>';
+function updatePocketMisses(){   // unconditional run-loop feed: silence still counts when no Echo is alive; flick bonus pauses the pocket clock
+  if(!pocketLive()||!state.running||!toneReady||Tone.Transport.state!=='started') return;
+  const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2), bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5,Math.max(CFG.wasdWindow,full*CFG.wasdWindowFrac));
+  syncWasdResolutionGrid(nd);
+  const beats=wasdBeats()-audioLat()/bps;
+  if(bonusActive){ pocketSkipMisses(beats,bps,w); return; }
+  pocketSweepMisses(beats,nd,bps,w);
 }
-function pocketStaffLayoutMode(){ return CFG.pocketStaffMode==='full'||CFG.pocketStaffMode==='off'?CFG.pocketStaffMode:'slim'; }
-function pocketStaffHtml(){   // full may teach all LISTENING options; slim never exceeds one row; off leaves title/count intact
-  const mode=pocketStaffLayoutMode();
-  if(mode==='off') return '';
-  const hi=pocketBeatInBar(_pocketCount);
-  if(_pocketPhase==='sample' && mode==='full') return pocketBarHtml('push',hi,true)+pocketBarHtml('on',hi,true)+pocketBarHtml('layback',hi,true);
-  if(_pocketPhase==='sample') return '';   // slim LISTENING lets the three circle ghosts teach without privileging one pocket
-  if(_pocketPhase==='hold') return pocketBarHtml(_activePocket||'on', hi, true);
-  return pocketBarHtml('on', hi, true);
+function pocketIntent(){ return pocketIntentEstimate(_pocketBuffer,pocketExpected()); }
+function pocketToastExpected(id){
+  if(!pocketLive()||typeof state==='undefined'||!state.running) return;
+  const msg=id==='push'?(typeof T==='function'?T('pocketLeanEarly','LEAN EARLY'):'LEAN EARLY'):(id==='layback'?(typeof T==='function'?T('pocketSitBack','SIT BACK'):'SIT BACK'):(typeof T==='function'?T('pocketFocus','ON THE BEAT'):'ON THE BEAT'));
+  try{ if(typeof showGhostToast==='function') showGhostToast(msg); }catch(e){}
 }
-function pocketUpdateHud(){
-  pocketBindEls();
-  if(!pocketHudEl) return;
-  if(!pocketLive() || !(state&&state.running)){
-    pocketHudEl.classList.remove('on','phase-establish','phase-sample','phase-hold');
-    if(pocketPhaseEl) pocketPhaseEl.textContent='';
-    if(pocketHelpEl) pocketHelpEl.textContent='';
-    if(pocketStaffEl) pocketStaffEl.innerHTML='';
-    if(pocketCountEl) pocketCountEl.textContent='';
-    return;
-  }
-  let phaseTxt='', helpTxt='', countTxt='';
-  const barWord=T('pocketBar','BAR');
-  if(_pocketPhase==='establish'){
-    const N=CFG.pocketEstablishBeats||12, bars=pocketBarTotal(N);
-    phaseTxt=T('pocketHudFocus','ON THE BEAT');
-    helpTxt=T('pocketHelpFocus','Tap dead center · 3 bars to lock focus');
-    countTxt=_pocketCount+'/'+N+' · '+barWord+' '+pocketBarNow(_pocketCount,N)+'/'+bars;
-  } else if(_pocketPhase==='sample'){
-    const N=CFG.pocketSampleBeats||4;
-    phaseTxt=T('pocketHudListen','LISTENING');
-    helpTxt=T('pocketHelpListen','Show your feel · early / on / late · not scored');
-    countTxt=_pocketCount+'/'+N+' · '+barWord+' 1/1';
-  } else {
-    const N=pocketHoldLen(), bars=pocketBarTotal(N), lab=pocketLabel(_activePocket);
-    phaseTxt=T('pocketHudHold','PLAY')+' · '+lab;
-    if(_activePocket==='push') helpTxt=T('pocketHelpHoldPush','Tap early · stay on this score');
-    else if(_activePocket==='layback') helpTxt=T('pocketHelpHoldLay','Tap late · stay on this score');
-    else helpTxt=T('pocketHelpHoldOn','Tap on the beat · stay on this score');
-    countTxt=barWord+' '+pocketBarNow(_pocketCount,N)+'/'+bars+' · '+T('pocketAcc','ACC')+' '+Math.round(pocketAcc()*100)+'%';
-  }
-  if(pocketPhaseEl) pocketPhaseEl.textContent=phaseTxt;
-  if(pocketHelpEl) pocketHelpEl.textContent=helpTxt;
-  if(pocketStaffEl){ const staffHtml=pocketStaffHtml(); pocketStaffEl.hidden=!staffHtml; pocketStaffEl.innerHTML=staffHtml; }
-  if(pocketCountEl) pocketCountEl.textContent=countTxt;
-  pocketHudEl.classList.remove('phase-establish','phase-sample','phase-hold');
-  pocketHudEl.classList.add('on','phase-'+_pocketPhase);
+function pocketSetExpected(id){
+  const next=id==='push'||id==='layback'?id:'on';
+  if(next===pocketExpected()) return false;
+  _expectedPocket=next; _pocketCandidate=null; _pocketCandidateStreak=0; pocketToastExpected(next); return true;
 }
-function pocketToastPhase(){ if(!pocketLive() || !state || !state.running) return; let msg='';
-  if(_pocketPhase==='establish') msg=T('pocketFocus','ON THE BEAT');
-  else if(_pocketPhase==='sample') msg=T('pocketListen','LISTENING');
-  else msg=T('pocketHold','PLAY')+' · '+pocketLabel(_activePocket);
-  try{ showGhostToast(msg); }catch(e){}
+function pocketMaybeUpdateExpected(){   // called only on main-event bar boundaries; hard lead skips streak, never min samples
+  if(!pocketLive()) return false;
+  const min=Math.max(0,Math.floor(Number.isFinite(CFG.pocketMinSamples)?CFG.pocketMinSamples:8));
+  if(_pocketBuffer.length<min){ _pocketCandidate=null; _pocketCandidateStreak=0; return false; }
+  const intent=pocketIntent(), expected=pocketExpected(), leadMin=Math.max(0,Number.isFinite(CFG.pocketLead)?CFG.pocketLead:0.06);
+  if(intent.winner===expected||intent.lead+1e-9<leadMin){ _pocketCandidate=null; _pocketCandidateStreak=0; return false; }
+  const hard=Math.max(leadMin,Number.isFinite(CFG.pocketLeadHard)?CFG.pocketLeadHard:0.12);
+  if(intent.lead+1e-9>=hard) return pocketSetExpected(intent.winner);
+  if(_pocketCandidate===intent.winner) _pocketCandidateStreak++;
+  else { _pocketCandidate=intent.winner; _pocketCandidateStreak=1; }
+  const bars=Math.max(1,Math.floor(Number.isFinite(CFG.pocketHysteresisBars)?CFG.pocketHysteresisBars:2));
+  return _pocketCandidateStreak>=bars?pocketSetExpected(intent.winner):false;
 }
-function pocketEnter(phase, opt){ opt=opt||{}; _pocketPhase=phase; _pocketCount=0;
-  if(phase==='establish'){ _activePocket='on'; _sampleVotes={push:0,on:0,layback:0}; _pocketHits=[]; }
-  else if(phase==='sample'){ _sampleVotes={push:0,on:0,layback:0}; _pocketHits=[]; }
-  else if(phase==='hold'){ _pocketHits=[]; }
-  if(opt.toast){ try{ showGhostToast(opt.toast); }catch(e){} }
-  else if(!opt.silent) pocketToastPhase();
-  pocketUpdateHud();
+function pocketAdvanceExpectation(){
+  _pocketBarCount++;
+  const beats=Math.max(1,Math.floor(Number.isFinite(CFG.pocketExpectBeats)?CFG.pocketExpectBeats:4));
+  return (_pocketBarCount%beats)===0?pocketMaybeUpdateExpected():false;
 }
-function resetPocketState(){ _pocketPhase='establish'; _pocketCount=0; _activePocket='on'; _sampleVotes={push:0,on:0,layback:0}; _pocketHits=[]; _pocketMissScan=null; pocketUpdateHud(); }
-function pocketHoldLen(){ return (CFG.pocketHoldSets||4)*(CFG.pocketHoldSetBeats||4); }
-function pocketMaybeResetHold(){ const minHits=Math.min(CFG.pocketAccWindow||12, 8); if(_pocketHits.length>=minHits && pocketAcc()<(CFG.pocketAccFloor||0.70)){ pocketEnter('establish',{toast:T('pocketRefocus','REFOCUS · ON THE BEAT')}); return true; } return false; }
-function pocketOnMain(offBeats, bps, win){   // main-note pocket contract → grade offset + freeze privilege; advances phase machine
-  if(!pocketLive()) return { gradeOffSec:offBeats*bps, fullCredit:true };
-  const bin=classifyPocket(offBeats);
-  if(_pocketPhase==='sample'){
-    _sampleVotes[bin]=(_sampleVotes[bin]|0)+1; _pocketCount++; pocketUpdateHud();
-    if(_pocketCount>=(CFG.pocketSampleBeats||4)){ _activePocket=pocketMajority(); pocketEnter('hold'); }
-    const ideal=pocketIdeal(bin); return { gradeOffSec:(offBeats-ideal)*bps, fullCredit:true };
-  }
-  const expected=(_pocketPhase==='hold')?(_activePocket||'on'):'on';
-  const ideal=pocketIdeal(expected);
-  const gradeOffSec=(offBeats-ideal)*bps;
-  const ao=Math.abs(gradeOffSec);
-  const acc=ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,win-0.025)));
-  const good=(bin===expected) && acc>=0.5;
-  if(_pocketPhase==='establish'){
-    _pocketCount++; pocketPushHit(good); pocketUpdateHud();
-    if(_pocketCount>=(CFG.pocketEstablishBeats||12)) pocketEnter('sample');
-    return good?{ gradeOffSec, fullCredit:true }:{ gradeOffSec, fullCredit:false, weakAcc:Math.min(acc,0.25) };
-  }
-  // hold
-  pocketPushHit(good); _pocketCount++; pocketUpdateHud();
-  if(pocketMaybeResetHold()) return good?{ gradeOffSec, fullCredit:true }:{ gradeOffSec, fullCredit:false, weakAcc:Math.min(acc,0.25) };
-  if(_pocketCount>=pocketHoldLen()){
-    if(pocketAcc()>=(CFG.pocketAccFloor||0.70)) pocketEnter('sample');
-    else pocketEnter('establish',{toast:T('pocketRefocus','REFOCUS · ON THE BEAT')});
-  }
-  return good?{ gradeOffSec, fullCredit:true }:{ gradeOffSec, fullCredit:false, weakAcc:Math.min(acc,0.25) };
+function resetPocketState(){
+  _pocketBuffer.length=0; _expectedPocket='on'; _pocketBarCount=0; _pocketCandidate=null; _pocketCandidateStreak=0; _pocketMissScan=null; _pocketResolvedMains.clear();
 }
-function pocketOnMainMiss(){   // wrong key OR silent/out-of-window main miss: accuracy miss, no sample vote, still advances phase counters
-  if(!pocketLive()) return;
-  if(_pocketPhase==='sample'){ _pocketCount++; pocketUpdateHud(); if(_pocketCount>=(CFG.pocketSampleBeats||4)){ _activePocket=pocketMajority(); pocketEnter('hold'); } return; }
-  pocketPushHit(false); _pocketCount++; pocketUpdateHud();
-  if(_pocketPhase==='establish'){ if(_pocketCount>=(CFG.pocketEstablishBeats||12)) pocketEnter('sample'); return; }
-  if(pocketMaybeResetHold()) return;
-  if(_pocketCount>=pocketHoldLen()){
-    if(pocketAcc()>=(CFG.pocketAccFloor||0.70)) pocketEnter('sample');
-    else pocketEnter('establish',{toast:T('pocketRefocus','REFOCUS · ON THE BEAT')});
-  }
+function rebasePocketMissTracking(){   // latency/offset edits redefine the heard timeline; preserve learned intent but never synthesize a catch-up miss
+  _pocketMissScan=null;   // recent stable main ids remain authoritative so the in-flight resolved main cannot be appended twice on resume
 }
-function _wasdResolve(offSec, main, win, opts){ opts=opts||{}; const ao=Math.abs(offSec); let acc=ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,win-0.025))); if(opts.fullCredit===false) acc=Math.min(acc, opts.weakAcc!=null?opts.weakAcc:0.25); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapOffSum+=offSec; _tapOffN++; _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main){ _baseMul=Math.pow(1-acc,1.5); if(opts.fullCredit===false) _wasdCombo=0; } else if(acc>0) _wasdCombo++; noteTrainWasd(_tapAcc); }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau; pocket path may pass pocket-relative offSec + weakCredit cap. damping (1-acc)^1.5 so decent taps still READ as calm
+function pocketOnMain(offBeats, bps, win){   // append three-clock intent, grade this hit against the bar's existing law, then allow a next-bar promotion
+  if(!pocketLive()) return {gradeOffSec:offBeats*bps,expectedAtHit:'on'};
+  const expectedAtHit=pocketExpected(), gradeOffSec=(offBeats-pocketIdeal(expectedAtHit))*bps, sample=pocketAppendSample(pocketIntentSample(offBeats,bps,win,expectedAtHit));
+  pocketAdvanceExpectation();
+  return {gradeOffSec,expectedAtHit,sample};
+}
+function pocketOnMainMiss(offBeats){   // wrong-key or silent main: zeros dilute every mean and advance the same stable bar clock
+  if(!pocketLive()) return null;
+  const sample=pocketAppendSample({accOn:0,accPush:0,accLay:0,best:null,offBeats:Number.isFinite(offBeats)?offBeats:null,expectedAtHit:pocketExpected()});
+  pocketAdvanceExpectation(); return sample;
+}
+function _wasdResolve(offSec, main, win, opts){ opts=opts||{}; let acc=wasdTapAccuracy(offSec,win); if(opts.fullCredit===false) acc=Math.min(acc, opts.weakAcc!=null?opts.weakAcc:0.25); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapOffSum+=offSec; _tapOffN++; _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main){ _baseMul=Math.pow(1-acc,1.5); if(opts.fullCredit===false) _wasdCombo=0; } else if(acc>0) _wasdCombo++; noteTrainWasd(_tapAcc); }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau; main pocket grading passes expected-relative offSec. damping (1-acc)^1.5 so decent taps still READ as calm
 function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(CFG.grooveGroove?CFG.grooveFreezeFloor:0, _baseMul*(1-steady)); }   // orb-motion multiplier: last MAIN tap's damping, calmed by the bonus combo. In groove mode it FLOORS at grooveFreezeFloor (never fully frozen) so there's always a moving lead to shoot.
 function makeWasdCombo(){ const a=[]; while(a.length<CFG.wasdComboLen){ const g=[0,1,2,3]; for(let j=3;j>0;j--){ const r=(Math.random()*(j+1))|0, t=g[j]; g[j]=g[r]; g[r]=t; } a.push(g[0],g[1],g[2],g[3]); } return a.slice(0,CFG.wasdComboLen); }   // balanced WASD combo: concatenated shuffles of [0,1,2,3] → every key appears (each twice at len 8), no full-run droughts (a pure-random combo could omit a key for the whole run — the "never saw A" bug)   // single combo stream: the looping WASD sequence, current step, whether THIS beat's required key was hit (→ whole field holds), + the note-lane just-passed flash
 // no walls now — the ROOM box is still the (invisible) volume targets bounce inside
@@ -2145,13 +2104,11 @@ function setTrainPhase(p){
     // graduate → full dojo mid-run
     trainMode=false; trainPhase=0;
     applySenseiFull();
-    resetPocketState();   // pocket language starts at establish once trainer ends (was idle during trainMode)
+    resetPocketState();   // rolling pocket starts cold at expected ON once trainer ends (buffer was idle during trainMode)
     _specialLive=specialOrbsLive();   // must re-latch AFTER full config (specials were forced off in train)
     state.range=Math.max(state.range, CFG.rangeStart);
     showTrainCoach(T('coachGraduate','THE CHORUS REMEMBERS YOU · MOON SENSEI OPENS THE FULL NIGHT'), true);
     try{ showGhostToast('✦ '+T('fullNight','THE FULL NIGHT')); }catch(e){}
-    // After graduation toast, arm the pocket coach so notation is visible on the next beat cycle
-    try{ setTimeout(()=>{ if(state.running && pocketLive()){ pocketUpdateHud(); showGhostToast(T('pocketFocus','ON THE BEAT')); } }, 1600); }catch(e){}
   }
 }
 function noteTrainWasd(acc){
@@ -2807,11 +2764,13 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   let beats=wasdBeats();   // WASD grid shifted onto the "and" (groove phase); latency correction applied next
   const bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5, Math.max(CFG.wasdWindow, full*CFG.wasdWindowFrac));
   const lat=audioLat(); beats-=lat/bps;   // grade in the HEARD timeline (audioLat = reported latency + user offset) -- without this, high-latency audio makes every tap grade BEHIND and PERFECT unreachable
+  if(pocketLive()) pocketSweepMisses(beats,nd,bps,w);   // close older mains first so a boundary tap cannot overtake a prior silent miss
   // Pocket-aware claim: at nd=4 a ±¼ tap is exactly one 16th early/late — must bind to the MAIN, not the adjacent bonus subdivision
   const claim=claimWasdNote(beats, nd, bps, w);
   if(!claim) return;   // no unresolved note in this press's window -> stray/duplicate, ignored (no lock)
   const ci=claim.ci, offBeats=claim.offBeats, main=claim.main, offSec=offBeats*bps;
   _resolved.add(ci);   // ONE press per note
+  if(main&&pocketLive()) _pocketResolvedMains.add(Number.isFinite(claim.mainBeat)?claim.mainBeat:Math.round(ci/nd));
   const ckey=_combo[((ci%len)+len)%len];
   if(k===ckey){
     let gradeOff=offSec, ropts=null;
@@ -2824,7 +2783,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
       if(activeTheme&&activeTheme.name==='TORIYANSE'&&!main&&_tapAcc>=100){ const ch=PENTA[Math.min(4,PENTA.length-1)]; tapSynth.triggerAttackRelease(ch,'32n',t0+0.04,0.58); tapSynth.triggerAttackRelease(ch,'32n',t0+0.10,0.48); }
     }catch(e){} }
   }
-  else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; main miss advances pocket phase (no sample vote)
+  else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample
 }
 document.addEventListener('keydown', e=>{ const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane
 
@@ -3112,26 +3071,25 @@ function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
   const on = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
-  // Canvas draw: beat-circle toggle OR tap text OR pocket-circle cue (mint/pink targets must still show when Full Night defaults wasdHud OFF)
-  const showHud=CFG.wasdHud || CFG.wasdTapText || !!(pocketLive() && CFG.pocketCircleCue);
+  const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
   if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
   else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
   const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
   if(showHud){ hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
-  const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketHoldTarget=!!(pocketCueOn && _pocketPhase==='hold' && (_activePocket||'on')!=='on');
+  const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketTarget=!!(pocketCueOn && pocketExpected()!=='on');
   const pocketDim=Number.isFinite(CFG.pocketMainDim)?Math.max(0,Math.min(1,CFG.pocketMainDim)):0.28;
-  const pocketListening=!!(pocketCueOn&&_pocketPhase==='sample'), pocketGhostAlpha=Number.isFinite(CFG.pocketGhostAlpha)?Math.max(0,Math.min(1,CFG.pocketGhostAlpha)):0.34;
-  const pocketMainAlpha=pocketHoldTarget?pocketDim:(pocketListening?0.7:1);
+  const pocketMainAlpha=pocketTarget?pocketDim:1;
   // ---- the inner HIT-LINE ring (gated by the 'WASD center cue' toggle; the letter below keeps its OWN toggle so reduceMotion users never lose it) ----
-  if(showHud){ hudCtx.globalAlpha=pocketListening?pocketGhostAlpha*0.55:0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
-    hudCtx.globalAlpha=pocketListening?pocketGhostAlpha:0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = pocketListening?pocketColorCss('on'):(fa>0&&!pocketHoldTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'); ARC(Rin); }
-  // ---- the IN-FOCUS note: the legacy cue converges to Rin at its ideal; the pocket-circle parcel keeps the raw on-phase path so it crosses a fixed ±¼ target. Pocket mode focuses MAIN notes (not adjacent 16ths). ----
+  if(showHud){ hudCtx.globalAlpha=0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
+    hudCtx.globalAlpha=0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0&&!pocketTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
+  // ---- the IN-FOCUS note: optional legacy circle converges at expected; an explicitly enabled colored target instead keeps the raw path so both rings cross there. ----
   let letterKey=_combo[0], spoiled=false, hitHeld=false;
   { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+    syncWasdResolutionGrid(nd);
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
-    const cueI=pocketLive()?pocketIdeal(pocketCueId()):0;   // selects the main nearest its expected pocket; with the new cue its raw circle crosses the fixed target at cueI
+    const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
     let ci, ckey, main, rawOff;
     if(pocketLive()){
       const k=Math.round(beats-cueI);   // main whose pocket ideal is nearest to now
@@ -3150,18 +3108,12 @@ function drawWasdLane(){
       hudCtx.globalAlpha=al*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
       hudCtx.globalAlpha=Math.min(1,(main?1:0.55)*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
     } }
-  // ---- POCKET WHEN cue (visual only): LISTENING teaches all three fixed radii; HOLD push/lay makes its fixed target primary. No pulse/size animation, including reduce-motion. ----
-  if(pocketCueOn){
-    const half=0.5, o=CFG.pocketOffsetBeat||0.25;
-    if(pocketListening){
-      const ghosts=[['push',-o],['layback',o]];   // the configured rail-colored Rin hit-line above is the third/on ghost
-      for(const g of ghosts){ hudCtx.globalAlpha=pocketGhostAlpha; hudCtx.lineWidth=2.5; hudCtx.strokeStyle=pocketColorCss(g[0]); ARC(radiusForIdeal(g[1],Rin,span,half)); }
-    } else if(pocketHoldTarget){
-      const id=_activePocket||'on', ta=Number.isFinite(CFG.pocketTargetAlpha)?Math.max(0,Math.min(1,CFG.pocketTargetAlpha)):0.92, rt=radiusForIdeal(pocketIdeal(id),Rin,span,half);
-      hudCtx.globalAlpha=ta*0.45; hudCtx.lineWidth=8; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(rt);
-      hudCtx.globalAlpha=ta; hudCtx.lineWidth=5; hudCtx.strokeStyle=(fa>0&&(hitHeld||spoiled))?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):pocketColorCss(id);
-      ARC(rt);
-    }
+  // Optional developer cue remains available behind pocketCircleCue, but the rolling-buffer parcel defaults it off and has no phase/listening ghosts.
+  if(pocketTarget){
+    const id=pocketExpected(), ta=Number.isFinite(CFG.pocketTargetAlpha)?Math.max(0,Math.min(1,CFG.pocketTargetAlpha)):0.92, rt=radiusForIdeal(pocketIdeal(id),Rin,span,0.5);
+    hudCtx.globalAlpha=ta*0.45; hudCtx.lineWidth=8; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(rt);
+    hudCtx.globalAlpha=ta; hudCtx.lineWidth=5; hudCtx.strokeStyle=(fa>0&&(hitHeld||spoiled))?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):pocketColorCss(id);
+    ARC(rt);
   }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
   showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
@@ -3280,7 +3232,7 @@ function updateFlock(dt){
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt)*dens);
   }
 }
-/* ---- WASD floor beat-tint: the in-focus key colour washes the checker (day) / grid (night), peaking on the WASD "and" (wasdBeats); during pocket HOLD the peak phase shifts by active pocket ideal (push early / layback late). reduceMotion-gated except trainer. ---- */
+/* ---- WASD floor beat-tint: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer. ---- */
 const _floorBeatCol=new THREE.Color();
 function updateFloorBeat(){
   let amt=0;
@@ -3288,14 +3240,13 @@ function updateFloorBeat(){
     && (!reduceMotion || trainMode);   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off)
   if(floorCueOn){
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
-    const cueI=pocketLive()?pocketIdeal(pocketCueId()):0;   // pocket language: peak when the player should tap (hold shifts by push/on/layback)
+    const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
     beats-=cueI;
     const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-    // key colour still follows the unshifted WASD grid (which letter is in focus), not the pocket phase
+    // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
     const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length, ckey=_combo[(((biKey*nd)%len)+len)%len];
     const bi=Math.round(beats), off=Math.abs(beats-bi);
-    let maxAmt=CFG.floorBeatMax;
-    if(pocketLive()){ if(_pocketPhase==='establish') maxAmt*=0.75; else if(_pocketPhase==='sample') maxAmt*=0.88; }
+    const maxAmt=CFG.floorBeatMax;
     if(trainMode && reduceMotion) amt=off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
     else { const env=Math.max(0,1-off*2); amt=maxAmt*env*env; }
     _floorBeatCol.setHex(WASD_HEX[ckey]);
@@ -3390,6 +3341,7 @@ function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; t
   if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
   if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
   if(state.t-_bonusLast<CFG.flickBonus.cooldown) return;                           // keep it a treat, not a strobe (mirrors clutch)
+  try{ updatePocketMisses(); }catch(e){}                                           // close the normal-input frontier immediately before bonus takes ownership
   bonusActive=true; _bonusResolving=false; _bonusJustArmed=true; bonusLocks.length=0;   // _bonusJustArmed → updateFlickBonus clears in-flight projectiles NEXT (safely, after updateProjectiles' loop this frame)
   _bonusGrace=CFG.flickBonus.graceMisses;
   _bonusEntryBeat=currentRawBeat(); bonusEndsBeat=_bonusEntryBeat+CFG.flickBonus.baseBeats;
@@ -3397,6 +3349,7 @@ function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; t
 }
 function abortFlickBonus(){   // pause / reset: drop the mode with NO cascade payoff — un-flag locked orbs, unfreeze the field (they resume with full life)
   if(!bonusActive) return;
+  try{ updatePocketMisses(); }catch(e){}   // freeze pocket progress through the final pre-pause center before clearing bonusActive
   for(const tg of bonusLocks) if(tg) tg._flickLocked=false;
   bonusLocks.length=0; bonusActive=false; _bonusResolving=false; _bonusJustArmed=false;
   if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
@@ -3411,7 +3364,7 @@ function flickLockPress(){   // a WASD/pad-face tap DURING the bonus: on-beat AN
     if(!reduceMotion) popHitMarker();
   } else {                                                                         // whiffed flick (no orb under the crosshair) or off-beat tap = a missed attempt
     if(_bonusGrace>0){ _bonusGrace--; flashReticleBad(); if(soundOn&&toneReady) sfx('offbeat'); }   // one forgiven fumble so entering with nothing centered doesn't instantly end the mode
-    else startFlickResolve(currentRawBeat());                                      // grace spent → end the lock phase, roll the cascade
+    else startFlickResolve(currentRawBeat());                                      // no-lock resolves exit through endFlickBonus, which advances the frozen pocket frontier first
   }
 }
 function startFlickResolve(atBeat){
@@ -3420,6 +3373,7 @@ function startFlickResolve(atBeat){
   if(!bonusLocks.length) endFlickBonus();                                           // nothing locked → just exit (no cascade, streak intact)
 }
 function endFlickBonus(){
+  if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
   if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
 }
@@ -3710,6 +3664,7 @@ function animate(frameNow){
       const _so=_openAmt>0?Math.min(_peak, (_floor+(_peak-_floor)*_openAmt)*(CFG.openGlowBoost||1)):_floor;
       TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
+    try{ updatePocketMisses(); }catch(e){}   // unconditional on target presence: close overdue main events before this frame's field work
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
       // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
@@ -3732,10 +3687,10 @@ function animate(frameNow){
       const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
       if(doSnap){
         if(CFG.wasdRhythm && strobe){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);   // notes at HALF the orb-jump rate -> quarter/8th/16th as skill (diffT) rises
+          syncWasdResolutionGrid(nd);
           const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
-          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi)){ if(_curMain){ _baseMul=1; if(!pocketLive()) { /* pocket mains miss via pocketSweepMisses (waits past layback window) */ } } _wasdCombo=0; }   // unresolved note left focus → miss damping/combo; pocket main misses deferred so ±¼ still has time
+          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi)){ if(_curMain) _baseMul=1; _wasdCombo=0; }   // unresolved focus leaves legacy damping/combo; rolling main misses use the later all-pocket sweep
             if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
-          try{ const _bps=60/Math.max(20,state.bpm); pocketSweepMisses(nb-audioLat()/_bps, nd); }catch(e){}   // silent/out-of-window MAIN misses (heard timeline) advance pocket + feed <70% reset
         } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _resolved.clear(); }
         const _raw=wasdMul(); _mulEff = _raw<_mulEff ? _raw : Math.min(_raw, _mulEff+0.35); }   // asymmetric envelope: calm lands INSTANTLY, punishment ramps +0.35/snap (a miss wakes the field over ~3 snaps instead of one full-amplitude jump-scare)
       for(let i=targets.length-1;i>=0;i--){
@@ -3828,7 +3783,7 @@ function animate(frameNow){
   try{ if(state.running) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
   try{ updateTanks(dt); }catch(e){ if(!updateTanks._e){ updateTanks._e=1; console.error('updateTanks',e); } }   // MULTI-HIT TANK: the per-chip shell pop
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
-  try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor beat-tint + cursor feedback + the converging fire-ring; guarded so a throw can't kill the frame
+  try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
   try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
@@ -3905,11 +3860,11 @@ if(beatCircleToggle) beatCircleToggle.addEventListener('click', (e)=>{
   queueCloudPrefs({wasd_hud:next});
   try{ showGhostToast(next?T('beatCircleHintOn','BEAT CIRCLE ON'):T('beatCircleHintOff','BEAT CIRCLE OFF')); }catch(err){}
 });
-if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)); _userOffsetSec=ms/1000; if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame, so the glow/windows shift as you drag
+if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)), next=ms/1000; if(next!==_userOffsetSec){ _userOffsetSec=next; rebasePocketMissTracking(); } if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame; pocket miss tracking rebases so a paused edit cannot back-fill a fake event
 if(offSlider) offSlider.addEventListener('change', ()=>{ queueCloudPrefs({offset_ms:Math.round(_userOffsetSec*1000)}); });
 if(calibBtn) calibBtn.addEventListener('click', ()=>{
   if(_tapOffN<6){ if(calibHint) calibHint.textContent=T('calibNotEnough','not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'); return; }
-  const avg=_tapOffSum/_tapOffN; _userOffsetSec=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg));   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
+  const avg=_tapOffSum/_tapOffN, nextOffset=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg)); if(nextOffset!==_userOffsetSec){ _userOffsetSec=nextOffset; rebasePocketMissTracking(); }   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
   const ms=Math.round(_userOffsetSec*1000); if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
   try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){}
   if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
@@ -3956,7 +3911,7 @@ function applyCloudPrefsRow(row){
   }
   if(typeof row.offset_ms==='number'&&isFinite(row.offset_ms)){
     const ms=Math.max(-120,Math.min(320,Math.round(row.offset_ms)));
-    _userOffsetSec=ms/1000;
+    const next=ms/1000; if(next!==_userOffsetSec){ _userOffsetSec=next; rebasePocketMissTracking(); }
     try{ localStorage.setItem('aimdojo.offsetMs', String(ms)); }catch(e){}
   }
   if(typeof row.low_rez==='boolean'){
@@ -4404,7 +4359,6 @@ function enterRunning(){
   closeTransitEssayReader(false); state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast(T('trainerToast','MOONLINE TRAINING')); }   // full runs name the song; trainer announces itself
   if(trainMode && trainCoachEl && trainCoachEl.textContent) trainCoachEl.classList.add('on');
-  if(pocketLive()){ pocketUpdateHud(); try{ if(_pocketPhase==='establish' && _pocketCount===0) showGhostToast(T('pocketFocus','ON THE BEAT')); }catch(e){} }
   reconcileTargetSounds();
   if(MOBILE) touchUI.classList.add('show');
 }
@@ -4414,7 +4368,6 @@ function exitRunning(){
   state.running=false; applyAudioState(); syncTransport();
   if(MOBILE) touchUI.classList.remove('show');
   if(trainCoachEl) trainCoachEl.classList.remove('on');   // coach is in-world only
-  try{ pocketUpdateHud(); }catch(e){}   // hide coach panel on pause
   showPause();
   scheduleReverbBuild(120);
 }
@@ -4465,7 +4418,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState();   // fresh balanced WASD combo + pocket language state per run
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState();   // fresh balanced WASD combo + pocket language state per run
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
