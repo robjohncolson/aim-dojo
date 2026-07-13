@@ -209,3 +209,20 @@ test("ordinary focused settings buttons do not strand gamepad resume", () => {
   assert.match(fn[0], /saveSkyDetails/);
   assert.match(fn[0], /transitEssayReader/);
 });
+
+test("groove pocket language is wired (CFG, machine, floor cue, HUD)", () => {
+  assert.match(html, /groovePocket\s*:\s*true/);
+  assert.match(html, /pocketEstablishBeats\s*:\s*10/);
+  assert.match(html, /pocketSampleBeats\s*:\s*4/);
+  assert.match(html, /pocketHoldSets\s*:\s*4/);
+  assert.match(html, /pocketAccFloor\s*:\s*0\.70/);
+  assert.match(html, /function pocketOnMain\b/);
+  assert.match(html, /function classifyPocket\b/);
+  assert.match(html, /function resetPocketState\b/);
+  assert.match(html, /id="pocketHud"/);
+  // floor peak phase follows pocket ideal; open-window stays absolute (no pocketIdeal on fire early)
+  assert.match(html, /cueI=pocketLive\(\)\?pocketIdeal\(pocketCueId\(\)\)/);
+  assert.doesNotMatch(html, /grooveFireEarlyBeat\s*=\s*pocketIdeal|grooveFireEarlyBeat.*pocketCueId/);
+  // trainer keeps pocket machine off
+  assert.match(html, /function pocketLive\(\)\{ return !!\(CFG\.groovePocket && CFG\.wasdRhythm && CFG\.grooveGroove && !trainMode && !MOBILE\); \}/);
+});
