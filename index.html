@@ -232,6 +232,21 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 
 /* ---- optional Save my sky (pause settings only) ---- */
 #settingsBox{max-width:430px!important}
+.observer-location{margin:8px 0 10px;padding:9px 0 10px;border-top:1px solid var(--panel-edge);border-bottom:1px solid var(--panel-edge);text-align:left}
+.observer-location[hidden]{display:none}
+.observer-location-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
+.observer-location-label{color:var(--bone-dim);font-size:10.5px;letter-spacing:.14em}
+.observer-location-mode{color:var(--bone-dim);font-size:9px;letter-spacing:.04em;text-align:right}
+.observer-location-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:7px;align-items:end}
+.observer-location-manual{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px;align-items:end}
+.observer-location-field{display:flex;flex-direction:column;gap:3px;min-width:0;color:var(--bone-dim);font-size:9px;letter-spacing:.08em}
+.observer-location input{width:100%;min-width:0;border:1px solid var(--panel-edge);border-radius:0;background:#0d110f;color:var(--bone);padding:7px 7px;font:11px var(--mono)}
+.observer-location input:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
+.observer-location .ghost{padding:7px 8px;font-size:9.5px;letter-spacing:.07em;white-space:nowrap}
+.observer-location button:disabled{cursor:not-allowed;opacity:.45}
+.observer-location-status{min-height:15px;margin-top:6px;color:var(--bone-dim);font-size:9.5px;line-height:1.4;letter-spacing:.03em}
+.observer-location-status.prompt{color:var(--rail)}
+@media (max-width:520px){.observer-location-actions{grid-template-columns:1fr}.observer-location-manual{grid-template-columns:1fr 1fr}.observer-location-manual .ghost{grid-column:1/-1}}
 .sky-save{margin:12px 0 2px;border-top:1px solid var(--panel-edge);padding-top:10px;text-align:left}
 .sky-save summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;color:var(--rail);letter-spacing:.16em;list-style:none;padding:4px 0;user-select:none}
 .sky-save summary::-webkit-details-marker{display:none}
@@ -344,7 +359,7 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
       <span><b>MOUSE</b><span id="mouseDesc">turn &amp; aim</span></span>
       <span><b>WASD</b><span id="wasdDesc">STEP on the shown letter when the floor flashes — steadies the Moonline</span></span>
       <span><b>L-CLICK</b><span id="clickDesc">SEND through the gap — land it while the Echo glows</span></span>
-      <span><b>R-CLICK</b><span id="freezeDesc">freeze / unfreeze the sky (time-of-day)</span></span>
+      <span><b>R-CLICK</b><span id="freezeDesc">dismiss sky notes · NATURAL stays live</span></span>
       <span><b>ESC</b><span id="escDesc">pause</span></span>
     </div>
 
@@ -352,6 +367,18 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
     <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
       <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="resolutionLabel" style="letter-spacing:.14em">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
       <div id="skyMotionRow" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="skyMotionLabel" style="letter-spacing:.14em">SKY&nbsp;MOTION</span><button type="button" class="ghost" id="skyMotionToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+      <section id="observerLocation" class="observer-location" aria-labelledby="observerLocationLabel" aria-describedby="observerLocationStatus">
+        <div class="observer-location-head"><span class="observer-location-label" id="observerLocationLabel">LOCATION</span><span class="observer-location-mode" id="observerLocationMode"></span></div>
+        <div class="observer-location-actions">
+          <button type="button" class="ghost" id="observerGeoButton"><span aria-hidden="true">⌖</span> <span id="observerGeoLabel">USE MY LOCATION</span></button>
+          <div class="observer-location-manual">
+            <label class="observer-location-field" for="observerLat"><span id="observerLatLabel">LAT</span><input id="observerLat" type="number" inputmode="decimal" min="-90" max="90" step="any" autocomplete="off" placeholder="38.0"></label>
+            <label class="observer-location-field" for="observerLon"><span id="observerLonLabel">LON</span><input id="observerLon" type="number" inputmode="decimal" min="-180" max="180" step="any" autocomplete="off" placeholder="-84.5"></label>
+            <button type="button" class="ghost" id="observerSave"><span id="observerSaveLabel">SAVE</span></button>
+          </div>
+        </div>
+        <div class="observer-location-status prompt" id="observerLocationStatus" role="status" aria-live="polite">SET LOCATION FOR TRUE SKY</div>
+      </section>
       <div id="beatCircleRow" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="beatCircleLabel" style="letter-spacing:.14em">BEAT&nbsp;CIRCLE</span><button type="button" class="ghost" id="beatCircleToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
       <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span id="offsetLabel" style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
       <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
@@ -463,11 +490,16 @@ window.JA={
   ledeMobileHtml:'虹のリンクを早めに送って、こだまが光るあいだに届けよう。れんしゅうは近くのこだまから。',
   phones:'ヘッドホンがおすすめ。世界の太鼓は耳の中に。音を出してね。',
   mouseDesc:'まわして ねらう', wasdDesc:'床が光ったら 見えている文字を踏む — 月の糸がととのう',
-  clickDesc:'あいだに送る — こだまが光るうちに届ける', freezeDesc:'空をとめる / うごかす（時刻）', escDesc:'ポーズ',
+  clickDesc:'あいだに送る — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる · NATURALは実時間のまま', escDesc:'ポーズ',
   beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
   modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
+  skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
+  observerLocation:'場所', observerGeo:'現在地を使う', observerLat:'緯度', observerLon:'経度', observerSave:'保存',
+  observerNaturalMode:'自然の空 · 現在地', observerTheatreMode:'任意 · NATURAL のみ', observerSetPrompt:'ほんとうの空には場所を設定', observerLocating:'現在地を確認中…',
+  observerGeoFailed:'現在地を取得できない · 緯度と経度を入力してね', observerManualInvalid:'緯度 −90〜90、経度 −180〜180 を両方入力', observerSaveFailed:'場所を保存できない',
+  observerManualSource:'手入力', observerGeoSource:'現在地', observerDefaultSource:'推定',
   saveSkyTitle:'わたしの空を保存', saveSkyHelp:'任意 · 保存しなくても遊べる。私用リンクをメールで受け取り、このブラウザで開いて1つのチャートを保存。',
   saveSkyEmail:'メール', saveSkyLink:'空のリンクをメール', saveSkySignOut:'サインアウト',
   saveSkyDate:'生年月日', saveSkyTime:'出生時刻', saveSkyUnknown:'時刻不明', saveSkyTz:'タイムゾーン',
@@ -482,8 +514,8 @@ window.JA={
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
   qrAria:'このページへのQRコード', shareUrlAria:'シェア用リンク', copy:'コピー', back:'もどる',
   mobileDrag:'ドラッグ', mobileDragDesc:'まわして ねらう', mobileSend:'送る', mobileSendDesc:'こだまが光るうちに届ける', mobilePause:'ポーズ',
-  coachP0:'月の糸をととのえて · 床が光ったら その文字を踏む · 右クリックで空をとめられる', coachP0Progress:'踏めた {n}/{N} · 床の色に合わせて',
-  coachP1:'あいだに送って · こだまが光るあいだにリンクを届ける · 右クリックで空をとめられる', coachP1Mobile:'リンクを送って · 光るあいだに届けて',
+  coachP0:'月の糸をととのえて · 床が光ったら その文字を踏む', coachP0Progress:'踏めた {n}/{N} · 床の色に合わせて',
+  coachP1:'あいだに送って · こだまが光るあいだにリンクを届ける', coachP1Mobile:'リンクを送って · 光るあいだに届けて',
   coachP1Progress:'声 {n}/{N} · 足もとも忘れずに', coachP1ProgressMobile:'声 {n}/{N} · 光る時に届けて',
   coachP2:'遠いこだまには早めに送る · 文字も踏みつづけて', coachP2Mobile:'遠いこだまには早めに送る · 先を読んで',
   coachP2Progress:'遠い声 {n}/{N} · つぎは満ちる夜', coachGraduate:'合唱はきみをおぼえた · 月先生が満ちる夜をひらく',
@@ -533,6 +565,7 @@ window.JA={
       txt('beatCircleLabel','beatCircleLabel');
       txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
+      txt('observerLocationLabel','observerLocation'); txt('observerGeoLabel','observerGeo'); txt('observerLatLabel','observerLat'); txt('observerLonLabel','observerLon'); txt('observerSaveLabel','observerSave'); txt('observerLocationStatus','observerSetPrompt');
       txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
       txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
       txt('transitEssayButtonLabel','transitEssayButton'); txt('transitEssayReaderEyebrow','transitEssayButton'); txt('transitEssayReaderWatchTitle','transitEssayWatchpoints'); txt('transitEssayReaderCloseLabel','transitEssayBack'); txt('transitEssayReaderEpistemic','transitEssayFallback');
@@ -551,6 +584,8 @@ window.JA={
 })();
 </script>
 
+<script src="observer-location.js"></script>
+<script src="local-sky.js"></script>
 <script src="save-my-sky.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -698,7 +733,7 @@ const SKY_MODE=(function(){
 // Cloud may later supersede skyMode via reload; URL always wins once for the session that set it.
 /* SPIN RATE (v2.2 + public settings): natural (new-visitor default = wall clock) · theatre (accelerated full-sky spin).
    Pause SKY MOTION toggle persists aimdojo.skyTime (live, no reload). URL ?theatre=1 / ?skyTime= still works.
-   NOTE: "natural" is civil-time orientation of the ecliptic sphere — NOT full Stellarium alt/az from lat/lon yet. */
+   Natural uses local-horizon orientation when an observer is known and keeps the civil-spin fallback while location is unset. */
 const SKY_TIMES=['natural','theatre'];
 let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without reload
   const q=location.search+location.hash;
@@ -709,6 +744,12 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
   try{ const v=localStorage.getItem('aimdojo.skyTime'); if(SKY_TIMES.indexOf(v)>=0) return v; }catch(e){}
   return 'natural';   // public default: real-time sky pace (theatre remains opt-in via pause / ?theatre=1)
 })();
+/* Observer location is local device data, separate from natal/profile data and every
+   share, dojo, leaderboard, URL, and cloud-pref channel. Null keeps the old civil-spin fallback. */
+const OBSERVER_PREFS=window.AimDojoObserver||null;
+const LOCAL_SKY_MATH=window.AimDojoLocalSky||null;
+let _skyObserver=(function(){ try{ return OBSERVER_PREFS?OBSERVER_PREFS.readObserver(localStorage):null; }catch(e){ return null; } })();
+function hasSkyObserver(){ return !!_skyObserver; }
 function cleanSkyApiBase(value){
   if(typeof value!=='string' || !value.trim()) return '';
   try{ const u=new URL(value.trim()); if((u.protocol!=='http:'&&u.protocol!=='https:') || u.username || u.password) return ''; u.search=''; u.hash=''; return u.toString().replace(/\/+$/,''); }catch(e){ return ''; }
@@ -1206,15 +1247,12 @@ function renderReflection(){
   const prev=renderer.getRenderTarget();
   renderer.setRenderTarget(reflRT); renderer.render(scene, mirrorCam); renderer.setRenderTarget(prev);
 }
-let dayPhase=0.82, skyFrozen=false;                          // dayPhase: 0=sunrise, .25=noon, .5=sunset, .75=midnight (start deep night). skyFrozen: right-click holds the time-of-day (keep a pretty sunset)
-/* ROTATING SPHERE CLOCK (v2.1 §2-4 + v2.2 spin rates, SKY_MODE clocked/clocked_chart): dayPhase spins the ENTIRE
-   celestial sphere (sticks + chart + ☉/☽ together, see skySphere below), not just the lighting. Longitudes stay
-   epoch-true ON the sphere (Leo never slides away from ☉); the spin only changes which half faces the horizon.
-   Lighting reads the transformed ☉'s real elevation, so sky and light can't disagree.
-   TWO RATES (SKY_TIME, v2.2): `natural` (default) — dayPhase IS the civil day fraction, re-read from the wall clock
-   every sky tick. `theatre` — seeded from civil at boot, then integrated at CFG.skyTheatreSec for a visible cycle.
+let dayPhase=0.82, skyFrozen=false;                          // dayPhase: theatre/fallback 0=sunrise, .25=noon, .5=sunset, .75=midnight. skyFrozen: theatre/decorative only
+/* CELESTIAL SPHERE ATTITUDE (SKY_MODE clocked/clocked_chart): longitudes stay epoch-true ON one sphere (sticks,
+   chart, ☉/☽). NATURAL + observer replaces the old noon anchor with a true UTC/local-horizon attitude; lighting
+   still reads the transformed ☉. THEATRE and location-unset NATURAL retain the original dayPhase spin below.
    FREEZE: theatre only (pretty sunsets). Natural has no freeze — live wall clock only (R-CLICK still dismisses Listen).
-   Civil mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. This is NOT observer alt/az (needs lat/lon — future). */
+   Civil fallback mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. */
 function clockedDayPhase(ms){ const d=new Date(ms); return ((d.getHours()+d.getMinutes()/60+d.getSeconds()/3600)/24 + 0.75) % 1; }
 if(SKY_MODE!=='decorative') dayPhase=clockedDayPhase(Date.now());   // theatre: the one-time civil seed; natural: redundant (re-read each tick) but keeps frame one honest
 const DAY_SLOW=0.32, DAY_FAST=4.2;                           // ease time: ~half the cycle in dawn/dusk, hurry through deep day/night (period preserved)
@@ -1244,13 +1282,16 @@ function updateSky(dt){
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
   if(SKY_MODE==='decorative'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1; }   // decorative: freeze holds pretty lighting
   else if(SKY_TIME==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE: accelerated spin; freeze pins phase
-  else { dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }   // NATURAL: always live wall clock — freeze disabled
+  else { dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }   // NATURAL: always live wall clock — freeze disabled; dayPhase remains the no-location fallback
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // decorative art sphere (stars + discs); in clocked* it only carries the no-fixture fallback stars
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
-  if(SKY_MODE!=='decorative'){                               // v2.1 G2/G4: ONE spin drives the whole celestial sphere; lighting reads the REAL ☉'s elevation after that spin
-    _qSpin.setFromAxisAngle(SPH_POLE, sunA-_sunLonRad);      // sphereAngle = spinPhase·360° − sunLon (spec §4.2, noonAnchor 0): the epoch ☉ culminates at theatre noon (dayPhase .25), rises/sets once per cycle, and every stick, ghost and seal co-rotates — Leo rides with ☉
-    skySphere.quaternion.copy(_qSpin).multiply(_qBase);
+  if(SKY_MODE!=='decorative'){                               // one attitude drives the whole celestial sphere; lighting reads the transformed ☉ below
+    const localAttitude=SKY_TIME==='natural'&&applyNaturalSkyAttitude(Date.now());
+    if(!localAttitude){                                     // THEATRE unchanged; also the documented playable fallback while natural location is unset
+      _qSpin.setFromAxisAngle(SPH_POLE, sunA-_sunLonRad);    // sphereAngle = spinPhase·360° − sunLon: epoch ☉ culminates at theatre/fallback noon and every layer co-rotates
+      skySphere.quaternion.copy(_qSpin).multiply(_qBase);
+    }
     if(_lum) sunDir.copy(_lum.sun.glyph.position).applyQuaternion(skySphere.quaternion).normalize();   // the glyph IS the sun: dome tint, day fraction and key light all follow its true elevation, so light and sky can never disagree
   }
   const sunY=sunDir.y, day=smooth(-0.12,0.22,sunY), tw=Math.max(0,1-Math.abs(sunY)/0.26); dayAmt=day;  // day 0..1 (exposed for ARC-viz day contrast), dawn/dusk warmth
@@ -1289,23 +1330,21 @@ function updateSky(dt){
 }
 let skyT=0;
 
-/* ========================= PERSONAL PLANETARIUM v2.1: rotating celestial sphere =========================
+/* ========================= PERSONAL PLANETARIUM: one oriented celestial sphere =========================
    SPEC_PERSONAL_PLANETARIUM_V2_1.md Parcel G (supersedes v2's lifted always-up band for clocked*). AESTHETIC ONLY —
    spawn/fire/groove/score/leaderboard never read skypack data, and the floor stays night-grid/day-checker (no chart
    below). Pack loads off the boot path and soft-fails → plain clocked. Skypacks are LOCAL ONLY: never sent to
    Supabase, share links, or multiplayer.
    MODEL (v2.1 §2/§4 + visual simplify Parcel L): ONE SPHERE. Sticks, sign/body glyphs and ☉/☽ are children of `skySphere`,
    placed once in the sphere-LOCAL frame where the ecliptic is the sphere's EQUATOR (great circle, eclipticDir).
-   Every sky tick the whole sphere is re-oriented: spin axis = local ecliptic pole tipped ecl.tiltDeg from vertical
-   toward +Z (so bodies culminate at ~tiltDeg elevation toward the boot view −Z, rise +X / set −X), spun by
-   sphereAngle = spinPhase·360° − sunLon  (spec §4.2 sketch, noonAnchor=0 in this frame → the pack ☉ culminates at
-   noon, dayPhase .25). spinPhase = dayPhase (v2.2 SKY_TIME: theatre integrates at CFG.skyTheatreSec by default;
-   natural re-reads wall-clock pace; freeze pins either one);
+   NATURAL with an observer applies a full ecliptic→equatorial→local-horizontal attitude from UTC. THEATRE keeps
+   the original artistic pole/base and sphereAngle = spinPhase·360° − sunLon; location-unset natural uses that same
+   civil-spin fallback. Only theatre integrates at CFG.skyTheatreSec or freezes.
    sunLon only moves with EPOCH (pack / approx), never with the spin — Leo rides with ☉, nothing slides along the
    zodiac. The HORIZON does the day/night editing: sprites get a CPU elevation test, line/point geometry a GPU
    world-Y fade — the nocturnal half of the chart is genuinely under the floor until the sphere carries it up.
    Lighting reads the REAL transformed ☉ elevation (no second fake sun path). Reference frame math lives in
-   sidereal sky_sphere.py; Parcel L changes only visual density, never this spin/horizon behavior. */
+   local-sky.js; Parcel L changes only visual density, never this attitude/horizon behavior. */
 const SKY_CHART={ R:315,   // chart radius (inside the 330 stick shell and the 340 star shell)
   ecl:{tiltDeg:58, latMax:60},   // tiltDeg: spin-axis tip from vertical = culmination elevation of the ecliptic; latMax clamps hostile star latitudes
   dayAtmos:0.30,                                     // D7: daytime atmosphere weight in clocked* (~30% — atmosphere is scenery, glyphs center stage)
@@ -1328,8 +1367,23 @@ const _chartSignSprite=Object.create(null), _chartMoverSprite=Object.create(null
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
 const SPH_TILT=SKY_CHART.ecl.tiltDeg*Math.PI/180;
 const SPH_POLE=new THREE.Vector3(0, Math.cos(SPH_TILT), Math.sin(SPH_TILT));   // world spin axis: local ecliptic pole tipped toward +Z → culmination toward −Z (boot view)
-const _qBase=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), SPH_TILT);   // rests the local equator (the ecliptic) onto the tilted spin plane
-const _qSpin=new THREE.Quaternion(), _hzV=new THREE.Vector3();
+const _qBase=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), SPH_TILT);   // theatre/no-location fallback: rests the ecliptic on the artistic tilted plane
+const _qSpin=new THREE.Quaternion(), _qLocalSky=new THREE.Quaternion(), _localSkyMatrix=new THREE.Matrix4(), _hzV=new THREE.Vector3();
+function applyNaturalSkyAttitude(utcMs){
+  if(!LOCAL_SKY_MATH||!_skyObserver) return false;
+  try{
+    // The sphere-local fixtures and day-pack movers are lon_j2000, so keep the
+    // obliquity in that same frame (the date-vs-J2000 difference is tiny but avoidable).
+    const m=LOCAL_SKY_MATH.eclipticLocalToWorldMatrix(_skyObserver.lat,_skyObserver.lon,new Date(utcMs),{obliquityDeg:LOCAL_SKY_MATH.J2000_OBLIQUITY_DEG});
+    _localSkyMatrix.set(m[0],m[1],m[2],0,m[3],m[4],m[5],0,m[6],m[7],m[8],0,0,0,0,1);
+    _qLocalSky.setFromRotationMatrix(_localSkyMatrix).normalize();
+    if(!isFinite(_qLocalSky.x)||!isFinite(_qLocalSky.y)||!isFinite(_qLocalSky.z)||!isFinite(_qLocalSky.w)) return false;
+    // Proper THREE frame: +X=west, +Y=zenith, +Z=north (astronomical east is -X).
+    // This keeps the boot camera looking south along -Z; azimuth remains standard north-through-east.
+    skySphere.quaternion.copy(_qLocalSky);
+    return true;
+  }catch(e){ return false; }
+}
 const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)
 const _chartFade=[];    // {mat,a0[,pulseP]} every chart material — the clean glyph/stick layer melts toward a whisper in daylight
 const _chartBreath=[];  // {sp,s0,ph} mover/luminary sprites — slow glyph breath (never populated under reduceMotion / LOW)
@@ -2205,7 +2259,7 @@ function setTrainPhase(p){
     CFG.patternConcurrency=0; CFG.densityScale=0; CFG.bpmUp=0;
     CFG.wasdWindow=0.22; CFG.wasdWindowFrac=0.55;   // forgiving letter window + training rings
     applyWasdHudPref(true);
-    showTrainCoach(T('coachP0','STEADY THE MOONLINE · tap the letter when the floor flashes · R-CLICK freezes the sky'));
+    showTrainCoach(T('coachP0','STEADY THE MOONLINE · tap the letter when the floor flashes'));
   } else if(p===1){
     CFG.patternConcurrency=1; CFG.minGap=7; CFG.densityScale=0.9; CFG.bpmUp=1;
     CFG.grooveOpenSec=[0.52,0.44];   // wide glow window — learn "land on the glow"
@@ -2216,7 +2270,7 @@ function setTrainPhase(p){
     applyWasdHudPref(!MOBILE);
     showTrainCoach(MOBILE
       ? T('coachP1Mobile','SEND THE LINK · make it LAND while the Echo glows')
-      : T('coachP1','SEND THROUGH THE GAP · land on the glow · R-CLICK freezes the sky'));
+      : T('coachP1','SEND THROUGH THE GAP · land on the glow'));
   } else if(p===2){
     CFG.patternConcurrency=2; CFG.minGap=6; CFG.densityScale=1; CFG.bpmUp=1.5;
     CFG.grooveOpenSec=[0.40,0.30];
@@ -2884,7 +2938,7 @@ function fire(){
   if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
   addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
-canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click toggles the sky/time-of-day freeze
+canvas.addEventListener('mousedown', e=>{ if(e.button===0) fire(); else if(e.button===2) toggleSkyFreeze(); });   // right-click dismisses Listen first; only theatre/decorative may then freeze the sky
 const _WASD_CODE={KeyW:0,KeyA:1,KeyS:2,KeyD:3};
 function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND gamepad (face buttons / D-pad).
   if(!state.running) return;
@@ -3954,6 +4008,96 @@ const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), 
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 /* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
 const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), skyMotionToggle=gid('skyMotionToggle'), skyMotionRow=gid('skyMotionRow'), beatCircleToggle=gid('beatCircleToggle'), beatCircleRow=gid('beatCircleRow'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
+const observerUi={
+  root:gid('observerLocation'), mode:gid('observerLocationMode'), status:gid('observerLocationStatus'),
+  geo:gid('observerGeoButton'), lat:gid('observerLat'), lon:gid('observerLon'), save:gid('observerSave')
+};
+let _observerGeoState='idle', _observerGeoSeq=0, _observerFormDirty=false, _observerNotice='';
+let _observerGeoTriedSession=(function(){ try{ return !!(OBSERVER_PREFS&&OBSERVER_PREFS.hasGeoTried(localStorage)); }catch(e){ return false; } })();
+function observerDegrees(value,positive,negative){
+  const number=Math.abs(value), shown=number.toFixed(4).replace(/(?:\.0+|(?:(\.\d*?)0+))$/,'$1');
+  return shown+'°'+(value<0?negative:positive);
+}
+function observerStatusText(){
+  if(_observerGeoState==='locating') return T('observerLocating','FINDING YOUR LOCATION…');
+  if(_observerNotice) return _observerNotice;   // surface invalid/manual storage failures even when an older valid observer remains active
+  if(_skyObserver){
+    const source=_skyObserver.source==='manual'?T('observerManualSource','MANUAL')
+      : _skyObserver.source==='geo'?T('observerGeoSource','DEVICE'):T('observerDefaultSource','APPROX');
+    return source+' · '+observerDegrees(_skyObserver.lat,'N','S')+' '+observerDegrees(_skyObserver.lon,'E','W');
+  }
+  if(SKY_TIME==='theatre') return T('observerTheatreMode','OPTIONAL · USED ONLY IN NATURAL');
+  if(_observerGeoState==='failed') return T('observerGeoFailed','LOCATION UNAVAILABLE · ENTER LAT/LON');
+  return T('observerSetPrompt','SET LOCATION FOR TRUE SKY');
+}
+function renderObserverSettings(){
+  const decorative=SKY_MODE==='decorative';
+  if(observerUi.root){ observerUi.root.hidden=decorative; if(decorative) return; }
+  if(observerUi.mode) observerUi.mode.textContent=SKY_TIME==='theatre'
+    ? T('observerTheatreMode','OPTIONAL · USED ONLY IN NATURAL')
+    : T('observerNaturalMode','NATURAL · LOCAL HORIZON');
+  if(observerUi.geo) observerUi.geo.disabled=_observerGeoState==='locating';
+  if(!_observerFormDirty && _skyObserver && document.activeElement!==observerUi.lat && document.activeElement!==observerUi.lon){
+    if(observerUi.lat) observerUi.lat.value=String(_skyObserver.lat);
+    if(observerUi.lon) observerUi.lon.value=String(_skyObserver.lon);
+  }
+  if(observerUi.status){
+    observerUi.status.textContent=observerStatusText();
+    observerUi.status.classList.toggle('prompt',!_skyObserver&&SKY_TIME==='natural');
+  }
+}
+function persistSkyObserver(lat,lon,source){
+  if(!OBSERVER_PREFS) throw new Error('Observer preferences unavailable');
+  _skyObserver=OBSERVER_PREFS.saveObserver(localStorage,{lat:lat,lon:lon,source:source,updatedAt:Date.now()});
+  return _skyObserver;
+}
+function saveManualObserver(){
+  if(!OBSERVER_PREFS) return;
+  const lat=OBSERVER_PREFS.coordinate(observerUi.lat&&observerUi.lat.value,-90,90);
+  const lon=OBSERVER_PREFS.coordinate(observerUi.lon&&observerUi.lon.value,-180,180);
+  const invalid=T('observerManualInvalid','ENTER LAT −90…90 AND LON −180…180');
+  if(observerUi.lat) observerUi.lat.setCustomValidity(lat===null?invalid:'');
+  if(observerUi.lon) observerUi.lon.setCustomValidity(lon===null?invalid:'');
+  if(lat===null||lon===null){
+    _observerNotice=invalid; renderObserverSettings();
+    const first=lat===null?observerUi.lat:observerUi.lon; if(first) try{ first.reportValidity(); }catch(e){}
+    return;
+  }
+  ++_observerGeoSeq;   // a pending automatic lookup must never overwrite an explicit manual save
+  try{
+    persistSkyObserver(lat,lon,'manual'); _observerGeoState='idle'; _observerNotice=''; _observerFormDirty=false;
+  }catch(e){ _observerNotice=T('observerSaveFailed','LOCATION COULD NOT BE SAVED'); }
+  renderObserverSettings();
+}
+function requestObserverGeolocation(explicit){
+  explicit=explicit===true;
+  if(_observerGeoState==='locating') return;
+  if(!explicit && (_skyObserver||_observerGeoTriedSession)) return;
+  _observerGeoTriedSession=true;
+  try{ if(OBSERVER_PREFS) OBSERVER_PREFS.markGeoTried(localStorage); }catch(e){}
+  if(!navigator.geolocation||typeof navigator.geolocation.getCurrentPosition!=='function'){
+    _observerGeoState='failed'; _observerNotice=''; renderObserverSettings(); return;
+  }
+  const seq=++_observerGeoSeq;
+  _observerGeoState='locating'; _observerNotice=''; renderObserverSettings();
+  navigator.geolocation.getCurrentPosition(position=>{
+    if(seq!==_observerGeoSeq) return;
+    // Manual wins over the one-shot boot lookup. A deliberate USE MY LOCATION click may replace it.
+    if(!explicit&&_skyObserver&&_skyObserver.source==='manual'){ _observerGeoState='idle'; renderObserverSettings(); return; }
+    const coords=position&&position.coords;
+    const lat=OBSERVER_PREFS&&OBSERVER_PREFS.coordinate(coords&&coords.latitude,-90,90);
+    const lon=OBSERVER_PREFS&&OBSERVER_PREFS.coordinate(coords&&coords.longitude,-180,180);
+    try{
+      if(lat===null||lon===null) throw new RangeError('Invalid device coordinates');
+      persistSkyObserver(lat,lon,'geo'); _observerGeoState='idle'; _observerFormDirty=false;
+      if(observerUi.lat) observerUi.lat.setCustomValidity(''); if(observerUi.lon) observerUi.lon.setCustomValidity('');
+    }catch(e){ _observerGeoState='failed'; }
+    renderObserverSettings();
+  },()=>{
+    if(seq!==_observerGeoSeq) return;
+    _observerGeoState='failed'; _observerNotice=''; renderObserverSettings();
+  },{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
+}
 function refreshSettings(){
   if(!settingsBox) return;
   if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
@@ -3964,8 +4108,9 @@ function refreshSettings(){
   if(skyMotionRow) skyMotionRow.style.display=(SKY_MODE==='decorative')?'none':'flex';
   if(skyMotionToggle && SKY_MODE!=='decorative'){
     skyMotionToggle.textContent = SKY_TIME==='theatre' ? T('skyTheatreOn','THEATRE ▸ tap for NATURAL') : T('skyNaturalOn','NATURAL ▸ tap for THEATRE');
-    skyMotionToggle.title = SKY_TIME==='theatre' ? T('skyTheatreHint','full sky spins ~every few minutes · R-CLICK freezes') : T('skyNaturalHint','wall-clock sky · no freeze · not full lat/lon alt-az yet');
+    skyMotionToggle.title = SKY_TIME==='theatre' ? T('skyTheatreHint','full sky spins ~every few minutes · R-CLICK freezes') : T('skyNaturalHint','wall-clock local sky · no freeze');
   }
+  renderObserverSettings();
   if(beatCircleToggle){
     const on=!!CFG.wasdHud;
     beatCircleToggle.textContent = on ? T('beatCircleOn','ON ▸ tap for OFF') : T('beatCircleOff','OFF ▸ tap for ON');
@@ -4001,7 +4146,13 @@ if(skyMotionToggle) skyMotionToggle.addEventListener('click', (e)=>{   // live t
   try{ localStorage.setItem('aimdojo.skyTime', SKY_TIME); }catch(err){}
   try{ dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }catch(err){}
   refreshSettings();
+  if(SKY_TIME==='natural') requestObserverGeolocation(false);
   queueCloudPrefs({sky_time:SKY_TIME});
+});
+if(observerUi.geo) observerUi.geo.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); requestObserverGeolocation(true); });
+if(observerUi.save) observerUi.save.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); saveManualObserver(); });
+for(const input of [observerUi.lat,observerUi.lon]) if(input) input.addEventListener('input',()=>{
+  _observerFormDirty=true; _observerNotice=''; input.setCustomValidity(''); if(_observerGeoState==='failed') _observerGeoState='idle'; renderObserverSettings();
 });
 if(beatCircleToggle) beatCircleToggle.addEventListener('click', (e)=>{
   e.preventDefault(); e.stopPropagation();
@@ -4963,6 +5114,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; try{ localStorag
 renderPrimary(false,false);
 animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
 const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.requestIdleCallback(fn,{timeout:timeout||delay||1000}); else setTimeout(fn,delay||0); };
+if(SKY_MODE!=='decorative'&&SKY_TIME==='natural'&&!hasSkyObserver()) runIdle(()=>{ requestObserverGeolocation(false); },420,1800);   // one persisted, nonblocking attempt; denial falls back to the manual pause fields and never blocks play
 if(SKY_MODE==='decorative') runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
 else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick figures REPLACE the random starfield (v2 D4)
   if(c) try{ buildZodiacSticks(c); }catch(e){}

@@ -27,6 +27,104 @@ test("Save my sky remains inside pause settings and outside PLAY controls", () =
   assert.ok(html.indexOf('<div id="modePick"') > html.indexOf(pauseBlock[0]) + pauseBlock[0].length);
 });
 
+test("observer location controls sit directly under SKY MOTION and remain pause-only", () => {
+  const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
+  assert.ok(pauseBlock);
+  const locationBlock = pauseBlock[0].match(/<section id="observerLocation"[^>]*>[\s\S]*?<\/section>/);
+  assert.ok(locationBlock, "observer controls are inside pause settings");
+  assert.ok(pauseBlock[0].indexOf('id="skyMotionRow"') < pauseBlock[0].indexOf('id="observerLocation"'));
+  assert.ok(pauseBlock[0].indexOf('id="observerLocation"') < pauseBlock[0].indexOf('id="beatCircleRow"'));
+  assert.match(locationBlock[0], /id="observerGeoButton"[^>]*>[\s\S]*USE MY LOCATION/i);
+  assert.match(locationBlock[0], /id="observerLocationStatus"[^>]*role="status"[^>]*aria-live="polite"/i);
+
+  const lat = locationBlock[0].match(/<input[^>]*id="observerLat"[^>]*>/i);
+  const lon = locationBlock[0].match(/<input[^>]*id="observerLon"[^>]*>/i);
+  assert.ok(lat && lon);
+  assert.match(lat[0], /type="number"/i);
+  assert.match(lat[0], /min="-90"/i);
+  assert.match(lat[0], /max="90"/i);
+  assert.match(lon[0], /min="-180"/i);
+  assert.match(lon[0], /max="180"/i);
+  assert.doesNotMatch(locationBlock[0], /\sname=/i, "native form serialization cannot leak coordinates");
+
+  assert.match(html, /<script src="observer-location\.js"><\/script>[\s\S]*?<script src="local-sky\.js"><\/script>/);
+});
+
+test("observer acquisition is one-shot, fail-soft, and manual-safe", () => {
+  const request = html.match(/function requestObserverGeolocation\(explicit\)[\s\S]*?\n\}/);
+  assert.ok(request);
+  assert.match(request[0], /!explicit && \(_skyObserver\|\|_observerGeoTriedSession\)/);
+  assert.match(request[0], /markGeoTried\(localStorage\)/);
+  assert.match(request[0], /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(request[0], /timeout:8000/);
+  assert.match(request[0], /maximumAge:300000/);
+  assert.match(request[0], /seq!==_observerGeoSeq/);
+  assert.match(request[0], /!explicit&&_skyObserver&&_skyObserver\.source==='manual'/);
+  assert.doesNotMatch(request[0], /fetch\(|queueCloudPrefs|enterRunning|startRun/);
+
+  const manual = html.match(/function saveManualObserver\(\)[\s\S]*?\n\}/);
+  assert.ok(manual);
+  assert.match(manual[0], /coordinate\([^\n]*,-90,90\)/);
+  assert.match(manual[0], /coordinate\([^\n]*,-180,180\)/);
+  assert.match(manual[0], /\+\+_observerGeoSeq/);
+  assert.match(manual[0], /persistSkyObserver\(lat,lon,'manual'\)/);
+
+  assert.match(html, /if\(SKY_MODE!=='decorative'&&SKY_TIME==='natural'&&!hasSkyObserver\(\)\) runIdle\(\(\)=>\{ requestObserverGeolocation\(false\); \}/);
+  const render = html.match(/function renderObserverSettings\(\)[\s\S]*?\n\}/);
+  assert.ok(render);
+  assert.match(render[0], /observerUi\.root\.hidden=decorative/);
+  assert.match(render[0], /observerTheatreMode/);
+  const status = html.match(/function observerStatusText\(\)[\s\S]*?\n\}/);
+  assert.ok(status);
+  assert.match(status[0], /observerSetPrompt/);
+  assert.match(status[0], /observerGeoFailed/);
+  assert.ok(status[0].indexOf("if(_observerNotice)") < status[0].indexOf("if(_skyObserver)"));
+
+  for (const key of [
+    "observerLocation", "observerGeo", "observerLat", "observerLon", "observerSave",
+    "observerNaturalMode", "observerTheatreMode", "observerSetPrompt", "observerLocating",
+    "observerGeoFailed", "observerManualInvalid", "observerSaveFailed",
+  ]) assert.match(html, new RegExp(`${key}:`), `${key} is present in window.JA`);
+});
+
+test("natural uses a full local-sky attitude while theatre keeps the original sphere spin", () => {
+  const attitude = html.match(/function applyNaturalSkyAttitude\(utcMs\)\{[\s\S]*?\n\}/);
+  assert.ok(attitude);
+  assert.match(attitude[0], /if\(!LOCAL_SKY_MATH\|\|!_skyObserver\) return false/);
+  assert.match(attitude[0], /eclipticLocalToWorldMatrix\(_skyObserver\.lat,_skyObserver\.lon,new Date\(utcMs\),\{obliquityDeg:LOCAL_SKY_MATH\.J2000_OBLIQUITY_DEG\}\)/);
+  assert.match(attitude[0], /_localSkyMatrix\.set\(m\[0\],m\[1\],m\[2\],0,m\[3\],m\[4\],m\[5\],0,m\[6\],m\[7\],m\[8\],0,0,0,0,1\)/);
+  assert.match(attitude[0], /_qLocalSky\.setFromRotationMatrix\(_localSkyMatrix\)\.normalize\(\)/);
+  assert.match(attitude[0], /skySphere\.quaternion\.copy\(_qLocalSky\)/);
+  assert.match(attitude[0], /\+X=west, \+Y=zenith, \+Z=north/);
+
+  const update = html.match(/function updateSky\(dt\)\{[\s\S]*?\n\}\nlet skyT=/);
+  assert.ok(update);
+  assert.match(update[0], /else if\(SKY_TIME==='theatre'\)\{ if\(!skyFrozen\) dayPhase=/);
+  assert.match(update[0], /else \{ dayPhase=clockedDayPhase\(Date\.now\(\)\); skyFrozen=false; \}/);
+  assert.match(update[0], /const localAttitude=SKY_TIME==='natural'&&applyNaturalSkyAttitude\(Date\.now\(\)\)/);
+  assert.match(update[0], /if\(!localAttitude\)[\s\S]*?_qSpin\.setFromAxisAngle\(SPH_POLE, sunA-_sunLonRad\)/);
+  assert.match(update[0], /skySphere\.quaternion\.copy\(_qSpin\)\.multiply\(_qBase\)/);
+  assert.match(update[0], /sunDir\.copy\(_lum\.sun\.glyph\.position\)\.applyQuaternion\(skySphere\.quaternion\)\.normalize\(\)/);
+
+  const horizon = html.match(/function updateChartSky\(\)\{[\s\S]*?\n\}/);
+  const pick = html.match(/function pickCelestial\(\)\{[\s\S]*?\n\}/);
+  assert.ok(horizon && pick);
+  assert.match(horizon[0], /applyQuaternion\(skySphere\.quaternion\)/);
+  assert.match(pick[0], /applyQuaternion\(skySphere\.quaternion\)/);
+});
+
+test("natural right-click dismisses Listen but cannot mutate the sky freeze", () => {
+  const freeze = html.match(/function toggleSkyFreeze\(\)\{[\s\S]*?\n\}/);
+  assert.ok(freeze);
+  const dismissIndex = freeze[0].indexOf("dismissListenIfOpen()");
+  const naturalIndex = freeze[0].indexOf("SKY_TIME==='natural'");
+  const mutationIndex = freeze[0].indexOf("skyFrozen=!skyFrozen");
+  assert.ok(dismissIndex >= 0 && naturalIndex > dismissIndex && mutationIndex > naturalIndex);
+  assert.match(freeze[0], /if\(SKY_MODE!=='decorative' && SKY_TIME==='natural'\)[\s\S]*?return;/);
+  assert.match(html, /id="freezeDesc">dismiss sky notes · NATURAL stays live</);
+  assert.doesNotMatch(html, /R-CLICK freezes the sky/);
+});
+
 test("Today's sky note control is chart-gated inside pause settings", () => {
   const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
   assert.ok(pauseBlock);
@@ -315,18 +413,26 @@ test("dojo submission allowlist contains no profile or birth fields", () => {
   assert.ok(row, "leaderboard row literal is present");
   const keys = [...row[0].matchAll(/(?:\{|,)\s*([a-z_]+)\s*:/g)].map((match) => match[1]);
   assert.deepEqual(keys, ["client_id", "name", "peak_bpm", "runtime", "far", "high", "streak", "kills"]);
-  assert.doesNotMatch(row[0], /birth|\bplace\b|\blat\b|\blon\b|\btz\b|profile|natal|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|body|watchpoint|epistemic/i);
+  assert.doesNotMatch(row[0], /birth|\bplace\b|\blat\b|\blon\b|\btz\b|observer|profile|natal|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|body|watchpoint|epistemic/i);
 });
 
 test("share links and dojo POST bodies cannot receive private study content", () => {
   const shareLink = html.match(/function linkUrl\(\)\{[^}]*\}/);
   assert.ok(shareLink);
   assert.match(shareLink[0], /location\.origin\+location\.pathname/);
-  assert.doesNotMatch(shareLink[0], /location\.(?:search|hash)|URLSearchParams|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|body|watchpoint|epistemic/i);
+  assert.doesNotMatch(shareLink[0], /location\.(?:search|hash)|URLSearchParams|observer|aimdojo\.observer|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|body|watchpoint|epistemic/i);
 
   const submit = html.match(/async function submitDojo\(\)[\s\S]*?function _localRuntime/);
   assert.ok(submit);
-  assert.doesNotMatch(submit[0], /essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|watchpoint|epistemic|birth|\bplace\b|\blat\b|\blon\b|\btz\b|profile|natal/i);
+  assert.doesNotMatch(submit[0], /observer|aimdojo\.observer|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|watchpoint|epistemic|birth|\bplace\b|\blat\b|\blon\b|\btz\b|profile|natal/i);
+
+  const realtime = html.match(/function broadcastAim\(\)[\s\S]*?const REMOTE_UPDATE_STEP/);
+  assert.ok(realtime);
+  assert.doesNotMatch(realtime[0], /observer|aimdojo\.observer|\blat\b|\blon\b/i);
+
+  const cloud = html.match(/const CLOUD_PREF_SELECT=[\s\S]*?let _cloudPrefsTimer/);
+  assert.ok(cloud);
+  assert.doesNotMatch(cloud[0], /observer|observer_lat|observer_lon/i);
 });
 
 test("token-bearing base is fixed config, never the public URL override", () => {
