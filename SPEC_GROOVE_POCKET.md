@@ -86,8 +86,8 @@ When the **expected** pocket is `E` with ideal offset `I(E)`:
 ```js
 // suggested defaults — tune by ear
 groovePocket: true,              // master kill-switch
-pocketEstablishBeats: 10,        // on-only focus
-pocketSampleBeats: 4,            // listen, no punishment
+pocketEstablishBeats: 12,        // on-only focus = 3 bars of 4
+pocketSampleBeats: 4,            // listen (1 bar), no punishment
 pocketHoldSets: 4,               // sets per hold
 pocketHoldSetBeats: 4,           // beats per set → 16 hold beats
 pocketAccFloor: 0.70,            // reset threshold
@@ -122,13 +122,17 @@ If `main` is not available for a press path, fall back to counting each resolved
 
 | Phase | Length (main notes) | Expected pocket | Accuracy graded? | Sample votes? |
 |-------|---------------------|-----------------|------------------|---------------|
-| `establish` | 10 | forced `on` | yes (must be `on`) | no |
-| `sample` | 4 | any of 3 | **no** (soft — still freeze if in any bin) | yes |
+| `establish` | 12 (3×4) | forced `on` | yes (must be `on`) | no |
+| `sample` | 4 (LISTENING) | any of 3 | **no** (soft — still freeze if in any bin) | yes |
 | `hold` | 16 | last sample winner | yes vs active pocket | no |
 
 After a completed hold with accuracy ≥ floor → enter **sample** again (re-measure).  
 After sample → set active pocket from majority → **hold**.  
-Ties in sample: prefer `on`, then previous pocket if still tied, else `on`.
+Sample majority: **unique max wins**. Ties: prefer `on`, then previous pocket if it is among the tied tops, else `on` (never an arbitrary first-among-equals when `on` lost).  
+
+**Main-note claim (high BPM / nd≥2):** pocket presses must bind to the **nearest unresolved MAIN** (`ci % nd === 0`) using the phase’s pocket ideals (±¼ for sample, expected pocket for hold, 0 for establish). Do not resolve a ±¼ tap as the adjacent 16th/8th bonus note.  
+
+**Silent misses:** mains that pass the layback window without resolve call `pocketOnMainMiss` (via `pocketSweepMisses` on the heard timeline) so stopping input still advances phases and can trip the &lt;70% reset.
 
 ### Accuracy for reset
 
@@ -230,17 +234,20 @@ Do **not** change `WASD_HEX` colors for pocket identity; phase is the language. 
 
 Minimal, non-spammy:
 
-1. **Compact phase readout** (HUD or coach line), e.g.  
-   - `FOCUS 3/10`  
-   - `LISTEN 2/4`  
-   - `HOLD PUSH 78%`  
-   - `HOLD ON 64%` → then after reset `FOCUS 1/10`
+1. **Main-screen coach panel** (always on while pocket is live):  
+   - Phase title: `ON THE BEAT` · `LISTENING` · `PLAY · PUSH`  
+   - Help line explaining what is expected  
+   - **4-beat notation strip** (♩ positions: early / center / late)  
+     - establish: ON row only  
+     - listening: all three rows (PUSH / ON / LAYBACK)  
+     - hold: only the active pocket row  
+   - Count: `4/12 · BAR 2/3` or `BAR 2/4 · ACC 78%`
 
-2. **Optional one-shot toast** on phase enter only (not every beat):  
-   - establish: `FIND THE CENTER`  
-   - sample: `SHOW YOUR POCKET`  
-   - hold: `HOLD · PUSH` / `HOLD · ON` / `HOLD · LAYBACK`  
-   - reset: `REFOCUS`
+2. **One-shot toast** on phase enter only (not every beat):  
+   - establish: `ON THE BEAT`  
+   - sample: `LISTENING`  
+   - hold: `PLAY · PUSH` / `PLAY · ON` / `PLAY · LAYBACK`  
+   - reset: `REFOCUS · ON THE BEAT`
 
 3. Reuse existing tap timing text if enabled (`wasdTapText`): show pocket-relative AHEAD/BEHIND when useful.
 
@@ -325,8 +332,8 @@ In `updateFloorBeat`:
 
 ## 13. Summary cycle (canonical)
 
-1. **10** main notes — establish **on** (focus).  
-2. **4** main notes — sample pocket (push / on / layback).  
-3. **4 × 4 = 16** main notes — hold that pocket (freeze + floor phase).  
+1. **12** main notes (3 bars of 4) — establish **on** (focus).  
+2. **4** main notes — **LISTENING** sample (push / on / layback); show all three notation rows.  
+3. **4 × 4 = 16** main notes — hold that pocket (freeze + floor phase + expected score).  
 4. Repeat sample → hold.  
 5. If hold accuracy **&lt; 70%** → back to step 1.

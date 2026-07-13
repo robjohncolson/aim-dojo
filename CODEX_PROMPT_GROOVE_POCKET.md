@@ -67,9 +67,9 @@ Be **literal** to the spec. Prefer small, reviewable diffs. Do not invent combat
 
 ### Phase lengths (defaults)
 
-- Establish: **10** main WASD notes  
-- Sample: **4** main notes  
-- Hold: **4 sets × 4 beats = 16** main notes  
+- Establish: **12** main WASD notes (3 bars of 4)  
+- Sample: **4** main notes (**LISTENING** — not scored; show all three notation rows)  
+- Hold: **4 sets × 4 beats = 16** main notes (show expected pocket score)  
 - Accuracy floor: **0.70**  
 - Count **main** notes only for phase progress (existing `main` flag in WASD path)
 
