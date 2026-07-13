@@ -52,6 +52,7 @@ test("Sky Temple config and fixed investigation shell stay opt-in and data-first
   assert.match(panel[0], /aria-hidden="true"/);
   assert.match(panel[0], /id="skyTempleTitle"/);
   assert.match(panel[0], /id="skyTempleMeta"/);
+  assert.match(panel[0], /id="skyTempleBody"/, "full study copy lives in the temple body pane");
   assert.doesNotMatch(panel[0], /skyListenCard|essay|DeepSeek/i);
 
   const templeCss = html.match(/body\.temple-active\s+:is\([^)]+\)\s*\{[^}]+\}/);
@@ -145,7 +146,12 @@ test("enter and exit form a reversible no-combat temple shell", () => {
   assert.match(fire, /templeActive[\s\S]*?(?:focus|pick)[A-Za-z]*SkyTemple/i);
 
   const exitRun = namedFunction("exitRunning");
-  assert.match(exitRun, /templeActive[\s\S]*?exitSkyTemple\s*\(/, "pause cleanup cannot strand temple state");
+  assert.match(exitRun, /forPause\s*:\s*true/, "pause remembers temple so RESUME can restore it");
+  assert.match(exitRun, /exitSkyTemple\s*\(/);
+
+  const enterRun = namedFunction("enterRunning");
+  assert.match(enterRun, /_templeResumeWanted[\s\S]*restoreTempleAfterResume/, "resume re-enters temple with prior selection");
+  assert.doesNotMatch(enterRun, /if\s*\(\s*templeActive\s*\)\s*exitSkyTemple/, "resume must not wipe temple on the way in");
 });
 
 test("temple forces live natural sky, hides floors, and cannot freeze", () => {
@@ -167,8 +173,8 @@ test("temple forces live natural sky, hides floors, and cannot freeze", () => {
   const freeze = namedFunction("toggleSkyFreeze");
   indexBefore(freeze, /templeActive/, /skyFrozen\s*=\s*!\s*skyFrozen/, "temple no-freeze guard precedes the only freeze mutation");
 
-  assert.match(html, /Escape[\s\S]{0,650}templeActive[\s\S]{0,650}exitSkyTemple\s*\(/,
-    "Esc exits temple before the normal pause path");
+  assert.match(html, /Escape[\s\S]{0,900}templeActive[\s\S]{0,900}exitRunning\s*\(/,
+    "Esc while in temple pauses (with temple memory) rather than dumping to dojo");
 });
 
 test("temple opens the full celestial sphere underfoot instead of a black void", () => {
@@ -227,12 +233,27 @@ test("personal aspect chords are capped, first-class, and rendered only through 
     "aspect chords win over natal ghosts");
   indexBefore(focus, /pickSkyTempleNatal\s*\(/, /pickCelestial\s*\(/,
     "natal ghosts win over ordinary body/sign picking");
+  assert.match(focus, /setSkyTempleFocus\(\{kind:'body'/, "body focus is set even when normalize is sparse");
 
   const panel = namedFunction("renderSkyTemplePanel");
   assert.match(panel, /aspectPanelData\s*\(/);
   assert.match(panel, /bodyPanelData\s*\(/);
   assert.match(panel, /\.textContent\s*=/);
   assert.doesNotMatch(panel, /\.innerHTML\s*=/);
+
+  const study = namedFunction("fillTempleStudy");
+  assert.match(study, /yourChartHdr|YOUR CHART/);
+  assert.match(study, /skyNowHdr|SKY · NOW/);
+  assert.match(study, /skySealsHdr|TRANSIT SEALS/);
+  assert.match(study, /_lsnLine\s*\(/);
+  assert.doesNotMatch(study, /\.innerHTML\s*=/);
+
+  const request = namedFunction("requestTempleStudy");
+  assert.match(request, /glossaryListenData\s*\(/);
+  assert.match(request, /fetchListen\s*\(/);
+
+  const fetch = namedFunction("fetchListen");
+  assert.match(fetch, /paintStudySurface|fillTempleStudy|templeActive/);
 
   const downgrade = namedFunction("downgradePersonalSky");
   assert.match(downgrade, /templeActive[\s\S]*_templeFocus\s*=\s*null[\s\S]*rebuildSkyTempleGeometry\s*\(/,
@@ -251,10 +272,12 @@ test("temple chrome stays lore-silent and excludes private birth/location data",
 
   assert.doesNotMatch(templePanel, /birth|latitude|longitude|place_label|timezone|natal_id|DeepSeek/i);
   const templeCode = templeFunctions();
-  assert.doesNotMatch(templeCode, /birth_date|birth_time|place_label|natal_id|DeepSeek/i);
+  assert.doesNotMatch(templeCode, /birth_date|birth_time|place_label|DeepSeek/i);
   assert.doesNotMatch(templeCode, /speechSynthesis|SpeechSynthesis|new\s+Audio\s*\(/);
-  assert.doesNotMatch(templeCode, /showListenCard|fetchListen/,
-    "temple investigation never reuses the legacy essay card or desk fetch");
+  assert.doesNotMatch(templeCode, /showListenCard/,
+    "temple investigation never reopens the legacy dojo Listen chip");
+  assert.match(templeCode, /fetchListen|requestTempleStudy|fillTempleStudy/,
+    "temple reuses the study data path (glossary + personal desk) inside its own panel");
 });
 
 test("selection and temple focus never enter outbound share, dojo, realtime, or cloud payloads", () => {

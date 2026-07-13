@@ -169,16 +169,18 @@ html.seen #ovLede .lede-return{display:inline}
 #trainCoach{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.12em;color:var(--rail);text-shadow:0 0 10px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.9);opacity:0;text-align:center;max-width:min(520px,92vw);line-height:1.45;transition:opacity .25s}
 #trainCoach.on{opacity:1}
 
-/* Sky Temple investigation is deliberately separate from the retired in-dojo Listen card. */
-#skyTemplePanel{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:11;width:min(360px,38vw);max-width:calc(100vw - 36px);padding:14px 16px;border:1px solid rgba(255,210,74,.52);background:rgba(8,12,12,.9);box-shadow:0 18px 55px rgba(0,0,0,.58),inset 0 0 28px rgba(255,210,74,.035);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone)}
+/* Sky Temple investigation HUD — full Listen-style study copy lives here (not the retired dojo chip). */
+#skyTemplePanel{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:11;width:min(400px,42vw);max-width:calc(100vw - 36px);max-height:min(78vh,720px);padding:14px 16px;border:1px solid rgba(255,210,74,.52);background:rgba(8,12,12,.92);box-shadow:0 18px 55px rgba(0,0,0,.58),inset 0 0 28px rgba(255,210,74,.035);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone);display:flex;flex-direction:column}
 #skyTemplePanel.on{opacity:1;visibility:visible}
-.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:8px}
-.sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em}
-.sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line}
-.sky-temple-hint{font:9.5px/1.4 var(--mono);color:var(--bone-dim);letter-spacing:.045em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22)}
+.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:8px;flex:0 0 auto}
+.sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em;flex:0 0 auto}
+.sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line;flex:0 0 auto}
+.sky-temple-body{font:10.5px/1.45 var(--mono);letter-spacing:.03em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);overflow:auto;flex:1 1 auto;min-height:0;max-height:min(52vh,480px);white-space:pre-wrap;pointer-events:none}
+.sky-temple-hint{font:9.5px/1.4 var(--mono);color:var(--bone-dim);letter-spacing:.045em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);flex:0 0 auto}
 body.temple-active :is(#speedBox,#beatRing,#pocketLaw,#lockBox,#edgeTop,#edgeBot,#edgeLeft,#edgeRight,#wasdHud,#wasdGlyph,#windHud,#hitmark,#timing,#assist,#hitFlash,#dojoFlash,#trainCoach,#comboGlow,#presence,.tgtDist,.tgtKey,.liveRet){display:none!important}
 body.temple-active #reticle .arm,body.temple-active #reticle .dot{background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.9)}
-@media (max-width:720px){#skyTemplePanel{left:14px;right:14px;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:none;width:auto}}
+body.temple-active #skyListenCard{display:none!important}
+@media (max-width:720px){#skyTemplePanel{left:14px;right:14px;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:none;width:auto;max-height:min(58vh,520px)}}
 
 /* Japanese typography: keep Latin metrics monospaced, give CJK native glyphs and sane tracking. */
 html[lang=ja] h1{line-height:1.15}
@@ -373,7 +375,8 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
   <div class="sky-temple-kicker" id="skyTempleKicker">SKY TEMPLE</div>
   <div class="sky-temple-title" id="skyTempleTitle"></div>
   <div class="sky-temple-meta" id="skyTempleMeta"></div>
-  <div class="sky-temple-hint" id="skyTempleHint">RETICLE + FIRE TO INVESTIGATE · E / ESC TO LEAVE</div>
+  <div class="sky-temple-body" id="skyTempleBody"></div>
+  <div class="sky-temple-hint" id="skyTempleHint">RETICLE + FIRE TO INVESTIGATE · E LEAVES · ESC PAUSES (RETURNS TO TEMPLE)</div>
 </aside>
 
 <div id="touch">
@@ -573,8 +576,8 @@ window.JA={
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
-  skyTempleKicker:'空の神殿', skyTempleHint:'照準 + 発射でしらべる · E / ESC でもどる', skyTempleEmpty:'空に照準を合わせてしらべる',
-  skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった',
+  skyTempleKicker:'空の神殿', skyTempleHint:'照準 + 発射でしらべる · E で出る · ESC で一時停止（神殿に戻る）', skyTempleEmpty:'空に照準を合わせてしらべる',
+  skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった', skyTempleResumed:'神殿にもどった',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
   pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
@@ -802,6 +805,7 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
 })();
 let templeActive=false, _skySelectHeld=false, _skySelectUsed=false, _skySel=null;
 let _templeBlend=0, _templeFocus=null, _templeEscapeGuard=false, _templeNeedsRelock=false;
+let _templeResumeWanted=false, _templeResumeSel=null, _templeResumeFocus=null, _templeStudySeq=0;
 /* Observer location is local device data, separate from natal/profile data and every
    share, dojo, leaderboard, URL, and cloud-pref channel. Null keeps the old civil-spin fallback. */
 const OBSERVER_PREFS=window.AimDojoObserver||null;
@@ -2060,16 +2064,29 @@ function showListenCard(pick, data, skeleton){
   _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
   _lsnLine(body, T('skyListenDismissHint','R-CLICK or X to close · empty sky also works'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
 }
+function paintStudySurface(pick, data, skeleton){
+  // Temple owns investigation chrome; legacy dojo Listen card only when explicitly re-enabled.
+  if(templeActive) fillTempleStudy(pick, data, skeleton);
+  else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
+}
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
-  const CL=CFG.skyListen, seq=++_lsn.seq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
+  const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
   const core=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
                                   : 'kind=sign&sign='+encodeURIComponent(pick.id));
   const userKey=authMode&&_skyAuthSession&&_skyAuthSession.user ? String(_skyAuthSession.user.id||'user') : String(nid||'none');
   const q=core+(authMode?'':('&natal_id='+encodeURIComponent(nid)));
   const key=(authMode?'auth:':'desk:')+userKey+'|'+q+'|'+Math.floor(Date.now()/600000);   // identity + 10-min epoch bucket
-  if(_lsn.cache.has(key)){ if(_lsn.sel===pick) showListenCard(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
-  const failed=()=>{ if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,Object.assign({},fallback||{},{_deskFailed:true}),false); };
+  const stillThis=()=>{
+    if(templeActive){
+      if(studySeq!==_templeStudySeq) return false;
+      const fp=_templeFocus&&(_templeFocus.kind==='body'||_templeFocus.kind==='sign')?_templeFocus.pick:null;
+      return !!(fp&&fp.kind===pick.kind&&fp.id===pick.id);
+    }
+    return _lsn.sel===pick;
+  };
+  if(_lsn.cache.has(key)){ if(stillThis()) paintStudySurface(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
+  const failed=()=>{ if(stillThis()) paintStudySurface(pick,Object.assign({},fallback||{},{_deskFailed:true}),false); };
   let to=null, request;
   if(authMode){
     const personal=ensureSkyProfileController();
@@ -2083,7 +2100,7 @@ function fetchListen(pick,fallback){   // glossary paints first; authenticated R
     .then(j=>{ if(to) clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
       const personal=ok&&ok.personal&&(ok.personal.available||ok.personal.title||ok.personal.text||(Array.isArray(ok.personal.highlights)&&ok.personal.highlights.length));
       if(ok&&personal){ _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
-        if(seq===_lsn.seq&&_lsn.sel===pick) showListenCard(pick,mergePersonalListen(ok,fallback),false); }
+        if(stillThis()) paintStudySurface(pick,mergePersonalListen(ok,fallback),false); }
       else failed(); })
     .catch(()=>{ if(to) clearTimeout(to); failed(); });
 }
@@ -2095,13 +2112,14 @@ function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is f
   if(CFG.skyTemple.legacyListenCard && _lsn.sel && state.t-_lsn.holdT>=CL.holdSec) clearListen(true);
 }
 
-/* ========================= SKY TEMPLE (silent, data-first investigation) ========================= */
+/* ========================= SKY TEMPLE (silent select → investigate with full study HUD) ========================= */
 const _templeUi={
   panel:document.getElementById('skyTemplePanel'), kicker:document.getElementById('skyTempleKicker'),
-  title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'), hint:document.getElementById('skyTempleHint')
+  title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'),
+  body:document.getElementById('skyTempleBody'), hint:document.getElementById('skyTempleHint')
 };
 if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPLE');
-if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','RETICLE + FIRE TO INVESTIGATE · E / ESC TO LEAVE');
+if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','RETICLE + FIRE TO INVESTIGATE · E LEAVES · ESC PAUSES (RETURNS TO TEMPLE)');
 const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
 let _templeAspectMesh=null, _templeHighlight=null;
 const _templeAspects=[], _templeNatal=[];
@@ -2231,22 +2249,124 @@ function pickSkyTempleNatal(){
 function _templeBodyFromPick(pick){
   if(!pick||pick.kind!=='body'||!pick.meta) return null;
   if(pick.meta.temple) return pick.meta.temple;
-  return SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord?SKY_TEMPLE_DATA.normalizeBodyRecord({id:pick.id,lon_j2000:pick.meta.lon,sign:pick.meta.sign},'transit'):null;
+  const raw={id:pick.id,lon_j2000:pick.meta.lon,sign:pick.meta.sign,degree_in_sign:pick.meta.degree_in_sign,retro:pick.meta.retro};
+  return SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord?SKY_TEMPLE_DATA.normalizeBodyRecord(raw,'transit'):null;
+}
+function snapshotTempleForResume(){
+  _templeResumeWanted=true;
+  _templeResumeSel=_skySel&&_skySel.id!=null?{kind:_skySel.kind,id:_skySel.id}:null;
+  const f=_templeFocus;
+  if(!f){ _templeResumeFocus=null; return; }
+  if(f.kind==='aspect'&&f.record) _templeResumeFocus={kind:'aspect',key:f.record.key};
+  else if(f.kind==='natal') _templeResumeFocus={kind:'natal',id:f.id};
+  else if(f.kind==='body'&&f.pick) _templeResumeFocus={kind:'body',id:f.pick.id};
+  else if(f.kind==='sign'&&f.pick) _templeResumeFocus={kind:'sign',id:f.pick.id};
+  else _templeResumeFocus=null;
+}
+function clearTempleResume(){ _templeResumeWanted=false; _templeResumeSel=null; _templeResumeFocus=null; }
+function rebindTempleSel(sel){
+  if(!sel||!_lsnMeta) return false;
+  if(sel.kind==='body'&&_lsnMeta.bodies[sel.id]){
+    const meta=_lsnMeta.bodies[sel.id];
+    _skySel={kind:'body',id:sel.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
+    return true;
+  }
+  if(sel.kind==='sign'&&_lsnMeta.signs[sel.id]){
+    const meta=_lsnMeta.signs[sel.id];
+    _skySel={kind:'sign',id:sel.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
+    return true;
+  }
+  return false;
+}
+function restoreTempleAfterResume(){
+  if(!_templeResumeWanted) return false;
+  const focusSnap=_templeResumeFocus, selSnap=_templeResumeSel;
+  clearTempleResume();
+  if(selSnap) rebindTempleSel(selSnap);
+  if(!_skySel) return false;
+  return enterSkyTemple({quiet:true, resumeFocus:focusSnap});
+}
+function fillTempleStudy(pick, data, skeleton){
+  // Full Listen-style study block inside the temple panel (glossary + optional personal desk).
+  const body=_templeUi.body; if(!body||!pick) return;
+  body.textContent='';
+  const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
+  const signGlyph=signMeta?signMeta.glyph:(SKY_SIGN_GLYPHS[signId]||'');
+  const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
+  const A=data&&data.placement, P=data&&data.personal;
+  const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
+  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
+  if(skeleton){
+    _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
+    _lsnLine(body, pick.kind==='body' ? ((m.glyph||'')+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                      : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+    _lsnLine(body, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
+  }
+  if(hasPersonal){
+    _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
+    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
+    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
+    if(P.text) _lsnLine(body, _lsnClip(P.text, 320), 'color:var(--bone-dim);margin-bottom:5px;');
+    if(Array.isArray(P.highlights) && P.highlights.length){
+      _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
+      for(const h of P.highlights.slice(0,5)){
+        if(!h) continue;
+        const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
+        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
+        else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
+        if(h.text) _lsnLine(body,_lsnClip(h.text,320),'color:var(--bone-dim);margin-bottom:3px;');
+      }
+    }
+  }
+  _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
+  _lsnLine(body, pick.kind==='body' ? ((m.glyph||'')+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                    : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+  if(A && (A.title||A.text)){
+    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
+    if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
+  } else if(pick.kind==='body') _lsnLine(body, 'lon '+(isFinite(m.lon)?Math.round(m.lon*10)/10+'°':'—')+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
+  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
+    for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
+    for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
+    if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
+    if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
+  }
+  if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
+  _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
+}
+function requestTempleStudy(pick){
+  if(!pick||(pick.kind!=='body'&&pick.kind!=='sign')) return;
+  _templeStudySeq++;
+  // Paint glossary/geometry immediately (same substance as the old Listen card), then enrich with personal desk when available.
+  const fallback=glossaryListenData(pick)||{placement:null,personal:{available:false}};
+  fillTempleStudy(pick, fallback, false);
+  if(_personalListenExpected || _lsnNatalId()) fetchListen(pick, fallback);
 }
 function renderSkyTemplePanel(){
   if(!_templeUi.panel) return;
   _templeUi.panel.classList.toggle('on',templeActive); _templeUi.panel.setAttribute('aria-hidden',templeActive?'false':'true');
-  if(!templeActive) return;
+  if(!templeActive){ if(_templeUi.body) _templeUi.body.textContent=''; return; }
   let title='',lines=[];
   if(_templeFocus&&_templeFocus.kind==='aspect'&&SKY_TEMPLE_DATA){
     const model=SKY_TEMPLE_DATA.aspectPanelData(_templeFocus.record);
-    if(model){ title=model.title; if(model.detail) lines.push(model.detail); if(model.transitPlacement) lines.push(model.transitPlacement); if(model.natalPlacement) lines.push(model.natalPlacement); if(model.rank) lines.push('tightness #'+model.rank); }
-  }else if(_templeFocus&&_templeFocus.kind==='natal'&&SKY_TEMPLE_DATA){
-    const model=SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body); if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
-  }else if(_templeFocus&&_templeFocus.kind==='body'&&SKY_TEMPLE_DATA){
-    const model=SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body); if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
+    if(model){ title=model.title; if(model.detail) lines.push(model.detail); if(model.transitPlacement) lines.push('transit · '+model.transitPlacement); if(model.natalPlacement) lines.push('natal · '+model.natalPlacement); if(model.rank) lines.push('tightness #'+model.rank); }
+    if(_templeUi.body) _templeUi.body.textContent='';
+  }else if(_templeFocus&&_templeFocus.kind==='natal'){
+    const model=SKY_TEMPLE_DATA&&_templeFocus.body?SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body):null;
+    if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
+    else if(_templeFocus.body) title=(_templeFocus.body.glyph||'')+' '+(_templeFocus.body.label||_templeFocus.id)+' (natal)';
+    if(_templeUi.body) _templeUi.body.textContent='';
+  }else if(_templeFocus&&_templeFocus.kind==='body'){
+    const model=SKY_TEMPLE_DATA&&_templeFocus.body?SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body):null;
+    const m=(_templeFocus.pick&&_templeFocus.pick.meta)||{};
+    if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
+    else title=(m.glyph||'')+' '+_lsnCap(m.name||_templeFocus.pick.id);
+    if(isFinite(m.lon)&&!model) lines.push('lon '+Math.round(m.lon*10)/10+'°');
+    // study body filled by requestTempleStudy
   }else if(_templeFocus&&_templeFocus.kind==='sign'){
     const m=_templeFocus.pick.meta||{}; title=(m.glyph?m.glyph+' ':'')+_lsnCap(_templeFocus.pick.id); if(isFinite(m.lon)) lines.push(Math.round(m.lon*10)/10+'°');
+  }else{
+    if(_templeUi.body) _templeUi.body.textContent='';
   }
   if(!title) title=T('skyTempleEmpty','Aim into the sky to investigate');
   _templeUi.title.textContent=title; _templeUi.meta.textContent=lines.join('\n');
@@ -2261,7 +2381,10 @@ function setSkyTempleFocus(focus){
   const goldPick=focusPick||_skySel;
   if(goldPick){ goldFigure(goldPick.kind==='sign'?goldPick.id:goldPick.meta.sign); emphasizeListenGlyphs(goldPick); }
   else { restoreListenGlyphs(); restoreFigures(); }
-  renderSkyTemplePanel(); updateSkyTempleVisuals();
+  renderSkyTemplePanel();
+  if(focusPick) requestTempleStudy(focusPick);
+  else { _templeStudySeq++; if(_templeUi.body&&_templeFocus&&_templeFocus.kind!=='body'&&_templeFocus.kind!=='sign'){ /* aspect/natal leave body empty or already cleared */ } }
+  updateSkyTempleVisuals();
 }
 function clearSkyTempleFocus(){ setSkyTempleFocus(null); }
 function focusSkyTempleReticle(){
@@ -2269,11 +2392,13 @@ function focusSkyTempleReticle(){
   const aspect=pickSkyTempleAspect(); if(aspect){ setSkyTempleFocus(aspect); return true; }
   const natal=pickSkyTempleNatal(); if(natal){ setSkyTempleFocus(natal); return true; }
   const pick=pickCelestial();
-  if(pick&&pick.kind==='body'){ const body=_templeBodyFromPick(pick); if(body){ setSkyTempleFocus({kind:'body',body:body,pick:pick}); return true; } }
+  // Always accept body/sign picks even when normalize fails — study HUD still has meta/lon/glossary.
+  if(pick&&pick.kind==='body'){ setSkyTempleFocus({kind:'body',body:_templeBodyFromPick(pick),pick:pick}); return true; }
   if(pick&&pick.kind==='sign'){ setSkyTempleFocus({kind:'sign',pick:pick}); return true; }
   clearSkyTempleFocus(); return true;
 }
-function enterSkyTemple(){
+function enterSkyTemple(options){
+  options=options||{};
   if(!CFG.skyTemple.enabled || templeActive || !state.running || !_skySel) return false;
   templeActive=true; rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
   abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
@@ -2289,17 +2414,31 @@ function enterSkyTemple(){
   setHorizonOpen(1);
   document.body.classList.add('temple-active'); rebuildSkyTempleGeometry();
   let focus=null;
-  if(_skySel.kind==='body'){ const body=_templeBodyFromPick(_skySel); if(body) focus={kind:'body',body:body,pick:_skySel}; }
-  else if(_skySel.kind==='sign') focus={kind:'sign',pick:_skySel};
+  const rf=options.resumeFocus;
+  if(rf&&rf.kind==='aspect') focus=_templeAspects.find(item=>item.record&&item.record.key===rf.key)||null;
+  else if(rf&&rf.kind==='natal') focus=_templeNatal.find(item=>item.id===rf.id)||null;
+  else if(rf&&rf.kind==='body'&&_lsnMeta&&_lsnMeta.bodies[rf.id]){
+    const meta=_lsnMeta.bodies[rf.id], pick={kind:'body',id:rf.id,meta:meta}; focus={kind:'body',body:_templeBodyFromPick(pick),pick:pick};
+  }else if(rf&&rf.kind==='sign'&&_lsnMeta&&_lsnMeta.signs[rf.id]){
+    focus={kind:'sign',pick:{kind:'sign',id:rf.id,meta:_lsnMeta.signs[rf.id]}};
+  }
+  if(!focus){
+    if(_skySel.kind==='body') focus={kind:'body',body:_templeBodyFromPick(_skySel),pick:_skySel};
+    else if(_skySel.kind==='sign') focus={kind:'sign',pick:_skySel};
+  }
   setSkyTempleFocus(focus); applyAudioState(); syncTransport(); clock.getDelta();
-  try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
+  if(options.quiet){ try{ showGhostToast(T('skyTempleResumed','TEMPLE RESTORED')); }catch(e){} }
+  else try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
   return true;
 }
 function exitSkyTemple(options){
   if(!templeActive) return false; options=options||{};
-  templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null;
+  if(options.forPause) snapshotTempleForResume();
+  else if(!options.keepResume) clearTempleResume();
+  templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null; _templeStudySeq++;
   document.body.classList.remove('temple-active'); _templeGroup.visible=false;
   if(_templeUi.panel){ _templeUi.panel.classList.remove('on'); _templeUi.panel.setAttribute('aria-hidden','true'); }
+  if(_templeUi.body) _templeUi.body.textContent='';
   // Restore dojo floor immediately (opaque base + grids; updateSky will set day/night opacities next tick).
   if(baseFloor){ baseFloor.visible=true; if(baseFloor.material){ baseFloor.material.transparent=false; baseFloor.material.opacity=1; baseFloor.material.depthWrite=true; } }
   if(dayFloor) dayFloor.visible=true;
@@ -2309,7 +2448,7 @@ function exitSkyTemple(options){
   if(_skySel){ goldFigure(_skySel.kind==='sign'?_skySel.id:_skySel.meta.sign); emphasizeListenGlyphs(_skySel); }
   else { restoreListenGlyphs(); restoreFigures(); }
   if(options.audio!==false) applyAudioState(); if(options.resume!==false) syncTransport(); clock.getDelta();
-  if(options.toast!==false) try{ showGhostToast(T('skyTempleExited','BACK TO DOJO')); }catch(e){}
+  if(options.toast!==false && !options.forPause) try{ showGhostToast(T('skyTempleExited','BACK TO DOJO')); }catch(e){}
   return true;
 }
 
@@ -3423,8 +3562,14 @@ document.addEventListener('keydown', e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.code!=='Escape' || !state.running || isTypingTarget(e.target)) return;
-  if(templeActive){ e.preventDefault(); e.stopImmediatePropagation(); _templeEscapeGuard=true; exitSkyTemple(); setTimeout(()=>{ _templeEscapeGuard=false; },300); }
-  else if(document.pointerLockElement!==canvas){ e.preventDefault(); exitRunning(); }
+  // Esc pauses (and remembers temple). E still leaves temple back to dojo without pausing.
+  if(templeActive){
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(err){} }
+    else exitRunning();
+    return;
+  }
+  if(document.pointerLockElement!==canvas){ e.preventDefault(); exitRunning(); }
 },true);
 
 /* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
@@ -5156,8 +5301,7 @@ if(MOBILE){
 // first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
 function enterRunning(){
-  if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
-  if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); }
+  if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); clearTempleResume(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
   closeTransitEssayReader(false); state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast(T('trainerToast','MOONLINE TRAINING')); }   // full runs name the song; trainer announces itself
@@ -5165,9 +5309,12 @@ function enterRunning(){
   try{ if(pocketLive()) pocketUpdateLawHud(); }catch(e){}
   reconcileTargetSounds();
   if(MOBILE) touchUI.classList.add('show');
+  // Pause / task-switch: restore Sky Temple with prior selection + focus (study HUD reloads).
+  if(_templeResumeWanted) restoreTempleAfterResume();
 }
 function exitRunning(){
-  if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
+  // Remember temple across pause / tab-hide so RESUME returns to the investigation, not the dojo.
+  if(templeActive) exitSkyTemple({forPause:true, resume:false, toast:false, audio:false});
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false;
   abortFlickBonus();   // RAIL-FLICK BONUS: pausing forfeits any pending cascade — un-flag locked orbs, unfreeze the field (they resume with full life)
   try{ clearListen(true); }catch(e){}   // drop study card with pause (Esc = pause only; card must not linger under the overlay)
@@ -5246,8 +5393,7 @@ function resetSession(){
 document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement===canvas){ _templeEscapeGuard=false; _templeNeedsRelock=false; enterRunning(); }
   else if(_templeEscapeGuard){ _templeEscapeGuard=false; _templeNeedsRelock=true; }
-  else if(templeActive){ exitSkyTemple(); _templeNeedsRelock=true; }
-  else if(state.running) exitRunning();                  // guard: endChallenge already stopped the run synchronously — don't double-fire showPause
+  else if(state.running) exitRunning();                  // pause remembers temple via forPause; RESUME restores it
 });
 /* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
 const SB_URL=DEFAULT_SKY_SUPABASE_URL;
