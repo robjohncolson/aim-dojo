@@ -458,14 +458,18 @@ test("reset and every pocket kill-switch leave center-only behavior with no buff
 test("toast fires once per expected-pocket change, never once per bar", () => {
   const context = loadPocketSandbox();
   for (let index = 0; index < 12; index += 1) context.pocketOnMain(-0.25, 1, 0.3);
-  assert.deepEqual(Array.from(context.toasts), ["LEAN EARLY"]);
+  assert.equal(context.toasts.length, 1);
+  assert.match(String(context.toasts[0]), /LEAN EARLY/i);
 });
 
-test("zen pocket HUD is removed and run/trainer entry emits no phase-era pocket toasts (B6)", () => {
+test("trust LAW HUD is present; phase-era staff/coach HUD is gone (B6 + law)", () => {
+  assert.match(html, /\bid=["']pocketLaw["']/);
+  assert.match(html, /\bfunction\s+pocketUpdateLawHud\s*\(/);
+  assert.match(html, /pocketLawHud\s*:\s*true/);
   assert.doesNotMatch(html, /\bid=["']pocket(?:Hud|Phase|Help|Staff|Count)["']/);
   assert.doesNotMatch(html, /\bfunction\s+pocketUpdateHud\s*\(/);
-  assert.doesNotMatch(extractFunction("enterRunning"), /pocketFocus|_pocketPhase|pocketToastPhase/);
-  assert.doesNotMatch(extractFunction("setTrainPhase"), /pocketFocus|_pocketPhase|pocketToastPhase/);
+  assert.doesNotMatch(extractFunction("enterRunning"), /_pocketPhase|pocketToastPhase/);
+  assert.doesNotMatch(extractFunction("setTrainPhase"), /_pocketPhase|pocketToastPhase/);
 });
 
 test("retired establish/sample/hold config, state, and helpers are absent (B1, B6)", () => {

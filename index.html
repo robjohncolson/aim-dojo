@@ -45,6 +45,15 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:25;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
 #ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
 @keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
+/* Rolling pocket LAW — always-on free-play trust cue (not rings/staff): what freeze rewards right now */
+#pocketLaw{position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:12;pointer-events:none;text-align:center;max-width:min(420px,94vw);opacity:0;transition:opacity .2s;text-shadow:0 0 8px rgba(0,0,0,.92),0 1px 2px #000}
+#pocketLaw.on{opacity:.96}
+#pocketLaw .pl-main{font:12px var(--mono);letter-spacing:.14em;color:var(--rail)}
+#pocketLaw .pl-sub{font:10px/1.35 var(--mono);letter-spacing:.05em;color:var(--bone-dim);margin-top:3px}
+#pocketLaw.law-push .pl-main{color:#c8f0b0}
+#pocketLaw.law-layback .pl-main{color:#ffb0cc}
+#pocketLaw.law-on .pl-main{color:var(--rail)}
+html[lang=ja] #pocketLaw .pl-main,html[lang=ja] #pocketLaw .pl-sub{letter-spacing:.04em}
 #hitFlash{position:fixed;left:50%;top:57%;transform:translateX(-50%);z-index:6;pointer-events:none;font:13px var(--mono);letter-spacing:.08em;color:rgba(255,214,120,.96);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}   /* flashes the just-hit target's distance + height */
 #hitFlash.show{animation:hitFlash 1s ease-out forwards}
 @keyframes hitFlash{0%{opacity:0;transform:translateX(-50%) translateY(8px) scale(.9)}16%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}68%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-12px)}}
@@ -282,6 +291,10 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
   <div class="x x1"></div><div class="x x2"></div>
 </div>
 <div id="ghostToast" aria-hidden="true"></div>
+<div id="pocketLaw" class="hud" aria-live="polite" aria-hidden="true">
+  <div class="pl-main" id="pocketLawMain"></div>
+  <div class="pl-sub" id="pocketLawSub"></div>
+</div>
 <div id="presence" class="hud" aria-hidden="true"></div>
 <div id="lockBox" aria-hidden="true"></div>
 <div id="edgeTop" class="edgeTint"></div><div id="edgeBot" class="edgeTint"></div><div id="edgeLeft" class="edgeTint"></div><div id="edgeRight" class="edgeTint"></div>
@@ -458,6 +471,11 @@ window.JA={
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
+  pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
+  pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
+  pocketLawLearning:'感じをきいている', pocketLawHearing:'きこえる', pocketLawSteady:'安定', pocketLawFeel:'感じ',
+  pocketWithYou:'合ってる', pocketSoftFreeze:'やわいフリーズ', pocketLawMiss:'みす',
+  pocketToastOn:'のり · びーとまんなか · フリーズはまんなか', pocketToastEarly:'のり · はやめ · フリーズもはやめ', pocketToastLate:'のり · おそめ · フリーズもおそめ',
   gamepad:'ゲームパッド', unmapped:'未対応', songMoonlight:'月光',
   resLow:'LOW ▸ タップでHIGH', resHigh:'HIGH ▸ タップでLOW', resForcedLow:'LOW固定 (保存済み)', resForcedHigh:'HIGH固定 (保存済み)', resAutoLow:'自動 → LOW', resAutoHigh:'自動 → HIGH',
   calibReady:'{n}回ぶん記録 — タップで自動設定', calibPlay:'W/A/S/D をビートに合わせて踏んでから、調整してね', calibNotEnough:'まだ足りない — もう少し踏んでから', calibApplied:'{avg}ms を {n}回から適用 → 合計 {total}ms',
@@ -585,6 +603,7 @@ const CFG = {
   grooveFireEarlyBeat:0,
   // ROLLING GROOVE POCKET (free-play desktop WASD only): the last 16 mains estimate feel; one expected pocket governs freeze + floor PEAK timing. Transport/juke/open-window and floor HUE stay absolute/letter-based.
   groovePocket:true, pocketBufferLen:16, pocketMinSamples:8, pocketExpectBeats:4, pocketLead:0.06, pocketLeadHard:0.12, pocketHysteresisBars:2, pocketWeakFloor:0.35, pocketOffsetBeat:0.25, pocketBinEdge:0.125,
+  pocketLawHud:true,   // persistent free-play LAW line (what freeze rewards) — trust cue; not rings/staff
   pocketCircleCue:false, pocketColPush:0xb8f0a0, pocketColOn:0x9fd8ff, pocketColLay:0xff8ab8, pocketMainDim:0.28, pocketTargetAlpha:0.92, pocketLateScale:0.55, pocketStaffMode:'off',
   // OPEN LENS BUBBLE: keep the classic additive shell but SMOKIER (lower opacity) and a bit LARGER while open — soft glass/smoke, not a bright neon flare.
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
@@ -869,10 +888,57 @@ function updatePocketMisses(){   // unconditional run-loop feed: silence still c
   pocketSweepMisses(beats,nd,bps,w);
 }
 function pocketIntent(){ return pocketIntentEstimate(_pocketBuffer,pocketExpected()); }
+let _pocketLastTap=null;   // 'with' | 'soft' | 'miss' — last main vs the law (for trust HUD)
+const pocketLawEl=(typeof document!=='undefined')?document.getElementById('pocketLaw'):null;
+const pocketLawMainEl=(typeof document!=='undefined')?document.getElementById('pocketLawMain'):null;
+const pocketLawSubEl=(typeof document!=='undefined')?document.getElementById('pocketLawSub'):null;
+function pocketLawLabel(id){
+  if(id==='push') return (typeof T==='function'?T('pocketLeanEarly','LEAN EARLY'):'LEAN EARLY');
+  if(id==='layback') return (typeof T==='function'?T('pocketSitBack','SIT BACK'):'SIT BACK');
+  return (typeof T==='function'?T('pocketFocus','ON THE BEAT'):'ON THE BEAT');
+}
+function pocketUpdateLawHud(){   // always-on free-play: LAW line + quiet sub (learning / hearing / with you) — restores faith without rings
+  if(!pocketLawEl) return;
+  if(!CFG.pocketLawHud || !pocketLive() || typeof state==='undefined' || !state.running){
+    pocketLawEl.classList.remove('on','law-on','law-push','law-layback');
+    if(pocketLawMainEl) pocketLawMainEl.textContent='';
+    if(pocketLawSubEl) pocketLawSubEl.textContent='';
+    pocketLawEl.setAttribute('aria-hidden','true');
+    return;
+  }
+  const law=pocketExpected();
+  const main=law==='push'?(typeof T==='function'?T('pocketLawEarly','LAW · LEAN EARLY'):'LAW · LEAN EARLY')
+    :(law==='layback'?(typeof T==='function'?T('pocketLawLate','LAW · SIT BACK'):'LAW · SIT BACK')
+    :(typeof T==='function'?T('pocketLawOn','LAW · ON THE BEAT'):'LAW · ON THE BEAT'));
+  const help=law==='push'?(typeof T==='function'?T('pocketLawEarlyHelp','floor + freeze reward early'):'floor + freeze reward early')
+    :(law==='layback'?(typeof T==='function'?T('pocketLawLateHelp','floor + freeze reward late'):'floor + freeze reward late')
+    :(typeof T==='function'?T('pocketLawOnHelp','floor + freeze reward the center'):'floor + freeze reward the center'));
+  const min=Math.max(1,Math.floor(Number.isFinite(CFG.pocketMinSamples)?CFG.pocketMinSamples:8));
+  const n=_pocketBuffer.length, bars=Math.max(1,Math.floor(Number.isFinite(CFG.pocketHysteresisBars)?CFG.pocketHysteresisBars:2));
+  let sub=help;
+  if(n<min) sub=(typeof T==='function'?T('pocketLawLearning','learning your feel'):'learning your feel')+' · '+n+'/'+min;
+  else if(_pocketCandidate && _pocketCandidate!==law) sub=(typeof T==='function'?T('pocketLawHearing','hearing'):'hearing')+' '+pocketLawLabel(_pocketCandidate)+' · '+_pocketCandidateStreak+'/'+bars;
+  else {
+    const intent=pocketIntent();
+    if(intent.winner===law) sub=(typeof T==='function'?T('pocketLawSteady','steady'):'steady')+' · '+help;
+    else sub=(typeof T==='function'?T('pocketLawFeel','feel'):'feel')+' → '+pocketLawLabel(intent.winner)+' · '+help;
+  }
+  if(_pocketLastTap==='with') sub+=' · '+(typeof T==='function'?T('pocketWithYou','with you'):'with you');
+  else if(_pocketLastTap==='soft') sub+=' · '+(typeof T==='function'?T('pocketSoftFreeze','soft freeze'):'soft freeze');
+  else if(_pocketLastTap==='miss') sub+=' · '+(typeof T==='function'?T('pocketLawMiss','miss'):'miss');
+  if(pocketLawMainEl) pocketLawMainEl.textContent=main;
+  if(pocketLawSubEl) pocketLawSubEl.textContent=sub;
+  pocketLawEl.classList.remove('law-on','law-push','law-layback');
+  pocketLawEl.classList.add('on','law-'+(law==='push'||law==='layback'?law:'on'));
+  pocketLawEl.setAttribute('aria-hidden','false');
+}
 function pocketToastExpected(id){
   if(!pocketLive()||typeof state==='undefined'||!state.running) return;
-  const msg=id==='push'?(typeof T==='function'?T('pocketLeanEarly','LEAN EARLY'):'LEAN EARLY'):(id==='layback'?(typeof T==='function'?T('pocketSitBack','SIT BACK'):'SIT BACK'):(typeof T==='function'?T('pocketFocus','ON THE BEAT'):'ON THE BEAT'));
+  const msg=id==='push'?(typeof T==='function'?T('pocketToastEarly','LAW · LEAN EARLY · freeze rewards early'):'LAW · LEAN EARLY · freeze rewards early')
+    :(id==='layback'?(typeof T==='function'?T('pocketToastLate','LAW · SIT BACK · freeze rewards late'):'LAW · SIT BACK · freeze rewards late')
+    :(typeof T==='function'?T('pocketToastOn','LAW · ON THE BEAT · freeze rewards center'):'LAW · ON THE BEAT · freeze rewards center'));
   try{ if(typeof showGhostToast==='function') showGhostToast(msg); }catch(e){}
+  pocketUpdateLawHud();
 }
 function pocketSetExpected(id){
   const next=id==='push'||id==='layback'?id:'on';
@@ -898,7 +964,8 @@ function pocketAdvanceExpectation(){
   return (_pocketBarCount%beats)===0?pocketMaybeUpdateExpected():false;
 }
 function resetPocketState(){
-  _pocketBuffer.length=0; _expectedPocket='on'; _pocketBarCount=0; _pocketCandidate=null; _pocketCandidateStreak=0; _pocketMissScan=null; _pocketResolvedMains.clear();
+  _pocketBuffer.length=0; _expectedPocket='on'; _pocketBarCount=0; _pocketCandidate=null; _pocketCandidateStreak=0; _pocketMissScan=null; _pocketResolvedMains.clear(); _pocketLastTap=null;
+  try{ pocketUpdateLawHud(); }catch(e){}
 }
 function rebasePocketMissTracking(){   // latency/offset edits redefine the heard timeline; preserve learned intent but never synthesize a catch-up miss
   _pocketMissScan=null;   // recent stable main ids remain authoritative so the in-flight resolved main cannot be appended twice on resume
@@ -906,13 +973,18 @@ function rebasePocketMissTracking(){   // latency/offset edits redefine the hear
 function pocketOnMain(offBeats, bps, win){   // append three-clock intent, grade this hit against the bar's existing law, then allow a next-bar promotion
   if(!pocketLive()) return {gradeOffSec:offBeats*bps,expectedAtHit:'on'};
   const expectedAtHit=pocketExpected(), gradeOffSec=(offBeats-pocketIdeal(expectedAtHit))*bps, sample=pocketAppendSample(pocketIntentSample(offBeats,bps,win,expectedAtHit));
+  const acc=wasdTapAccuracy(gradeOffSec,win); _pocketLastTap=acc>=0.55?'with':(acc>0.12?'soft':'soft');
   pocketAdvanceExpectation();
-  return {gradeOffSec,expectedAtHit,sample};
+  try{ pocketUpdateLawHud(); }catch(e){}
+  return {gradeOffSec,expectedAtHit,sample,acc};
 }
 function pocketOnMainMiss(offBeats){   // wrong-key or silent main: zeros dilute every mean and advance the same stable bar clock
   if(!pocketLive()) return null;
   const sample=pocketAppendSample({accOn:0,accPush:0,accLay:0,best:null,offBeats:Number.isFinite(offBeats)?offBeats:null,expectedAtHit:pocketExpected()});
-  pocketAdvanceExpectation(); return sample;
+  _pocketLastTap='miss';
+  pocketAdvanceExpectation();
+  try{ pocketUpdateLawHud(); }catch(e){}
+  return sample;
 }
 function _wasdResolve(offSec, main, win, opts){ opts=opts||{}; let acc=wasdTapAccuracy(offSec,win); if(opts.fullCredit===false) acc=Math.min(acc, opts.weakAcc!=null?opts.weakAcc:0.25); _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapOffSum+=offSec; _tapOffN++; _tapAcc=Math.round(acc*100); _tapShowT=state.t; if(main){ _baseMul=Math.pow(1-acc,1.5); if(opts.fullCredit===false) _wasdCombo=0; } else if(acc>0) _wasdCombo++; noteTrainWasd(_tapAcc); }   // clean TAP: |off|<=25ms = TRUE PERFECT plateau; main pocket grading passes expected-relative offSec. damping (1-acc)^1.5 so decent taps still READ as calm
 function wasdMul(){ if(!CFG.wasdRhythm) return 1; const steady=Math.min(CFG.wasdComboCap, _wasdCombo*CFG.wasdComboGain); return Math.max(CFG.grooveGroove?CFG.grooveFreezeFloor:0, _baseMul*(1-steady)); }   // orb-motion multiplier: last MAIN tap's damping, calmed by the bonus combo. In groove mode it FLOORS at grooveFreezeFloor (never fully frozen) so there's always a moving lead to shoot.
@@ -2109,6 +2181,7 @@ function setTrainPhase(p){
     state.range=Math.max(state.range, CFG.rangeStart);
     showTrainCoach(T('coachGraduate','THE CHORUS REMEMBERS YOU · MOON SENSEI OPENS THE FULL NIGHT'), true);
     try{ showGhostToast('✦ '+T('fullNight','THE FULL NIGHT')); }catch(e){}
+    try{ setTimeout(()=>{ if(state.running&&pocketLive()){ pocketUpdateLawHud(); showGhostToast(typeof T==='function'?T('pocketToastOn','LAW · ON THE BEAT · freeze rewards center'):'LAW · ON THE BEAT · freeze rewards center'); } },1600); }catch(e){}
   }
 }
 function noteTrainWasd(acc){
@@ -4359,6 +4432,7 @@ function enterRunning(){
   closeTransitEssayReader(false); state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast(T('trainerToast','MOONLINE TRAINING')); }   // full runs name the song; trainer announces itself
   if(trainMode && trainCoachEl && trainCoachEl.textContent) trainCoachEl.classList.add('on');
+  try{ if(pocketLive()) pocketUpdateLawHud(); }catch(e){}
   reconcileTargetSounds();
   if(MOBILE) touchUI.classList.add('show');
 }
@@ -4368,6 +4442,7 @@ function exitRunning(){
   state.running=false; applyAudioState(); syncTransport();
   if(MOBILE) touchUI.classList.remove('show');
   if(trainCoachEl) trainCoachEl.classList.remove('on');   // coach is in-world only
+  try{ pocketUpdateLawHud(); }catch(e){}   // hide LAW while paused
   showPause();
   scheduleReverbBuild(120);
 }
