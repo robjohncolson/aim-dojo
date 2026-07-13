@@ -27,13 +27,18 @@ test("Save my sky remains inside pause settings and outside PLAY controls", () =
   assert.ok(html.indexOf('<div id="modePick"') > html.indexOf(pauseBlock[0]) + pauseBlock[0].length);
 });
 
-test("observer location controls sit directly under SKY MOTION and remain pause-only", () => {
+test("observer location controls sit under SKY MOTION inside the SKY accordion", () => {
   const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
   assert.ok(pauseBlock);
+  assert.match(pauseBlock[0], /id="playSettingsDetails"/);
+  assert.match(pauseBlock[0], /id="skySettingsDetails"/);
+  assert.match(pauseBlock[0], /id="chartSettingsDetails"/);
   const locationBlock = pauseBlock[0].match(/<section id="observerLocation"[^>]*>[\s\S]*?<\/section>/);
   assert.ok(locationBlock, "observer controls are inside pause settings");
   assert.ok(pauseBlock[0].indexOf('id="skyMotionRow"') < pauseBlock[0].indexOf('id="observerLocation"'));
-  assert.ok(pauseBlock[0].indexOf('id="observerLocation"') < pauseBlock[0].indexOf('id="beatCircleRow"'));
+  // PLAY group (beat circle) is separate from SKY group
+  assert.ok(pauseBlock[0].indexOf('id="playSettingsDetails"') < pauseBlock[0].indexOf('id="skySettingsDetails"'));
+  assert.ok(pauseBlock[0].indexOf('id="skySettingsDetails"') < pauseBlock[0].indexOf('id="chartSettingsDetails"'));
   assert.match(locationBlock[0], /id="observerGeoButton"[^>]*>[\s\S]*USE MY LOCATION/i);
   assert.match(locationBlock[0], /id="observerLocationStatus"[^>]*role="status"[^>]*aria-live="polite"/i);
 

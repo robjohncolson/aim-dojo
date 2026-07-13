@@ -230,9 +230,20 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 .share-url .ghost{flex:0 0 auto;padding:11px 16px}
 .copy-msg{font-size:11px;letter-spacing:.18em;color:var(--toxic);height:15px;margin-top:9px}
 
+/* ---- pause settings: accordion groups (keep surface calm) ---- */
+#settingsBox{max-width:400px!important;margin-top:8px!important}
+#settingsBox .set-row{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0}
+#settingsBox .set-row>span:first-child{letter-spacing:.12em;flex:0 0 auto}
+#settingsBox details.settings-group{margin:6px 0 0;border:1px solid var(--panel-edge);background:#0d110f;text-align:left}
+#settingsBox details.settings-group>summary{list-style:none;cursor:pointer;pointer-events:auto;padding:9px 11px;color:var(--bone);font-size:10.5px;letter-spacing:.14em;user-select:none}
+#settingsBox details.settings-group>summary::-webkit-details-marker{display:none}
+#settingsBox details.settings-group>summary::after{content:'▸';float:right;color:var(--bone-dim);transition:transform .12s}
+#settingsBox details.settings-group[open]>summary::after{transform:rotate(90deg)}
+#settingsBox details.settings-group>summary:hover{color:var(--rail)}
+#settingsBox .settings-group-body{padding:2px 11px 10px;border-top:1px solid var(--panel-edge)}
+#settingsBox .settings-group-body .set-row:first-child{margin-top:8px}
 /* ---- optional Save my sky (pause settings only) ---- */
-#settingsBox{max-width:430px!important}
-.observer-location{margin:8px 0 10px;padding:9px 0 10px;border-top:1px solid var(--panel-edge);border-bottom:1px solid var(--panel-edge);text-align:left}
+.observer-location{margin:6px 0 4px;padding:8px 0 6px;border-top:1px solid var(--panel-edge);text-align:left}
 .observer-location[hidden]{display:none}
 .observer-location-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
 .observer-location-label{color:var(--bone-dim);font-size:10.5px;letter-spacing:.14em}
@@ -364,68 +375,84 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
     </div>
 
     <div id="pauseStats" style="display:none"></div>
-    <div id="settingsBox" style="display:none;margin:12px auto 2px;max-width:340px;font:11px/1.5 var(--mono);color:#9fb0c8">
-      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="resolutionLabel" style="letter-spacing:.14em">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
-      <div id="skyMotionRow" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="skyMotionLabel" style="letter-spacing:.14em">SKY&nbsp;MOTION</span><button type="button" class="ghost" id="skyMotionToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
-      <section id="observerLocation" class="observer-location" aria-labelledby="observerLocationLabel" aria-describedby="observerLocationStatus">
-        <div class="observer-location-head"><span class="observer-location-label" id="observerLocationLabel">LOCATION</span><span class="observer-location-mode" id="observerLocationMode"></span></div>
-        <div class="observer-location-actions">
-          <button type="button" class="ghost" id="observerGeoButton"><span aria-hidden="true">⌖</span> <span id="observerGeoLabel">USE MY LOCATION</span></button>
-          <div class="observer-location-manual">
-            <label class="observer-location-field" for="observerLat"><span id="observerLatLabel">LAT</span><input id="observerLat" type="number" inputmode="decimal" min="-90" max="90" step="any" autocomplete="off" placeholder="38.0"></label>
-            <label class="observer-location-field" for="observerLon"><span id="observerLonLabel">LON</span><input id="observerLon" type="number" inputmode="decimal" min="-180" max="180" step="any" autocomplete="off" placeholder="-84.5"></label>
-            <button type="button" class="ghost" id="observerSave"><span id="observerSaveLabel">SAVE</span></button>
-          </div>
+    <!-- Pause surface: three closed groups. RESUME / RECORDS / SHARE stay primary. -->
+    <div id="settingsBox" style="display:none;margin:8px auto 2px;max-width:400px;font:11px/1.5 var(--mono);color:#9fb0c8">
+      <details class="settings-group" id="playSettingsDetails">
+        <summary id="playSettingsSummary">PLAY</summary>
+        <div class="settings-group-body">
+          <div class="set-row"><span id="resolutionLabel">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+          <div class="set-row" id="beatCircleRow"><span id="beatCircleLabel">BEAT&nbsp;CIRCLE</span><button type="button" class="ghost" id="beatCircleToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+          <div class="set-row"><span id="offsetLabel" style="white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0;pointer-events:auto"><span id="offVal" style="min-width:52px;text-align:right;color:#cfe">0 ms</span></div>
+          <div style="margin:6px 0 2px"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
+          <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:0;font-size:10px"></div>
         </div>
-        <div class="observer-location-status prompt" id="observerLocationStatus" role="status" aria-live="polite">SET LOCATION FOR TRUE SKY</div>
-      </section>
-      <div id="beatCircleRow" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0"><span id="beatCircleLabel" style="letter-spacing:.14em">BEAT&nbsp;CIRCLE</span><button type="button" class="ghost" id="beatCircleToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
-      <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span id="offsetLabel" style="letter-spacing:.14em;white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0"><span id="offVal" style="min-width:56px;text-align:right;color:#cfe">0 ms</span></div>
-      <div style="margin:7px 0"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
-      <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:14px"></div>
-      <details id="saveSkyDetails" class="sky-save">
-        <summary><span id="saveSkyTitle">SAVE MY SKY</span></summary>
-        <p class="sky-save-help" id="saveSkyHelp">Optional · play works without it. Email a private sky link, then open it in this browser to save one chart.</p>
-        <form id="saveSkyAuthView" autocomplete="off">
-          <label class="sky-save-field" for="saveSkyEmail"><span id="saveSkyEmailLabel">EMAIL</span>
-            <input id="saveSkyEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="saveSkyHelp saveSkyStatus" required>
-          </label>
-          <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkyLink"><span id="saveSkyLinkLabel">EMAIL SKY LINK</span></button></div>
-        </form>
-        <div id="saveSkyProfileView" hidden>
-          <div class="sky-save-account"><span id="saveSkyAccount"></span><button type="button" class="ghost" id="saveSkySignOut"><span id="saveSkySignOutLabel">SIGN OUT</span></button></div>
-          <form id="saveSkyForm" aria-describedby="saveSkyEpistemic saveSkyStatus" autocomplete="off">
-            <div class="sky-save-grid">
-              <label class="sky-save-field" for="saveSkyDate"><span id="saveSkyDateLabel">BIRTH DATE</span><input id="saveSkyDate" type="date" required></label>
-              <label class="sky-save-field" for="saveSkyTime"><span id="saveSkyTimeLabel">BIRTH TIME</span><input id="saveSkyTime" type="time" required></label>
-            </div>
-            <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
-            <div class="sky-save-grid">
-              <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span>
-                <select id="saveSkyTz" required autocomplete="off" aria-describedby="saveSkyStatus">
-                  <option value="">Select timezone…</option>
-                </select>
-              </label>
-              <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country (optional)" autocomplete="off"></label>
-              <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="optional"></label>
-              <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="optional"></label>
-            </div>
-            <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button><button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button></div>
-          </form>
-        </div>
-        <p class="sky-save-note" id="saveSkyEpistemic">Symbolic study, not predictions. Birth details stay in your private profile and never enter records.</p>
-        <div class="sky-save-status" id="saveSkyStatus" role="status" aria-live="polite"></div>
       </details>
-      <div id="transitEssayBlock" class="sky-note" hidden>
-        <button type="button" class="ghost" id="transitEssayButton" aria-describedby="transitEssayStatus" disabled><span aria-hidden="true">✦</span> <span id="transitEssayButtonLabel">TODAY'S SKY NOTE</span></button>
-        <div class="sky-note-status" id="transitEssayStatus" role="status" aria-live="polite"></div>
-      </div>
-      <section id="skyBriefBlock" class="sky-brief" hidden aria-labelledby="skyBriefTitle" aria-describedby="skyBriefPrivate">
-        <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">CHART + TRANSITS</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
-        <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Natal chart and today's transits data" hidden></textarea>
-        <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY DATA</span></button></div>
-        <p class="sky-brief-private" id="skyBriefPrivate">Plain natal + transit data for paste · sky note stays in the button above</p>
-      </section>
+      <details class="settings-group" id="skySettingsDetails">
+        <summary id="skySettingsSummary">SKY</summary>
+        <div class="settings-group-body">
+          <div class="set-row" id="skyMotionRow"><span id="skyMotionLabel">SKY&nbsp;MOTION</span><button type="button" class="ghost" id="skyMotionToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+          <section id="observerLocation" class="observer-location" aria-labelledby="observerLocationLabel" aria-describedby="observerLocationStatus">
+            <div class="observer-location-head"><span class="observer-location-label" id="observerLocationLabel">LOCATION</span><span class="observer-location-mode" id="observerLocationMode"></span></div>
+            <div class="observer-location-actions">
+              <button type="button" class="ghost" id="observerGeoButton"><span aria-hidden="true">⌖</span> <span id="observerGeoLabel">USE MY LOCATION</span></button>
+              <div class="observer-location-manual">
+                <label class="observer-location-field" for="observerLat"><span id="observerLatLabel">LAT</span><input id="observerLat" type="number" inputmode="decimal" min="-90" max="90" step="any" autocomplete="off" placeholder="38.0"></label>
+                <label class="observer-location-field" for="observerLon"><span id="observerLonLabel">LON</span><input id="observerLon" type="number" inputmode="decimal" min="-180" max="180" step="any" autocomplete="off" placeholder="-84.5"></label>
+                <button type="button" class="ghost" id="observerSave"><span id="observerSaveLabel">SAVE</span></button>
+              </div>
+            </div>
+            <div class="observer-location-status prompt" id="observerLocationStatus" role="status" aria-live="polite">SET LOCATION FOR TRUE SKY</div>
+          </section>
+        </div>
+      </details>
+      <details class="settings-group" id="chartSettingsDetails">
+        <summary id="chartSettingsSummary">MY CHART</summary>
+        <div class="settings-group-body">
+          <details id="saveSkyDetails" class="sky-save">
+            <summary><span id="saveSkyTitle">SAVE MY SKY</span></summary>
+            <p class="sky-save-help" id="saveSkyHelp">Optional · play works without it. Email a private sky link, then open it in this browser to save one chart.</p>
+            <form id="saveSkyAuthView" autocomplete="off">
+              <label class="sky-save-field" for="saveSkyEmail"><span id="saveSkyEmailLabel">EMAIL</span>
+                <input id="saveSkyEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="saveSkyHelp saveSkyStatus" required>
+              </label>
+              <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkyLink"><span id="saveSkyLinkLabel">EMAIL SKY LINK</span></button></div>
+            </form>
+            <div id="saveSkyProfileView" hidden>
+              <div class="sky-save-account"><span id="saveSkyAccount"></span><button type="button" class="ghost" id="saveSkySignOut"><span id="saveSkySignOutLabel">SIGN OUT</span></button></div>
+              <form id="saveSkyForm" aria-describedby="saveSkyEpistemic saveSkyStatus" autocomplete="off">
+                <div class="sky-save-grid">
+                  <label class="sky-save-field" for="saveSkyDate"><span id="saveSkyDateLabel">BIRTH DATE</span><input id="saveSkyDate" type="date" required></label>
+                  <label class="sky-save-field" for="saveSkyTime"><span id="saveSkyTimeLabel">BIRTH TIME</span><input id="saveSkyTime" type="time" required></label>
+                </div>
+                <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
+                <div class="sky-save-grid">
+                  <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span>
+                    <select id="saveSkyTz" required autocomplete="off" aria-describedby="saveSkyStatus">
+                      <option value="">Select timezone…</option>
+                    </select>
+                  </label>
+                  <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country (optional)" autocomplete="off"></label>
+                  <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="optional"></label>
+                  <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="optional"></label>
+                </div>
+                <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button><button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button></div>
+              </form>
+            </div>
+            <p class="sky-save-note" id="saveSkyEpistemic">Symbolic study, not predictions. Birth details stay in your private profile and never enter records.</p>
+            <div class="sky-save-status" id="saveSkyStatus" role="status" aria-live="polite"></div>
+          </details>
+          <div id="transitEssayBlock" class="sky-note" hidden>
+            <button type="button" class="ghost" id="transitEssayButton" aria-describedby="transitEssayStatus" disabled><span aria-hidden="true">✦</span> <span id="transitEssayButtonLabel">TODAY'S SKY NOTE</span></button>
+            <div class="sky-note-status" id="transitEssayStatus" role="status" aria-live="polite"></div>
+          </div>
+          <section id="skyBriefBlock" class="sky-brief" hidden aria-labelledby="skyBriefTitle" aria-describedby="skyBriefPrivate">
+            <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">CHART + TRANSITS</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
+            <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Natal chart and today's transits data" hidden></textarea>
+            <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY DATA</span></button></div>
+            <p class="sky-brief-private" id="skyBriefPrivate">Plain natal + transit data for paste · sky note stays in the button above</p>
+          </section>
+        </div>
+      </details>
     </div>
 
     <!-- Always enter through Moonline training (no skip-to-full gate). Hidden on RESUME. -->
@@ -496,6 +523,7 @@ window.JA={
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
+  playSettingsSummary:'あそび', skySettingsSummary:'そら', chartSettingsSummary:'わたしのチャート',
   observerLocation:'場所', observerGeo:'現在地を使う', observerLat:'緯度', observerLon:'経度', observerSave:'保存',
   observerNaturalMode:'自然の空 · 現在地', observerTheatreMode:'任意 · NATURAL のみ', observerSetPrompt:'ほんとうの空には場所を設定', observerLocating:'現在地を確認中…',
   observerGeoFailed:'現在地を取得できない · 緯度と経度を入力してね', observerManualInvalid:'緯度 −90〜90、経度 −180〜180 を両方入力', observerSaveFailed:'場所を保存できない',
@@ -565,6 +593,7 @@ window.JA={
       txt('beatCircleLabel','beatCircleLabel');
       txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
+      txt('playSettingsSummary','playSettingsSummary'); txt('skySettingsSummary','skySettingsSummary'); txt('chartSettingsSummary','chartSettingsSummary');
       txt('observerLocationLabel','observerLocation'); txt('observerGeoLabel','observerGeo'); txt('observerLatLabel','observerLat'); txt('observerLonLabel','observerLon'); txt('observerSaveLabel','observerSave'); txt('observerLocationStatus','observerSetPrompt');
       txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
       txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
@@ -4100,6 +4129,10 @@ function requestObserverGeolocation(explicit){
 }
 function refreshSettings(){
   if(!settingsBox) return;
+  const ps=gid('playSettingsSummary'), ss=gid('skySettingsSummary'), cs=gid('chartSettingsSummary');
+  if(ps) ps.textContent=T('playSettingsSummary','PLAY');
+  if(ss) ss.textContent=T('skySettingsSummary','SKY');
+  if(cs) cs.textContent=T('chartSettingsSummary','MY CHART');
   if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
     resToggle.textContent = LOW ? T('resLow','LOW ▸ tap for HIGH') : T('resHigh','HIGH ▸ tap for LOW');   // actual mode this session
     resToggle.title = pref==='1' ? T('resForcedLow','forced LOW (saved)') : pref==='0' ? T('resForcedHigh','forced HIGH (saved)') : (LOW ? T('resAutoLow','auto → LOW') : T('resAutoHigh','auto → HIGH'));
@@ -4120,9 +4153,11 @@ function refreshSettings(){
   const ms=Math.round(_userOffsetSec*1000);
   if(offSlider) offSlider.value=ms;
   if(offVal) offVal.textContent=ms+' ms';
-  if(calibHint) calibHint.textContent = _tapOffN>=6
-    ? TF('calibReady','{n} taps logged — tap to auto-set',{n:_tapOffN})
-    : T('calibPlay','play a bit (tap W/A/S/D on the beat), then calibrate');
+  if(calibHint){
+    // Only show calibration coaching when there is something useful to say (cuts pause noise)
+    if(_tapOffN>=6){ calibHint.textContent=TF('calibReady','{n} taps logged — tap to auto-set',{n:_tapOffN}); calibHint.style.minHeight='14px'; }
+    else { calibHint.textContent=''; calibHint.style.minHeight='0'; }
+  }
 }
 if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is construction-time (MSAA + DPR) → persist + reload. Strip ?low/?hi so URL flags can't override the saved choice.
   e.preventDefault(); e.stopPropagation();
