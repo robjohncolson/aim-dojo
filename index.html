@@ -490,6 +490,7 @@ window.JA={
   fullNight:'満ちる夜', trainerToast:'月の糸のけいこ',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
+  skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'× で閉じる · または空をクリック',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
   pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
@@ -633,7 +634,7 @@ const CFG = {
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
-  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:90, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat (no zodiac Listen stealing shots). signPx kept tight so constellations don't dominate the crosshair.
+  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1611,10 +1612,11 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
    gold constellation/existing glyph, and an immediate static glossary card. A saved authenticated chart may enrich it
    from Railway; legacy natal-id packs keep the explicitly local "deep desk" (:8742). A listen NEVER spawns a projectile and NEVER touches shots,
    streak, clank, whiff or the fire grid — the single integration point is one early-return in fire().
-   Dismiss: new listen · holdSec after the FINAL card paints (not from the fire click). Esc is PAUSE only — never steals the card. All copy is symbolic study language, never fate. */
+   Dismiss: × on card · fire into empty sky (no celestial / no orb) · new listen · holdSec auto after final card paints.
+   Esc is PAUSE only — never steals the card. All copy is symbolic study language, never fate. */
 let _stickFig=null, _lsnMeta=null;            // fallback centroids + ☉/☽ first; exact day/personal pack metadata atomically replaces them
 const _lsnBody={};                            // mover display metadata collected during the chart build
-const _lsn={sel:null, line:null, lineT:-1, ghost:null, emphasis:[], card:null, holdT:-1, seq:0, cache:new Map(), goldFig:null};
+const _lsn={sel:null, line:null, lineT:-1, ghost:null, emphasis:[], card:null, cardBody:null, dismissBtn:null, holdT:-1, seq:0, cache:new Map(), goldFig:null};
 const _lsnW=new THREE.Vector3(), _lsnP=new THREE.Vector3(), _lsnDir2=new THREE.Vector3(), _lsnRt=new THREE.Vector3(), _LSN_UP=new THREE.Vector3(0,1,0);
 const LSN_SIGN_FIG={scorpio:'scorpius', capricorn:'capricornus'};   // pack sign ids ↔ fixture figure ids
 const LSN_GOLD=new THREE.Color(0xffd24a), LSN_DIM=0.5;
@@ -1664,10 +1666,15 @@ function pickCelestial(){   // priority: transit body within bodyPx, else sign w
     const d=_lsnScreenPx(_lsnW); if(d<bestD){ bestD=d; best={kind:'sign', id:id, meta:s, world:_lsnW.clone()}; } }
   return best;
 }
-function skyListenTry(){   // called from fire(); true = this press was a LISTEN (caller returns, nothing combat happens)
+function skyListenTry(){   // called from fire(); true = this press was a LISTEN or a dismiss (caller returns, nothing combat happens)
   if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta) return false;   // natural + theatre; even missing glossary/day assets may fall through to honest stick/Meeus geometry copy
   if(_lsnOrbBlocksSky()) return false;   // Echo between you and the sky → always launch a projectile, never a zodiac Listen
-  const pick=pickCelestial(); if(!pick) return false;
+  const pick=pickCelestial();
+  if(!pick){
+    // Empty sky while a card is open → dismiss (no shot). Clears "overstays its welcome" without waiting for holdSec.
+    if(_lsn.sel){ clearListen(true); return true; }
+    return false;
+  }
   startListen(pick); return true;
 }
 function _lsnMuzzle(out){   // same muzzle as computeShotPlan's M — WITHOUT touching the shared plan globals (_arcI/_planLanded stay combat-only)
@@ -1775,13 +1782,41 @@ function glossaryListenData(pick){
 function mergePersonalListen(data,fallback){
   if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
 }
+function ensureListenCardShell(){
+  // Card body stays pointer-events:none so aim is free; only the × dismiss control is clickable.
+  if(_lsn.card) return _lsn.card;
+  const d=document.createElement('div'); d.id='skyListenCard';
+  d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;padding-right:34px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
+  const x=document.createElement('button'); x.type='button'; x.id='skyListenDismiss';
+  x.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
+  x.textContent='×';
+  x.style.cssText='position:absolute;top:4px;right:4px;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--bone-dim);font:18px/28px var(--mono);cursor:pointer;pointer-events:auto;z-index:1;opacity:.85';
+  x.addEventListener('mouseenter',()=>{ x.style.color='var(--bone)'; x.style.opacity='1'; });
+  x.addEventListener('mouseleave',()=>{ x.style.color='var(--bone-dim)'; x.style.opacity='.85'; });
+  x.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); clearListen(true); });
+  // Don't let mousedown steal pointer-lock / aim
+  x.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); });
+  d.appendChild(x);
+  const body=document.createElement('div'); body.id='skyListenCardBody';
+  body.style.cssText='pointer-events:none;';
+  d.appendChild(body);
+  document.body.appendChild(d);
+  _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
+  return d;
+}
 function showListenCard(pick, data, skeleton){
   // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
   // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
-  if(!_lsn.card){ const d=document.createElement('div'); d.id='skyListenCard';
-    d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
-    document.body.appendChild(d); _lsn.card=d; }
-  const card=_lsn.card; card.textContent=''; card.style.display='block';
+  const card=ensureListenCardShell();
+  const body=_lsn.cardBody||card;
+  if(_lsn.cardBody) body.textContent=''; else card.textContent='';
+  // Re-ensure dismiss button if we wiped card text (legacy path)
+  if(!_lsn.cardBody){ _lsn.card=null; ensureListenCardShell(); return showListenCard(pick,data,skeleton); }
+  card.style.display='block';
+  if(_lsn.dismissBtn){
+    _lsn.dismissBtn.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
+    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','Close · or click empty sky'):'Close · or click empty sky';
+  }
   // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
   if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
   const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
@@ -1793,45 +1828,46 @@ function showListenCard(pick, data, skeleton){
   // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
   const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
   if(skeleton){
-    _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR);
-    _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+    _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
+    _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
                                       : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
-    _lsnLine(card, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
+    _lsnLine(body, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
   }
   // YOUR CHART appears only after the optional personal desk actually returns content; a natal pack alone never displaces or nags over the glossary.
   if(hasPersonal){
-    _lsnLine(card, T('yourChartHdr','YOUR CHART'), HDR);
-    if(P.title) _lsnLine(card, _lsnClip(P.title, 110), TTL);
-    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(card, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
-    if(P.text) _lsnLine(card, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
+    _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
+    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
+    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
+    if(P.text) _lsnLine(body, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
     if(Array.isArray(P.highlights) && P.highlights.length){
-      _lsnLine(card, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
+      _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
       for(const h of P.highlights.slice(0,3)){
         if(!h) continue;
         const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
-        if(h.title) _lsnLine(card, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
-        else _lsnLine(card,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
-        if(h.text) _lsnLine(card,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
-        else if(!h.title) _lsnLine(card,seal,'color:var(--bone-dim);');
+        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
+        else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
+        if(h.text) _lsnLine(body,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
+        else if(!h.title) _lsnLine(body,seal,'color:var(--bone-dim);');
       }
     }
   }
   // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
-  _lsnLine(card, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
-  _lsnLine(card, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+  _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
+  _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
                                     : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
   if(A && (A.title||A.text)){
-    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(card, _lsnClip(A.title, 100));
-    if(A.text) _lsnLine(card, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
-  } else if(pick.kind==='body') _lsnLine(card, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
+    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
+    if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
+  } else if(pick.kind==='body') _lsnLine(body, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
   else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
     for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
     for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
-    if(now.length) _lsnLine(card, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
-    if(_lsnNatalId()&&natal.length) _lsnLine(card, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
+    if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
+    if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
   }
-  if(deskFailed) _lsnLine(card, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
-  _lsnLine(card, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
+  if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
+  _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
+  _lsnLine(body, T('skyListenDismissHint','× close · or click empty sky'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
 }
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
