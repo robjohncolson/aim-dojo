@@ -51,6 +51,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #pocketHud .ph-help{font:11px/1.35 var(--mono);letter-spacing:.04em;color:var(--bone-dim);margin-top:4px}
 #pocketHud .ph-count{font:11px var(--mono);letter-spacing:.12em;color:rgba(116,232,74,.95);margin-top:6px}
 #pocketHud .ph-staff{display:flex;flex-direction:column;align-items:center;gap:6px;margin:10px auto 2px}
+#pocketHud .ph-staff:empty{display:none}
 #pocketHud .ph-row{display:flex;align-items:center;gap:8px;opacity:.38}
 #pocketHud .ph-row.on{opacity:1}
 #pocketHud .ph-tag{font:10px var(--mono);letter-spacing:.12em;color:var(--bone-dim);min-width:62px;text-align:right}
@@ -59,9 +60,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #pocketHud .ph-beat::before{content:'';position:absolute;left:50%;bottom:-2px;width:1px;height:9px;background:rgba(230,235,245,.35);transform:translateX(-50%)}
 #pocketHud .ph-beat.now{border-bottom-color:var(--rail);box-shadow:0 2px 0 var(--rail)}
 #pocketHud .ph-note{position:absolute;bottom:1px;font:22px/1 Georgia,"Times New Roman",serif;color:var(--bone);transform:translateX(-50%);text-shadow:0 0 8px rgba(0,0,0,.95)}
-#pocketHud .ph-note.push{left:16%;color:#ffd36b}
-#pocketHud .ph-note.on{left:50%;color:#74e84a}
-#pocketHud .ph-note.layback{left:84%;color:#6aa8ff}
+#pocketHud .ph-note.push{left:16%;color:#b8f0a0}
+#pocketHud .ph-note.on{left:50%;color:#9fd8ff}
+#pocketHud .ph-note.layback{left:84%;color:#ff8ab8}
 #pocketHud.phase-sample .ph-phase{color:#ffd36b}
 #pocketHud.phase-hold .ph-phase{color:#74e84a}
 #pocketHud.phase-establish .ph-phase{color:var(--rail)}
@@ -618,6 +619,7 @@ const CFG = {
   grooveFireEarlyBeat:0,
   // GROOVE POCKET LANGUAGE (WASD only): establish on → sample push/on/layback → hold that pocket; accuracy floor resets to establish. Does NOT move Transport/juke/open-window.
   groovePocket:true, pocketEstablishBeats:12, pocketSampleBeats:4, pocketHoldSets:4, pocketHoldSetBeats:4, pocketAccFloor:0.70, pocketAccWindow:12, pocketOffsetBeat:0.25, pocketBinEdge:0.125,   // establish = 3 bars of 4 (musical phrase); sample 1 bar; hold 4 bars
+  pocketCircleCue:true, pocketColPush:0xb8f0a0, pocketColOn:0x9fd8ff, pocketColLay:0xff8ab8, pocketMainDim:0.28, pocketGhostAlpha:0.34, pocketTargetAlpha:0.92, pocketLateScale:0.55, pocketStaffMode:'slim',
   // OPEN LENS BUBBLE: keep the classic additive shell but SMOKIER (lower opacity) and a bit LARGER while open — soft glass/smoke, not a bright neon flare.
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
@@ -768,6 +770,17 @@ let pocketCountEl=(typeof document!=='undefined')?document.getElementById('pocke
 function pocketBindEls(){ if(pocketHudEl||typeof document==='undefined') return; pocketHudEl=document.getElementById('pocketHud'); pocketPhaseEl=document.getElementById('pocketPhase'); pocketHelpEl=document.getElementById('pocketHelp'); pocketStaffEl=document.getElementById('pocketStaff'); pocketCountEl=document.getElementById('pocketCount'); }
 function pocketLive(){ return !!(CFG.groovePocket && CFG.wasdRhythm && CFG.grooveGroove && !trainMode && !MOBILE); }
 function pocketIdeal(id){ const o=CFG.pocketOffsetBeat||0.25; if(id==='push') return -o; if(id==='layback') return o; return 0; }
+/** Fixed pocket-circle radius for a raw beat offset. Optional geometry args keep the helper pure/testable while drawWasdLane supplies its live canvas dimensions. */
+function radiusForIdeal(ideal, innerRadius=46, radiusSpan=226, half=0.5){
+  const Rin=Number.isFinite(innerRadius)?innerRadius:46, span=Math.max(0,Number.isFinite(radiusSpan)?radiusSpan:226), h=Math.max(0.0001,Number.isFinite(half)?half:0.5), I=Number.isFinite(ideal)?ideal:0;
+  if(I===0) return Rin;
+  const f=Math.min(1,Math.abs(I)/h), late=Math.max(0,Number.isFinite(CFG.pocketLateScale)?CFG.pocketLateScale:0.55);
+  return Math.min(Rin+span,Rin+f*span*(I>0?late:1));
+}
+function pocketColorCss(id){
+  const fallback=id==='push'?0xb8f0a0:(id==='layback'?0xff8ab8:0x9fd8ff), raw=id==='push'?CFG.pocketColPush:(id==='layback'?CFG.pocketColLay:CFG.pocketColOn);
+  return '#'+Math.round(Math.max(0,Math.min(0xffffff,Number.isFinite(raw)?raw:fallback))).toString(16).padStart(6,'0');
+}
 function pocketCueId(){ return (pocketLive() && _pocketPhase==='hold') ? (_activePocket||'on') : 'on'; }
 function classifyPocket(offBeats){ let o=offBeats; while(o>0.5) o-=1; while(o<=-0.5) o+=1; const e=CFG.pocketBinEdge||0.125; if(o<-e) return 'push'; if(o>e) return 'layback'; return 'on'; }
 function pocketAcc(){ if(!_pocketHits.length) return 1; let g=0; for(let i=0;i<_pocketHits.length;i++) if(_pocketHits[i]) g++; return g/_pocketHits.length; }
@@ -838,9 +851,13 @@ function pocketBarHtml(pocketId, hiBeat, active){   // one 4-beat bar of notatio
   for(let i=0;i<4;i++) h+='<span class="ph-beat'+(i===hiBeat?' now':'')+'"><span class="ph-note '+pocketId+'" aria-hidden="true">●</span></span>';
   return h+'</div></div>';
 }
-function pocketStaffHtml(){   // establish: ON only · listening: all three options · hold: active pocket only
+function pocketStaffLayoutMode(){ return CFG.pocketStaffMode==='full'||CFG.pocketStaffMode==='off'?CFG.pocketStaffMode:'slim'; }
+function pocketStaffHtml(){   // full may teach all LISTENING options; slim never exceeds one row; off leaves title/count intact
+  const mode=pocketStaffLayoutMode();
+  if(mode==='off') return '';
   const hi=pocketBeatInBar(_pocketCount);
-  if(_pocketPhase==='sample') return pocketBarHtml('push',hi,true)+pocketBarHtml('on',hi,true)+pocketBarHtml('layback',hi,true);
+  if(_pocketPhase==='sample' && mode==='full') return pocketBarHtml('push',hi,true)+pocketBarHtml('on',hi,true)+pocketBarHtml('layback',hi,true);
+  if(_pocketPhase==='sample') return '';   // slim LISTENING lets the three circle ghosts teach without privileging one pocket
   if(_pocketPhase==='hold') return pocketBarHtml(_activePocket||'on', hi, true);
   return pocketBarHtml('on', hi, true);
 }
@@ -877,7 +894,7 @@ function pocketUpdateHud(){
   }
   if(pocketPhaseEl) pocketPhaseEl.textContent=phaseTxt;
   if(pocketHelpEl) pocketHelpEl.textContent=helpTxt;
-  if(pocketStaffEl) pocketStaffEl.innerHTML=pocketStaffHtml();
+  if(pocketStaffEl){ const staffHtml=pocketStaffHtml(); pocketStaffEl.hidden=!staffHtml; pocketStaffEl.innerHTML=staffHtml; }
   if(pocketCountEl) pocketCountEl.textContent=countTxt;
   pocketHudEl.classList.remove('phase-establish','phase-sample','phase-hold');
   pocketHudEl.classList.add('on','phase-'+_pocketPhase);
@@ -3095,21 +3112,26 @@ function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
   const on = !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
-  const showHud=CFG.wasdHud || CFG.wasdTapText;   // does ANYTHING actually draw to the CANVAS? (the visible letter is a separate DOM element via showWasdGlyph) — if not, skip the full-canvas per-frame clearRect ENTIRELY (it was a ~1.25MPx clear yielding zero pixels in the default letter-only config)
+  // Canvas draw: beat-circle toggle OR tap text OR pocket-circle cue (mint/pink targets must still show when Full Night defaults wasdHud OFF)
+  const showHud=CFG.wasdHud || CFG.wasdTapText || !!(pocketLive() && CFG.pocketCircleCue);
   if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
   else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
   const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
   if(showHud){ hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
+  const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketHoldTarget=!!(pocketCueOn && _pocketPhase==='hold' && (_activePocket||'on')!=='on');
+  const pocketDim=Number.isFinite(CFG.pocketMainDim)?Math.max(0,Math.min(1,CFG.pocketMainDim)):0.28;
+  const pocketListening=!!(pocketCueOn&&_pocketPhase==='sample'), pocketGhostAlpha=Number.isFinite(CFG.pocketGhostAlpha)?Math.max(0,Math.min(1,CFG.pocketGhostAlpha)):0.34;
+  const pocketMainAlpha=pocketHoldTarget?pocketDim:(pocketListening?0.7:1);
   // ---- the inner HIT-LINE ring (gated by the 'WASD center cue' toggle; the letter below keeps its OWN toggle so reduceMotion users never lose it) ----
-  if(showHud){ hudCtx.globalAlpha=0.85; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
-    hudCtx.globalAlpha=0.8; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
-  // ---- the IN-FOCUS note: circle CONVERGES to Rin at the hit (pocket ideal while pocket-live). Pocket mode focuses MAIN notes so ±¼ cues match claimWasdNote (not adjacent 16ths). ----
+  if(showHud){ hudCtx.globalAlpha=pocketListening?pocketGhostAlpha*0.55:0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
+    hudCtx.globalAlpha=pocketListening?pocketGhostAlpha:0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = pocketListening?pocketColorCss('on'):(fa>0&&!pocketHoldTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'); ARC(Rin); }
+  // ---- the IN-FOCUS note: the legacy cue converges to Rin at its ideal; the pocket-circle parcel keeps the raw on-phase path so it crosses a fixed ±¼ target. Pocket mode focuses MAIN notes (not adjacent 16ths). ----
   let letterKey=_combo[0], spoiled=false, hitHeld=false;
   { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
-    const cueI=pocketLive()?pocketIdeal(pocketCueId()):0;   // match floor peak: circle lands at pocket ideal while hold is active
+    const cueI=pocketLive()?pocketIdeal(pocketCueId()):0;   // selects the main nearest its expected pocket; with the new cue its raw circle crosses the fixed target at cueI
     let ci, ckey, main, rawOff;
     if(pocketLive()){
       const k=Math.round(beats-cueI);   // main whose pocket ideal is nearest to now
@@ -3118,15 +3140,29 @@ function drawWasdLane(){
       ci=Math.round(beats*nd); ckey=_combo[((ci%len)+len)%len]; main=((((ci%nd)+nd)%nd)===0); rawOff=beats-ci/nd;
     }
     spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey;
-    if(showHud && !reduceMotion){ const half=pocketLive()?0.5:(0.5/nd), off=spoiled?(_spoilOff-cueI):(hit?(_hitOff-cueI):(rawOff-cueI)); let ra,al;
+    if(showHud && !reduceMotion){ const half=pocketLive()?0.5:(0.5/nd), visualCue=pocketCueOn?0:cueI, off=spoiled?(_spoilOff-visualCue):(hit?(_hitOff-visualCue):(rawOff-visualCue)); let ra,al;
       if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
-      else { const f=Math.min(1,off/half); ra=Rin+f*span*0.55; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
+      else { const f=Math.min(1,off/half), lateScale=pocketCueOn?Math.max(0,Math.min(1,Number.isFinite(CFG.pocketLateScale)?CFG.pocketLateScale:0.55)):0.55; ra=Rin+f*span*lateScale; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
       if(spoiled) al=0.5;   // a spoiled note's circle freezes (grey, steady) so the wrong-key feedback is readable
-      if(hit){ al=1; const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color
+      if(hit){ al=1; const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color
+      al*=pocketMainAlpha;
       const lw=main?4.5:2.5;
       hudCtx.globalAlpha=al*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
       hudCtx.globalAlpha=Math.min(1,(main?1:0.55)*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
     } }
+  // ---- POCKET WHEN cue (visual only): LISTENING teaches all three fixed radii; HOLD push/lay makes its fixed target primary. No pulse/size animation, including reduce-motion. ----
+  if(pocketCueOn){
+    const half=0.5, o=CFG.pocketOffsetBeat||0.25;
+    if(pocketListening){
+      const ghosts=[['push',-o],['layback',o]];   // the configured rail-colored Rin hit-line above is the third/on ghost
+      for(const g of ghosts){ hudCtx.globalAlpha=pocketGhostAlpha; hudCtx.lineWidth=2.5; hudCtx.strokeStyle=pocketColorCss(g[0]); ARC(radiusForIdeal(g[1],Rin,span,half)); }
+    } else if(pocketHoldTarget){
+      const id=_activePocket||'on', ta=Number.isFinite(CFG.pocketTargetAlpha)?Math.max(0,Math.min(1,CFG.pocketTargetAlpha)):0.92, rt=radiusForIdeal(pocketIdeal(id),Rin,span,half);
+      hudCtx.globalAlpha=ta*0.45; hudCtx.lineWidth=8; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(rt);
+      hudCtx.globalAlpha=ta; hudCtx.lineWidth=5; hudCtx.strokeStyle=(fa>0&&(hitHeld||spoiled))?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):pocketColorCss(id);
+      ARC(rt);
+    }
+  }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
   showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
