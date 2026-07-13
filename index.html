@@ -1344,8 +1344,7 @@ function updateSky(dt){
   const templeTarget=templeActive?1:0, templeStep=dt/Math.max(0.05,CFG.skyTemple.floorDissolveSec||0.8);
   if(_templeBlend<templeTarget) _templeBlend=Math.min(templeTarget,_templeBlend+templeStep);
   else if(_templeBlend>templeTarget) _templeBlend=Math.max(templeTarget,_templeBlend-templeStep);
-  const floorAlpha=1-_templeBlend;
-  // Sky sphere opens the moment Temple is active (not only after the floor fade finishes). Floor still lerps.
+  // Sky sphere opens the moment Temple is active; floors are hard-hidden (never semi-transparent).
   const skyOpen=templeActive?1:_templeBlend;
   setHorizonOpen(skyOpen);
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
