@@ -205,6 +205,19 @@ test("transit essay responses are validated before UI code receives them", () =>
       detail: "Transit essay generation failed.",
     }
   );
+  // Optional detail is accepted (sanitized length only); missing detail gets a default.
+  assert.equal(
+    normalizeTransitEssayResponse({ ...pending, status: "failed" }).detail,
+    "Transit essay generation failed."
+  );
+  assert.equal(
+    normalizeTransitEssayResponse({
+      ...pending,
+      status: "failed",
+      detail: "  temporary worker issue  ",
+    }).detail,
+    "temporary worker issue"
+  );
 
   for (const invalid of [
     null,
@@ -213,7 +226,6 @@ test("transit essay responses are validated before UI code receives them", () =>
     { ...pending, type: "public_transit_essay" },
     { ...pending, status: "queued" },
     { ...pending, cache_date: "07/12/2026" },
-    { ...pending, status: "failed", detail: "provider leaked a raw error" },
     readyTransitEssay({ headline: "" }),
     readyTransitEssay({ headline: "<b>Injected heading</b>" }),
     readyTransitEssay({ body: null }),
