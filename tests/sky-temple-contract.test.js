@@ -153,6 +153,7 @@ test("temple forces live natural sky, dissolves every floor, and cannot freeze",
   assert.match(update, /templeTarget\s*=\s*templeActive\s*\?\s*1\s*:\s*0/);
   assert.match(update, /floorDissolveSec/);
   assert.match(update, /floorAlpha\s*=\s*1\s*-\s*_templeBlend/);
+  assert.match(update, /setHorizonOpen\s*\(\s*_templeBlend\s*\)/, "floor dissolve and full-sphere open share one blend");
   indexBefore(update, /templeActive\s*&&\s*CFG\.skyTemple\.forceNaturalInTemple/, /['"]natural['"]\s*:\s*SKY_TIME/, "temple natural override is chosen before the ordinary sky mode");
   assert.match(update, /skyTime\s*===\s*['"]natural['"][\s\S]*applyNaturalSkyAttitude/);
   assert.match(update, /dayPhase\s*=\s*clockedDayPhase\s*\(\s*Date\.now\s*\(\s*\)\s*\)[\s\S]*skyFrozen\s*=\s*false/);
@@ -164,6 +165,31 @@ test("temple forces live natural sky, dissolves every floor, and cannot freeze",
 
   assert.match(html, /Escape[\s\S]{0,650}templeActive[\s\S]{0,650}exitSkyTemple\s*\(/,
     "Esc exits temple before the normal pause path");
+});
+
+test("temple opens the full celestial sphere underfoot instead of a black void", () => {
+  assert.match(html, /function setHorizonOpen\s*\(/);
+  assert.match(html, /uHzOpen/);
+  assert.match(html, /uTemple/);
+  assert.match(html, /_hzFadeMats/);
+
+  const chart = namedFunction("updateChartSky");
+  assert.match(chart, /hzOpen\s*=\s*_templeBlend/);
+  assert.match(chart, /hz\s*\+\s*\(1\s*-\s*hz\)\s*\*\s*hzOpen/, "CPU sprite horizon hide lerps open with temple blend");
+
+  const hzMat = namedFunction("horizonFadeMat");
+  assert.match(hzMat, /uHzOpen/);
+  assert.match(hzMat, /mix\s*\(\s*smoothstep[\s\S]*1\.0[\s\S]*uHzOpen/, "GPU sticks/aspects open with temple");
+
+  const pick = namedFunction("pickCelestial");
+  assert.match(pick, /openSphere\s*=\s*templeActive/);
+  assert.match(pick, /!openSphere\s*&&\s*_lsnW\.y\s*<\s*HZ_HI/, "dojo still horizon-culls; temple picks underfoot bodies");
+
+  const aspect = namedFunction("pickSkyTempleAspect");
+  assert.doesNotMatch(aspect, /segmentPoint\.y\s*<\s*HZ_LO/, "aspect pick no longer drops underfoot chords");
+
+  const natal = namedFunction("pickSkyTempleNatal");
+  assert.doesNotMatch(natal, /y\s*<\s*HZ_HI/, "natal ghosts under the former floor stay selectable");
 });
 
 test("personal aspect chords are capped, first-class, and rendered only through the temple panel", () => {

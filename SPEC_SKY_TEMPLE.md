@@ -108,6 +108,7 @@ On enter:
 | WASD note lane / floor beat obligation | Hide lane / mute beat flash or fade heavily |
 | Tone Transport | Stop combat metronome **or** duck to near-silence; wall clock continues for sky |
 | Floor | Dissolve (opacity → 0 / sink / fog) over ~0.6–1.0s |
+| Sky sphere | **Open full 360°** — nocturnal half (under the floor in dojo) becomes visible underfoot: transit bodies, signs, sticks, natal ghosts, aspect lines. Dome nadir → deep sky, not black void |
 | Sky motion | Force **natural** attitude while in temple (no freeze) |
 | Dolly / combat HUD | Off or minimal reticle |
 | Selection | Keep focus on `_skySel` |

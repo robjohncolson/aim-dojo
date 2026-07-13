@@ -1247,14 +1247,17 @@ moon.scale.set(MOON_SCALE,MOON_SCALE,1); moon.position.copy(sunU).multiplyScalar
 const CLOUD_OCTAVES = LOW ? 1 : (MOBILE ? 2 : 3);   // LOW: 1 octave = ~3× fewer per-pixel sin() over the full-screen sky dome; still reads as drifting cloud banding (very PS1)
 const skyDomeMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, depthTest:false, fog:false,
   uniforms:{ uHor:{value:new THREE.Color(0x0e1626)}, uZen:{value:new THREE.Color(0x010109)}, uHaze:{value:new THREE.Color(0xbcd8f0)},
-             uCloudCol:{value:new THREE.Color(0xffffff)}, uTime:{value:0}, uCloud:{value:0}, uWind:{value:new THREE.Vector2(0.006,0.004)} },
+             uCloudCol:{value:new THREE.Color(0xffffff)}, uTime:{value:0}, uCloud:{value:0}, uWind:{value:new THREE.Vector2(0.006,0.004)},
+             uTemple:{value:0} },   // Sky Temple: open the full sphere — nadir becomes deep sky, not a flat black void under the dissolved floor
   vertexShader:'varying vec3 vDir; void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
   fragmentShader:[
-    'uniform vec3 uHor,uZen,uHaze,uCloudCol; uniform float uTime,uCloud; uniform vec2 uWind; varying vec3 vDir;',
+    'uniform vec3 uHor,uZen,uHaze,uCloudCol; uniform float uTime,uCloud,uTemple; uniform vec2 uWind; varying vec3 vDir;',
     'float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }',
     'float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=hash(i),b=hash(i+vec2(1.0,0.0)),c=hash(i+vec2(0.0,1.0)),d=hash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
     'float fbm(vec2 p){ float v=0.0,a=0.5; for(int k=0;k<'+CLOUD_OCTAVES+';k++){ v+=a*vnoise(p); p=p*2.0+11.3; a*=0.5; } return v; }',
-    'void main(){ float el=vDir.y; vec3 c=mix(uHor,uZen,pow(clamp(el,0.0,1.0),0.30)); c=mix(c,uHaze,exp(-abs(el)/'+(GLOW?'0.085':'0.05')+')*'+(GLOW?'0.62':'0.55')+');',   // GLOW: taller/stronger horizon haze band (the milky mist the key art has)
+    'void main(){ float el=vDir.y; float elUp=pow(clamp(el,0.0,1.0),0.30); float elDn=pow(clamp(-el,0.0,1.0),0.30);',
+    '  float elev=mix(elUp, max(elUp,elDn), clamp(uTemple,0.0,1.0));',   // dojo: only sky above; temple: nadir mirrors zenith so looking down is still sky
+    '  vec3 c=mix(uHor,uZen,elev); c=mix(c,uHaze,exp(-abs(el)/'+(GLOW?'0.085':'0.05')+')*'+(GLOW?'0.62':'0.55')+');',   // GLOW: taller/stronger horizon haze band (the milky mist the key art has)
     '  if(el>0.03 && uCloud>0.001){ vec2 cuv=vDir.xz/el*0.55+uTime*uWind; float n=fbm(cuv); float cov=smoothstep(0.50,0.72,n)*smoothstep(0.05,0.32,el)*uCloud; c=mix(c,uCloudCol,cov); }',
     '  gl_FragColor=vec4(c,1.0); }'
   ].join('\n') });
@@ -1340,6 +1343,7 @@ function updateSky(dt){
   if(_templeBlend<templeTarget) _templeBlend=Math.min(templeTarget,_templeBlend+templeStep);
   else if(_templeBlend>templeTarget) _templeBlend=Math.max(templeTarget,_templeBlend-templeStep);
   const floorAlpha=1-_templeBlend;
+  setHorizonOpen(_templeBlend);   // floor dissolve + full-sphere open share one blend so underfoot sky appears as the grid fades
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
   const skyTime=(templeActive&&CFG.skyTemple.forceNaturalInTemple)?'natural':SKY_TIME;
@@ -1388,8 +1392,8 @@ function updateSky(dt){
   if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
   else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
-  if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull + soft glyph breath — zero cost while absent
-  if(templeActive) updateSkyTempleVisuals();
+  if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull (opens with temple) + soft glyph breath — zero cost while absent
+  if(templeActive||_templeBlend>0.01) updateSkyTempleVisuals();   // keep aspect/ghost opacities in sync while the full-sphere blend is open
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
   if(day*floorAlpha>0.02) renderReflection();                // no mirror pass after the temple floor has dissolved
 }
@@ -1452,6 +1456,7 @@ function applyNaturalSkyAttitude(utcMs){
 const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)
 const _chartFade=[];    // {mat,a0[,pulseP]} every chart material — the clean glyph/stick layer melts toward a whisper in daylight
 const _chartBreath=[];  // {sp,s0,ph} mover/luminary sprites — slow glyph breath (never populated under reduceMotion / LOW)
+const _hzFadeMats=[];   // materials with GPU horizon feather — temple sets uHzOpen so the lower sphere is visible
 const _glyphTexCache={};
 function glyphTex(ch){
   ch=String(ch).slice(0,4);   // bound degenerate/hostile glyph strings — caps both raster cost and cache-key space
@@ -1480,11 +1485,29 @@ function eclipticDir(lon,lat){   // v2.1 sphere-LOCAL placement: the ecliptic is
   return new THREE.Vector3(Math.cos(az)*ce, Math.sin(el), -Math.sin(az)*ce);
 }
 function horizonFadeMat(m){   // v2.1 G3 (GPU side): line/point geometry fades out crossing the horizon — per-vertex, so a stick figure can straddle it; follows the sphere spin for free via modelMatrix
+  // uHzOpen (0..1): Sky Temple opens the full celestial sphere — nocturnal half is under the floor in dojo, revealed when the floor dissolves.
+  m.userData.hzOpen=0;
   m.onBeforeCompile=(sh)=>{
+    sh.uniforms.uHzOpen={value:m.userData.hzOpen||0};
+    m.userData.uHzOpen=sh.uniforms.uHzOpen;
     sh.vertexShader='varying float vWy;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n vWy=(modelMatrix*vec4(transformed,1.0)).y;');
-    sh.fragmentShader='varying float vWy;\n'+sh.fragmentShader.replace('vec4( diffuse, opacity )','vec4( diffuse, opacity*smoothstep('+HZ_LO.toFixed(1)+','+HZ_HI.toFixed(1)+',vWy) )');
+    sh.fragmentShader='varying float vWy;\nuniform float uHzOpen;\n'+sh.fragmentShader.replace(
+      'vec4( diffuse, opacity )',
+      'vec4( diffuse, opacity*mix(smoothstep('+HZ_LO.toFixed(1)+','+HZ_HI.toFixed(1)+',vWy),1.0,clamp(uHzOpen,0.0,1.0)) )'
+    );
   };
+  const prevKey=m.customProgramCacheKey?m.customProgramCacheKey.bind(m):null;
+  m.customProgramCacheKey=()=>(prevKey?prevKey():'')+'|hzOpen1';
+  _hzFadeMats.push(m);
   return m;
+}
+function setHorizonOpen(amount){   // 0 = dojo horizon hide, 1 = full sphere (temple)
+  const t=Math.max(0,Math.min(1,amount));
+  for(let i=0;i<_hzFadeMats.length;i++){
+    const m=_hzFadeMats[i]; m.userData.hzOpen=t;
+    if(m.userData.uHzOpen) m.userData.uHzOpen.value=t;
+  }
+  if(skyDomeMat&&skyDomeMat.uniforms&&skyDomeMat.uniforms.uTemple) skyDomeMat.uniforms.uTemple.value=t;
 }
 function shortestArcDeg(a,b){ let d=Math.abs(((a-b)%360+360)%360); return d>180?360-d:d; }   // Δ ∈ [0,180] — same math skypack v2 ships as same_body_delta
 function wrapDeg(x,fb){ x=+x; return isFinite(x)?(((x%360)+360)%360):fb; }   // longitude intake: [0,360) or the caller's fallback. Wrapping matters — a finite-but-huge lon (−5e300) would swallow the per-frame spin term in sunA−_sunLonRad and freeze the whole sphere
@@ -1547,10 +1570,15 @@ function buildChartSky(pack,rank){
   return true;
 }
 function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere layer exists
+  const hzOpen=_templeBlend;   // temple opens the full sphere: nocturnal planets/natal/signs become visible underfoot as the floor dissolves
   for(let i=0;i<_chartFade.length;i++){ const f=_chartFade[i];
     if(f.enabled===false){ f.obj.visible=false; continue; }
     let a=f.a0*Math.max(0,1-atmosAmt*f.k);   // D7: per-family day-melt against the ATMOSPHERE weight — at theatre noon (atmos≈0.30) the layer dims but never vanishes; ☉ (k=0.1) barely blinks
-    if(f.hz){ _hzV.copy(f.obj.position).applyQuaternion(skySphere.quaternion); a*=smooth(HZ_LO,HZ_HI,_hzV.y); }   // v2.1 G3 (CPU side): sprites set below the horizon — the sphere's spin decides which half of the chart you get
+    if(f.hz){   // v2.1 G3 (CPU side): sprites set below the horizon in dojo; temple lerps the hide open so the lower hemisphere is the other side of the sky
+      _hzV.copy(f.obj.position).applyQuaternion(skySphere.quaternion);
+      const hz=smooth(HZ_LO,HZ_HI,_hzV.y);
+      a*=hz+(1-hz)*hzOpen;
+    }
     if(f.pulseP!=null) a*=0.82+0.18*Math.sin(skyT*1.3+f.pulseP);
     setScalarCached(f.mat,'opacity',a); f.obj.visible=a>0.004;
   }
@@ -1781,15 +1809,16 @@ function _lsnOrbBlocksSky(){   // true if ANY live Echo is near enough to the re
   }
   return false;
 }
-function pickCelestial(){   // priority: transit body within bodyPx, else sign within signPx; horizon cull. Caller already ensured no orb blocks.
+function pickCelestial(){   // priority: transit body within bodyPx, else sign within signPx; dojo horizon-culls, temple investigates the full sphere. Caller already ensured no orb blocks.
   const CL=CFG.skyListen; let best=null, bestD=CL.bodyPx;
+  const openSphere=templeActive;   // only temple investigation can select nocturnal bodies underfoot
   for(const id in _lsnMeta.bodies){ const b=_lsnMeta.bodies[id]; if(!b.pos) continue;
-    _lsnW.copy(b.pos).applyQuaternion(skySphere.quaternion); if(_lsnW.y<HZ_HI) continue;
+    _lsnW.copy(b.pos).applyQuaternion(skySphere.quaternion); if(!openSphere && _lsnW.y<HZ_HI) continue;
     const d=_lsnScreenPx(_lsnW); if(d<bestD){ bestD=d; best={kind:'body', id:id, meta:b, world:_lsnW.clone()}; } }
   if(best) return best;
   bestD=CL.signPx;
   for(const id in _lsnMeta.signs){ const s=_lsnMeta.signs[id];
-    _lsnW.copy(s.pos).applyQuaternion(skySphere.quaternion); if(_lsnW.y<HZ_HI) continue;
+    _lsnW.copy(s.pos).applyQuaternion(skySphere.quaternion); if(!openSphere && _lsnW.y<HZ_HI) continue;
     const d=_lsnScreenPx(_lsnW); if(d<bestD){ bestD=d; best={kind:'sign', id:id, meta:s, world:_lsnW.clone()}; } }
   return best;
 }
@@ -2115,17 +2144,18 @@ function rebuildSkyTempleGeometry(){
   }
 }
 function updateSkyTempleVisuals(){
-  _templeGroup.visible=templeActive;
-  if(!templeActive) return;
+  _templeGroup.visible=templeActive||_templeBlend>0.01;
+  if(!templeActive && _templeBlend<=0.01) return;
   const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
   if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',0.5*_templeBlend*dim);
   if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?0.98*_templeBlend:0);
   for(const pick of _templeNatal){
     _templeTmp.copy(pick.local).applyQuaternion(skySphere.quaternion);
-    const hz=smooth(HZ_LO,HZ_HI,_templeTmp.y), focused=_templeFocus===pick;
+    // Full sphere in temple: ghosts stay visible below the former floor (dojo would horizon-cull them).
+    const hz=smooth(HZ_LO,HZ_HI,_templeTmp.y), vis=hz+(1-hz)*_templeBlend, focused=_templeFocus===pick;
     pick.sprite.material.color.setHex(focused?0xffd24a:0xc9d4ff);
-    setScalarCached(pick.sprite.material,'opacity',(focused?0.92:0.46)*hz*_templeBlend);
-    const s=pick.baseScale*(focused?1.28:1); pick.sprite.scale.set(s,s,1); pick.sprite.visible=hz*_templeBlend>0.01;
+    setScalarCached(pick.sprite.material,'opacity',(focused?0.92:0.46)*vis*_templeBlend);
+    const s=pick.baseScale*(focused?1.28:1); pick.sprite.scale.set(s,s,1); pick.sprite.visible=vis*_templeBlend>0.01;
   }
 }
 function _templeScreen(local,out){
@@ -2142,7 +2172,8 @@ function pickSkyTempleAspect(){
   for(const item of _templeAspects){
     _templeA.copy(item.start).applyQuaternion(skySphere.quaternion); _templeB.copy(item.end).applyQuaternion(skySphere.quaternion);
     const hit=SKY_TEMPLE_DATA.rayToSegment(camera.position,_templeFwd,_templeA,_templeB);
-    if(!hit||hit.rayT<=0.05||!hit.segmentPoint||hit.segmentPoint.y<HZ_LO) continue;
+    // Full sphere: aspect chords that cross underfoot are pickable (no dojo horizon cut).
+    if(!hit||hit.rayT<=0.05||!hit.segmentPoint) continue;
     const worldPerPx=(2*Math.max(0.1,hit.rayT)*tanHalf)/Math.max(1,viewH), d=hit.distance/worldPerPx;
     if(d<bestD){ bestD=d; best=item; }
   }
@@ -2151,7 +2182,8 @@ function pickSkyTempleAspect(){
 function pickSkyTempleNatal(){
   let best=null,bestD=CFG.skyListen.bodyPx; const p={x:0,y:0};
   for(const item of _templeNatal){
-    _templeTmp.copy(item.local).applyQuaternion(skySphere.quaternion); if(_templeTmp.y<HZ_HI || !_templeScreen(item.local,p)) continue;
+    // Full sphere: natal ghosts below the former floor remain selectable.
+    if(!_templeScreen(item.local,p)) continue;
     const d=Math.hypot(p.x-viewCX,p.y-viewCY); if(d<bestD){ bestD=d; best=item; }
   }
   return best;
