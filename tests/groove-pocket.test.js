@@ -185,9 +185,13 @@ function floorFrame(expected, beats, pocketEnabled = true) {
   return { amount: amount.value, color: seen.color };
 }
 
-test("rolling-pocket CFG defaults replace the phase machine surface (B1, B6)", () => {
+test("rolling-pocket CFG: feature shelved by default; buffer knobs remain (B1, B6)", () => {
   const cfg = extractCfg();
+  // Product default: OFF (zen free-play). Logic is covered with groovePocket forced true in sandbox tests.
+  assert.equal(cfg.groovePocket, false, "groovePocket shelved by default");
+  assert.equal(cfg.pocketLawHud, false, "LAW HUD off while shelved");
   for (const [key, expected] of Object.entries(bufferCfg)) {
+    if (key === "groovePocket") continue;
     assert.equal(cfg[key], expected, `CFG.${key}`);
   }
   assert.equal(cfg.grooveFireEarlyBeat, 0);
@@ -462,10 +466,10 @@ test("toast fires once per expected-pocket change, never once per bar", () => {
   assert.match(String(context.toasts[0]), /LEAN EARLY/i);
 });
 
-test("trust LAW HUD is present; phase-era staff/coach HUD is gone (B6 + law)", () => {
+test("LAW HUD markup remains for optional re-enable; phase-era staff/coach is gone", () => {
   assert.match(html, /\bid=["']pocketLaw["']/);
   assert.match(html, /\bfunction\s+pocketUpdateLawHud\s*\(/);
-  assert.match(html, /pocketLawHud\s*:\s*true/);
+  assert.match(html, /pocketLawHud\s*:\s*false/);
   assert.doesNotMatch(html, /\bid=["']pocket(?:Hud|Phase|Help|Staff|Count)["']/);
   assert.doesNotMatch(html, /\bfunction\s+pocketUpdateHud\s*\(/);
   assert.doesNotMatch(extractFunction("enterRunning"), /_pocketPhase|pocketToastPhase/);

@@ -601,9 +601,9 @@ const CFG = {
   dollyStrength:0.5, dollySkillRamp:true,   // ramp: ~0.35× at low skill → full dollyStrength at high skill (trainer already forces dolly off)
   // OPEN WINDOW PHASE: 0 = peak on the audible 1 (default). Non-zero shifts the vulnerability center early (beats). WASD pocket language is SEPARATE — do not couple combat open timing to push/on/layback.
   grooveFireEarlyBeat:0,
-  // ROLLING GROOVE POCKET (free-play desktop WASD only): the last 16 mains estimate feel; one expected pocket governs freeze + floor PEAK timing. Transport/juke/open-window and floor HUE stay absolute/letter-based.
-  groovePocket:true, pocketBufferLen:16, pocketMinSamples:8, pocketExpectBeats:4, pocketLead:0.06, pocketLeadHard:0.12, pocketHysteresisBars:2, pocketWeakFloor:0.35, pocketOffsetBeat:0.25, pocketBinEdge:0.125,
-  pocketLawHud:true,   // persistent free-play LAW line (what freeze rewards) — trust cue; not rings/staff
+  // ROLLING GROOVE POCKET — SHELVED by default (mental load / weak floor-phase signal). Code stays for a future simpler cut. Kill-switch: groovePocket true re-enables buffer + optional LAW HUD.
+  groovePocket:false, pocketBufferLen:16, pocketMinSamples:8, pocketExpectBeats:4, pocketLead:0.06, pocketLeadHard:0.12, pocketHysteresisBars:2, pocketWeakFloor:0.35, pocketOffsetBeat:0.25, pocketBinEdge:0.125,
+  pocketLawHud:false,   // only meaningful if groovePocket is on
   pocketCircleCue:false, pocketColPush:0xb8f0a0, pocketColOn:0x9fd8ff, pocketColLay:0xff8ab8, pocketMainDim:0.28, pocketTargetAlpha:0.92, pocketLateScale:0.55, pocketStaffMode:'off',
   // OPEN LENS BUBBLE: keep the classic additive shell but SMOKIER (lower opacity) and a bit LARGER while open — soft glass/smoke, not a bright neon flare.
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
