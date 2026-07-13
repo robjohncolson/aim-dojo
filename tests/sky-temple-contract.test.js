@@ -229,10 +229,10 @@ test("personal aspect chords are capped, first-class, and rendered only through 
   assert.match(geometry, /_templeNatal\.push\s*\(/);
 
   const focus = namedFunction("focusSkyTempleReticle");
-  indexBefore(focus, /pickSkyTempleAspect\s*\(/, /pickSkyTempleNatal\s*\(/,
-    "aspect chords win over natal ghosts");
-  indexBefore(focus, /pickSkyTempleNatal\s*\(/, /pickCelestial\s*\(/,
-    "natal ghosts win over ordinary body/sign picking");
+  indexBefore(focus, /pickCelestial\s*\(/, /pickSkyTempleNatal\s*\(/,
+    "bodies/signs win so the descriptive chip is not stolen by an aspect line");
+  indexBefore(focus, /pickSkyTempleNatal\s*\(/, /pickSkyTempleAspect\s*\(/,
+    "natal ghosts win over loose aspect chords");
   assert.match(focus, /setSkyTempleFocus\(\{kind:'body'/, "body focus is set even when normalize is sparse");
 
   const panel = namedFunction("renderSkyTemplePanel");
@@ -251,6 +251,13 @@ test("personal aspect chords are capped, first-class, and rendered only through 
   const request = namedFunction("requestTempleStudy");
   assert.match(request, /glossaryListenData\s*\(/);
   assert.match(request, /fetchListen\s*\(/);
+  assert.match(request, /loadSkyGlossary/, "glossary is forced if idle load has not finished");
+
+  assert.match(html, /function templeAspectStudyData\s*\(/);
+  assert.match(html, /function fillTempleAspectStudy\s*\(/);
+  assert.match(html, /fillTempleAspectStudy\s*\(/, "aspect focus gets a descriptive chip, not bare geometry alone");
+  assert.match(html, /\.sky-temple-body:empty/, "empty study pane collapses cleanly");
+  assert.doesNotMatch(html, /\.sky-temple-body\{[^}]*flex\s*:\s*1/, "study body must not flex-collapse to 0 height");
 
   const fetch = namedFunction("fetchListen");
   assert.match(fetch, /paintStudySurface|fillTempleStudy|templeActive/);

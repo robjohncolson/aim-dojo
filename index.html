@@ -169,14 +169,17 @@ html.seen #ovLede .lede-return{display:inline}
 #trainCoach{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.12em;color:var(--rail);text-shadow:0 0 10px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.9);opacity:0;text-align:center;max-width:min(520px,92vw);line-height:1.45;transition:opacity .25s}
 #trainCoach.on{opacity:1}
 
-/* Sky Temple investigation HUD — full Listen-style study copy lives here (not the retired dojo chip). */
-#skyTemplePanel{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:11;width:min(400px,42vw);max-width:calc(100vw - 36px);max-height:min(78vh,720px);padding:14px 16px;border:1px solid rgba(255,210,74,.52);background:rgba(8,12,12,.92);box-shadow:0 18px 55px rgba(0,0,0,.58),inset 0 0 28px rgba(255,210,74,.035);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone);display:flex;flex-direction:column}
+/* Sky Temple investigation HUD — full Listen-style study copy lives here (not the retired dojo chip).
+   IMPORTANT: do NOT use flex:1 + min-height:0 on the body while the panel is height:auto — that collapses
+   the descriptive block to 0px so only the bare title/meta (glyph · lon) appear. */
+#skyTemplePanel{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:11;width:min(400px,42vw);max-width:calc(100vw - 36px);max-height:min(78vh,720px);padding:14px 16px;border:1px solid rgba(255,210,74,.52);background:rgba(8,12,12,.92);box-shadow:0 18px 55px rgba(0,0,0,.58),inset 0 0 28px rgba(255,210,74,.035);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone);overflow:auto}
 #skyTemplePanel.on{opacity:1;visibility:visible}
-.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:8px;flex:0 0 auto}
-.sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em;flex:0 0 auto}
-.sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line;flex:0 0 auto}
-.sky-temple-body{font:10.5px/1.45 var(--mono);letter-spacing:.03em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);overflow:auto;flex:1 1 auto;min-height:0;max-height:min(52vh,480px);white-space:pre-wrap;pointer-events:none}
-.sky-temple-hint{font:9.5px/1.4 var(--mono);color:var(--bone-dim);letter-spacing:.045em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);flex:0 0 auto}
+.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:8px}
+.sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em}
+.sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line}
+.sky-temple-body{font:10.5px/1.45 var(--mono);letter-spacing:.03em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);max-height:min(52vh,480px);overflow:auto;white-space:normal;pointer-events:none}
+.sky-temple-body:empty{display:none}
+.sky-temple-hint{font:9.5px/1.4 var(--mono);color:var(--bone-dim);letter-spacing:.045em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22)}
 body.temple-active :is(#speedBox,#beatRing,#pocketLaw,#lockBox,#edgeTop,#edgeBot,#edgeLeft,#edgeRight,#wasdHud,#wasdGlyph,#windHud,#hitmark,#timing,#assist,#hitFlash,#dojoFlash,#trainCoach,#comboGlow,#presence,.tgtDist,.tgtKey,.liveRet){display:none!important}
 body.temple-active #reticle .arm,body.temple-active #reticle .dot{background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.9)}
 body.temple-active #skyListenCard{display:none!important}
@@ -1974,6 +1977,27 @@ function glossaryListenData(pick){
   else if(!text){ const one=P||S; title=one.title; text=one.text; }
   return {type:'sky_glossary',placement:{status:'ready',title:title,text:text},personal:{available:false}};
 }
+function templeAspectStudyData(record){
+  // Descriptive chip for a transit→natal chord: geometry + glossary on both ends (no DeepSeek).
+  if(!record||!record.transit||!record.natal) return null;
+  const G=_skyGlossary, t=record.transit, n=record.natal;
+  const tSign=t.sign||null, nSign=n.sign||null;
+  const tPick={kind:'body',id:t.id,meta:{name:t.label||t.id,glyph:t.glyph,sign:tSign,lon:t.lonJ2000}};
+  const nPick={kind:'body',id:n.id,meta:{name:n.label||n.id,glyph:n.glyph,sign:nSign,lon:n.lonJ2000}};
+  const tGloss=glossaryListenData(tPick), nGloss=glossaryListenData(nPick);
+  const aspectLabel=record.aspectLabel||record.aspectId||'aspect';
+  const title='Transit '+(t.label||t.id)+' '+aspectLabel+' natal '+(n.label||n.id);
+  let text='A symbolic contact between moving '+(t.label||t.id)+' and natal '+(n.label||n.id)+' ('+aspectLabel+').';
+  if(record.motionLabel) text+=' The aspect is '+record.motionLabel+'.';
+  if(isFinite(record.orbDeg)) text+=' Orb '+(+record.orbDeg).toFixed(1)+'°.';
+  text+=' Use it as a reflective lens, not a prediction.';
+  const parts=[];
+  if(tGloss&&tGloss.placement&&tGloss.placement.text) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:tGloss.placement.title, text:tGloss.placement.text});
+  else if(G&&G.planets[t.id]) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:G.planets[t.id].title, text:G.planets[t.id].text});
+  if(nGloss&&nGloss.placement&&nGloss.placement.text) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:nGloss.placement.title, text:nGloss.placement.text});
+  else if(G&&G.planets[n.id]) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:G.planets[n.id].title, text:G.planets[n.id].text});
+  return {type:'temple_aspect',placement:{status:'ready',title:title,text:text},personal:{available:false},parts:parts};
+}
 function mergePersonalListen(data,fallback){
   if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
 }
@@ -2295,7 +2319,7 @@ function fillTempleStudy(pick, data, skeleton){
   const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
   const A=data&&data.placement, P=data&&data.personal;
   const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
-  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
+  const placeMax=hasPersonal?520:1200, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
   if(skeleton){
     _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
     _lsnLine(body, pick.kind==='body' ? ((m.glyph||'')+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
@@ -2304,17 +2328,17 @@ function fillTempleStudy(pick, data, skeleton){
   }
   if(hasPersonal){
     _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
-    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
+    if(P.title) _lsnLine(body, _lsnClip(P.title, 140), TTL);
     if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
-    if(P.text) _lsnLine(body, _lsnClip(P.text, 320), 'color:var(--bone-dim);margin-bottom:5px;');
+    if(P.text) _lsnLine(body, _lsnClip(P.text, 480), 'color:var(--bone-dim);margin-bottom:5px;');
     if(Array.isArray(P.highlights) && P.highlights.length){
       _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
       for(const h of P.highlights.slice(0,5)){
         if(!h) continue;
         const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
-        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
+        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,120), 'margin-top:4px;color:var(--rail);font-size:11px;');
         else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
-        if(h.text) _lsnLine(body,_lsnClip(h.text,320),'color:var(--bone-dim);margin-bottom:3px;');
+        if(h.text) _lsnLine(body,_lsnClip(h.text,400),'color:var(--bone-dim);margin-bottom:3px;');
       }
     }
   }
@@ -2322,21 +2346,42 @@ function fillTempleStudy(pick, data, skeleton){
   _lsnLine(body, pick.kind==='body' ? ((m.glyph||'')+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
                                     : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
   if(A && (A.title||A.text)){
-    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
+    if(A.title && (!hasPersonal || !P || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 120), TTL);
     if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
-  } else if(pick.kind==='body') _lsnLine(body, 'lon '+(isFinite(m.lon)?Math.round(m.lon*10)/10+'°':'—')+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
-  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
+  } else if(pick.kind==='body'){
+    // Glossary missing: still write a readable chip, never lon-only silence.
+    const nm=_lsnCap(m.name||pick.id), sg=signId?_lsnCap(signId):'';
+    _lsnLine(body, sg?(nm+' in '+sg):(nm+' in the sky now'), TTL);
+    _lsnLine(body, (sg?(nm+' is currently in '+sg+'. '):'')+'Symbolic study of this transit body — a reflective lens, not a prediction.'+(isFinite(m.lon)?(' Lon '+(Math.round(m.lon*10)/10)+'°.'):''), 'color:var(--bone-dim);margin-bottom:4px;');
+  } else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
     for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
     for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
     if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
     if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
   }
+  if(Array.isArray(data&&data.parts)){
+    for(const part of data.parts){
+      if(!part) continue;
+      _lsnLine(body, part.hdr||'NOTE', HDR+'margin-top:8px;');
+      if(part.title) _lsnLine(body, _lsnClip(part.title, 120), TTL);
+      if(part.text) _lsnLine(body, _lsnClip(part.text, 420), 'color:var(--bone-dim);margin-bottom:4px;');
+    }
+  }
   if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
   _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
+}
+function fillTempleAspectStudy(record){
+  const body=_templeUi.body; if(!body||!record) return;
+  const data=templeAspectStudyData(record);
+  // Synthetic pick so fillTempleStudy can render SKY · NOW header structure; aspect parts carry the essays.
+  const pick={kind:'body',id:record.transit.id,meta:{name:record.transit.label,glyph:record.transit.glyph,sign:record.transit.sign,lon:record.transit.lonJ2000}};
+  fillTempleStudy(pick, data||{placement:{title:'Aspect',text:''},personal:{available:false},parts:[]}, false);
 }
 function requestTempleStudy(pick){
   if(!pick||(pick.kind!=='body'&&pick.kind!=='sign')) return;
   _templeStudySeq++;
+  // Ensure glossary is loading if it has not arrived yet (idle load can lag first temple fire).
+  if(!_skyGlossaryReady) loadSkyGlossary().then(()=>{ if(templeActive&&_templeFocus&&(_templeFocus.kind==='body'||_templeFocus.kind==='sign')&&_templeFocus.pick&&_templeFocus.pick.id===pick.id) requestTempleStudy(pick); });
   // Paint glossary/geometry immediately (same substance as the old Listen card), then enrich with personal desk when available.
   const fallback=glossaryListenData(pick)||{placement:null,personal:{available:false}};
   fillTempleStudy(pick, fallback, false);
@@ -2350,23 +2395,18 @@ function renderSkyTemplePanel(){
   if(_templeFocus&&_templeFocus.kind==='aspect'&&SKY_TEMPLE_DATA){
     const model=SKY_TEMPLE_DATA.aspectPanelData(_templeFocus.record);
     if(model){ title=model.title; if(model.detail) lines.push(model.detail); if(model.transitPlacement) lines.push('transit · '+model.transitPlacement); if(model.natalPlacement) lines.push('natal · '+model.natalPlacement); if(model.rank) lines.push('tightness #'+model.rank); }
-    if(_templeUi.body) _templeUi.body.textContent='';
   }else if(_templeFocus&&_templeFocus.kind==='natal'){
     const model=SKY_TEMPLE_DATA&&_templeFocus.body?SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body):null;
     if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
     else if(_templeFocus.body) title=(_templeFocus.body.glyph||'')+' '+(_templeFocus.body.label||_templeFocus.id)+' (natal)';
-    if(_templeUi.body) _templeUi.body.textContent='';
   }else if(_templeFocus&&_templeFocus.kind==='body'){
     const model=SKY_TEMPLE_DATA&&_templeFocus.body?SKY_TEMPLE_DATA.bodyPanelData(_templeFocus.body):null;
     const m=(_templeFocus.pick&&_templeFocus.pick.meta)||{};
     if(model){ title=model.title; if(model.placement) lines.push(model.placement); }
     else title=(m.glyph||'')+' '+_lsnCap(m.name||_templeFocus.pick.id);
     if(isFinite(m.lon)&&!model) lines.push('lon '+Math.round(m.lon*10)/10+'°');
-    // study body filled by requestTempleStudy
   }else if(_templeFocus&&_templeFocus.kind==='sign'){
     const m=_templeFocus.pick.meta||{}; title=(m.glyph?m.glyph+' ':'')+_lsnCap(_templeFocus.pick.id); if(isFinite(m.lon)) lines.push(Math.round(m.lon*10)/10+'°');
-  }else{
-    if(_templeUi.body) _templeUi.body.textContent='';
   }
   if(!title) title=T('skyTempleEmpty','Aim into the sky to investigate');
   _templeUi.title.textContent=title; _templeUi.meta.textContent=lines.join('\n');
@@ -2378,23 +2418,35 @@ function setSkyTempleFocus(focus){
     if(aspect){ const p=_templeHighlight.geometry.attributes.position; p.setXYZ(0,aspect.start.x,aspect.start.y,aspect.start.z); p.setXYZ(1,aspect.end.x,aspect.end.y,aspect.end.z); p.needsUpdate=true; }
   }
   const focusPick=_templeFocus&&(_templeFocus.kind==='body'||_templeFocus.kind==='sign')?_templeFocus.pick:null;
-  const goldPick=focusPick||_skySel;
-  if(goldPick){ goldFigure(goldPick.kind==='sign'?goldPick.id:goldPick.meta.sign); emphasizeListenGlyphs(goldPick); }
+  if(focusPick){ goldFigure(focusPick.kind==='sign'?focusPick.id:focusPick.meta.sign); emphasizeListenGlyphs(focusPick); }
+  else if(_templeFocus&&_templeFocus.kind==='aspect'&&_templeFocus.record&&_templeFocus.record.transit){
+    const t=_templeFocus.record.transit, tm=_lsnMeta&&_lsnMeta.bodies[t.id];
+    if(t.sign) goldFigure(t.sign);
+    if(tm) emphasizeListenGlyphs({kind:'body',id:t.id,meta:tm});
+  }else if(_skySel){ goldFigure(_skySel.kind==='sign'?_skySel.id:_skySel.meta.sign); emphasizeListenGlyphs(_skySel); }
   else { restoreListenGlyphs(); restoreFigures(); }
   renderSkyTemplePanel();
+  // Always fill the descriptive body — never leave bare title/meta alone.
   if(focusPick) requestTempleStudy(focusPick);
-  else { _templeStudySeq++; if(_templeUi.body&&_templeFocus&&_templeFocus.kind!=='body'&&_templeFocus.kind!=='sign'){ /* aspect/natal leave body empty or already cleared */ } }
+  else if(_templeFocus&&_templeFocus.kind==='aspect'&&_templeFocus.record){ _templeStudySeq++; fillTempleAspectStudy(_templeFocus.record); }
+  else if(_templeFocus&&_templeFocus.kind==='natal'&&_templeFocus.body){
+    _templeStudySeq++;
+    const b=_templeFocus.body;
+    const pick={kind:'body',id:b.id,meta:{name:b.label,glyph:b.glyph,sign:b.sign,lon:b.lonJ2000,house:b.house}};
+    const fallback=glossaryListenData(pick)||{placement:{title:(b.glyph||'')+' '+(b.label||b.id)+' (natal)',text:'Natal placement — a fixed reference in your chart, used as a symbolic study lens.'},personal:{available:false}};
+    fillTempleStudy(pick, fallback, false);
+  } else { _templeStudySeq++; if(_templeUi.body) _templeUi.body.textContent=''; }
   updateSkyTempleVisuals();
 }
 function clearSkyTempleFocus(){ setSkyTempleFocus(null); }
 function focusSkyTempleReticle(){
   if(!templeActive) return false;
-  const aspect=pickSkyTempleAspect(); if(aspect){ setSkyTempleFocus(aspect); return true; }
-  const natal=pickSkyTempleNatal(); if(natal){ setSkyTempleFocus(natal); return true; }
+  // Prefer bodies/signs for the descriptive chip; aspect chords only when no planet/sign is under the reticle.
   const pick=pickCelestial();
-  // Always accept body/sign picks even when normalize fails — study HUD still has meta/lon/glossary.
   if(pick&&pick.kind==='body'){ setSkyTempleFocus({kind:'body',body:_templeBodyFromPick(pick),pick:pick}); return true; }
   if(pick&&pick.kind==='sign'){ setSkyTempleFocus({kind:'sign',pick:pick}); return true; }
+  const natal=pickSkyTempleNatal(); if(natal){ setSkyTempleFocus(natal); return true; }
+  const aspect=pickSkyTempleAspect(); if(aspect){ setSkyTempleFocus(aspect); return true; }
   clearSkyTempleFocus(); return true;
 }
 function enterSkyTemple(options){
