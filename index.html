@@ -578,6 +578,8 @@ const CFG = {
   hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
   dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false, openGlowBoost:1.05,   // dollyHuman: SENSEI-style irregular wander (not pure lissajous). openGlowBoost: scale orb open-shell opacity so tight windows still READ.
+  // DISTANCE-BALANCED DOLLY: camera wander is angular, so far orbs drift more screen-pixels for the same yaw/pitch. Scale dolly by nearest live target distance (near = fuller chase, far = calmer hold).
+  dollyNearMul:1.18, dollyFarMul:0.36, dollyDistNear:8, dollyDistFar:26, dollyChromatic:true,   // dollyChromatic: RGB fringe shells on open-window orbs (cheap additive; skipped on LOW)
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
@@ -2268,6 +2270,9 @@ const TARGET_CORE_GEO=new THREE.SphereGeometry(1,LOW?8:16,LOW?6:10);   // LOW: c
 const TARGET_SHELL_GEO=new THREE.SphereGeometry(1,LOW?6:10,LOW?4:8);   // LOW: chunkier glow shell
 const TARGET_CORE_MAT=new THREE.MeshBasicMaterial({color:TOXIC});
 const TARGET_SHELL_MAT=new THREE.MeshBasicMaterial({color:TOXIC,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
+// CHROMATIC OPEN BUBBLE: shared R/B fringe shells (additive) bloom with the open window — reads like a cheap chromatic-aberration bubble without a post pass. Skipped on LOW.
+const FRINGE_R_MAT=new THREE.MeshBasicMaterial({color:0xff2a6a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,visible:!LOW});
+const FRINGE_B_MAT=new THREE.MeshBasicMaterial({color:0x2ad4ff,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,visible:!LOW});
 // special orbs (variety): kind 0=normal, 1=gold (bonus), 2=decoy (don't-hit). Distinct SHARED materials swapped onto the pooled mesh per spawn (no per-orb allocation).
 const GOLD_COLOR=0xffd24a, DECOY_COLOR=0xff3b6e;
 const GOLD_CORE_MAT=new THREE.MeshBasicMaterial({color:GOLD_COLOR});
@@ -2291,13 +2296,41 @@ function createTargetMesh(){
   const core=new THREE.Mesh(TARGET_CORE_GEO, TARGET_CORE_MAT);
   const shell=new THREE.Mesh(TARGET_SHELL_GEO, TARGET_SHELL_MAT);
   shell.scale.setScalar(1.55); core.add(shell); core.userData.shell=shell;
+  if(!LOW && CFG.dollyChromatic!==false){
+    const fringeR=new THREE.Mesh(TARGET_SHELL_GEO, FRINGE_R_MAT);
+    const fringeB=new THREE.Mesh(TARGET_SHELL_GEO, FRINGE_B_MAT);
+    fringeR.scale.setScalar(1.72); fringeB.scale.setScalar(1.38);
+    fringeR.visible=false; fringeB.visible=false;
+    core.add(fringeR); core.add(fringeB);
+    core.userData.fringeR=fringeR; core.userData.fringeB=fringeB;
+  }
   return core;
 }
 function acquireTargetMesh(){ const m=targetMeshPool.pop() || createTargetMesh(); m.visible=true; scene.add(m); return m; }
 function releaseTargetMesh(m){
-  const shell=m.userData.shell;
-  for(let i=m.children.length-1;i>=0;i--) if(m.children[i]!==shell) m.remove(m.children[i]);
+  const shell=m.userData.shell, fringeR=m.userData.fringeR, fringeB=m.userData.fringeB;
+  for(let i=m.children.length-1;i>=0;i--){ const c=m.children[i]; if(c!==shell && c!==fringeR && c!==fringeB) m.remove(c); }
+  if(fringeR) fringeR.visible=false; if(fringeB) fringeB.visible=false;
   m.userData.target=null; m.visible=false; scene.remove(m); targetMeshPool.push(m);
+}
+function nearestTargetDist(){   // PLAYER_POS distance to closest live Echo — drives dolly amplitude so far holds don't get punished by pure angular wander
+  let best=null;
+  for(let i=0;i<targets.length;i++){
+    const tg=targets[i], m=tg&&tg.mesh; if(!m||!m.visible) continue;
+    const dx=m.position.x-PLAYER_POS.x, dy=m.position.y-PLAYER_POS.y, dz=m.position.z-PLAYER_POS.z;
+    const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(best==null||d<best) best=d;
+  }
+  return best;
+}
+function dollyDistanceMul(){
+  const d=nearestTargetDist();
+  if(d==null||!isFinite(d)) return 1;
+  const near=CFG.dollyDistNear!=null?CFG.dollyDistNear:(CFG.rangeNear||8);
+  const far=CFG.dollyDistFar!=null?CFG.dollyDistFar:(CFG.rangeMax||28);
+  const t=Math.max(0,Math.min(1,(d-near)/Math.max(0.01,far-near)));
+  const a=CFG.dollyNearMul!=null?CFG.dollyNearMul:1.18, b=CFG.dollyFarMul!=null?CFG.dollyFarMul:0.36;
+  return a+(b-a)*t;   // near → a (more chase), far → b (calmer)
 }
 const targetRecordPool=[];
 const trailPointPool=[];
@@ -3380,14 +3413,14 @@ function animate(frameNow){
     }
   }
   let _dollyY=0, _dollyP=0;                                    // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump.
-  if(CFG.dolly && !reduceMotion){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293;
+  if(CFG.dolly && !reduceMotion){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyDistanceMul();
     if(CFG.dollyHuman){   // SENSEI: irregular multi-harmonic wander + slow envelope — tracks like a strafing opponent, not a perfect machine orbit
       const e=0.72+0.28*Math.sin(_t*0.19+0.5);
-      _dollyY=CFG.dollyYawDeg*D*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
-      _dollyP=CFG.dollyPitchDeg*D*e*(0.48*Math.sin(_t*_w*0.69+1.2)+0.28*Math.sin(_t*_w*1.88+0.4)+0.24*Math.sin(_t*_w*0.37+2.6));
+      _dollyY=CFG.dollyYawDeg*D*_dm*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
+      _dollyP=CFG.dollyPitchDeg*D*_dm*e*(0.48*Math.sin(_t*_w*0.69+1.2)+0.28*Math.sin(_t*_w*1.88+0.4)+0.24*Math.sin(_t*_w*0.37+2.6));
     } else {
-      _dollyY=CFG.dollyYawDeg*D*(0.62*Math.sin(_t*_w)+0.38*Math.sin(_t*_w*1.73+1.3));
-      _dollyP=CFG.dollyPitchDeg*D*(0.62*Math.sin(_t*_w*0.83+0.7)+0.38*Math.sin(_t*_w*1.31+2.1));
+      _dollyY=CFG.dollyYawDeg*D*_dm*(0.62*Math.sin(_t*_w)+0.38*Math.sin(_t*_w*1.73+1.3));
+      _dollyP=CFG.dollyPitchDeg*D*_dm*(0.62*Math.sin(_t*_w*0.83+0.7)+0.38*Math.sin(_t*_w*1.31+2.1));
     }
   }
   camera.rotation.set(pitch+recoilPitch+shP+_dollyP, yaw+recoilYaw+shY+_dollyY, shR, 'YXZ');
@@ -3415,7 +3448,15 @@ function animate(frameNow){
       _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
       // openGlowBoost (SENSEI higher): tight windows still pop visually; shielded floor stays 0.05
       const _so=_openAmt>0?Math.min(0.95, (0.20+0.47*_openAmt)*(CFG.openGlowBoost||1)):0.05; TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
-    } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
+      // chromatic bubble: R/B fringe opacities track the open window (shared mats); per-orb scale pulse below
+      if(!LOW && CFG.dollyChromatic!==false){
+        const fo=_openAmt>0.02?Math.min(0.42, 0.08+0.34*_openAmt):0;
+        FRINGE_R_MAT.opacity=fo; FRINGE_B_MAT.opacity=fo*0.88;
+        FRINGE_R_MAT.visible=fo>0.01; FRINGE_B_MAT.visible=fo>0.01;
+      }
+    } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; }
+      if(!LOW && CFG.dollyChromatic!==false){ FRINGE_R_MAT.opacity=0; FRINGE_B_MAT.opacity=0; FRINGE_R_MAT.visible=false; FRINGE_B_MAT.visible=false; }
+    }
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
       // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
@@ -3446,6 +3487,15 @@ function animate(frameNow){
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
         if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
+        // chromatic open bubble: slight opposing scale on R/B fringes while the fire window is open
+        if(!LOW && CFG.dollyChromatic!==false){
+          const fr=tg.mesh.userData.fringeR, fb=tg.mesh.userData.fringeB;
+          if(fr&&fb){
+            const a=(CFG.grooveGroove&&CFG.grooveVuln)?_openAmt:0;
+            const on=a>0.02; fr.visible=on; fb.visible=on;
+            if(on){ const w=0.06*a*Math.sin(state.t*9.5+tg.idx*0.7); fr.scale.setScalar(1.68+0.10*a+w); fb.scale.setScalar(1.36-0.06*a-w); }
+          }
+        }
         const p=tg.mesh.position;
         if(doSnap){ const mul=_mulEff;                  // strobe step scaled by the enveloped WASD freeze: 1=full move, 0=frozen (falls instantly on a clean tap, rises clipped after a break)
           if(brownianStep){                                  // brownian wander
