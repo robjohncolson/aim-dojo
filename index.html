@@ -1157,9 +1157,9 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
 }
 (function buildArena(){
   const FLOOR=FLOOR_SIZE;                                     // floor stretches well past the fog → reads as a horizon
-  // depthWrite must drop as soon as temple dissolves the floor — otherwise a transparent plane still
-  // occludes the lower celestial sphere (sprites/sticks fail the depth test → pure black underfoot).
-  baseFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14,transparent:true,opacity:1,depthWrite:true}));
+  // OPAQUE solid floor in dojo (never transparent:true — that broke depth/sort and painted the arena black when looking up).
+  // Temple hides this mesh entirely (visible=false); it must not fade via opacity.
+  baseFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({color:0x0c0a14}));
   baseFloor.rotation.x = -Math.PI/2; scene.add(baseFloor);
   dayFloor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR, FLOOR), new THREE.MeshBasicMaterial({map:getCheckerTex(dayTileIdx), transparent:true, opacity:0, depthWrite:false}));
   dayFloor.rotation.x = -Math.PI/2; dayFloor.position.y = 0.012; scene.add(dayFloor);   // checker tiles, faded in during day; scheme alternates each day. Map assigned at BUILD time so USE_MAP is baked into the one and only compile (no first-dawn recompile hitch).
@@ -1376,21 +1376,32 @@ function updateSky(dt){
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
   scene.background.copy(_hor); scene.fog.color.copy(_hor); setScalarCached(scene.fog,'density',0.012-0.005*day,100000);  // background = horizon → no black seam; floor fades into the horizon
   if(starPts) setScalarCached(starPts.material.uniforms.uOpacity,'value',Math.max(0,1-atmos*1.15));   // atmos: decorative identical (atmos===day); clocked* fallback stars ride the quieter dome
+  // Floors: dojo keeps the original opaque base + fading day/night layers. Temple removes every floor layer
+  // (visible=false) so the celestial sphere continues underfoot — never a semi-transparent black plane.
   if(baseFloor){
-    setScalarCached(baseFloor.material,'opacity',floorAlpha);
-    // Opaque dojo floor writes depth; any temple dissolve must NOT, or the lower sky is depth-culled to black.
-    baseFloor.material.depthWrite=floorAlpha>0.97 && !templeActive;
-    baseFloor.visible=floorAlpha>0.003 && !templeActive;
+    baseFloor.visible=!templeActive;
+    if(baseFloor.material){ baseFloor.material.transparent=false; baseFloor.material.opacity=1; baseFloor.material.depthWrite=true; }
   }
-  if(dayFloor){ if(day>0.01) setDayFloorTex(); setScalarCached(dayFloor.material,'opacity',day*floorAlpha); syncReflUniformSize(); dayFloor.visible=day*floorAlpha>0.003 && !templeActive; }  // tiles fade in; Temple removes the floor plane entirely so the sphere can pass underfoot
+  if(dayFloor){
+    if(day>0.01) setDayFloorTex();
+    const dayOp=templeActive?0:day;
+    setScalarCached(dayFloor.material,'opacity',dayOp); syncReflUniformSize();
+    dayFloor.visible=!templeActive && dayOp>0.003;
+  }
   const deepNight=day<0.04;                                  // each new night: roll a grid colour ≠ last, and flip the next day's tile set (hidden while invisible)
   if(deepNight && !wasNight){
     let n; do{ n=(Math.random()*3)|0; }while(n===gridColIdx); gridColIdx=n; setNightGrid(GRID_COLS[n][0], GRID_COLS[n][1]);
     dayTileIdx=1-dayTileIdx; if(dayFloor && dayFloor.material.map) setDayFloorTex();
   }
   wasNight=deepNight;
-  if(nightGrid){ const nop=0.55*(1-day)*floorAlpha; setScalarCached(nightGrid.material,'opacity',nop); nightGrid.visible=nop>0.003 && !templeActive; }
-  if(glowGrid){ const gop=0.9*(1-day)*floorAlpha; setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=gop>0.01 && !templeActive; }
+  if(nightGrid){
+    const nop=templeActive?0:0.55*(1-day);
+    setScalarCached(nightGrid.material,'opacity',nop); nightGrid.visible=!templeActive && nop>0.003;
+  }
+  if(glowGrid){
+    const gop=templeActive?0:0.9*(1-day);
+    setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=!templeActive && gop>0.01;
+  }
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
   _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && !templeActive && activeTheme) _amb.lerp(_moodCol, 0.04+0.04*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
@@ -1404,7 +1415,7 @@ function updateSky(dt){
   if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull (opens with temple) + soft glyph breath — zero cost while absent
   if(templeActive||_templeBlend>0.01) updateSkyTempleVisuals();   // keep aspect/ghost opacities in sync while the full-sphere blend is open
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
-  if(day*floorAlpha>0.02) renderReflection();                // no mirror pass after the temple floor has dissolved
+  if(!templeActive && day>0.02) renderReflection();          // no mirror pass in temple (floor is gone)
 }
 let skyT=0;
 
@@ -2271,8 +2282,8 @@ function enterSkyTemple(){
   hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
   if(_lsn.line){ _lsn.line.visible=false; _lsn.lineT=-1; }
   if(_lsn.card) _lsn.card.style.display='none';
-  // Kill floor depth occlusion immediately and open the full celestial sphere (planets + natal underfoot).
-  if(baseFloor){ baseFloor.visible=false; baseFloor.material.depthWrite=false; baseFloor.material.opacity=0; }
+  // Hard-hide floors (opaque base must not stay in the scene) and open the full celestial sphere.
+  if(baseFloor) baseFloor.visible=false;
   if(dayFloor) dayFloor.visible=false;
   if(nightGrid) nightGrid.visible=false;
   if(glowGrid) glowGrid.visible=false;
@@ -2290,6 +2301,12 @@ function exitSkyTemple(options){
   templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null;
   document.body.classList.remove('temple-active'); _templeGroup.visible=false;
   if(_templeUi.panel){ _templeUi.panel.classList.remove('on'); _templeUi.panel.setAttribute('aria-hidden','true'); }
+  // Restore dojo floor immediately (opaque base + grids; updateSky will set day/night opacities next tick).
+  if(baseFloor){ baseFloor.visible=true; if(baseFloor.material){ baseFloor.material.transparent=false; baseFloor.material.opacity=1; baseFloor.material.depthWrite=true; } }
+  if(dayFloor) dayFloor.visible=true;
+  if(nightGrid) nightGrid.visible=true;
+  if(glowGrid) glowGrid.visible=true;
+  setHorizonOpen(0);
   if(_skySel){ goldFigure(_skySel.kind==='sign'?_skySel.id:_skySel.meta.sign); emphasizeListenGlyphs(_skySel); }
   else { restoreListenGlyphs(); restoreFigures(); }
   if(options.audio!==false) applyAudioState(); if(options.resume!==false) syncTransport(); clock.getDelta();

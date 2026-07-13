@@ -148,21 +148,21 @@ test("enter and exit form a reversible no-combat temple shell", () => {
   assert.match(exitRun, /templeActive[\s\S]*?exitSkyTemple\s*\(/, "pause cleanup cannot strand temple state");
 });
 
-test("temple forces live natural sky, dissolves every floor, and cannot freeze", () => {
+test("temple forces live natural sky, hides floors, and cannot freeze", () => {
   const update = namedFunction("updateSky");
   assert.match(update, /templeTarget\s*=\s*templeActive\s*\?\s*1\s*:\s*0/);
-  assert.match(update, /floorDissolveSec/);
-  assert.match(update, /floorAlpha\s*=\s*1\s*-\s*_templeBlend/);
   assert.match(update, /skyOpen\s*=\s*templeActive\s*\?\s*1\s*:\s*_templeBlend/, "full sphere opens the moment temple is active");
   assert.match(update, /setHorizonOpen\s*\(\s*skyOpen\s*\)/);
-  assert.match(update, /baseFloor\.material\.depthWrite\s*=\s*floorAlpha\s*>\s*0\.97\s*&&\s*!templeActive/,
-    "transparent temple floor must not depth-occlude the lower sky");
-  assert.match(update, /baseFloor\.visible\s*=\s*floorAlpha\s*>\s*0\.003\s*&&\s*!templeActive/);
+  assert.match(update, /baseFloor\.visible\s*=\s*!\s*templeActive/, "dojo keeps opaque base floor; temple hard-hides it");
+  assert.match(update, /baseFloor\.material\.transparent\s*=\s*false/, "dojo floor must stay opaque (no look-up black)");
+  assert.match(update, /dayFloor\.visible\s*=\s*!\s*templeActive/);
+  assert.match(update, /nightGrid\.visible\s*=\s*!\s*templeActive/);
   indexBefore(update, /templeActive\s*&&\s*CFG\.skyTemple\.forceNaturalInTemple/, /['"]natural['"]\s*:\s*SKY_TIME/, "temple natural override is chosen before the ordinary sky mode");
   assert.match(update, /skyTime\s*===\s*['"]natural['"][\s\S]*applyNaturalSkyAttitude/);
   assert.match(update, /dayPhase\s*=\s*clockedDayPhase\s*\(\s*Date\.now\s*\(\s*\)\s*\)[\s\S]*skyFrozen\s*=\s*false/);
-  for (const floor of ["baseFloor", "dayFloor", "nightGrid", "glowGrid"])
-    assert.match(update, new RegExp(`${floor}[\\s\\S]*floorAlpha`), `${floor} participates in the dissolve`);
+
+  // Arena base floor is opaque MeshBasicMaterial (not transparent:true).
+  assert.match(html, /baseFloor\s*=\s*new THREE\.Mesh\([\s\S]*?MeshBasicMaterial\(\{color:0x0c0a14\}\)/);
 
   const freeze = namedFunction("toggleSkyFreeze");
   indexBefore(freeze, /templeActive/, /skyFrozen\s*=\s*!\s*skyFrozen/, "temple no-freeze guard precedes the only freeze mutation");
@@ -189,7 +189,11 @@ test("temple opens the full celestial sphere underfoot instead of a black void",
   const enter = namedFunction("enterSkyTemple");
   assert.match(enter, /setHorizonOpen\s*\(\s*1\s*\)/);
   assert.match(enter, /baseFloor\.visible\s*=\s*false/);
-  assert.match(enter, /depthWrite\s*=\s*false/);
+
+  const exit = namedFunction("exitSkyTemple");
+  assert.match(exit, /baseFloor\.visible\s*=\s*true/);
+  assert.match(exit, /setHorizonOpen\s*\(\s*0\s*\)/);
+  assert.match(exit, /transparent\s*=\s*false/);
 
   const geometry = namedFunction("rebuildSkyTempleGeometry");
   assert.match(geometry, /eclipticDir\s*\(\s*lon\s*,\s*0\s*\)/, "ecliptic great-circle anchors the full sphere read");
