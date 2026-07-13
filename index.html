@@ -134,7 +134,7 @@ html[lang=ja] #windHud .wh-mag::before{content:'風 '}
 
 #overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
 #overlay.hidden{display:none}
-html.i18n-pending #overlay,html.i18n-pending #shareOverlay,html.i18n-pending #speedBox{visibility:hidden}   /* body parsing can yield before the post-card locale/touch swap; never paint the wrong card/HUD for one frame */
+html.i18n-pending #overlay,html.i18n-pending #shareOverlay,html.i18n-pending #transitEssayReader,html.i18n-pending #speedBox{visibility:hidden}   /* body parsing can yield before the post-card locale/touch swap; never paint the wrong card/HUD for one frame */
 .card{width:min(560px,92vw);max-height:92vh;overflow:auto;border:1px solid var(--panel-edge);background:linear-gradient(180deg,var(--panel),var(--gunmetal));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .eyebrow{font-size:11px;letter-spacing:.34em;color:var(--toxic);margin:0 0 6px}
 h1{font-size:40px;letter-spacing:.04em;margin:0 0 4px;line-height:.96}
@@ -247,7 +247,27 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 .sky-save button:disabled,.sky-save input:disabled,.sky-save select:disabled{cursor:not-allowed}
 .sky-save button:disabled{opacity:.4}
 .sky-save[aria-busy=true] button{opacity:.55;pointer-events:none}
-@media (max-width:520px){.sky-save-grid{grid-template-columns:1fr}.sky-save-field.wide{grid-column:auto}.sky-save-actions{flex-wrap:wrap}.sky-save-actions .ghost{min-width:42%}}
+.sky-note{margin:11px 0 2px;padding-top:10px;border-top:1px solid var(--panel-edge);text-align:left}
+.sky-note[hidden]{display:none}
+.sky-note .ghost{width:100%;padding:9px 10px;font-size:10.5px;letter-spacing:.13em}
+.sky-note .ghost.ready{border-color:var(--rail);color:var(--rail);box-shadow:0 0 14px rgba(67,217,255,.14)}
+.sky-note .ghost:disabled{cursor:not-allowed;opacity:.42}
+.sky-note-status{min-height:15px;margin:5px 0 0;color:var(--bone-dim);font-size:10px;line-height:1.4;letter-spacing:.03em}
+#transitEssayReader{position:fixed;inset:0;z-index:32;display:flex;align-items:center;justify-content:center;padding:18px;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.84),rgba(8,11,10,.97));backdrop-filter:blur(4px)}
+#transitEssayReader.hidden{display:none}
+.transit-essay-card{width:min(680px,94vw);max-height:min(86vh,760px);overflow-y:auto;text-align:left;padding:28px 30px}
+.transit-essay-card h1{font-size:clamp(25px,5vw,42px);line-height:1.04;margin-bottom:8px;overflow-wrap:anywhere}
+.transit-essay-date{color:var(--rail);font-size:10px;letter-spacing:.15em;margin:0 0 18px}
+.transit-essay-body{color:var(--bone);font:13px/1.7 var(--mono);letter-spacing:.015em;white-space:pre-wrap;overflow-wrap:anywhere}
+.transit-essay-body p{margin:0 0 13px}
+.transit-essay-watch{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--panel-edge)}
+.transit-essay-watch h2{margin:0 0 8px;color:var(--rail);font:10px var(--mono);letter-spacing:.16em}
+.transit-essay-watch ul{margin:0;padding-left:20px;color:var(--bone);font:12px/1.6 var(--mono)}
+.transit-essay-watch li+li{margin-top:6px}
+.transit-essay-epistemic{margin:18px 0 16px;padding-top:13px;border-top:1px solid var(--panel-edge);color:var(--bone-dim);font:10.5px/1.5 var(--mono);letter-spacing:.025em}
+.transit-essay-actions{display:flex;justify-content:flex-end}
+.transit-essay-actions .ghost{min-width:130px}
+@media (max-width:520px){.sky-save-grid{grid-template-columns:1fr}.sky-save-field.wide{grid-column:auto}.sky-save-actions{flex-wrap:wrap}.sky-save-actions .ghost{min-width:42%}.transit-essay-card{padding:22px 18px;max-height:90vh}}
 </style>
 </head>
 <body>
@@ -344,6 +364,10 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
         <p class="sky-save-note" id="saveSkyEpistemic">Symbolic study, not predictions. Birth details stay in your private profile and never enter records.</p>
         <div class="sky-save-status" id="saveSkyStatus" role="status" aria-live="polite"></div>
       </details>
+      <div id="transitEssayBlock" class="sky-note" hidden>
+        <button type="button" class="ghost" id="transitEssayButton" aria-describedby="transitEssayStatus" disabled><span aria-hidden="true">✦</span> <span id="transitEssayButtonLabel">TODAY'S SKY NOTE</span></button>
+        <div class="sky-note-status" id="transitEssayStatus" role="status" aria-live="polite"></div>
+      </div>
     </div>
 
     <!-- Always enter through Moonline training (no skip-to-full gate). Hidden on RESUME. -->
@@ -366,6 +390,21 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
       </div>
     </div>
   </div>
+</div>
+
+<div id="transitEssayReader" class="hidden" role="dialog" aria-modal="true" aria-labelledby="transitEssayReaderHeadline">
+  <article class="card transit-essay-card" tabindex="-1">
+    <p class="eyebrow" id="transitEssayReaderEyebrow">TODAY'S SKY NOTE</p>
+    <h1 id="transitEssayReaderHeadline">SKY NOTE</h1>
+    <p class="transit-essay-date" id="transitEssayReaderDate"></p>
+    <div class="transit-essay-body" id="transitEssayReaderBody"></div>
+    <section class="transit-essay-watch" id="transitEssayReaderWatchSection" hidden>
+      <h2 id="transitEssayReaderWatchTitle">WATCHPOINTS</h2>
+      <ul id="transitEssayReaderWatchpoints"></ul>
+    </section>
+    <footer class="transit-essay-epistemic" id="transitEssayReaderEpistemic">Symbolic study notes, not predictions.</footer>
+    <div class="transit-essay-actions"><button type="button" class="ghost" id="transitEssayReaderClose"><span aria-hidden="true">←</span> <span id="transitEssayReaderCloseLabel">BACK TO PAUSE</span></button></div>
+  </article>
 </div>
 
 <div id="shareOverlay" class="hidden">
@@ -403,6 +442,8 @@ window.JA={
   saveSkyDate:'生年月日', saveSkyTime:'出生時刻', saveSkyUnknown:'時刻不明', saveSkyTz:'タイムゾーン',
   saveSkyPlace:'場所', saveSkyLat:'緯度', saveSkyLon:'経度', saveSkySubmit:'チャートを保存', saveSkyClear:'チャートを消去',
   saveSkyEpistemic:'象徴を学ぶためのメモで、予言ではない。出生情報は私用プロフィールにだけ保存され、きろくには入らない。',
+  transitEssayButton:'今日の空のノート', transitEssayPending:'今日のノートを書いています…', transitEssayReady:'空のノートができました', transitEssayUnavailable:'ノートを用意できません · 遊ぶことはできる',
+  transitEssayWatchpoints:'注目するところ', transitEssayBack:'ポーズにもどる', transitEssayFallback:'象徴を学ぶためのノートで、予言ではない。',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
   shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
@@ -454,6 +495,7 @@ window.JA={
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
       txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
       txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
+      txt('transitEssayButtonLabel','transitEssayButton'); txt('transitEssayReaderEyebrow','transitEssayButton'); txt('transitEssayReaderWatchTitle','transitEssayWatchpoints'); txt('transitEssayReaderCloseLabel','transitEssayBack'); txt('transitEssayReaderEpistemic','transitEssayFallback');
       txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
     }
     var touch=((navigator.maxTouchPoints||0)>0||('ontouchstart' in window))&&window.matchMedia('(pointer: coarse)').matches;
@@ -2537,8 +2579,8 @@ window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPr
 window.addEventListener('gamepaddisconnected', e=>{ if(_gpIndex===e.gamepad.index){ _gpIndex=null; _gpPrev={}; } });
 function _gpAxis(v){ const dz=CFG.padDeadzone; if(Math.abs(v)<dz) return 0; const n=(v-Math.sign(v)*dz)/(1-dz); return Math.sign(n)*Math.pow(Math.abs(n), CFG.padExpo); }   // deadzone + expo response
 function padBeginBlocked(){   // a pad BEGIN/RESUME must not yank the player out of the record-name input, or start a run behind the open share modal (it sits above the card, so a mouse never could). Checked at press time AND in startRun's deferred resume path.
-  const ae=document.activeElement, s=gid('shareOverlay'), sky=gid('saveSkyDetails');
-  return (!!ae && (ae.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) || (!!sky&&sky.open) || (!!s && !s.classList.contains('hidden'));
+  const ae=document.activeElement, s=gid('shareOverlay'), sky=gid('saveSkyDetails'), note=gid('transitEssayReader');
+  return (!!ae && (ae.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) || (!!sky&&sky.open) || (!!s && !s.classList.contains('hidden')) || (!!note && !note.classList.contains('hidden'));
 }
 function padRumble(ms, mag){   // felt-not-seen hit feedback (mirrors the iso game's haptics). No-op without a pad or actuator support.
   if(!CFG.padRumble || _gpIndex===null || !navigator.getGamepads) return;
@@ -3687,8 +3729,165 @@ const skySave={
   date:gid('saveSkyDate'), time:gid('saveSkyTime'), unknown:gid('saveSkyUnknown'), tz:gid('saveSkyTz'), place:gid('saveSkyPlace'),
   lat:gid('saveSkyLat'), lon:gid('saveSkyLon'), clear:gid('saveSkyClear')
 };
+const transitEssayUi={
+  block:gid('transitEssayBlock'), button:gid('transitEssayButton'), label:gid('transitEssayButtonLabel'), status:gid('transitEssayStatus'),
+  reader:gid('transitEssayReader'), card:document.querySelector('#transitEssayReader .transit-essay-card'), headline:gid('transitEssayReaderHeadline'),
+  date:gid('transitEssayReaderDate'), body:gid('transitEssayReaderBody'), watchSection:gid('transitEssayReaderWatchSection'),
+  watchpoints:gid('transitEssayReaderWatchpoints'), epistemic:gid('transitEssayReaderEpistemic'), close:gid('transitEssayReaderClose')
+};
+const TRANSIT_ESSAY_POLL_DELAYS=[8000,10000,12000,15000], TRANSIT_ESSAY_MAX_MS=180000;
 let _skyAuthClient=null, _skyProfileController=null, _skyAuthUser='', _skyProfileUser='', _skyUiSeq=0, _skyAuthEventSeq=0, _skyUiBusy=false, _skyFormDirty=false, _skyLinkedToastTimer=null;
+let _transitEssay=null, _transitEssayPhase='hidden', _transitEssaySeq=0, _transitEssayPollTimer=null, _transitEssayPollStep=0, _transitEssayStartedAt=0;
+let _transitEssayActive=false, _transitEssayInFlightSeq=0, _transitEssayFlowUser='', _transitEssayActivationKey='', _transitEssayNoneRequeued=false, _transitEssayPendingToast=null;
+const _transitEssayToastKeys=new Set();
 function cancelSkyLinkedToast(){ if(_skyLinkedToastTimer!=null){ clearTimeout(_skyLinkedToastTimer); _skyLinkedToastTimer=null; } }
+function transitEssayClearPollTimer(){ if(_transitEssayPollTimer!=null){ clearTimeout(_transitEssayPollTimer); _transitEssayPollTimer=null; } }
+function transitEssayEligible(){
+  const ctl=_skyProfileController;
+  return !!(_skyAuthSession&&_skyAuthSession.access_token&&_skyAuthUser&&ctl&&ctl.state&&ctl.state.authenticated&&ctl.state.hasChart);
+}
+function transitEssayClearReader(){
+  if(transitEssayUi.headline) transitEssayUi.headline.textContent='';
+  if(transitEssayUi.date) transitEssayUi.date.textContent='';
+  if(transitEssayUi.body) transitEssayUi.body.textContent='';
+  if(transitEssayUi.watchpoints) transitEssayUi.watchpoints.textContent='';
+  if(transitEssayUi.watchSection) transitEssayUi.watchSection.hidden=true;
+  if(transitEssayUi.epistemic) transitEssayUi.epistemic.textContent=T('transitEssayFallback','Symbolic study notes, not predictions.');
+}
+function closeTransitEssayReader(restoreFocus){
+  if(!transitEssayUi.reader) return;
+  const wasOpen=!transitEssayUi.reader.classList.contains('hidden');
+  transitEssayUi.reader.classList.add('hidden');
+  if(wasOpen&&restoreFocus&&transitEssayUi.button&&!transitEssayUi.button.disabled){ try{ transitEssayUi.button.focus(); }catch(e){} }
+}
+function renderTransitEssayUi(){
+  if(!transitEssayUi.block) return;
+  const eligible=transitEssayEligible();
+  transitEssayUi.block.hidden=!eligible;
+  if(transitEssayUi.label) transitEssayUi.label.textContent=T('transitEssayButton',"TODAY'S SKY NOTE");
+  if(!eligible){
+    if(transitEssayUi.button){ transitEssayUi.button.disabled=true; transitEssayUi.button.classList.remove('ready'); transitEssayUi.button.removeAttribute('aria-busy'); }
+    if(transitEssayUi.status) transitEssayUi.status.textContent='';
+    return;
+  }
+  const ready=_transitEssayPhase==='ready'&&_transitEssay&&_transitEssay.status==='ready';
+  if(transitEssayUi.button){
+    transitEssayUi.button.disabled=!ready;
+    transitEssayUi.button.classList.toggle('ready',ready);
+    if(_transitEssayPhase==='pending') transitEssayUi.button.setAttribute('aria-busy','true'); else transitEssayUi.button.removeAttribute('aria-busy');
+  }
+  if(transitEssayUi.status){
+    transitEssayUi.status.textContent=_transitEssayPhase==='pending'
+      ? T('transitEssayPending',"WRITING TODAY'S NOTE…")
+      : ready
+        ? T('transitEssayReady','SKY NOTE READY')
+        : _transitEssayPhase==='unavailable'
+          ? T('transitEssayUnavailable','NOTE UNAVAILABLE · PLAY STILL WORKS')
+          : '';
+  }
+}
+function transitEssayReset(){
+  ++_transitEssaySeq; transitEssayClearPollTimer(); _transitEssayActive=false; _transitEssayInFlightSeq=0;
+  _transitEssay=null; _transitEssayPhase='hidden'; _transitEssayPollStep=0; _transitEssayStartedAt=0; _transitEssayFlowUser=''; _transitEssayActivationKey=''; _transitEssayNoneRequeued=false; _transitEssayPendingToast=null;
+  closeTransitEssayReader(false); transitEssayClearReader(); renderTransitEssayUi();
+}
+function transitEssayFinishUnavailable(){
+  transitEssayClearPollTimer(); _transitEssayActive=false; _transitEssay=null; _transitEssayPhase='unavailable'; _transitEssayPendingToast=null; closeTransitEssayReader(false); transitEssayClearReader(); renderTransitEssayUi();
+}
+function transitEssayFlushReadyToast(){
+  const pending=_transitEssayPendingToast;
+  if(!pending||document.hidden||_transitEssayPhase!=='ready'||!transitEssayEligible()) return;
+  _transitEssayPendingToast=null;
+  if(_transitEssayToastKeys.has(pending)) return;
+  _transitEssayToastKeys.add(pending); cancelSkyLinkedToast(); showGhostToast('SKY NOTE READY');
+}
+function transitEssayQueueReadyToast(record){
+  const key=_transitEssayActivationKey+'|'+record.cache_date;
+  if(_transitEssayToastKeys.has(key)) return;
+  _transitEssayPendingToast=key; transitEssayFlushReadyToast();
+}
+function transitEssayStillCurrent(seq){
+  return seq===_transitEssaySeq&&_transitEssayActive&&_transitEssayFlowUser===_skyAuthUser&&transitEssayEligible();
+}
+function transitEssaySchedulePoll(seq){
+  if(!transitEssayStillCurrent(seq)||_transitEssayPhase!=='pending') return;
+  transitEssayClearPollTimer();
+  const remaining=TRANSIT_ESSAY_MAX_MS-(Date.now()-_transitEssayStartedAt);
+  if(remaining<=0){ transitEssayFinishUnavailable(); return; }
+  if(document.hidden) return;
+  const delay=Math.min(remaining,TRANSIT_ESSAY_POLL_DELAYS[Math.min(_transitEssayPollStep,TRANSIT_ESSAY_POLL_DELAYS.length-1)]);
+  _transitEssayPollStep+=1;
+  _transitEssayPollTimer=setTimeout(()=>{ _transitEssayPollTimer=null; transitEssayRequest(seq,false); },delay);
+}
+function transitEssayHandleResponse(record,seq){
+  if(!transitEssayStillCurrent(seq)) return null;
+  if(record.status==='ready'){
+    transitEssayClearPollTimer(); _transitEssayActive=false; _transitEssay=record; _transitEssayPhase='ready'; renderTransitEssayUi(); transitEssayQueueReadyToast(record); return null;
+  }
+  if(record.status==='pending'){
+    _transitEssay=record; _transitEssayPhase='pending'; renderTransitEssayUi(); transitEssaySchedulePoll(seq); return null;
+  }
+  if(record.status==='none'&&!_transitEssayNoneRequeued){
+    _transitEssayNoneRequeued=true; _transitEssay=null; _transitEssayPhase='pending'; renderTransitEssayUi(); return 'enqueue';
+  }
+  transitEssayFinishUnavailable(); return null;
+}
+async function transitEssayRequest(seq,enqueue){
+  if(!transitEssayStillCurrent(seq)||_transitEssayInFlightSeq===seq) return;
+  if(Date.now()-_transitEssayStartedAt>=TRANSIT_ESSAY_MAX_MS){ transitEssayFinishUnavailable(); return; }
+  if(!enqueue&&document.hidden){ transitEssaySchedulePoll(seq); return; }
+  const ctl=_skyProfileController; if(!ctl) return;
+  _transitEssayInFlightSeq=seq; let followup=null;
+  try{
+    const record=await (enqueue?ctl.enqueueTransitEssay():ctl.getTransitEssay());
+    followup=transitEssayHandleResponse(record,seq);
+  }catch(error){
+    if(transitEssayStillCurrent(seq)){
+      if(Date.now()-_transitEssayStartedAt>=TRANSIT_ESSAY_MAX_MS||!(error&&error.retryable)) transitEssayFinishUnavailable();
+      else { _transitEssayPhase='pending'; renderTransitEssayUi(); transitEssaySchedulePoll(seq); }
+    }
+  }finally{ if(_transitEssayInFlightSeq===seq) _transitEssayInFlightSeq=0; }
+  if(followup==='enqueue'&&transitEssayStillCurrent(seq)) transitEssayRequest(seq,true);
+}
+function startTransitEssayFlow(){
+  const ctl=_skyProfileController;
+  if(!transitEssayEligible()||!ctl||typeof ctl.enqueueTransitEssay!=='function'||typeof ctl.getTransitEssay!=='function'){ renderTransitEssayUi(); return; }
+  const activation=_skyAuthUser+'|'+String(ctl.state.generation);
+  if(_transitEssayActivationKey===activation) return;
+  ++_transitEssaySeq; transitEssayClearPollTimer(); closeTransitEssayReader(false); transitEssayClearReader();
+  _transitEssay=null; _transitEssayPhase='pending'; _transitEssayPollStep=0; _transitEssayStartedAt=Date.now(); _transitEssayActive=true; _transitEssayInFlightSeq=0;
+  _transitEssayFlowUser=_skyAuthUser; _transitEssayActivationKey=activation; _transitEssayNoneRequeued=false; _transitEssayPendingToast=null;
+  const seq=_transitEssaySeq; renderTransitEssayUi(); transitEssayRequest(seq,true);
+}
+function transitEssayVisibilityChanged(){
+  if(document.hidden){ transitEssayClearPollTimer(); return; }
+  transitEssayFlushReadyToast();
+  if(_transitEssayActive&&_transitEssayPhase==='pending') transitEssaySchedulePoll(_transitEssaySeq);
+}
+function openTransitEssayReader(){
+  const record=_transitEssay;
+  if(!transitEssayUi.reader||!record||record.status!=='ready'||state.running||!state.started||overlay.classList.contains('hidden')) return;
+  if(transitEssayUi.headline) transitEssayUi.headline.textContent=record.headline;
+  if(transitEssayUi.date) transitEssayUi.date.textContent='SKY DATE · '+record.cache_date;
+  if(transitEssayUi.body){
+    transitEssayUi.body.textContent='';
+    const paragraphs=record.body.split(/\n{2,}/).filter(text=>text.trim());
+    for(const text of paragraphs){ const p=document.createElement('p'); p.textContent=text.trim(); transitEssayUi.body.appendChild(p); }
+  }
+  if(transitEssayUi.watchpoints){
+    transitEssayUi.watchpoints.textContent='';
+    for(const text of record.watchpoints){ const li=document.createElement('li'); li.textContent=text; transitEssayUi.watchpoints.appendChild(li); }
+  }
+  if(transitEssayUi.watchSection) transitEssayUi.watchSection.hidden=!record.watchpoints.length;
+  if(transitEssayUi.epistemic) transitEssayUi.epistemic.textContent=record.epistemic||T('transitEssayFallback','Symbolic study notes, not predictions.');
+  transitEssayUi.reader.classList.remove('hidden'); if(transitEssayUi.card){ try{ transitEssayUi.card.focus(); }catch(e){} }
+}
+if(transitEssayUi.button) transitEssayUi.button.addEventListener('click',openTransitEssayReader);
+if(transitEssayUi.close) transitEssayUi.close.addEventListener('click',()=>{ closeTransitEssayReader(true); });
+if(transitEssayUi.reader) transitEssayUi.reader.addEventListener('click',e=>{ if(e.target===transitEssayUi.reader) closeTransitEssayReader(true); });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&transitEssayUi.reader&&!transitEssayUi.reader.classList.contains('hidden')){ e.preventDefault(); e.stopImmediatePropagation(); closeTransitEssayReader(true); }
+},true);
 function skySetStatus(text,busy){
   _skyUiBusy=!!busy; if(skySave.status) skySave.status.textContent=text||'';
   if(skySave.details){
@@ -3792,6 +3991,7 @@ function skyApplyControllerState(state,announce){
     if(linked){ const toastTicket=_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySavedLinked','CHART SAVED · SKY LINKED'),false); showGhostToast('CHART SAVED'); _skyLinkedToastTimer=setTimeout(()=>{ _skyLinkedToastTimer=null; if(toastTicket===_skyUiSeq&&_remotePersonalSky) showGhostToast('SKY LINKED'); },950); }
     else if(state.hasChart){ skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
   }
+  if(state.hasChart) startTransitEssayFlow(); else transitEssayReset();
   return linked;
 }
 async function skyLoadSavedProfile(ticket){
@@ -3799,12 +3999,12 @@ async function skyLoadSavedProfile(ticket){
   skySetStatus(T('saveSkyChecking','CHECKING SAVED SKY…'),true);
   try{
     const state=await ctl.load(); if(ticket!==_skyUiSeq) return;
-    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
+    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { transitEssayReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
     skySetStatus(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):state.hasChart?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED'),false);
     skyRenderAccount(true);
   }catch(error){
     if(ticket!==_skyUiSeq) return; const state=ctl.state;
-    if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); }
+    if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); startTransitEssayFlow(); }
     else skySetStatus(skySoftFailure(error,'load'),false);
     skyRenderAccount(true);
   }
@@ -3815,7 +4015,7 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
   if(_skyAuthUser!==next) skySetStatus('',false);   // cancel a busy save/load surface when auth switches or signs out
   if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; if(_chartPackRank>=2) downgradePersonalSky(); }
   _skyAuthUser=next;
-  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
+  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; transitEssayReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
   ctl.setAuthenticated(true); skyRenderAccount(true);
   if(_skyProfileUser!==next){ _skyProfileUser=next; _cloudPrefsLoaded=false; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); loadCloudPrefs(); }
   else if(!_cloudPrefsLoaded) loadCloudPrefs();
@@ -3823,7 +4023,7 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
 function skyAcceptAuthSession(session){   // synchronous account quarantine; no async Supabase call inside onAuthStateChange
   session=session||null; const next=session&&session.user?String(session.user.id||''):'';
   if(next!==_skyAuthUser){
-    ++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
+    ++_skyUiSeq; cancelSkyLinkedToast(); transitEssayReset(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
     _personalListenExpected=false; try{ clearListen(true); }catch(e){} if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(_chartPackRank>=2) downgradePersonalSky();
     _skyProfileUser=''; _skyAuthUser=next; if(skySave.email) skySave.email.value=''; skyClearForm();
   }
@@ -3863,12 +4063,12 @@ if(skySave.form) skySave.form.addEventListener('submit',async e=>{
   const raw={birth_date:skySave.date.value,birth_time:skySave.time.value,time_unknown:skySave.unknown.checked,tz:skySave.tz.value,place_label:skySave.place.value,lat:skySave.lat.value,lon:skySave.lon.value};
   const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySaving','SAVING CHART…'),true);
   try{ const state=await ctl.save(raw); if(ticket!==_skyUiSeq) return; if(!state.hasChart) return; skyApplyControllerState(state,true); }
-  catch(error){ if(ticket!==_skyUiSeq) return; const state=ctl.state; if(state&&state.lastSaveCommitted){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,true); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
+  catch(error){ if(ticket!==_skyUiSeq) return; const state=ctl.state; if(state&&state.lastSaveCommitted){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,true); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); startTransitEssayFlow(); }
     else { const msg=skySoftFailure(error,'save'); skySetStatus(msg,false); showGhostToast(msg); } skyRenderAccount(true); }
 });
 if(skySave.clear) skySave.clear.addEventListener('click',async ()=>{
   if(_skyUiBusy) return; const ctl=ensureSkyProfileController(); if(!ctl||!_skyAuthSession) return; const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkyClearing','CLEARING CHART…'),true);
-  try{ await ctl.clear(); if(ticket!==_skyUiSeq) return; _personalListenExpected=false; if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
+  try{ await ctl.clear(); if(ticket!==_skyUiSeq) return; _personalListenExpected=false; transitEssayReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
   catch(error){ if(ticket!==_skyUiSeq) return; const msg=skySoftFailure(error,'clear'); skySetStatus(msg,false); showGhostToast(msg); }
 });
 if(skySave.signOut) skySave.signOut.addEventListener('click',async ()=>{
@@ -3891,7 +4091,7 @@ if(MOBILE){
 function enterRunning(){
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
-  state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
+  closeTransitEssayReader(false); state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast(T('trainerToast','MOONLINE TRAINING')); }   // full runs name the song; trainer announces itself
   if(trainMode && trainCoachEl && trainCoachEl.textContent) trainCoachEl.classList.add('on');
   reconcileTargetSounds();
@@ -3907,6 +4107,7 @@ function exitRunning(){
   scheduleReverbBuild(120);
 }
 document.addEventListener('visibilitychange',()=>{
+  transitEssayVisibilityChanged();
   if(document.hidden){ if(state.running) exitRunning(); clock.getDelta(); }
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); }
 });
@@ -4194,7 +4395,7 @@ function showPause(){
   else beginBtn.textContent='▶ '+T('resume','RESUME');
   showModePick(false);   // mid-run pause = resume only (not the new/experienced gate)
   pauseStats.style.display='flex';
-  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); }
+  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); renderTransitEssayUi(); }
   pauseStats.innerHTML=
     '<div class="chip"><div class="ck">'+T('chipTime','TIME IN THE NIGHT')+'</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
     '<div class="chip"><div class="ck">'+T('chipFinal','FINAL BPM')+'</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+

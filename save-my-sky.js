@@ -163,6 +163,62 @@
     );
   }
 
+  function normalizeTransitEssayResponse(raw) {
+    function invalid() {
+      throw new SkyProfileError(
+        "invalid_response",
+        "Personal sky returned an invalid transit essay",
+        { retryable: true }
+      );
+    }
+
+    function cleanText(value, minLength, maxLength) {
+      if (typeof value !== "string") invalid();
+      var text = value.trim();
+      if (text.length < minLength || text.length > maxLength || text.indexOf("<") !== -1 || text.indexOf(">") !== -1) {
+        invalid();
+      }
+      return text;
+    }
+
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) invalid();
+    if (raw.schema_version !== 1 || raw.type !== "personal_transit_essay") invalid();
+    if (["pending", "ready", "failed", "unavailable", "none"].indexOf(raw.status) === -1) invalid();
+    if (typeof raw.cache_date !== "string" || !validCalendarDate(raw.cache_date)) invalid();
+
+    var result = {
+      schema_version: 1,
+      type: "personal_transit_essay",
+      status: raw.status,
+      cache_date: raw.cache_date,
+    };
+    if (raw.status === "failed") {
+      if (raw.detail !== "Transit essay generation failed.") invalid();
+      result.detail = "Transit essay generation failed.";
+      return result;
+    }
+    if (raw.status !== "ready") return result;
+
+    result.headline = cleanText(raw.headline, 1, 120);
+    result.body = cleanText(raw.body, 80, 4000);
+    if (!Array.isArray(raw.watchpoints) || raw.watchpoints.length > 5) invalid();
+    var seen = Object.create(null);
+    result.watchpoints = raw.watchpoints.map(function (value) {
+      var item = cleanText(value, 1, 240);
+      var key = item.toLowerCase();
+      if (seen[key]) invalid();
+      seen[key] = true;
+      return item;
+    });
+    if (raw.epistemic !== "symbolic study notes, not predictions") invalid();
+    result.epistemic = raw.epistemic;
+    result.model = cleanText(raw.model, 1, 240);
+    result.source = cleanText(raw.source, 1, 120);
+    if (typeof raw.generated_at !== "string" || !raw.generated_at.trim() || !Number.isFinite(Date.parse(raw.generated_at))) invalid();
+    result.generated_at = raw.generated_at.trim();
+    return result;
+  }
+
   function createPersonalSkyController(options) {
     options = options || {};
     var baseUrl = cleanApiBase(options.baseUrl);
@@ -422,6 +478,25 @@
       return request("/api/sky-listen" + (suffix ? "?" + suffix : ""), {});
     }
 
+    function requireTransitEssayAccess() {
+      if (!state.authenticated) {
+        throw new SkyProfileError("not_authenticated", "Sign in to read today's sky note");
+      }
+      if (!state.hasChart) {
+        throw new SkyProfileError("no_chart", "Save your sky before requesting today's sky note");
+      }
+    }
+
+    async function enqueueTransitEssay() {
+      requireTransitEssayAccess();
+      return normalizeTransitEssayResponse(await request("/api/me/transit-essay", { method: "POST" }));
+    }
+
+    async function getTransitEssay() {
+      requireTransitEssayAccess();
+      return normalizeTransitEssayResponse(await request("/api/me/transit-essay", {}));
+    }
+
     return {
       state: state,
       setAuthenticated: setAuthenticated,
@@ -429,6 +504,8 @@
       save: save,
       clear: clear,
       getListen: getListen,
+      enqueueTransitEssay: enqueueTransitEssay,
+      getTransitEssay: getTransitEssay,
     };
   }
 
@@ -438,6 +515,7 @@
     cleanApiBase: cleanApiBase,
     selectPersonalApiBase: selectPersonalApiBase,
     isPersonalSkypack: isPersonalSkypack,
+    normalizeTransitEssayResponse: normalizeTransitEssayResponse,
     createPersonalSkyController: createPersonalSkyController,
   };
 });

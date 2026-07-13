@@ -8,6 +8,7 @@ const {
   cleanApiBase,
   selectPersonalApiBase,
   isPersonalSkypack,
+  normalizeTransitEssayResponse,
   createPersonalSkyController,
 } = require("../save-my-sky.js");
 
@@ -46,6 +47,23 @@ function validBirth(overrides = {}) {
     latitude: "35.68",
     longitude: "139.69",
     placeLabel: " Tokyo, Japan ",
+    ...overrides,
+  };
+}
+
+function readyTransitEssay(overrides = {}) {
+  return {
+    schema_version: 1,
+    type: "personal_transit_essay",
+    status: "ready",
+    cache_date: "2026-07-12",
+    headline: "A wider pattern comes into view",
+    body: "Several strands of the present sky can be held together without forcing a single conclusion.",
+    watchpoints: ["Compare the tightest contacts before naming a theme."],
+    epistemic: "symbolic study notes, not predictions",
+    model: "test-transit-model",
+    source: "ai-deepseek",
+    generated_at: "2026-07-12T02:00:00+00:00",
     ...overrides,
   };
 }
@@ -154,6 +172,137 @@ test("Listen gets the current Bearer token and never sends natal_id", async () =
   assert.equal(url.searchParams.has("when"), false);
   assert.equal(seen.init.headers.Authorization, "Bearer jwt-current");
   assert.equal(seen.init.cache, "no-store");
+});
+
+test("transit essay responses are validated before UI code receives them", () => {
+  const pending = {
+    schema_version: 1,
+    type: "personal_transit_essay",
+    status: "pending",
+    cache_date: "2026-07-12",
+  };
+  const ready = readyTransitEssay();
+
+  assert.deepEqual(normalizeTransitEssayResponse(pending), pending);
+  assert.deepEqual(normalizeTransitEssayResponse(ready), ready);
+  assert.deepEqual(
+    normalizeTransitEssayResponse({ ...pending, status: "none", body: "must be ignored" }),
+    { ...pending, status: "none" }
+  );
+  assert.deepEqual(
+    normalizeTransitEssayResponse({ ...pending, status: "unavailable", headline: "must be ignored" }),
+    { ...pending, status: "unavailable" }
+  );
+  assert.deepEqual(
+    normalizeTransitEssayResponse({
+      ...pending,
+      status: "failed",
+      detail: "Transit essay generation failed.",
+    }),
+    {
+      ...pending,
+      status: "failed",
+      detail: "Transit essay generation failed.",
+    }
+  );
+
+  for (const invalid of [
+    null,
+    [],
+    { ...pending, schema_version: 2 },
+    { ...pending, type: "public_transit_essay" },
+    { ...pending, status: "queued" },
+    { ...pending, cache_date: "07/12/2026" },
+    { ...pending, status: "failed", detail: "provider leaked a raw error" },
+    readyTransitEssay({ headline: "" }),
+    readyTransitEssay({ headline: "<b>Injected heading</b>" }),
+    readyTransitEssay({ body: null }),
+    readyTransitEssay({ body: "<script>bad()</script>".padEnd(90, "x") }),
+    readyTransitEssay({ watchpoints: "look closer" }),
+    readyTransitEssay({ watchpoints: ["one", "two", "three", "four", "five", "six"] }),
+    readyTransitEssay({ watchpoints: ["valid", 2] }),
+    readyTransitEssay({ watchpoints: ["same", " SAME "] }),
+    readyTransitEssay({ epistemic: "" }),
+    readyTransitEssay({ generated_at: "not-a-date" }),
+  ]) {
+    assert.throws(
+      () => normalizeTransitEssayResponse(invalid),
+      (error) => error instanceof SkyProfileError && error.code === "invalid_response"
+    );
+  }
+});
+
+test("signed chart enqueues and polls the private transit essay with no request body", async () => {
+  const calls = [];
+  let token = "jwt-old";
+  const pending = {
+    schema_version: 1,
+    type: "personal_transit_essay",
+    status: "pending",
+    cache_date: "2026-07-12",
+  };
+  const ready = readyTransitEssay();
+  const controller = createPersonalSkyController({
+    baseUrl: "https://sidereal.example/",
+    getAccessToken: () => token,
+    fetchImpl: async (url, init) => {
+      if (url.endsWith("/api/me/natal")) return response(200, { birth_date: "1983-11-29" });
+      if (url.endsWith("/api/me/skypack")) return response(200, personalPack());
+      calls.push({ url, init });
+      return response(200, init.method === "POST" ? pending : ready);
+    },
+  });
+  controller.setAuthenticated(true);
+  await controller.load();
+  token = "jwt-current";
+
+  assert.deepEqual(await controller.enqueueTransitEssay(), pending);
+  assert.deepEqual(await controller.getTransitEssay(), ready);
+
+  assert.equal(calls.length, 2);
+  assert.deepEqual(
+    calls.map(({ url, init }) => [url, init.method]),
+    [
+      ["https://sidereal.example/api/me/transit-essay", "POST"],
+      ["https://sidereal.example/api/me/transit-essay", "GET"],
+    ]
+  );
+  for (const { init } of calls) {
+    assert.equal(init.headers.Authorization, "Bearer jwt-current");
+    assert.equal(init.headers.Accept, "application/json");
+    assert.equal(init.headers["Content-Type"], undefined);
+    assert.equal(init.body, undefined);
+    assert.equal(init.cache, "no-store");
+    assert.equal(init.credentials, "omit");
+    assert.equal(init.redirect, "error");
+  }
+});
+
+test("guest and authenticated no-chart transit essay calls fail before fetch", async () => {
+  let calls = 0;
+  const controller = createPersonalSkyController({
+    baseUrl: "https://sidereal.example",
+    getAccessToken: () => null,
+    fetchImpl: async () => {
+      calls += 1;
+      return response(500, {});
+    },
+  });
+
+  for (const method of ["enqueueTransitEssay", "getTransitEssay"]) {
+    await assert.rejects(
+      controller[method](),
+      (error) => error instanceof SkyProfileError && error.code === "not_authenticated"
+    );
+  }
+  controller.setAuthenticated(true);
+  for (const method of ["enqueueTransitEssay", "getTransitEssay"]) {
+    await assert.rejects(
+      controller[method](),
+      (error) => error instanceof SkyProfileError && error.code === "no_chart"
+    );
+  }
+  assert.equal(calls, 0);
 });
 
 test("a committed profile is distinguishable when the follow-up pack fails", async () => {
