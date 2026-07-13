@@ -489,7 +489,7 @@ window.JA={
   coachP2Progress:'遠い声 {n}/{N} · つぎは満ちる夜', coachGraduate:'合唱はきみをおぼえた · 月先生が満ちる夜をひらく',
   fullNight:'満ちる夜', trainerToast:'月の糸のけいこ',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
-  tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
+  tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
@@ -605,7 +605,7 @@ const CFG = {
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle (decorative sky)
-  skyTheatreSec:300,                                     // THEATRE spin rate (the public default; natural remains saved/URL-selectable): seconds per full revolution of the celestial SPHERE — spins orientation, never longitudes (v2.1 G2)
+  skyTheatreSec:300,                                     // THEATRE spin rate (opt-in; natural is default): seconds per full revolution of the celestial SPHERE — orientation only, never longitudes (v2.1 G2)
   chartDottedArcs:false,                                 // legacy v2 key retained inertly; Parcel L removed dome seals/arcs so aspect meaning stays in the Listen HUD
   // rhythm timing windows (ms to nearest beat)
   perfectMs:55, goodMs:110,
@@ -696,8 +696,9 @@ const SKY_MODE=(function(){
   return 'clocked';   // public ship: everyone gets the constellation sphere without a birth chart or desk
 })();
 // Cloud may later supersede skyMode via reload; URL always wins once for the session that set it.
-/* SPIN RATE (v2.2 + public settings): theatre (new-visitor default, accelerated full-sky spin) · natural (wall-clock).
-   Pause SKY MOTION toggle persists aimdojo.skyTime (live, no reload). URL ?theatre=1 / ?skyTime= still works. */
+/* SPIN RATE (v2.2 + public settings): natural (new-visitor default = wall clock) · theatre (accelerated full-sky spin).
+   Pause SKY MOTION toggle persists aimdojo.skyTime (live, no reload). URL ?theatre=1 / ?skyTime= still works.
+   NOTE: "natural" is civil-time orientation of the ecliptic sphere — NOT full Stellarium alt/az from lat/lon yet. */
 const SKY_TIMES=['natural','theatre'];
 let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without reload
   const q=location.search+location.hash;
@@ -706,7 +707,7 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
   if(!fromUrl){ const t=q.match(/[?&#]theatre=([01])\b/); if(t) fromUrl=(t[1]==='1'?'theatre':'natural'); }
   if(fromUrl){ try{ localStorage.setItem('aimdojo.skyTime', fromUrl); }catch(e){} return fromUrl; }
   try{ const v=localStorage.getItem('aimdojo.skyTime'); if(SKY_TIMES.indexOf(v)>=0) return v; }catch(e){}
-  return 'theatre';
+  return 'natural';   // public default: real-time sky pace (theatre remains opt-in via pause / ?theatre=1)
 })();
 function cleanSkyApiBase(value){
   if(typeof value!=='string' || !value.trim()) return '';
@@ -1210,11 +1211,10 @@ let dayPhase=0.82, skyFrozen=false;                          // dayPhase: 0=sunr
    celestial sphere (sticks + chart + ☉/☽ together, see skySphere below), not just the lighting. Longitudes stay
    epoch-true ON the sphere (Leo never slides away from ☉); the spin only changes which half faces the horizon.
    Lighting reads the transformed ☉'s real elevation, so sky and light can't disagree.
-   TWO RATES (SKY_TIME, v2.2): `theatre` (new-visitor default) — seeded from civil at boot, then integrated at
-   CFG.skyTheatreSec for a visible full-sky cycle. `natural` — dayPhase IS the civil day fraction, re-read from the wall clock
-   every sky tick: the real sky at real pace, no easing, no integrate. Saved preference and URL selection always win.
-   FREEZE (I5): both rates pin dayPhase while frozen; unfreeze in natural snaps to live now ("resume to now"),
-   unfreeze in theatre resumes the integrate from the pinned phase. Civil mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. */
+   TWO RATES (SKY_TIME, v2.2): `natural` (default) — dayPhase IS the civil day fraction, re-read from the wall clock
+   every sky tick. `theatre` — seeded from civil at boot, then integrated at CFG.skyTheatreSec for a visible cycle.
+   FREEZE: theatre only (pretty sunsets). Natural has no freeze — live wall clock only (R-CLICK still dismisses Listen).
+   Civil mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. This is NOT observer alt/az (needs lat/lon — future). */
 function clockedDayPhase(ms){ const d=new Date(ms); return ((d.getHours()+d.getMinutes()/60+d.getSeconds()/3600)/24 + 0.75) % 1; }
 if(SKY_MODE!=='decorative') dayPhase=clockedDayPhase(Date.now());   // theatre: the one-time civil seed; natural: redundant (re-read each tick) but keeps frame one honest
 const DAY_SLOW=0.32, DAY_FAST=4.2;                           // ease time: ~half the cycle in dawn/dusk, hurry through deep day/night (period preserved)
@@ -1242,9 +1242,9 @@ function setScalarCached(obj, prop, value, scale){
 function updateSky(dt){
   const curY=Math.sin(dayPhase*Math.PI*2);                   // current sun height
   const ay=Math.abs(curY), tSpeed=DAY_SLOW + (DAY_FAST-DAY_SLOW)*ay*ay*Math.sqrt(ay);   // |sunY|^2.5 → ~50% of the cycle spent at dawn/dusk
-  if(SKY_MODE==='decorative'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1; }   // right-click freeze: hold the current time-of-day (everything below recomputes from the frozen dayPhase)
-  else if(SKY_TIME==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE (public default, v2.2 §5.2): accelerated spin, civil-seeded at boot; freeze pins the integrated phase and resumes from it. Longitudes never ride the spin — only orientation does.
-  else { if(!skyFrozen) dayPhase=clockedDayPhase(Date.now()); }                                            // NATURAL (saved/URL-selectable, v2.2 §5.1): pure civil fraction, re-read live each tick — no easing, no integrate. Freeze pins; unfreeze snaps to now.
+  if(SKY_MODE==='decorative'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.dayCycleSec) % 1; }   // decorative: freeze holds pretty lighting
+  else if(SKY_TIME==='theatre'){ if(!skyFrozen) dayPhase=(dayPhase + dt*tSpeed/CFG.skyTheatreSec) % 1; }   // THEATRE: accelerated spin; freeze pins phase
+  else { dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }   // NATURAL: always live wall clock — freeze disabled
   const sunA=dayPhase*Math.PI*2;
   skyGroup.setRotationFromAxisAngle(orbitAxis, sunA);        // decorative art sphere (stars + discs); in clocked* it only carries the no-fixture fallback stars
   sunDir.copy(sunU).applyAxisAngle(orbitAxis, sunA);
@@ -2972,6 +2972,11 @@ function dismissListenIfOpen(){   // pointer-lock friendly: no free mouse needed
 function toggleSkyFreeze(){
   // R-CLICK while a Listen chip is open → dismiss first (under pointer lock you cannot hit the ×)
   if(state.running && dismissListenIfOpen()) return;
+  // NATURAL = live sky: no freeze (Stellarium-like). Decorative + THEATRE keep freeze for pretty lighting.
+  if(SKY_MODE!=='decorative' && SKY_TIME==='natural'){
+    try{ showGhostToast(T('skyNaturalNoFreeze','SKY FOLLOWS REAL TIME')); }catch(e){}
+    return;
+  }
   skyFrozen=!skyFrozen; showGhostToast('🌅 '+(skyFrozen?T('skyFrozen','SKY FROZEN'):T('skyResumed','SKY RESUMED')));
 }
 canvas.addEventListener('contextmenu', e=>e.preventDefault());
@@ -3959,7 +3964,7 @@ function refreshSettings(){
   if(skyMotionRow) skyMotionRow.style.display=(SKY_MODE==='decorative')?'none':'flex';
   if(skyMotionToggle && SKY_MODE!=='decorative'){
     skyMotionToggle.textContent = SKY_TIME==='theatre' ? T('skyTheatreOn','THEATRE ▸ tap for NATURAL') : T('skyNaturalOn','NATURAL ▸ tap for THEATRE');
-    skyMotionToggle.title = SKY_TIME==='theatre' ? T('skyTheatreHint','full sky spins ~every few minutes') : T('skyNaturalHint','sky follows real day/night');
+    skyMotionToggle.title = SKY_TIME==='theatre' ? T('skyTheatreHint','full sky spins ~every few minutes · R-CLICK freezes') : T('skyNaturalHint','wall-clock sky · no freeze · not full lat/lon alt-az yet');
   }
   if(beatCircleToggle){
     const on=!!CFG.wasdHud;
