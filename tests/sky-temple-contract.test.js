@@ -153,7 +153,11 @@ test("temple forces live natural sky, dissolves every floor, and cannot freeze",
   assert.match(update, /templeTarget\s*=\s*templeActive\s*\?\s*1\s*:\s*0/);
   assert.match(update, /floorDissolveSec/);
   assert.match(update, /floorAlpha\s*=\s*1\s*-\s*_templeBlend/);
-  assert.match(update, /setHorizonOpen\s*\(\s*_templeBlend\s*\)/, "floor dissolve and full-sphere open share one blend");
+  assert.match(update, /skyOpen\s*=\s*templeActive\s*\?\s*1\s*:\s*_templeBlend/, "full sphere opens the moment temple is active");
+  assert.match(update, /setHorizonOpen\s*\(\s*skyOpen\s*\)/);
+  assert.match(update, /baseFloor\.material\.depthWrite\s*=\s*floorAlpha\s*>\s*0\.97\s*&&\s*!templeActive/,
+    "transparent temple floor must not depth-occlude the lower sky");
+  assert.match(update, /baseFloor\.visible\s*=\s*floorAlpha\s*>\s*0\.003\s*&&\s*!templeActive/);
   indexBefore(update, /templeActive\s*&&\s*CFG\.skyTemple\.forceNaturalInTemple/, /['"]natural['"]\s*:\s*SKY_TIME/, "temple natural override is chosen before the ordinary sky mode");
   assert.match(update, /skyTime\s*===\s*['"]natural['"][\s\S]*applyNaturalSkyAttitude/);
   assert.match(update, /dayPhase\s*=\s*clockedDayPhase\s*\(\s*Date\.now\s*\(\s*\)\s*\)[\s\S]*skyFrozen\s*=\s*false/);
@@ -174,12 +178,21 @@ test("temple opens the full celestial sphere underfoot instead of a black void",
   assert.match(html, /_hzFadeMats/);
 
   const chart = namedFunction("updateChartSky");
-  assert.match(chart, /hzOpen\s*=\s*_templeBlend/);
-  assert.match(chart, /hz\s*\+\s*\(1\s*-\s*hz\)\s*\*\s*hzOpen/, "CPU sprite horizon hide lerps open with temple blend");
+  assert.match(chart, /hzOpen\s*=\s*templeActive\s*\?\s*1\s*:\s*_templeBlend/);
+  assert.match(chart, /hz\s*\+\s*\(1\s*-\s*hz\)\s*\*\s*hzOpen/, "CPU sprite horizon hide opens with temple");
+  assert.match(chart, /depthTest\s*=\s*!\s*templeActive/, "sprites stop depth-testing the vanished floor plane");
 
   const hzMat = namedFunction("horizonFadeMat");
   assert.match(hzMat, /uHzOpen/);
   assert.match(hzMat, /mix\s*\(\s*smoothstep[\s\S]*1\.0[\s\S]*uHzOpen/, "GPU sticks/aspects open with temple");
+
+  const enter = namedFunction("enterSkyTemple");
+  assert.match(enter, /setHorizonOpen\s*\(\s*1\s*\)/);
+  assert.match(enter, /baseFloor\.visible\s*=\s*false/);
+  assert.match(enter, /depthWrite\s*=\s*false/);
+
+  const geometry = namedFunction("rebuildSkyTempleGeometry");
+  assert.match(geometry, /eclipticDir\s*\(\s*lon\s*,\s*0\s*\)/, "ecliptic great-circle anchors the full sphere read");
 
   const pick = namedFunction("pickCelestial");
   assert.match(pick, /openSphere\s*=\s*templeActive/);
