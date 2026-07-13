@@ -141,10 +141,12 @@ html[lang=ja] #windHud .wh-mag::before{content:'風 '}
 #pauseBtn{right:18px;top:calc(env(safe-area-inset-top, 0px) + 132px);width:46px;height:40px;border:1px solid var(--panel-edge);background:rgba(20,26,24,.72);color:var(--bone-dim);font-size:14px;letter-spacing:.06em}
 #pauseBtn:active{color:var(--bone);border-color:var(--steel)}
 
-#overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
+/* Overlay scrolls when pause content expands (accordions). Flex "safe center": short cards stay
+   vertically centered via margin:auto; tall cards grow and the overlay scrolls instead of clipping. */
+#overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:max(12px,env(safe-area-inset-top,0px)) 12px max(18px,env(safe-area-inset-bottom,0px));background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
 #overlay.hidden{display:none}
 html.i18n-pending #overlay,html.i18n-pending #shareOverlay,html.i18n-pending #transitEssayReader,html.i18n-pending #speedBox{visibility:hidden}   /* body parsing can yield before the post-card locale/touch swap; never paint the wrong card/HUD for one frame */
-.card{width:min(560px,92vw);max-height:92vh;overflow:auto;border:1px solid var(--panel-edge);background:linear-gradient(180deg,var(--panel),var(--gunmetal));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.card{width:min(560px,92vw);flex:0 0 auto;margin-top:auto;margin-bottom:auto;max-height:none;overflow:visible;border:1px solid var(--panel-edge);background:linear-gradient(180deg,var(--panel),var(--gunmetal));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .eyebrow{font-size:11px;letter-spacing:.34em;color:var(--toxic);margin:0 0 6px}
 h1{font-size:40px;letter-spacing:.04em;margin:0 0 4px;line-height:.96}
 h1 .acc{color:var(--plasma)}
@@ -231,7 +233,7 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 .copy-msg{font-size:11px;letter-spacing:.18em;color:var(--toxic);height:15px;margin-top:9px}
 
 /* ---- pause settings: accordion groups (keep surface calm) ---- */
-#settingsBox{max-width:400px!important;margin-top:8px!important}
+#settingsBox{max-width:400px!important;margin-top:8px!important;width:100%}
 #settingsBox .set-row{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0}
 #settingsBox .set-row>span:first-child{letter-spacing:.12em;flex:0 0 auto}
 #settingsBox details.settings-group{margin:6px 0 0;border:1px solid var(--panel-edge);background:#0d110f;text-align:left}
@@ -240,8 +242,11 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 #settingsBox details.settings-group>summary::after{content:'▸';float:right;color:var(--bone-dim);transition:transform .12s}
 #settingsBox details.settings-group[open]>summary::after{transform:rotate(90deg)}
 #settingsBox details.settings-group>summary:hover{color:var(--rail)}
-#settingsBox .settings-group-body{padding:2px 11px 10px;border-top:1px solid var(--panel-edge)}
+#settingsBox .settings-group-body{padding:2px 11px 10px;border-top:1px solid var(--panel-edge);overflow:visible}
 #settingsBox .settings-group-body .set-row:first-child{margin-top:8px}
+/* Nested SAVE MY SKY + chart tools must expand the group, not trap a second clipped scrollbar */
+#settingsBox .sky-save,#settingsBox .sky-note,#settingsBox .sky-brief{overflow:visible}
+#settingsBox .sky-brief-preview{max-height:min(12rem,28vh)}
 /* ---- optional Save my sky (pause settings only) ---- */
 .observer-location{margin:6px 0 4px;padding:8px 0 6px;border-top:1px solid var(--panel-edge);text-align:left}
 .observer-location[hidden]{display:none}
@@ -4127,8 +4132,25 @@ function requestObserverGeolocation(explicit){
     _observerGeoState='failed'; _observerNotice=''; renderObserverSettings();
   },{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
 }
+function wirePauseScrollOnExpand(){
+  // When a settings accordion opens, keep the expanded block reachable inside the overlay scroller
+  if(!settingsBox||settingsBox._scrollWired) return;
+  settingsBox._scrollWired=true;
+  settingsBox.querySelectorAll('details').forEach(d=>{
+    d.addEventListener('toggle',()=>{
+      if(!d.open) return;
+      try{
+        requestAnimationFrame(()=>{
+          const ov=gid('overlay'); if(!ov||ov.classList.contains('hidden')) return;
+          d.scrollIntoView({block:'nearest',inline:'nearest',behavior:reduceMotion?'auto':'smooth'});
+        });
+      }catch(e){}
+    });
+  });
+}
 function refreshSettings(){
   if(!settingsBox) return;
+  wirePauseScrollOnExpand();
   const ps=gid('playSettingsSummary'), ss=gid('skySettingsSummary'), cs=gid('chartSettingsSummary');
   if(ps) ps.textContent=T('playSettingsSummary','PLAY');
   if(ss) ss.textContent=T('skySettingsSummary','SKY');
