@@ -70,27 +70,24 @@ function readyTransitEssay(overrides = {}) {
 }
 
 function readySkyBrief(overrides = {}) {
-  const epistemic = "Symbolic study notes, not predictions. Not medical, legal, or financial advice.";
   return {
     status: "ready",
     cache_date: "2026-07-13",
     timezone: "America/New_York",
     text: [
-      "# Moon Chorus sky brief",
       "date: 2026-07-13 (America/New_York)",
-      `epistemic: ${epistemic}`,
+      "epoch_utc: 2026-07-13T16:00:00+00:00",
       "",
-      "## Natal placements",
+      "## Natal chart",
       "Sun · Scorpio · 12.3°",
       "",
-      "## Today's movers (transit)",
+      "## Today's transits",
       "Mars · Leo · 4.1°",
       "",
-      "## Transit → natal contacts",
-      "Transit Mars square natal Moon · orb 1.2° · applying",
+      "## Transit contacts",
+      "Mars square Moon · orb 1.2° · applying",
     ].join("\n"),
     has_essay: false,
-    epistemic,
     ...overrides,
   };
 }
@@ -277,13 +274,15 @@ test("sky brief responses are normalized without changing the copy document", ()
     ...ready,
     facts: { lat: 35.68, lon: 139.69 },
     email: "must-not-reach-ui@example.com",
+    epistemic: "legacy field ignored",
   };
   const normalized = normalizeSkyBriefResponse(raw);
 
   assert.deepEqual(normalized, ready);
-  assert.equal(normalized.text, raw.text, "COPY BRIEF receives the exact server-rendered text");
+  assert.equal(normalized.text, raw.text, "COPY DATA receives the exact server-rendered text");
   assert.equal(Object.hasOwn(normalized, "facts"), false);
   assert.equal(Object.hasOwn(normalized, "email"), false);
+  assert.equal(Object.hasOwn(normalized, "epistemic"), false);
   assert.deepEqual(
     normalizeSkyBriefResponse({
       ...ready,
@@ -298,7 +297,6 @@ test("sky brief responses are normalized without changing the copy document", ()
       timezone: ready.timezone,
       text: "",
       has_essay: false,
-      epistemic: ready.epistemic,
       detail: "ephemeris unavailable",
     }
   );
@@ -310,11 +308,9 @@ test("sky brief responses are normalized without changing the copy document", ()
     { ...ready, cache_date: "07/13/2026" },
     { ...ready, timezone: "" },
     { ...ready, text: "" },
-    { ...ready, text: ready.text.replace(ready.epistemic, "missing footer") },
+    { ...ready, text: "date only\nno sections" },
+    { ...ready, text: ready.text + "\n## Today's sky note\nheadline: no" },
     { ...ready, has_essay: "false" },
-    { ...ready, epistemic: "" },
-    { ...ready, epistemic: "Any echoed disclaimer is not sufficient." },
-    { ...ready, status: "failed", text: "", has_essay: true },
   ]) {
     assert.throws(
       () => normalizeSkyBriefResponse(invalid),

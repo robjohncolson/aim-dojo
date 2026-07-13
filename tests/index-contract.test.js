@@ -52,7 +52,7 @@ test("Today's sky brief is a chart-gated pause block with private copy controls"
   assert.ok(briefBlock, "sky brief controls are inside pause-only settings");
   assert.ok(pauseBlock[0].indexOf('id="skyBriefBlock"') > pauseBlock[0].indexOf('id="saveSkyDetails"'));
   assert.match(briefBlock[0], /\shidden(?:\s|>|=)/i);
-  assert.match(briefBlock[0], /id="skyBriefTitle"[^>]*>TODAY(?:&apos;|&#39;|')S SKY BRIEF</i);
+  assert.match(briefBlock[0], /id="skyBriefTitle"[^>]*>CHART \+ TRANSITS</i);
 
   const status = briefBlock[0].match(/<[^>]+\bid="skyBriefStatus"[^>]*>/i);
   assert.ok(status);
@@ -69,11 +69,14 @@ test("Today's sky brief is a chart-gated pause block with private copy controls"
   assert.ok(copy);
   assert.match(copy[0], /\btype="button"/i);
   assert.match(copy[0], /\bdisabled(?:\s|>|=)/i);
-  assert.match(briefBlock[0], /Private · for pasting into another study tool · not shared with the board/);
+  assert.match(briefBlock[0], /sky note stays in the button above/i);
+
+  // Essay reader stays a separate control above the data export
+  assert.ok(pauseBlock[0].indexOf('id="transitEssayBlock"') < pauseBlock[0].indexOf('id="skyBriefBlock"'));
 
   const shareBlock = html.match(/<div id="shareOverlay"[\s\S]*?<\/div>\s*<script>/);
   assert.ok(shareBlock);
-  assert.doesNotMatch(shareBlock[0], /skyBrief|SKY BRIEF|COPY BRIEF/i);
+  assert.doesNotMatch(shareBlock[0], /skyBrief|CHART \+ TRANSITS|COPY DATA/i);
 });
 
 test("sky brief fetch is pause-only, fail-soft, and stale-account guarded", () => {
@@ -134,7 +137,7 @@ test("sky brief fetch is pause-only, fail-soft, and stale-account guarded", () =
   assert.match(clear[0], /skyBriefReset\(\)/);
 });
 
-test("COPY BRIEF uses the full server text with clipboard fallback and localized chrome", () => {
+test("COPY DATA uses the full server text with clipboard fallback and localized chrome", () => {
   const render = html.match(/function renderSkyBriefUi\(\)[\s\S]*?\n\}/);
   assert.ok(render);
   assert.match(render[0], /preview\.value=ready\?_skyBrief\.text:''/);
@@ -145,19 +148,19 @@ test("COPY BRIEF uses the full server text with clipboard fallback and localized
   assert.match(copy[0], /navigator\.clipboard\.writeText\(record\.text\)/);
   assert.match(copy[0], /skyBriefUi\.preview\.select\(\)/);
   assert.match(copy[0], /document\.execCommand\('copy'\)===true/);
-  assert.match(copy[0], /showGhostToast\(T\('skyBriefCopied','BRIEF COPIED'\)\)/);
+  assert.match(copy[0], /showGhostToast\(T\('skyBriefCopied','DATA COPIED'\)\)/);
   assert.ok(copy[0].indexOf("skyBriefPauseOpen()") < copy[0].indexOf("navigator.clipboard.writeText"));
   assert.ok(copy[0].indexOf("await navigator.clipboard.writeText(record.text)") < copy[0].lastIndexOf("skyBriefCopyStillCurrent(seq,user,generation,record)"));
   assert.ok(copy[0].lastIndexOf("skyBriefCopyStillCurrent(seq,user,generation,record)") < copy[0].indexOf("showGhostToast"));
   assert.match(html, /skyBriefUi\.copy\.addEventListener\('click',copySkyBrief\)/);
   assert.equal((html.match(/navigator\.clipboard\.writeText\(record\.text\)/g) || []).length, 1);
-  assert.equal((html.match(/copySkyBrief/g) || []).length, 2, "brief copy runs only from its user click handler");
+  assert.equal((html.match(/copySkyBrief/g) || []).length, 2, "data copy runs only from its user click handler");
   for (const key of ["skyBriefTitle", "skyBriefLoading", "skyBriefReady", "skyBriefUnavailable", "skyBriefCopy", "skyBriefCopied", "skyBriefPrivate"]) {
     assert.match(html, new RegExp(`${key}:`), `${key} is present in window.JA`);
   }
 });
 
-test("clipboard denial exercises the COPY BRIEF fallback without crossing a stale pause", async () => {
+test("clipboard denial exercises the COPY DATA fallback without crossing a stale pause", async () => {
   const currentSource = html.match(/function skyBriefCopyStillCurrent\(seq,user,generation,record\)[\s\S]*?\n\}/);
   const copySource = html.match(/async function copySkyBrief\(\)[\s\S]*?\n\}/);
   assert.ok(currentSource);
@@ -207,7 +210,7 @@ test("clipboard denial exercises the COPY BRIEF fallback without crossing a stal
     "focus",
     "select",
     "exec:copy",
-    "toast:BRIEF COPIED",
+    "toast:DATA COPIED",
   ]);
 
   let pauseOpen = true;

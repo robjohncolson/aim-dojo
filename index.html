@@ -394,10 +394,10 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
         <div class="sky-note-status" id="transitEssayStatus" role="status" aria-live="polite"></div>
       </div>
       <section id="skyBriefBlock" class="sky-brief" hidden aria-labelledby="skyBriefTitle" aria-describedby="skyBriefPrivate">
-        <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">TODAY'S SKY BRIEF</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
-        <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Today's sky brief preview" hidden></textarea>
-        <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY BRIEF</span></button></div>
-        <p class="sky-brief-private" id="skyBriefPrivate">Private · for pasting into another study tool · not shared with the board</p>
+        <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">CHART + TRANSITS</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
+        <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Natal chart and today's transits data" hidden></textarea>
+        <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY DATA</span></button></div>
+        <p class="sky-brief-private" id="skyBriefPrivate">Plain natal + transit data for paste · sky note stays in the button above</p>
       </section>
     </div>
 
@@ -475,8 +475,8 @@ window.JA={
   saveSkyEpistemic:'象徴を学ぶためのメモで、予言ではない。出生情報は私用プロフィールにだけ保存され、きろくには入らない。',
   transitEssayButton:'今日の空のノート', transitEssayPending:'今日のノートを書いています…', transitEssayReady:'空のノートができました', transitEssayUnavailable:'ノートを用意できません · タップでもう一度',
   transitEssayWatchpoints:'注目するところ', transitEssayBack:'ポーズにもどる', transitEssayFallback:'象徴を学ぶためのノートで、予言ではない。',
-  skyBriefTitle:'今日の空のブリーフ', skyBriefLoading:'今日の空をまとめています…', skyBriefReady:'準備完了 · {date}', skyBriefUnavailable:'空のブリーフを用意できません',
-  skyBriefCopy:'ブリーフをコピー', skyBriefCopied:'ブリーフをコピーした', skyBriefPrivate:'私用 · ほかの学習ツールに貼り付けるため · きろくには共有されない', skyBriefPreviewAria:'今日の空のブリーフのプレビュー', skyBriefCopyManual:'{keys} でコピーしてね',
+  skyBriefTitle:'チャート + トランジット', skyBriefLoading:'データを用意しています…', skyBriefReady:'準備完了 · {date}', skyBriefUnavailable:'データを用意できません',
+  skyBriefCopy:'データをコピー', skyBriefCopied:'データをコピーした', skyBriefPrivate:'ネイタルとトランジットの生データ · 空のノートは上のボタン', skyBriefPreviewAria:'ネイタルと今日のトランジット', skyBriefCopyManual:'{keys} でコピーしてね',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
   shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
@@ -4267,9 +4267,9 @@ function renderSkyBriefUi(){
   if(!skyBriefUi.block) return;
   const eligible=skyBriefEligible(), ready=eligible&&skyBriefRecordCurrent();
   skyBriefUi.block.hidden=!eligible||state.running||!state.started;
-  if(skyBriefUi.title) skyBriefUi.title.textContent=T('skyBriefTitle',"TODAY'S SKY BRIEF");
-  if(skyBriefUi.copyLabel) skyBriefUi.copyLabel.textContent=T('skyBriefCopy','COPY BRIEF');
-  if(skyBriefUi.private) skyBriefUi.private.textContent=T('skyBriefPrivate','Private · for pasting into another study tool · not shared with the board');
+  if(skyBriefUi.title) skyBriefUi.title.textContent=T('skyBriefTitle','CHART + TRANSITS');
+  if(skyBriefUi.copyLabel) skyBriefUi.copyLabel.textContent=T('skyBriefCopy','COPY DATA');
+  if(skyBriefUi.private) skyBriefUi.private.textContent=T('skyBriefPrivate','Plain natal + transit data for paste · sky note stays in the button above');
   if(skyBriefUi.preview){ skyBriefUi.preview.value=ready?_skyBrief.text:''; skyBriefUi.preview.hidden=!ready; }
   if(skyBriefUi.copy) skyBriefUi.copy.disabled=!ready;
   if(_skyBriefPhase==='loading') skyBriefUi.block.setAttribute('aria-busy','true'); else skyBriefUi.block.removeAttribute('aria-busy');
@@ -4330,7 +4330,7 @@ async function copySkyBrief(){
     }catch(_error){ copied=false; }
   }
   if(!skyBriefCopyStillCurrent(seq,user,generation,record)) return;
-  if(copied) showGhostToast(T('skyBriefCopied','BRIEF COPIED'));
+  if(copied) showGhostToast(T('skyBriefCopied','DATA COPIED'));
   else if(skyBriefUi.status){
     skyBriefUi.status.textContent=TF('skyBriefCopyManual','PRESS {keys} TO COPY',{keys:'⌘/CTRL+C'});
     if(skyBriefUi.preview){ try{ skyBriefUi.preview.focus(); skyBriefUi.preview.select(); }catch(error){} }

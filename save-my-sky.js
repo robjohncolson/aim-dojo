@@ -222,8 +222,6 @@
     return result;
   }
 
-  var SKY_BRIEF_EPISTEMIC = "Symbolic study notes, not predictions. Not medical, legal, or financial advice.";
-
   function normalizeSkyBriefResponse(raw) {
     function invalid() {
       throw new SkyProfileError(
@@ -244,7 +242,7 @@
     if (raw.status !== "ready" && raw.status !== "failed") invalid();
     if (typeof raw.cache_date !== "string" || !validCalendarDate(raw.cache_date)) invalid();
     if (typeof raw.has_essay !== "boolean") invalid();
-    if (raw.epistemic !== SKY_BRIEF_EPISTEMIC) invalid();
+    // epistemic is optional/legacy — data export is disclaimer-free for clean LLM paste
 
     var result = {
       status: raw.status,
@@ -252,18 +250,18 @@
       timezone: cleanText(raw.timezone, 1, 128),
       text: "",
       has_essay: raw.has_essay,
-      epistemic: SKY_BRIEF_EPISTEMIC,
     };
 
     if (raw.status === "ready") {
       if (typeof raw.text !== "string" || !raw.text.trim() || raw.text.length > 100000 || /[\u0000\r]/.test(raw.text)) invalid();
-      if (raw.text.indexOf(result.epistemic) === -1) invalid();
-      // Preserve the server-rendered UTF-8 document exactly for COPY BRIEF.
+      // Facts-only: natal chart + today's transits — no DeepSeek essay body in this field
+      if (!/##\s*Natal chart/i.test(raw.text) || !/##\s*Today'?s transits/i.test(raw.text)) invalid();
+      if (/##\s*Today'?s sky note/i.test(raw.text)) invalid();
+      // Preserve the server-rendered UTF-8 document exactly for COPY.
       result.text = raw.text;
       return result;
     }
 
-    if (raw.has_essay) invalid();
     // A soft-failure payload must never become preview/copy material.
     result.text = "";
     if (typeof raw.detail === "string" && raw.detail.trim()) result.detail = raw.detail.trim().slice(0, 180);
