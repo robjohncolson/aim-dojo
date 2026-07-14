@@ -42,9 +42,10 @@ test("CFG.skyMaps is a flat literal with the spec keys", () => {
     /globeBrightness\s*:\s*[0-9.]+/,
     /venusMap\s*:\s*['"]atmosphere['"]/, // §9.5
     /signArtEnabled\s*:\s*true/,
-    /signArtAngularDeg\s*:\s*[0-9.]+/,
+    /signArtAlways\s*:\s*true/,
     /signArtRadiusPull\s*:\s*[0-9.]+/,
     /signArtOpacity\s*:\s*[0-9.]+/,
+    /signArtSpanFill\s*:\s*[0-9.]+/,
   ]) assert.match(cfg[0], contract);
 });
 
@@ -98,37 +99,43 @@ test("globe shows only on transit-body focus; other focuses hide it", () => {
   indexBefore(src, /kind\s*===\s*['"]body['"]/, /showTempleGlobe\(/, "body kind guards the globe show");
 });
 
-// Zodiac art: sign focus shows a sky-anchored plane behind sticks; body/other hide it.
-test("sign art plane shows on sign focus and is sky-anchored behind sticks", () => {
+// Zodiac art: always-on belt, size ∝ Midpoint span, flat planes behind sticks.
+test("sign art is always-on, span-sized, and sky-anchored behind sticks", () => {
   const focus = namedFunction("setSkyTempleFocus");
-  assert.match(focus, /showTempleSignArt\(/);
-  assert.match(focus, /hideTempleSignArt\(\)/);
-  indexBefore(focus, /kind\s*===\s*['"]sign['"]/, /showTempleSignArt\(/, "sign kind guards the art show");
+  assert.match(focus, /ensureAllSignArt\(/, "focus keeps the always-on belt alive");
 
-  const ensure = namedFunction("ensureSignArtRig");
-  assert.match(ensure, /new THREE\.PlaneGeometry/, "flat rectangular plane, not a sphere");
-  assert.doesNotMatch(ensure, /SphereGeometry/, "sign art must not be sphere-mapped");
-  assert.match(ensure, /skySphere\.add\(signArtRoot\)/);
-  assert.match(ensure, /AdditiveBlending/, "art softens into the sky");
-  assert.match(ensure, /depthTest\s*:\s*false/, "shell depth must not circular-clip plane corners");
-  assert.ok(!/_templeGroup\.add\(signArtRoot\)/.test(ensure), "sign art must not be a _templeGroup child");
+  const all = namedFunction("ensureAllSignArt");
+  assert.match(all, /SIGN_IDS|SKY_SIGN_IDS/);
+  assert.match(all, /ensureSignArtSlot/);
 
-  const place = namedFunction("placeTempleSignArt");
-  assert.match(place, /templeSignAnchorLocal/);
+  const slot = namedFunction("ensureSignArtSlot");
+  assert.match(slot, /new THREE\.PlaneGeometry/, "flat rectangular plane, not a sphere");
+  assert.doesNotMatch(slot, /SphereGeometry/, "sign art must not be sphere-mapped");
+  assert.match(slot, /AdditiveBlending/, "art softens into the sky");
+  assert.match(slot, /depthTest\s*:\s*false/, "shell depth must not circular-clip plane corners");
+  assert.match(slot, /mapForSignPng/);
+  assert.match(slot, /mapForSign\(/);
+  indexBefore(slot, /mapForSignPng/, /mapForSign\(/, "prefer alpha PNG before JPEG fallback");
+
+  const group = namedFunction("ensureSignArtGroup");
+  assert.match(group, /skySphere\.add\(signArtGroup\)/);
+  assert.ok(!/_templeGroup\.add\(signArtGroup\)/.test(group), "sign art must not be a _templeGroup child");
+
+  const place = namedFunction("placeSignArtSlot");
+  assert.match(place, /signArtAnchorLocal|midLonForSign/);
   assert.match(place, /signArtRadiusPull|stick\.R|stickR/);
   assert.doesNotMatch(place, /camera\.quaternion/, "must not track the aim reticle");
 
-  const show = namedFunction("showTempleSignArt");
-  assert.match(show, /mapForSign/);
-  assert.match(show, /mapForSignPng/);
-  indexBefore(show, /mapForSignPng/, /mapForSign\(/, "prefer alpha PNG before JPEG fallback");
+  assert.match(html, /ensureAllSignArt\s*\(/, "boot path builds the belt");
+  assert.match(html, /artAngularDegForSign|signArtSpanFill/, "size follows Midpoint span");
 });
 
 // SPEC §9.7 — exit temple hides the globe (exit bypasses setSkyTempleFocus).
 test("exitSkyTemple hides the focus globe", () => {
   const src = namedFunction("exitSkyTemple");
   assert.match(src, /hideTempleGlobe\(\)/);
-  assert.match(src, /hideTempleSignArt\(\)/, "exit also drops zodiac sign art");
+  // Zodiac art is always-on — exit must NOT hide the belt.
+  assert.doesNotMatch(src, /hideTempleSignArt\s*\(/, "exit keeps always-on zodiac art");
 });
 
 // SPEC §9.8 — missing texture degrades to glyph-only without throwing.

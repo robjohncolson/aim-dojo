@@ -79,6 +79,23 @@
     "aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra",
     "scorpio", "ophiuchus", "sagittarius", "capricorn", "aquarius", "pisces",
   ]);
+  // True Sidereal Midpoint J2000 boundaries (data/boundaries/midpoint_j2000_v1.json).
+  // lengthDeg ∝ days of the year spent in the sign; midDeg = start + length/2 (mod 360).
+  var SIGN_SPANS = Object.freeze({
+    aries: Object.freeze({ startDeg: 31.2816, lengthDeg: 19.7267 }),
+    taurus: Object.freeze({ startDeg: 51.0083, lengthDeg: 36.8572 }),
+    gemini: Object.freeze({ startDeg: 87.8655, lengthDeg: 29.4539 }),
+    cancer: Object.freeze({ startDeg: 117.3194, lengthDeg: 17.1495 }),
+    leo: Object.freeze({ startDeg: 134.4689, lengthDeg: 38.4195 }),
+    virgo: Object.freeze({ startDeg: 172.8884, lengthDeg: 49.7185 }),
+    libra: Object.freeze({ startDeg: 222.6069, lengthDeg: 18.8784 }),
+    scorpio: Object.freeze({ startDeg: 241.4853, lengthDeg: 13.2279 }),
+    ophiuchus: Object.freeze({ startDeg: 254.7132, lengthDeg: 12.3578 }),
+    sagittarius: Object.freeze({ startDeg: 267.0711, lengthDeg: 33.3912 }),
+    capricorn: Object.freeze({ startDeg: 300.4622, lengthDeg: 25.6690 }),
+    aquarius: Object.freeze({ startDeg: 326.1312, lengthDeg: 23.1646 }),
+    pisces: Object.freeze({ startDeg: 349.2959, lengthDeg: 41.9857 }),
+  });
   var ZODIAC_BASE = BASE + "zodiac/";
   var SIGN_MAPS = Object.freeze(SIGN_IDS.reduce(function (acc, id) {
     acc[id] = ZODIAC_BASE + id + ".jpg";
@@ -128,6 +145,40 @@
 
   function hasSignMap(signId) {
     return mapForSign(signId) !== null;
+  }
+
+  function signSpan(signId) {
+    var id = canonicalId(signId);
+    return id && Object.prototype.hasOwnProperty.call(SIGN_SPANS, id) ? SIGN_SPANS[id] : null;
+  }
+
+  // Mid-ecliptic longitude of the sign band (degrees, [0,360)).
+  function midLonForSign(signId) {
+    var s = signSpan(signId);
+    if (!s) return null;
+    return (((s.startDeg + s.lengthDeg * 0.5) % 360) + 360) % 360;
+  }
+
+  // Days of year spent in the sign (proportional to lengthDeg).
+  function daysForSign(signId) {
+    var s = signSpan(signId);
+    return s ? (s.lengthDeg / 360) * 365.25 : null;
+  }
+
+  // Apparent angular width (deg) for sign art: proportional to span, fill < 1 so neighbors don't clip.
+  // Diagonal of a square is √2 wider, so default fill ~0.62 keeps ecliptic neighbors clear.
+  function artAngularDegForSign(signId, options) {
+    var s = signSpan(signId);
+    if (!s) return null;
+    var fill = options && options.fill != null ? options.fill : 0.62;
+    var minDeg = options && options.minDeg != null ? options.minDeg : 8;
+    var maxDeg = options && options.maxDeg != null ? options.maxDeg : 36;
+    var ang = s.lengthDeg * fill;
+    if (ang < minDeg) ang = minDeg;
+    if (ang > maxDeg) ang = maxDeg;
+    // Never exceed the sign's own span (leaves a gap to the neighbor).
+    if (ang > s.lengthDeg * 0.92) ang = s.lengthDeg * 0.92;
+    return ang;
   }
 
   function ringForBody(bodyId) {
@@ -186,6 +237,7 @@
     RINGS: RINGS,
     NO_MAP: NO_MAP,
     SIGN_IDS: SIGN_IDS,
+    SIGN_SPANS: SIGN_SPANS,
     ZODIAC_BASE: ZODIAC_BASE,
     SIGN_MAPS: SIGN_MAPS,
     SIGN_MAPS_PNG: SIGN_MAPS_PNG,
@@ -195,6 +247,10 @@
     mapForSign: mapForSign,
     mapForSignPng: mapForSignPng,
     hasSignMap: hasSignMap,
+    signSpan: signSpan,
+    midLonForSign: midLonForSign,
+    daysForSign: daysForSign,
+    artAngularDegForSign: artAngularDegForSign,
     ringForBody: ringForBody,
     segmentsFor: segmentsFor,
     allAssetPaths: allAssetPaths,

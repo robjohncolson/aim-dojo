@@ -117,3 +117,36 @@ test("mapForSign covers all 13 Midpoint signs under assets/sky/zodiac/", () => {
     assert.ok(!required.has(p), `zodiac path ${p} must stay optional`);
   }
 });
+
+// Midpoint spans size the always-on art belt (days of year ∝ lengthDeg).
+test("SIGN_SPANS drive mid longitudes, days, and non-overlapping art angles", () => {
+  let sum = 0;
+  for (const id of maps.SIGN_IDS) {
+    const span = maps.signSpan(id);
+    assert.ok(span, id);
+    sum += span.lengthDeg;
+    const mid = maps.midLonForSign(id);
+    assert.ok(mid >= 0 && mid < 360, `${id} mid in range`);
+    const days = maps.daysForSign(id);
+    assert.ok(days > 0 && days < 60, `${id} days sane`);
+    // art angular width proportional to span but strictly under the sign's own length
+    const ang = maps.artAngularDegForSign(id, { fill: 0.62 });
+    assert.ok(ang > 0 && ang < span.lengthDeg, `${id} art under span`);
+  }
+  assert.ok(Math.abs(sum - 360) < 0.02, "Midpoint lengths sum to 360°");
+  // Virgo longest, Ophiuchus among shortest → art sizes preserve order
+  assert.ok(
+    maps.artAngularDegForSign("virgo") > maps.artAngularDegForSign("ophiuchus"),
+    "longer signs get larger art"
+  );
+  // Neighbor half-widths do not exceed half the mid-to-mid gap (no clip along ecliptic)
+  for (let i = 0; i < maps.SIGN_IDS.length; i++) {
+    const a = maps.SIGN_IDS[i];
+    const b = maps.SIGN_IDS[(i + 1) % maps.SIGN_IDS.length];
+    const sa = maps.signSpan(a);
+    const sb = maps.signSpan(b);
+    const gap = (sa.lengthDeg + sb.lengthDeg) / 2;
+    const half = maps.artAngularDegForSign(a) / 2 + maps.artAngularDegForSign(b) / 2;
+    assert.ok(half < gap * 0.98, `${a}/${b} art halves under mid-gap`);
+  }
+});

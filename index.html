@@ -776,7 +776,7 @@ const CFG = {
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAngularDeg:32, signArtRadiusPull:1.06, signArtOpacity:0.28 },   // TEMPLE ORBS: milky + dimmed globe + Saturn/Uranus rings + soft zodiac art behind sticks. Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62 },   // TEMPLE ORBS: milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1768,84 +1768,111 @@ function placeTempleGlobe(){
   globeRoot.lookAt(0,0,0);
   globeRoot.rotateY(Math.PI);
 }
-/* --- zodiac sign art: soft additive FLAT plane behind sticks (full rectangle — never sphere-mapped / never shell-depth-clipped) --- */
-let signArtRoot=null, signArtMesh=null, signArtMat=null, _signArtId=null, _signArtReady=false;
-const _saLocal=new THREE.Vector3(), _saWorld=new THREE.Vector3();
-function ensureSignArtRig(){
-  if(signArtRoot || !SKY_MAPS) return signArtRoot;
-  // Parent under skySphere so art co-rotates with sticks/chart. renderOrder low so sticks draw over; depthTest OFF so the milky shell cannot circular-clip the plane corners.
-  signArtRoot=new THREE.Group(); signArtRoot.visible=false; signArtRoot.frustumCulled=false; signArtRoot.renderOrder=-5; skySphere.add(signArtRoot);
-  // Additive + low opacity → gold ink soft into the sky; plane stays rectangular.
-  signArtMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, opacity:0.28, depthTest:false, depthWrite:false, color:0xc8d4e8, blending:THREE.AdditiveBlending });
-  signArtMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1), signArtMat);
-  signArtMesh.frustumCulled=false; signArtMesh.renderOrder=-5; signArtMesh.visible=false; signArtRoot.add(signArtMesh);
-  return signArtRoot;
+/* --- zodiac sign art: always-on soft additive FLAT planes behind sticks (size ∝ Midpoint days/span; no neighbor clip) --- */
+let signArtGroup=null; // Group of all sign planes under skySphere
+const _signArtSlots=Object.create(null); // id -> { mesh, mat, ready, angDeg }
+const _saLocal=new THREE.Vector3(), _saWorld=new THREE.Vector3(), _saDir=new THREE.Vector3();
+function signArtBaseOpacity(){
+  // Prior focus-only punch was ~0.28; always-on default is 1/3 of that.
+  return CFG.skyMaps&&CFG.skyMaps.signArtOpacity!=null?CFG.skyMaps.signArtOpacity:0.09;
 }
-/** SkySphere-local anchor for a Midpoint sign (constellation centroid). */
-function templeSignAnchorLocal(signId){
+function ensureSignArtGroup(){
+  if(signArtGroup || !SKY_MAPS) return signArtGroup;
+  signArtGroup=new THREE.Group(); signArtGroup.visible=false; signArtGroup.frustumCulled=false; signArtGroup.renderOrder=-5; skySphere.add(signArtGroup);
+  return signArtGroup;
+}
+/** Ecliptic mid-band anchor for a sign (stable packing). Stick centroid used only as fallback. */
+function signArtAnchorLocal(signId){
   const id=canonicalSkySign(signId);
   if(!id) return null;
+  const mid=SKY_MAPS.midLonForSign?SKY_MAPS.midLonForSign(id):null;
+  if(mid!=null && isFinite(mid)){
+    const stickR=(SKY_CHART.stick&&SKY_CHART.stick.R)||330;
+    const pull=CFG.skyMaps.signArtRadiusPull!=null?CFG.skyMaps.signArtRadiusPull:1.06;
+    return eclipticDir(mid, 0).multiplyScalar(stickR*pull);
+  }
   if(_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[id]&&_lsnMeta.signs[id].pos) return _lsnMeta.signs[id].pos;
   if(_stickFig&&_stickFig.signs&&_stickFig.signs[id]&&_stickFig.signs[id].pos) return _stickFig.signs[id].pos;
-  if(_templeFocus&&_templeFocus.kind==='sign'&&_templeFocus.pick&&_templeFocus.pick.meta&&_templeFocus.pick.meta.pos
-     && canonicalSkySign(_templeFocus.pick.id)===id) return _templeFocus.pick.meta.pos;
   return null;
 }
-function showTempleSignArt(signId){
-  if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.signArtEnabled===false){ hideTempleSignArt(); return; }
-  if(!templeActive){ hideTempleSignArt(); return; }
+function signArtAngularDeg(signId){
+  const fill=CFG.skyMaps.signArtSpanFill!=null?CFG.skyMaps.signArtSpanFill:0.62;
+  if(SKY_MAPS.artAngularDegForSign) return SKY_MAPS.artAngularDegForSign(signId, { fill:fill, minDeg:8, maxDeg:36 });
+  return 16;
+}
+function ensureSignArtSlot(signId){
   const id=canonicalSkySign(signId);
-  if(!id || !SKY_MAPS.hasSignMap(id)){ hideTempleSignArt(); return; }
-  if(!templeSignAnchorLocal(id)){ hideTempleSignArt(); return; }
-  ensureSignArtRig(); if(!signArtRoot||!signArtMat||!signArtMesh) return;
-  _signArtId=id; _signArtReady=false;
-  signArtRoot.visible=false; signArtMesh.visible=false;
-  if(signArtMat.map){ signArtMat.map=null; signArtMat.needsUpdate=true; }
+  if(!id || !SKY_MAPS || !SKY_MAPS.hasSignMap(id)) return null;
+  if(_signArtSlots[id]) return _signArtSlots[id];
+  ensureSignArtGroup(); if(!signArtGroup) return null;
+  const op=signArtBaseOpacity();
+  const mat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, opacity:op, depthTest:false, depthWrite:false, color:0xc8d4e8, blending:THREE.AdditiveBlending });
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);
+  mesh.frustumCulled=false; mesh.renderOrder=-5; mesh.visible=false; mesh.name='signArt:'+id;
+  signArtGroup.add(mesh);
+  const slot={ id:id, mesh:mesh, mat:mat, ready:false, angDeg:signArtAngularDeg(id) };
+  _signArtSlots[id]=slot;
+  // Prefer .png (alpha); soft-fail to .jpg.
   const png=SKY_MAPS.mapForSignPng(id), jpg=SKY_MAPS.mapForSign(id);
   const apply=t=>{
-    if(_signArtId!==id || !signArtMat) return;
-    // Soft sky look: cool tint + additive + ~30% opacity. Full rectangular plane (no sphere clip).
-    const op=CFG.skyMaps.signArtOpacity!=null?CFG.skyMaps.signArtOpacity:0.28;
-    signArtMat.map=t; signArtMat.color.setHex(0xc8d4e8); signArtMat.transparent=true;
-    signArtMat.opacity=op; signArtMat.blending=THREE.AdditiveBlending;
-    signArtMat.depthWrite=false; signArtMat.depthTest=false; signArtMat.needsUpdate=true;
-    _signArtReady=true; signArtRoot.visible=true; signArtMesh.visible=true;
-    placeTempleSignArt();
+    if(!_signArtSlots[id]) return;
+    mat.map=t; mat.color.setHex(0xc8d4e8); mat.transparent=true;
+    mat.opacity=signArtBaseOpacity(); mat.blending=THREE.AdditiveBlending;
+    mat.depthWrite=false; mat.depthTest=false; mat.needsUpdate=true;
+    slot.ready=true; mesh.visible=true;
+    placeSignArtSlot(slot);
   };
-  // Prefer .png (alpha cutouts); soft-fail to .jpg; both missing → stay sticks-only.
   loadSkyTexture(png, apply, ()=>{
-    if(_signArtId!==id) return;
-    if(jpg) loadSkyTexture(jpg, apply, ()=>{ if(_signArtId===id) hideTempleSignArt(); });
-    else hideTempleSignArt();
+    if(jpg) loadSkyTexture(jpg, apply, ()=>{ /* missing art: leave slot invisible */ });
   });
+  return slot;
 }
+/** Build / show every Midpoint sign plane (always-on). Safe to call repeatedly. */
+function ensureAllSignArt(){
+  if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.signArtEnabled===false) return;
+  if(SKY_MODE==='decorative') return;
+  if(CFG.skyMaps.signArtAlways===false) return;
+  ensureSignArtGroup();
+  const ids=SKY_MAPS.SIGN_IDS||SKY_SIGN_IDS;
+  for(let i=0;i<ids.length;i++) ensureSignArtSlot(ids[i]);
+  if(signArtGroup) signArtGroup.visible=true;
+  placeAllSignArt();
+}
+// Focus-era API kept as no-ops / ensure so older focus hooks stay safe.
+function showTempleSignArt(/*signId*/){ ensureAllSignArt(); }
 function hideTempleSignArt(){
-  if(signArtRoot) signArtRoot.visible=false;
-  if(signArtMesh) signArtMesh.visible=false;
-  if(signArtMat){ signArtMat.map=null; signArtMat.needsUpdate=true; }
-  _signArtId=null; _signArtReady=false;
+  // Always-on: never hide the full belt on focus clear / temple exit.
+  if(CFG.skyMaps&&CFG.skyMaps.signArtAlways===false){
+    if(signArtGroup) signArtGroup.visible=false;
+  }
 }
-function placeTempleSignArt(){
-  if(!signArtRoot||!signArtRoot.visible||!_signArtId||!_signArtReady) return;
-  const local=templeSignAnchorLocal(_signArtId);
-  if(!local){ signArtRoot.visible=false; return; }
-  // BEHIND sticks, well inside the milky shell: stick R≈330, pull>1 sits past sticks; corners stay inside shell R≈400 so nothing circular-clips the flat plane.
+function placeSignArtSlot(slot){
+  if(!slot||!slot.ready||!slot.mesh) return;
+  const local=signArtAnchorLocal(slot.id);
+  if(!local){ slot.mesh.visible=false; return; }
   const stickR=(SKY_CHART.stick&&SKY_CHART.stick.R)||330;
   const pull=CFG.skyMaps.signArtRadiusPull!=null?CFG.skyMaps.signArtRadiusPull:1.06;
   const R=stickR*pull;
   const len=local.length()||R;
   _saLocal.copy(local).multiplyScalar(R/len);
-  signArtRoot.position.copy(_saLocal);
+  slot.mesh.position.copy(_saLocal);
   _saWorld.copy(_saLocal).applyQuaternion(skySphere.quaternion);
   const dist=Math.max(8, camera.position.distanceTo(_saWorld));
-  const angDeg=CFG.skyMaps.signArtAngularDeg!=null?CFG.skyMaps.signArtAngularDeg:32;
-  const side=Math.max(10, 2*dist*Math.tan(angDeg*Math.PI/360));
-  signArtRoot.scale.set(side, side, 1);
-  // Face the player at the sphere center (flat billboard — not projected onto a sphere).
-  signArtRoot.quaternion.identity();
-  signArtRoot.lookAt(0,0,0);
-  signArtRoot.rotateY(Math.PI);
+  const angDeg=slot.angDeg!=null?slot.angDeg:signArtAngularDeg(slot.id);
+  const side=Math.max(6, 2*dist*Math.tan(angDeg*Math.PI/360));
+  slot.mesh.scale.set(side, side, 1);
+  // Flat billboard facing sphere center (not sphere-mapped).
+  slot.mesh.quaternion.identity();
+  slot.mesh.lookAt(0,0,0);
+  slot.mesh.rotateY(Math.PI);
+  slot.mesh.visible=true;
 }
+function placeAllSignArt(){
+  if(!signArtGroup||!signArtGroup.visible) return;
+  for(const id in _signArtSlots) placeSignArtSlot(_signArtSlots[id]);
+}
+// Legacy single-plane place (tests may still name placeTempleSignArt).
+function placeTempleSignArt(){ placeAllSignArt(); }
 /* per-frame driver (called from updateSky): build/fade the shell, keep the globe on its sky pin + spinning */
 function updateTempleOrbs(dt){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
@@ -1869,10 +1896,12 @@ function updateTempleOrbs(dt){
   }else if(globeRoot && !templeActive){
     globeRoot.visible=false;
   }
-  if(signArtRoot && signArtRoot.visible && templeActive){
-    placeTempleSignArt();
-  }else if(signArtRoot && !templeActive){
-    signArtRoot.visible=false;
+  // Always-on zodiac belt: keep placed while clocked sky is up (dojo + temple).
+  if(CFG.skyMaps&&CFG.skyMaps.signArtEnabled!==false&&CFG.skyMaps.signArtAlways!==false&&SKY_MODE!=='decorative'){
+    if(!signArtGroup) ensureAllSignArt();
+    else if(signArtGroup.visible) placeAllSignArt();
+  }else if(signArtGroup){
+    signArtGroup.visible=false;
   }
 }
 const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)
@@ -3019,9 +3048,8 @@ function setSkyTempleFocus(focus){
   else if(_templeFocus&&_templeFocus.kind==='aspect'&&_templeFocus.record&&_templeFocus.record.transit) globeId=_templeFocus.record.transit.id;
   else if(_templeFocus&&_templeFocus.kind==='natal'&&_templeFocus.body) globeId=_templeFocus.body.id;   // natal uses same body texture as a dim ghost later; for now show the shared map
   if(globeId!=null) showTempleGlobe(globeId); else hideTempleGlobe();
-  // Zodiac art plane behind sticks when focusing a SIGN (drop-in assets/sky/zodiac/{id}.jpg|.png — soft-fail if missing).
-  if(_templeFocus&&_templeFocus.kind==='sign'&&_templeFocus.pick) showTempleSignArt(_templeFocus.pick.id);
-  else hideTempleSignArt();
+  // Zodiac art is always-on (size ∝ Midpoint span); ensure belt exists, never hide on focus change.
+  ensureAllSignArt();
   updateSkyTempleVisuals();
 }
 function clearSkyTempleFocus(){ setSkyTempleFocus(null); }
@@ -3077,7 +3105,7 @@ function exitSkyTemple(options){
   if(options.forPause) snapshotTempleForResume();
   else if(!options.keepResume) clearTempleResume();
   templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null; _templeStudySeq++;
-  document.body.classList.remove('temple-active'); _templeGroup.visible=false; hideTempleGlobe(); hideTempleSignArt();   // TEMPLE ORBS: drop globe + sign art (exit nulls _templeFocus directly, bypassing setSkyTempleFocus)
+  document.body.classList.remove('temple-active'); _templeGroup.visible=false; hideTempleGlobe();   // TEMPLE ORBS: drop globe only; zodiac art stays always-on
   if(_templeUi.panel){ _templeUi.panel.classList.remove('on'); _templeUi.panel.setAttribute('aria-hidden','true'); }
   if(_templeUi.body) _templeUi.body.textContent='';
   // Restore dojo floor immediately (opaque base + grids; updateSky will set day/night opacities next tick).
@@ -6341,6 +6369,7 @@ if(SKY_MODE==='decorative') runIdle(()=>{ buildStars(); updateStars(skyT); },120
 else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick figures REPLACE the random starfield (v2 D4)
   if(c) try{ buildZodiacSticks(c); }catch(e){}
   if(!stickGroup){ buildStars(); updateStars(skyT); }   // ANY miss — absent, invalid, or throwing fixture — degrades to the decorative stars, never an empty night
+  try{ ensureAllSignArt(); }catch(e){}   // always-on Midpoint sign art belt (size ∝ days in sign)
 }); },120,1500);
 if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyGlossary(); },140,1600);   // definitions are a static asset and never wait on either sky server
 if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; announceSkyDay(p); }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers) and announced once per tab; failure leaves Meeus ☉/☽ + sticks + glossary untouched
