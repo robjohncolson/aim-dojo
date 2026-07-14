@@ -1583,9 +1583,11 @@ function ensureMilkyShell(){
   if(milkyShell || !SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return milkyShell;
   const seg=SKY_MAPS.segmentsFor('shell', _skyMapOpts);
   const R=(CFG.skyMaps.shellRadius)||400;   // outside stars(340)/sticks(330), inside dome(480) + far(700)
-  const mat=new THREE.MeshBasicMaterial({ side:THREE.BackSide, depthWrite:false, depthTest:false, fog:false, transparent:true, opacity:0 });
+  // depthTest/Write TRUE: nearer sky objects (glyphs, temple globes at R≈315) must occlude the shell (R≈400).
+  // Transparent + depthTest:false was painting the milky way OVER the planet balls after the opaque pass.
+  const mat=new THREE.MeshBasicMaterial({ side:THREE.BackSide, depthWrite:true, depthTest:true, fog:false, transparent:true, opacity:0 });
   milkyShell=new THREE.Mesh(new THREE.SphereGeometry(R, seg.widthSegments, seg.heightSegments), mat);
-  milkyShell.frustumCulled=false; milkyShell.renderOrder=-900;   // after the gradient dome (-1000), before the stars/room
+  milkyShell.frustumCulled=false; milkyShell.renderOrder=-50;   // with real depth, order is secondary; still after gradient dome
   milkyShell.visible=false; if(!LOW) milkyShell.layers.enable(1);   // reflection layer (skipped under LOW, matching dome/stars)
   skySphere.add(milkyShell);
   loadSkyTexture((CFG.skyMaps.milkyPath)||SKY_MAPS.MILKY_PATH, t=>{ if(milkyShell){ mat.map=t; mat.needsUpdate=true; _milkyReady=true; } });
@@ -1599,12 +1601,12 @@ function ensureGlobeRig(){
   if(globeRoot || !SKY_MAPS) return globeRoot;
   const seg=SKY_MAPS.segmentsFor('globe', _skyMapOpts);
   // Parent under skySphere so the globe co-rotates with the chart / milky shell (same frame as glyphs).
-  globeRoot=new THREE.Group(); globeRoot.visible=false; globeRoot.frustumCulled=false; globeRoot.renderOrder=5; skySphere.add(globeRoot);
+  globeRoot=new THREE.Group(); globeRoot.visible=false; globeRoot.frustumCulled=false; globeRoot.renderOrder=10; skySphere.add(globeRoot);
   globeTilt=new THREE.Group(); globeTilt.frustumCulled=false; globeRoot.add(globeTilt);
-  // Opaque ball first; depthTest true so it sits in the sky shell correctly (not a HUD overlay on the reticle).
+  // Opaque ball; depthWrite so it punches through the milky shell (shell is farther at R≈400, globe ~0.9·R).
   planetMat=new THREE.MeshBasicMaterial({ side:THREE.FrontSide, fog:false, depthTest:true, depthWrite:true, color:0xffffff, transparent:false });
   planetMesh=new THREE.Mesh(new THREE.SphereGeometry(1, seg.widthSegments, seg.heightSegments), planetMat);
-  planetMesh.frustumCulled=false; planetMesh.renderOrder=5; planetMesh.visible=true; globeTilt.add(planetMesh);
+  planetMesh.frustumCulled=false; planetMesh.renderOrder=10; planetMesh.visible=true; globeTilt.add(planetMesh);
   const ring=SKY_MAPS.RING;
   if(ring){
     ringMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, depthTest:true, depthWrite:false, opacity:1 });
@@ -1612,7 +1614,7 @@ function ensureGlobeRig(){
     const pos=rg.attributes.position, uv=rg.attributes.uv, v=new THREE.Vector3();
     for(let i=0;i<pos.count;i++){ v.fromBufferAttribute(pos,i); const rad=v.length(); uv.setXY(i, (rad-ring.innerScale)/Math.max(1e-6,(ring.outerScale-ring.innerScale)), 0.5); }
     uv.needsUpdate=true;
-    ringMesh=new THREE.Mesh(rg, ringMat); ringMesh.rotation.x=-Math.PI/2; ringMesh.frustumCulled=false; ringMesh.renderOrder=6; ringMesh.visible=false; globeTilt.add(ringMesh);
+    ringMesh=new THREE.Mesh(rg, ringMat); ringMesh.rotation.x=-Math.PI/2; ringMesh.frustumCulled=false; ringMesh.renderOrder=11; ringMesh.visible=false; globeTilt.add(ringMesh);
   }
   return globeRoot;
 }
@@ -1678,18 +1680,22 @@ function placeTempleGlobe(){
   if(!globeRoot||!globeRoot.visible||!_globeBody) return;
   const local=templeGlobeAnchorLocal(_globeBody);
   if(!local){ globeRoot.visible=false; return; }
-  // SkySphere-local: sit on the same ecliptic pin as the glyph.
-  globeRoot.position.copy(local);
-  // Apparent angular size from the camera (world space distance).
-  _gWorld.copy(local).applyQuaternion(skySphere.quaternion);
-  if(skySphere.position) _gWorld.add(skySphere.position);
+  // Sit on the glyph ray, slightly closer than the milky shell so depth occlusion wins (glyphs ~R, shell ~400).
+  const R=SKY_CHART.R||315;
+  const len=local.length()||R;
+  const pull=CFG.skyMaps.globeRadiusPull!=null?CFG.skyMaps.globeRadiusPull:0.90;   // 0.90·R ≈ in front of shell
+  _gLocal.copy(local).multiplyScalar((R*pull)/len);
+  globeRoot.position.copy(_gLocal);
+  // Apparent angular size from the camera (world space).
+  _gWorld.copy(_gLocal).applyQuaternion(skySphere.quaternion);
   const dist=Math.max(8, camera.position.distanceTo(_gWorld));
-  const angDeg=CFG.skyMaps.globeAngularDeg!=null?CFG.skyMaps.globeAngularDeg:15;
-  const r=Math.max(4, dist*Math.tan(angDeg*Math.PI/360));
+  const angDeg=CFG.skyMaps.globeAngularDeg!=null?CFG.skyMaps.globeAngularDeg:16;
+  const r=Math.max(6, dist*Math.tan(angDeg*Math.PI/360));
   globeRoot.scale.setScalar(r);
-  // Face the sphere outward so the equator of the texture roughly faces the camera plane.
+  // Face outward (player is near sphere center) so FrontSide is visible.
+  globeRoot.quaternion.identity();
   globeRoot.lookAt(0,0,0);
-  globeRoot.rotateY(Math.PI);   // lookAt points -Z at origin; flip so FrontSide faces outward toward the player
+  globeRoot.rotateY(Math.PI);
 }
 /* per-frame driver (called from updateSky): build/fade the shell, keep the globe on its sky pin + spinning */
 function updateTempleOrbs(dt){
@@ -1701,6 +1707,11 @@ function updateTempleOrbs(dt){
     if(inTemple) target=_templeBlend*(CFG.skyMaps.templeShellOpacity!=null?CFG.skyMaps.templeShellOpacity:1);
     if(CFG.skyMaps.dojoShell && !templeActive) target=Math.max(target, CFG.skyMaps.dojoShellOpacity!=null?CFG.skyMaps.dojoShellOpacity:0.35);
     milkyShell.material.opacity=target;
+    // At full opacity, treat as opaque for better depth vs planet globes; soft-fade stays transparent.
+    const solid=target>=0.995;
+    milkyShell.material.transparent=!solid;
+    milkyShell.material.depthWrite=true;
+    milkyShell.material.depthTest=true;
     milkyShell.visible=_milkyReady && target>0.003;
   }
   if(globeRoot && globeRoot.visible && templeActive){
