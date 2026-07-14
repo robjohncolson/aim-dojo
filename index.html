@@ -174,6 +174,13 @@ html.seen #ovLede .lede-return{display:inline}
    the descriptive block to 0px so only the bare title/meta (glyph · lon) appear. */
 #skyTemplePanel{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:11;width:min(400px,42vw);max-width:calc(100vw - 36px);max-height:min(78vh,720px);padding:14px 16px;border:1px solid rgba(255,210,74,.52);background:rgba(8,12,12,.92);box-shadow:0 18px 55px rgba(0,0,0,.58),inset 0 0 28px rgba(255,210,74,.035);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone);overflow:auto}
 #skyTemplePanel.on{opacity:1;visibility:visible}
+/* Free-mouse / chat: unlock pointer so the study body can scroll and ASK/SEND are clickable under the aim lock. */
+body.temple-free-mouse #skyTemplePanel,
+body.temple-chat-open #skyTemplePanel{pointer-events:auto;cursor:default}
+body.temple-free-mouse .sky-temple-body,
+body.temple-chat-open .sky-temple-body{pointer-events:auto;overscroll-behavior:contain}
+body.temple-free-mouse #reticle{opacity:.28}
+body.temple-free-mouse canvas{cursor:default}
 .sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:8px}
 .sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em}
 .sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line}
@@ -406,10 +413,10 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
         <textarea class="sky-temple-chat-input" id="skyTempleChatInput" rows="2" maxlength="500" placeholder="ask about this focus…" aria-label="Ask about this sky focus" autocomplete="off"></textarea>
         <button class="sky-temple-chat-send" id="skyTempleChatSend" type="submit">SEND</button>
       </form>
-      <div class="sky-temple-chat-epistemic" id="skyTempleChatEpistemic">symbolic study notes · not predictions · not medical, legal, or financial advice · T opens · Esc closes ask</div>
+      <div class="sky-temple-chat-epistemic" id="skyTempleChatEpistemic">symbolic study notes · not predictions · not medical, legal, or financial advice · T opens ask · Shift+E frees mouse for scroll/click · Esc closes</div>
     </div>
   </section>
-  <div class="sky-temple-hint" id="skyTempleHint">RETICLE + FIRE TO INVESTIGATE · E LEAVES · ESC PAUSES (RETURNS TO TEMPLE)</div>
+  <div class="sky-temple-hint" id="skyTempleHint">FIRE = INVESTIGATE · SHIFT+E = FREE MOUSE (SCROLL HUD / ASK) · E = LEAVE · ESC = PAUSE</div>
 </aside>
 
 <div id="touch">
@@ -609,10 +616,11 @@ window.JA={
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
-  skyTempleKicker:'空の神殿', skyTempleHint:'照準 + 発射でしらべる · E で出る · ESC で一時停止（神殿に戻る）', skyTempleEmpty:'空に照準を合わせてしらべる',
+  skyTempleKicker:'空の神殿', skyTempleHint:'発射でしらべる · Shift+E でマウス解放（HUDスクロール / 質問） · E で出る · ESC で一時停止', skyTempleEmpty:'空に照準を合わせてしらべる',
   skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった', skyTempleResumed:'神殿にもどった',
+  skyTempleFreeMouse:'マウス解放 · HUDを操作', skyTempleAimMouse:'照準にもどった',
   skyChatAsk:'空にたずねる', skyChatInput:'この焦点についてたずねる…', skyChatInputAria:'空の焦点についてたずねる', skyChatSend:'送る', skyChatListening:'きいています…',
-  skyChatUnavailable:'空のノートを用意できません', skyChatLimited:'今日はここまで · また明日', skyChatFailed:'空のノートを用意できません', skyChatEpistemic:'象徴を学ぶためのメモ · 予言ではない · 医療・法律・金融の助言ではない · Tで開く · Escで質問を閉じる',
+  skyChatUnavailable:'空のノートを用意できません', skyChatLimited:'今日はここまで · また明日', skyChatFailed:'空のノートを用意できません', skyChatEpistemic:'象徴を学ぶためのメモ · 予言ではない · Tで質問 · Shift+Eでマウス解放 · Escで閉じる',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
   pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
@@ -843,7 +851,7 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
 let templeActive=false, _skySelectHeld=false, _skySelectUsed=false, _skySel=null;
 let _templeBlend=0, _templeFocus=null, _templeEscapeGuard=false, _templeNeedsRelock=false;
 let _templeResumeWanted=false, _templeResumeSel=null, _templeResumeFocus=null, _templeStudySeq=0;
-let _templeChatOpen=false;
+let _templeChatOpen=false, _templeFreeMouse=false;   // free mouse = pointer unlocked so HUD scroll/click works under temple
 const _skyChat={threadId:null,turns:[],status:'none',remainingTurns:10,inFlight:false,loaded:false,seq:0,pollTimer:null,pollStep:0,startedAt:0,optimistic:false};
 /* Observer location is local device data, separate from natal/profile data and every
    share, dojo, leaderboard, URL, and cloud-pref channel. Null keeps the old civil-spin fallback. */
@@ -2443,10 +2451,38 @@ function skyChatSoftText(status){
   if(status==='unavailable') return T('skyChatUnavailable','sky notes unavailable');
   return '';
 }
+function setTempleFreeMouse(on, opts){
+  // Stay in temple; unlock the pointer so long study text can scroll and ASK/SEND are clickable.
+  opts=opts||{};
+  if(!templeActive){
+    _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
+    return false;
+  }
+  on=!!on;
+  const was=_templeFreeMouse; _templeFreeMouse=on;
+  document.body.classList.toggle('temple-free-mouse', on);
+  if(on){
+    if(document.pointerLockElement===canvas){
+      _templeEscapeGuard=true;
+      try{ document.exitPointerLock(); }catch(error){ _templeEscapeGuard=false; }
+    }
+    if(!opts.silent&&!was) try{ showGhostToast(T('skyTempleFreeMouse','MOUSE FREE · USE HUD')); }catch(error){}
+  }else{
+    if(_templeChatOpen){ _templeChatOpen=false; document.body.classList.remove('temple-chat-open'); if(_skyChatUi.input) _skyChatUi.input.blur(); }
+    if(!MOBILE&&document.pointerLockElement!==canvas&&canvas.requestPointerLock){
+      try{ canvas.requestPointerLock(); }catch(error){ _templeNeedsRelock=true; }
+    }else _templeNeedsRelock=true;
+    if(!opts.silent&&was) try{ showGhostToast(T('skyTempleAimMouse','AIM RESTORED')); }catch(error){}
+  }
+  try{ renderSkyChatUi(); }catch(error){}
+  return true;
+}
+function toggleTempleFreeMouse(){ return setTempleFreeMouse(!_templeFreeMouse); }
 function skyChatDismissComposer(){
   const wasOpen=_templeChatOpen; _templeChatOpen=false; document.body.classList.remove('temple-chat-open');
   if(_skyChatUi.input) _skyChatUi.input.blur();
-  if(wasOpen&&!MOBILE&&document.pointerLockElement!==canvas&&canvas.requestPointerLock) _templeNeedsRelock=true;
+  // Keep free-mouse if still inspecting HUD; only flag relock when fully returning to aim.
+  if(wasOpen&&!_templeFreeMouse&&!MOBILE&&document.pointerLockElement!==canvas&&canvas.requestPointerLock) _templeNeedsRelock=true;
   return wasOpen;
 }
 function skyChatSyncSend(){
@@ -2542,11 +2578,8 @@ async function refreshSkyChatForTemple(){
 }
 function openSkyChatComposer(){
   if(!skyChatTempleEligible()) return false;
+  setTempleFreeMouse(true,{silent:true});   // free mouse first so ASK/scroll/type are usable under aim lock
   _templeChatOpen=true; document.body.classList.add('temple-chat-open'); renderSkyChatUi();
-  if(document.pointerLockElement===canvas){
-    _templeEscapeGuard=true;
-    try{ document.exitPointerLock(); }catch(error){ _templeEscapeGuard=false; }
-  }
   if(!_skyChat.loaded&&!_skyChat.inFlight) refreshSkyChatForTemple();
   setTimeout(()=>{ if(_templeChatOpen&&_skyChatUi.input&&!_skyChatUi.input.disabled) try{ _skyChatUi.input.focus(); }catch(error){} },0);
   return true;
@@ -2652,7 +2685,8 @@ function focusSkyTempleReticle(){
 function enterSkyTemple(options){
   options=options||{};
   if(!CFG.skyTemple.enabled || templeActive || !state.running || !_skySel) return false;
-  templeActive=true; rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
+  templeActive=true; _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
+  rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
   abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
   clearProjectiles(); clearRings(); resetFlock(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;
   hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
@@ -2686,6 +2720,7 @@ function enterSkyTemple(options){
 function exitSkyTemple(options){
   if(!templeActive) return false; options=options||{};
   closeSkyChatComposer(false);
+  _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
   if(options.forPause) snapshotTempleForResume();
   else if(!options.keepResume) clearTempleResume();
   templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null; _templeStudySeq++;
@@ -3683,7 +3718,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
 }
 function fire(){
   if(!state.running) return;
-  if(_templeChatOpen) return;
+  if(_templeChatOpen||_templeFreeMouse) return;   // free-mouse is for HUD scroll/click, not reticle fire
   if(templeActive){ focusSkyTempleReticle(); return; }
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
   if(_skySelectHeld){ _skySelectUsed=true; if(skyListenTry()) return; }   // held E explicitly owns sky selection; an Echo under the reticle still falls through to combat
@@ -3692,11 +3727,8 @@ function fire(){
 }
 canvas.addEventListener('mousedown', e=>{
   if(e.button===0){
-    if(_templeChatOpen){
-      closeSkyChatComposer(false);
-      if(_templeNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _templeNeedsRelock=false; try{ canvas.requestPointerLock(); }catch(_e){} }
-      return;
-    }
+    // Click empty sky (canvas) while free-mouse → re-engage aim; HUD clicks never reach the canvas.
+    if(templeActive&&(_templeFreeMouse||_templeChatOpen)){ setTempleFreeMouse(false); return; }
     if(_templeNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _templeNeedsRelock=false; try{ canvas.requestPointerLock(); }catch(_e){} return; }
     fire();
   }else if(e.button===2) toggleSkyFreeze();
@@ -3735,12 +3767,18 @@ function isTypingTarget(t){ return !!(t&&(t.isContentEditable||/^(INPUT|TEXTAREA
 document.addEventListener('keydown', e=>{ const t=e.target; if(isTypingTarget(t)) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane
 document.addEventListener('keydown',e=>{
   if(!CFG.skyTemple.enabled || e.code!==CFG.skyTemple.enterKey || e.repeat || !state.running || isTypingTarget(e.target)) return;
+  // Shift+E in temple: free the mouse for HUD scroll / ASK click (stay in temple). Plain E still leaves.
+  if(e.shiftKey){
+    if(templeActive){ e.preventDefault(); toggleTempleFreeMouse(); }
+    return;
+  }
   e.preventDefault();
   if(templeActive){ _skySelectHeld=false; _skySelectUsed=false; exitSkyTemple(); return; }
   _skySelectHeld=true; _skySelectUsed=false;
 });
 document.addEventListener('keyup',e=>{
   if(!CFG.skyTemple.enabled || e.code!==CFG.skyTemple.enterKey) return;
+  if(e.shiftKey) return;   // Shift+E is free-mouse toggle, never enter/exit
   const held=_skySelectHeld, used=_skySelectUsed; _skySelectHeld=false; _skySelectUsed=false;
   if(!held || used || !state.running || templeActive || isTypingTarget(e.target)) return;
   if(_skySel){ e.preventDefault(); enterSkyTemple(); }
@@ -3827,6 +3865,8 @@ document.addEventListener('keydown', e=>{
 document.addEventListener('keydown',e=>{
   if(e.code!=='Escape' || !state.running) return;
   if(_templeChatOpen){ e.preventDefault(); e.stopImmediatePropagation(); closeSkyChatComposer(true); return; }
+  // Free-mouse inspect: Esc returns to aim without pausing the run.
+  if(_templeFreeMouse&&templeActive){ e.preventDefault(); e.stopImmediatePropagation(); setTempleFreeMouse(false); return; }
   if(isTypingTarget(e.target)) return;
   // Esc pauses (and remembers temple). E still leaves temple back to dojo without pausing.
   if(templeActive){

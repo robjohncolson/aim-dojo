@@ -94,13 +94,14 @@ test("E press/release state separates hold-to-select from tap-to-enter", () => {
   assert.ok(heldWrite >= 0, "KeyE keydown records the held state");
   assert.ok(releasedWrite >= 0, "KeyE keyup clears the held state");
 
-  const keyRegion = html.slice(Math.max(0, heldWrite - 800), Math.min(html.length, releasedWrite + 1200));
+  const keyRegion = html.slice(Math.max(0, heldWrite - 1200), Math.min(html.length, releasedWrite + 1600));
   assert.match(keyRegion, /CFG\.skyTemple\.enterKey/);
-  assert.match(keyRegion, /INPUT\|TEXTAREA\|SELECT|INPUT\|SELECT\|TEXTAREA/);
-  assert.match(keyRegion, /isContentEditable/);
+  assert.match(keyRegion, /isTypingTarget\s*\(\s*e\.target\s*\)/);
   assert.match(keyRegion, /_skySelectUsed/);
   assert.match(keyRegion, /enterSkyTemple\s*\(/);
   assert.match(keyRegion, /exitSkyTemple\s*\(/);
+  assert.match(keyRegion, /e\.shiftKey/, "Shift+E free-mouse is handled on the E key path");
+  assert.match(keyRegion, /toggleTempleFreeMouse\s*\(/);
 
   const clearAnchor = html.indexOf("// X clears temple focus");
   assert.ok(clearAnchor >= 0, "pointer-lock-safe X handling is documented at its input boundary");

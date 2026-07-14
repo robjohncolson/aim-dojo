@@ -164,7 +164,7 @@ test("chat visibility, opening, and POST all require a live authenticated chart"
 
   const open = namedFunction("openSkyChatComposer");
   indexBefore(open, /skyChatTempleEligible\s*\(/, /_templeChatOpen\s*=\s*true/, "eligibility is checked before opening");
-  indexBefore(open, /skyChatTempleEligible\s*\(/, /exitPointerLock\s*\(/, "eligibility is checked before pointer unlock");
+  indexBefore(open, /skyChatTempleEligible\s*\(/, /setTempleFreeMouse\s*\(/, "eligibility is checked before free-mouse unlock");
   assert.doesNotMatch(open, /_personalListenExpected/);
 
   const send = namedFunction("sendSkyChatQuestion");
@@ -188,10 +188,13 @@ test("T is Temple-only and Esc closes the composer before typing/pause handling"
   const escapeKey = keyListenerContaining("e.code!=='Escape'");
   assert.match(escapeKey, /_templeChatOpen/);
   assert.match(escapeKey, /closeSkyChatComposer\s*\(/);
+  assert.match(escapeKey, /_templeFreeMouse/);
+  assert.match(escapeKey, /setTempleFreeMouse\s*\(\s*false\s*\)/);
   assert.match(escapeKey, /preventDefault\s*\(/);
   assert.match(escapeKey, /stopImmediatePropagation\s*\(/);
   indexBefore(escapeKey, /_templeChatOpen/, /isTypingTarget\s*\(/, "Esc closes chat even when its textarea has focus");
-  indexBefore(escapeKey, /closeSkyChatComposer\s*\(/, /if\s*\(\s*templeActive\s*\)/, "composer close wins before Temple pause");
+  indexBefore(escapeKey, /closeSkyChatComposer\s*\(/, /_templeFreeMouse/, "composer close wins before free-mouse re-aim");
+  indexBefore(escapeKey, /setTempleFreeMouse\s*\(\s*false\s*\)/, /if\s*\(\s*templeActive\s*\)/, "free-mouse re-aim wins before Temple pause");
   assert.match(escapeKey, /_templeChatOpen[\s\S]*closeSkyChatComposer\s*\([\s\S]*?return\s*;/, "Esc returns after closing only the composer");
 });
 
@@ -258,37 +261,36 @@ test("pending polling is visible-only, bounded to 3–4 seconds, and stops at po
 });
 
 test("composer pointer unlock is guarded and the next canvas click relocks without firing", () => {
+  const free = namedFunction("setTempleFreeMouse");
+  indexBefore(free, /_templeEscapeGuard\s*=\s*true/, /exitPointerLock\s*\(/, "pointer-lock exit is armed as a free-mouse transition");
+  assert.match(free, /catch\s*\([^)]*\)\s*\{\s*_templeEscapeGuard\s*=\s*false/);
+  assert.match(free, /requestPointerLock\s*\(/, "re-aim path can request pointer lock");
+  assert.match(free, /temple-free-mouse/);
+
   const open = namedFunction("openSkyChatComposer");
-  indexBefore(open, /_templeEscapeGuard\s*=\s*true/, /exitPointerLock\s*\(/, "pointer-lock exit is armed as a composer transition");
-  assert.match(open, /catch\s*\([^)]*\)\s*\{\s*_templeEscapeGuard\s*=\s*false/);
+  assert.match(open, /setTempleFreeMouse\s*\(\s*true/, "ASK opens free-mouse so HUD is clickable");
 
   const close = namedFunction("closeSkyChatComposer");
   assert.match(close, /skyChatDismissComposer\s*\(\s*\)/);
-  assert.doesNotMatch(close, /requestPointerLock\s*\(/, "closing defers relock to the next canvas gesture");
   const dismiss = namedFunction("skyChatDismissComposer");
   assert.match(dismiss, /_templeChatOpen\s*=\s*false/);
-  assert.match(dismiss, /_templeNeedsRelock\s*=\s*true/);
-  assert.doesNotMatch(dismiss, /requestPointerLock\s*\(/, "the shared forced-close path also defers relock");
+  assert.match(dismiss, /_templeFreeMouse/, "dismiss keeps free-mouse when still inspecting the HUD");
   const render = namedFunction("renderSkyChatUi");
   assert.match(render, /!eligible\s*&&\s*_templeChatOpen\s*\)\s*skyChatDismissComposer\s*\(\s*\)/,
     "auth/chart eligibility loss uses the same relock-safe close path");
 
   const pointerChange = callbackBlock("document.addEventListener('pointerlockchange'");
-  indexBefore(pointerChange, /_templeEscapeGuard/, /exitRunning\s*\(/, "composer pointer unlock is consumed before pause handling");
+  indexBefore(pointerChange, /_templeEscapeGuard/, /exitRunning\s*\(/, "free-mouse pointer unlock is consumed before pause handling");
   assert.match(pointerChange, /else\s+if\s*\(\s*_templeEscapeGuard\s*\)\s*\{[^{}]*_templeEscapeGuard\s*=\s*false[^{}]*_templeNeedsRelock\s*=\s*true[^{}]*\}/,
     "the guarded unlock branch requests a later relock without pausing");
 
   const fire = namedFunction("fire");
-  indexBefore(fire, /_templeChatOpen/, /focusSkyTempleReticle\s*\(/, "open chat suppresses Temple focus fire");
-  indexBefore(fire, /_templeChatOpen/, /spawnProjectile\s*\(/, "open chat suppresses combat fire");
-  assert.match(fire, /if\s*\(\s*_templeChatOpen\s*\)\s*return/);
+  assert.match(fire, /_templeChatOpen\s*\|\|\s*_templeFreeMouse/, "free-mouse and open chat suppress temple/combat fire");
 
   const canvasMouse = callbackBlock("canvas.addEventListener('mousedown'");
-  indexBefore(canvasMouse, /_templeChatOpen/, /closeSkyChatComposer\s*\(/, "canvas click first recognizes the composer");
-  indexBefore(canvasMouse, /closeSkyChatComposer\s*\(/, /requestPointerLock\s*\(/, "canvas closes before requesting relock");
-  indexBefore(canvasMouse, /requestPointerLock\s*\(/, /return\s*;/, "relock gesture is consumed");
-  indexBefore(canvasMouse, /_templeChatOpen/, /fire\s*\(\s*\)/, "open-chat branch precedes every fire call");
-  assert.match(canvasMouse, /_templeChatOpen[\s\S]*closeSkyChatComposer\s*\(\s*false\s*\)[\s\S]*return\s*;/);
+  assert.match(canvasMouse, /_templeFreeMouse/, "canvas click recognizes free-mouse inspect mode");
+  assert.match(canvasMouse, /setTempleFreeMouse\s*\(\s*false\s*\)/, "canvas click re-engages aim without firing");
+  indexBefore(canvasMouse, /setTempleFreeMouse\s*\(\s*false\s*\)/, /fire\s*\(\s*\)/, "re-aim branch precedes every fire call");
 });
 
 test("pause preserves the day thread, while account/chart/full resets clear it", () => {
