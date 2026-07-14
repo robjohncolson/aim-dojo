@@ -179,17 +179,26 @@ body.temple-free-mouse #skyTemplePanel,
 body.temple-chat-open #skyTemplePanel{pointer-events:auto;cursor:default}
 body.temple-free-mouse .sky-temple-body,
 body.temple-chat-open .sky-temple-body{pointer-events:auto;overscroll-behavior:contain}
+/* Always clickable strip: how-to + ASK (opens free-mouse) without needing Shift+E first. */
+#skyTemplePanel.on .sky-temple-controls,
+#skyTemplePanel.on .sky-temple-chat{pointer-events:auto}
 body.temple-free-mouse #reticle{opacity:.28}
 body.temple-free-mouse canvas{cursor:default}
-.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:8px}
+.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:6px}
+/* Controls first — always visible when the chip opens (before study text loads). */
+.sky-temple-controls{margin:0 0 10px;padding:8px 9px;border:1px solid rgba(255,210,74,.28);background:rgba(255,210,74,.05);font:9.5px/1.45 var(--mono);letter-spacing:.04em;color:var(--bone-dim)}
+.sky-temple-controls b{color:#ffd24a;font-weight:600;letter-spacing:.08em}
+.sky-temple-hint{margin:0 0 4px;padding:0;border:0;color:var(--bone);font:10px/1.4 var(--mono);letter-spacing:.05em}
+.sky-temple-guide{margin:0;opacity:.88}
 .sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em}
 .sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line}
 .sky-temple-body{font:10.5px/1.45 var(--mono);letter-spacing:.03em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);max-height:min(52vh,480px);overflow:auto;white-space:normal;pointer-events:none}
 .sky-temple-body:empty{display:none}
-.sky-temple-chat{margin-top:10px;padding-top:9px;border-top:1px solid rgba(140,150,143,.22);font-family:var(--mono);pointer-events:auto}
+.sky-temple-chat{margin-top:10px;padding-top:9px;border-top:1px solid rgba(140,150,143,.22);font-family:var(--mono)}
 .sky-temple-chat[hidden],.sky-temple-chat-dialog[hidden]{display:none!important}
 .sky-temple-chat-open{display:flex;width:100%;align-items:center;justify-content:center;padding:8px 10px;border:1px solid rgba(255,210,74,.52);background:rgba(255,210,74,.07);color:#ffd24a;font:10px var(--mono);letter-spacing:.15em;cursor:pointer}
 .sky-temple-chat-open:hover,.sky-temple-chat-open:focus-visible,.sky-temple-chat-send:hover,.sky-temple-chat-send:focus-visible{border-color:var(--rail);outline:none;color:var(--rail)}
+.sky-temple-chat-open:disabled,.sky-temple-chat-open.is-locked{opacity:.55;cursor:not-allowed;border-color:rgba(140,150,143,.45);color:var(--bone-dim);background:rgba(255,255,255,.03)}
 .sky-temple-chat-turns{display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto;padding-right:3px;scrollbar-width:thin}
 .sky-temple-chat-turn{padding:6px 8px;border-left:2px solid rgba(140,150,143,.38);background:rgba(255,255,255,.025);font:10.5px/1.45 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
 .sky-temple-chat-turn.user{border-left-color:#ffd24a;color:var(--bone)}
@@ -204,7 +213,6 @@ body.temple-free-mouse canvas{cursor:default}
 .sky-temple-chat-send:disabled{opacity:.42;cursor:not-allowed}
 .sky-temple-chat-epistemic{margin-top:6px;color:var(--bone-dim);opacity:.68;font:9px/1.4 var(--mono)}
 body.temple-chat-open .sky-temple-body{max-height:min(28vh,260px)}
-.sky-temple-hint{font:9.5px/1.4 var(--mono);color:var(--bone-dim);letter-spacing:.045em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22)}
 body.temple-active :is(#speedBox,#beatRing,#pocketLaw,#lockBox,#edgeTop,#edgeBot,#edgeLeft,#edgeRight,#wasdHud,#wasdGlyph,#windHud,#hitmark,#timing,#assist,#hitFlash,#dojoFlash,#trainCoach,#comboGlow,#presence,.tgtDist,.tgtKey,.liveRet){display:none!important}
 body.temple-active #reticle .arm,body.temple-active #reticle .dot{background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.9)}
 body.temple-active #skyListenCard{display:none!important}
@@ -401,11 +409,15 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 <div id="trainCoach" aria-live="polite"></div>
 <aside id="skyTemplePanel" role="status" aria-live="polite" aria-hidden="true">
   <div class="sky-temple-kicker" id="skyTempleKicker">SKY TEMPLE</div>
+  <div class="sky-temple-controls" id="skyTempleControls">
+    <div class="sky-temple-hint" id="skyTempleHint">SHIFT+E free mouse · T ask · FIRE investigate · E leave · ESC pause</div>
+    <div class="sky-temple-guide" id="skyTempleGuide">Aim lock blocks HUD clicks — free the mouse (Shift+E) to scroll this chip, or press T to ask (frees mouse + opens ask).</div>
+  </div>
   <div class="sky-temple-title" id="skyTempleTitle"></div>
   <div class="sky-temple-meta" id="skyTempleMeta"></div>
   <div class="sky-temple-body" id="skyTempleBody"></div>
   <section class="sky-temple-chat" id="skyTempleChat" aria-label="Sky Temple dialogue" hidden>
-    <button class="sky-temple-chat-open" id="skyTempleChatAsk" type="button" aria-controls="skyTempleChatDialog" aria-expanded="false">ASK THE SKY</button>
+    <button class="sky-temple-chat-open" id="skyTempleChatAsk" type="button" aria-controls="skyTempleChatDialog" aria-expanded="false">ASK THE SKY · T</button>
     <div class="sky-temple-chat-dialog" id="skyTempleChatDialog" role="region" aria-label="Sky dialogue" hidden>
       <div class="sky-temple-chat-turns" id="skyTempleChatTurns" role="log" aria-live="polite" aria-relevant="additions text"></div>
       <div class="sky-temple-chat-status" id="skyTempleChatStatus" role="status" aria-live="polite"></div>
@@ -416,7 +428,6 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
       <div class="sky-temple-chat-epistemic" id="skyTempleChatEpistemic">symbolic study notes · not predictions · not medical, legal, or financial advice · T opens ask · Shift+E frees mouse for scroll/click · Esc closes</div>
     </div>
   </section>
-  <div class="sky-temple-hint" id="skyTempleHint">FIRE = INVESTIGATE · SHIFT+E = FREE MOUSE (SCROLL HUD / ASK) · E = LEAVE · ESC = PAUSE</div>
 </aside>
 
 <div id="touch">
@@ -616,11 +627,11 @@ window.JA={
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
-  skyTempleKicker:'空の神殿', skyTempleHint:'発射でしらべる · Shift+E でマウス解放（HUDスクロール / 質問） · E で出る · ESC で一時停止', skyTempleEmpty:'空に照準を合わせてしらべる',
+  skyTempleKicker:'空の神殿', skyTempleHint:'Shift+E マウス解放 · T で質問 · 発射でしらべる · E で出る · ESC で一時停止', skyTempleGuide:'照準ロック中はHUDをクリックできない — Shift+Eでマウス解放してスクロール、またはTで質問（マウス解放＋質問欄）。', skyTempleEmpty:'空に照準を合わせてしらべる',
   skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった', skyTempleResumed:'神殿にもどった',
-  skyTempleFreeMouse:'マウス解放 · HUDを操作', skyTempleAimMouse:'照準にもどった',
-  skyChatAsk:'空にたずねる', skyChatInput:'この焦点についてたずねる…', skyChatInputAria:'空の焦点についてたずねる', skyChatSend:'送る', skyChatListening:'きいています…',
-  skyChatUnavailable:'空のノートを用意できません', skyChatLimited:'今日はここまで · また明日', skyChatFailed:'空のノートを用意できません', skyChatEpistemic:'象徴を学ぶためのメモ · 予言ではない · Tで質問 · Shift+Eでマウス解放 · Escで閉じる',
+  skyTempleFreeMouse:'マウス解放 · HUDを操作', skyTempleAimMouse:'照準にもどった', skyTempleControlsToast:'Shift+E マウス解放 · T で質問 · 発射でしらべる',
+  skyChatAsk:'空にたずねる · T', skyChatInput:'この焦点についてたずねる…', skyChatInputAria:'空の焦点についてたずねる', skyChatSend:'送る', skyChatListening:'きいています…',
+  skyChatUnavailable:'空のノートを用意できません', skyChatLimited:'今日はここまで · また明日', skyChatFailed:'空のノートを用意できません', skyChatNeedSignIn:'SAVE MY SKY でサインインすると質問できる', skyChatNeedChart:'出生チャートを保存すると質問できる', skyChatEpistemic:'象徴を学ぶためのメモ · 予言ではない · Tで質問 · Shift+Eでマウス解放 · Escで閉じる',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
   pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
@@ -669,6 +680,7 @@ window.JA={
       txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
       txt('transitEssayButtonLabel','transitEssayButton'); txt('transitEssayReaderEyebrow','transitEssayButton'); txt('transitEssayReaderWatchTitle','transitEssayWatchpoints'); txt('transitEssayReaderCloseLabel','transitEssayBack'); txt('transitEssayReaderEpistemic','transitEssayFallback');
       txt('skyBriefTitle','skyBriefTitle'); txt('skyBriefCopyLabel','skyBriefCopy'); txt('skyBriefPrivate','skyBriefPrivate'); attr('skyBriefPreview','aria-label','skyBriefPreviewAria');
+      txt('skyTempleHint','skyTempleHint'); txt('skyTempleGuide','skyTempleGuide');
       txt('skyTempleChatAsk','skyChatAsk'); attr('skyTempleChatInput','placeholder','skyChatInput'); attr('skyTempleChatInput','aria-label','skyChatInputAria'); txt('skyTempleChatSend','skyChatSend'); txt('skyTempleChatEpistemic','skyChatEpistemic');
       txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
     }
@@ -2565,7 +2577,8 @@ function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is f
 const _templeUi={
   panel:document.getElementById('skyTemplePanel'), kicker:document.getElementById('skyTempleKicker'),
   title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'),
-  body:document.getElementById('skyTempleBody'), hint:document.getElementById('skyTempleHint')
+  body:document.getElementById('skyTempleBody'), hint:document.getElementById('skyTempleHint'),
+  guide:document.getElementById('skyTempleGuide'), controls:document.getElementById('skyTempleControls')
 };
 const _skyChatUi={
   root:document.getElementById('skyTempleChat'), ask:document.getElementById('skyTempleChatAsk'),
@@ -2575,7 +2588,9 @@ const _skyChatUi={
 };
 if(_skyChatUi.input) _skyChatUi.input.maxLength=CFG.skyChat.maxMessageChars;
 if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPLE');
-if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','RETICLE + FIRE TO INVESTIGATE · E LEAVES · ESC PAUSES (RETURNS TO TEMPLE)');
+// Controls strip is first in the chip — never bury how-to under study text.
+if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','SHIFT+E free mouse · T ask · FIRE investigate · E leave · ESC pause');
+if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blocks HUD clicks — free the mouse (Shift+E) to scroll this chip, or press T to ask (frees mouse + opens ask).');
 const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
 let _templeAspectMesh=null, _templeHighlight=null;
 const _templeAspects=[], _templeNatal=[];
@@ -2817,6 +2832,18 @@ function skyChatAccessEligible(){
     ctl&&ctl.state&&ctl.state.authenticated&&ctl.state.hasChart&&typeof ctl.postSkyChat==='function'&&typeof ctl.getSkyChat==='function');
 }
 function skyChatTempleEligible(){ return !!(state.running&&templeActive&&skyChatAccessEligible()); }
+/** Why ASK is locked — shown on the chip so players know what to do (not a silent missing button). */
+function skyChatGateReason(){
+  if(!CFG.skyChat.enabled) return T('skyChatUnavailable','sky notes unavailable');
+  if(!_skyAuthSession||typeof _skyAuthSession.access_token!=='string'||!_skyAuthSession.access_token.trim())
+    return T('skyChatNeedSignIn','sign in under SAVE MY SKY to ask');
+  const ctl=_skyProfileController;
+  if(!ctl||!ctl.state||!ctl.state.authenticated||!ctl.state.hasChart)
+    return T('skyChatNeedChart','save your birth chart to ask the sky');
+  if(typeof ctl.postSkyChat!=='function'||typeof ctl.getSkyChat!=='function')
+    return T('skyChatUnavailable','sky notes unavailable');
+  return T('skyChatUnavailable','sky notes unavailable');
+}
 function skyChatClearPoll(){ if(_skyChat.pollTimer!=null){ clearTimeout(_skyChat.pollTimer); _skyChat.pollTimer=null; } }
 function skyChatSoftText(status){
   if(status==='limited') return T('skyChatLimited','today’s questions are complete · return tomorrow');
@@ -2866,12 +2893,22 @@ function skyChatSyncSend(){
 function renderSkyChatUi(){
   const ui=_skyChatUi; if(!ui.root) return;
   const eligible=skyChatTempleEligible();
+  // Always show the chat shell while temple is open so ASK + gate reasons appear on first chip open.
+  const showShell=!!(CFG.skyChat.enabled&&templeActive&&state.running);
   if(!eligible&&_templeChatOpen) skyChatDismissComposer();
-  ui.root.hidden=!eligible;
-  if(ui.ask){ ui.ask.hidden=!eligible||_templeChatOpen; ui.ask.setAttribute('aria-expanded',eligible&&_templeChatOpen?'true':'false'); }
+  ui.root.hidden=!showShell;
+  if(ui.ask){
+    ui.ask.hidden=!showShell||_templeChatOpen;
+    ui.ask.disabled=!eligible;
+    ui.ask.classList.toggle('is-locked', showShell&&!eligible);
+    ui.ask.setAttribute('aria-expanded',eligible&&_templeChatOpen?'true':'false');
+    ui.ask.textContent=eligible?T('skyChatAsk','ASK THE SKY · T'):T('skyChatAsk','ASK THE SKY · T');
+    ui.ask.title=eligible?T('skyTempleGuide','Press T, or free mouse (Shift+E) then click ASK'):skyChatGateReason();
+  }
   if(ui.dialog) ui.dialog.hidden=!eligible||!_templeChatOpen;
   if(!eligible){
-    if(ui.turns) ui.turns.textContent=''; if(ui.status) ui.status.textContent='';
+    if(ui.turns) ui.turns.textContent='';
+    if(ui.status) ui.status.textContent=showShell?skyChatGateReason():'';
     ui.root.removeAttribute('aria-busy'); return;
   }
   if(ui.turns){
@@ -2950,7 +2987,12 @@ async function refreshSkyChatForTemple(){
   catch(error){ if(seq===_skyChat.seq){ _skyChat.inFlight=false; _skyChat.loaded=true; if(_skyChat.status==='pending') skyChatSchedulePoll(seq); else _skyChat.status='unavailable'; renderSkyChatUi(); } }
 }
 function openSkyChatComposer(){
-  if(!skyChatTempleEligible()) return false;
+  if(!templeActive||!state.running||!CFG.skyChat.enabled) return false;
+  if(!skyChatAccessEligible()){
+    try{ showGhostToast(skyChatGateReason()); }catch(error){}
+    renderSkyChatUi();
+    return false;
+  }
   setTempleFreeMouse(true,{silent:true});   // free mouse first so ASK/scroll/type are usable under aim lock
   _templeChatOpen=true; document.body.classList.add('temple-chat-open'); renderSkyChatUi();
   if(!_skyChat.loaded&&!_skyChat.inFlight) refreshSkyChatForTemple();
@@ -3095,7 +3137,11 @@ function enterSkyTemple(options){
   }
   setSkyTempleFocus(focus); refreshSkyChatForTemple(); applyAudioState(); syncTransport(); clock.getDelta();
   if(options.quiet){ try{ showGhostToast(T('skyTempleResumed','TEMPLE RESTORED')); }catch(e){} }
-  else try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
+  else{
+    try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
+    // Brief how-to so free-mouse / T aren't only discoverable after pressing mystery buttons.
+    setTimeout(()=>{ if(templeActive) try{ showGhostToast(T('skyTempleControlsToast','SHIFT+E FREE MOUSE · T ASK · FIRE INVESTIGATE')); }catch(err){} }, 900);
+  }
   return true;
 }
 function exitSkyTemple(options){
@@ -4166,8 +4212,8 @@ document.addEventListener('keyup',e=>{
 });
 window.addEventListener('blur',()=>{ _skySelectHeld=false; _skySelectUsed=false; });
 document.addEventListener('keydown',e=>{
-  if(!CFG.skyChat.enabled||e.code!==CFG.skyChat.openKey||e.repeat||isTypingTarget(e.target)||!skyChatTempleEligible()) return;
-  e.preventDefault(); openSkyChatComposer();
+  if(!CFG.skyChat.enabled||e.code!==CFG.skyChat.openKey||e.repeat||isTypingTarget(e.target)||!templeActive||!state.running) return;
+  e.preventDefault(); openSkyChatComposer();   // opens free-mouse + composer when eligible; otherwise toasts how to unlock ASK
 });
 
 /* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire, START = begin/pause/resume (face-bottom also begins at the card). Subtle rumble on hit. ===== */

@@ -160,11 +160,16 @@ test("chat visibility, opening, and POST all require a live authenticated chart"
 
   const render = namedFunction("renderSkyChatUi");
   assert.match(render, /skyChatTempleEligible\s*\(/);
-  assert.match(render, /\.root\.hidden\s*=\s*!\s*eligible|skyTempleChat[^;\n]*\.hidden\s*=\s*!\s*eligible/i);
+  // Shell stays visible in temple (how-to + locked ASK); interactive dialog still gated on eligible.
+  assert.match(render, /showShell|templeActive/);
+  assert.match(render, /skyChatGateReason|is-locked/);
+  assert.match(render, /ui\.dialog\.hidden\s*=\s*!\s*eligible/);
 
   const open = namedFunction("openSkyChatComposer");
-  indexBefore(open, /skyChatTempleEligible\s*\(/, /_templeChatOpen\s*=\s*true/, "eligibility is checked before opening");
-  indexBefore(open, /skyChatTempleEligible\s*\(/, /setTempleFreeMouse\s*\(/, "eligibility is checked before free-mouse unlock");
+  assert.match(open, /skyChatAccessEligible\s*\(/);
+  indexBefore(open, /skyChatAccessEligible\s*\(/, /_templeChatOpen\s*=\s*true/, "eligibility is checked before opening");
+  indexBefore(open, /skyChatAccessEligible\s*\(/, /setTempleFreeMouse\s*\(/, "eligibility is checked before free-mouse unlock");
+  assert.match(open, /skyChatGateReason/, "locked state explains how to unlock ASK");
   assert.doesNotMatch(open, /_personalListenExpected/);
 
   const send = namedFunction("sendSkyChatQuestion");
@@ -177,12 +182,11 @@ test("T is Temple-only and Esc closes the composer before typing/pause handling"
   const openKey = keyListenerContaining("CFG.skyChat.openKey");
   assert.match(openKey, /e\.code\s*!==\s*CFG\.skyChat\.openKey/);
   assert.match(openKey, /e\.repeat/);
-  assert.match(openKey, /!\s*templeActive|skyChatTempleEligible\s*\(/);
+  assert.match(openKey, /!\s*templeActive|templeActive/);
   assert.match(openKey, /isTypingTarget\s*\(\s*e\.target\s*\)/);
-  assert.match(openKey, /skyChatAccessEligible\s*\(|skyChatTempleEligible\s*\(/);
   assert.match(openKey, /openSkyChatComposer\s*\(/);
   indexBefore(openKey, /isTypingTarget\s*\(/, /openSkyChatComposer\s*\(/, "typing guard precedes T open");
-  indexBefore(openKey, /skyChat(?:Access|Temple)Eligible\s*\(/, /openSkyChatComposer\s*\(/, "access gate precedes T open");
+  // Composer itself gate-checks auth/chart and toasts the unlock path when locked.
   assert.doesNotMatch(openKey, /_personalListenExpected/);
 
   const escapeKey = keyListenerContaining("e.code!=='Escape'");
