@@ -776,7 +776,7 @@ const CFG = {
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeRadius:2.15, globeDistance:7.5, spinRadPerSec:0.08, saturnRings:true, venusMap:'atmosphere' },   // TEMPLE ORBS (SPEC_TEMPLE_ORBS.md): equirectangular milky-way inner shell (temple-full, dojo off unless dojoShell) + large planet globe on temple body focus. Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, venusMap:'atmosphere' },   // TEMPLE ORBS: milky shell + globe ON the focused sky body (globeAngularDeg = apparent size). Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1591,65 +1591,107 @@ function ensureMilkyShell(){
   loadSkyTexture((CFG.skyMaps.milkyPath)||SKY_MAPS.MILKY_PATH, t=>{ if(milkyShell){ mat.map=t; mat.needsUpdate=true; _milkyReady=true; } });
   return milkyShell;
 }
-/* --- camera-relative planet globe (one reused mesh; texture swapped per body) --- */
+/* --- sky-anchored planet globe (sits ON the focused body in the celestial sphere, not on the reticle) --- */
 let globeRoot=null, globeTilt=null, planetMesh=null, planetMat=null, ringMesh=null, ringMat=null, _globeBody=null, _ringReady=false;
-const _gFwd=new THREE.Vector3(), _gRight=new THREE.Vector3(), _gUp=new THREE.Vector3();
+const _gWorld=new THREE.Vector3(), _gLocal=new THREE.Vector3();
 const GLOBE_TINT={ sun:0xfff1c8, moon:0xdfe7f5, mercury:0xb8b0a4, venus:0xe8d6a8, mars:0xc46a3a, jupiter:0xd2b48c, saturn:0xe6d3a3, uranus:0xa6d8e0, neptune:0x4d6fd6, pluto:0xc4b8a8 };
 function ensureGlobeRig(){
   if(globeRoot || !SKY_MAPS) return globeRoot;
   const seg=SKY_MAPS.segmentsFor('globe', _skyMapOpts);
-  // depthTest false + high renderOrder: presentation prop must sit in front of the milky shell (also depthTest:false).
-  globeRoot=new THREE.Group(); globeRoot.visible=false; globeRoot.frustumCulled=false; globeRoot.renderOrder=20; scene.add(globeRoot);
-  globeTilt=new THREE.Group(); globeTilt.frustumCulled=false; globeRoot.add(globeTilt);   // axial lean (saturn ≈26.7°, others a gentle lean for depth)
-  planetMat=new THREE.MeshBasicMaterial({ side:THREE.FrontSide, fog:false, depthTest:false, depthWrite:false, color:0xffffff });
+  // Parent under skySphere so the globe co-rotates with the chart / milky shell (same frame as glyphs).
+  globeRoot=new THREE.Group(); globeRoot.visible=false; globeRoot.frustumCulled=false; globeRoot.renderOrder=5; skySphere.add(globeRoot);
+  globeTilt=new THREE.Group(); globeTilt.frustumCulled=false; globeRoot.add(globeTilt);
+  // Opaque ball first; depthTest true so it sits in the sky shell correctly (not a HUD overlay on the reticle).
+  planetMat=new THREE.MeshBasicMaterial({ side:THREE.FrontSide, fog:false, depthTest:true, depthWrite:true, color:0xffffff, transparent:false });
   planetMesh=new THREE.Mesh(new THREE.SphereGeometry(1, seg.widthSegments, seg.heightSegments), planetMat);
-  planetMesh.frustumCulled=false; planetMesh.renderOrder=21; globeTilt.add(planetMesh);
+  planetMesh.frustumCulled=false; planetMesh.renderOrder=5; planetMesh.visible=true; globeTilt.add(planetMesh);
   const ring=SKY_MAPS.RING;
   if(ring){
-    ringMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, depthTest:false, depthWrite:false });
+    ringMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, depthTest:true, depthWrite:false, opacity:1 });
     const rg=new THREE.RingGeometry(ring.innerScale, ring.outerScale, 64, 1);
     const pos=rg.attributes.position, uv=rg.attributes.uv, v=new THREE.Vector3();
-    for(let i=0;i<pos.count;i++){ v.fromBufferAttribute(pos,i); const rad=v.length(); uv.setXY(i, (rad-ring.innerScale)/Math.max(1e-6,(ring.outerScale-ring.innerScale)), 0.5); }   // remap UVs radially so the alpha strip samples across the ring width
+    for(let i=0;i<pos.count;i++){ v.fromBufferAttribute(pos,i); const rad=v.length(); uv.setXY(i, (rad-ring.innerScale)/Math.max(1e-6,(ring.outerScale-ring.innerScale)), 0.5); }
     uv.needsUpdate=true;
-    ringMesh=new THREE.Mesh(rg, ringMat); ringMesh.rotation.x=-Math.PI/2; ringMesh.frustumCulled=false; ringMesh.renderOrder=22; ringMesh.visible=false; globeTilt.add(ringMesh);
+    ringMesh=new THREE.Mesh(rg, ringMat); ringMesh.rotation.x=-Math.PI/2; ringMesh.frustumCulled=false; ringMesh.renderOrder=6; ringMesh.visible=false; globeTilt.add(ringMesh);
   }
   return globeRoot;
 }
+/** SkySphere-local anchor for a body id (glyph / natal ghost / luminary). */
+function templeGlobeAnchorLocal(bodyId){
+  const id=String(bodyId==null?'':bodyId).trim().toLowerCase();
+  if(!id) return null;
+  if(_lsnMeta&&_lsnMeta.bodies&&_lsnMeta.bodies[id]&&_lsnMeta.bodies[id].pos) return _lsnMeta.bodies[id].pos;
+  if(_lum&&_lum[id]&&_lum[id].glyph) return _lum[id].glyph.position;
+  if(_lsnMeta&&_lsnMeta.templeGhosts&&_lsnMeta.templeGhosts[id]&&isFinite(_lsnMeta.templeGhosts[id].lonJ2000)){
+    return eclipticDir(_lsnMeta.templeGhosts[id].lonJ2000,0).multiplyScalar(SKY_CHART.R*0.985);
+  }
+  if(_templeFocus&&_templeFocus.kind==='body'&&_templeFocus.pick&&_templeFocus.pick.meta&&_templeFocus.pick.meta.pos&&String(_templeFocus.pick.id).toLowerCase()===id)
+    return _templeFocus.pick.meta.pos;
+  if(_templeFocus&&_templeFocus.kind==='body'&&_templeFocus.body&&isFinite(_templeFocus.body.lonJ2000)&&String(_templeFocus.body.id).toLowerCase()===id)
+    return eclipticDir(_templeFocus.body.lonJ2000,0).multiplyScalar(SKY_CHART.R);
+  return null;
+}
 function showTempleGlobe(bodyId){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.globeEnabled===false){ hideTempleGlobe(); return; }
+  if(!templeActive){ hideTempleGlobe(); return; }
   const id=String(bodyId==null?'':bodyId).trim().toLowerCase();
   const url=SKY_MAPS.mapForBody(id, { venusMap:CFG.skyMaps.venusMap });
-  if(!url){ hideTempleGlobe(); return; }   // nodes / pluto / unknown → glyph + HUD only, no globe
+  if(!url){ hideTempleGlobe(); return; }   // nodes / unknown → glyph + HUD only
   ensureGlobeRig(); if(!globeRoot||!planetMat||!planetMesh) return;
+  if(!templeGlobeAnchorLocal(id)){ hideTempleGlobe(); return; }   // need a sky anchor
   _globeBody=id;
   const isSaturn=(id==='saturn' && CFG.skyMaps.saturnRings!==false && !!SKY_MAPS.RING && !!ringMesh);
-  globeTilt.rotation.set(0,0, isSaturn?0.466:0.18);   // saturn axial tilt ≈26.7°; others a gentle lean
-  // Show immediately with a body tint so focus always produces a visible orb; map paints in when ready.
-  planetMat.map=null; planetMat.color.setHex(GLOBE_TINT[id]||0xcfd8e6); planetMat.needsUpdate=true; planetMesh.rotation.y=0;
+  // Keep ball + rings upright in sky-local frame (tilt around local Z for a bit of depth).
+  globeTilt.rotation.set(isSaturn?0.35:0.12, 0, isSaturn?0.25:0.08);
+  planetMesh.visible=true;
+  planetMat.map=null;
+  planetMat.color.setHex(GLOBE_TINT[id]||0xcfd8e6);
+  planetMat.needsUpdate=true;
+  planetMesh.rotation.y=0;
   globeRoot.visible=true;
-  placeTempleGlobe();   // position this frame (don't wait for the next updateSky tick)
+  placeTempleGlobe();
   loadSkyTexture(url, t=>{
     if(_globeBody!==id || !planetMat) return;
-    planetMat.map=t; planetMat.color.setHex(0xffffff); planetMat.needsUpdate=true;
+    planetMat.map=t;
+    planetMat.color.setHex(id==='sun'?0xfff6e0:0xffffff);
+    planetMat.needsUpdate=true;
     if(globeRoot) globeRoot.visible=true;
+    if(planetMesh) planetMesh.visible=true;
   });
   if(ringMesh){
     ringMesh.visible=false;
-    if(isSaturn) loadSkyTexture(SKY_MAPS.RING.map, t=>{ if(_globeBody==='saturn' && ringMat){ ringMat.map=t; ringMat.alphaMap=t; ringMat.needsUpdate=true; ringMesh.visible=true; _ringReady=true; } });
+    if(isSaturn) loadSkyTexture(SKY_MAPS.RING.map, t=>{
+      if(_globeBody!=='saturn' || !ringMat) return;
+      ringMat.map=t; ringMat.alphaMap=t; ringMat.transparent=true; ringMat.needsUpdate=true;
+      ringMesh.visible=true; _ringReady=true;
+    });
   }
 }
-function hideTempleGlobe(){ if(globeRoot) globeRoot.visible=false; if(ringMesh) ringMesh.visible=false; if(planetMat){ planetMat.map=null; } _globeBody=null; }
-function placeTempleGlobe(){
-  if(!globeRoot||!globeRoot.visible) return;
-  _gFwd.set(0,0,-1).applyQuaternion(camera.quaternion);
-  _gRight.set(1,0,0).applyQuaternion(camera.quaternion);
-  _gUp.set(0,1,0).applyQuaternion(camera.quaternion);
-  // Closer + larger + near-center so the hero globe is unmistakable (HUD is still on the right).
-  const d=CFG.skyMaps.globeDistance!=null?CFG.skyMaps.globeDistance:7.5, r=CFG.skyMaps.globeRadius!=null?CFG.skyMaps.globeRadius:2.15;
-  globeRoot.position.copy(camera.position).addScaledVector(_gFwd, d).addScaledVector(_gRight, -d*0.14).addScaledVector(_gUp, -d*0.06);
-  globeRoot.scale.setScalar(r);
+function hideTempleGlobe(){
+  if(globeRoot) globeRoot.visible=false;
+  if(ringMesh) ringMesh.visible=false;
+  if(planetMesh) planetMesh.visible=true;
+  if(planetMat){ planetMat.map=null; }
+  _globeBody=null;
 }
-/* per-frame driver (called from updateSky): build/fade the shell, keep the globe camera-relative + spinning */
+function placeTempleGlobe(){
+  if(!globeRoot||!globeRoot.visible||!_globeBody) return;
+  const local=templeGlobeAnchorLocal(_globeBody);
+  if(!local){ globeRoot.visible=false; return; }
+  // SkySphere-local: sit on the same ecliptic pin as the glyph.
+  globeRoot.position.copy(local);
+  // Apparent angular size from the camera (world space distance).
+  _gWorld.copy(local).applyQuaternion(skySphere.quaternion);
+  if(skySphere.position) _gWorld.add(skySphere.position);
+  const dist=Math.max(8, camera.position.distanceTo(_gWorld));
+  const angDeg=CFG.skyMaps.globeAngularDeg!=null?CFG.skyMaps.globeAngularDeg:15;
+  const r=Math.max(4, dist*Math.tan(angDeg*Math.PI/360));
+  globeRoot.scale.setScalar(r);
+  // Face the sphere outward so the equator of the texture roughly faces the camera plane.
+  globeRoot.lookAt(0,0,0);
+  globeRoot.rotateY(Math.PI);   // lookAt points -Z at origin; flip so FrontSide faces outward toward the player
+}
+/* per-frame driver (called from updateSky): build/fade the shell, keep the globe on its sky pin + spinning */
 function updateTempleOrbs(dt){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
   const inTemple=templeActive || _templeBlend>0.001;
@@ -1661,9 +1703,11 @@ function updateTempleOrbs(dt){
     milkyShell.material.opacity=target;
     milkyShell.visible=_milkyReady && target>0.003;
   }
-  if(globeRoot && globeRoot.visible){
+  if(globeRoot && globeRoot.visible && templeActive){
     placeTempleGlobe();
-    if(!reduceMotion && planetMesh) planetMesh.rotation.y += dt*(CFG.skyMaps.spinRadPerSec||0.08);   // slow artistic spin (reduce-motion holds still)
+    if(!reduceMotion && planetMesh) planetMesh.rotation.y += dt*(CFG.skyMaps.spinRadPerSec||0.08);
+  }else if(globeRoot && !templeActive){
+    globeRoot.visible=false;
   }
 }
 const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)

@@ -33,8 +33,7 @@ test("CFG.skyMaps is a flat literal with the spec keys", () => {
     /dojoShell\s*:\s*false/, // §9.7 dojo stays glyph-first by default
     /templeShellOpacity\s*:\s*1\b/,
     /globeEnabled\s*:\s*true/,
-    /globeRadius\s*:\s*[0-9.]+/,
-    /globeDistance\s*:\s*[0-9.]+/,
+    /globeAngularDeg\s*:\s*[0-9.]+/,
     /spinRadPerSec\s*:\s*[0-9.]+/,
     /saturnRings\s*:\s*true/,
     /venusMap\s*:\s*['"]atmosphere['"]/, // §9.5
@@ -55,13 +54,19 @@ test("milky shell is a BackSide sphere parented under skySphere", () => {
   assert.match(src, /fog\s*:\s*false/);
 });
 
-// SPEC §9.3 / §0 — planet globe is a FrontSide textured sphere on a reused rig on `scene`.
-test("planet globe is a FrontSide textured sphere parented to scene (not the disposed temple group)", () => {
+// Planet globe sits on the celestial sphere (sky-anchored), not as a reticle HUD overlay.
+test("planet globe is a FrontSide sphere parented under skySphere (sky-anchored, not reticle HUD)", () => {
   const src = namedFunction("ensureGlobeRig");
   assert.match(src, /side\s*:\s*THREE\.FrontSide/);
   assert.match(src, /new THREE\.SphereGeometry/);
-  assert.match(src, /scene\.add\(globeRoot\)/);
+  assert.match(src, /skySphere\.add\(globeRoot\)/);
   assert.ok(!/_templeGroup\.add\(globeRoot\)/.test(src), "globe must not be a _templeGroup child (it gets material-disposed on rebuild)");
+  assert.ok(!/scene\.add\(globeRoot\)/.test(src), "globe is sky-anchored, not a free scene HUD prop");
+
+  const place = namedFunction("placeTempleGlobe");
+  assert.match(place, /templeGlobeAnchorLocal/);
+  assert.match(place, /globeAngularDeg|Math\.tan/);
+  assert.doesNotMatch(place, /camera\.quaternion/, "must not track the aim reticle");
 });
 
 // SPEC §9.4 — Saturn rings via RingGeometry + alpha map.
