@@ -776,7 +776,7 @@ const CFG = {
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeRadius:1.6, globeDistance:11, spinRadPerSec:0.08, saturnRings:true, venusMap:'atmosphere' },   // TEMPLE ORBS (SPEC_TEMPLE_ORBS.md): equirectangular milky-way inner shell (temple-full, dojo off unless dojoShell) + large planet globe on temple body focus. Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeRadius:2.15, globeDistance:7.5, spinRadPerSec:0.08, saturnRings:true, venusMap:'atmosphere' },   // TEMPLE ORBS (SPEC_TEMPLE_ORBS.md): equirectangular milky-way inner shell (temple-full, dojo off unless dojoShell) + large planet globe on temple body focus. Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1537,18 +1537,43 @@ function applyNaturalSkyAttitude(utcMs){
    _templeDisposeChildren() can never dispose the reused mesh. THREE-free table/paths live in sky-maps.js. */
 const _skyTexLoader=new THREE.TextureLoader();
 const _skyTexCache=Object.create(null);   // url -> THREE.Texture, shared + reused across focuses (never reloaded per focus)
+const _skyTexWaiters=Object.create(null); // url -> [onReady…] while a load is in flight
+function skyAssetUrl(path){
+  if(!path) return path;
+  if(/^(?:https?:|data:|blob:)/i.test(path)) return path;
+  try{ return new URL(path, location.href).href; }catch(e){ return path; }
+}
+function _skyTexImageReady(tex){
+  const img=tex&&tex.image;
+  return !!(img&&((typeof img.complete==='boolean'?img.complete:true)&&(img.naturalWidth==null||img.naturalWidth>0||img.width>0)));
+}
 function loadSkyTexture(url, onReady){
   if(!url) return null;
-  const hit=_skyTexCache[url];
-  if(hit){ if(onReady) onReady(hit); return hit; }
+  const resolved=skyAssetUrl(url);
+  const hit=_skyTexCache[resolved]||_skyTexCache[url];
+  if(hit){
+    if(_skyTexImageReady(hit)){ if(onReady) onReady(hit); }
+    else if(onReady){ (_skyTexWaiters[resolved]||(_skyTexWaiters[resolved]=[])).push(onReady); }
+    return hit;
+  }
   let tex=null;
   try{
-    tex=_skyTexLoader.load(url,
-      t=>{ if(onReady) onReady(t); },                                                                                   // success
-      undefined,                                                                                                        // progress (unused)
-      ()=>{ if(_skyTexCache[url]===tex) delete _skyTexCache[url]; try{ console.warn('[temple-orbs] map failed, staying glyph-only:', url); }catch(e){} });   // error: forget + degrade, never throw
-    _skyTexCache[url]=tex;   // TextureLoader defaults already give LinearMipmap min / Linear mag / mipmaps — no need to touch (avoids deprecated r128 filter aliases)
-  }catch(e){ try{ console.warn('[temple-orbs] texture loader threw:', url, e); }catch(_e){} return null; }
+    tex=_skyTexLoader.load(resolved,
+      t=>{
+        _skyTexCache[resolved]=t; _skyTexCache[url]=t;
+        const wait=_skyTexWaiters[resolved]; delete _skyTexWaiters[resolved];
+        if(onReady) onReady(t);
+        if(wait) for(const fn of wait) try{ fn(t); }catch(e){}
+      },
+      undefined,
+      ()=>{
+        if(_skyTexCache[resolved]===tex) delete _skyTexCache[resolved];
+        if(_skyTexCache[url]===tex) delete _skyTexCache[url];
+        delete _skyTexWaiters[resolved];
+        try{ console.warn('[temple-orbs] map failed, staying glyph-only:', resolved); }catch(e){}
+      });
+    _skyTexCache[resolved]=tex; _skyTexCache[url]=tex;
+  }catch(e){ try{ console.warn('[temple-orbs] texture loader threw:', resolved, e); }catch(_e){} return null; }
   return tex;
 }
 const _skyMapOpts={ low:LOW, mobile:MOBILE };
@@ -1569,41 +1594,61 @@ function ensureMilkyShell(){
 /* --- camera-relative planet globe (one reused mesh; texture swapped per body) --- */
 let globeRoot=null, globeTilt=null, planetMesh=null, planetMat=null, ringMesh=null, ringMat=null, _globeBody=null, _ringReady=false;
 const _gFwd=new THREE.Vector3(), _gRight=new THREE.Vector3(), _gUp=new THREE.Vector3();
+const GLOBE_TINT={ sun:0xfff1c8, moon:0xdfe7f5, mercury:0xb8b0a4, venus:0xe8d6a8, mars:0xc46a3a, jupiter:0xd2b48c, saturn:0xe6d3a3, uranus:0xa6d8e0, neptune:0x4d6fd6 };
 function ensureGlobeRig(){
   if(globeRoot || !SKY_MAPS) return globeRoot;
   const seg=SKY_MAPS.segmentsFor('globe', _skyMapOpts);
-  globeRoot=new THREE.Group(); globeRoot.visible=false; scene.add(globeRoot);
-  globeTilt=new THREE.Group(); globeRoot.add(globeTilt);   // axial lean (saturn ≈26.7°, others a gentle lean for depth)
-  planetMat=new THREE.MeshBasicMaterial({ side:THREE.FrontSide, fog:false, color:0xffffff });
+  // depthTest false + high renderOrder: presentation prop must sit in front of the milky shell (also depthTest:false).
+  globeRoot=new THREE.Group(); globeRoot.visible=false; globeRoot.frustumCulled=false; globeRoot.renderOrder=20; scene.add(globeRoot);
+  globeTilt=new THREE.Group(); globeTilt.frustumCulled=false; globeRoot.add(globeTilt);   // axial lean (saturn ≈26.7°, others a gentle lean for depth)
+  planetMat=new THREE.MeshBasicMaterial({ side:THREE.FrontSide, fog:false, depthTest:false, depthWrite:false, color:0xffffff });
   planetMesh=new THREE.Mesh(new THREE.SphereGeometry(1, seg.widthSegments, seg.heightSegments), planetMat);
-  planetMesh.frustumCulled=false; globeTilt.add(planetMesh);
+  planetMesh.frustumCulled=false; planetMesh.renderOrder=21; globeTilt.add(planetMesh);
   const ring=SKY_MAPS.RING;
   if(ring){
-    ringMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, depthWrite:false });
+    ringMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, depthTest:false, depthWrite:false });
     const rg=new THREE.RingGeometry(ring.innerScale, ring.outerScale, 64, 1);
     const pos=rg.attributes.position, uv=rg.attributes.uv, v=new THREE.Vector3();
     for(let i=0;i<pos.count;i++){ v.fromBufferAttribute(pos,i); const rad=v.length(); uv.setXY(i, (rad-ring.innerScale)/Math.max(1e-6,(ring.outerScale-ring.innerScale)), 0.5); }   // remap UVs radially so the alpha strip samples across the ring width
     uv.needsUpdate=true;
-    ringMesh=new THREE.Mesh(rg, ringMat); ringMesh.rotation.x=-Math.PI/2; ringMesh.frustumCulled=false; ringMesh.visible=false; globeTilt.add(ringMesh);
+    ringMesh=new THREE.Mesh(rg, ringMat); ringMesh.rotation.x=-Math.PI/2; ringMesh.frustumCulled=false; ringMesh.renderOrder=22; ringMesh.visible=false; globeTilt.add(ringMesh);
   }
   return globeRoot;
 }
 function showTempleGlobe(bodyId){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.globeEnabled===false){ hideTempleGlobe(); return; }
-  const url=SKY_MAPS.mapForBody(bodyId, { venusMap:CFG.skyMaps.venusMap });
+  const id=String(bodyId==null?'':bodyId).trim().toLowerCase();
+  const url=SKY_MAPS.mapForBody(id, { venusMap:CFG.skyMaps.venusMap });
   if(!url){ hideTempleGlobe(); return; }   // nodes / pluto / unknown → glyph + HUD only, no globe
-  ensureGlobeRig(); if(!globeRoot) return;
-  _globeBody=bodyId;
-  const isSaturn=(bodyId==='saturn' && CFG.skyMaps.saturnRings!==false && !!SKY_MAPS.RING && !!ringMesh);
+  ensureGlobeRig(); if(!globeRoot||!planetMat||!planetMesh) return;
+  _globeBody=id;
+  const isSaturn=(id==='saturn' && CFG.skyMaps.saturnRings!==false && !!SKY_MAPS.RING && !!ringMesh);
   globeTilt.rotation.set(0,0, isSaturn?0.466:0.18);   // saturn axial tilt ≈26.7°; others a gentle lean
-  planetMat.color.setScalar(bodyId==='sun'?1.0:0.92); planetMesh.rotation.y=0;   // sun full-bright; others eased down (Basic material is unlit)
-  loadSkyTexture(url, t=>{ if(_globeBody===bodyId && planetMat){ planetMat.map=t; planetMat.needsUpdate=true; if(globeRoot) globeRoot.visible=true; } });   // show only once a valid map is in hand (missing texture ⇒ stays hidden)
+  // Show immediately with a body tint so focus always produces a visible orb; map paints in when ready.
+  planetMat.map=null; planetMat.color.setHex(GLOBE_TINT[id]||0xcfd8e6); planetMat.needsUpdate=true; planetMesh.rotation.y=0;
+  globeRoot.visible=true;
+  placeTempleGlobe();   // position this frame (don't wait for the next updateSky tick)
+  loadSkyTexture(url, t=>{
+    if(_globeBody!==id || !planetMat) return;
+    planetMat.map=t; planetMat.color.setHex(0xffffff); planetMat.needsUpdate=true;
+    if(globeRoot) globeRoot.visible=true;
+  });
   if(ringMesh){
     ringMesh.visible=false;
     if(isSaturn) loadSkyTexture(SKY_MAPS.RING.map, t=>{ if(_globeBody==='saturn' && ringMat){ ringMat.map=t; ringMat.alphaMap=t; ringMat.needsUpdate=true; ringMesh.visible=true; _ringReady=true; } });
   }
 }
-function hideTempleGlobe(){ if(globeRoot) globeRoot.visible=false; if(ringMesh) ringMesh.visible=false; _globeBody=null; }
+function hideTempleGlobe(){ if(globeRoot) globeRoot.visible=false; if(ringMesh) ringMesh.visible=false; if(planetMat){ planetMat.map=null; } _globeBody=null; }
+function placeTempleGlobe(){
+  if(!globeRoot||!globeRoot.visible) return;
+  _gFwd.set(0,0,-1).applyQuaternion(camera.quaternion);
+  _gRight.set(1,0,0).applyQuaternion(camera.quaternion);
+  _gUp.set(0,1,0).applyQuaternion(camera.quaternion);
+  // Closer + larger + near-center so the hero globe is unmistakable (HUD is still on the right).
+  const d=CFG.skyMaps.globeDistance!=null?CFG.skyMaps.globeDistance:7.5, r=CFG.skyMaps.globeRadius!=null?CFG.skyMaps.globeRadius:2.15;
+  globeRoot.position.copy(camera.position).addScaledVector(_gFwd, d).addScaledVector(_gRight, -d*0.14).addScaledVector(_gUp, -d*0.06);
+  globeRoot.scale.setScalar(r);
+}
 /* per-frame driver (called from updateSky): build/fade the shell, keep the globe camera-relative + spinning */
 function updateTempleOrbs(dt){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
@@ -1617,12 +1662,7 @@ function updateTempleOrbs(dt){
     milkyShell.visible=_milkyReady && target>0.003;
   }
   if(globeRoot && globeRoot.visible){
-    _gFwd.set(0,0,-1).applyQuaternion(camera.quaternion);
-    _gRight.set(1,0,0).applyQuaternion(camera.quaternion);
-    _gUp.set(0,1,0).applyQuaternion(camera.quaternion);
-    const d=CFG.skyMaps.globeDistance||11, r=CFG.skyMaps.globeRadius||1.6;
-    globeRoot.position.copy(camera.position).addScaledVector(_gFwd, d).addScaledVector(_gRight, -d*0.30).addScaledVector(_gUp, -d*0.16);   // ahead + lower-left of look so the centre reticle and right-side HUD stay clear
-    globeRoot.scale.setScalar(r);
+    placeTempleGlobe();
     if(!reduceMotion && planetMesh) planetMesh.rotation.y += dt*(CFG.skyMaps.spinRadPerSec||0.08);   // slow artistic spin (reduce-motion holds still)
   }
 }
@@ -2772,9 +2812,12 @@ function setSkyTempleFocus(focus){
     const fallback=glossaryListenData(pick)||{placement:{title:(b.glyph||'')+' '+(b.label||b.id)+' (natal)',text:'Natal placement — a fixed reference in your chart, used as a symbolic study lens.'},personal:{available:false}};
     fillTempleStudy(pick, fallback, false);
   } else { _templeStudySeq++; if(_templeUi.body) _templeUi.body.textContent=''; }
-  // TEMPLE ORBS: a large textured globe only for a transit BODY; sign/aspect/natal/none hide it (mapForBody returns null for nodes/pluto → also hidden, HUD-only).
-  if(_templeFocus && _templeFocus.kind==='body' && _templeFocus.pick && _templeFocus.pick.id!=null) showTempleGlobe(_templeFocus.pick.id);
-  else hideTempleGlobe();
+  // TEMPLE ORBS: large globe for transit BODY (and aspect→transit body). Nodes/pluto map to null → glyph-only.
+  let globeId=null;
+  if(_templeFocus&&_templeFocus.kind==='body') globeId=(_templeFocus.pick&&_templeFocus.pick.id)!=null?_templeFocus.pick.id:(_templeFocus.body&&_templeFocus.body.id);
+  else if(_templeFocus&&_templeFocus.kind==='aspect'&&_templeFocus.record&&_templeFocus.record.transit) globeId=_templeFocus.record.transit.id;
+  else if(_templeFocus&&_templeFocus.kind==='natal'&&_templeFocus.body) globeId=_templeFocus.body.id;   // natal uses same body texture as a dim ghost later; for now show the shared map
+  if(globeId!=null) showTempleGlobe(globeId); else hideTempleGlobe();
   updateSkyTempleVisuals();
 }
 function clearSkyTempleFocus(){ setSkyTempleFocus(null); }
