@@ -177,3 +177,4 @@ Manual: cold load → enter dojo → temple → sign art + planet + chat still w
 | Date | Parcel | Notes |
 |------|--------|-------|
 | 2026-07-14 | **P1** CDN headers | `vercel.json`: assets/fixtures/js 7d + SWR; HTML revalidate. Specs + agent prompts checked in. |
+| 2026-07-14 | **P2** Asset pipeline | In-place re-encode, filenames unchanged (contract strings pinned). Milky `8k_stars_milky_way.jpg` 1861→180 KB (8192×4096→3072×1536 q88). Zodiac ×13 3911→~660 KB (edge-512, FASTOCTREE-128 PNG). First-temple sky fetch ~5.8→0.84 MB (G2 ✓, budget 2.5 MB). Sky tree 11.5→6.7 MB (planets untouched — lazy + tuned globe pass; ≤6 MB deferred). Tests 131/131. Recipe: `scratchpad/p2/encode_p2.py`; inventory in `assets/sky/README.md`. |

@@ -25,3 +25,10 @@ Ids: `aries` `taurus` `gemini` `cancer` `leo` `virgo` `libra` `scorpio`
 `ophiuchus` `sagittarius` `capricorn` `aquarius` `pisces`
 
 Paths defined in `sky-maps.js` (`mapForSign` / `mapForSignPng`).
+
+## Encoding (PERF P2)
+
+Shipped at **max-edge 512**, **FASTOCTREE 128-color** quantized PNG (alpha kept),
+~40–64 KB each. These render additive at ~0.09 opacity behind the sticks, so heavy
+quantization is imperceptible. Drop-in replacements can be any size/quality —
+`scratchpad/p2/encode_p2.py` shows the recipe if you want to match the belt weight.
