@@ -774,9 +774,9 @@ const CFG = {
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
-  skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
+  skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, signArtEnabled:true, signArtAngularDeg:32, signArtRadiusPull:1.06, signArtOpacity:0.28 },   // TEMPLE ORBS: milky + globe + Saturn/Uranus rings + soft zodiac art plane BEHIND sticks (not on shell — shell depth was circular-clipping the flat plane). Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAngularDeg:32, signArtRadiusPull:1.06, signArtOpacity:0.28 },   // TEMPLE ORBS: milky + dimmed globe + Saturn/Uranus rings + soft zodiac art behind sticks. Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1723,7 +1723,13 @@ function showTempleGlobe(bodyId){
     enhancePlanetTexture(t, id, enhanced=>{
       if(_globeBody!==id || !planetMat) return;
       planetMat.map=enhanced;
-      planetMat.color.setHex(id==='sun'?0xfff6e0:0xffffff);
+      // Dim the globe a bit so it doesn't blow out the sky (CFG.skyMaps.globeBrightness).
+      const b=CFG.skyMaps.globeBrightness!=null?CFG.skyMaps.globeBrightness:0.72;
+      const base=id==='sun'?0xfff6e0:0xffffff;
+      const r=Math.min(255, Math.round(((base>>16)&255)*b));
+      const g=Math.min(255, Math.round(((base>>8)&255)*b));
+      const bl=Math.min(255, Math.round((base&255)*b));
+      planetMat.color.setRGB(r/255, g/255, bl/255);
       planetMat.needsUpdate=true;
       if(globeRoot) globeRoot.visible=true;
       if(planetMesh) planetMesh.visible=true;
@@ -2615,8 +2621,11 @@ function updateSkyTempleVisuals(){
   // While templeActive, full opacity immediately (do not wait on floor blend) so the sphere is obvious looking up or down.
   const open=templeActive?1:Math.max(_templeBlend,0.001);
   const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
-  if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',0.72*open*dim);
-  if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?0.98*open:0);
+  // Transit aspect chords: quieter than before so sticks/globes/art stay readable.
+  const aspectOp=CFG.skyTemple.aspectLineOpacity!=null?CFG.skyTemple.aspectLineOpacity:0.42;
+  const hiOp=CFG.skyTemple.aspectHighlightOpacity!=null?CFG.skyTemple.aspectHighlightOpacity:0.65;
+  if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',aspectOp*open*dim);
+  if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?hiOp*open:0);
   for(const pick of _templeNatal){
     // Full sphere: no horizon hide — natal ghosts exist underfoot and above.
     const focused=_templeFocus===pick;

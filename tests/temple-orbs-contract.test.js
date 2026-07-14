@@ -39,6 +39,7 @@ test("CFG.skyMaps is a flat literal with the spec keys", () => {
     /uranusRings\s*:\s*true/,
     /globeContrast\s*:\s*[0-9.]+/,
     /globeGamma\s*:\s*[0-9.]+/,
+    /globeBrightness\s*:\s*[0-9.]+/,
     /venusMap\s*:\s*['"]atmosphere['"]/, // §9.5
     /signArtEnabled\s*:\s*true/,
     /signArtAngularDeg\s*:\s*[0-9.]+/,
