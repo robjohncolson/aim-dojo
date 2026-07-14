@@ -646,6 +646,7 @@ window.JA={
 <script src="observer-location.js"></script>
 <script src="local-sky.js"></script>
 <script src="sky-temple.js"></script>
+<script src="sky-maps.js"></script>
 <script src="save-my-sky.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -654,6 +655,7 @@ window.JA={
 
 const IS_JA=document.documentElement.lang==='ja';
 const SKY_TEMPLE_DATA=window.AimDojoSkyTemple||null;
+const SKY_MAPS=window.AimDojoSkyMaps||null;   // Temple Orbs: equirectangular sky/planet map table (pure, THREE-free); null degrades to glyph-only
 const T=(key,en)=>(IS_JA&&window.JA&&window.JA[key]!=null)?window.JA[key]:en;
 function TF(key,en,values){
   let out=T(key,en);
@@ -732,6 +734,7 @@ const CFG = {
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeRadius:1.6, globeDistance:11, spinRadPerSec:0.08, saturnRings:true, venusMap:'atmosphere' },   // TEMPLE ORBS (SPEC_TEMPLE_ORBS.md): equirectangular milky-way inner shell (temple-full, dojo off unless dojoShell) + large planet globe on temple body focus. Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1414,12 +1417,13 @@ function updateSky(dt){
   hemiLight.color.copy(_sky); if(state.running && !templeActive && activeTheme) hemiLight.color.lerp(_moodCol, 0.03); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // key light from the sun when up (in clocked* sunDir IS the transformed ☉ — v2.1 §4.4); below the horizon, the negation is a soft night fill from the opposite sky, not a physical moon
-  skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',LOW?0:(GLOW?Math.max(atmos*0.9,0.15):atmos*0.9));          // procedural clouds: drift + fade in with the day, at atmosphere weight (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome). GLOW: faint mist banding survives at night (key-art sky is never pure gradient)
+  skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',(LOW?0:(GLOW?Math.max(atmos*0.9,0.15):atmos*0.9))*((CFG.skyMaps&&CFG.skyMaps.enabled!==false)?(1-_templeBlend*(CFG.skyMaps.cloudDuck!=null?CFG.skyMaps.cloudDuck:1)):1));          // procedural clouds: drift + fade in with the day, at atmosphere weight (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome). GLOW: faint mist banding survives at night (key-art sky is never pure gradient)
   if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
   else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
   if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull (opens with temple) + soft glyph breath — zero cost while absent
   if(templeActive||_templeBlend>0.01) updateSkyTempleVisuals();   // keep aspect/ghost opacities in sync while the full-sphere blend is open
+  updateTempleOrbs(dt);                                          // TEMPLE ORBS: milky-shell fade + camera-relative planet globe (near-free no-op outside temple unless dojoShell)
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
   if(!templeActive && day>0.02) renderReflection();          // no mirror pass in temple (floor is gone)
 }
@@ -1478,6 +1482,105 @@ function applyNaturalSkyAttitude(utcMs){
     skySphere.quaternion.copy(_qLocalSky);
     return true;
   }catch(e){ return false; }
+}
+/* ========================= TEMPLE ORBS — equirectangular sky shell + planet globes (SPEC_TEMPLE_ORBS.md, Parcel TO) =========================
+   1) milkyShell — a giant BackSide sphere parented to skySphere so the equirectangular milky-way map co-rotates with the
+      chart and the player sits inside it. Temple-full; dojo off unless CFG.skyMaps.dojoShell.
+   2) templeGlobe — a large FrontSide textured sphere shown camera-relative (lower-left) when a transit BODY is focused in
+      Sky Temple. Presentation only: it is NOT a pick target and never touches the glyph rays.
+   Textures leave encoding at the r128 default (this renderer sets no outputEncoding, like every other texture here), so
+   brightness is tuned via material.color, not colorspace. The globe is parented to `scene`, NOT _templeGroup, so
+   _templeDisposeChildren() can never dispose the reused mesh. THREE-free table/paths live in sky-maps.js. */
+const _skyTexLoader=new THREE.TextureLoader();
+const _skyTexCache=Object.create(null);   // url -> THREE.Texture, shared + reused across focuses (never reloaded per focus)
+function loadSkyTexture(url, onReady){
+  if(!url) return null;
+  const hit=_skyTexCache[url];
+  if(hit){ if(onReady) onReady(hit); return hit; }
+  let tex=null;
+  try{
+    tex=_skyTexLoader.load(url,
+      t=>{ if(onReady) onReady(t); },                                                                                   // success
+      undefined,                                                                                                        // progress (unused)
+      ()=>{ if(_skyTexCache[url]===tex) delete _skyTexCache[url]; try{ console.warn('[temple-orbs] map failed, staying glyph-only:', url); }catch(e){} });   // error: forget + degrade, never throw
+    _skyTexCache[url]=tex;   // TextureLoader defaults already give LinearMipmap min / Linear mag / mipmaps — no need to touch (avoids deprecated r128 filter aliases)
+  }catch(e){ try{ console.warn('[temple-orbs] texture loader threw:', url, e); }catch(_e){} return null; }
+  return tex;
+}
+const _skyMapOpts={ low:LOW, mobile:MOBILE };
+/* --- inner milky-way sky shell (child of skySphere → co-rotates with stars/sticks) --- */
+let milkyShell=null, _milkyReady=false;
+function ensureMilkyShell(){
+  if(milkyShell || !SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return milkyShell;
+  const seg=SKY_MAPS.segmentsFor('shell', _skyMapOpts);
+  const R=(CFG.skyMaps.shellRadius)||400;   // outside stars(340)/sticks(330), inside dome(480) + far(700)
+  const mat=new THREE.MeshBasicMaterial({ side:THREE.BackSide, depthWrite:false, depthTest:false, fog:false, transparent:true, opacity:0 });
+  milkyShell=new THREE.Mesh(new THREE.SphereGeometry(R, seg.widthSegments, seg.heightSegments), mat);
+  milkyShell.frustumCulled=false; milkyShell.renderOrder=-900;   // after the gradient dome (-1000), before the stars/room
+  milkyShell.visible=false; if(!LOW) milkyShell.layers.enable(1);   // reflection layer (skipped under LOW, matching dome/stars)
+  skySphere.add(milkyShell);
+  loadSkyTexture((CFG.skyMaps.milkyPath)||SKY_MAPS.MILKY_PATH, t=>{ if(milkyShell){ mat.map=t; mat.needsUpdate=true; _milkyReady=true; } });
+  return milkyShell;
+}
+/* --- camera-relative planet globe (one reused mesh; texture swapped per body) --- */
+let globeRoot=null, globeTilt=null, planetMesh=null, planetMat=null, ringMesh=null, ringMat=null, _globeBody=null, _ringReady=false;
+const _gFwd=new THREE.Vector3(), _gRight=new THREE.Vector3(), _gUp=new THREE.Vector3();
+function ensureGlobeRig(){
+  if(globeRoot || !SKY_MAPS) return globeRoot;
+  const seg=SKY_MAPS.segmentsFor('globe', _skyMapOpts);
+  globeRoot=new THREE.Group(); globeRoot.visible=false; scene.add(globeRoot);
+  globeTilt=new THREE.Group(); globeRoot.add(globeTilt);   // axial lean (saturn ≈26.7°, others a gentle lean for depth)
+  planetMat=new THREE.MeshBasicMaterial({ side:THREE.FrontSide, fog:false, color:0xffffff });
+  planetMesh=new THREE.Mesh(new THREE.SphereGeometry(1, seg.widthSegments, seg.heightSegments), planetMat);
+  planetMesh.frustumCulled=false; globeTilt.add(planetMesh);
+  const ring=SKY_MAPS.RING;
+  if(ring){
+    ringMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, depthWrite:false });
+    const rg=new THREE.RingGeometry(ring.innerScale, ring.outerScale, 64, 1);
+    const pos=rg.attributes.position, uv=rg.attributes.uv, v=new THREE.Vector3();
+    for(let i=0;i<pos.count;i++){ v.fromBufferAttribute(pos,i); const rad=v.length(); uv.setXY(i, (rad-ring.innerScale)/Math.max(1e-6,(ring.outerScale-ring.innerScale)), 0.5); }   // remap UVs radially so the alpha strip samples across the ring width
+    uv.needsUpdate=true;
+    ringMesh=new THREE.Mesh(rg, ringMat); ringMesh.rotation.x=-Math.PI/2; ringMesh.frustumCulled=false; ringMesh.visible=false; globeTilt.add(ringMesh);
+  }
+  return globeRoot;
+}
+function showTempleGlobe(bodyId){
+  if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.globeEnabled===false){ hideTempleGlobe(); return; }
+  const url=SKY_MAPS.mapForBody(bodyId, { venusMap:CFG.skyMaps.venusMap });
+  if(!url){ hideTempleGlobe(); return; }   // nodes / pluto / unknown → glyph + HUD only, no globe
+  ensureGlobeRig(); if(!globeRoot) return;
+  _globeBody=bodyId;
+  const isSaturn=(bodyId==='saturn' && CFG.skyMaps.saturnRings!==false && !!SKY_MAPS.RING && !!ringMesh);
+  globeTilt.rotation.set(0,0, isSaturn?0.466:0.18);   // saturn axial tilt ≈26.7°; others a gentle lean
+  planetMat.color.setScalar(bodyId==='sun'?1.0:0.92); planetMesh.rotation.y=0;   // sun full-bright; others eased down (Basic material is unlit)
+  loadSkyTexture(url, t=>{ if(_globeBody===bodyId && planetMat){ planetMat.map=t; planetMat.needsUpdate=true; if(globeRoot) globeRoot.visible=true; } });   // show only once a valid map is in hand (missing texture ⇒ stays hidden)
+  if(ringMesh){
+    ringMesh.visible=false;
+    if(isSaturn) loadSkyTexture(SKY_MAPS.RING.map, t=>{ if(_globeBody==='saturn' && ringMat){ ringMat.map=t; ringMat.alphaMap=t; ringMat.needsUpdate=true; ringMesh.visible=true; _ringReady=true; } });
+  }
+}
+function hideTempleGlobe(){ if(globeRoot) globeRoot.visible=false; if(ringMesh) ringMesh.visible=false; _globeBody=null; }
+/* per-frame driver (called from updateSky): build/fade the shell, keep the globe camera-relative + spinning */
+function updateTempleOrbs(dt){
+  if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
+  const inTemple=templeActive || _templeBlend>0.001;
+  if(inTemple || CFG.skyMaps.dojoShell) ensureMilkyShell();
+  if(milkyShell){
+    let target=0;
+    if(inTemple) target=_templeBlend*(CFG.skyMaps.templeShellOpacity!=null?CFG.skyMaps.templeShellOpacity:1);
+    if(CFG.skyMaps.dojoShell && !templeActive) target=Math.max(target, CFG.skyMaps.dojoShellOpacity!=null?CFG.skyMaps.dojoShellOpacity:0.35);
+    milkyShell.material.opacity=target;
+    milkyShell.visible=_milkyReady && target>0.003;
+  }
+  if(globeRoot && globeRoot.visible){
+    _gFwd.set(0,0,-1).applyQuaternion(camera.quaternion);
+    _gRight.set(1,0,0).applyQuaternion(camera.quaternion);
+    _gUp.set(0,1,0).applyQuaternion(camera.quaternion);
+    const d=CFG.skyMaps.globeDistance||11, r=CFG.skyMaps.globeRadius||1.6;
+    globeRoot.position.copy(camera.position).addScaledVector(_gFwd, d).addScaledVector(_gRight, -d*0.30).addScaledVector(_gUp, -d*0.16);   // ahead + lower-left of look so the centre reticle and right-side HUD stay clear
+    globeRoot.scale.setScalar(r);
+    if(!reduceMotion && planetMesh) planetMesh.rotation.y += dt*(CFG.skyMaps.spinRadPerSec||0.08);   // slow artistic spin (reduce-motion holds still)
+  }
 }
 const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)
 const _chartFade=[];    // {mat,a0[,pulseP]} every chart material — the clean glyph/stick layer melts toward a whisper in daylight
@@ -2436,6 +2539,9 @@ function setSkyTempleFocus(focus){
     const fallback=glossaryListenData(pick)||{placement:{title:(b.glyph||'')+' '+(b.label||b.id)+' (natal)',text:'Natal placement — a fixed reference in your chart, used as a symbolic study lens.'},personal:{available:false}};
     fillTempleStudy(pick, fallback, false);
   } else { _templeStudySeq++; if(_templeUi.body) _templeUi.body.textContent=''; }
+  // TEMPLE ORBS: a large textured globe only for a transit BODY; sign/aspect/natal/none hide it (mapForBody returns null for nodes/pluto → also hidden, HUD-only).
+  if(_templeFocus && _templeFocus.kind==='body' && _templeFocus.pick && _templeFocus.pick.id!=null) showTempleGlobe(_templeFocus.pick.id);
+  else hideTempleGlobe();
   updateSkyTempleVisuals();
 }
 function clearSkyTempleFocus(){ setSkyTempleFocus(null); }
@@ -2488,7 +2594,7 @@ function exitSkyTemple(options){
   if(options.forPause) snapshotTempleForResume();
   else if(!options.keepResume) clearTempleResume();
   templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null; _templeStudySeq++;
-  document.body.classList.remove('temple-active'); _templeGroup.visible=false;
+  document.body.classList.remove('temple-active'); _templeGroup.visible=false; hideTempleGlobe();   // TEMPLE ORBS: drop the focus globe (exit nulls _templeFocus directly, bypassing setSkyTempleFocus)
   if(_templeUi.panel){ _templeUi.panel.classList.remove('on'); _templeUi.panel.setAttribute('aria-hidden','true'); }
   if(_templeUi.body) _templeUi.body.textContent='';
   // Restore dojo floor immediately (opaque base + grids; updateSky will set day/night opacities next tick).
