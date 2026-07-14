@@ -1594,7 +1594,7 @@ function ensureMilkyShell(){
 /* --- camera-relative planet globe (one reused mesh; texture swapped per body) --- */
 let globeRoot=null, globeTilt=null, planetMesh=null, planetMat=null, ringMesh=null, ringMat=null, _globeBody=null, _ringReady=false;
 const _gFwd=new THREE.Vector3(), _gRight=new THREE.Vector3(), _gUp=new THREE.Vector3();
-const GLOBE_TINT={ sun:0xfff1c8, moon:0xdfe7f5, mercury:0xb8b0a4, venus:0xe8d6a8, mars:0xc46a3a, jupiter:0xd2b48c, saturn:0xe6d3a3, uranus:0xa6d8e0, neptune:0x4d6fd6 };
+const GLOBE_TINT={ sun:0xfff1c8, moon:0xdfe7f5, mercury:0xb8b0a4, venus:0xe8d6a8, mars:0xc46a3a, jupiter:0xd2b48c, saturn:0xe6d3a3, uranus:0xa6d8e0, neptune:0x4d6fd6, pluto:0xc4b8a8 };
 function ensureGlobeRig(){
   if(globeRoot || !SKY_MAPS) return globeRoot;
   const seg=SKY_MAPS.segmentsFor('globe', _skyMapOpts);

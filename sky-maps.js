@@ -25,6 +25,8 @@
     saturn: BASE + "2k_saturn.jpg",
     uranus: BASE + "2k_uranus.jpg",
     neptune: BASE + "2k_neptune.jpg",
+    // Simple cylindrical / equirectangular 2:1 (from plutocylindrical.jpg) — SphereGeometry UVs match.
+    pluto: BASE + "2k_pluto.jpg",
   });
 
   var VENUS_MAPS = Object.freeze({
@@ -46,7 +48,7 @@
   });
 
   // Bodies deliberately without a map -> glyph + HUD only (never a globe).
-  var NO_MAP = Object.freeze({ pluto: true, north_node: true, south_node: true });
+  var NO_MAP = Object.freeze({ north_node: true, south_node: true });
 
   function canonicalId(value) {
     if (typeof value !== "string") return null;

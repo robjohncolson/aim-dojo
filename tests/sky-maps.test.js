@@ -37,9 +37,15 @@ test("body ids are canonicalized (case + surrounding whitespace)", () => {
   assert.equal(maps.mapForBody("Jupiter"), "assets/sky/2k_jupiter.jpg");
 });
 
+// Pluto ships as equirect/simple-cylindrical 2:1 (from plutocylindrical.jpg).
+test("pluto maps to the shipped 2k equirect texture", () => {
+  assert.equal(maps.mapForBody("pluto"), "assets/sky/2k_pluto.jpg");
+  assert.equal(maps.hasMap("pluto"), true);
+});
+
 // SPEC §9.6 / §9.8 — unsupported/missing body returns null, NEVER throws.
 test("unsupported or invalid bodies return null without throwing", () => {
-  for (const body of ["pluto", "north_node", "south_node", "unknown", "", "   ", "sunny"]) {
+  for (const body of ["north_node", "south_node", "unknown", "", "   ", "sunny"]) {
     assert.equal(maps.mapForBody(body), null, `${JSON.stringify(body)} → null`);
     assert.equal(maps.hasMap(body), false);
   }
