@@ -479,15 +479,15 @@ body.overlay-paused #pauseStats{order:0}
       <span><b>L-CLICK</b><span id="clickDesc">fire — land while the Echo glows</span></span>
       <span><b>R-CLICK</b><span id="freezeDesc">dismiss sky note (dojo)</span></span>
       <span><b>ESC</b><span id="escDesc">pause / resume</span></span>
-      <span><b>HOLD E + FIRE</b><span id="selectDesc">select sky object · enter Sky Temple</span></span>
-      <span><b>E</b><span id="templeEDesc">in temple: leave temple</span></span>
+      <span><b>HOLD E + FIRE</b><span id="selectDesc">mark a sky object under the reticle</span></span>
+      <span><b>E</b><span id="templeEDesc">with a mark: enter Sky Temple · in temple: leave</span></span>
       <span><b>SHIFT+E</b><span id="templeFreeDesc">in temple: free mouse (view stays put) · use HUD</span></span>
       <span><b>T</b><span id="templeTDesc">in temple: ask the sky (needs saved chart)</span></span>
     </div>
     <div id="pauseKeys" aria-label="Controls">
       <span><b>ESC</b> resume</span>
-      <span><b>HOLD E + FIRE</b> select sky · enter temple</span>
-      <span><b>E</b> leave temple</span>
+      <span><b>HOLD E + FIRE</b> mark sky object</span>
+      <span><b>E</b> enter temple (if marked) · leave</span>
       <span><b>SHIFT+E</b> free mouse · view locked · HUD</span>
       <span><b>T</b> ask (saved chart)</span>
     </div>
@@ -595,12 +595,14 @@ body.overlay-paused #pauseStats{order:0}
             <li><b>L-CLICK</b> — fire; land while the Echo glows</li>
             <li><b>R-CLICK</b> — dismiss sky note (not in temple)</li>
             <li><b>ESC</b> — pause / resume</li>
-            <li><b>HOLD E + FIRE</b> — select a sky object and enter Sky Temple</li>
+            <li><b>HOLD E + FIRE</b> — mark a sky object under the reticle (it glows gold)</li>
+            <li><b>E</b> (again, after a mark) — enter Sky Temple</li>
           </ul>
         </div>
         <div class="help-block">
           <div class="help-h" id="helpTempleTitle">SKY TEMPLE</div>
           <ul class="help-list" id="helpTempleList">
+            <li><b>Enter</b> — from dojo: <b>HOLD E + FIRE</b> to mark, then <b>E</b> once more</li>
             <li><b>FIRE</b> — investigate the object under the reticle</li>
             <li><b>SHIFT+E</b> — free mouse for the panel; view stays put</li>
             <li><b>T</b> — ask the sky (needs a saved chart under CHART)</li>
@@ -683,7 +685,7 @@ window.JA={
   phones:'ヘッドホンがおすすめ。世界の太鼓は耳の中に。音を出してね。',
   mouseDesc:'視点 / ねらい', wasdDesc:'床が光ったら 見えている文字を押す',
   clickDesc:'発射 — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる（道場）', escDesc:'ポーズ / 再開',
-  selectDesc:'空の対象を選ぶ · 空の神殿に入る', templeEDesc:'神殿内: 神殿を出る', templeFreeDesc:'神殿内: マウス解放（視点はそのまま）· HUD操作', templeTDesc:'神殿内: 空にたずねる（チャート保存が必要）',
+  selectDesc:'照準下の空の対象に印をつける', templeEDesc:'印あり: 神殿に入る · 神殿内: 出る', templeFreeDesc:'神殿内: マウス解放（視点はそのまま）· HUD操作', templeTDesc:'神殿内: 空にたずねる（チャート保存が必要）',
   beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
   modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',

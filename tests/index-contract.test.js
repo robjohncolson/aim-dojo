@@ -202,6 +202,9 @@ test("HELP tab explains dojo, temple, and chart keys in context", () => {
   assert.match(pauseBlock[0], /id="helpTempleTitle"/);
   assert.match(pauseBlock[0], /id="helpChartTitle"/);
   assert.match(pauseBlock[0], /HOLD E \+ FIRE/);
+  assert.match(pauseBlock[0], /mark a sky object/i);
+  assert.match(pauseBlock[0], /E<\/b>\s*\(again, after a mark\)/i);
+  assert.match(pauseBlock[0], /Enter<\/b>\s*— from dojo/i);
   assert.match(pauseBlock[0], /SHIFT\+E/);
   assert.match(pauseBlock[0], /ask the sky \(needs a saved chart/i);
   assert.match(pauseBlock[0], /EDIT CHART/);
