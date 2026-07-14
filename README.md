@@ -155,6 +155,12 @@ node --test tests/*.test.js
 
 All loaded from CDN; nothing to install.
 
+## Sky & planet maps
+
+The Sky Temple's celestial backdrop and planet globes use **equirectangular
+NASA-derived visualization textures** (`assets/sky/`). Not affiliated with NASA;
+symbolic game use only.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
