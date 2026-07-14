@@ -34,12 +34,14 @@ test("observer location controls sit under SKY MOTION inside the SKY panel", () 
   assert.match(pauseBlock[0], /id="playSettingsPanel"/);
   assert.match(pauseBlock[0], /id="skySettingsPanel"/);
   assert.match(pauseBlock[0], /id="chartSettingsPanel"/);
+  assert.match(pauseBlock[0], /id="helpSettingsPanel"/);
   const locationBlock = pauseBlock[0].match(/<section id="observerLocation"[^>]*>[\s\S]*?<\/section>/);
   assert.ok(locationBlock, "observer controls are inside pause settings");
   assert.ok(pauseBlock[0].indexOf('id="skyMotionRow"') < pauseBlock[0].indexOf('id="observerLocation"'));
   // PLAY panel is separate from SKY panel
   assert.ok(pauseBlock[0].indexOf('id="playSettingsPanel"') < pauseBlock[0].indexOf('id="skySettingsPanel"'));
   assert.ok(pauseBlock[0].indexOf('id="skySettingsPanel"') < pauseBlock[0].indexOf('id="chartSettingsPanel"'));
+  assert.ok(pauseBlock[0].indexOf('id="chartSettingsPanel"') < pauseBlock[0].indexOf('id="helpSettingsPanel"'));
   assert.match(locationBlock[0], /id="observerGeoButton"[^>]*>[\s\S]*USE MY LOCATION/i);
   assert.match(locationBlock[0], /id="observerLocationStatus"[^>]*role="status"[^>]*aria-live="polite"/i);
 
@@ -171,6 +173,12 @@ test("Today's sky brief is a chart-gated pause block with private copy controls"
   assert.match(preview[0], /\bhidden(?:\s|>|=)/i);
   assert.doesNotMatch(preview[0], /\bname=/i);
 
+  const toggle = briefBlock[0].match(/<button[^>]*\bid="skyBriefToggle"[^>]*>/i);
+  assert.ok(toggle, "chart+transits data can be collapsed");
+  assert.match(toggle[0], /\btype="button"/i);
+  assert.match(toggle[0], /\bhidden(?:\s|>|=)/i);
+  assert.match(briefBlock[0], /id="skyBriefToggleLabel"[^>]*>SHOW DATA</i);
+
   const copy = briefBlock[0].match(/<button[^>]*\bid="skyBriefCopy"[^>]*>/i);
   assert.ok(copy);
   assert.match(copy[0], /\btype="button"/i);
@@ -183,6 +191,58 @@ test("Today's sky brief is a chart-gated pause block with private copy controls"
   const shareBlock = html.match(/<div id="shareOverlay"[\s\S]*?<\/div>\s*<script>/);
   assert.ok(shareBlock);
   assert.doesNotMatch(shareBlock[0], /skyBrief|CHART \+ TRANSITS|COPY DATA/i);
+});
+
+test("HELP tab explains dojo, temple, and chart keys in context", () => {
+  const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
+  assert.ok(pauseBlock);
+  assert.match(pauseBlock[0], /data-tab="help"/);
+  assert.match(pauseBlock[0], /id="helpSettingsPanel"/);
+  assert.match(pauseBlock[0], /id="helpDojoTitle"/);
+  assert.match(pauseBlock[0], /id="helpTempleTitle"/);
+  assert.match(pauseBlock[0], /id="helpChartTitle"/);
+  assert.match(pauseBlock[0], /HOLD E \+ FIRE/);
+  assert.match(pauseBlock[0], /SHIFT\+E/);
+  assert.match(pauseBlock[0], /ask the sky \(needs a saved chart/i);
+  assert.match(pauseBlock[0], /EDIT CHART/);
+  assert.match(pauseBlock[0], /NEW CHART/);
+});
+
+test("saved chart collapses birth fields behind EDIT / NEW", () => {
+  const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
+  assert.ok(pauseBlock);
+  assert.match(pauseBlock[0], /id="saveSkySummary"/);
+  assert.match(pauseBlock[0], /id="saveSkyFormWrap"/);
+  assert.match(pauseBlock[0], /id="saveSkyEdit"/);
+  assert.match(pauseBlock[0], /id="saveSkyNew"/);
+  assert.match(pauseBlock[0], /id="saveSkyCancelEdit"/);
+  assert.match(pauseBlock[0], /EDIT CHART/);
+  assert.match(pauseBlock[0], /NEW CHART/);
+
+  const render = html.match(/function skyRenderAccount\(keepStatus\)[\s\S]*?\n\}/);
+  assert.ok(render);
+  assert.match(render[0], /_skyChartEditing/);
+  assert.match(render[0], /skySave\.summary\.hidden/);
+  assert.match(render[0], /skySave\.formWrap\.hidden/);
+
+  const begin = html.match(/function skyBeginChartEdit\(mode\)[\s\S]*?\n\}/);
+  assert.ok(begin);
+  assert.match(begin[0], /mode==='new'/);
+  assert.match(begin[0], /skyClearForm\(\)/);
+  assert.match(begin[0], /skyFillForm\(profile,true\)/);
+
+  const cancel = html.match(/function skyCancelChartEdit\(\)[\s\S]*?\n\}/);
+  assert.ok(cancel);
+  assert.match(cancel[0], /_skyChartEditing=false/);
+
+  assert.match(html, /skySave\.edit\.addEventListener\('click'/);
+  assert.match(html, /skySave\.newBtn\.addEventListener\('click'/);
+  assert.match(html, /skySave\.cancelEdit\.addEventListener\('click',skyCancelChartEdit\)/);
+
+  const lon = pauseBlock[0].match(/<input[^>]*id="saveSkyLon"[^>]*>/i);
+  assert.ok(lon);
+  assert.match(lon[0], /min="-180"/i);
+  assert.match(lon[0], /max="180"/i);
 });
 
 test("sky brief fetch is pause-only, fail-soft, and stale-account guarded", () => {
@@ -205,6 +265,9 @@ test("sky brief fetch is pause-only, fail-soft, and stale-account guarded", () =
   assert.ok(renderBrief);
   assert.ok(renderBrief[0].indexOf("_skyBriefPhase==='unavailable'") < renderBrief[0].indexOf("TF('skyBriefReady'"));
   assert.match(renderBrief[0], /const eligible=skyBriefEligible\(\), ready=eligible&&skyBriefRecordCurrent\(\)/);
+  assert.match(renderBrief[0], /expanded=ready&&_skyBriefExpanded/);
+  assert.match(renderBrief[0], /preview\.hidden=!expanded/);
+  assert.match(html, /skyBriefUi\.toggle\.addEventListener\('click',toggleSkyBriefExpanded\)/);
 
   const stale = html.match(/function skyBriefStillCurrent\(seq,user,generation\)[\s\S]*?\n\}/);
   assert.ok(stale);
@@ -261,7 +324,10 @@ test("COPY DATA uses the full server text with clipboard fallback and localized 
   assert.match(html, /skyBriefUi\.copy\.addEventListener\('click',copySkyBrief\)/);
   assert.equal((html.match(/navigator\.clipboard\.writeText\(record\.text\)/g) || []).length, 1);
   assert.equal((html.match(/copySkyBrief/g) || []).length, 2, "data copy runs only from its user click handler");
-  for (const key of ["skyBriefTitle", "skyBriefLoading", "skyBriefReady", "skyBriefUnavailable", "skyBriefCopy", "skyBriefCopied", "skyBriefPrivate"]) {
+  for (const key of ["skyBriefTitle", "skyBriefLoading", "skyBriefReady", "skyBriefUnavailable", "skyBriefCopy", "skyBriefCopied", "skyBriefShow", "skyBriefHide", "skyBriefPrivate"]) {
+    assert.match(html, new RegExp(`${key}:`), `${key} is present in window.JA`);
+  }
+  for (const key of ["helpSettingsSummary", "saveSkyEdit", "saveSkyNew", "saveSkyCancelEdit"]) {
     assert.match(html, new RegExp(`${key}:`), `${key} is present in window.JA`);
   }
 });

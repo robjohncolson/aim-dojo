@@ -351,11 +351,15 @@ body.overlay-paused #pauseStats{order:0}
 .sky-save input:disabled,.sky-save select:disabled{opacity:.45}
 .sky-save-check{display:flex;align-items:center;gap:7px;margin:8px 0 2px;color:var(--bone-dim);font-size:10.5px;cursor:pointer}
 .sky-save-check input{width:auto;margin:0;accent-color:var(--rail)}
-.sky-save-actions{display:flex;gap:7px;margin-top:9px}
+.sky-save-actions{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
 .sky-save .ghost{padding:8px 9px;font-size:10px;letter-spacing:.1em}
 .sky-save button:disabled,.sky-save input:disabled,.sky-save select:disabled{cursor:not-allowed}
 .sky-save button:disabled{opacity:.4}
 .sky-save[aria-busy=true] button{opacity:.55;pointer-events:none}
+.sky-save-summary{margin:8px 0 2px;padding:10px 11px;border:1px solid rgba(67,217,255,.22);background:rgba(67,217,255,.05);text-align:left}
+.sky-save-summary[hidden],#saveSkyFormWrap[hidden]{display:none}
+.sky-save-summary-line{color:var(--bone);font-size:11px;line-height:1.45;letter-spacing:.03em;margin:0 0 2px;overflow-wrap:anywhere}
+.sky-save-summary .sky-save-actions{margin-top:8px}
 .sky-note{margin:11px 0 2px;padding-top:10px;border-top:1px solid var(--panel-edge);text-align:left}
 .sky-note[hidden]{display:none}
 .sky-note .ghost{width:100%;padding:9px 10px;font-size:10.5px;letter-spacing:.13em}
@@ -367,13 +371,20 @@ body.overlay-paused #pauseStats{order:0}
 .sky-brief-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:7px}
 .sky-brief-title{color:var(--rail);font-size:10.5px;letter-spacing:.13em}
 .sky-brief-status{color:var(--bone-dim);font-size:9.5px;letter-spacing:.06em;text-align:right}
-.sky-brief-preview{display:block;width:100%;height:12rem;max-height:12rem;resize:vertical;overflow:auto;border:1px solid var(--panel-edge);border-radius:0;background:#0d110f;color:var(--bone);padding:9px 10px;font:10.5px/1.5 var(--mono);letter-spacing:0;white-space:pre;tab-size:2}
+.sky-brief-preview{display:block;width:100%;height:12rem;max-height:12rem;resize:vertical;overflow:auto;border:1px solid var(--panel-edge);border-radius:0;background:#0d110f;color:var(--bone);padding:9px 10px;font:10.5px/1.5 var(--mono);letter-spacing:0;white-space:pre;tab-size:2;margin-top:7px}
 .sky-brief-preview:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
 .sky-brief-preview[hidden]{display:none}
-.sky-brief-actions{display:flex;margin-top:7px}
-.sky-brief-actions .ghost{width:100%;padding:9px 10px;font-size:10.5px;letter-spacing:.13em}
+.sky-brief-actions{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}
+.sky-brief-actions .ghost{flex:1;min-width:0;width:auto;padding:9px 10px;font-size:10.5px;letter-spacing:.1em}
 .sky-brief-actions .ghost:disabled{cursor:not-allowed;opacity:.42}
 .sky-brief-private{margin:6px 0 0;color:var(--bone-dim);font-size:9.5px;line-height:1.4;letter-spacing:.02em;opacity:.82}
+.sky-brief-private[hidden]{display:none}
+.help-block{margin:0 0 12px;text-align:left}
+.help-block:last-child{margin-bottom:2px}
+.help-h{color:var(--rail);font-size:10.5px;letter-spacing:.14em;margin:0 0 6px}
+.help-list{margin:0;padding:0;list-style:none}
+.help-list li{margin:0 0 5px;color:var(--bone-dim);font-size:10.5px;line-height:1.45;letter-spacing:.02em}
+.help-list li b{color:var(--bone);font-weight:600;letter-spacing:.06em}
 #transitEssayReader{position:fixed;inset:0;z-index:32;display:flex;align-items:center;justify-content:center;padding:18px;background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.84),rgba(8,11,10,.97));backdrop-filter:blur(4px)}
 #transitEssayReader.hidden{display:none}
 .transit-essay-card{width:min(680px,94vw);max-height:min(86vh,760px);overflow-y:auto;text-align:left;padding:28px 30px}
@@ -488,6 +499,7 @@ body.overlay-paused #pauseStats{order:0}
         <button type="button" class="settings-tab on" role="tab" id="playSettingsSummary" data-tab="play" aria-selected="true" aria-controls="playSettingsPanel">PLAY</button>
         <button type="button" class="settings-tab" role="tab" id="skySettingsSummary" data-tab="sky" aria-selected="false" aria-controls="skySettingsPanel">SKY</button>
         <button type="button" class="settings-tab" role="tab" id="chartSettingsSummary" data-tab="chart" aria-selected="false" aria-controls="chartSettingsPanel">CHART</button>
+        <button type="button" class="settings-tab" role="tab" id="helpSettingsSummary" data-tab="help" aria-selected="false" aria-controls="helpSettingsPanel">HELP</button>
       </div>
       <div class="settings-panel on" role="tabpanel" id="playSettingsPanel" data-tab="play" aria-labelledby="playSettingsSummary">
         <div class="set-row"><span id="resolutionLabel">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
@@ -524,24 +536,38 @@ body.overlay-paused #pauseStats{order:0}
           </form>
           <div id="saveSkyProfileView" hidden>
             <div class="sky-save-account"><span id="saveSkyAccount"></span><button type="button" class="ghost" id="saveSkySignOut"><span id="saveSkySignOutLabel">SIGN OUT</span></button></div>
-            <form id="saveSkyForm" aria-describedby="saveSkyEpistemic saveSkyStatus" autocomplete="off">
-              <div class="sky-save-grid">
-                <label class="sky-save-field" for="saveSkyDate"><span id="saveSkyDateLabel">BIRTH DATE</span><input id="saveSkyDate" type="date" required></label>
-                <label class="sky-save-field" for="saveSkyTime"><span id="saveSkyTimeLabel">BIRTH TIME</span><input id="saveSkyTime" type="time" required></label>
+            <!-- Collapsed when a chart exists: one summary line + edit/new. Full form only while editing. -->
+            <div id="saveSkySummary" class="sky-save-summary" hidden>
+              <div class="sky-save-summary-line" id="saveSkySummaryLine">—</div>
+              <div class="sky-save-actions">
+                <button type="button" class="ghost" id="saveSkyEdit"><span id="saveSkyEditLabel">EDIT CHART</span></button>
+                <button type="button" class="ghost" id="saveSkyNew"><span id="saveSkyNewLabel">NEW CHART</span></button>
               </div>
-              <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
-              <div class="sky-save-grid">
-                <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span>
-                  <select id="saveSkyTz" required autocomplete="off" aria-describedby="saveSkyStatus">
-                    <option value="">Select timezone…</option>
-                  </select>
-                </label>
-                <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country (optional)" autocomplete="off"></label>
-                <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="optional"></label>
-                <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="optional"></label>
-              </div>
-              <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button><button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button></div>
-            </form>
+            </div>
+            <div id="saveSkyFormWrap">
+              <form id="saveSkyForm" aria-describedby="saveSkyEpistemic saveSkyStatus" autocomplete="off">
+                <div class="sky-save-grid">
+                  <label class="sky-save-field" for="saveSkyDate"><span id="saveSkyDateLabel">BIRTH DATE</span><input id="saveSkyDate" type="date" required></label>
+                  <label class="sky-save-field" for="saveSkyTime"><span id="saveSkyTimeLabel">BIRTH TIME</span><input id="saveSkyTime" type="time" required></label>
+                </div>
+                <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
+                <div class="sky-save-grid">
+                  <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span>
+                    <select id="saveSkyTz" required autocomplete="off" aria-describedby="saveSkyStatus">
+                      <option value="">Select timezone…</option>
+                    </select>
+                  </label>
+                  <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country (optional)" autocomplete="off"></label>
+                  <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="optional"></label>
+                  <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="optional"></label>
+                </div>
+                <div class="sky-save-actions">
+                  <button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button>
+                  <button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button>
+                  <button type="button" class="ghost" id="saveSkyCancelEdit" hidden><span id="saveSkyCancelEditLabel">CANCEL</span></button>
+                </div>
+              </form>
+            </div>
           </div>
           <p class="sky-save-note" id="saveSkyEpistemic">Symbolic study, not predictions. Birth details stay private and never enter records.</p>
           <div class="sky-save-status" id="saveSkyStatus" role="status" aria-live="polite"></div>
@@ -552,10 +578,45 @@ body.overlay-paused #pauseStats{order:0}
         </div>
         <section id="skyBriefBlock" class="sky-brief" hidden aria-labelledby="skyBriefTitle" aria-describedby="skyBriefPrivate">
           <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">CHART + TRANSITS</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
+          <div class="sky-brief-actions">
+            <button type="button" class="ghost" id="skyBriefToggle" hidden><span id="skyBriefToggleLabel">SHOW DATA</span></button>
+            <button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY DATA</span></button>
+          </div>
           <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Natal chart and today's transits data" hidden></textarea>
-          <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY DATA</span></button></div>
           <p class="sky-brief-private" id="skyBriefPrivate">Plain natal + transit data for paste · sky note stays in the button above</p>
         </section>
+      </div>
+      <div class="settings-panel" role="tabpanel" id="helpSettingsPanel" data-tab="help" aria-labelledby="helpSettingsSummary" hidden>
+        <div class="help-block">
+          <div class="help-h" id="helpDojoTitle">DOJO</div>
+          <ul class="help-list" id="helpDojoList">
+            <li><b>MOUSE</b> — look / aim</li>
+            <li><b>WASD</b> — when the floor flashes, press the shown letter</li>
+            <li><b>L-CLICK</b> — fire; land while the Echo glows</li>
+            <li><b>R-CLICK</b> — dismiss sky note (not in temple)</li>
+            <li><b>ESC</b> — pause / resume</li>
+            <li><b>HOLD E + FIRE</b> — select a sky object and enter Sky Temple</li>
+          </ul>
+        </div>
+        <div class="help-block">
+          <div class="help-h" id="helpTempleTitle">SKY TEMPLE</div>
+          <ul class="help-list" id="helpTempleList">
+            <li><b>FIRE</b> — investigate the object under the reticle</li>
+            <li><b>SHIFT+E</b> — free mouse for the panel; view stays put</li>
+            <li><b>T</b> — ask the sky (needs a saved chart under CHART)</li>
+            <li><b>E</b> — leave temple (back to dojo)</li>
+            <li><b>ESC</b> — pause (temple restores on resume)</li>
+          </ul>
+        </div>
+        <div class="help-block">
+          <div class="help-h" id="helpChartTitle">CHART</div>
+          <ul class="help-list" id="helpChartList">
+            <li>Optional. Play works without it.</li>
+            <li>Sign in under CHART → save one birth chart.</li>
+            <li>Then Temple <b>T</b> / Ask and today’s sky note unlock.</li>
+            <li>After save, fields collapse; use <b>EDIT CHART</b> or <b>NEW CHART</b>.</li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -628,7 +689,8 @@ window.JA={
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
-  playSettingsSummary:'あそび', skySettingsSummary:'そら', chartSettingsSummary:'わたしのチャート',
+  playSettingsSummary:'あそび', skySettingsSummary:'そら', chartSettingsSummary:'わたしのチャート', helpSettingsSummary:'ヘルプ',
+  helpDojoTitle:'道場', helpTempleTitle:'空の神殿', helpChartTitle:'チャート',
   observerLocation:'場所', observerGeo:'現在地を使う', observerLat:'緯度', observerLon:'経度', observerSave:'保存',
   observerNaturalMode:'自然の空 · 現在地', observerTheatreMode:'任意 · NATURAL のみ', observerSetPrompt:'ほんとうの空には場所を設定', observerLocating:'現在地を確認中…',
   observerGeoFailed:'現在地を取得できない · 緯度と経度を入力してね', observerManualInvalid:'緯度 −90〜90、経度 −180〜180 を両方入力', observerSaveFailed:'場所を保存できない',
@@ -637,11 +699,13 @@ window.JA={
   saveSkyEmail:'メール', saveSkyLink:'空のリンクをメール', saveSkySignOut:'サインアウト',
   saveSkyDate:'生年月日', saveSkyTime:'出生時刻', saveSkyUnknown:'時刻不明', saveSkyTz:'タイムゾーン',
   saveSkyPlace:'場所', saveSkyLat:'緯度', saveSkyLon:'経度', saveSkySubmit:'チャートを保存', saveSkyClear:'チャートを消去',
+  saveSkyEdit:'チャートを編集', saveSkyNew:'新しいチャート', saveSkyCancelEdit:'キャンセル',
   saveSkyEpistemic:'象徴を学ぶためのメモで、予言ではない。出生情報は私用プロフィールにだけ保存され、きろくには入らない。',
   transitEssayButton:'今日の空のノート', transitEssayPending:'今日のノートを書いています…', transitEssayReady:'空のノートができました', transitEssayUnavailable:'ノートを用意できません · タップでもう一度',
   transitEssayWatchpoints:'注目するところ', transitEssayBack:'ポーズにもどる', transitEssayFallback:'象徴を学ぶためのノートで、予言ではない。',
   skyBriefTitle:'チャート + トランジット', skyBriefLoading:'データを用意しています…', skyBriefReady:'準備完了 · {date}', skyBriefUnavailable:'データを用意できません',
-  skyBriefCopy:'データをコピー', skyBriefCopied:'データをコピーした', skyBriefPrivate:'ネイタルとトランジットの生データ · 空のノートは上のボタン', skyBriefPreviewAria:'ネイタルと今日のトランジット', skyBriefCopyManual:'{keys} でコピーしてね',
+  skyBriefCopy:'データをコピー', skyBriefCopied:'データをコピーした', skyBriefShow:'データを表示', skyBriefHide:'データを隠す',
+  skyBriefPrivate:'ネイタルとトランジットの生データ · 空のノートは上のボタン', skyBriefPreviewAria:'ネイタルと今日のトランジット', skyBriefCopyManual:'{keys} でコピーしてね',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
   shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
@@ -705,12 +769,14 @@ window.JA={
       txt('beatCircleLabel','beatCircleLabel');
       txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
-      txt('playSettingsSummary','playSettingsSummary'); txt('skySettingsSummary','skySettingsSummary'); txt('chartSettingsSummary','chartSettingsSummary');
+      txt('playSettingsSummary','playSettingsSummary'); txt('skySettingsSummary','skySettingsSummary'); txt('chartSettingsSummary','chartSettingsSummary'); txt('helpSettingsSummary','helpSettingsSummary');
+      txt('helpDojoTitle','helpDojoTitle'); txt('helpTempleTitle','helpTempleTitle'); txt('helpChartTitle','helpChartTitle');
       txt('observerLocationLabel','observerLocation'); txt('observerGeoLabel','observerGeo'); txt('observerLatLabel','observerLat'); txt('observerLonLabel','observerLon'); txt('observerSaveLabel','observerSave'); txt('observerLocationStatus','observerSetPrompt');
       txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
-      txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
+      txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear');
+      txt('saveSkyEditLabel','saveSkyEdit'); txt('saveSkyNewLabel','saveSkyNew'); txt('saveSkyCancelEditLabel','saveSkyCancelEdit'); txt('saveSkyEpistemic','saveSkyEpistemic');
       txt('transitEssayButtonLabel','transitEssayButton'); txt('transitEssayReaderEyebrow','transitEssayButton'); txt('transitEssayReaderWatchTitle','transitEssayWatchpoints'); txt('transitEssayReaderCloseLabel','transitEssayBack'); txt('transitEssayReaderEpistemic','transitEssayFallback');
-      txt('skyBriefTitle','skyBriefTitle'); txt('skyBriefCopyLabel','skyBriefCopy'); txt('skyBriefPrivate','skyBriefPrivate'); attr('skyBriefPreview','aria-label','skyBriefPreviewAria');
+      txt('skyBriefTitle','skyBriefTitle'); txt('skyBriefCopyLabel','skyBriefCopy'); txt('skyBriefToggleLabel','skyBriefShow'); txt('skyBriefPrivate','skyBriefPrivate'); attr('skyBriefPreview','aria-label','skyBriefPreviewAria');
       txt('skyTempleHint','skyTempleHint'); txt('skyTempleGuide','skyTempleGuide');
       txt('skyTempleChatAsk','skyChatAsk'); attr('skyTempleChatInput','placeholder','skyChatInput'); attr('skyTempleChatInput','aria-label','skyChatInputAria'); txt('skyTempleChatSend','skyChatSend'); txt('skyTempleChatEpistemic','skyChatEpistemic');
       txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
@@ -5481,10 +5547,11 @@ function refreshSettings(){
   if(!settingsBox) return;
   wireSettingsTabs();
   wirePauseScrollOnExpand();
-  const ps=gid('playSettingsSummary'), ss=gid('skySettingsSummary'), cs=gid('chartSettingsSummary');
+  const ps=gid('playSettingsSummary'), ss=gid('skySettingsSummary'), cs=gid('chartSettingsSummary'), hs=gid('helpSettingsSummary');
   if(ps) ps.textContent=T('playSettingsSummary','PLAY');
   if(ss) ss.textContent=T('skySettingsSummary','SKY');
   if(cs) cs.textContent=T('chartSettingsSummary','CHART');
+  if(hs) hs.textContent=T('helpSettingsSummary','HELP');
   if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
     resToggle.textContent = LOW ? T('resLow','LOW ▸ tap for HIGH') : T('resHigh','HIGH ▸ tap for LOW');   // actual mode this session
     resToggle.title = pref==='1' ? T('resForcedLow','forced LOW (saved)') : pref==='0' ? T('resForcedHigh','forced HIGH (saved)') : (LOW ? T('resAutoLow','auto → LOW') : T('resAutoHigh','auto → HIGH'));
@@ -5674,6 +5741,8 @@ function queueCloudPrefs(partial){
 const skySave={
   details:gid('saveSkyDetails'), authView:gid('saveSkyAuthView'), profileView:gid('saveSkyProfileView'), status:gid('saveSkyStatus'),
   email:gid('saveSkyEmail'), link:gid('saveSkyLink'), account:gid('saveSkyAccount'), signOut:gid('saveSkySignOut'), form:gid('saveSkyForm'),
+  summary:gid('saveSkySummary'), summaryLine:gid('saveSkySummaryLine'), formWrap:gid('saveSkyFormWrap'),
+  edit:gid('saveSkyEdit'), newBtn:gid('saveSkyNew'), cancelEdit:gid('saveSkyCancelEdit'),
   date:gid('saveSkyDate'), time:gid('saveSkyTime'), unknown:gid('saveSkyUnknown'), tz:gid('saveSkyTz'), place:gid('saveSkyPlace'),
   lat:gid('saveSkyLat'), lon:gid('saveSkyLon'), clear:gid('saveSkyClear')
 };
@@ -5685,10 +5754,12 @@ const transitEssayUi={
 };
 const skyBriefUi={
   block:gid('skyBriefBlock'), title:gid('skyBriefTitle'), status:gid('skyBriefStatus'), preview:gid('skyBriefPreview'),
+  toggle:gid('skyBriefToggle'), toggleLabel:gid('skyBriefToggleLabel'),
   copy:gid('skyBriefCopy'), copyLabel:gid('skyBriefCopyLabel'), private:gid('skyBriefPrivate')
 };
 const TRANSIT_ESSAY_POLL_DELAYS=[8000,10000,12000,15000], TRANSIT_ESSAY_MAX_MS=180000;
 let _skyAuthClient=null, _skyAuthUser='', _skyProfileUser='', _skyUiSeq=0, _skyAuthEventSeq=0, _skyUiBusy=false, _skyFormDirty=false, _skyLinkedToastTimer=null;
+let _skyChartEditing=false, _skyBriefExpanded=false;
 let _transitEssay=null, _transitEssayPhase='hidden', _transitEssaySeq=0, _transitEssayPollTimer=null, _transitEssayPollStep=0, _transitEssayStartedAt=0;
 let _transitEssayActive=false, _transitEssayInFlightSeq=0, _transitEssayFlowUser='', _transitEssayActivationKey='', _transitEssayNoneRequeued=false, _transitEssayPendingToast=null;
 let _skyBrief=null, _skyBriefPhase='hidden', _skyBriefSeq=0, _skyBriefFlowUser='', _skyBriefRecordUser='', _skyBriefRecordGeneration=-1;
@@ -5862,11 +5933,17 @@ function skyBriefRecordCurrent(){
 function renderSkyBriefUi(){
   if(!skyBriefUi.block) return;
   const eligible=skyBriefEligible(), ready=eligible&&skyBriefRecordCurrent();
+  const expanded=ready&&_skyBriefExpanded;
   skyBriefUi.block.hidden=!eligible||state.running||!state.started;
   if(skyBriefUi.title) skyBriefUi.title.textContent=T('skyBriefTitle','CHART + TRANSITS');
   if(skyBriefUi.copyLabel) skyBriefUi.copyLabel.textContent=T('skyBriefCopy','COPY DATA');
-  if(skyBriefUi.private) skyBriefUi.private.textContent=T('skyBriefPrivate','Plain natal + transit data for paste · sky note stays in the button above');
-  if(skyBriefUi.preview){ skyBriefUi.preview.value=ready?_skyBrief.text:''; skyBriefUi.preview.hidden=!ready; }
+  if(skyBriefUi.toggleLabel) skyBriefUi.toggleLabel.textContent=_skyBriefExpanded?T('skyBriefHide','HIDE DATA'):T('skyBriefShow','SHOW DATA');
+  if(skyBriefUi.private){
+    skyBriefUi.private.textContent=T('skyBriefPrivate','Plain natal + transit data for paste · sky note stays in the button above');
+    skyBriefUi.private.hidden=!expanded;
+  }
+  if(skyBriefUi.preview){ skyBriefUi.preview.value=ready?_skyBrief.text:''; skyBriefUi.preview.hidden=!expanded; }
+  if(skyBriefUi.toggle) skyBriefUi.toggle.hidden=!ready;
   if(skyBriefUi.copy) skyBriefUi.copy.disabled=!ready;
   if(_skyBriefPhase==='loading') skyBriefUi.block.setAttribute('aria-busy','true'); else skyBriefUi.block.removeAttribute('aria-busy');
   if(skyBriefUi.status){
@@ -5882,8 +5959,19 @@ function renderSkyBriefUi(){
   }
 }
 function skyBriefReset(){
-  ++_skyBriefSeq; _skyBrief=null; _skyBriefPhase='hidden'; _skyBriefFlowUser=''; _skyBriefRecordUser=''; _skyBriefRecordGeneration=-1;
+  ++_skyBriefSeq; _skyBrief=null; _skyBriefPhase='hidden'; _skyBriefFlowUser=''; _skyBriefRecordUser=''; _skyBriefRecordGeneration=-1; _skyBriefExpanded=false;
   renderSkyBriefUi();
+}
+function toggleSkyBriefExpanded(){
+  if(!skyBriefEligible()||!skyBriefRecordCurrent()) return;
+  _skyBriefExpanded=!_skyBriefExpanded; renderSkyBriefUi();
+  if(_skyBriefExpanded&&skyBriefUi.preview){
+    try{
+      requestAnimationFrame(()=>{
+        if(skyBriefUi.block) skyBriefUi.block.scrollIntoView({block:'nearest',inline:'nearest',behavior:reduceMotion?'auto':'smooth'});
+      });
+    }catch(e){}
+  }
 }
 function skyBriefStillCurrent(seq,user,generation){
   const ctl=_skyProfileController;
@@ -5934,6 +6022,7 @@ async function copySkyBrief(){
 }
 function skyBriefVisibilityChanged(){ if(!document.hidden&&skyBriefPauseOpen()) fetchSkyBriefForPause(); }
 if(skyBriefUi.copy) skyBriefUi.copy.addEventListener('click',copySkyBrief);
+if(skyBriefUi.toggle) skyBriefUi.toggle.addEventListener('click',toggleSkyBriefExpanded);
 function skySetStatus(text,busy){
   _skyUiBusy=!!busy; if(skySave.status) skySave.status.textContent=text||'';
   if(skySave.details){
@@ -5995,18 +6084,63 @@ function skyFillForm(profile,force){
   skySave.lat.value=profile.lat==null?'':String(profile.lat); skySave.lon.value=profile.lon==null?'':String(profile.lon);
   _skyFormDirty=false; skySyncTimeUnknown(); skySyncCoordinatePair();
 }
+function skyChartHasSaved(){
+  const ctl=_skyProfileController;
+  return !!(_personalListenExpected||(ctl&&ctl.state&&ctl.state.hasChart));
+}
+function skyChartSummaryLine(profile){
+  if(!profile) return T('saveSkySaved','CHART SAVED');
+  const parts=[];
+  if(typeof profile.birth_date==='string'&&profile.birth_date) parts.push(profile.birth_date);
+  if(profile.time_unknown===true) parts.push(T('saveSkyUnknown','TIME UNKNOWN'));
+  else if(typeof profile.birth_time==='string'&&profile.birth_time) parts.push(String(profile.birth_time).slice(0,5));
+  if(typeof profile.tz==='string'&&profile.tz) parts.push(profile.tz);
+  if(typeof profile.place_label==='string'&&profile.place_label.trim()) parts.push(profile.place_label.trim());
+  return parts.length?parts.join(' · '):T('saveSkySaved','CHART SAVED');
+}
 function skyRenderAccount(keepStatus){
   if(!skySave.details){ renderSkyChatUi(); return; }
   const signedIn=!!(_skyAuthSession&&_skyAuthSession.access_token);
+  const hasChart=signedIn&&skyChartHasSaved();
+  if(!signedIn||!hasChart) _skyChartEditing=false;
   if(skySave.authView) skySave.authView.hidden=signedIn;
   if(skySave.profileView) skySave.profileView.hidden=!signedIn;
   if(skySave.account){ const u=_skyAuthSession&&_skyAuthSession.user; skySave.account.textContent=(u&&typeof u.email==='string'&&u.email)||T('saveSkySignedIn','SIGNED IN'); }
-  if(skySave.clear) skySave.clear.disabled=!_personalListenExpected;
+  // Saved chart: one summary line until EDIT / NEW opens the fields.
+  const collapsed=hasChart&&!_skyChartEditing;
+  if(skySave.summary) skySave.summary.hidden=!collapsed;
+  if(skySave.formWrap) skySave.formWrap.hidden=collapsed;
+  if(skySave.summaryLine&&collapsed){
+    const profile=_skyProfileController&&_skyProfileController.state&&_skyProfileController.state.profile;
+    skySave.summaryLine.textContent=skyChartSummaryLine(profile);
+  }
+  if(skySave.cancelEdit) skySave.cancelEdit.hidden=!(_skyChartEditing&&hasChart);
+  if(skySave.clear) skySave.clear.disabled=!hasChart;
   if(!keepStatus&&!_skyUiBusy){
-    const state=_skyProfileController&&_skyProfileController.state;
-    skySetStatus(!signedIn?'':(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):_personalListenExpected?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySaved','CHART SAVED')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED')),false);
+    skySetStatus(!signedIn?'':(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):hasChart?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySaved','CHART SAVED')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED')),false);
   }
   renderSkyChatUi();
+}
+function skyBeginChartEdit(mode){
+  if(_skyUiBusy) return;
+  const ctl=_skyProfileController, profile=ctl&&ctl.state&&ctl.state.profile;
+  _skyChartEditing=true;
+  if(mode==='new'){ skyClearForm(); }
+  else if(profile) skyFillForm(profile,true);
+  skyRenderAccount(true);
+  try{
+    requestAnimationFrame(()=>{
+      if(skySave.formWrap) skySave.formWrap.scrollIntoView({block:'nearest',inline:'nearest',behavior:reduceMotion?'auto':'smooth'});
+      if(skySave.date) skySave.date.focus();
+    });
+  }catch(e){}
+}
+function skyCancelChartEdit(){
+  if(_skyUiBusy) return;
+  const ctl=_skyProfileController, profile=ctl&&ctl.state&&ctl.state.profile;
+  _skyChartEditing=false; _skyFormDirty=false;
+  if(profile) skyFillForm(profile,true);
+  skyRenderAccount(true);
 }
 function skySoftFailure(error,action){
   const code=error&&error.code, status=error&&error.status;
@@ -6032,7 +6166,8 @@ function skyApplyControllerState(state,announce){
   if(!state) return false;
   if(announce) skyChatReset();
   _personalListenExpected=!!state.hasChart;
-  if(state.profile) skyFillForm(state.profile,announce);
+  if(state.hasChart) _skyChartEditing=false;
+  if(state.profile) skyFillForm(state.profile,announce||state.hasChart);
   let linked=false; if(state.personalMode&&state.pack) linked=linkRemotePersonalSky(state.pack);
   skyRenderAccount(true);
   if(announce){
@@ -6064,7 +6199,7 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
   if(_skyAuthUser!==next) skySetStatus('',false);   // cancel a busy save/load surface when auth switches or signs out
   if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); }
   _skyAuthUser=next;
-  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; skyChatReset(); transitEssayReset(); skyBriefReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
+  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; _skyChartEditing=false; skyChatReset(); transitEssayReset(); skyBriefReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
   ctl.setAuthenticated(true); skyRenderAccount(true);
   if(_skyProfileUser!==next){ _skyProfileUser=next; _cloudPrefsLoaded=false; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); loadCloudPrefs(); }
   else if(!_cloudPrefsLoaded) loadCloudPrefs();
@@ -6073,7 +6208,7 @@ function skyAcceptAuthSession(session){   // synchronous account quarantine; no 
   session=session||null; const next=session&&session.user?String(session.user.id||''):'';
   if(next!==_skyAuthUser){
     ++_skyUiSeq; cancelSkyLinkedToast(); skyChatReset(); transitEssayReset(); skyBriefReset(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
-    _personalListenExpected=false; try{ clearListen(true); }catch(e){} if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(_chartPackRank>=2) downgradePersonalSky();
+    _personalListenExpected=false; _skyChartEditing=false; try{ clearListen(true); }catch(e){} if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(_chartPackRank>=2) downgradePersonalSky();
     _skyProfileUser=''; _skyAuthUser=next; if(skySave.email) skySave.email.value=''; skyClearForm();
   }
   _skyAuthSession=session; skyRenderAccount(true); renderSkyBriefUi();
@@ -6117,9 +6252,12 @@ if(skySave.form) skySave.form.addEventListener('submit',async e=>{
 });
 if(skySave.clear) skySave.clear.addEventListener('click',async ()=>{
   if(_skyUiBusy) return; const ctl=ensureSkyProfileController(); if(!ctl||!_skyAuthSession) return; const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkyClearing','CLEARING CHART…'),true);
-  try{ const pending=ctl.clear(); renderSkyBriefUi(); await pending; if(ticket!==_skyUiSeq) return; _personalListenExpected=false; skyChatReset(); transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
+  try{ const pending=ctl.clear(); renderSkyBriefUi(); await pending; if(ticket!==_skyUiSeq) return; _personalListenExpected=false; _skyChartEditing=false; skyChatReset(); transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
   catch(error){ if(ticket!==_skyUiSeq) return; const msg=skySoftFailure(error,'clear'); skySetStatus(msg,false); showGhostToast(msg); if(ctl.state&&ctl.state.hasChart) fetchSkyBriefForPause(); }
 });
+if(skySave.edit) skySave.edit.addEventListener('click',()=>{ skyBeginChartEdit('edit'); });
+if(skySave.newBtn) skySave.newBtn.addEventListener('click',()=>{ skyBeginChartEdit('new'); });
+if(skySave.cancelEdit) skySave.cancelEdit.addEventListener('click',skyCancelChartEdit);
 if(skySave.signOut) skySave.signOut.addEventListener('click',async ()=>{
   if(_skyUiBusy||!_skyAuthClient) return; cancelSkyLinkedToast(); skySetStatus(T('saveSkySigningOut','SIGNING OUT…'),true);
   try{ const result=await _skyAuthClient.auth.signOut(); if(result.error) throw result.error; }
