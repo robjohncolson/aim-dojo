@@ -788,7 +788,7 @@ const CFG = {
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62 },   // TEMPLE ORBS: milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62, signArtLowMode:'off' },   // TEMPLE ORBS: milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). signArtLowMode (P5 F1): 'off'=glyph-only on LOW (default, sheds 13 additive planes) · 'always'=force belt on LOW. Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1615,6 +1615,7 @@ const GLOBE_TONE={ neptune:{contrast:1.6, gamma:1.5}, uranus:{contrast:1.55, gam
 /** Deeper contrast + gamma>1 (darker midtones) on planet maps so features aren't washed out. Cached per body+settings. */
 function enhancePlanetTexture(tex, bodyId, onReady){
   if(!tex || !tex.image){ if(onReady) onReady(tex); return tex; }
+  if(LOW){ if(onReady) onReady(tex); return tex; }   // PERF P5 (SPEC §P5 F3): skip the per-pixel contrast/gamma canvas pass on weak GPUs — use the raw map
   const tone=GLOBE_TONE[bodyId]||{};
   // Body-specific first (ice giants need more punch); else CFG; else defaults.
   const contrast=tone.contrast!=null?tone.contrast:(CFG.skyMaps&&CFG.skyMaps.globeContrast!=null?CFG.skyMaps.globeContrast:1.45);
@@ -1784,6 +1785,7 @@ function placeTempleGlobe(){
 let signArtGroup=null; // Group of all sign planes under skySphere
 const _signArtSlots=Object.create(null); // id -> { mesh, mat, ready, angDeg }
 const _saLocal=new THREE.Vector3(), _saWorld=new THREE.Vector3(), _saDir=new THREE.Vector3();
+let _saPlaced=false; const _saLastQ=new THREE.Quaternion(), _saLastP=new THREE.Vector3();   // PERF P5 F2: last sky attitude + camera pos the belt was placed at (dirty check)
 function signArtBaseOpacity(){
   // Prior focus-only punch was ~0.28; always-on default is 1/3 of that.
   return CFG.skyMaps&&CFG.skyMaps.signArtOpacity!=null?CFG.skyMaps.signArtOpacity:0.09;
@@ -1869,6 +1871,9 @@ function ensureAllSignArt(){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.signArtEnabled===false) return;
   if(SKY_MODE==='decorative') return;
   if(CFG.skyMaps.signArtAlways===false) return;
+  // PERF P5 (SPEC §P5 F1): weak GPUs shed the 13 additive belt planes. Authoritative LOW lever —
+  // signArtLowMode 'off' → glyph-only on LOW (default) · 'always' → force the full belt even on LOW.
+  if(LOW && (CFG.skyMaps.signArtLowMode||'off')!=='always') return;
   ensureSignArtGroup();
   const ids=SKY_MAPS.SIGN_IDS||SKY_SIGN_IDS;
   for(let i=0;i<ids.length;i++) ensureSignArtSlot(ids[i]);
@@ -1906,6 +1911,11 @@ function placeSignArtSlot(slot){
 }
 function placeAllSignArt(){
   if(!signArtGroup||!signArtGroup.visible) return;
+  // PERF P5 (SPEC §P5 F2): the belt is sky-pinned — skip the per-plane re-place while neither the
+  // sky attitude nor the camera has moved since last placement (new-slot arrival places itself directly).
+  const q=skySphere.quaternion, p=camera.position;
+  if(_saPlaced && _saLastQ.equals(q) && _saLastP.equals(p)) return;
+  _saLastQ.copy(q); _saLastP.copy(p); _saPlaced=true;
   for(const id in _signArtSlots) placeSignArtSlot(_signArtSlots[id]);
 }
 // Legacy single-plane place (tests may still name placeTempleSignArt).
