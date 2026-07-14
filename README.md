@@ -40,9 +40,23 @@ link to the live page.
 
 ## Deploy
 
-It's a static site, so any static host works. This repo is published with **GitHub Pages**
-(Settings → Pages → Deploy from branch → `main` / root). The QR code and share link use the
-page's own URL at runtime, so they work wherever it's hosted.
+It's a static site, so any static host works.
+
+**Production (primary):** [aim-dojo.vercel.app](https://aim-dojo.vercel.app) — Git push to `main` auto-deploys.
+
+**GitHub Pages** also works (Settings → Pages → Deploy from branch → `main` / root). The QR code
+and share link use the page's own URL at runtime, so they work wherever it's hosted.
+
+### Vercel cache (`vercel.json`)
+
+| Path | Cache-Control | Why |
+|------|---------------|-----|
+| `/` · `/index.html` | `max-age=0, must-revalidate` | New deploys show up immediately |
+| `/assets/**` · `/fixtures/**` · `*.js` | `max-age=604800` (7 days) + SWR | Heavy sky textures / modules stay warm on return visits |
+
+Filenames are **not** content-hashed. After changing a sky JPEG/PNG in place, browsers may keep
+the old file for up to 7 days (or until a hard refresh). To force a bust, rename the file and
+update the path in `sky-maps.js` / `CFG.skyMaps`.
 
 ### Public sky API
 
