@@ -776,7 +776,7 @@ const CFG = {
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, venusMap:'atmosphere' },   // TEMPLE ORBS: milky shell + globe ON the focused sky body (globeAngularDeg = apparent size). Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, venusMap:'atmosphere', signArtEnabled:true, signArtAngularDeg:32, signArtRadiusPull:1.06 },   // TEMPLE ORBS: milky + planet globe + optional zodiac art plane behind sticks (signArtRadiusPull × stick R ≈ past sticks, before shell). Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1547,8 +1547,8 @@ function _skyTexImageReady(tex){
   const img=tex&&tex.image;
   return !!(img&&((typeof img.complete==='boolean'?img.complete:true)&&(img.naturalWidth==null||img.naturalWidth>0||img.width>0)));
 }
-function loadSkyTexture(url, onReady){
-  if(!url) return null;
+function loadSkyTexture(url, onReady, onError){
+  if(!url){ if(onError) try{ onError(); }catch(e){} return null; }
   const resolved=skyAssetUrl(url);
   const hit=_skyTexCache[resolved]||_skyTexCache[url];
   if(hit){
@@ -1571,9 +1571,10 @@ function loadSkyTexture(url, onReady){
         if(_skyTexCache[url]===tex) delete _skyTexCache[url];
         delete _skyTexWaiters[resolved];
         try{ console.warn('[temple-orbs] map failed, staying glyph-only:', resolved); }catch(e){}
+        if(onError) try{ onError(); }catch(e){}
       });
     _skyTexCache[resolved]=tex; _skyTexCache[url]=tex;
-  }catch(e){ try{ console.warn('[temple-orbs] texture loader threw:', resolved, e); }catch(_e){} return null; }
+  }catch(e){ try{ console.warn('[temple-orbs] texture loader threw:', resolved, e); }catch(_e){} if(onError) try{ onError(); }catch(_e2){} return null; }
   return tex;
 }
 const _skyMapOpts={ low:LOW, mobile:MOBILE };
@@ -1697,6 +1698,80 @@ function placeTempleGlobe(){
   globeRoot.lookAt(0,0,0);
   globeRoot.rotateY(Math.PI);
 }
+/* --- zodiac sign art: sky-anchored transparent plane BEHIND the stick figure (past sticks, before milky shell) --- */
+let signArtRoot=null, signArtMesh=null, signArtMat=null, _signArtId=null, _signArtReady=false;
+const _saLocal=new THREE.Vector3(), _saWorld=new THREE.Vector3();
+function ensureSignArtRig(){
+  if(signArtRoot || !SKY_MAPS) return signArtRoot;
+  // Parent under skySphere so art co-rotates with sticks/chart. renderOrder low so additive sticks draw over it.
+  signArtRoot=new THREE.Group(); signArtRoot.visible=false; signArtRoot.frustumCulled=false; signArtRoot.renderOrder=-5; skySphere.add(signArtRoot);
+  signArtMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, opacity:0.92, depthTest:true, depthWrite:false, color:0xffffff });
+  signArtMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1), signArtMat);
+  signArtMesh.frustumCulled=false; signArtMesh.renderOrder=-5; signArtMesh.visible=false; signArtRoot.add(signArtMesh);
+  return signArtRoot;
+}
+/** SkySphere-local anchor for a Midpoint sign (constellation centroid). */
+function templeSignAnchorLocal(signId){
+  const id=canonicalSkySign(signId);
+  if(!id) return null;
+  if(_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[id]&&_lsnMeta.signs[id].pos) return _lsnMeta.signs[id].pos;
+  if(_stickFig&&_stickFig.signs&&_stickFig.signs[id]&&_stickFig.signs[id].pos) return _stickFig.signs[id].pos;
+  if(_templeFocus&&_templeFocus.kind==='sign'&&_templeFocus.pick&&_templeFocus.pick.meta&&_templeFocus.pick.meta.pos
+     && canonicalSkySign(_templeFocus.pick.id)===id) return _templeFocus.pick.meta.pos;
+  return null;
+}
+function showTempleSignArt(signId){
+  if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.signArtEnabled===false){ hideTempleSignArt(); return; }
+  if(!templeActive){ hideTempleSignArt(); return; }
+  const id=canonicalSkySign(signId);
+  if(!id || !SKY_MAPS.hasSignMap(id)){ hideTempleSignArt(); return; }
+  if(!templeSignAnchorLocal(id)){ hideTempleSignArt(); return; }
+  ensureSignArtRig(); if(!signArtRoot||!signArtMat||!signArtMesh) return;
+  _signArtId=id; _signArtReady=false;
+  signArtRoot.visible=false; signArtMesh.visible=false;
+  if(signArtMat.map){ signArtMat.map=null; signArtMat.needsUpdate=true; }
+  const png=SKY_MAPS.mapForSignPng(id), jpg=SKY_MAPS.mapForSign(id);
+  const apply=t=>{
+    if(_signArtId!==id || !signArtMat) return;
+    // RGBA gold-on-transparent PNGs: keep transparency, no tint wash.
+    signArtMat.map=t; signArtMat.color.setHex(0xffffff); signArtMat.transparent=true;
+    signArtMat.opacity=0.95; signArtMat.depthWrite=false; signArtMat.needsUpdate=true;
+    _signArtReady=true; signArtRoot.visible=true; signArtMesh.visible=true;
+    placeTempleSignArt();
+  };
+  // Prefer .png (alpha cutouts); soft-fail to .jpg; both missing → stay sticks-only.
+  loadSkyTexture(png, apply, ()=>{
+    if(_signArtId!==id) return;
+    if(jpg) loadSkyTexture(jpg, apply, ()=>{ if(_signArtId===id) hideTempleSignArt(); });
+    else hideTempleSignArt();
+  });
+}
+function hideTempleSignArt(){
+  if(signArtRoot) signArtRoot.visible=false;
+  if(signArtMesh) signArtMesh.visible=false;
+  if(signArtMat){ signArtMat.map=null; signArtMat.needsUpdate=true; }
+  _signArtId=null; _signArtReady=false;
+}
+function placeTempleSignArt(){
+  if(!signArtRoot||!signArtRoot.visible||!_signArtId||!_signArtReady) return;
+  const local=templeSignAnchorLocal(_signArtId);
+  if(!local){ signArtRoot.visible=false; return; }
+  // BEHIND sticks: stick shell is R≈330; pull>1 sits past sticks, still inside milky shell (~400).
+  const R=(SKY_CHART.stick&&SKY_CHART.stick.R)||330;
+  const len=local.length()||R;
+  const pull=CFG.skyMaps.signArtRadiusPull!=null?CFG.skyMaps.signArtRadiusPull:1.06;
+  _saLocal.copy(local).multiplyScalar((R*pull)/len);
+  signArtRoot.position.copy(_saLocal);
+  _saWorld.copy(_saLocal).applyQuaternion(skySphere.quaternion);
+  const dist=Math.max(8, camera.position.distanceTo(_saWorld));
+  const angDeg=CFG.skyMaps.signArtAngularDeg!=null?CFG.skyMaps.signArtAngularDeg:32;
+  const side=Math.max(10, 2*dist*Math.tan(angDeg*Math.PI/360));
+  signArtRoot.scale.set(side, side, 1);
+  // Face the player at the sphere center (DoubleSide is belt-and-suspenders).
+  signArtRoot.quaternion.identity();
+  signArtRoot.lookAt(0,0,0);
+  signArtRoot.rotateY(Math.PI);
+}
 /* per-frame driver (called from updateSky): build/fade the shell, keep the globe on its sky pin + spinning */
 function updateTempleOrbs(dt){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
@@ -1719,6 +1794,11 @@ function updateTempleOrbs(dt){
     if(!reduceMotion && planetMesh) planetMesh.rotation.y += dt*(CFG.skyMaps.spinRadPerSec||0.08);
   }else if(globeRoot && !templeActive){
     globeRoot.visible=false;
+  }
+  if(signArtRoot && signArtRoot.visible && templeActive){
+    placeTempleSignArt();
+  }else if(signArtRoot && !templeActive){
+    signArtRoot.visible=false;
   }
 }
 const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)
@@ -2867,12 +2947,15 @@ function setSkyTempleFocus(focus){
     const fallback=glossaryListenData(pick)||{placement:{title:(b.glyph||'')+' '+(b.label||b.id)+' (natal)',text:'Natal placement — a fixed reference in your chart, used as a symbolic study lens.'},personal:{available:false}};
     fillTempleStudy(pick, fallback, false);
   } else { _templeStudySeq++; if(_templeUi.body) _templeUi.body.textContent=''; }
-  // TEMPLE ORBS: large globe for transit BODY (and aspect→transit body). Nodes/pluto map to null → glyph-only.
+  // TEMPLE ORBS: large globe for transit BODY (and aspect→transit body). Nodes map to null → glyph-only.
   let globeId=null;
   if(_templeFocus&&_templeFocus.kind==='body') globeId=(_templeFocus.pick&&_templeFocus.pick.id)!=null?_templeFocus.pick.id:(_templeFocus.body&&_templeFocus.body.id);
   else if(_templeFocus&&_templeFocus.kind==='aspect'&&_templeFocus.record&&_templeFocus.record.transit) globeId=_templeFocus.record.transit.id;
   else if(_templeFocus&&_templeFocus.kind==='natal'&&_templeFocus.body) globeId=_templeFocus.body.id;   // natal uses same body texture as a dim ghost later; for now show the shared map
   if(globeId!=null) showTempleGlobe(globeId); else hideTempleGlobe();
+  // Zodiac art plane behind sticks when focusing a SIGN (drop-in assets/sky/zodiac/{id}.jpg|.png — soft-fail if missing).
+  if(_templeFocus&&_templeFocus.kind==='sign'&&_templeFocus.pick) showTempleSignArt(_templeFocus.pick.id);
+  else hideTempleSignArt();
   updateSkyTempleVisuals();
 }
 function clearSkyTempleFocus(){ setSkyTempleFocus(null); }
@@ -2928,7 +3011,7 @@ function exitSkyTemple(options){
   if(options.forPause) snapshotTempleForResume();
   else if(!options.keepResume) clearTempleResume();
   templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null; _templeStudySeq++;
-  document.body.classList.remove('temple-active'); _templeGroup.visible=false; hideTempleGlobe();   // TEMPLE ORBS: drop the focus globe (exit nulls _templeFocus directly, bypassing setSkyTempleFocus)
+  document.body.classList.remove('temple-active'); _templeGroup.visible=false; hideTempleGlobe(); hideTempleSignArt();   // TEMPLE ORBS: drop globe + sign art (exit nulls _templeFocus directly, bypassing setSkyTempleFocus)
   if(_templeUi.panel){ _templeUi.panel.classList.remove('on'); _templeUi.panel.setAttribute('aria-hidden','true'); }
   if(_templeUi.body) _templeUi.body.textContent='';
   // Restore dojo floor immediately (opaque base + grids; updateSky will set day/night opacities next tick).

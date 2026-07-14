@@ -94,3 +94,22 @@ test("every referenced map exists on disk", () => {
     assert.ok(fs.existsSync(abs), `missing asset: ${rel}`);
   }
 });
+
+// Zodiac art paths are conventional drop-ins (optional on disk — not required assets).
+test("mapForSign covers all 13 Midpoint signs under assets/sky/zodiac/", () => {
+  assert.equal(maps.SIGN_IDS.length, 13);
+  assert.ok(maps.SIGN_IDS.includes("ophiuchus"));
+  for (const id of maps.SIGN_IDS) {
+    assert.equal(maps.mapForSign(id), `assets/sky/zodiac/${id}.jpg`);
+    assert.equal(maps.mapForSignPng(id), `assets/sky/zodiac/${id}.png`);
+    assert.equal(maps.hasSignMap(id), true);
+  }
+  assert.equal(maps.mapForSign("scorpius"), "assets/sky/zodiac/scorpio.jpg", "scorpius alias");
+  assert.equal(maps.mapForSign("capricornus"), "assets/sky/zodiac/capricorn.jpg", "capricornus alias");
+  assert.equal(maps.mapForSign("not-a-sign"), null);
+  // Optional drop-ins: allSignMapPaths must NOT force the required-asset disk check.
+  const required = new Set(maps.allAssetPaths());
+  for (const p of maps.allSignMapPaths()) {
+    assert.ok(!required.has(p), `zodiac path ${p} must stay optional`);
+  }
+});

@@ -50,9 +50,28 @@
   // Bodies deliberately without a map -> glyph + HUD only (never a globe).
   var NO_MAP = Object.freeze({ north_node: true, south_node: true });
 
+  // Midpoint 13-sign ids (incl. Ophiuchus). Art is optional drop-in under assets/sky/zodiac/{id}.jpg|.png
+  // Prefer square or landscape illustration; rendered on a sky-anchored plane BEHIND the stick figure.
+  var SIGN_IDS = Object.freeze([
+    "aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra",
+    "scorpio", "ophiuchus", "sagittarius", "capricorn", "aquarius", "pisces",
+  ]);
+  var ZODIAC_BASE = BASE + "zodiac/";
+  var SIGN_MAPS = Object.freeze(SIGN_IDS.reduce(function (acc, id) {
+    acc[id] = ZODIAC_BASE + id + ".jpg";
+    return acc;
+  }, Object.create(null)));
+  // Optional PNG override path (checked second at runtime by the loader host if desired).
+  var SIGN_MAPS_PNG = Object.freeze(SIGN_IDS.reduce(function (acc, id) {
+    acc[id] = ZODIAC_BASE + id + ".png";
+    return acc;
+  }, Object.create(null)));
+
   function canonicalId(value) {
     if (typeof value !== "string") return null;
     var token = value.trim().toLowerCase();
+    if (token === "scorpius") token = "scorpio";
+    if (token === "capricornus") token = "capricorn";
     return token || null;
   }
 
@@ -71,6 +90,21 @@
 
   function hasMap(bodyId) {
     return mapForBody(bodyId) !== null;
+  }
+
+  // Conventional path for a sign's art (jpg). Missing file → loader fails soft; no throw.
+  function mapForSign(signId) {
+    var id = canonicalId(signId);
+    return id && Object.prototype.hasOwnProperty.call(SIGN_MAPS, id) ? SIGN_MAPS[id] : null;
+  }
+
+  function mapForSignPng(signId) {
+    var id = canonicalId(signId);
+    return id && Object.prototype.hasOwnProperty.call(SIGN_MAPS_PNG, id) ? SIGN_MAPS_PNG[id] : null;
+  }
+
+  function hasSignMap(signId) {
+    return mapForSign(signId) !== null;
   }
 
   function ringForBody(bodyId) {
@@ -97,8 +131,7 @@
     return { widthSegments: pair[0], heightSegments: pair[1] };
   }
 
-  // Every distinct asset path the code can reference, for on-disk existence tests so the
-  // table and the shipped files can never drift.
+  // Shipped required assets (planets + milky + rings). Zodiac art is optional drop-in — not required on disk.
   function allAssetPaths() {
     var seen = Object.create(null);
     var out = [];
@@ -110,6 +143,16 @@
     return out;
   }
 
+  // Conventional zodiac art paths (may not exist until the artist drops files in).
+  function allSignMapPaths() {
+    var out = [];
+    SIGN_IDS.forEach(function (id) {
+      out.push(SIGN_MAPS[id]);
+      out.push(SIGN_MAPS_PNG[id]);
+    });
+    return out;
+  }
+
   return Object.freeze({
     BASE: BASE,
     PLANET_MAPS: PLANET_MAPS,
@@ -117,11 +160,19 @@
     MILKY_PATH: MILKY_PATH,
     RING: RING,
     NO_MAP: NO_MAP,
+    SIGN_IDS: SIGN_IDS,
+    ZODIAC_BASE: ZODIAC_BASE,
+    SIGN_MAPS: SIGN_MAPS,
+    SIGN_MAPS_PNG: SIGN_MAPS_PNG,
     SEGMENTS: SEGMENTS,
     mapForBody: mapForBody,
     hasMap: hasMap,
+    mapForSign: mapForSign,
+    mapForSignPng: mapForSignPng,
+    hasSignMap: hasSignMap,
     ringForBody: ringForBody,
     segmentsFor: segmentsFor,
     allAssetPaths: allAssetPaths,
+    allSignMapPaths: allSignMapPaths,
   });
 });

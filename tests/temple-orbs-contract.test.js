@@ -37,6 +37,9 @@ test("CFG.skyMaps is a flat literal with the spec keys", () => {
     /spinRadPerSec\s*:\s*[0-9.]+/,
     /saturnRings\s*:\s*true/,
     /venusMap\s*:\s*['"]atmosphere['"]/, // §9.5
+    /signArtEnabled\s*:\s*true/,
+    /signArtAngularDeg\s*:\s*[0-9.]+/,
+    /signArtRadiusPull\s*:\s*[0-9.]+/,
   ]) assert.match(cfg[0], contract);
 });
 
@@ -86,10 +89,34 @@ test("globe shows only on transit-body focus; other focuses hide it", () => {
   indexBefore(src, /kind\s*===\s*['"]body['"]/, /showTempleGlobe\(/, "body kind guards the globe show");
 });
 
+// Zodiac art: sign focus shows a sky-anchored plane behind sticks; body/other hide it.
+test("sign art plane shows on sign focus and is sky-anchored behind sticks", () => {
+  const focus = namedFunction("setSkyTempleFocus");
+  assert.match(focus, /showTempleSignArt\(/);
+  assert.match(focus, /hideTempleSignArt\(\)/);
+  indexBefore(focus, /kind\s*===\s*['"]sign['"]/, /showTempleSignArt\(/, "sign kind guards the art show");
+
+  const ensure = namedFunction("ensureSignArtRig");
+  assert.match(ensure, /new THREE\.PlaneGeometry/);
+  assert.match(ensure, /skySphere\.add\(signArtRoot\)/);
+  assert.ok(!/_templeGroup\.add\(signArtRoot\)/.test(ensure), "sign art must not be a _templeGroup child");
+
+  const place = namedFunction("placeTempleSignArt");
+  assert.match(place, /templeSignAnchorLocal/);
+  assert.match(place, /signArtRadiusPull|stick\.R/);
+  assert.doesNotMatch(place, /camera\.quaternion/, "must not track the aim reticle");
+
+  const show = namedFunction("showTempleSignArt");
+  assert.match(show, /mapForSign/);
+  assert.match(show, /mapForSignPng/);
+  indexBefore(show, /mapForSignPng/, /mapForSign\(/, "prefer alpha PNG before JPEG fallback");
+});
+
 // SPEC §9.7 — exit temple hides the globe (exit bypasses setSkyTempleFocus).
 test("exitSkyTemple hides the focus globe", () => {
   const src = namedFunction("exitSkyTemple");
   assert.match(src, /hideTempleGlobe\(\)/);
+  assert.match(src, /hideTempleSignArt\(\)/, "exit also drops zodiac sign art");
 });
 
 // SPEC §9.8 — missing texture degrades to glyph-only without throwing.
