@@ -39,7 +39,8 @@ test("CFG.skyMaps is a flat literal with the spec keys", () => {
     /venusMap\s*:\s*['"]atmosphere['"]/, // §9.5
     /signArtEnabled\s*:\s*true/,
     /signArtAngularDeg\s*:\s*[0-9.]+/,
-    /signArtRadiusPull\s*:\s*[0-9.]+/,
+    /signArtShellFrac\s*:\s*[0-9.]+/,
+    /signArtOpacity\s*:\s*[0-9.]+/,
   ]) assert.match(cfg[0], contract);
 });
 
@@ -99,11 +100,12 @@ test("sign art plane shows on sign focus and is sky-anchored behind sticks", () 
   const ensure = namedFunction("ensureSignArtRig");
   assert.match(ensure, /new THREE\.PlaneGeometry/);
   assert.match(ensure, /skySphere\.add\(signArtRoot\)/);
+  assert.match(ensure, /AdditiveBlending/, "art glows into the milky shell, not as an opaque sticker");
   assert.ok(!/_templeGroup\.add\(signArtRoot\)/.test(ensure), "sign art must not be a _templeGroup child");
 
   const place = namedFunction("placeTempleSignArt");
   assert.match(place, /templeSignAnchorLocal/);
-  assert.match(place, /signArtRadiusPull|stick\.R/);
+  assert.match(place, /signArtShellFrac|shellRadius/);
   assert.doesNotMatch(place, /camera\.quaternion/, "must not track the aim reticle");
 
   const show = namedFunction("showTempleSignArt");
