@@ -36,6 +36,9 @@ test("CFG.skyMaps is a flat literal with the spec keys", () => {
     /globeAngularDeg\s*:\s*[0-9.]+/,
     /spinRadPerSec\s*:\s*[0-9.]+/,
     /saturnRings\s*:\s*true/,
+    /uranusRings\s*:\s*true/,
+    /globeContrast\s*:\s*[0-9.]+/,
+    /globeGamma\s*:\s*[0-9.]+/,
     /venusMap\s*:\s*['"]atmosphere['"]/, // §9.5
     /signArtEnabled\s*:\s*true/,
     /signArtAngularDeg\s*:\s*[0-9.]+/,
@@ -73,13 +76,17 @@ test("planet globe is a FrontSide sphere parented under skySphere (sky-anchored,
   assert.doesNotMatch(place, /camera\.quaternion/, "must not track the aim reticle");
 });
 
-// SPEC §9.4 — Saturn rings via RingGeometry + alpha map.
-test("Saturn rings use RingGeometry + the alpha map", () => {
-  assert.match(html, /new THREE\.RingGeometry/);
+// SPEC §9.4 — rings via RingGeometry + alpha map (Saturn + sideways Uranus).
+test("planet rings use RingGeometry + alpha maps; Uranus is tilted on its side", () => {
+  assert.match(html, /RingGeometry|buildRingGeometry/);
   const src = namedFunction("showTempleGlobe");
-  assert.match(src, /saturn/);
-  assert.match(src, /RING\.map/);
-  assert.match(src, /alphaMap/);
+  assert.match(src, /ringForBody/);
+  assert.match(src, /applyTempleRing|alphaMap/);
+  assert.match(src, /enhancePlanetTexture/, "globe maps get a contrast/gamma pass");
+  const apply = namedFunction("applyTempleRing");
+  assert.match(apply, /alphaMap/);
+  // Uranus axial tilt ~90° lives in sky-maps RINGS.uranus; globe applies ring.tiltX.
+  assert.match(src, /tiltX/);
 });
 
 // SPEC §5 / §9.6 — temple-only globe gate: body focus shows, everything else hides.

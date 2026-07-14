@@ -54,10 +54,14 @@ test("unsupported or invalid bodies return null without throwing", () => {
   }
 });
 
-// SPEC §9.4 — Saturn is the only ringed body.
-test("Saturn ring alpha map is the only ring", () => {
+// SPEC §9.4 — Saturn rings; Uranus also ships a faint sideways ring set.
+test("Saturn and Uranus have ring maps; other bodies do not", () => {
   assert.equal(maps.RING.map, "assets/sky/2k_saturn_ring_alpha.png");
   assert.ok(maps.ringForBody("saturn"), "saturn has a ring");
+  const u = maps.ringForBody("uranus");
+  assert.ok(u, "uranus has a ring");
+  assert.equal(u.map, "assets/sky/2k_uranus_ring_alpha.png");
+  assert.ok(u.tiltX > 1.2, "uranus axis is roughly on its side (~90°)");
   assert.equal(maps.ringForBody("mars"), null);
   assert.equal(maps.ringForBody("jupiter"), null);
   assert.ok(maps.RING.outerScale > maps.RING.innerScale, "ring outer > inner");

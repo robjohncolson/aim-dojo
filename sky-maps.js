@@ -38,14 +38,37 @@
   // upstream asset label; the shipped file is ~1.9 MB — safe to load on every tier.
   var MILKY_PATH = BASE + "8k_stars_milky_way.jpg";
 
-  // Saturn rings: an alpha strip sampled across the ring width. innerScale/outerScale are
-  // multiples of the globe radius.
-  var RING = Object.freeze({
-    body: "saturn",
-    map: BASE + "2k_saturn_ring_alpha.png",
-    innerScale: 1.25,
-    outerScale: 2.35,
+  // Rings: alpha strip sampled across the ring width. innerScale/outerScale are multiples of
+  // the globe radius. tiltX/tiltY/tiltZ tip the whole globe+rings (Uranus ~90° axial tilt).
+  var RINGS = Object.freeze({
+    saturn: Object.freeze({
+      body: "saturn",
+      map: BASE + "2k_saturn_ring_alpha.png",
+      innerScale: 1.25,
+      outerScale: 2.35,
+      // Slight tip for depth; rings stay roughly equatorial.
+      tiltX: 0.35,
+      tiltY: 0,
+      tiltZ: 0.25,
+      color: 0xe8dcc8,
+      opacity: 1,
+    }),
+    // Uranus: spin axis nearly on its side (~98°); rings are equatorial to that axis → orthogonal
+    // to a "normal" (Saturn-like) ring view. Faint icy alpha strip — no public photo needed.
+    uranus: Object.freeze({
+      body: "uranus",
+      map: BASE + "2k_uranus_ring_alpha.png",
+      innerScale: 1.45,
+      outerScale: 2.05,
+      tiltX: 1.62,   // ~93° — pole nearly horizontal
+      tiltY: 0.12,
+      tiltZ: 0.35,
+      color: 0xb8dce8,
+      opacity: 0.85,
+    }),
   });
+  // Back-compat alias (Saturn only) for older call sites / docs.
+  var RING = RINGS.saturn;
 
   // Bodies deliberately without a map -> glyph + HUD only (never a globe).
   var NO_MAP = Object.freeze({ north_node: true, south_node: true });
@@ -108,7 +131,8 @@
   }
 
   function ringForBody(bodyId) {
-    return canonicalId(bodyId) === RING.body ? RING : null;
+    var id = canonicalId(bodyId);
+    return id && Object.prototype.hasOwnProperty.call(RINGS, id) ? RINGS[id] : null;
   }
 
   // Segment counts per quality tier for the sky shell and the planet globe (SPEC §7).
@@ -137,7 +161,7 @@
     var out = [];
     function add(p) { if (p && !seen[p]) { seen[p] = true; out.push(p); } }
     add(MILKY_PATH);
-    add(RING.map);
+    Object.keys(RINGS).forEach(function (k) { add(RINGS[k].map); });
     Object.keys(PLANET_MAPS).forEach(function (k) { add(PLANET_MAPS[k]); });
     Object.keys(VENUS_MAPS).forEach(function (k) { add(VENUS_MAPS[k]); });
     return out;
@@ -159,6 +183,7 @@
     VENUS_MAPS: VENUS_MAPS,
     MILKY_PATH: MILKY_PATH,
     RING: RING,
+    RINGS: RINGS,
     NO_MAP: NO_MAP,
     SIGN_IDS: SIGN_IDS,
     ZODIAC_BASE: ZODIAC_BASE,
