@@ -127,7 +127,7 @@ test("natural right-click dismisses Listen but cannot mutate the sky freeze", ()
   const mutationIndex = freeze[0].indexOf("skyFrozen=!skyFrozen");
   assert.ok(dismissIndex >= 0 && naturalIndex > dismissIndex && mutationIndex > naturalIndex);
   assert.match(freeze[0], /if\(SKY_MODE!=='decorative' && SKY_TIME==='natural'\)[\s\S]*?return;/);
-  assert.match(html, /id="freezeDesc">dismiss sky notes · NATURAL stays live</);
+  assert.match(html, /id="freezeDesc">dismiss sky note/);
   assert.doesNotMatch(html, /R-CLICK freezes the sky/);
 });
 

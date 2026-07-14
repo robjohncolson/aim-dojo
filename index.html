@@ -22,6 +22,9 @@
   --void:#0b0d0c; --gunmetal:#161b19; --panel:#1d2421; --panel-edge:#2c3631;
   --steel:#41504a; --toxic:#74e84a; --plasma:#ff8a2b; --rail:#43d9ff; --blood:#ff4242;
   --bone:#d8e0d4; --bone-dim:#8c968f;
+  /* Menu / popup chrome only (start, pause, temple panel) — combat HUD keeps the tokens above */
+  --menu-panel:rgba(14,16,28,.92); --menu-panel-edge:rgba(92,180,220,.35);
+  --menu-glass:rgba(12,14,26,.78); --menu-gold:#e8c56a; --menu-sand:#d4b8a8;
   --mono:'Share Tech Mono',ui-monospace,'SF Mono',Menlo,Consolas,'Hiragino Kaku Gothic ProN','Yu Gothic Medium',Meiryo,'Noto Sans JP',monospace;
 }
 *{box-sizing:border-box}
@@ -146,24 +149,29 @@ html[lang=ja] #windHud .wh-mag::before{content:'風 '}
 #overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:max(12px,env(safe-area-inset-top,0px)) 12px max(18px,env(safe-area-inset-bottom,0px));background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
 #overlay.hidden{display:none}
 html.i18n-pending #overlay,html.i18n-pending #shareOverlay,html.i18n-pending #transitEssayReader,html.i18n-pending #speedBox{visibility:hidden}   /* body parsing can yield before the post-card locale/touch swap; never paint the wrong card/HUD for one frame */
-.card{width:min(560px,92vw);flex:0 0 auto;margin-top:auto;margin-bottom:auto;max-height:none;overflow:visible;border:1px solid var(--panel-edge);background:linear-gradient(180deg,var(--panel),var(--gunmetal));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
-.eyebrow{font-size:11px;letter-spacing:.34em;color:var(--toxic);margin:0 0 6px}
+.card{width:min(560px,92vw);flex:0 0 auto;margin-top:auto;margin-bottom:auto;max-height:none;overflow:visible;border:1px solid var(--menu-panel-edge);background:linear-gradient(165deg,rgba(22,26,42,.96),rgba(12,14,24,.98));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(140,200,255,.06)}
+.eyebrow{font-size:11px;letter-spacing:.34em;color:var(--rail);margin:0 0 6px}
 h1{font-size:40px;letter-spacing:.04em;margin:0 0 4px;line-height:.96}
-h1 .acc{color:var(--plasma)}
+h1 .acc{color:var(--menu-sand)}
 .lede{color:var(--bone-dim);font-size:13.5px;line-height:1.55;margin:0 0 14px}
 .lede b{color:var(--bone)}
 .phones{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--rail);border:1px solid rgba(67,217,255,.3);background:rgba(67,217,255,.06);padding:9px 12px;margin:0 0 18px}
-html.seen .keys,html.seen .phones{display:none}   /* key legend + headphones note are first-visit only (html.seen stamped by the inline head script) */
-#ovLede .lede-return{display:none}
-html.seen #ovLede .lede-first{display:none}
-html.seen #ovLede .lede-return{display:inline}
-.keys{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 20px;font-size:12px;color:var(--bone-dim)}
-.keys b{color:var(--bone);background:#0d110f;border:1px solid var(--panel-edge);padding:2px 7px;margin-right:6px}
-.primary{pointer-events:auto;width:100%;padding:14px;border:1px solid var(--toxic);background:rgba(116,232,74,.10);color:var(--toxic);font-family:var(--mono);font-size:15px;letter-spacing:.18em;cursor:pointer;transition:background .15s}
-.primary:hover{background:rgba(116,232,74,.20)}
+/* Headphones note is first-visit only. Full key list stays — return visits still need explicit controls. */
+html.seen .phones{display:none}
+#ovLede .lede-return{display:none}   /* keep the full story; short return line is unused */
+.keys{display:flex;flex-direction:column;gap:7px;margin:0 0 18px;font-size:12px;color:var(--bone-dim);text-align:left}
+.keys span{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 8px;line-height:1.4}
+.keys b{color:var(--bone);background:rgba(8,10,18,.9);border:1px solid var(--menu-panel-edge);padding:2px 7px;margin-right:0;flex:0 0 auto;letter-spacing:.06em;font-weight:600}
+#pauseKeys{display:none;flex-direction:column;gap:6px;margin:0 0 14px;padding:10px 11px;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.55);font-size:11px;color:var(--bone-dim);text-align:left;line-height:1.45}
+body.overlay-paused #pauseKeys{display:flex}
+#pauseKeys b{color:var(--bone);letter-spacing:.05em}
+.primary{pointer-events:auto;width:100%;padding:14px;border:1px solid rgba(212,184,168,.55);background:rgba(212,184,168,.12);color:var(--menu-sand);font-family:var(--mono);font-size:15px;letter-spacing:.18em;cursor:pointer;transition:background .15s,border-color .15s}
+.primary:hover{background:rgba(212,184,168,.22);border-color:var(--menu-sand)}
 .primary:focus-visible,.ghost:focus-visible,#muteBtn:focus-visible,.primary:focus,.ghost:focus{outline:2px solid var(--rail);outline-offset:2px}
 #modePick{margin:0 0 4px}
 .mode-q{font-size:12px;letter-spacing:.16em;color:var(--bone-dim);text-align:center;margin:0 0 12px}
+body.overlay-paused .lede-first,body.overlay-paused .phones,body.overlay-paused #keysRow{display:none!important}
+body.overlay-paused #ovLede{margin-bottom:10px}
 /* Cold-load: buttons start disabled in HTML so they can't look clickable before listeners/Tone attach (throttled CDN was losing clicks for 4s+) */
 #modePick button:disabled{opacity:.45;cursor:wait;pointer-events:none}
 #trainCoach{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.12em;color:var(--rail);text-shadow:0 0 10px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.9);opacity:0;text-align:center;max-width:min(520px,92vw);line-height:1.45;transition:opacity .25s}
@@ -172,7 +180,8 @@ html.seen #ovLede .lede-return{display:inline}
 /* Sky Temple investigation HUD — full Listen-style study copy lives here (not the retired dojo chip).
    IMPORTANT: do NOT use flex:1 + min-height:0 on the body while the panel is height:auto — that collapses
    the descriptive block to 0px so only the bare title/meta (glyph · lon) appear. */
-#skyTemplePanel{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:11;width:min(400px,42vw);max-width:calc(100vw - 36px);max-height:min(78vh,720px);padding:14px 16px;border:1px solid rgba(255,210,74,.52);background:rgba(8,12,12,.92);box-shadow:0 18px 55px rgba(0,0,0,.58),inset 0 0 28px rgba(255,210,74,.035);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone);overflow:auto}
+/* Temple study panel — gold-led glass (menus only; in-world combat colors unchanged) */
+#skyTemplePanel{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:11;width:min(320px,38vw);max-width:calc(100vw - 28px);max-height:min(78vh,720px);padding:14px 15px;border:1px solid rgba(232,197,106,.42);background:rgba(10,12,22,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 18px 50px rgba(0,0,0,.5),inset 0 0 24px rgba(232,197,106,.04);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s;color:var(--bone);overflow:auto}
 #skyTemplePanel.on{opacity:1;visibility:visible}
 /* Free-mouse / chat: unlock pointer so the study body can scroll and ASK/SEND are clickable under the aim lock. */
 body.temple-free-mouse #skyTemplePanel,
@@ -184,24 +193,24 @@ body.temple-chat-open .sky-temple-body{pointer-events:auto;overscroll-behavior:c
 #skyTemplePanel.on .sky-temple-chat{pointer-events:auto}
 body.temple-free-mouse #reticle{opacity:.28}
 body.temple-free-mouse canvas{cursor:default}
-.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:#ffd24a;margin-bottom:6px}
+.sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:var(--menu-gold);margin-bottom:6px}
 /* Controls first — always visible when the chip opens (before study text loads). */
-.sky-temple-controls{margin:0 0 10px;padding:8px 9px;border:1px solid rgba(255,210,74,.28);background:rgba(255,210,74,.05);font:9.5px/1.45 var(--mono);letter-spacing:.04em;color:var(--bone-dim)}
-.sky-temple-controls b{color:#ffd24a;font-weight:600;letter-spacing:.08em}
-.sky-temple-hint{margin:0 0 4px;padding:0;border:0;color:var(--bone);font:10px/1.4 var(--mono);letter-spacing:.05em}
-.sky-temple-guide{margin:0;opacity:.88}
+.sky-temple-controls{margin:0 0 10px;padding:8px 9px;border:1px solid rgba(232,197,106,.32);background:rgba(232,197,106,.06);font:9.5px/1.45 var(--mono);letter-spacing:.04em;color:var(--bone-dim)}
+.sky-temple-controls b{color:var(--menu-gold);font-weight:600;letter-spacing:.08em}
+.sky-temple-hint{margin:0 0 4px;padding:0;border:0;color:var(--bone);font:10px/1.45 var(--mono);letter-spacing:.04em}
+.sky-temple-guide{margin:0;opacity:.9;line-height:1.45}
 .sky-temple-title{font:17px/1.3 var(--mono);color:var(--bone);letter-spacing:.035em}
 .sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line}
 .sky-temple-body{font:10.5px/1.45 var(--mono);letter-spacing:.03em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);max-height:min(52vh,480px);overflow:auto;white-space:normal;pointer-events:none}
 .sky-temple-body:empty{display:none}
 .sky-temple-chat{margin-top:10px;padding-top:9px;border-top:1px solid rgba(140,150,143,.22);font-family:var(--mono)}
 .sky-temple-chat[hidden],.sky-temple-chat-dialog[hidden]{display:none!important}
-.sky-temple-chat-open{display:flex;width:100%;align-items:center;justify-content:center;padding:8px 10px;border:1px solid rgba(255,210,74,.52);background:rgba(255,210,74,.07);color:#ffd24a;font:10px var(--mono);letter-spacing:.15em;cursor:pointer}
+.sky-temple-chat-open{display:flex;width:100%;align-items:center;justify-content:center;padding:8px 10px;border:1px solid rgba(232,197,106,.5);background:rgba(232,197,106,.08);color:var(--menu-gold);font:10px var(--mono);letter-spacing:.15em;cursor:pointer}
 .sky-temple-chat-open:hover,.sky-temple-chat-open:focus-visible,.sky-temple-chat-send:hover,.sky-temple-chat-send:focus-visible{border-color:var(--rail);outline:none;color:var(--rail)}
 .sky-temple-chat-open:disabled,.sky-temple-chat-open.is-locked{opacity:.55;cursor:not-allowed;border-color:rgba(140,150,143,.45);color:var(--bone-dim);background:rgba(255,255,255,.03)}
 .sky-temple-chat-turns{display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto;padding-right:3px;scrollbar-width:thin}
 .sky-temple-chat-turn{padding:6px 8px;border-left:2px solid rgba(140,150,143,.38);background:rgba(255,255,255,.025);font:10.5px/1.45 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
-.sky-temple-chat-turn.user{border-left-color:#ffd24a;color:var(--bone)}
+.sky-temple-chat-turn.user{border-left-color:var(--menu-gold);color:var(--bone)}
 .sky-temple-chat-turn.assistant{border-left-color:var(--rail);color:var(--bone-dim)}
 .sky-temple-chat-turn.pending{opacity:.72;font-style:italic}
 .sky-temple-chat-status{min-height:14px;margin:6px 0 4px;color:var(--bone-dim);font:9.5px/1.4 var(--mono);letter-spacing:.04em}
@@ -209,7 +218,7 @@ body.temple-free-mouse canvas{cursor:default}
 .sky-temple-chat-input{min-width:0;resize:vertical;max-height:110px;padding:7px 8px;border:1px solid rgba(140,150,143,.4);background:#0d110f;color:var(--bone);font:11px/1.4 var(--mono)}
 .sky-temple-chat-input:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
 .sky-temple-chat-input:disabled{opacity:.52}
-.sky-temple-chat-send{padding:7px 10px;border:1px solid rgba(255,210,74,.52);background:rgba(255,210,74,.07);color:#ffd24a;font:10px var(--mono);letter-spacing:.1em;cursor:pointer}
+.sky-temple-chat-send{padding:7px 10px;border:1px solid rgba(232,197,106,.5);background:rgba(232,197,106,.08);color:var(--menu-gold);font:10px var(--mono);letter-spacing:.1em;cursor:pointer}
 .sky-temple-chat-send:disabled{opacity:.42;cursor:not-allowed}
 .sky-temple-chat-epistemic{margin-top:6px;color:var(--bone-dim);opacity:.68;font:9px/1.4 var(--mono)}
 body.temple-chat-open .sky-temple-body{max-height:min(28vh,260px)}
@@ -230,11 +239,12 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 .ghost{flex:1;pointer-events:auto;padding:12px;border:1px solid var(--panel-edge);background:transparent;color:var(--bone-dim);font-family:var(--mono);font-size:12px;letter-spacing:.16em;cursor:pointer;transition:.15s}
 .ghost:hover{color:var(--bone);border-color:var(--steel)}
 
-#pauseStats{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
-.chip{flex:1;min-width:120px;border:1px solid var(--panel-edge);background:#0d110f;padding:10px 12px}
+#pauseStats{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 12px}
+body.overlay-paused #pauseStats{order:0}
+.chip{flex:1;min-width:120px;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.65);padding:10px 12px}
 .chip .ck{font-size:10px;letter-spacing:.16em;color:var(--bone-dim)}
 .chip .cv{font-size:22px;color:var(--bone);margin-top:3px}
-.chip .cv.green{color:var(--toxic)}.chip .cv.amber{color:var(--plasma)}
+.chip .cv.green{color:var(--rail)}.chip .cv.amber{color:var(--menu-sand)}
 .boardbox{margin:2px 0 16px;border:1px solid var(--panel-edge);background:#0d110f;padding:9px 11px}
 #nameInput{background:#0d110f;border:1px solid var(--panel-edge);color:var(--rail);font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:3px 7px;width:128px;text-align:right}
 #nameInput:focus{outline:1px solid var(--rail);outline-offset:1px}
@@ -285,14 +295,16 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 #settingsBox{max-width:400px!important;margin-top:8px!important;width:100%}
 #settingsBox .set-row{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0}
 #settingsBox .set-row>span:first-child{letter-spacing:.12em;flex:0 0 auto}
-#settingsBox details.settings-group{margin:6px 0 0;border:1px solid var(--panel-edge);background:#0d110f;text-align:left}
+#settingsBox details.settings-group{margin:6px 0 0;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.75);text-align:left}
 #settingsBox details.settings-group>summary{list-style:none;cursor:pointer;pointer-events:auto;padding:9px 11px;color:var(--bone);font-size:10.5px;letter-spacing:.14em;user-select:none}
 #settingsBox details.settings-group>summary::-webkit-details-marker{display:none}
 #settingsBox details.settings-group>summary::after{content:'▸';float:right;color:var(--bone-dim);transition:transform .12s}
 #settingsBox details.settings-group[open]>summary::after{transform:rotate(90deg)}
 #settingsBox details.settings-group>summary:hover{color:var(--rail)}
-#settingsBox .settings-group-body{padding:2px 11px 10px;border-top:1px solid var(--panel-edge);overflow:visible}
+#settingsBox .settings-group-body{padding:2px 11px 10px;border-top:1px solid var(--menu-panel-edge);overflow:visible}
 #settingsBox .settings-group-body .set-row:first-child{margin-top:8px}
+#chartTempleHint{margin:8px 0 4px;padding:8px 9px;border:1px solid rgba(232,197,106,.28);background:rgba(232,197,106,.06);color:var(--bone-dim);font-size:10.5px;line-height:1.45;letter-spacing:.02em}
+#chartTempleHint[hidden]{display:none}
 /* Nested SAVE MY SKY + chart tools must expand the group, not trap a second clipped scrollbar */
 #settingsBox .sky-save,#settingsBox .sky-note,#settingsBox .sky-brief{overflow:visible}
 #settingsBox .sky-brief-preview{max-height:min(12rem,28vh)}
@@ -410,8 +422,8 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
 <aside id="skyTemplePanel" role="status" aria-live="polite" aria-hidden="true">
   <div class="sky-temple-kicker" id="skyTempleKicker">SKY TEMPLE</div>
   <div class="sky-temple-controls" id="skyTempleControls">
-    <div class="sky-temple-hint" id="skyTempleHint">SHIFT+E free mouse · T ask · FIRE investigate · E leave · ESC pause</div>
-    <div class="sky-temple-guide" id="skyTempleGuide">Aim lock blocks HUD clicks — free the mouse (Shift+E) to scroll this chip, or press T to ask (frees mouse + opens ask).</div>
+    <div class="sky-temple-hint" id="skyTempleHint">FIRE investigate · SHIFT+E free mouse (view locked) · T ask · E leave · ESC pause</div>
+    <div class="sky-temple-guide" id="skyTempleGuide">SHIFT+E frees the mouse for this panel; the view stays put. T opens ask (needs a saved chart). Scroll for full text.</div>
   </div>
   <div class="sky-temple-title" id="skyTempleTitle"></div>
   <div class="sky-temple-meta" id="skyTempleMeta"></div>
@@ -443,11 +455,22 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
     <div class="phones" id="phonesNote"><span aria-hidden="true">🎧</span><span id="phonesText">Headphones help — the World Drum lives in your ears. Sound on.</span></div>
 
     <div class="keys" id="keysRow">
-      <span><b>MOUSE</b><span id="mouseDesc">turn &amp; aim</span></span>
-      <span><b>WASD</b><span id="wasdDesc">STEP on the shown letter when the floor flashes — steadies the Moonline</span></span>
-      <span><b>L-CLICK</b><span id="clickDesc">SEND through the gap — land it while the Echo glows</span></span>
-      <span><b>R-CLICK</b><span id="freezeDesc">dismiss sky notes · NATURAL stays live</span></span>
-      <span><b>ESC</b><span id="escDesc">pause</span></span>
+      <span><b>MOUSE</b><span id="mouseDesc">look / aim</span></span>
+      <span><b>WASD</b><span id="wasdDesc">when the floor flashes, press the shown letter</span></span>
+      <span><b>L-CLICK</b><span id="clickDesc">fire — land while the Echo glows</span></span>
+      <span><b>R-CLICK</b><span id="freezeDesc">dismiss sky note (dojo)</span></span>
+      <span><b>ESC</b><span id="escDesc">pause / resume</span></span>
+      <span><b>HOLD E + FIRE</b><span id="selectDesc">select sky object · enter Sky Temple</span></span>
+      <span><b>E</b><span id="templeEDesc">in temple: leave temple</span></span>
+      <span><b>SHIFT+E</b><span id="templeFreeDesc">in temple: free mouse (view stays put) · use HUD</span></span>
+      <span><b>T</b><span id="templeTDesc">in temple: ask the sky (needs saved chart)</span></span>
+    </div>
+    <div id="pauseKeys" aria-label="Controls">
+      <span><b>ESC</b> resume</span>
+      <span><b>HOLD E + FIRE</b> select sky · enter temple</span>
+      <span><b>E</b> leave temple</span>
+      <span><b>SHIFT+E</b> free mouse · view locked · HUD</span>
+      <span><b>T</b> ask (saved chart)</span>
     </div>
 
     <div id="pauseStats" style="display:none"></div>
@@ -484,6 +507,7 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
       <details class="settings-group" id="chartSettingsDetails">
         <summary id="chartSettingsSummary">MY CHART</summary>
         <div class="settings-group-body">
+          <p id="chartTempleHint" hidden>Sign in and save a birth chart here to use Ask (T) in Sky Temple.</p>
           <details id="saveSkyDetails" class="sky-save">
             <summary><span id="saveSkyTitle">SAVE MY SKY</span></summary>
             <p class="sky-save-help" id="saveSkyHelp">Optional · play works without it. Email a private sky link, then open it in this browser to save one chart.</p>
@@ -592,8 +616,9 @@ window.JA={
   ledeReturn:'床が光ったら踏む。送る。光る時に届ける。',
   ledeMobileHtml:'虹のリンクを早めに送って、こだまが光るあいだに届けよう。れんしゅうは近くのこだまから。',
   phones:'ヘッドホンがおすすめ。世界の太鼓は耳の中に。音を出してね。',
-  mouseDesc:'まわして ねらう', wasdDesc:'床が光ったら 見えている文字を踏む — 月の糸がととのう',
-  clickDesc:'あいだに送る — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる · NATURALは実時間のまま', escDesc:'ポーズ',
+  mouseDesc:'視点 / ねらい', wasdDesc:'床が光ったら 見えている文字を押す',
+  clickDesc:'発射 — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる（道場）', escDesc:'ポーズ / 再開',
+  selectDesc:'空の対象を選ぶ · 空の神殿に入る', templeEDesc:'神殿内: 神殿を出る', templeFreeDesc:'神殿内: マウス解放（視点はそのまま）· HUD操作', templeTDesc:'神殿内: 空にたずねる（チャート保存が必要）',
   beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
   modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
@@ -627,9 +652,10 @@ window.JA={
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
-  skyTempleKicker:'空の神殿', skyTempleHint:'Shift+E マウス解放 · T で質問 · 発射でしらべる · E で出る · ESC で一時停止', skyTempleGuide:'照準ロック中はHUDをクリックできない — Shift+Eでマウス解放してスクロール、またはTで質問（マウス解放＋質問欄）。', skyTempleEmpty:'空に照準を合わせてしらべる',
+  skyTempleKicker:'空の神殿', skyTempleHint:'発射でしらべる · Shift+E マウス解放（視点固定）· T で質問 · E で出る · ESC で一時停止', skyTempleGuide:'Shift+Eでこのパネル用にマウス解放（視点はそのまま）。Tで質問（チャート保存が必要）。全文はスクロール。', skyTempleEmpty:'空に照準を合わせてしらべる',
   skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった', skyTempleResumed:'神殿にもどった',
-  skyTempleFreeMouse:'マウス解放 · HUDを操作', skyTempleAimMouse:'照準にもどった', skyTempleControlsToast:'Shift+E マウス解放 · T で質問 · 発射でしらべる',
+  skyTempleFreeMouse:'マウス解放 · 視点ロック · HUD操作', skyTempleAimMouse:'照準にもどった', skyTempleControlsToast:'Shift+E マウス解放 · T 質問 · 発射でしらべる',
+  chartTempleHint:'空の神殿で T（質問）を使うには、ここでサインインして出生チャートを保存。',
   skyChatAsk:'空にたずねる · T', skyChatInput:'この焦点についてたずねる…', skyChatInputAria:'空の焦点についてたずねる', skyChatSend:'送る', skyChatListening:'きいています…',
   skyChatUnavailable:'空のノートを用意できません', skyChatLimited:'今日はここまで · また明日', skyChatFailed:'空のノートを用意できません', skyChatNeedSignIn:'SAVE MY SKY でサインインすると質問できる', skyChatNeedChart:'出生チャートを保存すると質問できる', skyChatEpistemic:'象徴を学ぶためのメモ · 予言ではない · Tで質問 · Shift+Eでマウス解放 · Escで閉じる',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
@@ -647,7 +673,7 @@ window.JA={
   toneLoadingHtml:'<b>まだ音を読みこんでいるよ。</b>少し待って、「はじめて」か「もう知ってる」をもういちど押してね。',
   yourBest:'じぶんのベスト · {time} · {bpm} bpm', boardOffline:'きろくに届かない ({status})', boardNetwork:'きろくに届かない — 通信エラー', boardEmpty:'まだ誰もいない — 最初の声になろう',
   peak:'さいこう', longest:'さいちょう', localCleared:'ベストを消した',
-  pauseFullEyebrow:'夜は待っている', pauseTrainEyebrow:'月の糸 · ステップ{n}', pauseFullTitleHtml:'きき手の<span class="acc">きろく</span>', pauseTrainTitleHtml:'つづけて<span class="acc">きこう</span>',
+  pauseFullEyebrow:'ポーズ', pauseTrainEyebrow:'けいこ · ステップ{n}', pauseFullTitleHtml:'きき手の<span class="acc">きろく</span>', pauseTrainTitleHtml:'つづけて<span class="acc">きこう</span>',
   pauseFullLede:'<b>{song}</b> · {time} · さいこう <b>{bpm}</b> bpm', pauseTrainSteps:'けいこ · {time} · 踏めた <b>{n}/{N}</b>', pauseTrainVoices:'けいこ · {time} · 声 <b>{n}</b>',
   chipTime:'夜にいた時間', chipFinal:'さいごのBPM', chipPeak:'さいこうのBPM',
   saveSkyBothCoords:'緯度と経度を両方入れてね', saveSkySignedIn:'サインイン中', saveSkyLinked:'空をつないだ', saveSkySaved:'チャートを保存した',
@@ -671,6 +697,7 @@ window.JA={
       txt('speedLabel','drum'); txt('fireBtn','send'); attr('fireBtn','aria-label','sendAria'); attr('pauseBtn','aria-label','pauseAria'); attr('muteBtn','title','muteAria'); attr('muteBtn','aria-label','muteAria');
       txt('ovEyebrow','eyebrow'); html('#ovTitle','titleHtml'); html('#ovLede .lede-first','ledeFirstHtml'); html('#ovLede .lede-return','ledeReturn');
       txt('phonesText','phones'); txt('mouseDesc','mouseDesc'); txt('wasdDesc','wasdDesc'); txt('clickDesc','clickDesc'); txt('freezeDesc','freezeDesc'); txt('escDesc','escDesc');
+      txt('selectDesc','selectDesc'); txt('templeEDesc','templeEDesc'); txt('templeFreeDesc','templeFreeDesc'); txt('templeTDesc','templeTDesc'); txt('chartTempleHint','chartTempleHint');
       txt('beatCircleLabel','beatCircleLabel');
       txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
@@ -6080,6 +6107,7 @@ if(MOBILE){
 function enterRunning(){
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); clearTempleResume(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
+  document.body.classList.remove('overlay-paused');
   closeTransitEssayReader(false); state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast(T('trainerToast','MOONLINE TRAINING')); }   // full runs name the song; trainer announces itself
   if(trainMode && trainCoachEl && trainCoachEl.textContent) trainCoachEl.classList.add('on');
@@ -6374,32 +6402,40 @@ function showModePick(show){
   if(mp) mp.style.display=show?'block':'none';
   if(beginBtn) beginBtn.style.display=show?'none':'block';
 }
+function updateChartTempleHint(){
+  const el=gid('chartTempleHint'); if(!el) return;
+  const need=!(typeof skyChatAccessEligible==='function'&&skyChatAccessEligible());
+  el.hidden=!need;
+  if(need) el.textContent=T('chartTempleHint','Sign in and save a birth chart here to use Ask (T) in Sky Temple.');
+}
 function showPause(){
   if(!state.started) return;
+  document.body.classList.add('overlay-paused');
   ovEyebrow.textContent=trainMode
-    ? TF('pauseTrainEyebrow','MOONLINE · STEP {n}',{n:trainPhase+1})
-    : T('pauseFullEyebrow','THE NIGHT WAITS');
+    ? TF('pauseTrainEyebrow','TRAINING · STEP {n}',{n:trainPhase+1})
+    : T('pauseFullEyebrow','PAUSED');
   ovTitle.innerHTML=trainMode
     ? T('pauseTrainTitleHtml','KEEP <span class="acc">LISTENING</span>')
     : T('pauseFullTitleHtml','LISTENER\'S <span class="acc">REPORT</span>');
-  keysRow.style.display='none'; phonesNote.style.display='none';
-  // session recap: which song held the room + how long the flow lasted
+  if(keysRow) keysRow.style.display='none';
+  if(phonesNote) phonesNote.style.display='none';
+  // session recap — plain numbers, not story
   const song=activeTheme?songDisplay(activeTheme.name):'—';
   ovLede.style.display='block';
   ovLede.innerHTML=trainMode
     ? (trainPhase===0
       ? TF('pauseTrainSteps','Training · {time} · steps <b>{n}/{N}</b>',{time:fmtTime(state.t),n:trainWasd,N:TRAIN_NEED_WASD})
       : TF('pauseTrainVoices','Training · {time} · voices <b>{n}</b>',{time:fmtTime(state.t),n:trainOrbs}))
-    : '♪ '+TF('pauseFullLede','<b>{song}</b> · {time} · peak <b>{bpm}</b> bpm',{song:song,time:fmtTime(state.t),bpm:Math.round(state.maxBpm)});
+    : TF('pauseFullLede','<b>{song}</b> · {time} · peak <b>{bpm}</b> bpm',{song:song,time:fmtTime(state.t),bpm:Math.round(state.maxBpm)});
   if(beginLabel) beginLabel.textContent=T('resume','RESUME');
   else beginBtn.textContent='▶ '+T('resume','RESUME');
   showModePick(false);   // mid-run pause = resume only (not the new/experienced gate)
   pauseStats.style.display='flex';
-  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); renderTransitEssayUi(); renderSkyBriefUi(); }
+  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); renderTransitEssayUi(); renderSkyBriefUi(); updateChartTempleHint(); }
   pauseStats.innerHTML=
-    '<div class="chip"><div class="ck">'+T('chipTime','TIME IN THE NIGHT')+'</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
-    '<div class="chip"><div class="ck">'+T('chipFinal','FINAL BPM')+'</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
-    '<div class="chip"><div class="ck">'+T('chipPeak','PEAK BPM')+'</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
+    '<div class="chip"><div class="ck">'+T('chipTime','TIME')+'</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
+    '<div class="chip"><div class="ck">'+T('chipFinal','BPM')+'</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
+    '<div class="chip"><div class="ck">'+T('chipPeak','PEAK')+'</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
   overlay.classList.remove('hidden');
   fetchSkyBriefForPause();
   // run-end breath: after a real hold, the song exhales once more (soft pad/root) — marks the session without a new UI panel
