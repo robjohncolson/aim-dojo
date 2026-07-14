@@ -776,7 +776,7 @@ const CFG = {
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, signArtEnabled:true, signArtAngularDeg:32, signArtShellFrac:0.97, signArtOpacity:0.28 },   // TEMPLE ORBS: milky + globe (contrast/gamma deepen maps) + Saturn/Uranus rings + soft zodiac art. Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, signArtEnabled:true, signArtAngularDeg:32, signArtRadiusPull:1.06, signArtOpacity:0.28 },   // TEMPLE ORBS: milky + globe + Saturn/Uranus rings + soft zodiac art plane BEHIND sticks (not on shell — shell depth was circular-clipping the flat plane). Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -1762,17 +1762,17 @@ function placeTempleGlobe(){
   globeRoot.lookAt(0,0,0);
   globeRoot.rotateY(Math.PI);
 }
-/* --- zodiac sign art: soft additive plane on the milky shell, behind sticks (sky texture, not a sticker) --- */
+/* --- zodiac sign art: soft additive FLAT plane behind sticks (full rectangle — never sphere-mapped / never shell-depth-clipped) --- */
 let signArtRoot=null, signArtMesh=null, signArtMat=null, _signArtId=null, _signArtReady=false;
 const _saLocal=new THREE.Vector3(), _saWorld=new THREE.Vector3();
 function ensureSignArtRig(){
   if(signArtRoot || !SKY_MAPS) return signArtRoot;
-  // Parent under skySphere so art co-rotates with sticks/chart. renderOrder just above milkyShell (-50); sticks still draw over.
-  signArtRoot=new THREE.Group(); signArtRoot.visible=false; signArtRoot.frustumCulled=false; signArtRoot.renderOrder=-45; skySphere.add(signArtRoot);
-  // Additive + low opacity → gold ink glows into the milky way instead of reading as an opaque cutout.
-  signArtMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, opacity:0.28, depthTest:true, depthWrite:false, color:0xc8d4e8, blending:THREE.AdditiveBlending });
+  // Parent under skySphere so art co-rotates with sticks/chart. renderOrder low so sticks draw over; depthTest OFF so the milky shell cannot circular-clip the plane corners.
+  signArtRoot=new THREE.Group(); signArtRoot.visible=false; signArtRoot.frustumCulled=false; signArtRoot.renderOrder=-5; skySphere.add(signArtRoot);
+  // Additive + low opacity → gold ink soft into the sky; plane stays rectangular.
+  signArtMat=new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, fog:false, transparent:true, opacity:0.28, depthTest:false, depthWrite:false, color:0xc8d4e8, blending:THREE.AdditiveBlending });
   signArtMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1), signArtMat);
-  signArtMesh.frustumCulled=false; signArtMesh.renderOrder=-45; signArtMesh.visible=false; signArtRoot.add(signArtMesh);
+  signArtMesh.frustumCulled=false; signArtMesh.renderOrder=-5; signArtMesh.visible=false; signArtRoot.add(signArtMesh);
   return signArtRoot;
 }
 /** SkySphere-local anchor for a Midpoint sign (constellation centroid). */
@@ -1798,11 +1798,11 @@ function showTempleSignArt(signId){
   const png=SKY_MAPS.mapForSignPng(id), jpg=SKY_MAPS.mapForSign(id);
   const apply=t=>{
     if(_signArtId!==id || !signArtMat) return;
-    // Soft into the milky shell: cool tint + additive + ~30% of the old opacity punch.
+    // Soft sky look: cool tint + additive + ~30% opacity. Full rectangular plane (no sphere clip).
     const op=CFG.skyMaps.signArtOpacity!=null?CFG.skyMaps.signArtOpacity:0.28;
     signArtMat.map=t; signArtMat.color.setHex(0xc8d4e8); signArtMat.transparent=true;
     signArtMat.opacity=op; signArtMat.blending=THREE.AdditiveBlending;
-    signArtMat.depthWrite=false; signArtMat.depthTest=true; signArtMat.needsUpdate=true;
+    signArtMat.depthWrite=false; signArtMat.depthTest=false; signArtMat.needsUpdate=true;
     _signArtReady=true; signArtRoot.visible=true; signArtMesh.visible=true;
     placeTempleSignArt();
   };
@@ -1823,10 +1823,10 @@ function placeTempleSignArt(){
   if(!signArtRoot||!signArtRoot.visible||!_signArtId||!_signArtReady) return;
   const local=templeSignAnchorLocal(_signArtId);
   if(!local){ signArtRoot.visible=false; return; }
-  // On the milky shell (just inside shellRadius) so art reads as sky texture, well behind sticks (R≈330).
-  const shellR=(CFG.skyMaps.shellRadius)||400;
-  const frac=CFG.skyMaps.signArtShellFrac!=null?CFG.skyMaps.signArtShellFrac:0.97;
-  const R=shellR*frac;
+  // BEHIND sticks, well inside the milky shell: stick R≈330, pull>1 sits past sticks; corners stay inside shell R≈400 so nothing circular-clips the flat plane.
+  const stickR=(SKY_CHART.stick&&SKY_CHART.stick.R)||330;
+  const pull=CFG.skyMaps.signArtRadiusPull!=null?CFG.skyMaps.signArtRadiusPull:1.06;
+  const R=stickR*pull;
   const len=local.length()||R;
   _saLocal.copy(local).multiplyScalar(R/len);
   signArtRoot.position.copy(_saLocal);
@@ -1835,7 +1835,7 @@ function placeTempleSignArt(){
   const angDeg=CFG.skyMaps.signArtAngularDeg!=null?CFG.skyMaps.signArtAngularDeg:32;
   const side=Math.max(10, 2*dist*Math.tan(angDeg*Math.PI/360));
   signArtRoot.scale.set(side, side, 1);
-  // Face the player at the sphere center (DoubleSide is belt-and-suspenders).
+  // Face the player at the sphere center (flat billboard — not projected onto a sphere).
   signArtRoot.quaternion.identity();
   signArtRoot.lookAt(0,0,0);
   signArtRoot.rotateY(Math.PI);
