@@ -2499,14 +2499,7 @@ function rebuildSkyTempleGeometry(){
   _templeDisposeChildren();
   const meta=_lsnMeta, R=SKY_CHART.R;
   if(!meta){ _templeGroup.visible=false; return; }
-  // Ecliptic great-circle: makes the 360° sphere read immediately (including underfoot) even before focus.
-  {
-    const segs=64, pts=[];
-    for(let i=0;i<=segs;i++){ const lon=(i/segs)*360; pts.push(eclipticDir(lon,0).multiplyScalar(R*0.988)); }
-    const eGeo=new THREE.BufferGeometry().setFromPoints(pts);
-    const eMat=new THREE.LineBasicMaterial({color:0xffd24a,transparent:true,opacity:0.55,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending});
-    const eclip=new THREE.Line(eGeo,eMat); eclip.frustumCulled=false; eclip.renderOrder=2; _templeGroup.add(eclip);
-  }
+  // No ecliptic great-circle rail — it washed out sticks, sign art, and planet globes (visual simplify L1).
   const ghosts=meta.templeGhosts||Object.create(null);
   for(const id of Object.keys(ghosts).slice(0,SKY_CHART.caps.ghost)){
     const body=ghosts[id]; if(!body || !isFinite(body.lonJ2000)) continue;
@@ -2556,10 +2549,6 @@ function updateSkyTempleVisuals(){
   const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
   if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',0.72*open*dim);
   if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?0.98*open:0);
-  for(const ch of _templeGroup.children){
-    if(ch===_templeAspectMesh||ch===_templeHighlight) continue;
-    if(ch.isLine && ch.material && !ch.material.vertexColors) setScalarCached(ch.material,'opacity',0.55*open);   // ecliptic ring
-  }
   for(const pick of _templeNatal){
     // Full sphere: no horizon hide — natal ghosts exist underfoot and above.
     const focused=_templeFocus===pick;

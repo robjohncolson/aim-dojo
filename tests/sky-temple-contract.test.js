@@ -203,7 +203,9 @@ test("temple opens the full celestial sphere underfoot instead of a black void",
   assert.match(exit, /transparent\s*=\s*false/);
 
   const geometry = namedFunction("rebuildSkyTempleGeometry");
-  assert.match(geometry, /eclipticDir\s*\(\s*lon\s*,\s*0\s*\)/, "ecliptic great-circle anchors the full sphere read");
+  // Visual simplify: no bright gold ecliptic great-circle rail (it washed out sticks / sign art / globes).
+  assert.doesNotMatch(geometry, /segs\s*=\s*64[\s\S]*eclipticDir\s*\(\s*lon\s*,\s*0\s*\)/, "no ecliptic ring loop");
+  assert.doesNotMatch(geometry, /0xffd24a[\s\S]{0,80}opacity\s*:\s*0\.55/, "no gold ecliptic ring material");
 
   const pick = namedFunction("pickCelestial");
   assert.match(pick, /openSphere\s*=\s*templeActive/);
