@@ -270,6 +270,12 @@ test("composer pointer unlock is guarded and the next canvas click relocks witho
   assert.match(free, /catch\s*\([^)]*\)\s*\{\s*_templeEscapeGuard\s*=\s*false/);
   assert.match(free, /requestPointerLock\s*\(/, "re-aim path can request pointer lock");
   assert.match(free, /temple-free-mouse/);
+  // Shift+E free-mouse must freeze look so HUD use doesn't drag the sky away from the focused body.
+  assert.match(html, /function templeLookFrozen\s*\(/, "look-freeze helper exists");
+  const lookFreeze = namedFunction("templeLookFrozen");
+  assert.match(lookFreeze, /_templeFreeMouse/, "free-mouse freezes look");
+  assert.match(lookFreeze, /_templeChatOpen/, "open chat freezes look");
+  assert.match(html, /templeLookFrozen\s*\(\s*\)\s*\)\s*return|if\s*\(\s*templeLookFrozen\s*\(\s*\)\s*\)\s*return/, "mousemove (and other look paths) gate on freeze");
 
   const open = namedFunction("openSkyChatComposer");
   assert.match(open, /setTempleFreeMouse\s*\(\s*true/, "ASK opens free-mouse so HUD is clickable");

@@ -2888,6 +2888,7 @@ function skyChatSoftText(status){
 }
 function setTempleFreeMouse(on, opts){
   // Stay in temple; unlock the pointer so long study text can scroll and ASK/SEND are clickable.
+  // Look input is fully frozen (mousemove / touch / pad) while free-mouse or chat is open — view stays where it was.
   opts=opts||{};
   if(!templeActive){
     _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
@@ -2897,11 +2898,12 @@ function setTempleFreeMouse(on, opts){
   const was=_templeFreeMouse; _templeFreeMouse=on;
   document.body.classList.toggle('temple-free-mouse', on);
   if(on){
+    if(typeof lookId!=='undefined') lookId=null;   // drop any in-flight touch-look drag
     if(document.pointerLockElement===canvas){
       _templeEscapeGuard=true;
       try{ document.exitPointerLock(); }catch(error){ _templeEscapeGuard=false; }
     }
-    if(!opts.silent&&!was) try{ showGhostToast(T('skyTempleFreeMouse','MOUSE FREE · USE HUD')); }catch(error){}
+    if(!opts.silent&&!was) try{ showGhostToast(T('skyTempleFreeMouse','MOUSE FREE · VIEW LOCKED · USE HUD')); }catch(error){}
   }else{
     if(_templeChatOpen){ _templeChatOpen=false; document.body.classList.remove('temple-chat-open'); if(_skyChatUi.input) _skyChatUi.input.blur(); }
     if(!MOBILE&&document.pointerLockElement!==canvas&&canvas.requestPointerLock){
@@ -3241,8 +3243,12 @@ let yaw=0, pitch=0, radPerPx=CFG.baseRadPerPx*3;   // default sensitivity 3×
 let aimDirty=true; const _aimDirCache=new THREE.Vector3(0,0,-1);
 function markAimDirty(){ aimDirty=true; }
 const PITCH_LIMIT = THREE.MathUtils.degToRad(88);
+/** Temple free-mouse / open chat: view is frozen so HUD work doesn't drag the sky. */
+function templeLookFrozen(){ return !!(templeActive&&(_templeFreeMouse||_templeChatOpen)); }
 document.addEventListener('mousemove', e=>{
   if(!state.running) return;
+  // Shift+E free-mouse exits pointer lock; without this gate, movementX still yaws the camera under the HUD cursor.
+  if(templeLookFrozen()) return;
   yaw -= e.movementX*radPerPx; pitch -= e.movementY*radPerPx;
   pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
   markAimDirty();
@@ -3253,11 +3259,12 @@ const touchUI=document.getElementById('touch'), fireBtnT=document.getElementById
 let lookId=null, lastTX=0, lastTY=0; const TOUCH_FACTOR=1.8;
 canvas.addEventListener('touchstart', e=>{
   if(!state.running) return;
+  if(templeLookFrozen()) return;   // HUD inspect: don't steal the first touch for look
   if(lookId===null){ const t=e.changedTouches[0]; lookId=t.identifier; lastTX=t.clientX; lastTY=t.clientY; }
   e.preventDefault();                                   // also suppresses the synthetic mousedown so taps don't fire
 }, {passive:false});
 canvas.addEventListener('touchmove', e=>{
-  if(!state.running || lookId===null) return;
+  if(!state.running || lookId===null || templeLookFrozen()) return;
   for(const t of e.changedTouches){ if(t.identifier===lookId){
     yaw   -= (t.clientX-lastTX)*radPerPx*TOUCH_FACTOR;
     pitch -= (t.clientY-lastTY)*radPerPx*TOUCH_FACTOR;
@@ -4272,7 +4279,7 @@ function pollGamepad(dt){
   if(!gp) return;
   // dual sticks -> aim (yaw/pitch). Both sticks sum so either one aims.
   const ax=_gpAxis(gp.axes[2]||0)+_gpAxis(gp.axes[0]||0), ay=_gpAxis(gp.axes[3]||0)+_gpAxis(gp.axes[1]||0);
-  if(state.running && (ax!==0 || ay!==0)){
+  if(state.running && (ax!==0 || ay!==0) && !templeLookFrozen()){
     const rate=CFG.padLookRate;
     yaw   -= ax*rate*dt;                                                  // stick right -> look right
     pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch - ay*rate*dt));   // stick up -> look up
