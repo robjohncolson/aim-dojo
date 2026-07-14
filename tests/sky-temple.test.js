@@ -205,6 +205,46 @@ test("body normalization canonicalizes legacy signs and omits invalid optional v
   assert.equal(temple.bodyPanelData(offlineSun).placement, "ecliptic 123.5°");
 });
 
+test("Sky Chat focus snapshots contain only canonical server selectors", () => {
+  const aspect = temple.skyChatFocusSnapshot({
+    kind: "aspect",
+    record: {
+      transit: { id: "Mars", label: "private display label", lonJ2000: 12 },
+      natal: { id: "Moon", house: 4 },
+      aspectId: "Square",
+      orbDeg: 0.4,
+    },
+  });
+  assert.deepEqual(aspect, {
+    kind: "aspect",
+    body: "mars",
+    natal_point: "moon",
+    aspect_id: "square",
+  });
+  assert.deepEqual(
+    temple.skyChatFocusSnapshot({ kind: "natal", id: "Sun", body: { house: 9 } }),
+    { kind: "natal", natal_point: "sun" }
+  );
+  assert.deepEqual(
+    temple.skyChatFocusSnapshot({ kind: "body", pick: { id: "Venus", meta: { lon: 44 } } }),
+    { kind: "body", body: "venus" }
+  );
+  assert.deepEqual(
+    temple.skyChatFocusSnapshot({ kind: "sign", pick: { id: "Scorpius", meta: { lon: 220 } } }),
+    { kind: "sign", sign: "scorpio" }
+  );
+  assert.deepEqual(
+    temple.skyChatFocusSnapshot(undefined, { kind: "body", id: "Jupiter", world: { x: 1 } }),
+    { kind: "body", body: "jupiter" }
+  );
+  assert.deepEqual(
+    temple.skyChatFocusSnapshot(null, { kind: "body", id: "Jupiter" }),
+    { kind: "sky" }
+  );
+  assert.deepEqual(temple.skyChatFocusSnapshot({ kind: "aspect", record: {} }, null), { kind: "sky" });
+  assert.doesNotMatch(JSON.stringify(aspect), /label|lon|orb|house|private/i);
+});
+
 test("ray-to-segment distance handles intersection, parallel, behind, and point segments", () => {
   const intersection = temple.rayToSegment(
     [0, 0, 0],

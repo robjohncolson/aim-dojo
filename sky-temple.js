@@ -296,6 +296,49 @@
     };
   }
 
+  function skyChatFocusSnapshot(focus, selection) {
+    var selectionFallback = focus === undefined;
+    focus = focus && typeof focus === "object" && !Array.isArray(focus) ? focus : null;
+    selection = selection && typeof selection === "object" && !Array.isArray(selection) ? selection : null;
+
+    if (focus && focus.kind === "aspect" && focus.record) {
+      var transitBody = canonicalBody(focus.record.transit && focus.record.transit.id);
+      var natalPoint = canonicalBody(focus.record.natal && focus.record.natal.id);
+      var aspectId = canonicalAspect(focus.record.aspectId);
+      if (transitBody && natalPoint && aspectId) {
+        return {
+          kind: "aspect",
+          body: transitBody,
+          natal_point: natalPoint,
+          aspect_id: aspectId,
+        };
+      }
+    }
+    if (focus && focus.kind === "natal") {
+      var natalId = canonicalBody(focus.id || (focus.body && focus.body.id));
+      if (natalId) return { kind: "natal", natal_point: natalId };
+    }
+    if (focus && focus.kind === "body") {
+      var bodyId = canonicalBody(
+        (focus.body && focus.body.id) || (focus.pick && focus.pick.id)
+      );
+      if (bodyId) return { kind: "body", body: bodyId };
+    }
+    if (focus && focus.kind === "sign") {
+      var signId = canonicalSign(focus.pick && focus.pick.id);
+      if (signId) return { kind: "sign", sign: signId };
+    }
+    if (selectionFallback && selection && selection.kind === "body") {
+      var selectedBody = canonicalBody(selection.id);
+      if (selectedBody) return { kind: "body", body: selectedBody };
+    }
+    if (selectionFallback && selection && selection.kind === "sign") {
+      var selectedSign = canonicalSign(selection.id);
+      if (selectedSign) return { kind: "sign", sign: selectedSign };
+    }
+    return { kind: "sky" };
+  }
+
   function vector(value) {
     if (!value || typeof value !== "object") return null;
     var x = finiteNumber(Array.isArray(value) ? value[0] : value.x);
@@ -427,6 +470,7 @@
     placementText: placementText,
     bodyPanelData: bodyPanelData,
     aspectPanelData: aspectPanelData,
+    skyChatFocusSnapshot: skyChatFocusSnapshot,
     rayToSegment: rayToSegment,
     pickRaySegment: pickRaySegment,
   });

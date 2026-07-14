@@ -268,6 +268,161 @@
     return result;
   }
 
+  var SKY_CHAT_EPISTEMIC =
+    "Symbolic study notes, not predictions. Not medical, legal, or financial advice.";
+
+  function normalizeSkyChatFocus(raw, allowEmpty) {
+    if (allowEmpty && raw && typeof raw === "object" && !Array.isArray(raw) && Object.keys(raw).length === 0) {
+      return {};
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      failValidation("sky chat focus must be an object");
+    }
+
+    function selector(name) {
+      var value = raw[name];
+      if (typeof value !== "string") failValidation("sky chat focus " + name + " is required");
+      var text = value.trim().toLowerCase();
+      if (!/^[a-z][a-z0-9_-]{0,63}$/.test(text)) {
+        failValidation("sky chat focus " + name + " is invalid");
+      }
+      return text;
+    }
+
+    var kind = selector("kind");
+    if (["body", "sign", "natal", "aspect", "sky"].indexOf(kind) === -1) {
+      failValidation("sky chat focus kind is invalid");
+    }
+    var focus = { kind: kind };
+    if (kind === "body" || kind === "aspect") focus.body = selector("body");
+    if (kind === "sign") focus.sign = selector("sign");
+    if (kind === "natal" || kind === "aspect") focus.natal_point = selector("natal_point");
+    if (kind === "aspect") focus.aspect_id = selector("aspect_id");
+    return focus;
+  }
+
+  function normalizeSkyChatRequest(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      failValidation("sky chat request must be an object");
+    }
+    if (typeof raw.message !== "string") failValidation("sky chat message is required");
+    if (raw.message.length > 500) failValidation("sky chat message is too long");
+    var message = raw.message.trim();
+    if (!message) failValidation("sky chat message is required");
+    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/.test(message)) {
+      failValidation("sky chat message contains unsupported characters");
+    }
+
+    var result = {
+      message: message,
+      focus: normalizeSkyChatFocus(raw.focus || { kind: "sky" }, false),
+    };
+
+    if (raw.thread_id !== undefined && raw.thread_id !== null && raw.thread_id !== "") {
+      if (typeof raw.thread_id !== "string") failValidation("sky chat thread id is invalid");
+      var threadId = raw.thread_id.trim();
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(threadId)) {
+        failValidation("sky chat thread id is invalid");
+      }
+      result.thread_id = threadId;
+    }
+    if (raw.when !== undefined && raw.when !== null && raw.when !== "") {
+      if (typeof raw.when !== "string" || !raw.when.trim() || !Number.isFinite(Date.parse(raw.when.trim()))) {
+        failValidation("sky chat time is invalid");
+      }
+      result.when = raw.when.trim();
+    }
+    if (raw.tz !== undefined && raw.tz !== null && raw.tz !== "") {
+      if (typeof raw.tz !== "string" || !raw.tz.trim() || raw.tz.trim().length > 128 || /[\u0000-\u001f\u007f-\u009f]/.test(raw.tz)) {
+        failValidation("sky chat timezone is invalid");
+      }
+      result.tz = raw.tz.trim();
+    }
+    return result;
+  }
+
+  function normalizeSkyChatResponse(raw) {
+    function invalid() {
+      throw new SkyProfileError(
+        "invalid_response",
+        "Personal sky returned an invalid sky chat",
+        { retryable: true }
+      );
+    }
+
+    function responseText(value, options) {
+      if (typeof value !== "string") invalid();
+      var text = value.trim();
+      if ((!options.allowEmpty && !text) || text.length > options.maxLength || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/.test(text)) {
+        invalid();
+      }
+      return text;
+    }
+
+    function nullableId(value) {
+      if (value === null) return null;
+      if (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(value)) invalid();
+      return value;
+    }
+
+    function responseFocus(value, allowEmpty) {
+      try {
+        return normalizeSkyChatFocus(value, allowEmpty);
+      } catch (error) {
+        if (error instanceof SkyProfileError && error.code === "validation") invalid();
+        throw error;
+      }
+    }
+
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) invalid();
+    if (raw.schema_version !== 1 || raw.type !== "sky_chat") invalid();
+    if (["pending", "ready", "failed", "unavailable", "none", "limited"].indexOf(raw.status) === -1) invalid();
+    if (typeof raw.cache_date !== "string" || !validCalendarDate(raw.cache_date)) invalid();
+    if (!Number.isInteger(raw.remaining_turns) || raw.remaining_turns < 0 || raw.remaining_turns > 10) invalid();
+    if (raw.epistemic !== SKY_CHAT_EPISTEMIC) invalid();
+    if (!Array.isArray(raw.turns)) invalid();
+
+    var result = {
+      schema_version: 1,
+      type: "sky_chat",
+      status: raw.status,
+      thread_id: nullableId(raw.thread_id),
+      cache_date: raw.cache_date,
+      turn_id: nullableId(raw.turn_id),
+      focus: responseFocus(raw.focus, true),
+      turns: raw.turns.slice(-12).map(function (turn) {
+        if (!turn || typeof turn !== "object" || Array.isArray(turn)) invalid();
+        if (typeof turn.at !== "string" || !turn.at.trim() || !Number.isFinite(Date.parse(turn.at))) invalid();
+        var at = turn.at.trim();
+        if (turn.role === "user") {
+          return {
+            role: "user",
+            text: responseText(turn.text, { allowEmpty: false, maxLength: 800 }),
+            at: at,
+            focus: responseFocus(turn.focus, false),
+          };
+        }
+        if (turn.role === "assistant" && (turn.status === "ready" || turn.status === "failed")) {
+          var text = responseText(turn.text, {
+            allowEmpty: turn.status === "failed",
+            maxLength: 20000,
+          });
+          if ((turn.status === "ready" && !text) || (turn.status === "failed" && text)) invalid();
+          return {
+            role: "assistant",
+            text: text,
+            at: at,
+            status: turn.status,
+          };
+        }
+        invalid();
+      }),
+      epistemic: SKY_CHAT_EPISTEMIC,
+      remaining_turns: raw.remaining_turns,
+    };
+    return result;
+  }
+
   function createPersonalSkyController(options) {
     options = options || {};
     var baseUrl = cleanApiBase(options.baseUrl);
@@ -357,7 +512,10 @@
           signal: aborter ? aborter.signal : undefined,
         });
         if (requestOptions.allow404 && response.status === 404) return null;
-        if (!response.ok) {
+        var acceptedStatus =
+          Array.isArray(requestOptions.acceptStatuses) &&
+          requestOptions.acceptStatuses.indexOf(response.status) !== -1;
+        if (!response.ok && !acceptedStatus) {
           var status = Number.isInteger(response.status) ? response.status : null;
           var authFailure = status === 401 || status === 403;
           var retryable = status === 408 || status === 429 || (status !== null && status >= 500);
@@ -560,6 +718,41 @@
       return normalizeSkyBriefResponse(await request("/api/me/sky-brief", {}));
     }
 
+    function requireSkyChatAccess() {
+      if (!state.authenticated) {
+        throw new SkyProfileError("not_authenticated", "Sign in to ask the sky");
+      }
+      if (!state.hasChart) {
+        throw new SkyProfileError("no_chart", "Save your sky before asking a question");
+      }
+    }
+
+    async function postSkyChat(payload) {
+      requireSkyChatAccess();
+      var normalized = normalizeSkyChatRequest(payload);
+      return normalizeSkyChatResponse(await request("/api/me/sky-chat", {
+        method: "POST",
+        body: normalized,
+        acceptStatuses: [429],
+      }));
+    }
+
+    async function getSkyChat(threadId) {
+      requireSkyChatAccess();
+      var path = "/api/me/sky-chat";
+      if (threadId !== undefined && threadId !== null && threadId !== "") {
+        if (typeof threadId !== "string") failValidation("sky chat thread id is invalid");
+        var normalizedId = threadId.trim();
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(normalizedId)) {
+          failValidation("sky chat thread id is invalid");
+        }
+        var query = new URLSearchParams();
+        query.set("thread_id", normalizedId);
+        path += "?" + query.toString();
+      }
+      return normalizeSkyChatResponse(await request(path, {}));
+    }
+
     return {
       state: state,
       setAuthenticated: setAuthenticated,
@@ -570,6 +763,8 @@
       enqueueTransitEssay: enqueueTransitEssay,
       getTransitEssay: getTransitEssay,
       getSkyBrief: getSkyBrief,
+      postSkyChat: postSkyChat,
+      getSkyChat: getSkyChat,
     };
   }
 
@@ -581,6 +776,7 @@
     isPersonalSkypack: isPersonalSkypack,
     normalizeTransitEssayResponse: normalizeTransitEssayResponse,
     normalizeSkyBriefResponse: normalizeSkyBriefResponse,
+    normalizeSkyChatResponse: normalizeSkyChatResponse,
     createPersonalSkyController: createPersonalSkyController,
   };
 });

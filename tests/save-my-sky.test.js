@@ -10,6 +10,7 @@ const {
   isPersonalSkypack,
   normalizeTransitEssayResponse,
   normalizeSkyBriefResponse,
+  normalizeSkyChatResponse,
   createPersonalSkyController,
 } = require("../save-my-sky.js");
 
@@ -88,6 +89,32 @@ function readySkyBrief(overrides = {}) {
       "Mars square Moon · orb 1.2° · applying",
     ].join("\n"),
     has_essay: false,
+    ...overrides,
+  };
+}
+
+const SKY_CHAT_EPISTEMIC =
+  "Symbolic study notes, not predictions. Not medical, legal, or financial advice.";
+
+function skyChatEnvelope(overrides = {}) {
+  return {
+    schema_version: 1,
+    type: "sky_chat",
+    status: "pending",
+    thread_id: "thread-one",
+    cache_date: "2026-07-13",
+    turn_id: "turn-one",
+    focus: { kind: "sky" },
+    turns: [
+      {
+        role: "user",
+        text: "What deserves attention?",
+        at: "2026-07-13T16:00:00+00:00",
+        focus: { kind: "sky" },
+      },
+    ],
+    epistemic: SKY_CHAT_EPISTEMIC,
+    remaining_turns: 10,
     ...overrides,
   };
 }
@@ -314,6 +341,256 @@ test("sky brief responses are normalized without changing the copy document", ()
   ]) {
     assert.throws(
       () => normalizeSkyBriefResponse(invalid),
+      (error) => error instanceof SkyProfileError && error.code === "invalid_response"
+    );
+  }
+});
+
+test("sky chat POST and GET use current Bearer auth and send only contract fields", async () => {
+  const calls = [];
+  let token = "jwt-old";
+  const ready = skyChatEnvelope({
+    status: "ready",
+    thread_id: "thread-id_one",
+    focus: {
+      kind: "aspect",
+      body: "mars",
+      natal_point: "moon",
+      aspect_id: "square",
+      display_secret: "discarded",
+    },
+    turns: [
+      {
+        role: "user",
+        text: "What can I study here?",
+        at: "2026-07-13T16:00:00+00:00",
+        focus: { kind: "aspect", body: "mars", natal_point: "moon", aspect_id: "square" },
+        natal_id: "discarded",
+      },
+      {
+        role: "assistant",
+        text: "Compare the exact contact with the wider pattern.",
+        at: "2026-07-13T16:00:01+00:00",
+        status: "ready",
+        model: "must-not-reach-ui",
+      },
+    ],
+    remaining_turns: 9,
+    birth_date: "must-not-reach-ui",
+  });
+  const controller = createPersonalSkyController({
+    baseUrl: "https://sidereal.example/",
+    getAccessToken: () => token,
+    fetchImpl: async (url, init) => {
+      if (url.endsWith("/api/me/natal")) return response(200, { birth_date: "1983-11-29" });
+      if (url.endsWith("/api/me/skypack")) return response(200, personalPack());
+      calls.push({ url, init });
+      return response(200, ready);
+    },
+  });
+  controller.setAuthenticated(true);
+  await controller.load();
+  token = "jwt-current";
+
+  const posted = await controller.postSkyChat({
+    message: "  What can I study here?  ",
+    focus: {
+      kind: "ASPECT",
+      body: "MARS",
+      natal_point: "Moon",
+      aspect_id: "SQUARE",
+      label: "display-only",
+      longitude: 123.4,
+    },
+    thread_id: " thread-id_one ",
+    when: "2026-07-13T16:00:00Z",
+    tz: " America/New_York ",
+    natal_id: "must-not-leak",
+    email: "must-not-leak@example.com",
+    lat: 35.68,
+    lon: 139.69,
+  });
+  const polled = await controller.getSkyChat(" thread-id_one ");
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, "https://sidereal.example/api/me/sky-chat");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer jwt-current");
+  assert.equal(calls[0].init.headers.Accept, "application/json");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.equal(calls[0].init.cache, "no-store");
+  assert.equal(calls[0].init.credentials, "omit");
+  assert.equal(calls[0].init.redirect, "error");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    message: "What can I study here?",
+    focus: {
+      kind: "aspect",
+      body: "mars",
+      natal_point: "moon",
+      aspect_id: "square",
+    },
+    thread_id: "thread-id_one",
+    when: "2026-07-13T16:00:00Z",
+    tz: "America/New_York",
+  });
+
+  assert.equal(
+    calls[1].url,
+    "https://sidereal.example/api/me/sky-chat?thread_id=thread-id_one"
+  );
+  assert.equal(calls[1].init.method, "GET");
+  assert.equal(calls[1].init.headers.Authorization, "Bearer jwt-current");
+  assert.equal(calls[1].init.headers["Content-Type"], undefined);
+  assert.equal(calls[1].init.body, undefined);
+  assert.deepEqual(posted, polled);
+  assert.equal(Object.hasOwn(posted, "birth_date"), false);
+  assert.equal(Object.hasOwn(posted.focus, "display_secret"), false);
+  assert.equal(Object.hasOwn(posted.turns[0], "natal_id"), false);
+  assert.equal(Object.hasOwn(posted.turns[1], "model"), false);
+});
+
+test("sky chat preserves a validated limited envelope returned with HTTP 429", async () => {
+  const limited = skyChatEnvelope({
+    status: "limited",
+    remaining_turns: 0,
+  });
+  const controller = createPersonalSkyController({
+    baseUrl: "https://sidereal.example",
+    getAccessToken: () => "jwt",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/api/me/natal")) return response(200, { birth_date: "1983-11-29" });
+      if (url.endsWith("/api/me/skypack")) return response(200, personalPack());
+      return response(429, limited);
+    },
+  });
+  controller.setAuthenticated(true);
+  await controller.load();
+
+  assert.deepEqual(
+    await controller.postSkyChat({ message: "One more question?", focus: { kind: "sky" } }),
+    limited
+  );
+});
+
+test("sky chat helpers require a signed chart and reject invalid local input before fetch", async () => {
+  let calls = 0;
+  const guest = createPersonalSkyController({
+    baseUrl: "https://sidereal.example",
+    getAccessToken: () => null,
+    fetchImpl: async () => {
+      calls += 1;
+      return response(500, {});
+    },
+  });
+
+  await assert.rejects(
+    guest.postSkyChat({ message: "Question", focus: { kind: "sky" } }),
+    (error) => error instanceof SkyProfileError && error.code === "not_authenticated"
+  );
+  await assert.rejects(
+    guest.getSkyChat(),
+    (error) => error instanceof SkyProfileError && error.code === "not_authenticated"
+  );
+
+  guest.setAuthenticated(true);
+  await assert.rejects(
+    guest.postSkyChat({ message: "Question", focus: { kind: "sky" } }),
+    (error) => error instanceof SkyProfileError && error.code === "no_chart"
+  );
+  await assert.rejects(
+    guest.getSkyChat(),
+    (error) => error instanceof SkyProfileError && error.code === "no_chart"
+  );
+  assert.equal(calls, 0);
+
+  const chart = createPersonalSkyController({
+    baseUrl: "https://sidereal.example",
+    getAccessToken: () => "jwt",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/api/me/natal")) return response(200, { birth_date: "1983-11-29" });
+      if (url.endsWith("/api/me/skypack")) return response(200, personalPack());
+      calls += 1;
+      return response(500, {});
+    },
+  });
+  chart.setAuthenticated(true);
+  await chart.load();
+
+  for (const payload of [
+    { message: "", focus: { kind: "sky" } },
+    { message: "x".repeat(501), focus: { kind: "sky" } },
+    { message: " " + "x".repeat(500), focus: { kind: "sky" } },
+    { message: "Question", focus: { kind: "body" } },
+    { message: "Question", focus: { kind: "unknown" } },
+  ]) {
+    await assert.rejects(
+      chart.postSkyChat(payload),
+      (error) => error instanceof SkyProfileError && error.code === "validation"
+    );
+  }
+  await assert.rejects(
+    chart.getSkyChat("bad\u0000thread"),
+    (error) => error instanceof SkyProfileError && error.code === "validation"
+  );
+  await assert.rejects(
+    chart.getSkyChat("bad/thread"),
+    (error) => error instanceof SkyProfileError && error.code === "validation"
+  );
+  assert.equal(calls, 0);
+});
+
+test("sky chat responses are validated and reduced to display-safe fields", () => {
+  const valid = skyChatEnvelope();
+  assert.deepEqual(normalizeSkyChatResponse(valid), valid);
+
+  const manyTurns = Array.from({ length: 14 }, (_, index) => (
+    index % 2 === 0
+      ? {
+          role: "user",
+          text: "Question " + index / 2,
+          at: "2026-07-13T16:00:00+00:00",
+          focus: { kind: "sky" },
+        }
+      : {
+          role: "assistant",
+          text: "Answer " + (index - 1) / 2,
+          at: "2026-07-13T16:00:01+00:00",
+          status: "ready",
+        }
+  ));
+  assert.deepEqual(
+    normalizeSkyChatResponse({ ...valid, turns: manyTurns }).turns,
+    manyTurns.slice(-12)
+  );
+
+  for (const invalid of [
+    null,
+    [],
+    { ...valid, schema_version: 2 },
+    { ...valid, type: "public_sky_chat" },
+    { ...valid, status: "queued" },
+    { ...valid, cache_date: "07/13/2026" },
+    { ...valid, thread_id: 42 },
+    { ...valid, turn_id: "" },
+    { ...valid, focus: { kind: "body" } },
+    { ...valid, turns: "not-an-array" },
+    {
+      ...valid,
+      turns: [{ role: "assistant", text: "", status: "ready", at: "2026-07-13T16:00:00Z" }],
+    },
+    {
+      ...valid,
+      turns: [{ role: "assistant", text: "provider detail", status: "failed", at: "2026-07-13T16:00:00Z" }],
+    },
+    {
+      ...valid,
+      turns: [{ role: "user", text: "Question", focus: { kind: "sky" }, at: "not-a-date" }],
+    },
+    { ...valid, epistemic: "Predictions are guaranteed." },
+    { ...valid, remaining_turns: 11 },
+  ]) {
+    assert.throws(
+      () => normalizeSkyChatResponse(invalid),
       (error) => error instanceof SkyProfileError && error.code === "invalid_response"
     );
   }

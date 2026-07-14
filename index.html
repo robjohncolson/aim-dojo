@@ -179,11 +179,29 @@ html.seen #ovLede .lede-return{display:inline}
 .sky-temple-meta{font:11px/1.55 var(--mono);color:var(--rail);margin-top:7px;white-space:pre-line}
 .sky-temple-body{font:10.5px/1.45 var(--mono);letter-spacing:.03em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22);max-height:min(52vh,480px);overflow:auto;white-space:normal;pointer-events:none}
 .sky-temple-body:empty{display:none}
+.sky-temple-chat{margin-top:10px;padding-top:9px;border-top:1px solid rgba(140,150,143,.22);font-family:var(--mono);pointer-events:auto}
+.sky-temple-chat[hidden],.sky-temple-chat-dialog[hidden]{display:none!important}
+.sky-temple-chat-open{display:flex;width:100%;align-items:center;justify-content:center;padding:8px 10px;border:1px solid rgba(255,210,74,.52);background:rgba(255,210,74,.07);color:#ffd24a;font:10px var(--mono);letter-spacing:.15em;cursor:pointer}
+.sky-temple-chat-open:hover,.sky-temple-chat-open:focus-visible,.sky-temple-chat-send:hover,.sky-temple-chat-send:focus-visible{border-color:var(--rail);outline:none;color:var(--rail)}
+.sky-temple-chat-turns{display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto;padding-right:3px;scrollbar-width:thin}
+.sky-temple-chat-turn{padding:6px 8px;border-left:2px solid rgba(140,150,143,.38);background:rgba(255,255,255,.025);font:10.5px/1.45 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.sky-temple-chat-turn.user{border-left-color:#ffd24a;color:var(--bone)}
+.sky-temple-chat-turn.assistant{border-left-color:var(--rail);color:var(--bone-dim)}
+.sky-temple-chat-turn.pending{opacity:.72;font-style:italic}
+.sky-temple-chat-status{min-height:14px;margin:6px 0 4px;color:var(--bone-dim);font:9.5px/1.4 var(--mono);letter-spacing:.04em}
+.sky-temple-chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:stretch}
+.sky-temple-chat-input{min-width:0;resize:vertical;max-height:110px;padding:7px 8px;border:1px solid rgba(140,150,143,.4);background:#0d110f;color:var(--bone);font:11px/1.4 var(--mono)}
+.sky-temple-chat-input:focus{outline:1px solid var(--rail);outline-offset:1px;border-color:var(--rail)}
+.sky-temple-chat-input:disabled{opacity:.52}
+.sky-temple-chat-send{padding:7px 10px;border:1px solid rgba(255,210,74,.52);background:rgba(255,210,74,.07);color:#ffd24a;font:10px var(--mono);letter-spacing:.1em;cursor:pointer}
+.sky-temple-chat-send:disabled{opacity:.42;cursor:not-allowed}
+.sky-temple-chat-epistemic{margin-top:6px;color:var(--bone-dim);opacity:.68;font:9px/1.4 var(--mono)}
+body.temple-chat-open .sky-temple-body{max-height:min(28vh,260px)}
 .sky-temple-hint{font:9.5px/1.4 var(--mono);color:var(--bone-dim);letter-spacing:.045em;margin-top:10px;padding-top:8px;border-top:1px solid rgba(140,150,143,.22)}
 body.temple-active :is(#speedBox,#beatRing,#pocketLaw,#lockBox,#edgeTop,#edgeBot,#edgeLeft,#edgeRight,#wasdHud,#wasdGlyph,#windHud,#hitmark,#timing,#assist,#hitFlash,#dojoFlash,#trainCoach,#comboGlow,#presence,.tgtDist,.tgtKey,.liveRet){display:none!important}
 body.temple-active #reticle .arm,body.temple-active #reticle .dot{background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.9)}
 body.temple-active #skyListenCard{display:none!important}
-@media (max-width:720px){#skyTemplePanel{left:14px;right:14px;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:none;width:auto;max-height:min(58vh,520px)}}
+@media (max-width:720px){#skyTemplePanel{left:14px;right:14px;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:none;width:auto;max-height:min(58vh,520px)}.sky-temple-chat-turns{max-height:130px}.sky-temple-chat-form{grid-template-columns:1fr}.sky-temple-chat-send{min-height:34px}}
 
 /* Japanese typography: keep Latin metrics monospaced, give CJK native glyphs and sane tracking. */
 html[lang=ja] h1{line-height:1.15}
@@ -379,6 +397,18 @@ html[lang=ja] #settingsBox span,html[lang=ja] #clearLocalBests{letter-spacing:.0
   <div class="sky-temple-title" id="skyTempleTitle"></div>
   <div class="sky-temple-meta" id="skyTempleMeta"></div>
   <div class="sky-temple-body" id="skyTempleBody"></div>
+  <section class="sky-temple-chat" id="skyTempleChat" aria-label="Sky Temple dialogue" hidden>
+    <button class="sky-temple-chat-open" id="skyTempleChatAsk" type="button" aria-controls="skyTempleChatDialog" aria-expanded="false">ASK THE SKY</button>
+    <div class="sky-temple-chat-dialog" id="skyTempleChatDialog" role="region" aria-label="Sky dialogue" hidden>
+      <div class="sky-temple-chat-turns" id="skyTempleChatTurns" role="log" aria-live="polite" aria-relevant="additions text"></div>
+      <div class="sky-temple-chat-status" id="skyTempleChatStatus" role="status" aria-live="polite"></div>
+      <form class="sky-temple-chat-form" id="skyTempleChatForm" autocomplete="off">
+        <textarea class="sky-temple-chat-input" id="skyTempleChatInput" rows="2" maxlength="500" placeholder="ask about this focus…" aria-label="Ask about this sky focus" autocomplete="off"></textarea>
+        <button class="sky-temple-chat-send" id="skyTempleChatSend" type="submit">SEND</button>
+      </form>
+      <div class="sky-temple-chat-epistemic" id="skyTempleChatEpistemic">symbolic study notes · not predictions · not medical, legal, or financial advice · T opens · Esc closes ask</div>
+    </div>
+  </section>
   <div class="sky-temple-hint" id="skyTempleHint">RETICLE + FIRE TO INVESTIGATE · E LEAVES · ESC PAUSES (RETURNS TO TEMPLE)</div>
 </aside>
 
@@ -581,6 +611,8 @@ window.JA={
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
   skyTempleKicker:'空の神殿', skyTempleHint:'照準 + 発射でしらべる · E で出る · ESC で一時停止（神殿に戻る）', skyTempleEmpty:'空に照準を合わせてしらべる',
   skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった', skyTempleResumed:'神殿にもどった',
+  skyChatAsk:'空にたずねる', skyChatInput:'この焦点についてたずねる…', skyChatInputAria:'空の焦点についてたずねる', skyChatSend:'送る', skyChatListening:'きいています…',
+  skyChatUnavailable:'空のノートを用意できません', skyChatLimited:'今日はここまで · また明日', skyChatFailed:'空のノートを用意できません', skyChatEpistemic:'象徴を学ぶためのメモ · 予言ではない · 医療・法律・金融の助言ではない · Tで開く · Escで質問を閉じる',
   pocketFocus:'びーとにのる', pocketLeanEarly:'はやめにのる', pocketSitBack:'おそめにのる',
   pocketLawOn:'のり · びーとまんなか', pocketLawEarly:'のり · はやめ', pocketLawLate:'のり · おそめ',
   pocketLawOnHelp:'床のピークもフリーズも まんなか', pocketLawEarlyHelp:'床のピークもフリーズも はやめ', pocketLawLateHelp:'床のピークもフリーズも おそめ',
@@ -629,6 +661,7 @@ window.JA={
       txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear'); txt('saveSkyEpistemic','saveSkyEpistemic');
       txt('transitEssayButtonLabel','transitEssayButton'); txt('transitEssayReaderEyebrow','transitEssayButton'); txt('transitEssayReaderWatchTitle','transitEssayWatchpoints'); txt('transitEssayReaderCloseLabel','transitEssayBack'); txt('transitEssayReaderEpistemic','transitEssayFallback');
       txt('skyBriefTitle','skyBriefTitle'); txt('skyBriefCopyLabel','skyBriefCopy'); txt('skyBriefPrivate','skyBriefPrivate'); attr('skyBriefPreview','aria-label','skyBriefPreviewAria');
+      txt('skyTempleChatAsk','skyChatAsk'); attr('skyTempleChatInput','placeholder','skyChatInput'); attr('skyTempleChatInput','aria-label','skyChatInputAria'); txt('skyTempleChatSend','skyChatSend'); txt('skyTempleChatEpistemic','skyChatEpistemic');
       txt('shareEyebrow','shareEyebrow'); html('#shareTitle','shareTitleHtml'); html('#shareLede','shareLedeHtml'); attr('qrcode','aria-label','qrAria'); attr('shareUrl','aria-label','shareUrlAria'); txt('copyBtn','copy'); txt('backLabel','back');
     }
     var touch=((navigator.maxTouchPoints||0)>0||('ontouchstart' in window))&&window.matchMedia('(pointer: coarse)').matches;
@@ -732,6 +765,7 @@ const CFG = {
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, legacyListenCard:false, ritualSpeech:false},
+  skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -809,6 +843,8 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
 let templeActive=false, _skySelectHeld=false, _skySelectUsed=false, _skySel=null;
 let _templeBlend=0, _templeFocus=null, _templeEscapeGuard=false, _templeNeedsRelock=false;
 let _templeResumeWanted=false, _templeResumeSel=null, _templeResumeFocus=null, _templeStudySeq=0;
+let _templeChatOpen=false;
+const _skyChat={threadId:null,turns:[],status:'none',remainingTurns:10,inFlight:false,loaded:false,seq:0,pollTimer:null,pollStep:0,startedAt:0,optimistic:false};
 /* Observer location is local device data, separate from natal/profile data and every
    share, dojo, leaderboard, URL, and cloud-pref channel. Null keeps the old civil-spin fallback. */
 const OBSERVER_PREFS=window.AimDojoObserver||null;
@@ -1456,7 +1492,7 @@ const SKY_SIGN_GLYPHS={aries:'♈',taurus:'♉',gemini:'♊',cancer:'♋',leo:'�
 function canonicalSkySign(id){ id=String(id==null?'':id).toLowerCase(); return id==='scorpius'?'scorpio':(id==='capricornus'?'capricorn':id); }
 function skyGeometryRank(pack){ return pack&&pack.type==='skyday'?1:(pack&&pack._sample?0:2); }   // Meeus/fallback < synthetic sample < public day < legacy personal; authenticated personal is applied explicitly at rank 3
 let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, _publicSkyPack=null, atmosAmt=0, _sunLonRad=0;
-let _remotePersonalSky=false, _personalListenExpected=false, _skyAuthSession=null;   // authenticated Save my sky state; separate from legacy local natal_id packs
+let _remotePersonalSky=false, _personalListenExpected=false, _skyAuthSession=null, _skyProfileController=null;   // authenticated Save my sky state; separate from legacy local natal_id packs
 let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyDayAnnounced=false, _skyGlossary=null, _skyGlossaryReady=false;
 const _chartSignSprite=Object.create(null), _chartMoverSprite=Object.create(null);
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
@@ -2142,6 +2178,13 @@ const _templeUi={
   title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'),
   body:document.getElementById('skyTempleBody'), hint:document.getElementById('skyTempleHint')
 };
+const _skyChatUi={
+  root:document.getElementById('skyTempleChat'), ask:document.getElementById('skyTempleChatAsk'),
+  dialog:document.getElementById('skyTempleChatDialog'), turns:document.getElementById('skyTempleChatTurns'),
+  status:document.getElementById('skyTempleChatStatus'), form:document.getElementById('skyTempleChatForm'),
+  input:document.getElementById('skyTempleChatInput'), send:document.getElementById('skyTempleChatSend')
+};
+if(_skyChatUi.input) _skyChatUi.input.maxLength=CFG.skyChat.maxMessageChars;
 if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPLE');
 if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','RETICLE + FIRE TO INVESTIGATE · E LEAVES · ESC PAUSES (RETURNS TO TEMPLE)');
 const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
@@ -2387,10 +2430,166 @@ function requestTempleStudy(pick){
   fillTempleStudy(pick, fallback, false);
   if(_personalListenExpected || _lsnNatalId()) fetchListen(pick, fallback);
 }
+function skyChatAccessEligible(){
+  const ctl=_skyProfileController;
+  return !!(CFG.skyChat.enabled&&_skyAuthSession&&typeof _skyAuthSession.access_token==='string'&&_skyAuthSession.access_token.trim()&&
+    ctl&&ctl.state&&ctl.state.authenticated&&ctl.state.hasChart&&typeof ctl.postSkyChat==='function'&&typeof ctl.getSkyChat==='function');
+}
+function skyChatTempleEligible(){ return !!(state.running&&templeActive&&skyChatAccessEligible()); }
+function skyChatClearPoll(){ if(_skyChat.pollTimer!=null){ clearTimeout(_skyChat.pollTimer); _skyChat.pollTimer=null; } }
+function skyChatSoftText(status){
+  if(status==='limited') return T('skyChatLimited','today’s questions are complete · return tomorrow');
+  if(status==='failed') return T('skyChatFailed','sky notes unavailable');
+  if(status==='unavailable') return T('skyChatUnavailable','sky notes unavailable');
+  return '';
+}
+function skyChatDismissComposer(){
+  const wasOpen=_templeChatOpen; _templeChatOpen=false; document.body.classList.remove('temple-chat-open');
+  if(_skyChatUi.input) _skyChatUi.input.blur();
+  if(wasOpen&&!MOBILE&&document.pointerLockElement!==canvas&&canvas.requestPointerLock) _templeNeedsRelock=true;
+  return wasOpen;
+}
+function skyChatSyncSend(){
+  if(!_skyChatUi.send) return;
+  const blocked=_skyChat.inFlight||_skyChat.status==='pending'||_skyChat.status==='limited';
+  _skyChatUi.send.disabled=blocked||!_skyChatUi.input||!_skyChatUi.input.value.trim();
+}
+function renderSkyChatUi(){
+  const ui=_skyChatUi; if(!ui.root) return;
+  const eligible=skyChatTempleEligible();
+  if(!eligible&&_templeChatOpen) skyChatDismissComposer();
+  ui.root.hidden=!eligible;
+  if(ui.ask){ ui.ask.hidden=!eligible||_templeChatOpen; ui.ask.setAttribute('aria-expanded',eligible&&_templeChatOpen?'true':'false'); }
+  if(ui.dialog) ui.dialog.hidden=!eligible||!_templeChatOpen;
+  if(!eligible){
+    if(ui.turns) ui.turns.textContent=''; if(ui.status) ui.status.textContent='';
+    ui.root.removeAttribute('aria-busy'); return;
+  }
+  if(ui.turns){
+    ui.turns.textContent='';
+    for(const turn of _skyChat.turns.slice(-12)){
+      if(!turn||(turn.role!=='user'&&turn.role!=='assistant')) continue;
+      const line=document.createElement('div'); line.className='sky-temple-chat-turn '+turn.role;
+      line.textContent=turn.role==='assistant'&&turn.status==='failed' ? skyChatSoftText('failed') : String(turn.text||'');
+      if(line.textContent) ui.turns.appendChild(line);
+    }
+    if(_skyChat.status==='pending'){
+      const pending=document.createElement('div'); pending.className='sky-temple-chat-turn assistant pending';
+      pending.textContent=T('skyChatListening','listening…'); ui.turns.appendChild(pending);
+    }
+    ui.turns.scrollTop=ui.turns.scrollHeight;
+  }
+  if(ui.status){
+    const hasFailed=_skyChat.turns.some(turn=>turn&&turn.role==='assistant'&&turn.status==='failed');
+    ui.status.textContent=hasFailed&&_skyChat.status==='failed'?'':skyChatSoftText(_skyChat.status);
+  }
+  const composingBlocked=_skyChat.status==='pending'||_skyChat.status==='limited';
+  if(ui.input) ui.input.disabled=composingBlocked;
+  skyChatSyncSend();
+  if(_skyChat.inFlight||_skyChat.status==='pending') ui.root.setAttribute('aria-busy','true'); else ui.root.removeAttribute('aria-busy');
+}
+function currentSkyChatFocus(){
+  if(SKY_TEMPLE_DATA&&typeof SKY_TEMPLE_DATA.skyChatFocusSnapshot==='function') return SKY_TEMPLE_DATA.skyChatFocusSnapshot(_templeFocus,_skySel);
+  return {kind:'sky'};
+}
+function skyChatApplyEnvelope(record,seq){
+  if(seq!==_skyChat.seq||!skyChatAccessEligible()||!record) return;
+  _skyChat.inFlight=false; _skyChat.loaded=true;
+  _skyChat.threadId=typeof record.thread_id==='string'&&record.thread_id?record.thread_id:null;
+  const hadOptimistic=_skyChat.optimistic;
+  if(Array.isArray(record.turns)&&record.turns.length){ _skyChat.turns=record.turns.slice(-12); _skyChat.optimistic=false; }
+  else if(!hadOptimistic||record.status==='limited'){ _skyChat.turns=[]; _skyChat.optimistic=false; }
+  _skyChat.status=record.status==='none'&&hadOptimistic?'unavailable':record.status;
+  if(Number.isInteger(record.remaining_turns)) _skyChat.remainingTurns=record.remaining_turns;
+  if(record.status==='pending'){
+    if(!_skyChat.startedAt) _skyChat.startedAt=Date.now();
+    skyChatSchedulePoll(seq);
+  }else{
+    skyChatClearPoll(); _skyChat.startedAt=0; _skyChat.pollStep=0; _skyChat.optimistic=false;
+  }
+  renderSkyChatUi();
+}
+function skyChatSchedulePoll(seq){
+  skyChatClearPoll();
+  if(seq!==_skyChat.seq||_skyChat.status!=='pending'||!skyChatAccessEligible()) return;
+  const elapsed=Date.now()-(_skyChat.startedAt||Date.now());
+  if(elapsed>=CFG.skyChat.pollMaxMs){ _skyChat.status='unavailable'; _skyChat.inFlight=false; _skyChat.optimistic=false; renderSkyChatUi(); return; }
+  if(document.hidden) return;
+  const delay=Math.min(4000,CFG.skyChat.pollMs+Math.min(2,_skyChat.pollStep)*500); _skyChat.pollStep++;
+  _skyChat.pollTimer=setTimeout(()=>{ _skyChat.pollTimer=null; skyChatPoll(seq); },delay);
+}
+async function skyChatPoll(seq){
+  if(seq!==_skyChat.seq||_skyChat.status!=='pending'||!skyChatAccessEligible()) return;
+  if(document.hidden){ skyChatSchedulePoll(seq); return; }
+  if(_skyChat.inFlight){ skyChatSchedulePoll(seq); return; }
+  const ctl=_skyProfileController; _skyChat.inFlight=true; renderSkyChatUi();
+  try{ const record=await ctl.getSkyChat(_skyChat.threadId||undefined); skyChatApplyEnvelope(record,seq); }
+  catch(error){
+    if(seq!==_skyChat.seq) return;
+    _skyChat.inFlight=false;
+    if(Date.now()-(_skyChat.startedAt||Date.now())>=CFG.skyChat.pollMaxMs){ _skyChat.status='unavailable'; _skyChat.optimistic=false; skyChatClearPoll(); }
+    else skyChatSchedulePoll(seq);
+    renderSkyChatUi();
+  }
+}
+async function refreshSkyChatForTemple(){
+  renderSkyChatUi();
+  if(!skyChatTempleEligible()||_skyChat.inFlight) return;
+  const ctl=_skyProfileController, seq=_skyChat.seq; _skyChat.inFlight=true; renderSkyChatUi();
+  // No remembered id here: the server resolves the current natal civil day, so a long-lived tab cannot restore yesterday's thread.
+  try{ const record=await ctl.getSkyChat(); skyChatApplyEnvelope(record,seq); }
+  catch(error){ if(seq===_skyChat.seq){ _skyChat.inFlight=false; _skyChat.loaded=true; if(_skyChat.status==='pending') skyChatSchedulePoll(seq); else _skyChat.status='unavailable'; renderSkyChatUi(); } }
+}
+function openSkyChatComposer(){
+  if(!skyChatTempleEligible()) return false;
+  _templeChatOpen=true; document.body.classList.add('temple-chat-open'); renderSkyChatUi();
+  if(document.pointerLockElement===canvas){
+    _templeEscapeGuard=true;
+    try{ document.exitPointerLock(); }catch(error){ _templeEscapeGuard=false; }
+  }
+  if(!_skyChat.loaded&&!_skyChat.inFlight) refreshSkyChatForTemple();
+  setTimeout(()=>{ if(_templeChatOpen&&_skyChatUi.input&&!_skyChatUi.input.disabled) try{ _skyChatUi.input.focus(); }catch(error){} },0);
+  return true;
+}
+function closeSkyChatComposer(restoreFocus){
+  const wasOpen=skyChatDismissComposer();
+  renderSkyChatUi();
+  if(wasOpen&&restoreFocus&&skyChatTempleEligible()&&_skyChatUi.ask) try{ _skyChatUi.ask.focus(); }catch(error){}
+  return wasOpen;
+}
+function skyChatReset(){
+  skyChatDismissComposer(); skyChatClearPoll(); ++_skyChat.seq; _skyChat.threadId=null; _skyChat.turns=[]; _skyChat.status='none'; _skyChat.remainingTurns=10;
+  _skyChat.inFlight=false; _skyChat.loaded=false; _skyChat.pollStep=0; _skyChat.startedAt=0; _skyChat.optimistic=false;
+  if(_skyChatUi.input) _skyChatUi.input.value=''; renderSkyChatUi();
+}
+async function sendSkyChatQuestion(){
+  if(!skyChatTempleEligible()||!_templeChatOpen||_skyChat.inFlight||_skyChat.status==='pending'||_skyChat.status==='limited'||!_skyChatUi.input) return false;
+  const message=_skyChatUi.input.value.trim(); if(!message||message.length>CFG.skyChat.maxMessageChars) return false;
+  const payload={message:message,focus:currentSkyChatFocus()};   // server binds today's thread; threadId is only for polling an already accepted pending turn
+  _skyChatUi.input.value=''; _skyChat.turns=_skyChat.turns.concat([{role:'user',text:message,focus:payload.focus,at:new Date().toISOString()}]).slice(-12);
+  _skyChat.status='pending'; _skyChat.optimistic=true; _skyChat.startedAt=Date.now(); _skyChat.pollStep=0; _skyChat.inFlight=true;
+  const ctl=_skyProfileController, seq=_skyChat.seq; renderSkyChatUi();
+  try{ const record=await ctl.postSkyChat(payload); skyChatApplyEnvelope(record,seq); }
+  catch(error){ if(seq===_skyChat.seq){ _skyChat.inFlight=false; _skyChat.loaded=true;
+    if(error&&error.retryable){ _skyChat.status='pending'; skyChatSchedulePoll(seq); }
+    else { _skyChat.status='unavailable'; _skyChat.optimistic=false; skyChatClearPoll(); }
+    renderSkyChatUi(); } }
+  return true;
+}
+function skyChatVisibilityChanged(){
+  if(document.hidden){ skyChatClearPoll(); return; }
+  if(_skyChat.status==='pending') skyChatSchedulePoll(_skyChat.seq);
+}
+if(_skyChatUi.ask) _skyChatUi.ask.addEventListener('click',openSkyChatComposer);
+if(_skyChatUi.form) _skyChatUi.form.addEventListener('submit',e=>{ e.preventDefault(); sendSkyChatQuestion(); });
+if(_skyChatUi.input){
+  _skyChatUi.input.addEventListener('input',skyChatSyncSend);
+  _skyChatUi.input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey&&!e.repeat&&!e.isComposing){ e.preventDefault(); sendSkyChatQuestion(); } });
+}
 function renderSkyTemplePanel(){
   if(!_templeUi.panel) return;
   _templeUi.panel.classList.toggle('on',templeActive); _templeUi.panel.setAttribute('aria-hidden',templeActive?'false':'true');
-  if(!templeActive){ if(_templeUi.body) _templeUi.body.textContent=''; return; }
+  if(!templeActive){ if(_templeUi.body) _templeUi.body.textContent=''; renderSkyChatUi(); return; }
   let title='',lines=[];
   if(_templeFocus&&_templeFocus.kind==='aspect'&&SKY_TEMPLE_DATA){
     const model=SKY_TEMPLE_DATA.aspectPanelData(_templeFocus.record);
@@ -2410,6 +2609,7 @@ function renderSkyTemplePanel(){
   }
   if(!title) title=T('skyTempleEmpty','Aim into the sky to investigate');
   _templeUi.title.textContent=title; _templeUi.meta.textContent=lines.join('\n');
+  renderSkyChatUi();
 }
 function setSkyTempleFocus(focus){
   _templeFocus=focus||null;
@@ -2478,13 +2678,14 @@ function enterSkyTemple(options){
     if(_skySel.kind==='body') focus={kind:'body',body:_templeBodyFromPick(_skySel),pick:_skySel};
     else if(_skySel.kind==='sign') focus={kind:'sign',pick:_skySel};
   }
-  setSkyTempleFocus(focus); applyAudioState(); syncTransport(); clock.getDelta();
+  setSkyTempleFocus(focus); refreshSkyChatForTemple(); applyAudioState(); syncTransport(); clock.getDelta();
   if(options.quiet){ try{ showGhostToast(T('skyTempleResumed','TEMPLE RESTORED')); }catch(e){} }
   else try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
   return true;
 }
 function exitSkyTemple(options){
   if(!templeActive) return false; options=options||{};
+  closeSkyChatComposer(false);
   if(options.forPause) snapshotTempleForResume();
   else if(!options.keepResume) clearTempleResume();
   templeActive=false; _skySelectHeld=false; _skySelectUsed=false; _templeFocus=null; _templeStudySeq++;
@@ -2500,6 +2701,7 @@ function exitSkyTemple(options){
   if(_skySel){ goldFigure(_skySel.kind==='sign'?_skySel.id:_skySel.meta.sign); emphasizeListenGlyphs(_skySel); }
   else { restoreListenGlyphs(); restoreFigures(); }
   if(options.audio!==false) applyAudioState(); if(options.resume!==false) syncTransport(); clock.getDelta();
+  renderSkyChatUi();
   if(options.toast!==false && !options.forPause) try{ showGhostToast(T('skyTempleExited','BACK TO DOJO')); }catch(e){}
   return true;
 }
@@ -3481,6 +3683,7 @@ function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); 
 }
 function fire(){
   if(!state.running) return;
+  if(_templeChatOpen) return;
   if(templeActive){ focusSkyTempleReticle(); return; }
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
   if(_skySelectHeld){ _skySelectUsed=true; if(skyListenTry()) return; }   // held E explicitly owns sky selection; an Echo under the reticle still falls through to combat
@@ -3489,6 +3692,11 @@ function fire(){
 }
 canvas.addEventListener('mousedown', e=>{
   if(e.button===0){
+    if(_templeChatOpen){
+      closeSkyChatComposer(false);
+      if(_templeNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _templeNeedsRelock=false; try{ canvas.requestPointerLock(); }catch(_e){} }
+      return;
+    }
     if(_templeNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _templeNeedsRelock=false; try{ canvas.requestPointerLock(); }catch(_e){} return; }
     fire();
   }else if(e.button===2) toggleSkyFreeze();
@@ -3538,6 +3746,10 @@ document.addEventListener('keyup',e=>{
   if(_skySel){ e.preventDefault(); enterSkyTemple(); }
 });
 window.addEventListener('blur',()=>{ _skySelectHeld=false; _skySelectUsed=false; });
+document.addEventListener('keydown',e=>{
+  if(!CFG.skyChat.enabled||e.code!==CFG.skyChat.openKey||e.repeat||isTypingTarget(e.target)||!skyChatTempleEligible()) return;
+  e.preventDefault(); openSkyChatComposer();
+});
 
 /* ===== GAMEPAD (8BitDo Pro etc., W3C "standard" mapping): dual sticks = aim, face diamond + D-pad = WASD lanes (by POSITION: top/up=W, left=A, bottom/down=S, right=D), ZR/ZL triggers = fire, START = begin/pause/resume (face-bottom also begins at the card). Subtle rumble on hit. ===== */
 let _gpIndex=null, _gpPrev={};
@@ -3613,7 +3825,9 @@ document.addEventListener('keydown', e=>{
   }
 });
 document.addEventListener('keydown',e=>{
-  if(e.code!=='Escape' || !state.running || isTypingTarget(e.target)) return;
+  if(e.code!=='Escape' || !state.running) return;
+  if(_templeChatOpen){ e.preventDefault(); e.stopImmediatePropagation(); closeSkyChatComposer(true); return; }
+  if(isTypingTarget(e.target)) return;
   // Esc pauses (and remembers temple). E still leaves temple back to dojo without pausing.
   if(templeActive){
     e.preventDefault(); e.stopImmediatePropagation();
@@ -4905,7 +5119,7 @@ const skyBriefUi={
   copy:gid('skyBriefCopy'), copyLabel:gid('skyBriefCopyLabel'), private:gid('skyBriefPrivate')
 };
 const TRANSIT_ESSAY_POLL_DELAYS=[8000,10000,12000,15000], TRANSIT_ESSAY_MAX_MS=180000;
-let _skyAuthClient=null, _skyProfileController=null, _skyAuthUser='', _skyProfileUser='', _skyUiSeq=0, _skyAuthEventSeq=0, _skyUiBusy=false, _skyFormDirty=false, _skyLinkedToastTimer=null;
+let _skyAuthClient=null, _skyAuthUser='', _skyProfileUser='', _skyUiSeq=0, _skyAuthEventSeq=0, _skyUiBusy=false, _skyFormDirty=false, _skyLinkedToastTimer=null;
 let _transitEssay=null, _transitEssayPhase='hidden', _transitEssaySeq=0, _transitEssayPollTimer=null, _transitEssayPollStep=0, _transitEssayStartedAt=0;
 let _transitEssayActive=false, _transitEssayInFlightSeq=0, _transitEssayFlowUser='', _transitEssayActivationKey='', _transitEssayNoneRequeued=false, _transitEssayPendingToast=null;
 let _skyBrief=null, _skyBriefPhase='hidden', _skyBriefSeq=0, _skyBriefFlowUser='', _skyBriefRecordUser='', _skyBriefRecordGeneration=-1;
@@ -5213,7 +5427,7 @@ function skyFillForm(profile,force){
   _skyFormDirty=false; skySyncTimeUnknown(); skySyncCoordinatePair();
 }
 function skyRenderAccount(keepStatus){
-  if(!skySave.details) return;
+  if(!skySave.details){ renderSkyChatUi(); return; }
   const signedIn=!!(_skyAuthSession&&_skyAuthSession.access_token);
   if(skySave.authView) skySave.authView.hidden=signedIn;
   if(skySave.profileView) skySave.profileView.hidden=!signedIn;
@@ -5223,6 +5437,7 @@ function skyRenderAccount(keepStatus){
     const state=_skyProfileController&&_skyProfileController.state;
     skySetStatus(!signedIn?'':(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):_personalListenExpected?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySaved','CHART SAVED')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED')),false);
   }
+  renderSkyChatUi();
 }
 function skySoftFailure(error,action){
   const code=error&&error.code, status=error&&error.status;
@@ -5246,6 +5461,7 @@ function ensureSkyProfileController(){
 }
 function skyApplyControllerState(state,announce){
   if(!state) return false;
+  if(announce) skyChatReset();
   _personalListenExpected=!!state.hasChart;
   if(state.profile) skyFillForm(state.profile,announce);
   let linked=false; if(state.personalMode&&state.pack) linked=linkRemotePersonalSky(state.pack);
@@ -5255,7 +5471,7 @@ function skyApplyControllerState(state,announce){
     else if(state.hasChart){ skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
   }
   if(state.hasChart){ startTransitEssayFlow(); fetchSkyBriefForPause(); }
-  else { transitEssayReset(); skyBriefReset(); }
+  else { skyChatReset(); transitEssayReset(); skyBriefReset(); }
   return linked;
 }
 async function skyLoadSavedProfile(ticket){
@@ -5263,13 +5479,13 @@ async function skyLoadSavedProfile(ticket){
   skySetStatus(T('saveSkyChecking','CHECKING SAVED SKY…'),true);
   try{
     const pending=ctl.load(); renderSkyBriefUi(); const state=await pending; if(ticket!==_skyUiSeq) return;
-    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
+    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { skyChatReset(); transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
     skySetStatus(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):state.hasChart?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED'),false);
     skyRenderAccount(true);
   }catch(error){
     if(ticket!==_skyUiSeq) return; const state=ctl.state;
     if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); startTransitEssayFlow(); fetchSkyBriefForPause(); }
-    else { skyBriefReset(); skySetStatus(skySoftFailure(error,'load'),false); }
+    else { skyChatReset(); skyBriefReset(); skySetStatus(skySoftFailure(error,'load'),false); }
     skyRenderAccount(true);
   }
 }
@@ -5279,7 +5495,7 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
   if(_skyAuthUser!==next) skySetStatus('',false);   // cancel a busy save/load surface when auth switches or signs out
   if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); }
   _skyAuthUser=next;
-  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; transitEssayReset(); skyBriefReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
+  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; skyChatReset(); transitEssayReset(); skyBriefReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
   ctl.setAuthenticated(true); skyRenderAccount(true);
   if(_skyProfileUser!==next){ _skyProfileUser=next; _cloudPrefsLoaded=false; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); loadCloudPrefs(); }
   else if(!_cloudPrefsLoaded) loadCloudPrefs();
@@ -5287,7 +5503,7 @@ function skyHandleSession(session){   // called outside Supabase's auth callback
 function skyAcceptAuthSession(session){   // synchronous account quarantine; no async Supabase call inside onAuthStateChange
   session=session||null; const next=session&&session.user?String(session.user.id||''):'';
   if(next!==_skyAuthUser){
-    ++_skyUiSeq; cancelSkyLinkedToast(); transitEssayReset(); skyBriefReset(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
+    ++_skyUiSeq; cancelSkyLinkedToast(); skyChatReset(); transitEssayReset(); skyBriefReset(); skySetStatus('',false); const ctl=ensureSkyProfileController(); if(ctl) ctl.setAuthenticated(false);
     _personalListenExpected=false; try{ clearListen(true); }catch(e){} if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(_chartPackRank>=2) downgradePersonalSky();
     _skyProfileUser=''; _skyAuthUser=next; if(skySave.email) skySave.email.value=''; skyClearForm();
   }
@@ -5327,12 +5543,12 @@ if(skySave.form) skySave.form.addEventListener('submit',async e=>{
   const raw={birth_date:skySave.date.value,birth_time:skySave.time.value,time_unknown:skySave.unknown.checked,tz:skySave.tz.value,place_label:skySave.place.value,lat:skySave.lat.value,lon:skySave.lon.value};
   const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySaving','SAVING CHART…'),true);
   try{ const pending=ctl.save(raw); renderSkyBriefUi(); const state=await pending; if(ticket!==_skyUiSeq) return; if(!state.hasChart) return; skyApplyControllerState(state,true); }
-  catch(error){ if(ticket!==_skyUiSeq) return; const state=ctl.state; if(state&&state.lastSaveCommitted){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,true); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); startTransitEssayFlow(); fetchSkyBriefForPause(); }
+  catch(error){ if(ticket!==_skyUiSeq) return; const state=ctl.state; if(state&&state.lastSaveCommitted){ skyChatReset(); _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,true); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); startTransitEssayFlow(); fetchSkyBriefForPause(); }
     else { const msg=skySoftFailure(error,'save'); skySetStatus(msg,false); showGhostToast(msg); } skyRenderAccount(true); if(state&&state.hasChart&&!state.lastSaveCommitted) fetchSkyBriefForPause(); }
 });
 if(skySave.clear) skySave.clear.addEventListener('click',async ()=>{
   if(_skyUiBusy) return; const ctl=ensureSkyProfileController(); if(!ctl||!_skyAuthSession) return; const ticket=++_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkyClearing','CLEARING CHART…'),true);
-  try{ const pending=ctl.clear(); renderSkyBriefUi(); await pending; if(ticket!==_skyUiSeq) return; _personalListenExpected=false; transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
+  try{ const pending=ctl.clear(); renderSkyBriefUi(); await pending; if(ticket!==_skyUiSeq) return; _personalListenExpected=false; skyChatReset(); transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); skySetStatus(T('saveSkyCleared','CHART CLEARED'),false); skyRenderAccount(true); showGhostToast('CHART CLEARED'); }
   catch(error){ if(ticket!==_skyUiSeq) return; const msg=skySoftFailure(error,'clear'); skySetStatus(msg,false); showGhostToast(msg); if(ctl.state&&ctl.state.hasChart) fetchSkyBriefForPause(); }
 });
 if(skySave.signOut) skySave.signOut.addEventListener('click',async ()=>{
@@ -5378,7 +5594,7 @@ function exitRunning(){
   scheduleReverbBuild(120);
 }
 document.addEventListener('visibilitychange',()=>{
-  transitEssayVisibilityChanged(); skyBriefVisibilityChanged();
+  transitEssayVisibilityChanged(); skyBriefVisibilityChanged(); skyChatVisibilityChanged();
   if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); clock.getDelta(); }
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); }
 });
@@ -5417,6 +5633,7 @@ document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunn
 
 function resetSession(){
   if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
+  skyChatReset();
   rhythmGeneration++;
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
