@@ -159,19 +159,31 @@ h1 .acc{color:var(--menu-sand)}
 /* Headphones note is first-visit only. Full key list stays — return visits still need explicit controls. */
 html.seen .phones{display:none}
 #ovLede .lede-return{display:none}   /* keep the full story; short return line is unused */
-.keys{display:flex;flex-direction:column;gap:7px;margin:0 0 18px;font-size:12px;color:var(--bone-dim);text-align:left}
-.keys span{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 8px;line-height:1.4}
-.keys b{color:var(--bone);background:rgba(8,10,18,.9);border:1px solid var(--menu-panel-edge);padding:2px 7px;margin-right:0;flex:0 0 auto;letter-spacing:.06em;font-weight:600}
-#pauseKeys{display:none;flex-direction:column;gap:6px;margin:0 0 14px;padding:10px 11px;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.55);font-size:11px;color:var(--bone-dim);text-align:left;line-height:1.45}
-body.overlay-paused #pauseKeys{display:flex}
-#pauseKeys b{color:var(--bone);letter-spacing:.05em}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0 0 16px;font-size:11.5px;color:var(--bone-dim);text-align:left}
+.keys span{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 7px;line-height:1.35;min-width:0}
+.keys b{color:var(--bone);background:rgba(8,10,18,.9);border:1px solid var(--menu-panel-edge);padding:2px 6px;margin-right:0;flex:0 0 auto;letter-spacing:.05em;font-weight:600;font-size:10.5px}
+#pauseKeys{display:none;grid-template-columns:1fr 1fr;gap:5px 12px;margin:0 0 12px;padding:9px 10px;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.55);font-size:10.5px;color:var(--bone-dim);text-align:left;line-height:1.4}
+body.overlay-paused #pauseKeys{display:grid}
+#pauseKeys b{color:var(--bone);letter-spacing:.04em}
+@media (max-width:520px){.keys,#pauseKeys{grid-template-columns:1fr}}
 .primary{pointer-events:auto;width:100%;padding:14px;border:1px solid rgba(212,184,168,.55);background:rgba(212,184,168,.12);color:var(--menu-sand);font-family:var(--mono);font-size:15px;letter-spacing:.18em;cursor:pointer;transition:background .15s,border-color .15s}
 .primary:hover{background:rgba(212,184,168,.22);border-color:var(--menu-sand)}
 .primary:focus-visible,.ghost:focus-visible,#muteBtn:focus-visible,.primary:focus,.ghost:focus{outline:2px solid var(--rail);outline-offset:2px}
 #modePick{margin:0 0 4px}
 .mode-q{font-size:12px;letter-spacing:.16em;color:var(--bone-dim);text-align:center;margin:0 0 12px}
+/* Pause card order: status → RESUME → controls → settings → records/share */
+.card{display:flex;flex-direction:column}
 body.overlay-paused .lede-first,body.overlay-paused .phones,body.overlay-paused #keysRow{display:none!important}
-body.overlay-paused #ovLede{margin-bottom:10px}
+body.overlay-paused #ovEyebrow{order:0}
+body.overlay-paused #ovTitle{order:1}
+body.overlay-paused #ovLede{order:2;margin-bottom:8px}
+body.overlay-paused #pauseStats{order:3}
+body.overlay-paused #beginBtn{order:4;margin:6px 0 4px}
+body.overlay-paused #pauseKeys{order:5}
+body.overlay-paused #settingsBox{order:6}
+body.overlay-paused .dualcols{order:7}
+body.overlay-paused #recordsWrap{order:8}
+body.overlay-paused #modePick{display:none!important}
 /* Cold-load: buttons start disabled in HTML so they can't look clickable before listeners/Tone attach (throttled CDN was losing clicks for 4s+) */
 #modePick button:disabled{opacity:.45;cursor:wait;pointer-events:none}
 #trainCoach{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:6;pointer-events:none;font:12px var(--mono);letter-spacing:.12em;color:var(--rail);text-shadow:0 0 10px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.9);opacity:0;text-align:center;max-width:min(520px,92vw);line-height:1.45;transition:opacity .25s}
@@ -291,25 +303,24 @@ body.overlay-paused #pauseStats{order:0}
 .share-url .ghost{flex:0 0 auto;padding:11px 16px}
 .copy-msg{font-size:11px;letter-spacing:.18em;color:var(--toxic);height:15px;margin-top:9px}
 
-/* ---- pause settings: accordion groups (keep surface calm) ---- */
+/* ---- pause settings: tabbed panels (same features, less nesting) ---- */
 #settingsBox{max-width:400px!important;margin-top:8px!important;width:100%}
 #settingsBox .set-row{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0}
 #settingsBox .set-row>span:first-child{letter-spacing:.12em;flex:0 0 auto}
-#settingsBox details.settings-group{margin:6px 0 0;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.75);text-align:left}
-#settingsBox details.settings-group>summary{list-style:none;cursor:pointer;pointer-events:auto;padding:9px 11px;color:var(--bone);font-size:10.5px;letter-spacing:.14em;user-select:none}
-#settingsBox details.settings-group>summary::-webkit-details-marker{display:none}
-#settingsBox details.settings-group>summary::after{content:'▸';float:right;color:var(--bone-dim);transition:transform .12s}
-#settingsBox details.settings-group[open]>summary::after{transform:rotate(90deg)}
-#settingsBox details.settings-group>summary:hover{color:var(--rail)}
-#settingsBox .settings-group-body{padding:2px 11px 10px;border-top:1px solid var(--menu-panel-edge);overflow:visible}
-#settingsBox .settings-group-body .set-row:first-child{margin-top:8px}
-#chartTempleHint{margin:8px 0 4px;padding:8px 9px;border:1px solid rgba(232,197,106,.28);background:rgba(232,197,106,.06);color:var(--bone-dim);font-size:10.5px;line-height:1.45;letter-spacing:.02em}
+.settings-tabs{display:flex;gap:0;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.75);margin:0}
+.settings-tab{flex:1;pointer-events:auto;cursor:pointer;border:0;border-right:1px solid var(--menu-panel-edge);background:transparent;color:var(--bone-dim);font:10.5px var(--mono);letter-spacing:.12em;padding:9px 6px}
+.settings-tab:last-child{border-right:0}
+.settings-tab:hover{color:var(--rail)}
+.settings-tab.on{color:var(--bone);background:rgba(67,217,255,.08);box-shadow:inset 0 -2px 0 var(--rail)}
+.settings-panel{display:none;padding:8px 11px 10px;border:1px solid var(--menu-panel-edge);border-top:0;background:rgba(8,10,18,.55);text-align:left}
+.settings-panel.on{display:block}
+.settings-panel .set-row:first-child{margin-top:4px}
+#chartTempleHint{margin:4px 0 8px;padding:8px 9px;border:1px solid rgba(232,197,106,.28);background:rgba(232,197,106,.06);color:var(--bone-dim);font-size:10.5px;line-height:1.45;letter-spacing:.02em}
 #chartTempleHint[hidden]{display:none}
-/* Nested SAVE MY SKY + chart tools must expand the group, not trap a second clipped scrollbar */
 #settingsBox .sky-save,#settingsBox .sky-note,#settingsBox .sky-brief{overflow:visible}
 #settingsBox .sky-brief-preview{max-height:min(12rem,28vh)}
 /* ---- optional Save my sky (pause settings only) ---- */
-.observer-location{margin:6px 0 4px;padding:8px 0 6px;border-top:1px solid var(--panel-edge);text-align:left}
+.observer-location{margin:6px 0 4px;padding:8px 0 6px;border-top:1px solid var(--menu-panel-edge);text-align:left}
 .observer-location[hidden]{display:none}
 .observer-location-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
 .observer-location-label{color:var(--bone-dim);font-size:10.5px;letter-spacing:.14em}
@@ -324,11 +335,8 @@ body.overlay-paused #pauseStats{order:0}
 .observer-location-status{min-height:15px;margin-top:6px;color:var(--bone-dim);font-size:9.5px;line-height:1.4;letter-spacing:.03em}
 .observer-location-status.prompt{color:var(--rail)}
 @media (max-width:520px){.observer-location-actions{grid-template-columns:1fr}.observer-location-manual{grid-template-columns:1fr 1fr}.observer-location-manual .ghost{grid-column:1/-1}}
-.sky-save{margin:12px 0 2px;border-top:1px solid var(--panel-edge);padding-top:10px;text-align:left}
-.sky-save summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;color:var(--rail);letter-spacing:.16em;list-style:none;padding:4px 0;user-select:none}
-.sky-save summary::-webkit-details-marker{display:none}
-.sky-save summary::after{content:'+';color:var(--bone-dim);font-size:15px;line-height:1}
-.sky-save[open] summary::after{content:'−'}
+.sky-save{margin:0 0 2px;padding:0;border:0;text-align:left}
+.sky-save-title{margin:0 0 6px;color:var(--rail);letter-spacing:.14em;font-size:10.5px}
 .sky-save-help,.sky-save-note,.sky-save-status{margin:5px 0;color:var(--bone-dim);font-size:10.5px;line-height:1.45;letter-spacing:.02em}
 .sky-save-note{opacity:.78}
 .sky-save-status{min-height:15px;color:var(--rail)}
@@ -474,85 +482,81 @@ body.overlay-paused #pauseStats{order:0}
     </div>
 
     <div id="pauseStats" style="display:none"></div>
-    <!-- Pause surface: three closed groups. RESUME / RECORDS / SHARE stay primary. -->
+    <!-- Pause settings: PLAY / SKY / CHART tabs (flat; no nested accordion). -->
     <div id="settingsBox" style="display:none;margin:8px auto 2px;max-width:400px;font:11px/1.5 var(--mono);color:#9fb0c8">
-      <details class="settings-group" id="playSettingsDetails">
-        <summary id="playSettingsSummary">PLAY</summary>
-        <div class="settings-group-body">
-          <div class="set-row"><span id="resolutionLabel">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
-          <div class="set-row" id="beatCircleRow"><span id="beatCircleLabel">BEAT&nbsp;CIRCLE</span><button type="button" class="ghost" id="beatCircleToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
-          <div class="set-row"><span id="offsetLabel" style="white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0;pointer-events:auto"><span id="offVal" style="min-width:52px;text-align:right;color:#cfe">0 ms</span></div>
-          <div style="margin:6px 0 2px"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
-          <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:0;font-size:10px"></div>
-        </div>
-      </details>
-      <details class="settings-group" id="skySettingsDetails">
-        <summary id="skySettingsSummary">SKY</summary>
-        <div class="settings-group-body">
-          <div class="set-row" id="skyMotionRow"><span id="skyMotionLabel">SKY&nbsp;MOTION</span><button type="button" class="ghost" id="skyMotionToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
-          <section id="observerLocation" class="observer-location" aria-labelledby="observerLocationLabel" aria-describedby="observerLocationStatus">
-            <div class="observer-location-head"><span class="observer-location-label" id="observerLocationLabel">LOCATION</span><span class="observer-location-mode" id="observerLocationMode"></span></div>
-            <div class="observer-location-actions">
-              <button type="button" class="ghost" id="observerGeoButton"><span aria-hidden="true">⌖</span> <span id="observerGeoLabel">USE MY LOCATION</span></button>
-              <div class="observer-location-manual">
-                <label class="observer-location-field" for="observerLat"><span id="observerLatLabel">LAT</span><input id="observerLat" type="number" inputmode="decimal" min="-90" max="90" step="any" autocomplete="off" placeholder="38.0"></label>
-                <label class="observer-location-field" for="observerLon"><span id="observerLonLabel">LON</span><input id="observerLon" type="number" inputmode="decimal" min="-180" max="180" step="any" autocomplete="off" placeholder="-84.5"></label>
-                <button type="button" class="ghost" id="observerSave"><span id="observerSaveLabel">SAVE</span></button>
-              </div>
+      <div class="settings-tabs" role="tablist" aria-label="Settings">
+        <button type="button" class="settings-tab on" role="tab" id="playSettingsSummary" data-tab="play" aria-selected="true" aria-controls="playSettingsPanel">PLAY</button>
+        <button type="button" class="settings-tab" role="tab" id="skySettingsSummary" data-tab="sky" aria-selected="false" aria-controls="skySettingsPanel">SKY</button>
+        <button type="button" class="settings-tab" role="tab" id="chartSettingsSummary" data-tab="chart" aria-selected="false" aria-controls="chartSettingsPanel">CHART</button>
+      </div>
+      <div class="settings-panel on" role="tabpanel" id="playSettingsPanel" data-tab="play" aria-labelledby="playSettingsSummary">
+        <div class="set-row"><span id="resolutionLabel">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+        <div class="set-row" id="beatCircleRow"><span id="beatCircleLabel">BEAT&nbsp;CIRCLE</span><button type="button" class="ghost" id="beatCircleToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+        <div class="set-row"><span id="offsetLabel" style="white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0;pointer-events:auto"><span id="offVal" style="min-width:52px;text-align:right;color:#cfe">0 ms</span></div>
+        <div style="margin:6px 0 2px"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
+        <div id="calibHint" style="text-align:center;color:#6b7a90;min-height:0;font-size:10px"></div>
+      </div>
+      <div class="settings-panel" role="tabpanel" id="skySettingsPanel" data-tab="sky" aria-labelledby="skySettingsSummary" hidden>
+        <div class="set-row" id="skyMotionRow"><span id="skyMotionLabel">SKY&nbsp;MOTION</span><button type="button" class="ghost" id="skyMotionToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+        <section id="observerLocation" class="observer-location" aria-labelledby="observerLocationLabel" aria-describedby="observerLocationStatus">
+          <div class="observer-location-head"><span class="observer-location-label" id="observerLocationLabel">LOCATION</span><span class="observer-location-mode" id="observerLocationMode"></span></div>
+          <div class="observer-location-actions">
+            <button type="button" class="ghost" id="observerGeoButton"><span aria-hidden="true">⌖</span> <span id="observerGeoLabel">USE MY LOCATION</span></button>
+            <div class="observer-location-manual">
+              <label class="observer-location-field" for="observerLat"><span id="observerLatLabel">LAT</span><input id="observerLat" type="number" inputmode="decimal" min="-90" max="90" step="any" autocomplete="off" placeholder="38.0"></label>
+              <label class="observer-location-field" for="observerLon"><span id="observerLonLabel">LON</span><input id="observerLon" type="number" inputmode="decimal" min="-180" max="180" step="any" autocomplete="off" placeholder="-84.5"></label>
+              <button type="button" class="ghost" id="observerSave"><span id="observerSaveLabel">SAVE</span></button>
             </div>
-            <div class="observer-location-status prompt" id="observerLocationStatus" role="status" aria-live="polite">SET LOCATION FOR TRUE SKY</div>
-          </section>
-        </div>
-      </details>
-      <details class="settings-group" id="chartSettingsDetails">
-        <summary id="chartSettingsSummary">MY CHART</summary>
-        <div class="settings-group-body">
-          <p id="chartTempleHint" hidden>Sign in and save a birth chart here to use Ask (T) in Sky Temple.</p>
-          <details id="saveSkyDetails" class="sky-save">
-            <summary><span id="saveSkyTitle">SAVE MY SKY</span></summary>
-            <p class="sky-save-help" id="saveSkyHelp">Optional · play works without it. Email a private sky link, then open it in this browser to save one chart.</p>
-            <form id="saveSkyAuthView" autocomplete="off">
-              <label class="sky-save-field" for="saveSkyEmail"><span id="saveSkyEmailLabel">EMAIL</span>
-                <input id="saveSkyEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="saveSkyHelp saveSkyStatus" required>
-              </label>
-              <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkyLink"><span id="saveSkyLinkLabel">EMAIL SKY LINK</span></button></div>
-            </form>
-            <div id="saveSkyProfileView" hidden>
-              <div class="sky-save-account"><span id="saveSkyAccount"></span><button type="button" class="ghost" id="saveSkySignOut"><span id="saveSkySignOutLabel">SIGN OUT</span></button></div>
-              <form id="saveSkyForm" aria-describedby="saveSkyEpistemic saveSkyStatus" autocomplete="off">
-                <div class="sky-save-grid">
-                  <label class="sky-save-field" for="saveSkyDate"><span id="saveSkyDateLabel">BIRTH DATE</span><input id="saveSkyDate" type="date" required></label>
-                  <label class="sky-save-field" for="saveSkyTime"><span id="saveSkyTimeLabel">BIRTH TIME</span><input id="saveSkyTime" type="time" required></label>
-                </div>
-                <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
-                <div class="sky-save-grid">
-                  <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span>
-                    <select id="saveSkyTz" required autocomplete="off" aria-describedby="saveSkyStatus">
-                      <option value="">Select timezone…</option>
-                    </select>
-                  </label>
-                  <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country (optional)" autocomplete="off"></label>
-                  <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="optional"></label>
-                  <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="optional"></label>
-                </div>
-                <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button><button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button></div>
-              </form>
-            </div>
-            <p class="sky-save-note" id="saveSkyEpistemic">Symbolic study, not predictions. Birth details stay in your private profile and never enter records.</p>
-            <div class="sky-save-status" id="saveSkyStatus" role="status" aria-live="polite"></div>
-          </details>
-          <div id="transitEssayBlock" class="sky-note" hidden>
-            <button type="button" class="ghost" id="transitEssayButton" aria-describedby="transitEssayStatus" disabled><span aria-hidden="true">✦</span> <span id="transitEssayButtonLabel">TODAY'S SKY NOTE</span></button>
-            <div class="sky-note-status" id="transitEssayStatus" role="status" aria-live="polite"></div>
           </div>
-          <section id="skyBriefBlock" class="sky-brief" hidden aria-labelledby="skyBriefTitle" aria-describedby="skyBriefPrivate">
-            <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">CHART + TRANSITS</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
-            <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Natal chart and today's transits data" hidden></textarea>
-            <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY DATA</span></button></div>
-            <p class="sky-brief-private" id="skyBriefPrivate">Plain natal + transit data for paste · sky note stays in the button above</p>
-          </section>
+          <div class="observer-location-status prompt" id="observerLocationStatus" role="status" aria-live="polite">SET LOCATION FOR TRUE SKY</div>
+        </section>
+      </div>
+      <div class="settings-panel" role="tabpanel" id="chartSettingsPanel" data-tab="chart" aria-labelledby="chartSettingsSummary" hidden>
+        <p id="chartTempleHint" hidden>Sign in and save a birth chart here to use Ask (T) in Sky Temple.</p>
+        <div id="saveSkyDetails" class="sky-save">
+          <div class="sky-save-title" id="saveSkyTitle">SAVE MY SKY</div>
+          <p class="sky-save-help" id="saveSkyHelp">Optional. Email a private link, open it here, save one chart.</p>
+          <form id="saveSkyAuthView" autocomplete="off">
+            <label class="sky-save-field" for="saveSkyEmail"><span id="saveSkyEmailLabel">EMAIL</span>
+              <input id="saveSkyEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="saveSkyHelp saveSkyStatus" required>
+            </label>
+            <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkyLink"><span id="saveSkyLinkLabel">EMAIL SKY LINK</span></button></div>
+          </form>
+          <div id="saveSkyProfileView" hidden>
+            <div class="sky-save-account"><span id="saveSkyAccount"></span><button type="button" class="ghost" id="saveSkySignOut"><span id="saveSkySignOutLabel">SIGN OUT</span></button></div>
+            <form id="saveSkyForm" aria-describedby="saveSkyEpistemic saveSkyStatus" autocomplete="off">
+              <div class="sky-save-grid">
+                <label class="sky-save-field" for="saveSkyDate"><span id="saveSkyDateLabel">BIRTH DATE</span><input id="saveSkyDate" type="date" required></label>
+                <label class="sky-save-field" for="saveSkyTime"><span id="saveSkyTimeLabel">BIRTH TIME</span><input id="saveSkyTime" type="time" required></label>
+              </div>
+              <label class="sky-save-check" for="saveSkyUnknown"><input id="saveSkyUnknown" type="checkbox"><span id="saveSkyUnknownLabel">TIME UNKNOWN</span></label>
+              <div class="sky-save-grid">
+                <label class="sky-save-field wide" for="saveSkyTz"><span id="saveSkyTzLabel">TIMEZONE</span>
+                  <select id="saveSkyTz" required autocomplete="off" aria-describedby="saveSkyStatus">
+                    <option value="">Select timezone…</option>
+                  </select>
+                </label>
+                <label class="sky-save-field wide" for="saveSkyPlace"><span id="saveSkyPlaceLabel">PLACE LABEL</span><input id="saveSkyPlace" type="text" maxlength="240" placeholder="City, Country (optional)" autocomplete="off"></label>
+                <label class="sky-save-field" for="saveSkyLat"><span id="saveSkyLatLabel">LATITUDE</span><input id="saveSkyLat" type="number" inputmode="decimal" min="-90" max="90" step="any" placeholder="optional"></label>
+                <label class="sky-save-field" for="saveSkyLon"><span id="saveSkyLonLabel">LONGITUDE</span><input id="saveSkyLon" type="number" inputmode="decimal" min="-180" max="180" step="any" placeholder="optional"></label>
+              </div>
+              <div class="sky-save-actions"><button type="submit" class="ghost" id="saveSkySubmit"><span id="saveSkySubmitLabel">SAVE CHART</span></button><button type="button" class="ghost" id="saveSkyClear"><span id="saveSkyClearLabel">CLEAR CHART</span></button></div>
+            </form>
+          </div>
+          <p class="sky-save-note" id="saveSkyEpistemic">Symbolic study, not predictions. Birth details stay private and never enter records.</p>
+          <div class="sky-save-status" id="saveSkyStatus" role="status" aria-live="polite"></div>
         </div>
-      </details>
+        <div id="transitEssayBlock" class="sky-note" hidden>
+          <button type="button" class="ghost" id="transitEssayButton" aria-describedby="transitEssayStatus" disabled><span aria-hidden="true">✦</span> <span id="transitEssayButtonLabel">TODAY'S SKY NOTE</span></button>
+          <div class="sky-note-status" id="transitEssayStatus" role="status" aria-live="polite"></div>
+        </div>
+        <section id="skyBriefBlock" class="sky-brief" hidden aria-labelledby="skyBriefTitle" aria-describedby="skyBriefPrivate">
+          <div class="sky-brief-head"><span class="sky-brief-title" id="skyBriefTitle">CHART + TRANSITS</span><span class="sky-brief-status" id="skyBriefStatus" role="status" aria-live="polite"></span></div>
+          <textarea class="sky-brief-preview" id="skyBriefPreview" readonly spellcheck="false" aria-label="Natal chart and today's transits data" hidden></textarea>
+          <div class="sky-brief-actions"><button type="button" class="ghost" id="skyBriefCopy" disabled><span aria-hidden="true">⧉</span> <span id="skyBriefCopyLabel">COPY DATA</span></button></div>
+          <p class="sky-brief-private" id="skyBriefPrivate">Plain natal + transit data for paste · sky note stays in the button above</p>
+        </section>
+      </div>
     </div>
 
     <!-- Always enter through Moonline training (no skip-to-full gate). Hidden on RESUME. -->
@@ -4291,8 +4295,9 @@ window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPr
 window.addEventListener('gamepaddisconnected', e=>{ if(_gpIndex===e.gamepad.index){ _gpIndex=null; _gpPrev={}; } });
 function _gpAxis(v){ const dz=CFG.padDeadzone; if(Math.abs(v)<dz) return 0; const n=(v-Math.sign(v)*dz)/(1-dz); return Math.sign(n)*Math.pow(Math.abs(n), CFG.padExpo); }   // deadzone + expo response
 function padBeginBlocked(){   // a pad BEGIN/RESUME must not yank the player out of the record-name input, or start a run behind the open share modal (it sits above the card, so a mouse never could). Checked at press time AND in startRun's deferred resume path.
-  const ae=document.activeElement, s=gid('shareOverlay'), sky=gid('saveSkyDetails'), note=gid('transitEssayReader');
-  return (!!ae && (ae.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) || (!!sky&&sky.open) || (!!s && !s.classList.contains('hidden')) || (!!note && !note.classList.contains('hidden'));
+  const ae=document.activeElement, s=gid('shareOverlay'), chart=gid('chartSettingsPanel'), note=gid('transitEssayReader');
+  const chartOpen=!!(chart&&chart.classList.contains('on')&&settingsBox&&settingsBox.style.display!=='none');
+  return (!!ae && (ae.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) || chartOpen || (!!s && !s.classList.contains('hidden')) || (!!note && !note.classList.contains('hidden'));
 }
 function padRumble(ms, mag){   // felt-not-seen hit feedback (mirrors the iso game's haptics). No-op without a pad or actuator support.
   if(!CFG.padRumble || _gpIndex===null || !navigator.getGamepads) return;
@@ -5429,8 +5434,35 @@ function requestObserverGeolocation(explicit){
     _observerGeoState='failed'; _observerNotice=''; renderObserverSettings();
   },{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
 }
+function setSettingsTab(tab){
+  if(!settingsBox) return;
+  const id=String(tab||'play');
+  settingsBox.querySelectorAll('.settings-tab').forEach(btn=>{
+    const on=btn.getAttribute('data-tab')===id;
+    btn.classList.toggle('on',on); btn.setAttribute('aria-selected',on?'true':'false');
+  });
+  settingsBox.querySelectorAll('.settings-panel').forEach(panel=>{
+    const on=panel.getAttribute('data-tab')===id;
+    panel.classList.toggle('on',on); if(on) panel.removeAttribute('hidden'); else panel.setAttribute('hidden','');
+  });
+  try{
+    requestAnimationFrame(()=>{
+      const ov=gid('overlay'), panel=settingsBox.querySelector('.settings-panel.on');
+      if(!ov||ov.classList.contains('hidden')||!panel) return;
+      panel.scrollIntoView({block:'nearest',inline:'nearest',behavior:reduceMotion?'auto':'smooth'});
+    });
+  }catch(e){}
+}
+function wireSettingsTabs(){
+  if(!settingsBox||settingsBox._tabsWired) return;
+  settingsBox._tabsWired=true;
+  settingsBox.querySelectorAll('.settings-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{ setSettingsTab(btn.getAttribute('data-tab')||'play'); });
+  });
+  setSettingsTab('play');
+}
 function wirePauseScrollOnExpand(){
-  // When a settings accordion opens, keep the expanded block reachable inside the overlay scroller
+  // Keep expanded settings reachable inside the overlay scroller (tabs + any remaining details)
   if(!settingsBox||settingsBox._scrollWired) return;
   settingsBox._scrollWired=true;
   settingsBox.querySelectorAll('details').forEach(d=>{
@@ -5447,11 +5479,12 @@ function wirePauseScrollOnExpand(){
 }
 function refreshSettings(){
   if(!settingsBox) return;
+  wireSettingsTabs();
   wirePauseScrollOnExpand();
   const ps=gid('playSettingsSummary'), ss=gid('skySettingsSummary'), cs=gid('chartSettingsSummary');
   if(ps) ps.textContent=T('playSettingsSummary','PLAY');
   if(ss) ss.textContent=T('skySettingsSummary','SKY');
-  if(cs) cs.textContent=T('chartSettingsSummary','MY CHART');
+  if(cs) cs.textContent=T('chartSettingsSummary','CHART');
   if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
     resToggle.textContent = LOW ? T('resLow','LOW ▸ tap for HIGH') : T('resHigh','HIGH ▸ tap for LOW');   // actual mode this session
     resToggle.title = pref==='1' ? T('resForcedLow','forced LOW (saved)') : pref==='0' ? T('resForcedHigh','forced HIGH (saved)') : (LOW ? T('resAutoLow','auto → LOW') : T('resAutoHigh','auto → HIGH'));

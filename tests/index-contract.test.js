@@ -22,23 +22,24 @@ test("every inline browser script parses", () => {
 test("Save my sky remains inside pause settings and outside PLAY controls", () => {
   const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
   assert.ok(pauseBlock);
-  assert.match(pauseBlock[0], /<details id="saveSkyDetails"[\s\S]*?<\/details>/);
-  assert.match(pauseBlock[0], /Optional · play works without it/);
+  assert.match(pauseBlock[0], /id="saveSkyDetails"/);
+  assert.match(pauseBlock[0], /Optional\. Email a private link|Optional · play works without it/);
+  assert.match(pauseBlock[0], /settings-tabs|data-tab="chart"/);
   assert.ok(html.indexOf('<div id="modePick"') > html.indexOf(pauseBlock[0]) + pauseBlock[0].length);
 });
 
-test("observer location controls sit under SKY MOTION inside the SKY accordion", () => {
+test("observer location controls sit under SKY MOTION inside the SKY panel", () => {
   const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
   assert.ok(pauseBlock);
-  assert.match(pauseBlock[0], /id="playSettingsDetails"/);
-  assert.match(pauseBlock[0], /id="skySettingsDetails"/);
-  assert.match(pauseBlock[0], /id="chartSettingsDetails"/);
+  assert.match(pauseBlock[0], /id="playSettingsPanel"/);
+  assert.match(pauseBlock[0], /id="skySettingsPanel"/);
+  assert.match(pauseBlock[0], /id="chartSettingsPanel"/);
   const locationBlock = pauseBlock[0].match(/<section id="observerLocation"[^>]*>[\s\S]*?<\/section>/);
   assert.ok(locationBlock, "observer controls are inside pause settings");
   assert.ok(pauseBlock[0].indexOf('id="skyMotionRow"') < pauseBlock[0].indexOf('id="observerLocation"'));
-  // PLAY group (beat circle) is separate from SKY group
-  assert.ok(pauseBlock[0].indexOf('id="playSettingsDetails"') < pauseBlock[0].indexOf('id="skySettingsDetails"'));
-  assert.ok(pauseBlock[0].indexOf('id="skySettingsDetails"') < pauseBlock[0].indexOf('id="chartSettingsDetails"'));
+  // PLAY panel is separate from SKY panel
+  assert.ok(pauseBlock[0].indexOf('id="playSettingsPanel"') < pauseBlock[0].indexOf('id="skySettingsPanel"'));
+  assert.ok(pauseBlock[0].indexOf('id="skySettingsPanel"') < pauseBlock[0].indexOf('id="chartSettingsPanel"'));
   assert.match(locationBlock[0], /id="observerGeoButton"[^>]*>[\s\S]*USE MY LOCATION/i);
   assert.match(locationBlock[0], /id="observerLocationStatus"[^>]*role="status"[^>]*aria-live="polite"/i);
 
@@ -137,6 +138,7 @@ test("Today's sky note control is chart-gated inside pause settings", () => {
   const noteBlock = pauseBlock[0].match(/<(?:div|section) id="transitEssayBlock"[^>]*>[\s\S]*?<\/(?:div|section)>/);
   assert.ok(noteBlock, "transit essay controls are inside pause-only settings");
   assert.ok(pauseBlock[0].indexOf('id="transitEssayBlock"') > pauseBlock[0].indexOf('id="saveSkyDetails"'));
+  assert.match(pauseBlock[0], /settings-tabs|data-tab="chart"/, "settings use tab panels");
   assert.match(noteBlock[0], /\shidden(?:\s|>|=)/i);
   const button = noteBlock[0].match(/<button[^>]*\bid="transitEssayButton"[^>]*>/i);
   assert.ok(button);
@@ -497,6 +499,6 @@ test("ordinary focused settings buttons do not strand gamepad resume", () => {
   const fn = html.match(/function padBeginBlocked\(\)[\s\S]*?\n\}/);
   assert.ok(fn);
   assert.doesNotMatch(fn[0], /INPUT\|TEXTAREA\|SELECT\|BUTTON/);
-  assert.match(fn[0], /saveSkyDetails/);
+  assert.match(fn[0], /chartSettingsPanel|saveSkyDetails/);
   assert.match(fn[0], /transitEssayReader/);
 });
