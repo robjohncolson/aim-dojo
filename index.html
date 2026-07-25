@@ -882,6 +882,9 @@ const CFG = {
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
+  // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
+  // Kill-switch is tide.on:false (keep the OBJECT — the read sites take its *Lo values): every multiplier returns 1, the mercy gate never closes, and the per-event changeBpm law in maybeAdjust() runs exactly as before.
+  tide:{ on:true, riseBars:6, peakBars:2, mercyBars:1, densityLo:0.45, dollyLo:0.5, brownianLo:0.55, clutchGate:0.75, padPeakVel:0.12, bpmUpMul:2.0, tintExhale:0.35 },   // *Lo = the value at the TROUGH as a fraction of the CFG default (1.0 at the crest) · clutchGate = min tideI that arms the clutch flourish, so a peak reads as a peak · padPeakVel = pad/arp velocity lift at the crest and on the mercy bloom · bpmUpMul scales CFG.bpmUp because one step now covers a whole ~9-bar swell instead of ~half an accuracy window (first guess 2.0 — tune by ear) · tintExhale = mercy theme-aura lift (!reduceMotion, visual only)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
@@ -1535,8 +1538,12 @@ function updateSky(dt){
   _hor.copy(HOR_NIGHT).lerp(HOR_DAY, atmos).lerp(HOR_DUSK, tw*0.7);                         // horizon colour (dusk warmth untouched — theatre sunsets are the show)
   _zen.copy(ZEN_NIGHT).lerp(ZEN_DAY, atmos).lerp(ZEN_DUSK, tw*0.45);                        // zenith colour (deep)
   _haze.copy(_hor).lerp(WHITE, (GLOW?0.10:0.03)+0.25*atmos);                                // soft brightened horizon band — near-dark at night (GLOW: milkier), bright by day
+  // TIDES exhale: the theme aura leans in across the mercy bar and settles as the next swell rises. Purely the WEIGHT of
+  // the existing mood lerp (no new layer), eased per-frame so the bar boundary breathes instead of popping. reduceMotion
+  // and tide.on:false both pin it to exactly 1 → the aura math below is untouched. Never gameplay/audio timing.
+  const tideBreath=(!reduceMotion && tideLive()) ? 1+(CFG.tide.tintExhale||0)*(_tideTint+=((tideMercy?1:0)-_tideTint)*Math.min(1,dt*2.2)) : 1;
   // THEME AURA (soft): a whisper of song color — dialed down so toxic orbs / WASD hues stay the stars of the palette
-  if(state.running && !templeActive && activeTheme){ const w=0.03+0.04*Math.min(1,grooveI/2.2); _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.7); _zen.lerp(_moodCol,w*0.3); }
+  if(state.running && !templeActive && activeTheme){ const w=(0.03+0.04*Math.min(1,grooveI/2.2))*tideBreath; _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.7); _zen.lerp(_moodCol,w*0.3); }
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
   scene.background.copy(_hor); scene.fog.color.copy(_hor); setScalarCached(scene.fog,'density',0.012-0.005*day,100000);  // background = horizon → no black seam; floor fades into the horizon
   if(starPts) setScalarCached(starPts.material.uniforms.uOpacity,'value',Math.max(0,1-atmos*1.15));   // atmos: decorative identical (atmos===day); clocked* fallback stars ride the quieter dome
@@ -1568,7 +1575,7 @@ function updateSky(dt){
   }
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
-  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && !templeActive && activeTheme) _amb.lerp(_moodCol, 0.04+0.04*Math.min(1,grooveI/2.5)); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
+  _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && !templeActive && activeTheme) _amb.lerp(_moodCol, (0.04+0.04*Math.min(1,grooveI/2.5))*tideBreath); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
   hemiLight.color.copy(_sky); if(state.running && !templeActive && activeTheme) hemiLight.color.lerp(_moodCol, 0.03); setScalarCached(hemiLight,'intensity',0.30+0.6*day);
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // key light from the sun when up (in clocked* sunDir IS the transformed ☉ — v2.1 §4.4); below the horizon, the negation is a soft night fill from the opposite sky, not a physical moon
@@ -3886,6 +3893,23 @@ function timingErrorMs(){
   const k=Math.round(pos/e); return (pos - k*e)*1000;   // + = late, - = early
 }
 function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||i===6) return 0.62; return 0.45; }
+/* ---- TIDES: one intensity envelope, written ONLY in onGrid (bar position), read everywhere else ----
+   tideI 1 / tideMercy false is the neutral resting state, so a parcel-off run (or the trainer, which keeps its
+   didactic pacing) hits today's numbers with no branch anywhere hot. _tideCycle latches the swell index so the
+   boundary BPM step fires exactly once per cycle; _tideTint is the visual exhale follower (updateSky only). */
+let tideI=1, tideMercy=false, _tideCycle=-1, _tideTint=0;
+function tideLive(){ return !!(CFG.tide && CFG.tide.on) && !trainMode; }
+function tideMul(lo){ return tideLive() ? lo+(1-lo)*tideI : 1; }                       // lerp(lo,1,tideI): lo at the trough, the full CFG value at the crest — exactly 1 when the parcel is off
+function tideClutchOk(){ return !tideLive() || tideI>=CFG.tide.clutchGate; }            // flourish only near the crest
+function tideStepBpm(){
+  // The adaptive law, unchanged (windowAccuracy + upThreshold/downThreshold), fired ONCE at the mercy→rise
+  // boundary instead of per accuracy window. bpmUp is scaled by bpmUpMul because a step now covers a whole swell;
+  // bpmDown is NOT scaled — mercy on the way down should stay gentle. changeBpm keeps all its bookkeeping (state.maxBpm, ramp, sfx).
+  if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;   // same warm-up guard as maybeAdjust: no step before the window has meaning
+  const acc=windowAccuracy(); if(acc==null) return;
+  if(acc>=CFG.upThreshold) changeBpm(+CFG.bpmUp*(CFG.tide.bpmUpMul!=null?CFG.tide.bpmUpMul:1), true);
+  else if(acc<=CFG.downThreshold) changeBpm(-CFG.bpmDown, false);
+}
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
@@ -3917,6 +3941,19 @@ function onGrid(time){
     }
     restSlots=spawned?0:restSlots+1; grid8++; return;
   }
+  // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
+  // chord walk, so the swell is locked to the arrangement without touching the Transport. Everything downstream READS.
+  let tideBloom=false;
+  if(CFG.tide && CFG.tide.on){
+    const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);
+    const bar=Math.floor(grid8/8), cb=bar%cyc, f=(grid8%8)/8, down=(grid8%8)===0;   // cb = bar within the swell, f = fraction through that bar
+    tideMercy = cb>=rise+peak;                                     // MERCY: spawn gate shut, field drains, the arrangement breathes
+    tideI = tideMercy ? 0 : (cb<rise ? (cb+f)/rise : 1);           // linear swell across riseBars → hold at the crest → drop to the trough for the mercy bar
+    tideBloom = tideMercy && cb===rise+peak && down;               // mercy DOWNBEAT: the pad blooms once (existing pad voice, velocity only)
+    const cycleIdx=Math.floor(bar/cyc);
+    if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet)
+  } else { tideI=1; tideMercy=false; }
+  const tideLift=(CFG.tide && CFG.tide.on) ? (CFG.tide.padPeakVel||0)*(tideBloom?1:tideI) : 0;   // velocity lift shaped by the swell; full on the mercy bloom. 0 with the parcel off → every trigger keeps its literal velocity
   const _acc=windowAccuracy(), accN=_acc==null?0:Math.max(0,Math.min(1,(_acc-CFG.grooveAccLo)/(CFG.grooveAccHi-CFG.grooveAccLo)));   // groove TARGET = composite of streak + click% + total hits (acc + hits persist through a miss, so it doesn't tank)
   const streakN=Math.min(1,state.streak/CFG.grooveStreakFull), hitsN=Math.min(1,state.hits/CFG.grooveHitsFull), gw=CFG.grooveW;
   let gt=3*(gw[0]*streakN + gw[1]*accN + gw[2]*hitsN); if(CFG.wasdRhythm) gt=Math.min(3, gt + Math.min(CFG.wasdGrooveMax, _wasdCombo*CFG.wasdGrooveGain));   // 0..3 target tier; the WASD bonus combo (off-beat hits) lifts the groove → music intensifies as you nail the rhythm
@@ -3936,7 +3973,7 @@ function onGrid(time){
     if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(CHORD_ROOT[ci]*bm, BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root
     // TORIYANSE director's cut: at high groove, answering fifth chirps on the off-beats (the signal "talks back")
     if(bass && _isTori && tier>=2 && (i===2||i===6)) bass.triggerAttackRelease(CHORD_ROOT[ci]*1.5, '16n', time, 0.42);
-    if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, tier>=2?0.55:0.42);
+    if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, (tier>=2?0.55:0.42)+tideLift);   // TIDES: the figure leans in as the swell rises (+0 with the parcel off)
     // HOOK with HOLD: repeated same-index steps do NOT retrigger — one sustained note until pitch changes or rest
     if(tune && tier>=1){
       const tn=TUNE[grid8%TUNE.length];
@@ -3951,8 +3988,9 @@ function onGrid(time){
     }
     // PAD: full-bar triad. TORIYANSE gets it from mid-groove (tier≥1 / grooveI≥1) so the crossing always has a warm bed; others wait for the Rez build
     if(pad && i===0){
-      if(_isTori && grooveI>=1.0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0)));
-      else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5)));
+      if(_isTori && grooveI>=1.0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0))+tideLift);
+      else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
+      else if(tideBloom && tideLift>0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
     }
     if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75);
   }catch(e){}
@@ -3968,10 +4006,10 @@ function onGrid(time){
   const active=activeTargetCount();
   let spawned=false;
   if(cd>0){ cd--; }
-  else if(active<CFG.patternConcurrency){
+  else if(active<CFG.patternConcurrency && !tideMercy){       // MERCY BAR: the NEW-spawn gate shuts for tideMercyBars. Live orbs, their lifetimes and every grading path are untouched — the field just drains and breathes. restSlots keeps counting through it, so the first eligible beat of the next rise is a forced spawn ("here it comes")
     const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only
     if(elig){
-      let p = CFG.densityScale*metricWeight(i);   // free-play orb density
+      let p = CFG.densityScale*metricWeight(i)*tideMul(CFG.tide.densityLo);   // free-play orb density, thinned toward the trough by the swell (×1 with the parcel off)
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
         try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }
@@ -4147,6 +4185,7 @@ function pushEvent(good){
   sinceAdjust++; maybeAdjust();
 }
 function maybeAdjust(){
+  if(tideLive()) return;   // TIDES: the tempo step moved to the mercy→rise boundary (tideStepBpm) so it can't lurch mid-swell. tide.on:false / trainer → this per-event path runs exactly as before. Range creep in pushEvent is untouched either way.
   if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
   if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
   const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
@@ -4206,7 +4245,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   pushEvent(good);   // timing-grade popup (FLAWLESS/PERFECT/…) removed per playtest — the distance/height flash (recordHit) is the only post-hit readout now
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
-  if(good && CFG.clutch && !reduceMotion){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }
+  if(good && CFG.clutch && !reduceMotion && tideClutchOk()){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }   // TIDES: the flourish is crest-only (tideClutchOk is always true with the parcel off) — the KILL itself is never gated
   if(good && CFG.flickBonus.on && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS (disabled — CFG.flickBonus.on:false): a FLAWLESS/PERFECT on-beat kill on a hot streak would arm the flick treat
   if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
@@ -5232,7 +5271,7 @@ function animate(frameNow){
     }
   }
   let _dollyY=0, _dollyP=0;                                    // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump.
-  if(CFG.dolly && !reduceMotion && !templeActive){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul();
+  if(CFG.dolly && !reduceMotion && !templeActive){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul()*tideMul(CFG.tide.dollyLo);   // TIDES: the view wanders hardest at the crest and calms into the mercy bar (×1 with the parcel off)
     if(CFG.dollyHuman){   // SENSEI: irregular multi-harmonic wander + slow envelope — tracks like a strafing opponent, not a perfect machine orbit
       const e=0.72+0.28*Math.sin(_t*0.19+0.5);
       _dollyY=CFG.dollyYawDeg*D*_dm*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
@@ -5294,7 +5333,8 @@ function animate(frameNow){
       if(bonusActive){ doSnap=false; doJuke=false; }         // RAIL-FLICK BONUS: HOLD the field (orbs freeze) while the flick mode runs. _quantIdx/_quantT already advanced in the strobe block above, so on unfreeze the next snap is a small step (no teleport, no beat-clock desync).
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
-      const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
+      const _tideW=tideMul(CFG.tide.brownianLo);   // TIDES: wander cap + juke sharpness breathe with the swell. grooveGlideSpeed is NOT scaled — the leadable glide is the sacred loop
+      const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())*_tideW), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
       if(doSnap){
         if(CFG.wasdRhythm && strobe){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);   // notes at HALF the orb-jump rate -> quarter/8th/16th as skill (diffT) rises
           syncWasdResolutionGrid(nd);
@@ -5322,7 +5362,7 @@ function animate(frameNow){
             tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
             const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>velCap2){ const f=velCap/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
           }
-          if(doJuke){ let _ha=Math.atan2(tg.vel.z, tg.vel.x); if(!(tg.vel.x||tg.vel.z)) _ha=Math.random()*6.283; _ha+=(Math.random()*2-1)*CFG.grooveJukeDeg*0.017453293; tg.vel.x=Math.cos(_ha)*CFG.grooveGlideSpeed; tg.vel.z=Math.sin(_ha)*CFG.grooveGlideSpeed; }   // beat JUKE: CUT the heading ±grooveJukeDeg and set a steady glide speed → a visible dart you must re-lead each beat
+          if(doJuke){ let _ha=Math.atan2(tg.vel.z, tg.vel.x); if(!(tg.vel.x||tg.vel.z)) _ha=Math.random()*6.283; _ha+=(Math.random()*2-1)*CFG.grooveJukeDeg*_tideW*0.017453293; tg.vel.x=Math.cos(_ha)*CFG.grooveGlideSpeed; tg.vel.z=Math.sin(_ha)*CFG.grooveGlideSpeed; }   // beat JUKE: CUT the heading ±grooveJukeDeg and set a steady glide speed → a visible dart you must re-lead each beat
           const ms=moveStep*mul;   // accuracy-scaled displacement: the better you time the beat, the less the field drifts this step
           p.x+=tg.vel.x*ms; p.y+=tg.vel.y*ms; p.z+=tg.vel.z*ms;
           if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
@@ -6353,7 +6393,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState();   // fresh balanced WASD combo + pocket language state per run
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0;   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
