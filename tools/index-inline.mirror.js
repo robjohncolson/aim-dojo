@@ -903,6 +903,9 @@ const CFG = {
   // ORBS SING THEIR DISTANCE (music language): every Echo's tone PITCH encodes the beat-quantized lead k it was spawned for — the same k the Bow's Mandala plots. Long lead (far orb) = LOW degree, short lead (near orb) = HIGH degree, mapped across degSpan degrees ENDING at the top of the active theme's scale, so the field always speaks the current key and you hear WHEN before your eyes find WHERE. Set ONCE at spawn (after the kind roll AND the tank re-draw, so tg.bowK is the honest k) — no per-frame frequency writes, no new nodes, no new voices: the osc/osc2/lfo2 each target already owns are re-tuned in place with their relationships preserved, so every voiceTargetSound timbre survives the transpose (the lowpass is left alone — the per-frame distance buckets own it).
   // Kill-switch is sing.on:false → singTargetSound is never called and every orb keeps its pickPenta() pitch and flat gate gain (today's behavior). Inert in the trainer and the Temple. k<=0 (the cube-root fallback, or beatSpawn off) also keeps today's pitch — no k, no claim — and the spatial distance model (dry/close, reverb/far) is untouched: pitch ADDS information, it never replaces the space.
   sing:{ on:true, degSpan:5, callBoost:1.5, goldOctDown:true, speedGlideMs:40, moverVibCents:10 },   // degSpan = how many scale degrees the k range spreads over (5 of 8 keeps the low end off the bass and the top note reserved for the shortest lead) · callBoost = one-shot gain multiplier on the FIRST 16th-gate open, the orb's "call" before it settles into the field (1.0 disables) · goldOctDown = GOLD sings its degree an octave under (reads "ancient") · speedGlideMs = SPEED settles UP into pitch from a semitone under, a grace-note pickup (0 disables) · moverVibCents = ± vibrato depth re-scaled onto the LFO the MOVER already owns (0 disables; never adds a node)
+  // THE LEAD INSTRUMENT (music language): the kill note stops being a fixed stamp and becomes a PLAYED note. How tight the arrival landed on the beat (q = 1 − |ms off the nearest beat| / goodMs, the same heard-timeline read the Bow's Mandala samples) is its VELOCITY and its BRIGHTNESS — window-edge arrivals come out breathy and dull, dead-centre ones full and open — and consecutive FLAWLESS arrivals stack consonance over it (2nd adds the 5th, 3rd+ adds the octave, capped by stackMax; any other arrival resets the stack). A CLANK mutes the kill-voice for clankMuteBeats: the hole in the song is the one you made. All of it shapes the ONE trigger playHit already made through the `lead` voice plus the ONE lowpass that voice was already built with — no new node, no new voice, no per-hit array, no rnd() draw, and grading/score/streak/ghostRec are read-only throughout.
+  // Kill-switch is voice.on:false → playHit takes today's grade-velocity branch verbatim, the lead lowpass never moves off its 3800 Hz build value, no stack, no mute (today's behavior). Inert in the trainer and the Temple. The mute reaches ONLY the kill-voice: tune, the WASD tapSynth, drums, chordHit, the tank's walking notes and the orb hums are never touched, the clank still breaks streak and scores exactly as today, and the clank's own SFX still plays (it is the mercy, not the punishment).
+  voice:{ on:true, fullVel:0.85, breathyVel:0.30, brightHz:5600, dullHz:1400, stackMax:3, clankMuteBeats:1 },   // fullVel/breathyVel = the velocity ends of q (fullVel sits UNDER today's 0.95 FLAWLESS stamp so a loose night reads quieter overall, not louder) · brightHz/dullHz = the same q on the lead's own lowpass, written once at the trigger (no automation curve) · stackMax = the consonance cap (3 = root, +5th, +octave; the overtones ROLL 50 ms apart because `lead` is a MONOPHONIC Tone.Synth — a simultaneous chord array on it would only voice-steal, and the FLAWLESS sparkle already rolls exactly this way) · clankMuteBeats = beats of your own silence after an off-beat arrival (0 disables the mute and keeps the rest)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
@@ -3496,7 +3499,7 @@ let _userOffsetSec = (function(){ try{ const v=parseFloat(localStorage.getItem('
 function audioLat(){ return (((rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0)) + _userOffsetSec; }   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
 let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in the heard timeline) → powers the pause-menu "calibrate from my taps"
 let reverbInput=null, reverbQueued=false;
-let kick=null, snare=null, hat=null, tick=null, tickVol=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
+let kick=null, snare=null, hat=null, tick=null, tickVol=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, leadLp=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // leadLp: the lead voice's OWN lowpass, held so THE LEAD INSTRUMENT can set its cutoff per kill note (same node buildDrums always made, never touched with voice.on:false). grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
 let gridId=null, grid8=0, cd=0, restSlots=0, rhythmGeneration=0;   // invalidates Tone.Draw work queued across Temple/pause/session boundaries
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh, fireMuzzle=null, firePluck=null;
 /* ========================= TUNE LIBRARY =========================
@@ -3781,7 +3784,7 @@ function buildDrums(){
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(4200,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }   // CHORD-ARP BED (pass 3: ducked vol -6→-9 so the new TUNE hook can cut through; still bright enough to carry harmony)
     try{ tapSynth=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.002,decay:0.13,sustain:0,release:0.08}}).connect(new Tone.Filter(3200,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }   // WASD taps get a VOICE (were silent): the off-beat "and" taps play a pentatonic counter-melody — playing well = playing music
     try{ pad=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}}).connect(new Tone.Filter(1400,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }   // sustained PAD swell — layers in on the downbeat at high groove (the "Rez build" ceiling above tier 3)
-    try{ lead=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.2,sustain:0.12,release:0.22}}).connect(new Tone.Filter(3800,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; }   // dedicated LEAD voice — the pentatonic-walking kills play through this (brighter + short echo) → a clean run reads as a real melody line ON TOP of the continuous TUNE hook (separate voice → no monophonic steal)
+    try{ leadLp=new Tone.Filter(3800,'lowpass'); lead=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.2,sustain:0.12,release:0.22}}).connect(leadLp.connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; leadLp=null; }   // the lowpass is the same node and the same 3800 Hz as ever, only HELD now (leadLp) so THE LEAD INSTRUMENT can shade it per kill note. dedicated LEAD voice — the pentatonic-walking kills play through this (brighter + short echo) → a clean run reads as a real melody line ON TOP of the continuous TUNE hook (separate voice → no monophonic steal)
     try{ tune=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.008,decay:0.18,sustain:0.08,release:0.28}}).connect(new Tone.Filter(5600,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.12,wet:0.15}).connect(new Tone.Volume(-5).connect(drumBus)))); }catch(e){ tune=null; }   // HOOK melody (pass 3): sine + longer notes + light delay, sits ABOVE the arp bed; own voice so kills never cut the phrase
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
@@ -3827,11 +3830,53 @@ function sfx(kind){
     else if(kind==='levelDown'){ synthLvl.triggerAttackRelease(392,0.08,now); synthLvl.triggerAttackRelease(262,0.12,now+0.09); }
   }catch(e){}
 }
+/* THE LEAD INSTRUMENT: how tight the arrival landed becomes the kill note's timbre. Two module scalars and four tiny
+   readers — no state machine, no allocation per hit, no scheduling of its own. voiceQ reads the SAME heard timeline
+   as bowNote (so the note you hear and the dot the Mandala draws agree about the same arrival), voiceBreak/voiceClank
+   are the only writers, and every one of them is reached only through a raw CFG.voice.on read at the call site. */
+let _voiceStack=0;        // consecutive FLAWLESS arrivals; any other arrival puts it straight back to 0
+let _voiceMuteBeat=-1;    // Transport beat position through which the kill-voice stays silent after a clank (<0 = not muted)
+function voiceLive(){ return !!(CFG.voice && CFG.voice.on) && !trainMode && !templeActive; }   // the trainer's didactic kill tone and the Temple keep today's fixed note exactly
+function voiceBeats(){ try{ return Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return -1; } }   // raw Transport beats: the mute is a DURATION, so the heard-timeline correction cancels out of the comparison
+function voiceQ(){                                        // arrival tightness 0..1 — dead-centre on the beat = 1, a full goodMs off (or worse) = 0
+  const b=voiceBeats(); if(b<0) return 1;
+  const bps=60/Math.max(20,state.bpm), hb=b-audioLat()/bps;   // the HEARD timeline, same correction bowNote and every tap grade take
+  const err=Math.abs(hb-Math.round(hb))*bps*1000; if(!isFinite(err)) return 1;
+  return Math.max(0, 1-err/Math.max(1,CFG.goodMs));        // grading NEVER sees this number: goodMs is read, the windows are untouched
+}
+function voiceMuted(){
+  if(_voiceMuteBeat<0) return false;
+  const left=_voiceMuteBeat-voiceBeats();
+  if(!(left>0) || left>(+CFG.voice.clankMuteBeats||0)){ _voiceMuteBeat=-1; return false; }   // expired — or the Transport restarted under us, where a stale window would mute the rest of the night
+  return true;
+}
+function voiceBreak(){ _voiceStack=0; }                   // any non-FLAWLESS arrival ends the consonance run (audio only)
+function voiceClank(){                                    // THE CLANK MUTES YOU: an off-beat arrival costs you the next beat of your own melody. Audio only, and only the kill-voice.
+  voiceBreak();
+  const mb=+CFG.voice.clankMuteBeats||0, b=voiceBeats();
+  _voiceMuteBeat=(mb>0 && b>=0 && !trainMode && !templeActive) ? b+mb : -1;
+}
+function voiceReset(){ _voiceStack=0; _voiceMuteBeat=-1; }   // per run: neither a stack nor a mute survives into the next night
 function playHit(gradeIdx){                               // graded kill tone = the LEAD melody: kills walk UP the A-minor pentatonic with the streak, GRID-SNAPPED so the run locks to the beat. Falls back to synthHit if the lead voice failed to build.
   const v=lead||synthHit; if(!soundOn || !toneReady || !v) return;
+  const shaped=CFG.voice.on && voiceLive();               // raw boolean at the call site first: the parcel off costs one read, no call, and the plain branch below is byte-for-byte today's note
+  if(shaped){
+    if(gradeIdx<=0){ if(_voiceStack<99) _voiceStack++; } else voiceBreak();
+    if(voiceMuted()) return;                              // your clank still owns this beat: the note simply does not happen (the kill itself already scored, and the stack above still moved)
+  }
   try{ const st=beatSnap(), s=Math.min(state.streak,23), root=PENTA[s%PENTA.length]*Math.pow(2,Math.floor(s/PENTA.length));
-    v.triggerAttackRelease(root, 0.16, st, gradeIdx<=0?0.95:gradeIdx===1?0.78:0.62);
-    if(gradeIdx<=0) v.triggerAttackRelease(root*2, 0.08, st+0.05, 0.5);   // FLAWLESS sparkle (octave up)
+    if(shaped){
+      const V=CFG.voice, q=voiceQ(), stack=Math.min(_voiceStack, Math.max(1,V.stackMax|0));
+      if(leadLp) leadLp.frequency.value=V.dullHz+(V.brightHz-V.dullHz)*q;   // ONE set-at-trigger write on the lowpass the lead voice was always built with: loose = dull and closed, tight = open and bright. It is the voice's SHARED colour, so the tank's walking notes ride whatever the last kill set — that is the point (the instrument stays where you left it), not a leak.
+      v.triggerAttackRelease(root, 0.16, st, V.breathyVel+(V.fullVel-V.breathyVel)*q);
+      if(gradeIdx<=0){                                    // FLAWLESS: the octave sparkle, and from the 2nd consecutive one the consonance rolls up over it (grace notes, not a chord array — `lead` is monophonic)
+        v.triggerAttackRelease(stack>=2?root*1.5:root*2, 0.08, st+0.05, 0.5);
+        if(stack>=3) v.triggerAttackRelease(root*2, 0.08, st+0.1, 0.45);
+      }
+    }else{
+      v.triggerAttackRelease(root, 0.16, st, gradeIdx<=0?0.95:gradeIdx===1?0.78:0.62);
+      if(gradeIdx<=0) v.triggerAttackRelease(root*2, 0.08, st+0.05, 0.5);   // FLAWLESS sparkle (octave up)
+    }
   }catch(e){}
 }
 function applyAudioState(){
@@ -4505,7 +4550,8 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
   if(good && CFG.clutch && !reduceMotion && tideClutchOk()){ const far=tg.mesh.position.distanceTo(PLAYER_POS)>CFG.clutchRange, late=beats>=CFG.clutchLateBeats; clutch = CFG.clutchAnd ? (far&&late) : (far||late); if(clutch) triggerClutch(tg); }   // TIDES: the flourish is crest-only (tideClutchOk is always true with the parcel off) — the KILL itself is never gated
   if(good && CFG.flickBonus.on && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS (disabled — CFG.flickBonus.on:false): a FLAWLESS/PERFECT on-beat kill on a hot streak would arm the flick treat
-  if(good) playHit(gradeIdx); else sfx('offbeat'); chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
+  if(good) playHit(gradeIdx); else { if(CFG.voice.on) voiceBreak(); sfx('offbeat'); }   // a late GOOD is still a non-FLAWLESS arrival, so it ends the consonance run (audio only — the grade, the score and sfx('offbeat') are exactly as they were)
+  chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
 function missGrooveDuck(heavy){   // short musical flinch (lighter than v1 — half-beat −16dB was too busy with shake+sparks)
   const tDuck=(60/Math.max(20,state.bpm))*(heavy?0.35:0.22);
@@ -4539,6 +4585,7 @@ function missCamKick(strong){   // subtle FOV only — trauma carries the rest
 function clankShot(tg, point){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
   state.shots++; state.streak=0; pushEvent(false); flashReticleBad();
   playClankSfx(); missGrooveDuck(true);
+  if(CFG.voice.on) voiceClank();   // THE LEAD INSTRUMENT: the ONLY thing a clank adds is your own silence for the next beat — the shell's thud above already played and nothing about the scoring above changed. Raw boolean first so the parcel off costs one read and no call.
   if(!reduceMotion){
     addTrauma(CFG.hitTrauma*0.38);   // was 0.62 — still > whiff, less storm
     missCamKick(true);
@@ -6657,7 +6704,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; tickI=0; tickVolReset(); bowReset(); _bowHits.length=0;   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
