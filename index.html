@@ -48,6 +48,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--void);font-famil
 #ghostToast{position:fixed;left:50%;top:98px;transform:translateX(-50%);z-index:25;pointer-events:none;font:12px var(--mono);letter-spacing:.18em;color:var(--rail);text-shadow:0 0 8px rgba(0,0,0,.85);opacity:0;white-space:nowrap}
 #ghostToast.show{animation:ghostToast 1.5s ease-out forwards}
 @keyframes ghostToast{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}14%{opacity:1;transform:translateX(-50%) translateY(0)}74%{opacity:1}100%{opacity:0}}
+/* THE BOW's line ONLY: same look, a long hold PLATEAU (fast in, ~85% held, slow out). The 1.5s default fades before
+   CFG.bow.lineHoldSec is up; showGhostToast(txt,holdSec) sets animation-duration from CFG so the knob stays the truth. */
+#ghostToast.show-slow{animation:ghostToastSlow 5s ease-out forwards}
+@keyframes ghostToastSlow{0%{opacity:0;transform:translateX(-50%) translateY(-6px)}5%{opacity:1;transform:translateX(-50%) translateY(0)}84%{opacity:1}100%{opacity:0}}
 /* Rolling pocket LAW — always-on free-play trust cue (not rings/staff): what freeze rewards right now */
 #pocketLaw{position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:12;pointer-events:none;text-align:center;max-width:min(420px,94vw);opacity:0;transition:opacity .2s;text-shadow:0 0 8px rgba(0,0,0,.92),0 1px 2px #000}
 #pocketLaw.on{opacity:.96}
@@ -723,6 +727,7 @@ window.JA={
   fullNight:'満ちる夜', trainerToast:'月の糸のけいこ',
   bowMoon0:'新月', bowMoon1:'満ちる三日月', bowMoon2:'上弦の月', bowMoon3:'満ちる月', bowMoon4:'満月', bowMoon5:'欠ける月', bowMoon6:'下弦の月', bowMoon7:'欠ける三日月',
   bowLine0:'あすの夜 · {m}', bowLine1:'{m} が あすの夜を まっている', bowLine2:'また あした · {m}', bowLineFallback:'あすの夜も 空はここにある',
+  bowDoneEyebrow:'この夜は おわり', bowNewNight:'はじめる — あたらしい夜',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
@@ -894,7 +899,7 @@ const CFG = {
   quietTick:{ on:true, t1:0.55, t2:0.85, riseK:0.06, fallK:0.6, returnBeats:1, minBpm:40, mercyCarryBeats:2 },   // t1/t2 = tier thresholds on tickI · riseK per scoring kill / fallK per miss (≈10 clean kills earn Tier 1; one miss gives most of it back) · returnBeats = length of the post-miss volume ramp · minBpm = tempo under which the metronome never thins · mercyCarryBeats = silent beats at the END of a tide mercy bar (0 disables the handoff)
   // THE BOW (session shape): you END the night on purpose. HOLSTER — no fire and no WASD tap for max(holsterBeats beats, holsterMinSec) — and the dojo bows back: spawns stop → the surviving Echoes rise to the sky (Last Light) → the arrangement thins to pad+root and the Transport ritards to startBpm on the tonic, ending on ONE held pad note → a zero-numbers Mandala glyph of this run's arrivals → one true line about tomorrow's sky → the ✦ pulses and the pointer unlocks to the pause card. The ritardando is the ONE sanctioned Transport tempo change in the whole game and it happens AFTER play has ended (no spawns, no grading), so nothing rhythm-critical is being scaled; Transport bpm is put back before the exit so a RESUME (or the next resetSession) never inherits it.
   // Kill-switch is bow.on:false → bowLive() is false, the idle clock never accumulates, the spawn gate never closes and holstering does exactly nothing (today's behavior). Never runs in the trainer, in the Sky Temple, while paused, or before this run has landed a scoring hit (an empty Mandala is not a ritual). Any fire/tap zeroes the clock, and inside cancelGraceSec the Bow is a pure no-op to undo — nothing has been destroyed yet, so play resumes losslessly.
-  bow:{ on:true, holsterBeats:8, holsterMinSec:12, cancelGraceSec:1.5, riseBeatsPerOrb:1, riseBeats:2, ritBars:2, beatCapSec:0.75, mandalaSec:4, mandalaMaxDots:60, mandalaArcDeg:90, lineAtMandala:0.6, lineHoldSec:4, senseiSec:1.0 },   // holsterBeats/holsterMinSec = the two-clock trigger (the SLOWER wins, so a 20 BPM night can't bow on a short pause) · cancelGraceSec = the lossless undo window · riseBeatsPerOrb = Last Light stagger, riseBeats = each orb's own flight to the shell · ritBars = length of the closing ritardando · beatCapSec CAPS the beat length the whole ceremony is measured in, so the 20 BPM floor doesn't stretch the bow to a minute · mandalaSec = glyph fade-in→drift→dissolve · mandalaMaxDots = most recent arrivals kept (run-local, never persisted) · mandalaArcDeg = the ± arc a half-beat of arrival error is drawn across · lineAtMandala = fraction into the glyph at which THE line speaks · lineHoldSec/senseiSec = the line's hold and the ✦ bow before the pointer unlocks
+  bow:{ on:true, holsterBeats:8, holsterMinSec:12, cancelGraceSec:1.5, riseBeatsPerOrb:1, riseBeats:2, ritBars:2, beatCapSec:0.75, ritMaxSec:8, mandalaSec:4, mandalaMaxDots:60, mandalaArcDeg:90, lineAtMandala:0.6, lineHoldSec:4, senseiSec:1.0 },   // holsterBeats/holsterMinSec = the two-clock trigger (the SLOWER wins, so a 20 BPM night can't bow on a short pause) · cancelGraceSec = the lossless undo window · riseBeatsPerOrb = Last Light stagger, riseBeats = each orb's own flight to the shell · beatCapSec = the SECONDS cap on the Last Light stagger beat (stagger = min(one real beat, beatCapSec)) so the 20 BPM floor doesn't stretch the rise to a minute — it does NOT rewrite any other beat-named timing · ritBars = the closing ritardando in REAL bars, clamped by ritMaxSec so 2 bars at 20 BPM is a long exhale (8s) and not half a minute · mandalaSec = glyph fade-in→drift→dissolve (skipped entirely on a hitless Bow) · mandalaMaxDots = most recent arrivals kept (run-local, never persisted) · mandalaArcDeg = the ± arc a half-beat of arrival error is drawn across · lineAtMandala = fraction into the glyph at which THE line speaks · lineHoldSec/senseiSec = the line's hold and the ✦ bow before the pointer unlocks
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
@@ -1551,7 +1556,7 @@ function updateSky(dt){
   // TIDES exhale: the theme aura leans in across the mercy bar and settles as the next swell rises. Purely the WEIGHT of
   // the existing mood lerp (no new layer), eased per-frame so the bar boundary breathes instead of popping. reduceMotion
   // and tide.on:false both pin it to exactly 1 → the aura math below is untouched. Never gameplay/audio timing.
-  const tideBreath=(!reduceMotion && tideLive()) ? 1+(CFG.tide.tintExhale||0)*(_tideTint+=((tideMercy?1:0)-_tideTint)*Math.min(1,dt*2.2)) : 1;
+  const tideBreath=(!reduceMotion && CFG.tide.on && tideLive()) ? 1+(CFG.tide.tintExhale||0)*(_tideTint+=((tideMercy?1:0)-_tideTint)*Math.min(1,dt*2.2)) : 1;   // raw kill-switch before the call, and tideLive() now carries !templeActive, so the follower simply FREEZES for the Temple's duration and resumes from the same value the last dojo frame drew (no snap on exit)
   // THEME AURA (soft): a whisper of song color — dialed down so toxic orbs / WASD hues stay the stars of the palette
   if(state.running && !templeActive && activeTheme){ const w=(0.03+0.04*Math.min(1,grooveI/2.2))*tideBreath; _hor.lerp(_moodCol,w); _haze.lerp(_moodCol,w*0.7); _zen.lerp(_moodCol,w*0.3); }
   skyDomeMat.uniforms.uHor.value.copy(_hor); skyDomeMat.uniforms.uZen.value.copy(_zen); skyDomeMat.uniforms.uHaze.value.copy(_haze);
@@ -3908,7 +3913,7 @@ function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||
    didactic pacing) hits today's numbers with no branch anywhere hot. _tideCycle latches the swell index so the
    boundary BPM step fires exactly once per cycle; _tideTint is the visual exhale follower (updateSky only). */
 let tideI=1, tideMercy=false, _tideCycle=-1, _tideTint=0;
-function tideLive(){ return !!(CFG.tide && CFG.tide.on) && !trainMode; }
+function tideLive(){ return !!(CFG.tide && CFG.tide.on) && !trainMode && !templeActive; }   // !templeActive per SPEC §1 ("none of the three systems run while templeActive"): without it the _tideTint follower kept integrating through every Temple frame and leaked a stale exhale into the first dojo frames after exit. Frozen (not decayed) is the no-jump choice — the follower resumes from exactly the value the last dojo frame drew
 function tideMul(lo){ return tideLive() ? lo+(1-lo)*tideI : 1; }                       // lerp(lo,1,tideI): lo at the trough, the full CFG value at the crest — exactly 1 when the parcel is off
 function tideClutchOk(){ return !tideLive() || tideI>=CFG.tide.clutchGate; }            // flourish only near the crest
 function tideStepBpm(){
@@ -3957,14 +3962,14 @@ function tickVolReset(){ if(!tickVol) return; try{ const now=Tone.now(); tickVol
    the Mandala, the one line and the ✦. Stage IDLE with an idle clock of 0 is the neutral state, so bow.on:false
    (or the trainer, the Temple, a pause, or a run that has not scored yet) never reaches a single line below. */
 const BOW={IDLE:0, GRACE:1, LAST:2, RIT:3, HOLD:4};
-const _bow={stage:BOW.IDLE, t:0, idle:0, spb:0.75, rise:1, ritAt:0, manAt:0, lineAt:0, senseiAt:0, endAt:0, lined:false, bowed:false, orbs:[]};
+const _bow={stage:BOW.IDLE, t:0, idle:0, spb:0.75, rise:1, ritAt:0, manAt:0, lineAt:0, senseiAt:0, endAt:0, lined:false, bowed:false, dots:false, orbs:[]};   // dots: latched at bowEnterHold — false means this night scored nothing, so the Mandala stage is skipped entirely
 const _bowHits=[];   // run-local {errMs,k} ledger — the Mandala's ONLY data source. Capped to mandalaMaxDots, cleared by resetSession, never persisted or compared across runs.
 let _bowCv;
 const BOW_MOON_EN=['NEW MOON','WAXING CRESCENT','FIRST QUARTER','WAXING GIBBOUS','FULL MOON','WANING GIBBOUS','LAST QUARTER','WANING CRESCENT'];
 const BOW_LINE_EN=['TOMORROW NIGHT · {m}','{m} IS WAITING FOR TOMORROW NIGHT','COME BACK TOMORROW · {m}'];
 function bowCanvasEl(){ if(_bowCv===undefined) _bowCv=(typeof document!=='undefined')?document.getElementById('bowMandala'):null; return _bowCv; }
 function bowHolding(){ return _bow.stage!==BOW.IDLE; }   // the ONE read the spawn gate takes: true from commit to exit (always false with the parcel off)
-function bowLive(){ return !!(CFG.bow && CFG.bow.on) && state.running && !trainMode && !templeActive && !bonusActive && _bowHits.length>0; }   // post-graduation, in a live run, outside the Temple — and only once the night has something to draw (a Mandala with no dots is not a ritual)
+function bowLive(){ return !!(CFG.bow && CFG.bow.on) && state.running && !trainMode && !templeActive && !bonusActive; }   // post-graduation, in a live run, outside the Temple. NOT gated on _bowHits: holstering ALWAYS ends the session (SPEC §4 trigger) — a hitless night simply skips the Mandala stage (bowEnterHold) rather than being unable to bow at all
 function bowTouch(){ _bow.idle=0; if(_bow.stage===BOW.GRACE) bowReset(); }   // ANY fire or WASD/pad tap: the holster clock restarts, and inside the grace window the Bow simply un-happens (only the spawn gate had moved, so play resumes with zero state loss)
 function bowNote(tg){
   // One sample per SCORING arrival: signed beat-phase error in ms + the subdivision the orb was spawned for.
@@ -3983,8 +3988,31 @@ function bowClock(dt){
 }
 function bowCommit(){
   const B=CFG.bow;
-  _bow.stage=BOW.GRACE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false; _bow.orbs.length=0;
-  _bow.spb=Math.min(60/Math.max(20,state.bpm), B.beatCapSec||0.75);   // the ceremony's own beat length, capped so the 20 BPM floor doesn't stretch the bow to a minute
+  _bow.stage=BOW.GRACE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false; _bow.dots=false; _bow.orbs.length=0;
+  _bow.spb=Math.min(60/Math.max(20,state.bpm), B.beatCapSec||0.75);   // the LAST LIGHT stagger beat = min(one real beat, beatCapSec) — a capped visual cadence, not a tempo. Only bowEnterLast/bowRiseOrbs read it; the ritardando is measured in real bars (bowEnterRit), so no beat-named MUSICAL timing is silently rewritten
+}
+function bowTakeMats(o){
+  // Last Light FADES, and opacity lives on the material — which every orb SHARES. So this one Echo gets private clones
+  // of its core + shell materials: a one-shot allocation at a stage transition (never per frame, and only for orbs that
+  // happened to be alive at the bow), which is what buys a real fade instead of a shrink-and-pop. The originals are
+  // remembered on the record so bowDropMats can put the SHARED materials back before the mesh returns to the pool.
+  // Mutates the record and never fails the caller: a clone that can't be made just means that orb rises unfaded.
+  const m=o.tg&&o.tg.mesh; if(!m) return;
+  const sh=m.userData.shell;
+  o.mat0=m.material; o.sh0=sh?sh.material:null;
+  try{
+    const c=m.material.clone(); c.transparent=true; c.depthWrite=false; m.material=c; o.matC=c;   // depthWrite off: a fading orb must not carve a hole in the sky it is dissolving into
+    if(sh){ const s=sh.material.clone(); s.transparent=true; o.shOp=s.opacity; sh.material=s; o.shC=s; }
+  }catch(e){}
+}
+function bowDropMats(o){
+  // Order matters: the SHARED materials go back on the mesh FIRST, so releaseTargetMesh can never hand a clone to the
+  // pool (spawnTarget reassigns per kind anyway, but a pooled mesh holding a disposed clone is a landmine either way).
+  const tg=o.tg, m=tg&&tg.mesh;
+  if(m){ if(o.mat0) m.material=o.mat0; const sh=m.userData.shell; if(sh && o.sh0) sh.material=o.sh0; }
+  if(o.matC) try{ o.matC.dispose(); }catch(e){}
+  if(o.shC) try{ o.shC.dispose(); }catch(e){}
+  o.matC=o.shC=null;
 }
 function bowEnterLast(){
   // GRACE is over: the surviving Echoes leave the game. Marked dead and pulled out of `targets` FIRST, so no projectile
@@ -3996,7 +4024,8 @@ function bowEnterLast(){
     tg.dead=true; dropTarget(tg); retireTrail(tg, 0.45);
     if(tg.snd){ stopTargetSound(tg.snd); tg.snd=null; }
     const p=tg.mesh.position, dx=p.x-PLAYER_POS.x, dz=p.z-PLAYER_POS.z, h=Math.max(0.001,Math.sqrt(dx*dx+dz*dz));
-    _bow.orbs.push({tg:tg, x0:p.x, y0:p.y, z0:p.z, ex:PLAYER_POS.x+dx/h*(h*3.2), ez:PLAYER_POS.z+dz/h*(h*3.2), ey:ROOM_BY*2.6, s0:tg.radius*tg.sc, at:_bow.t+_bow.orbs.length*stagger});   // outward along its OWN azimuth toward the sky shell, one per beat in spawn order
+    const o={tg:tg, x0:p.x, y0:p.y, z0:p.z, ex:PLAYER_POS.x+dx/h*(h*3.2), ez:PLAYER_POS.z+dz/h*(h*3.2), ey:ROOM_BY*2.6, at:_bow.t+_bow.orbs.length*stagger, mat0:null, sh0:null, matC:null, shC:null, shOp:0};   // outward along its OWN azimuth toward the sky shell, one per beat in spawn order
+    bowTakeMats(o); _bow.orbs.push(o);   // pushed UNCONDITIONALLY: it is already out of `targets`, so only this list can still hand its mesh back to the pool
   }
   clearProjectiles();   // a shot still in the air was aimed at an Echo that just left the game — retiring it here is the only way it can't book a phantom whiff (onWhiff) into a session that is already over
   _bow.rise=Math.max(0.1,(B.riseBeats||2)*_bow.spb);
@@ -4007,25 +4036,29 @@ function bowRiseOrbs(){
     const o=_bow.orbs[i], tg=o.tg; if(_bow.t<o.at) continue;
     const a=Math.min(1,(_bow.t-o.at)/_bow.rise), e=a*a*(3-2*a);   // smoothstep: it lets go, then streams away
     if(tg.mesh){
-      if(!reduceMotion) tg.mesh.position.set(o.x0+(o.ex-o.x0)*e, o.y0+(o.ey-o.y0)*e, o.z0+(o.ez-o.z0)*e);   // reduceMotion: no travel, it just fades where it stands
-      tg.mesh.scale.setScalar(Math.max(0.001, o.s0*(1-0.94*e)));   // shrinks to a point of light — the SHARED orb materials are never touched, so nothing else in the field changes
+      if(!reduceMotion) tg.mesh.position.set(o.x0+(o.ex-o.x0)*e, o.y0+(o.ey-o.y0)*e, o.z0+(o.ez-o.z0)*e);   // reduceMotion: NO travel and no scale change either — a pure fade in place (SPEC §4 step 2)
+      const f=1-e;                                               // the ONE channel in both paths: it goes out. Distance does the shrinking on the normal path; scale is never animated, so nothing "pops" at the end
+      if(o.matC) o.matC.opacity=f;
+      if(o.shC) o.shC.opacity=o.shOp*f;
     }
-    if(a>=1){ removeTarget(tg); swapRemove(_bow.orbs,i); }
+    if(a>=1){ bowDropMats(o); removeTarget(tg); swapRemove(_bow.orbs,i); }
   }
 }
 function bowEnterRit(){
   const B=CFG.bow; _bow.stage=BOW.RIT;
-  const ritSec=Math.max(0.5,(B.ritBars||0)*4*_bow.spb);
+  const bar=(60/Math.max(20,state.bpm))*4;                                                   // a REAL bar at the tempo we are ritarding FROM — the ramp is a musical event, so it must not be measured in the capped stagger beat
+  const ritSec=Math.max(0.5, Math.min((B.ritBars||0)*bar, B.ritMaxSec||8));                  // ritBars honestly, then clamped: 2 bars is 6s at 80 BPM and would be 24s at the 20 BPM floor, which is a wait, not an exhale
   _bow.manAt=_bow.t+ritSec;
   if(toneReady){ try{ Tone.Transport.bpm.rampTo(CFG.startBpm, ritSec); }catch(e){} }   // THE one sanctioned Transport tempo change (SPEC §1): a real closing ritardando, after play has ended. bowReset puts state.bpm back before the exit.
 }
 function bowEnterHold(){
   const B=CFG.bow; _bow.stage=BOW.HOLD;
-  const man=Math.max(0.1,B.mandalaSec||0), tail=Math.max(man, man*(B.lineAtMandala||0)+(B.lineHoldSec||0));
+  _bow.dots=_bowHits.length>0;   // a hitless night SKIPS the Mandala stage outright (rise → ritardando → line → done): a glyph with no dots is not a ritual, but the holster still ends the session
+  const man=_bow.dots?Math.max(0.1,B.mandalaSec||0):0, tail=Math.max(man, man*(B.lineAtMandala||0)+(B.lineHoldSec||0));
   _bow.lineAt=_bow.t+man*(B.lineAtMandala||0);
   _bow.endAt=_bow.t+tail+(B.senseiSec||0); _bow.senseiAt=_bow.endAt-(B.senseiSec||0);
   if(toneReady && soundOn && pad && CHORD_TRIAD){ try{ pad.triggerAttackRelease(CHORD_TRIAD[0], tail+0.5, Tone.now(), 0.16); }catch(e){} }   // the resolution: ONE held pad note on the tonic, ringing under the glyph. onGrid has nothing left to play.
-  const cv=bowCanvasEl(); if(cv) cv.style.display='block';
+  if(_bow.dots){ const cv=bowCanvasEl(); if(cv) cv.style.display='block'; }   // no dots → the canvas never even shows
 }
 function bowUpdate(dt){
   if(!state.running || templeActive || !(CFG.bow && CFG.bow.on)){ bowReset(); return; }   // a pause, the Temple, or a hot kill-switch abandons the ceremony and restores everything
@@ -4035,23 +4068,24 @@ function bowUpdate(dt){
   if(_bow.stage===BOW.LAST && _bow.t>=_bow.ritAt) bowEnterRit();
   if(_bow.stage===BOW.RIT && _bow.t>=_bow.manAt) bowEnterHold();
   if(_bow.stage!==BOW.HOLD) return;
-  bowDrawMandala((_bow.t-_bow.manAt)/Math.max(0.1,B.mandalaSec||0));
-  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ showGhostToast(bowSkyLine()); }catch(e){} }   // THE line — exactly one per Bow, the session's only new toast
+  if(_bow.dots) bowDrawMandala((_bow.t-_bow.manAt)/Math.max(0.1,B.mandalaSec||0));   // hitless Bow: no glyph, no canvas, no per-frame draw
+  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ showGhostToast(bowSkyLine(), (B.lineHoldSec||0)+1); }catch(e){} }   // THE line — exactly one per Bow, the session's only new toast, held for lineHoldSec (+1s of fade) via the .show-slow variant instead of the 1.5s default
   if(!_bow.bowed && _bow.t>=_bow.senseiAt){ _bow.bowed=true; try{ showTrainCoach('✦', true); }catch(e){} }   // sensei bows back through the existing coach chrome — no new surface
   if(_bow.t>=_bow.endAt) bowFinish();
 }
 function bowReset(){
   if(bowHolding()){
-    for(const o of _bow.orbs) if(o.tg) removeTarget(o.tg);   // any Echo still mid-rise goes back to the pools
+    for(const o of _bow.orbs){ if(!o.tg) continue; bowDropMats(o); removeTarget(o.tg); }   // any Echo still mid-rise goes back to the pools — SHARED materials restored and the clones disposed first, so the mesh pool never receives a clone
     _bow.orbs.length=0;
     if(_bow.stage>=BOW.RIT && toneReady){ try{ const now=Tone.now(); Tone.Transport.bpm.cancelScheduledValues(now); Tone.Transport.bpm.value=state.bpm; }catch(e){} }   // ritardando UNDONE: a RESUME (or the next resetSession) can never inherit the closing tempo
     const cv=bowCanvasEl(); if(cv){ cv.style.display='none'; try{ const g=cv.getContext('2d'); if(g) g.clearRect(0,0,cv.width,cv.height); }catch(e){} }
     if(_bow.bowed) try{ showTrainCoach(''); }catch(e){}
   }
-  _bow.stage=BOW.IDLE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false;
+  _bow.stage=BOW.IDLE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false; _bow.dots=false;
 }
 function bowFinish(){
   bowReset();   // tempo, canvas, coach and the spawn gate are all back BEFORE the exit — the pause card inherits a clean session
+  state.needsReset=true;   // a COMPLETED Bow is a session boundary, not a pause: the same flag the fresh-start path reads (enterRunning), so the next entry runs resetSession() — t, hits, streak, the tick, the Mandala ledger and the adaptive tempo all back to CFG.startBpm. Without it the "next run" silently continued this night. An ESC-pause / grace-cancel goes through bowReset alone and never sets it
   if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(e){ exitRunning(); } }   // pointerlockchange → exitRunning → the existing start/pause overlay (touch/pad runs never held a lock, so they exit directly)
   else exitRunning();
 }
@@ -4187,10 +4221,10 @@ function onGrid(time){
   const active=activeTargetCount();
   let spawned=false;
   if(cd>0){ cd--; }
-  else if(active<CFG.patternConcurrency && !tideMercy && !bowHolding()){       // THE BOW reuses this same NEW-spawn gate from the moment it commits (step 1 of the ceremony); bowHolding() is always false with bow.on:false. MERCY BAR: the NEW-spawn gate shuts for tideMercyBars. Live orbs, their lifetimes and every grading path are untouched — the field just drains and breathes. restSlots keeps counting through it, so the first eligible beat of the next rise is a forced spawn ("here it comes")
+  else if(active<CFG.patternConcurrency && !tideMercy && !(CFG.bow.on && bowHolding())){       // kill-switch FIRST so the off path makes no call at all. THE BOW reuses this same NEW-spawn gate from the moment it commits (step 1 of the ceremony); bowHolding() is always false with bow.on:false. MERCY BAR: the NEW-spawn gate shuts for tideMercyBars. Live orbs, their lifetimes and every grading path are untouched — the field just drains and breathes. restSlots keeps counting through it, so the first eligible beat of the next rise is a forced spawn ("here it comes")
     const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only
     if(elig){
-      let p = CFG.densityScale*metricWeight(i)*tideMul(CFG.tide.densityLo);   // free-play orb density, thinned toward the trough by the swell (×1 with the parcel off)
+      let p = CFG.densityScale*metricWeight(i)*(CFG.tide.on?tideMul(CFG.tide.densityLo):1);   // free-play orb density, thinned toward the trough by the swell. The raw kill-switch is read FIRST, so tide.on:false spends nothing at all here (tideMul's own guard stays as defense in depth)
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
         try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }
@@ -5445,7 +5479,7 @@ function animate(frameNow){
       if(trainCoachEl && _trainCoachEphemeral){ trainCoachEl.classList.remove('on'); trainCoachEl.textContent=''; _trainCoachEphemeral=false; }   // hide graduation copy; training tips (_trainCoachT=0, persistent) stay
     }
   }
-  bowClock(dt);   // THE BOW: holster clock while idle, ceremony clock once committed. Zero work (one boolean) with the parcel off, in the trainer, in the Temple or before this run has scored.
+  if(CFG.bow.on) bowClock(dt);   // THE BOW: holster clock while idle, ceremony clock once committed. The kill-switch is read HERE so bow.on:false costs one boolean per frame and not a call (bowClock's own guards stay as defense in depth).
   pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
   updateRenderQuality(dt);
   if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
@@ -5463,7 +5497,7 @@ function animate(frameNow){
     }
   }
   let _dollyY=0, _dollyP=0;                                    // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump.
-  if(CFG.dolly && !reduceMotion && !templeActive){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul()*tideMul(CFG.tide.dollyLo);   // TIDES: the view wanders hardest at the crest and calms into the mercy bar (×1 with the parcel off)
+  if(CFG.dolly && !reduceMotion && !templeActive){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul()*(CFG.tide.on?tideMul(CFG.tide.dollyLo):1);   // TIDES: the view wanders hardest at the crest and calms into the mercy bar. Kill-switch read first → tide.on:false is one boolean, no call, no tide read
     if(CFG.dollyHuman){   // SENSEI: irregular multi-harmonic wander + slow envelope — tracks like a strafing opponent, not a perfect machine orbit
       const e=0.72+0.28*Math.sin(_t*0.19+0.5);
       _dollyY=CFG.dollyYawDeg*D*_dm*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
@@ -5525,7 +5559,7 @@ function animate(frameNow){
       if(bonusActive){ doSnap=false; doJuke=false; }         // RAIL-FLICK BONUS: HOLD the field (orbs freeze) while the flick mode runs. _quantIdx/_quantT already advanced in the strobe block above, so on unfreeze the next snap is a small step (no teleport, no beat-clock desync).
       const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
       const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
-      const _tideW=tideMul(CFG.tide.brownianLo);   // TIDES: wander cap + juke sharpness breathe with the swell. grooveGlideSpeed is NOT scaled — the leadable glide is the sacred loop
+      const _tideW=CFG.tide.on?tideMul(CFG.tide.brownianLo):1;   // TIDES: wander cap + juke sharpness breathe with the swell (kill-switch first → literally ×1, no call, with the parcel off). grooveGlideSpeed is NOT scaled — the leadable glide is the sacred loop
       const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())*_tideW), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
       if(doSnap){
         if(CFG.wasdRhythm && strobe){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);   // notes at HALF the orb-jump rate -> quarter/8th/16th as skill (diffT) rises
@@ -6618,7 +6652,17 @@ function clientId(){ if(_clientId) return _clientId; let id=null; try{ id=localS
 function playerName(){ if(_playerName) return _playerName; let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return _playerName=(n || ('Guest-'+clientId().slice(-4))); }
 function esc(s){ return String(s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 const ghostToastEl=gid('ghostToast');
-function showGhostToast(txt){ if(!ghostToastEl) return; setText(ghostToastEl, txt); ghostToastEl.classList.remove('show'); void ghostToastEl.offsetWidth; ghostToastEl.classList.add('show'); }
+function showGhostToast(txt, holdSec){
+  // holdSec (THE BOW's line only) swaps in the .show-slow variant and drives its duration from CFG, so the one
+  // session-boundary line is actually readable instead of fading at the default 1.5s. Every other caller passes one
+  // argument and takes the original path byte-for-byte.
+  if(!ghostToastEl) return;
+  setText(ghostToastEl, txt);
+  ghostToastEl.classList.remove('show','show-slow'); ghostToastEl.style.animationDuration='';
+  void ghostToastEl.offsetWidth;
+  if(holdSec>0){ ghostToastEl.style.animationDuration=holdSec.toFixed(2)+'s'; ghostToastEl.classList.add('show-slow'); }
+  else ghostToastEl.classList.add('show');
+}
 const _projectWorld=new THREE.Vector3(), _projectLocal=new THREE.Vector3(), _projectScreen=[0,0], _ghostDir=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
 function projectDir(dir){
   _projectWorld.copy(PLAYER_POS).addScaledVector(dir,50); _projectLocal.copy(_projectWorld); camera.worldToLocal(_projectLocal); const behind=_projectLocal.z>0;
@@ -6819,7 +6863,7 @@ function showPause(){
   document.body.classList.add('overlay-paused');
   ovEyebrow.textContent=trainMode
     ? TF('pauseTrainEyebrow','TRAINING · STEP {n}',{n:trainPhase+1})
-    : T('pauseFullEyebrow','PAUSED');
+    : (state.needsReset ? T('bowDoneEyebrow','THE NIGHT IS COMPLETE') : T('pauseFullEyebrow','PAUSED'));   // THE BOW ended the session (state.needsReset), so this card is a closing report, not a pause
   ovTitle.innerHTML=trainMode
     ? T('pauseTrainTitleHtml','KEEP <span class="acc">LISTENING</span>')
     : T('pauseFullTitleHtml','LISTENER\'S <span class="acc">REPORT</span>');
@@ -6833,8 +6877,9 @@ function showPause(){
       ? TF('pauseTrainSteps','Training · {time} · steps <b>{n}/{N}</b>',{time:fmtTime(state.t),n:trainWasd,N:TRAIN_NEED_WASD})
       : TF('pauseTrainVoices','Training · {time} · voices <b>{n}</b>',{time:fmtTime(state.t),n:trainOrbs}))
     : TF('pauseFullLede','<b>{song}</b> · {time} · peak <b>{bpm}</b> bpm',{song:song,time:fmtTime(state.t),bpm:Math.round(state.maxBpm)});
-  if(beginLabel) beginLabel.textContent=T('resume','RESUME');
-  else beginBtn.textContent='▶ '+T('resume','RESUME');
+  const primaryLbl = state.needsReset ? T('bowNewNight','PLAY — A NEW NIGHT') : T('resume','RESUME');   // needsReset means the next enterRunning() runs resetSession(), so the button must not promise to resume a night that is over
+  if(beginLabel) beginLabel.textContent=primaryLbl;
+  else beginBtn.textContent='▶ '+primaryLbl;
   showModePick(false);   // mid-run pause = resume only (not the new/experienced gate)
   pauseStats.style.display='flex';
   if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); renderTransitEssayUi(); renderSkyBriefUi(); updateChartTempleHint(); }
