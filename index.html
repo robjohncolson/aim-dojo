@@ -930,7 +930,9 @@ const CFG = {
   flickBonus:{ on:false, streakGate:3, gradeMax:1, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // CUT (on:false) 2026-07-07 — hijacked WASD (killed the rhythm taps), needed a dense target field this game never spawns, fought the pure-LEAD identity. Code kept; on:true to revive. · streakGate=min streak to earn it · gradeMax=max grade index that arms it (0=FLAWLESS only, 1=also PERFECT) · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack). streakGate+gradeMax LOOSENED for eval — arrival-timing made FLAWLESS-at-streak-4 too rare to ever see the mode; re-tighten once it's felt.
   // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
   specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
-  tank:{ maxBpm:150, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16 },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). Simple + rhythmic, no sub-figure. maxBpm: no tanks above this (3 fast leads on one orb gets brutal) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated on-beat hits are manageable.
+  // THE TANK IS A DRUM FILL (music language): the multi-hit tank stops being a random interruption and becomes the phrase's PUNCTUATION. With fillOnly (and TIDES live) the rnd()<multiHitChance roll is gone entirely: AT MOST ONE tank per swell, elected in the first half of the FINAL PEAK BAR (the bar before mercy), and the hits it asks for are a STATED figure of sixteenths counted from that bar's downbeat — fig2 = "and-of-4 → 1", fig3 = "4 → and-of-4 → 1", where the 1 is the MERCY DOWNBEAT. The figure replaces the whole-beat orbOpen gate on that one orb (its notes sit off the beat, where orbOpen never opens) and is judged by the SAME skill-tightened grooveOpenSec seconds every other arrival is judged by, just re-centred on the figure's sixteenth. The walking note per landed hit becomes an ascending run through the theme's own scale that LANDS ON THE TONIC (CHORD_ROOT[0], octave-lifted into the walk's register) exactly on the 1 — so the existing tank finale and wave 1's mercy pad bloom fire on the same downbeat and the fill literally launches the exhale. No new sound, no new voice, no scheduling of its own: alignment does all of the work.
+  // Kill-switch is tank.fillOnly:false (or tide.on:false) → the multiHitChance roll and the whole-beat gate run exactly as today, and every orb carries fill16:-1 so no figure code is ever reached. Inert in the trainer (specials are off there, and the tide block returns before the election) and in the Temple (no spawns at all). SCORING IS UNTOUCHED: a fill hit chips and the last one calls gradeRhythmHit exactly as today, so the daily/ghost invariant score===h.length still holds; an incomplete figure is NOT punished beyond the existing expiry — the tank just closes and departs at the end of the mercy bar.
+  tank:{ maxBpm:150, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16, fillOnly:true, fig2:[14,16], fig3:[12,14,16] },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). maxBpm: no tanks above this (3 fast leads on one orb gets brutal) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated hits are manageable · fillOnly = the tank spawns ONLY as the swell's closing fill (see above) · fig2/fig3 = the required hits as SIXTEENTHS from the fill bar's downbeat, 16 = the mercy downbeat (the landing note). The ARRAY LENGTH is the hit count, so a longer figure is a longer tank with no other edit — and the 2-vs-3 pick is the same single rnd() draw today's tank already takes.
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
@@ -4030,6 +4032,30 @@ let tideI=1, tideMercy=false, _tideCycle=-1, _tideTint=0;
 function tideLive(){ return !!(CFG.tide && CFG.tide.on) && !trainMode && !templeActive; }   // !templeActive per SPEC §1 ("none of the three systems run while templeActive"): without it the _tideTint follower kept integrating through every Temple frame and leaked a stale exhale into the first dojo frames after exit. Frozen (not decayed) is the no-jump choice — the follower resumes from exactly the value the last dojo frame drew
 function tideMul(lo){ return tideLive() ? lo+(1-lo)*tideI : 1; }                       // lerp(lo,1,tideI): lo at the trough, the full CFG value at the crest — exactly 1 when the parcel is off
 function tideClutchOk(){ return !tideLive() || tideI>=CFG.tide.clutchGate; }            // flourish only near the crest
+/* ---- THE TANK IS A DRUM FILL: the swell's ONE tank, and the sixteenth figure it asks for ----
+   The bar math is NOT duplicated here — onGrid's tide block above already knows which bar of the swell it is on,
+   and it hands the answer down: _fillSpent8 latches the fill bar (its downbeat's grid8) that has already spent its
+   tank, so one swell can never elect two; _fillPend16 is the schedule→draw handoff (onGrid elects, spawnTarget
+   consumes) carrying that same downbeat expressed in SIXTEENTHS. Both rest at -1, which is also every non-fill
+   orb's tg.fill16 — so with tank.fillOnly:false not one line below is ever reached. */
+let _fillSpent8=-1, _fillPend16=-1;
+function fillReset(){ _fillSpent8=-1; _fillPend16=-1; }
+function fillOff16(base16){   // heard sixteenths since the fill bar's downbeat — the same audioLat-corrected timeline the orb glow, every tap grade and the Bow already read
+  let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
+  return (b - audioLat()/(60/Math.max(20,state.bpm)))*4 - base16;
+}
+function fillOpen(tg){   // the tank's sub-node gate: this hit must land on the figure's NEXT sixteenth, inside the SAME skill-tightened window orbOpen's glow is drawn from — the pocket is not narrower than the game's, only moved off the beat
+  if(!(CFG.grooveGroove && CFG.grooveVuln)) return true;   // the same escape hatch orbOpen() takes when the vuln mechanic itself is off
+  const need = tg.fig ? tg.fig[tg.hpMax-tg.hp] : null; if(need==null) return false;   // hpMax-hp = how many hits have already landed, so this is the note about to be played
+  const spb=60/Math.max(20,state.bpm), win=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();
+  return Math.abs(fillOff16(tg.fill16)-need)*spb*0.25 < win;   // seconds off the figure's sixteenth vs the same seconds window
+}
+function fillNote(n, s){   // the fill's walking voice: scale degrees UNDER the tonic, one per landed hit, LANDING on the tonic at the 1
+  if(!PENTA || !PENTA.length) return 440;
+  if(s>=n-1){ let f=(CHORD_ROOT&&CHORD_ROOT.length)?CHORD_ROOT[0]:PENTA[0]; const lo=PENTA[0];   // THE 1: the active theme's own tonic, octave-lifted out of the bass register into the walk's (×4 for every shipped theme except CHANT's ×2 — derived from CHORD_ROOT, never assumed)
+    for(let g=0; g<8 && f<lo*0.99; g++) f*=2; return f; }
+  return PENTA[Math.max(0, Math.min(4, PENTA.length-1) - (n-2-s))]/2;   // the degrees just under that tonic, an octave down: an ascending run into the 1, entirely inside the active theme's PENTA (no new pitch material)
+}
 function tideStepBpm(){
   // The adaptive law, unchanged (windowAccuracy + upThreshold/downThreshold), fired ONCE at the mercy→rise
   // boundary instead of per accuracy window. bpmUp is scaled by bpmUpMul because a step now covers a whole swell;
@@ -4272,7 +4298,7 @@ function onGrid(time){
   }
   // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
   // chord walk, so the swell is locked to the arrangement without touching the Transport. Everything downstream READS.
-  let tideBloom=false;
+  let tideBloom=false, fillArm=-1;   // fillArm = the fill bar's downbeat (grid8) when THIS slot may elect the swell's one drum-fill tank, else -1
   if(CFG.tide && CFG.tide.on){
     const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);
     const bar=Math.floor(grid8/8), cb=bar%cyc, f=(grid8%8)/8, down=(grid8%8)===0;   // cb = bar within the swell, f = fraction through that bar
@@ -4281,6 +4307,7 @@ function onGrid(time){
     tideBloom = tideMercy && cb===rise+peak && down;               // mercy DOWNBEAT: the pad blooms once (existing pad voice, velocity only)
     const cycleIdx=Math.floor(bar/cyc);
     if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet)
+    if(CFG.tank.fillOnly && cb===rise+peak-1 && (grid8%8)<4 && _fillSpent8!==bar*8) fillArm=bar*8;   // THE TANK IS A DRUM FILL: the swell's FINAL PEAK BAR (the bar before mercy) is the only window, and only its first half — an orb elected on beat 1 or 2 still has two full beats of lead before the figure's first note on the "4". _fillSpent8 makes it at most once per swell. Raw kill-switch first, and the bar index is the tide block's own (no second bar clock anywhere)
   } else { tideI=1; tideMercy=false; }
   const tideLift=(CFG.tide && CFG.tide.on) ? (CFG.tide.padPeakVel||0)*(tideBloom?1:tideI) : 0;   // velocity lift shaped by the swell; full on the mercy bloom. 0 with the parcel off → every trigger keeps its literal velocity
   const _acc=windowAccuracy(), accN=_acc==null?0:Math.max(0,Math.min(1,(_acc-CFG.grooveAccLo)/(CFG.grooveAccHi-CFG.grooveAccLo)));   // groove TARGET = composite of streak + click% + total hits (acc + hits persist through a miss, so it doesn't tank)
@@ -4341,6 +4368,7 @@ function onGrid(time){
       let p = CFG.densityScale*metricWeight(i)*(CFG.tide.on?tideMul(CFG.tide.densityLo):1);   // free-play orb density, thinned toward the trough by the swell. The raw kill-switch is read FIRST, so tide.on:false spends nothing at all here (tideMul's own guard stays as defense in depth)
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
+        if(fillArm>=0){ _fillSpent8=fillArm; _fillPend16=fillArm*2; }   // THE TANK IS A DRUM FILL: elect THIS spawn (the swell is spent either way — a dropped Draw costs the swell its fill, never a stray tank). grid8 counts EIGHTHS, so the same downbeat in sixteenths is ×2
         try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }
         spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
       }
@@ -4480,16 +4508,26 @@ function spawnTarget(opts){
   const life=opts.life!=null?opts.life:(60/state.bpm)*CFG.rhythmLifeBeats;   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock
   tg._chipT=0;   // MULTI-HIT TANK: per-chip shell scale-punch flash timer (only used when hpMax>1)
+  tg.fill16=-1; tg.fig=null;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base or figure); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
   let hp=1;   // MULTI-HIT TANK (kind 0, free-play): a plain orb can roll 2-3 hp — hit it on that many consecutive BEATS to pop it
-  if(CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm && rnd()<CFG.multiHitChance){ hp=rnd()<0.5?3:2; }
+  if(CFG.tank.fillOnly && CFG.tide.on){   // THE TANK IS A DRUM FILL: no random roll at all — the swell's fill bar already elected this orb, or nothing here is a tank
+    const pend=_fillPend16; _fillPend16=-1;   // consume the handoff WHATEVER happens below, so a rejected (or dropped) election can never leak onto a later orb
+    const off=pend>=0?fillOff16(pend):0;     // …and re-validate it against the heard clock: within a bar of that downbeat, or the election is stale (a dropped Draw, a pause) and is simply dropped. The lower bound is generous because a large audio offset at a fast tempo legitimately reads a few sixteenths early; a stale election is a whole minGap (10+ sixteenths) late, so the two never overlap
+    if(pend>=0 && off>-8 && off<8 && CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm){
+      const fg=rnd()<0.5?CFG.tank.fig3:CFG.tank.fig2;   // the SAME single draw today's tank takes to pick 3-vs-2 hits; here the figure's LENGTH is the hit count
+      if(fg && fg.length>=2){ hp=fg.length; tg.fig=fg; tg.fill16=pend; }
+    }
+  }
+  else if(CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm && rnd()<CFG.multiHitChance){ hp=rnd()<0.5?3:2; }
   tg.hp=hp; tg.hpMax=hp;
   if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
     if(CFG.beatSpawn){ const dS=beatSpawnDist(CFG.tank.maxLeadSixteenths); if(dS!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dS); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
+  if(tg.fill16>=0) tg.expireAt=state.t+Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*(60/Math.max(20,state.bpm))*0.25);   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
     if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
@@ -4629,10 +4667,12 @@ function clankShot(tg, point){   // OFF-beat shield hit — clearer than a whiff
 }
 /* ===== MULTI-HIT TANK: a bigger AMBER orb that takes 2-3 ON-BEAT hits — "keep hitting the big one on the beat." Each hit chips it (a note walks UP + the shell pops + the count ticks down) as pure PROGRESS; the last hit pops it (scored like a normal orb, amber burst). Off-beat landings clank. Simple + rhythmic — no sub-figure. ===== */
 function handleTankHit(tg, point){
-  if(!orbOpen()){ clankShot(tg, point); return; }           // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
+  if(CFG.tank.fillOnly && tg.fill16>=0){ if(!fillOpen(tg)){ clankShot(tg, point); return; } }   // THE TANK IS A DRUM FILL: this orb answers to its FIGURE, not the whole beat — its notes sit on the "4" and the "and", where orbOpen never opens. Raw boolean first so the parcel off costs one read and no call
+  else if(!orbOpen()){ clankShot(tg, point); return; }      // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
   tg.hp--;
   if(tg.hp<=0){   // last hit → KILL with extra juice (kick + octave sparkle on the lead voice)
-    if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit; if(kick) kick.triggerAttackRelease('C1','8n',Tone.now(),0.95); if(v){ v.triggerAttackRelease(PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)], '8n', t, 0.9); v.triggerAttackRelease(PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)]*2, '16n', t+0.05, 0.55); } }catch(e){} }
+    if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit, kf=(tg.fill16>=0)?fillNote(tg.hpMax, tg.hpMax-1):PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)];   // THE FILL lands its last note on the TONIC — and it lands it on the mercy downbeat, where wave 1's pad bloom is already breathing, so the finale pop and the exhale are one event (alignment, not a new sound)
+      if(kick) kick.triggerAttackRelease('C1','8n',Tone.now(),0.95); if(v){ v.triggerAttackRelease(kf, '8n', t, 0.9); v.triggerAttackRelease(kf*2, '16n', t+0.05, 0.55); } }catch(e){} }
     gradeRhythmHit(tg, point); return;
   }
   tankChip(tg);                                             // not the last → chip (pure progress: no score/streak/shots)
@@ -4640,7 +4680,7 @@ function handleTankHit(tg, point){
 function tankChip(tg){
   tg._chipT=0.28;                                           // shell scale-punch flash (animated in updateTanks) — a hair longer
   const step=tg.hpMax - tg.hp;                              // 1,2,… as it charges up
-  if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit; if(v) v.triggerAttackRelease(PENTA[Math.min(1+step, PENTA.length-1)], '16n', t, 0.7); if(kick) kick.triggerAttackRelease('C2','32n',Tone.now(),0.5); }catch(e){} }   // a note that WALKS UP with each hit — the tank sings a little rising run as it charges
+  if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit, n=(tg.fill16>=0)?fillNote(tg.hpMax, step-1):PENTA[Math.min(1+step, PENTA.length-1)]; if(v) v.triggerAttackRelease(n, '16n', t, 0.7); if(kick) kick.triggerAttackRelease('C2','32n',Tone.now(),0.5); }catch(e){} }   // a note that WALKS UP with each hit — the tank sings a little rising run as it charges. THE FILL walks the same way but CHORD_ROOT-relative (degrees under the tonic), so the run is already aimed at the 1 before the finale plays it
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.38);
 }
 function updateTanks(dt){   // per-frame: the per-chip shell "pop" (the amber halo punches out on a hit, then settles back). Reduced-motion → no punch (the note + count carry it).
@@ -6738,7 +6778,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
