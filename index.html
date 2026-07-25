@@ -908,6 +908,9 @@ const CFG = {
   voice:{ on:true, fullVel:0.85, breathyVel:0.30, brightHz:5600, dullHz:1400, stackMax:3, clankMuteBeats:1 },   // fullVel/breathyVel = the velocity ends of q (fullVel sits UNDER today's 0.95 FLAWLESS stamp so a loose night reads quieter overall, not louder) · brightHz/dullHz = the same q on the lead's own lowpass, written once at the trigger (no automation curve) · stackMax = the consonance cap (3 = root, +5th, +octave; the overtones ROLL 50 ms apart because `lead` is a MONOPHONIC Tone.Synth — a simultaneous chord array on it would only voice-steal, and the FLAWLESS sparkle already rolls exactly this way) · clankMuteBeats = beats of your own silence after an off-beat arrival (0 disables the mute and keeps the rest)
   // CHORD VOLLEYS (music language): distance IS flight time, so a far shot released early and a near shot released late can LAND on the same beat — and when two scoring arrivals share a whole beat, the pair stops reading as the same note twice and rings as harmony. The 2nd same-beat kill adds a DYAD (that orb's own sung k-degree, dropped an octave into the chord register, under the current bar's CHORD_TRIAD third); the 3rd adds the FULL bar triad. Both ride the `pad` PolySynth the arrangement already owns and the same beatSnap the kill note took — `lead` is monophonic (a second note there would only voice-steal) and chordSynth is already busy with chordHit's fifth on every kill, so pad is the only voice that can hold a chord without taking anything away. Two module scalars, no scheduling of its own, no allocation per hit.
   // Kill-switch is chordVolley.on:false → the second same-beat kill sounds exactly like the first (today's behavior) and the tracker is never even read. Inert in the trainer and the Temple. SOUND ONLY: zero visual, zero score, zero streak, zero ghostRec — the grade path above is untouched and only SCORING arrivals are counted at all (clanks, whiffs, decoys and late GOODs never reach it, and the swell's DRUM-FILL tank is excluded because its hits are their own stated figure — a legacy random tank's final kill is a scoring arrival like any other and does join a volley). A clank's kill-voice mute never reaches the volley: that mute is the lead kill-note ONLY (SPEC §3 v1.1 amendment), so the harmony you earned still rings.
+  // THE LIT SKY (the sky spine): a returned voice stops being an event and becomes SKY. Every star in the zodiac stick fixture carries a stable identity "<figureKey>:<starIndex>" read from the fixture AS LOADED (the figure's own id + its index in that figure's own star list — never a fixture edit, and it survives any re-order or schema cap), and a recovered star holds a LEVEL 1..levels in localStorage['aimdojo.starChorus'] that ONLY RISES: no decay, no upkeep, no delete path, so nothing in this game can take a returned voice back. It draws on the vertex-colour buffer the two stick draw calls ALREADY own — the level multiplies that star's colour by 1+level*glowStep and additive blending spreads the extra energy through the same radial point sprite, so a lit star is brighter AND wider at its TRUE position: no invented star, no fabricated glow, no third draw call, no shader. Full level adds fullTint. It NEVER pulses, for anyone (reduceMotion or not) — a breathing star would be the sky lying about what it is. Same sky in the dojo and in the Temple: the Temple is the trophy room and this is sky content, not a run mechanic.
+  // Kill-switch is stars.on:false → the id catalog is never built, localStorage is never read or written, and every stick paint (build, Listen gold, dim, restore) takes today's _paintRange path verbatim. An EMPTY collection renders identically too: with nothing lit every multiplier is exactly 1, so a first-ever boot looks like today's sky by arithmetic, not by a branch.
+  stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500 },   // levels = how many returns one star can hold (5 — the 5th is the warm one) · glowStep = brightness added per level (level 5 ≈ 2.75× a plain star: legible at a glance without out-shouting ☉/☽ or the sign art) · fullTint = the cast a fully-recovered star takes, candle-warm against the cool 0xcfe0f5 field · saveMs = trailing write throttle, so a two-return beat costs ONE localStorage write and a whole night costs a handful
   chordVolley:{ on:true, dyadVel:0.5, triadVel:0.32 },   // dyadVel = the 2nd arrival's harmony velocity, itself SHAPED by the hit's tightness (parcel E's q ratio) so a loose volley is a soft one · triadVel = the 3rd arrival's full chord, deliberately UNDER the dyad (three voices at once already read louder) · a 4th same-beat kill (fireQuant's ceiling) adds nothing: the chord already rang
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
@@ -2343,6 +2346,79 @@ async function loadSkyDay(){
   try{ const r=await fetch(SKY_DAY_API_BASE+path+'?tz='+encodeURIComponent(deviceSkyTimezone()),ctl?{signal:ctl.signal}:{}); if(!r.ok) return null;
     const p=await r.json(); return skydayValid(p)?p:null; }catch(e){ return null; }finally{ clearTimeout(to); }
 }
+/* ===== THE LIT SKY (wave 3 parcel H) — the save file you can see =====
+   Identity: each stick star is "<figureKey>:<starIndex>" straight out of fixtures/zodiac_sticks_v1.json as loaded —
+   the figure's own id, and the star's index within that figure's own list, so the id is stable under any re-order of
+   the figures and under the schema caps buildZodiacSticks re-enforces. THE FIXTURE IS NEVER EDITED.
+   State: _starLit is { id -> level 1..CFG.stars.levels }, persisted plain + versioned at localStorage['aimdojo.starChorus'],
+   loaded once at boot and written on a trailing throttle. ACCRETION ONLY — starLitGain() is the single write path and
+   it has no inverse; corrupt, absent or quota-blocked storage degrades to an empty sky in silence and never throws.
+   Render: no new object, no new geometry, no new material, no per-frame work. The level becomes a per-star multiplier
+   in the vertex-colour buffer the sticks already carry, so brightening happens exactly where the sticks already write
+   their vertices — at the star's TRUE position, in whichever sky is drawing them (dojo AND Temple, one buffer, one
+   sphere). Static forever: no pulsing for anyone.
+   Kill-switch: CFG.stars.on false → none of this binds, storage is untouched, and the paint sites take _paintRange. */
+const STAR_LIT_KEY='aimdojo.starChorus';
+let _starLit=Object.create(null);        // id -> level; the entire save, including ids the CURRENT fixture doesn't carry (kept, never pruned — a wider catalog later re-lights them)
+let _starLitIds=null;                    // vertex index -> id, index-aligned with the sticks points buffer (parcels I/J read this; null until the fixture builds)
+let _starLitIdx=null;                    // id -> vertex index
+let _starLitMul=null;                    // Float32Array(n*3) render multipliers, all 1 when nothing is lit — allocated ONCE at bind, never per frame
+let _starLitSaveT=0, _starLitDirty=false;
+const _STAR_LIT_TINT=new THREE.Color(), _STAR_LIT_GOLD=new Float32Array(3);   // scratch + a lazily cached constant: a repaint runs on every level tick, so it allocates nothing
+function starLitLoad(){   // read once at boot; ANY malformation is an empty sky, never an exception — a save file you can lose to a throw is not a save file
+  let raw=null; try{ raw=localStorage.getItem(STAR_LIT_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || !o.lv || typeof o.lv!=='object') return;
+  const cap=CFG.stars.levels|0, lv=Object.create(null);
+  for(const id in o.lv){ const n=Math.floor(+o.lv[id]); if(id && isFinite(n) && n>0) lv[id]=Math.min(cap,n); }   // clamp to the cap on READ only: a hand-edited 99 must not out-glow the design, and lowering CFG.stars.levels must not rewrite the file
+  _starLit=lv;
+}
+function starLitFlush(){   // hook: a later wave mirrors this same object to Supabase — localStorage stays the source of truth
+  if(_starLitSaveT){ clearTimeout(_starLitSaveT); _starLitSaveT=0; }
+  if(!_starLitDirty) return; _starLitDirty=false;
+  try{ localStorage.setItem(STAR_LIT_KEY, JSON.stringify({v:1, lv:_starLit})); }catch(e){}   // a full or blocked quota loses the write, never the run
+}
+function starLitSaveSoon(){   // THROTTLED: a volley can return two voices inside one beat gap; one trailing write per saveMs covers a whole night
+  if(_starLitDirty) return;
+  _starLitDirty=true; _starLitSaveT=setTimeout(starLitFlush, Math.max(0,CFG.stars.saveMs|0));
+}
+function starLitMulSet(i,level){   // a level-up costs three float writes; the warm tint lands only at the cap
+  const j=i*3, g=1+level*(+CFG.stars.glowStep||0);
+  if(level>=(CFG.stars.levels|0)){ _STAR_LIT_TINT.setHex(CFG.stars.fullTint); _starLitMul[j]=g*_STAR_LIT_TINT.r; _starLitMul[j+1]=g*_STAR_LIT_TINT.g; _starLitMul[j+2]=g*_STAR_LIT_TINT.b; }
+  else { _starLitMul[j]=g; _starLitMul[j+1]=g; _starLitMul[j+2]=g; }
+}
+function _paintLitStars(i0,i1,r,g,b){   // the points-only twin of _paintRange: every write is scaled by that star's own level, so Listen's gold, dim and restore all PRESERVE accretion instead of erasing it
+  const a=_stickFig.pGeo.attributes.color, m=_starLitMul;
+  for(let i=i0;i<i1;i++){ const j=i*3; a.setXYZ(i, r*m[j], g*m[j+1], b*m[j+2]); }
+  a.needsUpdate=true;
+}
+function starLitRepaint(){   // ONE place decides what the stick points look like right now: the levels, under whatever Listen emphasis is currently up
+  if(!_starLitMul || !_stickFig || !_stickFig.pGeo) return;
+  const n=_stickFig.pGeo.attributes.color.count, f=(_lsn.goldFig!=null)?_stickFig.map[_lsn.goldFig]:null;
+  if(!f){ _paintLitStars(0,n,1,1,1); return; }
+  if(!_STAR_LIT_GOLD[0]){ const pb=new THREE.Color(SKY_CHART.stick.ptCol); _STAR_LIT_GOLD[0]=LSN_GOLD.r/pb.r; _STAR_LIT_GOLD[1]=LSN_GOLD.g/pb.g; _STAR_LIT_GOLD[2]=LSN_GOLD.b/pb.b; }
+  _paintLitStars(0,n,LSN_DIM,LSN_DIM,LSN_DIM);
+  _paintLitStars(f.p0,f.p1,_STAR_LIT_GOLD[0],_STAR_LIT_GOLD[1],_STAR_LIT_GOLD[2]);
+}
+function starLitBind(ids){   // the fixture just built: bind ids -> vertex indices, then light whatever previous nights already earned so it glows on the FIRST frame the sticks draw
+  _starLitIds=ids; _starLitIdx=Object.create(null); _starLitMul=new Float32Array(ids.length*3).fill(1);
+  for(let i=0;i<ids.length;i++){ if(ids[i]) _starLitIdx[ids[i]]=i; }
+  for(const id in _starLit){ const i=_starLitIdx[id]; if(i!==undefined) starLitMulSet(i,_starLit[id]); }
+  starLitRepaint();
+}
+function starLitLevel(id){ return (id&&_starLit[id])|0; }   // 0 = never recovered (parcels I/J read; H only writes)
+function starLitGain(id){   // THE accretion setter — the only writer, and it has no inverse
+  if(!id) return 0;
+  const cap=CFG.stars.levels|0, cur=_starLit[id]|0;
+  if(cur>=cap) return cur;   // a full star is done rising; the sky simply keeps it
+  const next=cur+1; _starLit[id]=next; starLitSaveSoon();
+  const i=_starLitIdx?_starLitIdx[id]:undefined;
+  if(i!==undefined){ starLitMulSet(i,next); starLitRepaint(); }   // an id the fixture doesn't carry still banks its level — it just has nothing to brighten
+  return next;
+}
+if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars off there is not a single storage access in the build
+
 /* D4: zodiac stick figures — the 13 ecliptic constellations (incl. ⛎ Ophiuchus, equal citizen) as faint additive
    stars + thin connecting lines, from the PUBLIC static fixture fixtures/zodiac_sticks_v1.json (approximate J2000
    ecliptic lon/lat of the real bright stars — shared astronomy geometry, never natal data). Shown in clocked +
@@ -2357,12 +2433,14 @@ function stickPtTex(){ if(_stickPtTexC) return _stickPtTexC;
 function buildZodiacSticks(cat){
   if(stickGroup) return;
   const S=SKY_CHART.stick, R=S.R, stars=[], edges=[], figMap={}, signMeta=Object.create(null);
+  const SON=!!(CFG.stars&&CFG.stars.on), starIds=SON?[]:null;   // parcel H: the lit-sky catalog is collected in the SAME pass that fills the buffer, so ids and vertices cannot drift apart
   for(const f of (cat.figures||[]).slice(0,S.maxFigs)){
     if(!f || !Array.isArray(f.stars) || !Array.isArray(f.edges)
        || f.stars.some(st=>!Array.isArray(st)||!isFinite(+st[0])||!isFinite(+st[1]))
        || f.edges.some(e=>!Array.isArray(e))) continue;   // whole-figure validity — dropping single bad stars would shift the edge indexing
     const base=stars.length, e0=edges.length, take=Math.min(f.stars.length, Math.max(0,S.maxStars-base));   // schema caps re-enforced: a hostile fixture can never balloon the buffers
-    for(let i=0;i<take;i++){ const st=f.stars[i]; stars.push(eclipticDir(+st[0]||0, +st[1]||0).multiplyScalar(R)); }
+    const fk=(SON&&f.id!=null)?String(f.id)+':':'';   // the figure half of "<figureKey>:<starIndex>"; an id-less figure gets '' and its stars are simply never lightable
+    for(let i=0;i<take;i++){ const st=f.stars[i]; stars.push(eclipticDir(+st[0]||0, +st[1]||0).multiplyScalar(R)); if(SON) starIds.push(fk?fk+i:''); }
     for(const e of f.edges){ if(edges.length>=S.maxEdges*2) break;
       const a=base+(+e[0]|0), b=base+(+e[1]|0);
       if(a>=base && b>=base && a<base+take && b<base+take && a!==b) edges.push(stars[a], stars[b]);
@@ -2392,6 +2470,7 @@ function buildZodiacSticks(cat){
   }
   if(!LOW) pts.layers.enable(1);   // constellations shimmer in the floor reflection alongside the dome
   _stickFig={map:figMap,pGeo:pGeo,lGeo:lGeo,signs:signMeta};   // static centroids make glossary sign Listen possible even when every API is offline
+  if(SON) starLitBind(starIds);   // parcel H: bind + light the save file before the first draw, so a returned voice is already glowing when the sticks appear
   refreshPublicListenMeta();
 }
 function sticksValid(c){ return !!c && c.type==='zodiac_sticks' && Array.isArray(c.figures); }
@@ -2537,20 +2616,25 @@ function goldFigure(signId){   // selected figure gold, the rest dimmed — pure
   restoreFigures();
   if(!signId || !_stickFig) return;
   const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
-  const S=SKY_CHART.stick, pb=new THREE.Color(S.ptCol), lb=new THREE.Color(S.lnCol);
-  _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
-  _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
+  const S=SKY_CHART.stick, lb=new THREE.Color(S.lnCol);
+  _lsn.goldFig=fid;   // set BEFORE the paint so the lit-sky repaint below sees which figure is gold (nothing between here and the old assignment ever read it)
+  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: the identical dim+gold paint, with each star's own lit level riding through it
+  else{
+    const pb=new THREE.Color(S.ptCol);
+    _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
+  }
   if(_stickFig.lGeo){
     _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
     _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
   }
-  _lsn.goldFig=fid;
 }
 function restoreFigures(){
   if(_lsn.goldFig==null || !_stickFig) return;
-  _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, 1,1,1);
+  _lsn.goldFig=null;   // cleared FIRST for the same reason goldFigure sets it first: starLitRepaint reads it to decide what "restored" means
+  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: restore means back to the LIT baseline, not back to flat white — accretion is never painted away
+  else _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, 1,1,1);
   if(_stickFig.lGeo) _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, 1,1,1);
-  _lsn.goldFig=null;
 }
 function _lsnCap(s){ s=String(s); return s.charAt(0).toUpperCase()+s.slice(1); }
 function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if(style) d.style.cssText=style; d.textContent=txt; parent.appendChild(d); return d; }
@@ -6739,7 +6823,7 @@ function exitRunning(){
 }
 document.addEventListener('visibilitychange',()=>{
   transitEssayVisibilityChanged(); skyBriefVisibilityChanged(); skyChatVisibilityChanged();
-  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); clock.getDelta(); }
+  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(CFG.stars.on) starLitFlush(); if(state.running) exitRunning(); clock.getDelta(); }   // parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty)
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); }
 });
 function showToneBlock(reason){
