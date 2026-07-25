@@ -1,6 +1,6 @@
 # The Sky Spine — Redesign Wave 3 (every voice is a star; the chorus is the save file)
 
-**Version:** 1.0 · 2026-07-25
+**Version:** 1.1 · 2026-07-25 (1.0 body preserved; wave-3 review resolutions are marked "1.1 amendment" in place)
 **Branch:** `redesign/moon-chorus` (continues from waves 1-2, both merged; merge to `main` after user playtest)
 **Files touched:** `index.html` (+ regenerated `tools/index-inline.mirror.js` per commit). No new assets, no build, no server, no new fixtures — the star data is `fixtures/zodiac_sticks_v1.json`, already shipped and rendered.
 **Origin:** 2026-07-24 redesign panel — the judges' #1 synthesis: merge "Every Voice Is a Star" with "The Standing Chorus" into one accretion spine. This is the wave that changes why you return.
@@ -41,10 +41,20 @@ A landed rescue stops being a transient event. Each Echo now calls from the bear
 stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500 }
 ```
 
+### 1.1 amendment — storage is untrusted input, and ids must be catalog-backed
+
+Wave-3 review found the loader would accept any object (arrays included), any version, and any key — so a hand-edited or foreign `aimdojo.starChorus` could seed ids the catalog does not contain, and those phantoms would then be ranked and **sung** by the Parcel J chorus. Clarification, in force from 1.1:
+
+- **The loader is a validator.** Envelope must be a plain non-array object with `v === 1` **exactly** (a future `v:2` is not silently down-read); `lv` must be a plain non-array object. Either check failing = empty collection, silently.
+- **Per key:** must match the id grammar `^[A-Za-z0-9_-]{1,24}:(?:0|[1-9][0-9]{0,2})$`. **Per value:** coerced to an integer and clamped to `1..stars.levels`; anything non-finite or `< 1` is dropped. A bad entry is dropped; it does not void the collection.
+- **Two-stage validation.** The catalog does not exist at boot, so the loader can only check grammar. `starLitBind` runs the second stage the instant the fixture lands and **drops every id the real catalog does not carry**. This reverses 1.0's "kept, never pruned" note: after bind, no id exists in state that the sky cannot draw, which is what render (H) and chorus (J) both assume. The prune is **memory-only** — it never calls the save path, so a temporarily narrower fixture cannot erase the file on its own.
+- **Ids are minted inside the grammar.** `buildZodiacSticks` gives a figure a key only when `f.id` matches `^[A-Za-z0-9_-]{1,24}$`; a figure whose key a reload would reject is drawn but never lightable, instead of lightable tonight and forgotten tomorrow.
+
 ### Acceptance
 - `stars.on:false` byte-equivalent stick rendering; no storage reads/writes.
 - Persistence round-trips; corrupt/missing storage yields empty state silently.
 - No per-frame allocations added to the sky draw; brightness applied where the sticks already write vertex data.
+- (1.1) A storage payload that is an array, a wrong version, or a bag of unknown ids yields an empty or fully-pruned collection; nothing outside the catalog ever renders or sings.
 
 ## 4. Parcel I — STAR-BOUND SPAWNS + THE VOICE FLIES HOME
 
@@ -60,11 +70,26 @@ stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500 }
 stars:{ ...H keys..., minAltDeg:8, preferUnlit:true, lineAlpha:0.35, lineBeats:1 }
 ```
 
+### 1.1 amendment — stream purity by construction, and the gap is the law
+
+Three review findings, all of the same shape: the parcel was reaching into machinery that is not its own.
+
+**(a) Spawn stream purity.** 1.0 said "Selection uses `rnd()` freely". That is withdrawn. Rolling the pitch early and drawing the star from `rnd()` shifted the shared spawn stream, so `beatSpawnDist`, the drift velocity, the kind roll and the tank roll all landed on different numbers than the no-stars build — the "fallback IS today's path" guarantee was false. In force from 1.1:
+- **The legacy azimuth/pitch roll happens ALWAYS**, in the legacy order and count, before any star is consulted. When a star binds, its azimuth **overrides** the rolled value after the fact; the rolled azimuth is discarded but *consumed*.
+- **Star selection consumes ZERO draws from `rnd()`.** It runs on a stream-external source (a counter + integer hash, seeded from the wall clock, sharing state with nothing).
+- Net contract: the fallback path is byte-identical to the no-stars build, and a bound spawn differs from it in the **azimuth value only**, on an identical `rnd()` stream.
+
+**(b) The scoring path only queues.** No `starLitGain` may be called from the scoring path, ever — not even on a cap overflow. Returns go into a small pending ring (16, oldest-first); a ring overflow displaces the *oldest* return into a debt list which is granted, silently and without a line, at the next gap. **Ticks are applied only at beat gaps, and always** — even when no visual flight record is free. The line is optional garnish; the gap-timed tick is the law.
+
+**(c) The flight system freezes while a window is open.** 1.0 only hid the meshes, so stagger waits still ran down, flights still aged, launched and retired inside the scoring window. In force from 1.1: while `starWinOpen()` is true, **nothing advances** — no drain, no wait decrement, no aging, no launch, no retire, no tick. All flight-state advancement happens in gap frames exclusively, so the sixteenth of stagger between two same-beat returns is a real sixteenth of gap time. Visibility is still managed, but as a single set-write at each freeze boundary rather than a per-frame per-flight write (a line already in the air is a scene object the renderer keeps drawing). Accepted consequence: at a fast tempo the gap is a small slice of the beat, so a line takes several beats of wall clock to cross `lineBeats` of gap time. The level still lands, and every teardown grants the debt, the ring and the air before dropping them.
+
 ### Acceptance
 - Beat-quantized distance, open-window timing, grading, scoring: untouched (verify by diff read — the star contributes ONLY the azimuth used where the old random azimuth was used).
 - Trainer and Temple: no star binding, no flights.
 - Flight lines never draw during any open window; only in beat gaps.
 - Fallback (no risen qualifying star) is silent and seamless.
+- (1.1) `rnd()` is called the same number of times, in the same order, whether or not a star binds.
+- (1.1) No `starLitGain` call is reachable from the scoring path; a 20-kill volley loses zero levels with the line cap saturated.
 
 ## 5. Parcel J — THE STANDING CHORUS (the save file you hear)
 

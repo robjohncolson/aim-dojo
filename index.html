@@ -2358,13 +2358,22 @@ async function loadSkyDay(){
    State: _starLit is { id -> level 1..CFG.stars.levels }, persisted plain + versioned at localStorage['aimdojo.starChorus'],
    loaded once at boot and written on a trailing throttle. ACCRETION ONLY — starLitGain() is the single write path and
    it has no inverse; corrupt, absent or quota-blocked storage degrades to an empty sky in silence and never throws.
+   TRUST NOTHING FROM STORAGE (1.1): the loader is a validator, not a parser. The envelope must be a plain non-array
+   object with v===1 exactly; lv must be a plain non-array object; every KEY must match the "<figureKey>:<starIndex>"
+   grammar and every VALUE is coerced to an integer clamped 1..levels. A bad envelope is an empty sky, a bad entry is
+   simply dropped. Grammar is all the loader can check — the catalog does not exist yet at boot — so starLitBind runs
+   the second half the moment the fixture lands and drops every id the REAL catalog does not carry. After that bind
+   there is no id in _starLit that the sky cannot draw, which is what render (H) and the chorus (J) both assume: a
+   hand-written "orion:99" can never brighten a vertex it doesn't own, and it can never sing.
    Render: no new object, no new geometry, no new material, no per-frame work. The level becomes a per-star multiplier
    in the vertex-colour buffer the sticks already carry, so brightening happens exactly where the sticks already write
    their vertices — at the star's TRUE position, in whichever sky is drawing them (dojo AND Temple, one buffer, one
    sphere). Static forever: no pulsing for anyone.
    Kill-switch: CFG.stars.on false → none of this binds, storage is untouched, and the paint sites take _paintRange. */
 const STAR_LIT_KEY='aimdojo.starChorus';
-let _starLit=Object.create(null);        // id -> level; the entire save, including ids the CURRENT fixture doesn't carry (kept, never pruned — a wider catalog later re-lights them)
+const STAR_FIG_RE=/^[A-Za-z0-9_-]{1,24}$/;                        // …and the figure half on its own: buildZodiacSticks mints an id ONLY for a figure key that matches, so the catalog can never produce an id its own loader would refuse tomorrow
+const STAR_ID_RE=/^[A-Za-z0-9_-]{1,24}:(?:0|[1-9][0-9]{0,2})$/;   // THE ID GRAMMAR, and the only shape starLitLoad will admit: a figure key (the fixture's own f.id) + ':' + a non-padded star index, 0..999 to cover SKY_CHART.stick.maxStars. Nothing else parses as a star, so nothing else can ever reach the render or chorus loops
+let _starLit=Object.create(null);        // id -> level, and after starLitBind every key here is CATALOG-BACKED: an id the real fixture doesn't carry is dropped at bind (never written back — the prune touches memory only, so a narrower fixture can't quietly erase the file), because an id the sky cannot draw is a phantom the chorus must not sing
 let _starLitIds=null;                    // vertex index -> id, index-aligned with the sticks points buffer (parcels I/J read this; null until the fixture builds)
 let _starLitIdx=null;                    // id -> vertex index
 let _starLitMul=null;                    // Float32Array(n*3) render multipliers, all 1 when nothing is lit — allocated ONCE at bind, never per frame
@@ -2374,9 +2383,15 @@ function starLitLoad(){   // read once at boot; ANY malformation is an empty sky
   let raw=null; try{ raw=localStorage.getItem(STAR_LIT_KEY); }catch(e){ return; }
   if(!raw) return;
   let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || !o.lv || typeof o.lv!=='object') return;
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                    // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a string, a future v:2 — every one of them is an empty sky, silently
+  const src=o.lv;
+  if(!src || typeof src!=='object' || Array.isArray(src)) return;                         // …and lv is a plain MAP. An array of levels has no ids in it, so it can only ever be someone else's data
   const cap=CFG.stars.levels|0, lv=Object.create(null);
-  for(const id in o.lv){ const n=Math.floor(+o.lv[id]); if(id && isFinite(n) && n>0) lv[id]=Math.min(cap,n); }   // clamp to the cap on READ only: a hand-edited 99 must not out-glow the design, and lowering CFG.stars.levels must not rewrite the file
+  for(const id in src){
+    if(!STAR_ID_RE.test(id)) continue;                                                    // grammar only, here: the catalog is still a fetch away, so starLitBind finishes the job
+    const n=Math.floor(+src[id]); if(!isFinite(n) || n<1) continue;                       // NaN, null, "3 stars", 0, -4, Infinity: not a level, not kept
+    lv[id]=Math.min(cap,n);                                                               // clamp to the cap on READ only: a hand-edited 99 must not out-glow the design, and lowering CFG.stars.levels must not rewrite the file
+  }
   _starLit=lv;
 }
 function starLitFlush(){   // hook: a later wave mirrors this same object to Supabase — localStorage stays the source of truth
@@ -2406,10 +2421,12 @@ function starLitRepaint(){   // ONE place decides what the stick points look lik
   _paintLitStars(0,n,LSN_DIM,LSN_DIM,LSN_DIM);
   _paintLitStars(f.p0,f.p1,_STAR_LIT_GOLD[0],_STAR_LIT_GOLD[1],_STAR_LIT_GOLD[2]);
 }
-function starLitBind(ids){   // the fixture just built: bind ids -> vertex indices, then light whatever previous nights already earned so it glows on the FIRST frame the sticks draw
+function starLitBind(ids){   // the fixture just built: bind ids -> vertex indices, drop everything the catalog does not carry, then light what previous nights earned so it glows on the FIRST frame the sticks draw
   _starLitIds=ids; _starLitIdx=Object.create(null); _starLitMul=new Float32Array(ids.length*3).fill(1);
   for(let i=0;i<ids.length;i++){ if(ids[i]) _starLitIdx[ids[i]]=i; }
-  for(const id in _starLit){ const i=_starLitIdx[id]; if(i!==undefined) starLitMulSet(i,_starLit[id]); }
+  const kept=Object.create(null);   // THE SECOND HALF OF THE LOAD: the boot pass could only check the grammar, this one checks the sky. An id with no vertex has nothing to brighten and no bearing to be called from, so it is not a star — it is dropped here, before the first draw and before the chorus can offer it a note
+  for(const id in _starLit){ const i=_starLitIdx[id]; if(i===undefined) continue; kept[id]=_starLit[id]; starLitMulSet(i,_starLit[id]); }
+  _starLit=kept;   // memory only: no starLitSaveSoon, so a pruning bind never rewrites the file on its own — the drop costs nothing until real accretion saves next
   starLitRepaint();
 }
 function starLitLevel(id){ return (id&&_starLit[id])|0; }   // 0 = never recovered (parcels I/J read; H only writes)
@@ -2419,7 +2436,7 @@ function starLitGain(id){   // THE accretion setter — the only writer, and it 
   if(cur>=cap) return cur;   // a full star is done rising; the sky simply keeps it
   const next=cur+1; _starLit[id]=next; starLitSaveSoon();
   const i=_starLitIdx?_starLitIdx[id]:undefined;
-  if(i!==undefined){ starLitMulSet(i,next); starLitRepaint(); }   // an id the fixture doesn't carry still banks its level — it just has nothing to brighten
+  if(i!==undefined){ starLitMulSet(i,next); starLitRepaint(); }   // the guard survives the bind-time prune only as a pre-fixture safety: every id that can reach here came off _starLitIds, so in practice a gain always has a vertex to brighten
   return next;
 }
 if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars off there is not a single storage access in the build
@@ -2431,26 +2448,50 @@ if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars o
    roll, the open windows, the grading, the score and the daily invariants never learn that a star was involved.
    The bearing is read from the SAME vertices the sticks draw (pGeo positions × the sphere quaternion), so a called
    star is where the sky says it is, this second, and the sphere keeps turning while the Echo is in the air.
-   The return: a scoring arrival on a star-bound Echo queues a flight. It launches in the next BEAT GAP (never inside
-   an open window — starWinOpen keeps the line invisible for as long as any window is up, so the glow you play to is
-   never painted over), traces from the burst toward the star's true current position over stars.lineBeats, fades,
-   and grants the level on arrival. reduceMotion: no line at all — the star simply brightens at that next gap.
-   Nothing here can lose a return: every teardown (pause, Temple, new night) grants the pending levels first, and a
-   flight over the cap skips the ceremony and grants immediately.
+   THE GAP IS THE LAW (1.1). Two rules hold this parcel out of combat's way, and both are structural:
+   (1) THE SCORING PATH ONLY QUEUES. starVoiceHome copies an id and a burst position into a small pending ring and
+       returns. It grants nothing, allocates nothing, touches no geometry and never calls starLitGain — not even when
+       the ring is full, because a tick inside an open window is exactly the thing this parcel must never do. A ring
+       overflow displaces the OLDEST return into _starDebt, which is granted (silently, with no line) at the very next
+       gap. The ceremony is optional garnish; the tick is the law, and it always lands.
+   (2) THE WHOLE FLIGHT SYSTEM IS FROZEN WHILE A WINDOW IS OPEN. starFlyStep returns immediately whenever starWinOpen()
+       is true: no drain, no stagger countdown, no aging, no launch, no retire, no tick. Every piece of flight state
+       advances in gap frames and nowhere else, so the sixteenth of stagger between two same-beat returns is a real
+       sixteenth of gap time instead of something a long window can eat. The one thing the freeze must still do is
+       LOOK frozen — a line already in the air is a scene object the renderer keeps drawing — so the meshes are hidden
+       as a set on the way into the freeze and shown again on the way out (one boundary write, not a per-frame one).
+       Consequence, stated because it is a feel choice and not a bug: at a fast tempo the gap is a small slice of the
+       beat, so the line takes several beats of wall clock to cross lineBeats of gap time. The level still lands.
+   reduceMotion: no line at all — the star simply brightens at that next gap.
+   Nothing here can lose a return: every teardown (pause, Temple, new night) grants the pending ring, the debt AND the
+   airborne flights before it drops them.
    Kill-switch: CFG.stars.on false → spawnTarget's own roll runs verbatim, no orb carries tg.starId, and not one line
    below is ever reached. Trainer and Temple never bind a bearing, so they never fly one home either. */
-const _STAR_FLY_MAX=6;                   // hard cap on simultaneous flights: fireQuant allows 4 arrivals a beat and a line is a pooled trail mesh — past this the accretion still lands, only the ceremony is skipped
+const _STAR_FLY_MAX=6;                   // hard cap on simultaneous LINES: fireQuant allows 4 arrivals a beat and a line is a pooled trail mesh — past this the accretion still lands at the gap, only the ceremony is skipped
+const _STAR_PEND_MAX=16;                 // the pending ring: deep enough that a real volley never reaches it (4 arrivals a beat against a gap every beat), shallow enough to be a fixed cost. Oldest-first — an overflow drops the LINE, never the level
 const _starFly=[], _starFlyPool=[];      // live flights + their pooled records (no allocation per return after the first few)
+const _starPend=[], _starPendPool=[];    // returns queued by the scoring path, waiting for a gap to become flights — the ring, and its own pool
+const _starDebt=[];                      // ids the ring overflowed: granted at the next gap, oldest first, with no line. Ids only, because a displaced return has no ceremony left to describe
+let _starFlyHid=false;                   // are the airborne lines currently hidden for an open window? one flag, one write per boundary
 const _starW=new THREE.Vector3();        // scratch: the world position of one star, reused by every read
 let _starPickBuf=null;                   // Int32Array candidate scratch, sized once to the catalog — the selection pass allocates nothing
 let _starSpawnId=null;                   // the id starSpawnAz just chose (null = it found nothing and the caller must take today's roll), latched the way _beatSpawnK latches its subdivision
+let _starPickN=Date.now()|0;             // STREAM-EXTERNAL selection state (1.1). Star selection must consume ZERO draws from rnd(), so that spawnTarget's rnd() stream is byte-identical to today's whether a star binds or not — see starSpawnAz. Seeded from the wall clock (never from rnd(), never from Math.random) and advanced only by starPickRnd
+function starPickRnd(){                  // an integer hash of a monotonically increasing counter: a well-distributed [0,1) that shares state with nothing in the build
+  _starPickN=(_starPickN+0x9e3779b9)|0;
+  let x=_starPickN; x^=x>>>16; x=Math.imul(x,0x21f0aaad); x^=x>>>15; x=Math.imul(x,0x735a2d97); x^=x>>>15;
+  return (x>>>0)/4294967296;
+}
 function starWorldAt(i,out){             // vertex i of the sticks buffer, in world space: the TRUE position, the one the player can see
   const p=_stickFig.pGeo.attributes.position.array, j=i*3;
   return out.set(p[j],p[j+1],p[j+2]).applyQuaternion(skySphere.quaternion);
 }
 function starSpawnAz(a0,minDot,pit){
   // Returns the azimuth of a risen star that satisfies the SAME spawnMinDeg-from-aim cone the random roll respects,
-  // preferring stars that can still brighten. _starSpawnId is the found-flag: null → the caller rolls as it always did.
+  // preferring stars that can still brighten. _starSpawnId is the found-flag: null → the caller keeps the azimuth it rolled.
+  // STREAM PURITY (1.1): not one rnd() call lives in this function. The pick runs on starPickRnd, whose counter is its
+  // own, so calling it cannot shift the spawn stream by a single draw — which is what makes the fallback path below
+  // byte-identical to today's and a bound spawn differ from today's in the azimuth VALUE and nothing else.
   _starSpawnId=null;
   if(!_starLitIds || !_stickFig || !_stickFig.pGeo) return 0;   // fixture missing/failed → the decorative sky is up and there is nothing to call from
   const S=CFG.stars, ids=_starLitIds, n=ids.length;
@@ -2468,44 +2509,66 @@ function starSpawnAz(a0,minDot,pit){
   }
   const nFull=n-hi;
   let idx=-1;
-  if(S.preferUnlit && lo>0) idx=buf[Math.min(lo-1,(rnd()*lo)|0)];        // the sky fills OUT before it fills up
-  else { const tot=lo+nFull; if(!tot) return 0; const r=Math.min(tot-1,(rnd()*tot)|0); idx = r<lo ? buf[r] : buf[hi+(r-lo)]; }
+  if(S.preferUnlit && lo>0) idx=buf[Math.min(lo-1,(starPickRnd()*lo)|0)];        // the sky fills OUT before it fills up
+  else { const tot=lo+nFull; if(!tot) return 0; const r=Math.min(tot-1,(starPickRnd()*tot)|0); idx = r<lo ? buf[r] : buf[hi+(r-lo)]; }
   starWorldAt(idx,_starW); _starSpawnId=ids[idx];
   return Math.atan2(_starW.x,_starW.z);   // the SAME convention the roll uses: dir=(sin az·cos pit, sin pit, cos az·cos pit)
 }
 function starWinOpen(){ return !!(CFG.grooveGroove && CFG.grooveVuln) && state.running && !templeActive && _openAmt>0; }   // "a window is open right now" — the strict inverse of orbOpen()'s escape hatch: with the vuln mechanic itself off there are no windows at all, so there is nothing for a flight to stay out of (and _openAmt is only maintained while a dojo run is live)
-function starVoiceHome(tg){   // a SCORING arrival on a star-bound Echo: queue the voice. The LEVEL lands when it arrives — or the moment anything tears the flight down, so a return is never lost
+function starVoiceHome(tg){   // a SCORING arrival on a star-bound Echo: QUEUE it, and do nothing else. No grant, no geometry, no allocation after the pool warms — the tick belongs to the next gap, and the scoring window never sees one
   const id=tg.starId; if(!id) return;
-  if(_starFly.length>=_STAR_FLY_MAX){ starLitGain(id); return; }
-  const spb=60/Math.max(20,state.bpm);
-  let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting for this gap stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
-  const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
-  const i=_starLitIdx?_starLitIdx[id]:undefined;
-  f.id=id; f.i=(i===undefined?-1:i); f.age=0; f.wait=q*spb*0.25; f.mesh=null;
-  f.life=Math.max(0.05,(+CFG.stars.lineBeats||0)*spb);
-  f.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
-  _starFly.push(f);
+  if(_starPend.length>=_STAR_PEND_MAX){ const old=_starPend.shift(); _starDebt.push(old.id); old.id=''; _starPendPool.push(old); }   // ring full: the OLDEST return loses its ceremony (its burst is long gone anyway) and keeps its level, to be granted at the next gap
+  const p=_starPendPool.pop()||{id:'',from:new THREE.Vector3()};
+  p.id=id; p.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
+  _starPend.push(p);
 }
 function starFlyRetire(f,grant){
   if(f.mesh){ releaseTrailMesh(f.mesh); f.mesh=null; }
   if(grant) starLitGain(f.id);   // ACCRETION: the one call, through parcel H's only writer
   f.id=''; f.i=-1; _starFlyPool.push(f);
 }
-function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the accretion does not
+function starFlyDrain(){   // GAP FRAMES ONLY (starFlyStep is the sole caller and it has already refused to run inside a window): every waiting return ticks here, with a line if the ceremony has room and without one if it does not
+  for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]);   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
+  _starDebt.length=0;
+  if(!_starPend.length) return;
+  const spb=60/Math.max(20,state.bpm);
+  let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting to leave stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
+  for(let k=0;k<_starPend.length;k++){
+    const p=_starPend[k], i=_starLitIdx?_starLitIdx[p.id]:undefined;
+    if(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX) starLitGain(p.id);   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony, and the level lands right here, in this gap
+    else{
+      const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
+      f.id=p.id; f.i=i; f.age=0; f.wait=(q++)*spb*0.25; f.mesh=null;
+      f.life=Math.max(0.05,(+CFG.stars.lineBeats||0)*spb);
+      f.from.copy(p.from);
+      _starFly.push(f);
+    }
+    p.id=''; _starPendPool.push(p);
+  }
+  _starPend.length=0;
+}
+function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the accretion does not — the debt, the ring and the air, in that order
+  for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]);
+  _starDebt.length=0;
+  for(let k=0;k<_starPend.length;k++){ const p=_starPend[k]; starLitGain(p.id); p.id=''; _starPendPool.push(p); }
+  _starPend.length=0;
   for(let k=_starFly.length-1;k>=0;k--) starFlyRetire(_starFly[k],true);
-  _starFly.length=0;
+  _starFly.length=0; _starFlyHid=false;
 }
 function starFlyStep(dt){
-  const open=starWinOpen();
+  if(starWinOpen()){                                                     // FROZEN: while any window is open NOTHING here advances — no drain, no stagger countdown, no aging, no launch, no retire, no tick. The only work is making the freeze look like one
+    if(!_starFlyHid){ for(let k=0;k<_starFly.length;k++){ const m=_starFly[k].mesh; if(m) m.visible=false; } _starFlyHid=true; }   // a line already in the air is a scene object the renderer keeps drawing, so it is hidden as a SET, once, at the boundary
+    return;
+  }
+  if(_starFlyHid){ for(let k=0;k<_starFly.length;k++){ const m=_starFly[k].mesh; if(m) m.visible=true; } _starFlyHid=false; }   // …and comes back exactly where it froze
+  starFlyDrain();                                                        // THE TICK: this frame is a gap by construction, so every waiting return lands now
   for(let k=_starFly.length-1;k>=0;k--){
     const f=_starFly[k];
-    if(f.wait>0){ f.wait-=dt; continue; }
-    if(f.age<=0 && open) continue;                                       // THE GAP: a voice never leaves inside an open window — it waits for the beat to let go
-    if(reduceMotion || f.i<0){ starFlyRetire(f,true); swapRemove(_starFly,k); continue; }   // reduced motion (or an id this fixture doesn't draw): no flight line — the star simply brightens on this next beat
-    f.age+=dt;
+    if(f.wait>0){ f.wait-=dt; continue; }                                // gap time only — a long window can no longer eat a volley's stagger
+    f.age+=dt;                                                           // no reduceMotion / bad-index arm here any more: starFlyDrain refuses to build a flight for either case, so anything in this array has a line to draw and a vertex to draw it to
     if(f.age>=f.life){ starFlyRetire(f,true); swapRemove(_starFly,k); continue; }
     let m=f.mesh;
-    if(!m){ m=f.mesh=newTrailMesh(); m.position.set(0,0,0);              // the trail pool's own additive, depth-test-free THREE.Line — no new material, no new geometry class. World coords, so the mesh sits at the origin instead of on the player
+    if(!m){ m=f.mesh=newTrailMesh(); m.position.set(0,0,0); m.visible=true;   // the trail pool's own additive, depth-test-free THREE.Line — no new material, no new geometry class. World coords, so the mesh sits at the origin instead of on the player. Born visible because a launch only ever happens in a gap
       const ca=m.geometry.attributes.color.array; ca[0]=ca[1]=ca[2]=0; ca[3]=ca[4]=ca[5]=1; m.geometry.attributes.color.needsUpdate=true;   // tail dark → head pale, written ONCE: the same vertex-colour ramp buildTrail paints with
       m.geometry.setDrawRange(0,2); }
     const p=f.age/f.life, e=1-(1-p)*(1-p)*(1-p);                         // ease-out in world space ≈ steady on screen: it leaves fast and settles into the star
@@ -2513,8 +2576,7 @@ function starFlyStep(dt){
     pa[0]=f.from.x; pa[1]=f.from.y; pa[2]=f.from.z;
     pa[3]=f.from.x+(w.x-f.from.x)*e; pa[4]=f.from.y+(w.y-f.from.y)*e; pa[5]=f.from.z+(w.z-f.from.z)*e;
     m.geometry.attributes.position.needsUpdate=true;
-    m.material.opacity=(+CFG.stars.lineAlpha||0)*Math.min(1,(1-p)*2.5);   // holds, then thins away over the last 40% — by then the next window is opening and the line is gone anyway
-    m.visible=!open;
+    m.material.opacity=(+CFG.stars.lineAlpha||0)*Math.min(1,(1-p)*2.5);   // holds, then thins away over the last 40%
   }
 }
 
@@ -2538,7 +2600,7 @@ function buildZodiacSticks(cat){
        || f.stars.some(st=>!Array.isArray(st)||!isFinite(+st[0])||!isFinite(+st[1]))
        || f.edges.some(e=>!Array.isArray(e))) continue;   // whole-figure validity — dropping single bad stars would shift the edge indexing
     const base=stars.length, e0=edges.length, take=Math.min(f.stars.length, Math.max(0,S.maxStars-base));   // schema caps re-enforced: a hostile fixture can never balloon the buffers
-    const fk=(SON&&f.id!=null)?String(f.id)+':':'';   // the figure half of "<figureKey>:<starIndex>"; an id-less figure gets '' and its stars are simply never lightable
+    const fk=(SON&&f.id!=null&&STAR_FIG_RE.test(String(f.id)))?String(f.id)+':':'';   // the figure half of "<figureKey>:<starIndex>", MINTED ONLY IN THE GRAMMAR starLitLoad will accept back (1.1) — an id-less figure, or one whose key a reload would reject, gets '' and its stars are simply never lightable rather than lightable-tonight-and-forgotten-tomorrow
     for(let i=0;i<take;i++){ const st=f.stars[i]; stars.push(eclipticDir(+st[0]||0, +st[1]||0).multiplyScalar(R)); if(SON) starIds.push(fk?fk+i:''); }
     for(const e of f.edges){ if(edges.length>=S.maxEdges*2) break;
       const a=base+(+e[0]|0), b=base+(+e[1]|0);
@@ -4161,7 +4223,7 @@ function chorusPick(){
   for(const id in _starLit){
     const lv=_starLit[id]|0; if(lv<=0) continue;
     let risen=false;
-    if(canSee){ const i=_starLitIdx[id]; if(i!==undefined) risen=starWorldAt(i,_chorusW).y>0; }   // overhead RIGHT NOW, read off the same vertices the sky draws — an id this fixture doesn't carry simply ranks with the set stars
+    if(canSee){ const i=_starLitIdx[id]; if(i!==undefined) risen=starWorldAt(i,_chorusW).y>0; }   // overhead RIGHT NOW, read off the same vertices the sky draws. Once starLitBind has run, canSee implies every id here HAS a vertex (the bind drops the ones that don't), so the i===undefined arm only survives for the boot window before the fixture lands — the phantom that used to sing from a hand-edited save is gone by construction, not by ranking
     chorusOffer(id, lv, (risenFirst&&!risen)?1:0, chorusHash(id,salt), cap);
   }
   return _chorusN;
@@ -4772,15 +4834,14 @@ function spawnTarget(opts){
   const a0=setAimDir(_spawnAim0); let dir3, starId=null;
   if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)
     const minDot=Math.cos(THREE.MathUtils.degToRad(lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT())));
-    let sAz=0, sPit=0;
-    if(CFG.stars.on && !trainMode){ sPit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg); sAz=starSpawnAz(a0,minDot,sPit); starId=_starSpawnId; }   // STAR-BOUND SPAWN: the PITCH is rolled first only so the aim-cone test can run on the direction this orb will really take — the star supplies the AZIMUTH and nothing else, and the distance below is drawn by exactly the same beatSpawnDist() call it always was. Raw boolean first, so with the parcel off (or in the trainer, which keeps its didactic field) this costs one read, no roll and no call. Free-play's rnd() is plain Math.random (the seeded daily is gone), so a fallback that has already drawn this pitch is not a stream divergence — it is one unused number
-    if(starId) dir3=_spawnDir.set(Math.sin(sAz)*Math.cos(sPit), Math.sin(sPit), Math.cos(sAz)*Math.cos(sPit));   // the Echo calls from a real risen star's bearing
-    else{                                                 // …and with nothing risen, nothing outside the aim cone, or the parcel off, THIS is the path — today's, verbatim
-      let tries=0;
-      do{
-        const az=rnd()*Math.PI*2, pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)
-        dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));
-      }while(dir3.dot(a0)>minDot && ++tries<8);
+    let tries=0, pit=0;
+    do{                                                   // TODAY'S ROLL, ALWAYS, FIRST — same draws, same order, same count, whatever the sky is doing (see the override below)
+      const az=rnd()*Math.PI*2; pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)
+      dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));
+    }while(dir3.dot(a0)>minDot && ++tries<8);
+    if(CFG.stars.on && !trainMode){                       // STAR-BOUND SPAWN, as a pure AZIMUTH OVERRIDE (1.1): the roll above already happened and its pitch is the pitch this orb will really take, so the cone test runs on the true direction and the rolled azimuth is simply discarded — consumed, never skipped. starSpawnAz itself draws from starPickRnd, not rnd(). Net effect: the rnd() stream that feeds beatSpawnDist, the drift velocity, the kind roll and the tank roll below is IDENTICAL to the no-stars build, draw for draw, on the bound path and on the fallback alike — the star changes one number and nothing else. Raw boolean first, so with the parcel off (or in the trainer, which keeps its didactic field) this costs one read and no call
+      const sAz=starSpawnAz(a0,minDot,pit);
+      if(_starSpawnId){ starId=_starSpawnId; dir3=_spawnDir.set(Math.sin(sAz)*Math.cos(pit), Math.sin(pit), Math.cos(sAz)*Math.cos(pit)); }   // the Echo calls from a real risen star's bearing; _starSpawnId null (nothing risen, nothing outside the aim cone, no fixture) leaves the rolled direction standing — today's path, verbatim and silent
     }
   }else{
     camera.getWorldDirection(_spawnFwd);
@@ -5916,7 +5977,7 @@ function updateTrail(dt){
       }
     }
   }
-  if(CFG.stars.on && _starFly.length) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes — one boolean and one length read per frame with nothing in the air, and nothing at all with the parcel off
+  if(CFG.stars.on && (_starFly.length || _starPend.length || _starDebt.length)) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes — one boolean and three length reads per frame with nothing in the air or waiting, and nothing at all with the parcel off. The queues are in the gate because a return that has not launched yet is still owed a tick, and this is the only frame hook that can pay it
   for(let i=ghosts.length-1;i>=0;i--){ const g=ghosts[i]; g.age+=dt; const k=1-g.age/g.life;
     if(k<=0){ releaseTrailMesh(g.mesh); swapRemove(ghosts,i); }
     else { g.mat.opacity=k; g.mesh.scale.setScalar(1+(1-k)*0.7); }   // bloom outward as it fades
