@@ -914,7 +914,7 @@ const CFG = {
   // Kill-switch is stars.on:false → spawnTarget's roll IS the fallback, byte-identical and taken verbatim (no star is even looked at), no orb carries a bearing, no line ever exists. So is a sky with nothing risen above minAltDeg, or nothing outside the aim cone: the fallback is the same silent path, and the seam is that there is none. Trainer and Temple never bind a bearing at all.
   stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500, minAltDeg:8, preferUnlit:true, lineAlpha:0.35, lineBeats:1 },   // levels = how many returns one star can hold (5 — the 5th is the warm one) · glowStep = brightness added per level (level 5 ≈ 2.75× a plain star: legible at a glance without out-shouting ☉/☽ or the sign art) · fullTint = the cast a fully-recovered star takes, candle-warm against the cool 0xcfe0f5 field · saveMs = trailing write throttle, so a two-return beat costs ONE localStorage write and a whole night costs a handful · minAltDeg = how far above the horizon a star must be to call an Echo (8° keeps the bearing honestly overhead: the dojo's horizon shader is already fading anything lower) · preferUnlit = call from a star that still has room to brighten, so a night fills the sky out instead of re-lighting the same handful (false = any risen star, equally) · lineAlpha = the flight line's peak opacity (a rumour of a line — raise it if the ceremony reads as clutter, 0 hides the flight and keeps the accretion) · lineBeats = how long the voice takes to fly home, in beats (1 = it lands about where the next window opens, which is exactly when it disappears)
   // THE STANDING CHORUS (the sky spine, parcel J): the sky you can see is also the save file you can HEAR. Every star a night has lit can sing one soft sustained stem, and its note is its own identity — a fixed hash of "<figureKey>:<starIndex>" into the ACTIVE theme's PENTA, so the chorus speaks MOONLIGHT's key (and any future theme's) for free and a given star sings the same note on every device forever. The only thing a LEVEL buys the ear is one octave: a fully recovered star sings its note an octave up, and never more, so the chorus can never spread into a second register. Tonight's ensemble is a deterministic hash(local date + id) ranking of the lit stars, risen ones ranked first (what you hear is what is overhead) and capped at maxStems — a 40-star sky sings a different octet each night. It is re-picked at every sanctioned moment, so a star lit two minutes ago is already in the pool at the next mercy bar: growth is heard inside the session that earned it.
-  // It sings in EXACTLY three places — the start/pause overlay (the boot chorus: one stem enters per menuFadeSec, so a longer history is a longer entrance), the mercy bar (the same breath wave 1's tideBloom already takes, at mercyVelMul), and THE BOW's HOLD (held under the Mandala) — and its output node RESTS at gain 0 (mute, not quiet), so active combat cannot hear a stem even as a release tail. THE ONE NEW VOICE (SPEC §5's single sanctioned addition) is unavoidable: every existing musical voice hangs off drumBus, and applyAudioState MUTES drumBus whenever the run is not live — which is precisely the overlay where the boot chorus has to sing. It is one shared PolySynth on Destination, so it inherits the ♪ mute button and the Temple silence and nothing else. Kill-switch is chorus.on:false → the node is never built, no ensemble is ever picked, and the menu, the mercy bar and the Bow sound exactly as they do today. So does a first-ever boot: 0 recovered stars → chorusPick returns 0 and every site returns before a note (the synth is not even constructed).
+  // It sings in EXACTLY three places — the start/pause overlay (the boot chorus: one stem enters per menuFadeSec, so a longer history is a longer entrance), the mercy bar (the same breath wave 1's tideBloom already takes, at mercyVelMul), and THE BOW's HOLD (held under the Mandala) — and its output node RESTS at gain 0 (mute, not quiet), so active combat cannot hear a stem even as a release tail: the mercy bar's own tail is cut at the tide's mercy→rise boundary by a 120 ms ramp, because "silent during combat" is meant literally. The overlay's chorus starts at the FIRST USER GESTURE the browser permits (a page cannot make a sound before it is touched, and the graph did not exist before PLAY) — unless that gesture is PLAY itself, which enters the run exactly as it does today. THE ONE NEW VOICE (SPEC §5's single sanctioned addition) is unavoidable: every existing musical voice hangs off drumBus, and applyAudioState MUTES drumBus whenever the run is not live — which is precisely the overlay where the boot chorus has to sing. It is one shared PolySynth on Destination at exactly maxStems polyphony, so it inherits the ♪ mute button and the Temple silence and nothing else. Kill-switch is chorus.on:false → the node is never built, no gesture is ever listened for, no ensemble is ever picked, and the menu, the mercy bar and the Bow sound exactly as they do today. So does a first-ever boot: 0 recovered stars → chorusPick returns 0 and every site returns before a note (the node is built with the audio graph and simply never opens its gate).
   chorus:{ on:true, maxStems:8, stemVel:0.10, menuFadeSec:1.0, mercyVelMul:1.6, risenFirst:true },   // maxStems = the hard ceiling on stems sounding at once (8 — past that the pentatonic stops reading as a chorus and starts reading as a chord cluster) · stemVel = one stem's velocity (deliberately under the pad's own bloom: this is a room tone, not a part) · menuFadeSec = seconds between stems walking in at the overlay (0 = the whole ensemble arrives as one chord) · mercyVelMul = how much louder the swell is than the menu, since it has the arrangement to sing over (1 = the same) · risenFirst = rank stars that are above the horizon RIGHT NOW ahead of set ones, so the sky and the sound agree about where the voices are (false = pure hash order)
   chordVolley:{ on:true, dyadVel:0.5, triadVel:0.32 },   // dyadVel = the 2nd arrival's harmony velocity, itself SHAPED by the hit's tightness (parcel E's q ratio) so a loose volley is a soft one · triadVel = the 3rd arrival's full chord, deliberately UNDER the dyad (three voices at once already read louder) · a 4th same-beat kill (fireQuant's ceiling) adds nothing: the chord already rang
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -4067,6 +4067,7 @@ function initAudio(){
     toneReady=true;
   }catch(e){ toneReady=false; audioInit=false; }
   applyAudioState();
+  if(CFG.chorus.on){ chorusSaltRefresh(); chorusEnsure(); }   // THE STANDING CHORUS is built WITH the graph, never on demand: its first moment used to be a mercy downbeat, so a PolySynth, a filter and a Volume were being constructed inside the Transport callback that had just asked it to sing. Built here it is born muted and costs nothing but memory until a moment opens the gate, and the salt is warm before any pick. Raw boolean first — parcel off builds no node
 }
 function sfx(kind){
   if(!soundOn || !toneReady) return;
@@ -4168,7 +4169,16 @@ function volleyNote(tg){
    reached through a raw CFG.chorus.on read, so with the parcel off nothing here is built, called or read.
    The silence during play is a real gain of 0, not a promise about call sites: chorusVol.mute is the RESTING state,
    opened only by chorusGate for the length of one moment and shut again by that moment's own clock (or instantly by
-   chorusHush, which enterRunning takes on the way into the field). A tail cannot survive into combat.
+   chorusHush, which enterRunning takes on the way into the field). A tail cannot survive into combat — and the one
+   place a tail COULD have is the mercy bar, whose chord releases exactly where the next swell rises, so the tide's own
+   mercy->rise latch calls chorusShut and ramps the bus to nothing across 120 ms. Combat gets no tail slack at all.
+   Polyphony is EXACTLY chorus.maxStems, enforced on the synth. Tone does not voice-steal — past the cap it DROPS the
+   note, and a released voice is not free again until its oscillator stops a full release later — so a hard cap only
+   works if a replacing moment first takes the pool back: chorusCut borrows a very short release, and chorusSing waits
+   CHORUS_SWAP_MS for the pool before striking (never for a scheduled moment — the mercy downbeat is sacred). A held
+   moment asked for the ensemble it is already singing simply keeps singing (chorusHeldSame) instead of swapping at
+   all, which is what the re-entered pause card does every time. The graph is built with the rest of the audio graph
+   (initAudio) and first sounds at the FIRST USER GESTURE (chorusBootGesture), never on demand inside a callback.
    The ensemble is re-picked at every moment from _starLit itself, so parcel H's accretion is the single source of
    truth and a star lit mid-run is in the pool the instant it lights. No per-frame work exists in this parcel at all:
    there is no animate() hook, no Transport callback of its own, and the top-K selection runs on preallocated scratch.
@@ -4177,11 +4187,19 @@ function volleyNote(tg){
    sanctioned PolySynth of SPEC §5, on Destination, inheriting the ♪ mute and the Temple silence and nothing else. */
 const CHORUS_VOL_DB=-16;                 // fixed trim on the chorus bus (pad sits at -17, arp at -9): a room tone under everything. Tune the chorus by ear through CFG stemVel/mercyVelMul, not by moving this
 const CHORUS_PITCH_SALT=0x9e3779b1;      // ONE constant salt for the pitch hash, never the date: a star's note is its identity, and only the ensemble rotates nightly
-const CHORUS_TAIL_SEC=2.5;               // slack past a moment's stated length before the gate shuts, so the stems' own release is never chopped (envelope release is 2.2)
+const CHORUS_TAIL_SEC=2.5;               // slack past a moment's stated length before the gate shuts, so the stems' own release is never chopped (envelope release is 2.2). It is the OVERLAY and the BOW's allowance only — the mercy bar's tail is cut at the tide boundary by chorusShut, which is what "hard-silent during combat" costs
+const CHORUS_SHUT_SEC=0.12;              // the combat boundary's fade: long enough that a bus falling 44 dB is a breath rather than a click, short enough that the rise's first beat is already sounding into silence. Never lengthen this past a sixteenth at the fastest tempo the game reaches
+const CHORUS_SHUT_DB=-60;                // where that fade lands before the hard mute takes over. NOT -Infinity: an exponential ramp to zero gain is undefined, and this is 44 dB under a bus that already sits under everything
+const CHORUS_REL_SEC=2.2;                // the stems' own envelope release, held as a constant because chorusCut has to borrow it and put it back
+const CHORUS_CUT_SEC=0.06;               // the release chorusCut borrows: how fast an OUTGOING ensemble is taken off the voice pool so an incoming one can have it
+const CHORUS_SWAP_MS=260;                // how long a replaced moment waits before striking — CHORUS_CUT_SEC plus the context's own lookahead and timeout granularity, since a voice rejoins the pool on its oscillator's real onstop, not on the schedule
 const _CHORUS_MAX=16;                    // scratch ceiling for maxStems — the top-K arrays are allocated once at this size and never grown or reallocated
-let chorusVoice=null, chorusVol=null, _chorusShutT=0;
+let chorusVoice=null, chorusVol=null, _chorusShutT=0, _chorusStrikeT=0;
 const _chorusPickId=new Array(_CHORUS_MAX), _chorusPickLv=new Int32Array(_CHORUS_MAX), _chorusKey=new Uint8Array(_CHORUS_MAX), _chorusRank=new Uint32Array(_CHORUS_MAX);
 let _chorusN=0;                          // how many of the scratch slots tonight's ensemble actually filled
+let _chorusSalt=0;                       // the cached local-date salt: recomputed only at the moments that are NOT inside the audio scheduler (chorusMenu, chorusBow, the first gesture), so the mercy bar never builds a Date on the Transport's thread
+const _chorusOnId=new Array(_CHORUS_MAX), _chorusOnLv=new Int32Array(_CHORUS_MAX);   // WHAT IS ACTUALLY SOUNDING, mirrored off the pick arrays at each strike — the only way to know that a re-entered overlay is asking for the ensemble it already has
+let _chorusHeld=false, _chorusOnN=0, _chorusOnVel=0;   // _chorusHeld = a HELD (menu) moment is open right now; a stated-length moment leaves it false, because mercy and the Bow always re-strike
 const _chorusW=new THREE.Vector3();      // scratch for the risen test (its OWN vector, so a pick can never be entangled with parcel I's _starW)
 function chorusLive(){ return !!(CFG.chorus&&CFG.chorus.on) && soundOn && toneReady && !templeActive; }   // the Temple is the trophy room, not a concert: its own Destination mute already silences this, and the guard keeps the pick from running there at all
 function chorusCap(){ return Math.max(1, Math.min(_CHORUS_MAX, CFG.chorus.maxStems|0)); }
@@ -4189,8 +4207,8 @@ function chorusEnsure(){
   if(chorusVoice || !toneReady) return chorusVoice;
   try{
     chorusVol=new Tone.Volume(CHORUS_VOL_DB).toDestination(); chorusVol.mute=true;   // BORN MUTED: the parcel's silence is the node's default state
-    chorusVoice=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.9,decay:0.4,sustain:0.9,release:2.2}}).connect(new Tone.Filter(1500,'lowpass').connect(chorusVol));   // slow attack + near-full sustain = a voice that swells rather than plays; the lowpass keeps the triangle from glinting over the arrangement
-    chorusVoice.maxPolyphony=chorusCap()*2;   // the AUDIBLE ensemble is capped at maxStems by chorusPick — the doubling is release-tail headroom for the one handover the game has (the Bow's hold letting go straight into the boot chorus), never a 9th stem
+    chorusVoice=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.9,decay:0.4,sustain:0.9,release:CHORUS_REL_SEC}}).connect(new Tone.Filter(1500,'lowpass').connect(chorusVol));   // slow attack + near-full sustain = a voice that swells rather than plays; the lowpass keeps the triangle from glinting over the arrangement
+    chorusVoice.maxPolyphony=chorusCap();   // EXACTLY maxStems — the ceiling the spec states, now enforced by the synth itself. The old ×2 "tail headroom" existed so a handover could put a fresh octet on top of eight still-releasing stems, which is precisely the sixteen-voice pile this parcel promised could never happen. The cap is the promise; chorusCut is what makes it survivable (Tone does not steal — it DROPS)
   }catch(e){ chorusVoice=null; chorusVol=null; }
   return chorusVoice;
 }
@@ -4199,7 +4217,7 @@ function chorusHash(s,h){   // FNV-1a through Math.imul (a plain multiply would 
   for(let i=0;i<s.length;i++) h=Math.imul(h^s.charCodeAt(i), 16777619)>>>0;
   return h>>>0;
 }
-function chorusDaySalt(){ const d=new Date(); return ((d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())>>>0); }   // the LOCAL calendar date: the ensemble turns over at the player's own midnight, the same clock the sky is drawn against
+function chorusSaltRefresh(){ const d=new Date(); return (_chorusSalt=((d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())>>>0)); }   // the LOCAL calendar date: the ensemble turns over at the player's own midnight, the same clock the sky is drawn against. Called only from the moments that run on the MAIN thread — the overlay, the Bow and the first gesture — so the one allocation this parcel makes never lands inside the Transport callback. A session that crosses midnight keeps the ensemble it opened with until the next card, which is the kinder answer anyway
 function chorusFreq(id,level){
   const n=(PENTA&&PENTA.length)|0; if(!n) return 0;
   const f=PENTA[chorusHash(id,CHORUS_PITCH_SALT)%n]; if(!(f>0)) return 0;   // figure + index, hashed into the ACTIVE theme's scale: no new pitch material anywhere in this parcel
@@ -4218,7 +4236,7 @@ function chorusPick(){
   // TONIGHT'S ENSEMBLE: hash(local date + id) ranks every lit star, risen ones ahead of set ones, and the best
   // maxStems sing. Deterministic for a given date + collection, and re-run at each moment so mid-run growth joins.
   _chorusN=0;
-  const cap=chorusCap(), salt=chorusDaySalt(), risenFirst=CFG.chorus.risenFirst!==false;
+  const cap=chorusCap(), salt=_chorusSalt||chorusSaltRefresh(), risenFirst=CFG.chorus.risenFirst!==false;   // the cached date, and a self-heal for the one path that can pick before any main-thread moment has run (a first gesture straight onto PLAY). Zero can never be a real salt — the smallest is year*10000
   const canSee=!!(_starLitIdx && _stickFig && _stickFig.pGeo);   // no fixture (decorative sky, or a failed load) → nothing is "risen", and the ranking degrades to pure hash order
   for(const id in _starLit){
     const lv=_starLit[id]|0; if(lv<=0) continue;
@@ -4231,21 +4249,67 @@ function chorusPick(){
 function chorusGate(sec){   // open the hard mute for ONE moment; that moment's own clock shuts it again (sec<=0 = held open until chorusHush)
   if(_chorusShutT){ clearTimeout(_chorusShutT); _chorusShutT=0; }
   if(!chorusVol) return;
-  try{ chorusVol.mute=false; }catch(e){}
+  try{ chorusVol.volume.cancelScheduledValues(Tone.now()); chorusVol.mute=false; chorusVol.volume.value=CHORUS_VOL_DB; }catch(e){}   // the trim is PINNED on every open, not merely unmuted: chorusShut leaves the bus mid-ramp at CHORUS_SHUT_DB, and Tone implements mute as volume=-Infinity over whatever value it happened to find, so an unpinned open could restore a bus 44 dB down
   if(sec>0) _chorusShutT=setTimeout(chorusHush, sec*1000);
 }
-function chorusHush(){   // gain 0, tails included — the resting state of the whole parcel, and the one thing play ever asks of it
+function chorusRest(){   // the GATE half of a hush: every pending clock cancelled, the trim restored, the bus muted, nothing claimed as sounding. Says nothing about the voices — chorusHush and chorusCut each end those their own way
   if(_chorusShutT){ clearTimeout(_chorusShutT); _chorusShutT=0; }
-  if(!chorusVoice) return;
-  try{ chorusVoice.releaseAll(); }catch(e){}
-  try{ chorusVol.mute=true; }catch(e){}
+  if(_chorusStrikeT){ clearTimeout(_chorusStrikeT); _chorusStrikeT=0; }   // a deferred strike can NEVER outlive the moment that queued it: this is what keeps a swapped-in ensemble from landing inside the field after enterRunning
+  _chorusHeld=false; _chorusOnN=0;   // cleared before any node guard, so a rest with no graph built still ends the held moment
+  if(!chorusVol) return;
+  try{ chorusVol.volume.cancelScheduledValues(Tone.now()); chorusVol.volume.value=CHORUS_VOL_DB; chorusVol.mute=true; }catch(e){}   // the trim goes back BEFORE the mute, in that order: Tone.Volume's mute caches the value it displaces, so muting straight out of a chorusShut ramp would cache -60 dB and hand it to the next moment
 }
-function chorusSing(velMul,stagger,holdSec,at){
-  // The ONE trigger path. holdSec>0 = a moment of a stated length (mercy, Bow); holdSec<=0 = held until hushed (menu).
-  if(!chorusLive()) return 0;
-  const n=chorusPick(); if(!n) return 0;                       // NOTHING RECOVERED: not one note, and the synth is never even constructed — a first-ever boot is today's audio by construction, not by a volume
-  if(!chorusEnsure()) return 0;
-  chorusHush();                                                // the previous moment lets go first: the chorus is never two ensembles deep
+function chorusHush(){   // gain 0, tails included — the resting state of the whole parcel, and the one thing play ever asks of it
+  if(chorusVoice){ try{ chorusVoice.releaseAll(); }catch(e){} }
+  chorusRest();
+}
+function chorusBusy(){ try{ return !!chorusVoice && chorusVoice.activeVoices>0; }catch(e){ return false; } }   // a voice counts as ACTIVE until its oscillator actually stops, which is one full release after it was let go — the only honest measure of whether the pool can seat another ensemble
+function chorusCut(){
+  // THE STEAL, BY HAND. Tone's PolySynth does not steal: past maxPolyphony it DROPS the note outright, and a released
+  // voice only rejoins the pool when its oscillator stops, CHORUS_REL_SEC after it was let go. With polyphony pinned
+  // at exactly maxStems (as it must be), a handover that re-struck immediately would therefore be SILENT, not merely
+  // crowded. So a moment that is replacing another one borrows a very short release, lets the outgoing ensemble go on
+  // that, and puts the real release straight back: the envelope ramp and the oscillator's stop are both committed at
+  // trigger time, so restoring it cannot reach them, and a second stop() legitimately pulls the first one earlier.
+  if(!chorusVoice) return;
+  try{ chorusVoice.set({envelope:{release:CHORUS_CUT_SEC}}); chorusVoice.releaseAll(); chorusVoice.set({envelope:{release:CHORUS_REL_SEC}}); }catch(e){}
+}
+function chorusShut(at){
+  // THE COMBAT BOUNDARY. The mercy bar's chord is struck with a stated length of one bar, so its own 2.2 s release
+  // begins exactly where the rise begins — and the gate's CHORUS_TAIL_SEC slack was deliberately holding the bus OPEN
+  // across it. That slack is the overlay's and the Bow's; combat gets none of it. At the mercy->rise latch the bus
+  // ramps to silence over CHORUS_SHUT_SEC and the pending tail is cancelled outright, so no chorus energy survives
+  // into the swell. `at` is the scheduled audio time of the rise's downbeat, so the ramp LANDS on the beat where the
+  // Transport's lookahead allows it and starts immediately where it does not — either way it is over in 120 ms.
+  if(_chorusShutT){ clearTimeout(_chorusShutT); _chorusShutT=0; }
+  if(_chorusStrikeT){ clearTimeout(_chorusStrikeT); _chorusStrikeT=0; }
+  _chorusHeld=false; _chorusOnN=0;
+  if(!chorusVol || chorusVol.mute) return;   // already at rest: the boundary costs one read per swell and nothing else
+  let now=0, t0=0;
+  try{
+    now=Tone.now(); t0=Math.max(now, (at>0?at:now)-CHORUS_SHUT_SEC);
+    chorusVol.volume.cancelScheduledValues(t0); chorusVol.volume.rampTo(CHORUS_SHUT_DB, CHORUS_SHUT_SEC, t0);
+    if(chorusVoice) chorusVoice.releaseAll(t0);
+  }catch(e){ chorusHush(); return; }
+  _chorusShutT=setTimeout(chorusShutDone, Math.max(0,(t0+CHORUS_SHUT_SEC-now)*1000)+20);   // the hard mute lands just after the ramp does, which is what makes the ramp clickless AND the silence real
+}
+function chorusShutDone(){ chorusCut(); chorusRest(); }   // the far side of the boundary ramp: the stems are already inaudible, so they are cut rather than released — the swell keeps the whole voice pool free for whatever the next moment asks for
+function chorusHeldSame(n,vel,holdSec){
+  // THE HANDOVER THAT ISN'T ONE. The overlay is re-entered constantly — tab return, Temple exit, ESC, a pause that
+  // never left the card — and each re-entry used to hush eight stems and immediately re-strike the identical eight,
+  // which is both the audible swallow the player hears and the pile of release tails a maxStems cap now has to steal
+  // from. When the ensemble a held moment is asking for is the ensemble already sounding, the right answer is to do
+  // nothing at all. Only a HELD moment can continue: mercy and the Bow state their own length and always re-strike.
+  if(holdSec>0 || !_chorusHeld || _chorusOnN!==n) return false;
+  if(!chorusVol || chorusVol.mute) return false;               // the gate shut under it (a boundary, a hush, the moment's own clock): there is nothing left to continue
+  if(!(Math.abs(vel-_chorusOnVel)<=1e-9)) return false;
+  for(let i=0;i<n;i++){ if(_chorusOnId[i]!==_chorusPickId[i] || _chorusOnLv[i]!==_chorusPickLv[i]) return false; }   // same stars, same levels, same ORDER — the pick is deterministic, so a real change (a star lit this run, a date rollover, a star setting) always fails this
+  return true;
+}
+function chorusStrike(velMul,stagger,holdSec,at){
+  // THE STRIKE, on whatever chorusPick last chose. Split out of chorusSing so a moment that had to free the voice
+  // pool first can wait for it and then land through this one path — the scheduling law lives here and only here.
+  const n=_chorusN; if(!n || !chorusVoice) return 0;
   const C=CFG.chorus, vel=Math.max(0.001,(+C.stemVel||0)*(velMul>0?velMul:1)), st=Math.max(0,stagger);
   const now=Tone.now(), t0=(at>now)?at:(now+0.05);             // a scheduled grid slot is honoured exactly (the mercy swell lands ON the downbeat); an unscheduled moment takes a hair of setup
   chorusGate(holdSec>0 ? (t0-now)+st*(n-1)+holdSec+CHORUS_TAIL_SEC : 0);
@@ -4257,14 +4321,30 @@ function chorusSing(velMul,stagger,holdSec,at){
       else chorusVoice.triggerAttack(f, t, vel);
     }
   }catch(e){}
+  _chorusHeld=(holdSec<=0); _chorusOnN=n; _chorusOnVel=vel;    // what is sounding, mirrored off the pick so the next held moment can recognise itself. Written AFTER the strike and after the rest's own clear, so a throw mid-strike leaves the parcel claiming nothing
+  for(let i=0;i<n;i++){ _chorusOnId[i]=_chorusPickId[i]; _chorusOnLv[i]=_chorusPickLv[i]; }
+  return n;
+}
+function chorusSing(velMul,stagger,holdSec,at){
+  // The ONE trigger path. holdSec>0 = a moment of a stated length (mercy, Bow); holdSec<=0 = held until hushed (menu).
+  if(!chorusLive()) return 0;
+  const n=chorusPick(); if(!n) return 0;                       // NOTHING RECOVERED: not one note, and the gate is never opened — a first-ever boot is today's audio by construction, not by a volume
+  const C=CFG.chorus, vel=Math.max(0.001,(+C.stemVel||0)*(velMul>0?velMul:1));
+  if(chorusHeldSame(n,vel,holdSec)) return n;                  // already singing exactly this: the common pause->menu return is a no-op, not a hush and a re-attack
+  if(!chorusEnsure()) return 0;
+  if(!chorusBusy()){ chorusRest(); return chorusStrike(velMul,stagger,holdSec,at); }   // the pool is free: today's path, one strike, nothing waited on
+  chorusCut(); chorusRest();                                   // a moment is still holding voices — take them back (no releaseAll after this: a second release would re-schedule the stop we just pulled in)
+  if(at>0) return chorusStrike(velMul,stagger,holdSec,at);     // a SCHEDULED moment never waits: the mercy downbeat is sacred, and by construction it is never the one that finds the pool busy
+  _chorusStrikeT=setTimeout(()=>{ _chorusStrikeT=0; if(chorusLive() && chorusPick()) chorusStrike(velMul,stagger,holdSec,0); }, CHORUS_SWAP_MS);   // and this is the whole "steal artifact": a quarter second between the old ensemble letting go and the new one walking in, on the overlay and the Bow only. chorusRest cancels it, so a run that starts inside that window never hears the strike land
   return n;
 }
 function chorusMenu(){   // THE BOOT CHORUS: the overlay is the one place stems are simply HELD — one walks in per menuFadeSec, so a longer history is a longer entrance
   if(state.running || trainMode || document.hidden) return;   // a hidden tab never starts a drone it cannot be asked to stop · play never starts one at all · and the TRAINER stays inert end to end (waves 1-2 hard constraint): the other two moments are trainer-proof by construction (onGrid returns before the tide block, bowLive demands !trainMode), so gating the card here is what makes the whole parcel inert in a trainer session rather than half of it
+  chorusSaltRefresh();                                        // the card is a main-thread moment: this is where the local date is allowed to be read, and where a session that crossed midnight turns its ensemble over
   chorusSing(1, +CFG.chorus.menuFadeSec||0, 0, 0);
 }
 function chorusMercy(time){ chorusSing(+CFG.chorus.mercyVelMul||1, 0, 4*(60/Math.max(20,state.bpm)), time); }   // THE MERCY BAR: the whole ensemble arrives as one chord on the same downbeat the pad blooms on, and lets go across the bar — the swell is where a star lit this run is heard for the first time
-function chorusBow(sec){ chorusSing(1, 0, Math.max(0.5,sec), 0); }   // THE BOW's HOLD: held for exactly the stage that carries the Mandala, the line and the ✦, then gone with the night
+function chorusBow(sec){ chorusSaltRefresh(); chorusSing(1, 0, Math.max(0.5,sec), 0); }   // THE BOW's HOLD: held for exactly the stage that carries the Mandala, the line and the ✦, then gone with the night
 function applyAudioState(){
   if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);
   if(drumBus) drumBus.mute = !(state.running && !templeActive && soundOn);
@@ -4658,7 +4738,7 @@ function onGrid(time){
     tideI = tideMercy ? 0 : (cb<rise ? (cb+f)/rise : 1);           // linear swell across riseBars → hold at the crest → drop to the trough for the mercy bar
     tideBloom = tideMercy && cb===rise+peak && down;               // mercy DOWNBEAT: the pad blooms once (existing pad voice, velocity only)
     const cycleIdx=Math.floor(bar/cyc);
-    if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet)
+    if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; if(CFG.chorus.on) chorusShut(time); }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet). THE STANDING CHORUS's gate hard-closes on the SAME latch: the mercy chord's release would otherwise bleed 2.5 s of held slack into the swell, and "silent during combat" is meant literally — the rise's first beat sounds into a bus already ramped to nothing. Raw boolean first, and this is the tide's own boundary, not a second clock
     if(CFG.tank.fillOnly && cb===rise+peak-1 && (grid8%8)<4 && _fillSpent8!==bar*8) fillArm=bar*8;   // THE TANK IS A DRUM FILL: the swell's FINAL PEAK BAR (the bar before mercy) is the only window, and only its first half — an orb elected on beat 1 or 2 still has two full beats of lead before the figure's first note on the "4". _fillSpent8 makes it at most once per swell. Raw kill-switch first, and the bar index is the tide block's own (no second bar clock anywhere)
   } else { tideI=1; tideMercy=false; }
   const tideLift=(CFG.tide && CFG.tide.on) ? (CFG.tide.padPeakVel||0)*(tideBloom?1:tideI) : 0;   // velocity lift shaped by the swell; full on the mercy bloom. 0 with the parcel off → every trigger keeps its literal velocity
@@ -7134,6 +7214,31 @@ function setGateReady(ready){
 setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
 if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
 document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
+
+/* ===== THE FIRST GESTURE (parcel J) — the boot chorus sings as soon as the browser permits, and not one moment sooner
+   The boot chorus is supposed to be the first thing a returning player hears, and it was never heard: the ONLY caller
+   of initAudio was startRun, so before PLAY there was no audio graph at all, and the instant PLAY built one it entered
+   the run and hushed. No autoplay policy in any browser lets a page sing before it is touched, so the honest answer is
+   not to sing at load — it is to sing at the FIRST TOUCH. One pointerdown or keydown while the start card is up builds
+   the graph through the same initAudio call startRun makes (idempotent — startRun's own call then takes the already-
+   initialised branch) and walks tonight's ensemble in. If that first gesture IS the PLAY activation, this visit gets
+   no menu chorus and the run proceeds exactly as it does today: a stem that lives forty milliseconds before
+   enterRunning hushes it is a click, not a chorus. Pause, Bow and menu-return keep their own sing calls untouched. */
+let _chorusBootArmed=false;
+function chorusBootDisarm(){
+  if(!_chorusBootArmed) return; _chorusBootArmed=false;
+  document.removeEventListener('pointerdown',chorusBootGesture,true); document.removeEventListener('keydown',chorusBootGesture,true);
+}
+function chorusBootGesture(e){
+  if(!window.Tone){ loadToneOnce().catch(()=>{}); return; }   // the library has not landed yet — stay armed and let the next gesture try, rather than burning the one chance on a graph that cannot be built
+  chorusBootDisarm();
+  initAudio();
+  if(state.running || !CFG.chorus.on) return;
+  const t=e&&e.target;
+  if(t && t.closest && t.closest('#beginBtn,#beginTrain')) return;   // the gesture that starts the run is not an invitation to sing
+  chorusMenu();   // chorusMenu's own guards still decline for a live run, the trainer and a hidden tab; chorusPick still returns 0 for a sky with nothing lit, so a first-ever visit hears exactly today's silence
+}
+if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown',chorusBootGesture,true); document.addEventListener('keydown',chorusBootGesture,true); }   // raw boolean first: with the parcel off nothing is armed, no listener exists, and audio still starts exactly where it does today (inside startRun). Capture phase so a handler that stops propagation cannot swallow the one gesture the graph is waiting for
 
 function resetSession(){
   if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});

@@ -105,11 +105,26 @@ Three review findings, all of the same shape: the parcel was reaching into machi
 chorus:{ on:true, maxStems:8, stemVel:0.10, menuFadeSec:1.0, mercyVelMul:1.6, risenFirst:true }
 ```
 
+### 1.1 amendment — the lifecycle, not just the call sites
+
+Wave-3 review found four defects that share one root: the parcel stated its guarantees as properties of *where it is called from* and left the *lifetime* of a moment unowned. Clarifications, in force from 1.1:
+
+- **The mercy gate hard-closes at the mercy→rise boundary.** 1.0 gave every moment `CHORUS_TAIL_SEC` (2.5 s) of slack past its stated length so the stems' own release would not be chopped. For the mercy bar that slack lands squarely inside the next swell: the chord is struck with a length of one bar, so its release *begins* where the rise begins, and up to 2.5 s of chorus was audible under live combat. "Hard-silent during active combat" is literal — **zero audible chorus energy once the rise's first beat sounds**. The tide's existing mercy→rise latch in `onGrid` (the same one that steps the BPM — no second clock) now ramps the chorus bus to silence over ≤120 ms and cancels the pending tail outright. The tail slack survives for the overlay and the Bow, which are the only places it was ever the player's.
+- **Polyphony is EXACTLY `chorus.maxStems`.** 1.0 set `maxPolyphony = maxStems*2` as "release-tail headroom for the one handover the game has". That headroom is not headroom, it is the sixteen-stem pile the cap exists to forbid: a handover put a fresh ensemble on top of eight still-releasing ones and all sixteen sounded. The cap is now the stated number. **Consequence the implementation must own:** Tone's `PolySynth` does not voice-steal — past `maxPolyphony` it *drops* the note, and a released voice does not rejoin the pool until its oscillator stops one full release later. A hard cap therefore only works if a replacing moment takes the pool back first (a short borrowed release), and waits for it before striking. A scheduled moment never waits — the mercy downbeat outranks the chorus. The audible cost is a fraction of a second between an outgoing and an incoming ensemble, on the overlay and the Bow only; that is the accepted artifact.
+- **A moment that is already singing what it is asked for does nothing.** The overlay is re-entered constantly (tab return, Temple exit, ESC, pause). Re-picking the identical ensemble and re-striking it was both an audible swallow and the main producer of handovers. When a *held* moment's requested ensemble is unchanged and still sounding, the call is a **no-op**. Stated-length moments (mercy, Bow) always re-strike.
+- **The boot chorus sings from the first user gesture the browser permits.** 1.0's "boot chorus" could never play on the initial start overlay: the only caller of the audio init was PLAY, so before PLAY there was no graph, and the instant PLAY built one it entered the run and hushed. No autoplay policy anywhere lets a page sing untouched, so the honest contract is not "at load" but **"at the first gesture"** — one pointerdown/keydown while the start card is up builds the graph (the existing init path, callable without entering the run) and walks tonight's ensemble in. If that first gesture *is* the PLAY activation, the run proceeds exactly as today and that visit has no menu chorus. Pause/Bow/menu-return keep their existing sing calls.
+- **Nothing is allocated inside the audio scheduler.** The chorus voice is built where the rest of the audio graph is built, so a mercy downbeat only ever *attacks* pre-built voices; the nightly date salt is computed once per session at the main-thread moments (overlay, Bow, first gesture) and read from cache by the pick.
+
 ### Acceptance
 - Zero audible change during active combat (outside mercy/Bow) with any collection size.
 - Menu ambience with 0 recovered stars = exactly today's silence/theme behavior.
 - Stem count never exceeds `maxStems`; ensemble choice is deterministic for a given date + collection.
 - Quiet Tick, target tones, and all combat audio unaffected.
+- (1.1) The rise's first beat sounds into a chorus bus already at zero; no mercy tail is audible in the swell.
+- (1.1) No sequence of moments can put more than `maxStems` stems in the air, and no handover is silent.
+- (1.1) Re-entering the pause card with an unchanged collection neither swallows nor re-attacks the chorus.
+- (1.1) A returning player with a lit sky hears the chorus on the start overlay, before PLAY; `chorus.on:false` arms no listener and starts no audio before PLAY.
+- (1.1) No `new` of a synth or a `Date` occurs inside a Transport callback.
 
 ## 6. Build order & review
 
