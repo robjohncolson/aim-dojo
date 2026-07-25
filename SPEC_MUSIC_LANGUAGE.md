@@ -1,6 +1,6 @@
 # The Music Language — Redesign Wave 2 (every shot is a note)
 
-**Version:** 1.0 · 2026-07-25
+**Version:** 1.1 · 2026-07-25 (v1.0 built D→G; v1.1 folds in the wave-2 review resolutions F1–F4 as in-place "v1.1 amendment" notes on parcels E, F and G — no parcel was added, removed or re-scoped)
 **Branch:** `redesign/moon-chorus` (continues from wave 1; merge to `main` after user playtest)
 **Files touched:** `index.html` only (+ regenerated `tools/index-inline.mirror.js` per commit). No assets, no build, no server.
 **Origin:** 2026-07-24 redesign panel — the "music-game depth" cluster, judge-ranked. Wave 1 (Tides/Quiet Tick/Bow, SPEC_TIDES_BOW_TICK v1.1) is merged and live; this wave builds on it.
@@ -58,6 +58,8 @@ In `gradeRhythmHit`'s scoring path (~4430s), the kill already voices notes on `l
 - **Consonance stack:** consecutive FLAWLESS arrivals (grade index 0) stack overtones on the kill note — 2nd flawless adds the 5th, 3rd+ adds the octave (cap `stackMax`). Any non-flawless resets the stack. Voiced on the same `lead` trigger (chord array), NOT a new voice.
 - **The clank mutes you:** after a clank (closed-shell arrival), the `lead` kill-voice is silent for the next `clankMuteBeats` beat — the hole in the song you made. Audio only; scoring, streak, `tune`, and all other voices unaffected. The shell's own clank SFX still plays (it is the mercy, not the punishment).
 
+**v1.1 amendment — the mute's blast radius (2026-07-25, wave-2 review F1).** The mute silences **the lead kill-note and nothing else, ever.** Exhaustively: it does not touch `tune`, the WASD `tapSynth`, drums, the tick, the pad, the arp, the bass, the target tones, the tank's walking notes, the tank finale, the Bow, or the mercy bloom — and it does **not** touch parcel F's chord volley. A volley earned during a mute rings its dyad/triad on `pad` as normal; the muted kill's own lead note staying silent is the entire cost, and muting the harmony as well would charge one clank twice. Implementation: `volleyNote()` must not consult `voiceMuted()`. `playHit()` is the only reader of the mute.
+
 ### CFG (flat)
 ```
 voice:{ on:true, fullVel:0.85, breathyVel:0.30, brightHz:5600, dullHz:1400, stackMax:3, clankMuteBeats:1 }
@@ -74,6 +76,8 @@ voice:{ on:true, fullVel:0.85, breathyVel:0.30, brightHz:5600, dullHz:1400, stac
 Distance already encodes flight time, so a far shot fired early and a near shot fired late can LAND on the same beat. When ≥2 scoring kills arrive in the same beat slot (same whole-beat index; track the last arrival's beat index + count in two module vars), the second kill's note becomes a **dyad** (its k-degree + the current bar's `CHORD_TRIAD[ci]` third), and a third same-beat kill voices the full **triad** on `pad` at moderate velocity. Reuse `pad` (or the dormant `chordSynth` if it exists and is built — verify at ~5222's flick remnant; if it's dead code, prefer `pad`). The reward is only the sound. No counter, no multiplier, no ring.
 
 Edge rules: only scoring kills count (clanks/decoys/whiffs never). Tank fill hits (parcel G) are excluded — the fill is its own figure. `fireQuant` already allows up to 4 shots/beat, so volleys are physically fireable.
+
+**v1.1 amendment — the exclusion is the fill tag, not `hpMax` (2026-07-25, wave-2 review F3).** The volley call-site excludes on **the fill tag** (`CFG.tank.fillOnly && tg.fill16>=0`, the same one-and-only election marker `handleTankHit` and the walking note read), never on "any multi-hit orb". A **legacy** random tank (`tank.fillOnly:false`) lands an ordinary scoring kill and is allowed into a dyad like any other orb — with `fillOnly` off `fill16` is `-1` on every orb that ever exists, so the exclusion is inert exactly where the fill concept is.
 
 ### CFG (flat)
 ```
@@ -94,6 +98,10 @@ Today a plain orb rolls `multiHitChance` (0.22, free-play) to become a 2-3-hit a
 - **Payoff:** completing the fill ON the mercy downbeat routes through the existing tank-finale clutch pop AND the mercy bar's pad bloom (wave 1's `tideBloom`) — the fill literally launches the exhale. No new sounds needed; alignment does the work.
 - **Incomplete fill:** the tank simply closes and departs at mercy end (existing expiry path; no penalty beyond departure).
 - **Fallbacks:** `tank.fillOnly:false` OR `tide.on:false` → today's random-roll tank exactly.
+
+**v1.1 amendment — "no penalty" is literal (2026-07-25, wave-2 review F2).** "The existing expiry path" was read as *the generic `onExpire` penalty path*, which resets the streak, feeds `pushEvent(false)` into the adaptive-accuracy window and the Quiet Tick ledger, flashes FADED, plays the whiff and ducks the groove. That is a penalty, and a stated figure is an **offer** — declining it is not a miss. `onExpire` takes a **neutral early branch** for a fill tank (`CFG.tank.fillOnly && tg.fill16>=0`), modelled on the existing kind-2 decoy branch: `retireTrail` + `removeTarget` and return. No streak change, no `pushEvent`, no FADED, no whiff SFX, no groove duck, no trauma. Score, `ghostRec` and the daily invariant are untouched either way.
+
+**v1.1 amendment — the ink law reads the real lifetime (2026-07-25, wave-2 review F4).** The trail's white→red→white age law (`orbRed`) is a **timing cue**, so it must run on the life the target actually has, not on `CFG.rhythmLifeBeats` alone — a fill tank stretched to mercy end (~8 beats) was still colouring against a 5-beat clock and sat looking fresh through the beats you could still play the figure in. The election latches the stretched life in beats (`tg.lifeBeatsEff`, alongside the `expireAt` extension) and `orbRed` maps true age back onto the standard timeline before the unchanged curve runs. Every other orb carries `lifeBeatsEff:0` → the factor is exactly `1` → the arithmetic is byte-for-byte today's, and with `fillOnly:false` no orb ever carries any other value.
 
 ### CFG (extend the existing flat `tank` literal)
 ```
