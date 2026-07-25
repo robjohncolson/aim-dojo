@@ -900,6 +900,9 @@ const CFG = {
   // THE BOW (session shape): you END the night on purpose. HOLSTER — no fire and no WASD tap for max(holsterBeats beats, holsterMinSec) — and the dojo bows back: spawns stop → the surviving Echoes rise to the sky (Last Light) → the arrangement thins to pad+root and the Transport ritards to startBpm on the tonic, ending on ONE held pad note → a zero-numbers Mandala glyph of this run's arrivals → one true line about tomorrow's sky → the ✦ pulses and the pointer unlocks to the pause card. The ritardando is the ONE sanctioned Transport tempo change in the whole game and it happens AFTER play has ended (no spawns, no grading), so nothing rhythm-critical is being scaled; Transport bpm is put back before the exit so a RESUME (or the next resetSession) never inherits it.
   // Kill-switch is bow.on:false → bowLive() is false, the idle clock never accumulates, the spawn gate never closes and holstering does exactly nothing (today's behavior). Never runs in the trainer, in the Sky Temple, while paused, or before this run has landed a scoring hit (an empty Mandala is not a ritual). Any fire/tap zeroes the clock, and inside cancelGraceSec the Bow is a pure no-op to undo — nothing has been destroyed yet, so play resumes losslessly.
   bow:{ on:true, holsterBeats:8, holsterMinSec:12, cancelGraceSec:1.5, riseBeatsPerOrb:1, riseBeats:2, ritBars:2, beatCapSec:0.75, ritMaxSec:8, mandalaSec:4, mandalaMaxDots:60, mandalaArcDeg:90, lineAtMandala:0.6, lineHoldSec:4, senseiSec:1.0 },   // holsterBeats/holsterMinSec = the two-clock trigger (the SLOWER wins, so a 20 BPM night can't bow on a short pause) · cancelGraceSec = the lossless undo window · riseBeatsPerOrb = Last Light stagger, riseBeats = each orb's own flight to the shell · beatCapSec = the SECONDS cap on the Last Light stagger beat (stagger = min(one real beat, beatCapSec)) so the 20 BPM floor doesn't stretch the rise to a minute — it does NOT rewrite any other beat-named timing · ritBars = the closing ritardando in REAL bars, clamped by ritMaxSec so 2 bars at 20 BPM is a long exhale (8s) and not half a minute · mandalaSec = glyph fade-in→drift→dissolve (skipped entirely on a hitless Bow) · mandalaMaxDots = most recent arrivals kept (run-local, never persisted) · mandalaArcDeg = the ± arc a half-beat of arrival error is drawn across · lineAtMandala = fraction into the glyph at which THE line speaks · lineHoldSec/senseiSec = the line's hold and the ✦ bow before the pointer unlocks
+  // ORBS SING THEIR DISTANCE (music language): every Echo's tone PITCH encodes the beat-quantized lead k it was spawned for — the same k the Bow's Mandala plots. Long lead (far orb) = LOW degree, short lead (near orb) = HIGH degree, mapped across degSpan degrees ENDING at the top of the active theme's scale, so the field always speaks the current key and you hear WHEN before your eyes find WHERE. Set ONCE at spawn (after the kind roll AND the tank re-draw, so tg.bowK is the honest k) — no per-frame frequency writes, no new nodes, no new voices: the osc/osc2/lfo2 each target already owns are re-tuned in place with their relationships preserved, so every voiceTargetSound timbre survives the transpose (the lowpass is left alone — the per-frame distance buckets own it).
+  // Kill-switch is sing.on:false → singTargetSound is never called and every orb keeps its pickPenta() pitch and flat gate gain (today's behavior). Inert in the trainer and the Temple. k<=0 (the cube-root fallback, or beatSpawn off) also keeps today's pitch — no k, no claim — and the spatial distance model (dry/close, reverb/far) is untouched: pitch ADDS information, it never replaces the space.
+  sing:{ on:true, degSpan:5, callBoost:1.5, goldOctDown:true, speedGlideMs:40, moverVibCents:10 },   // degSpan = how many scale degrees the k range spreads over (5 of 8 keeps the low end off the bass and the top note reserved for the shortest lead) · callBoost = one-shot gain multiplier on the FIRST 16th-gate open, the orb's "call" before it settles into the field (1.0 disables) · goldOctDown = GOLD sings its degree an octave under (reads "ancient") · speedGlideMs = SPEED settles UP into pitch from a semitone under, a grace-note pickup (0 disables) · moverVibCents = ± vibrato depth re-scaled onto the LFO the MOVER already owns (0 disables; never adds a node)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
@@ -3586,6 +3589,7 @@ for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SE
    Phase 2: fan range out, tighten slightly; still no dolly.
    Phase 3: graduate mid-run into full SENSEI (dolly + normal windows + specials). */
 const BEAT_SPAWN_SIXTEENTHS_FULL=CFG.beatSpawnSixteenths.slice();
+const SING_K_LO=Math.min.apply(null,BEAT_SPAWN_SIXTEENTHS_FULL), SING_K_HI=Math.max.apply(null,BEAT_SPAWN_SIXTEENTHS_FULL);   // the FULL lead range, not the sensei-narrowed CFG list, so an orb's sung degree means the same thing at every stage of a night
 const TRAIN_NEED_WASD=12, TRAIN_NEED_ORB1=5, TRAIN_NEED_ORB2=8;
 const TRAIN_RANGE_NEAR=9, TRAIN_RANGE_FAR=20;   // phase-2 live range ramp endpoints (trainer-only; full dojo range law untouched)
 let trainMode=false, trainPhase=0, trainWasd=0, trainOrbs=0;
@@ -3860,7 +3864,7 @@ function makeTargetSound(mesh){
     const now=ctx.currentTime;
     outGain.gain.setValueAtTime(0.0001, now);
     outGain.gain.exponentialRampToValueAtTime(0.8, now+0.12);
-    return {pa, osc, lfo, ampGain, lowpass, gateGain, outGain, send, osc2:null, lfo2:null, dBucket:-1, stopped:false};
+    return {pa, osc, lfo, ampGain, lowpass, gateGain, outGain, send, osc2:null, lfo2:null, lfo2Gain:null, dBucket:-1, stopped:false};   // lfo2Gain: the MOVER's existing detune-depth gain, kept so SINGING can re-scale its vibrato onto the new pitch without building a node
   }catch(e){ return null; }
 }
 // per-kind voice: same instrument family, small timbre shifts by orb color (called AFTER the kind roll so the rnd() spawn stream is untouched; audio-only)
@@ -3878,7 +3882,39 @@ function voiceTargetSound(snd, kind){
       snd.osc.frequency.value=f*2; snd.lowpass.frequency.value=f*2*2.4; snd.lfo.frequency.value=4.5+Math.random()*1.5;
     }else if(kind===4){  // MOVER: dreamy slow pitch wobble (a few cents at 0.7 Hz)
       const l2=ctx.createOscillator(); l2.type='sine'; l2.frequency.value=0.7;
-      const lg=ctx.createGain(); lg.gain.value=f*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2;
+      const lg=ctx.createGain(); lg.gain.value=f*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2; snd.lfo2Gain=lg;
+    }
+  }catch(e){}
+}
+/* ORBS SING THEIR DISTANCE: transpose ONE target's existing hum onto the degree its beat-quantized lead k earns.
+   Called once per target from spawnTarget (after the kind roll and the tank's close re-draw, so k is final) and
+   again from reconcileTargetSounds when a mid-run sound-on rebuilds a live orb's voice. Everything here is a
+   re-tune of nodes makeTargetSound/voiceTargetSound already built — no new nodes, no new voices, no rnd() draws,
+   nothing scheduled per frame. Relationships are preserved across the transpose (gold's 1.004 shimmer twin, the
+   mover's vibrato depth) so each kind's timbre is intact at its new pitch. */
+function singLive(){ return !!(CFG.sing && CFG.sing.on) && !trainMode && !templeActive; }   // the trainer's didactic field and the Temple's orbs keep today's pitch
+function singDegree(k){                                     // longest feasible lead → the BOTTOM of the span; shortest → the top of the scale (far = low call, near = high call)
+  const n=(PENTA&&PENTA.length)|0; if(!n) return -1;
+  const span=Math.max(1, Math.min(n, CFG.sing.degSpan|0)), top=n-1;
+  const t=SING_K_HI>SING_K_LO ? Math.min(1, Math.max(0, (k-SING_K_LO)/(SING_K_HI-SING_K_LO))) : 0;
+  return Math.max(0, top - Math.round(t*(span-1)));
+}
+function singTargetSound(snd, kind, k, call){
+  if(!snd || !snd.osc || !listener || !(k>0) || !singLive()) return;   // k<=0 = the cube-root fallback distance: no honest subdivision, so no claim — the orb keeps its pickPenta() pitch
+  try{
+    const S=CFG.sing, deg=singDegree(k); if(deg<0) return;
+    const f0=snd.osc.frequency.value; if(!(f0>0)) return;
+    let f=PENTA[deg]; if(kind===1 && S.goldOctDown) f*=0.5;   // GOLD (Ancient): its degree an octave under — a deeper, older voice
+    const now=listener.context.currentTime;
+    // lowpass is deliberately NOT touched: the per-frame distance buckets (animate, ~5643) own its cutoff absolutely, so the dry/close-vs-washy/far spatial model stays exactly as it is today — pitch adds information, it never replaces the space.
+    if(snd.osc2){ const r2=snd.osc2.frequency.value/f0; if(r2>0) snd.osc2.frequency.value=f*r2; }          // gold's detuned twin keeps beating at the same rate
+    if(snd.lfo2Gain) snd.lfo2Gain.gain.value=f*(Math.pow(2,(S.moverVibCents||0)/1200)-1);                  // MOVER: re-scale the vibrato the mover ALREADY carries to ±moverVibCents at the new pitch
+    if(kind===3 && S.speedGlideMs>0){                        // SPEED (Quick): a grace-note pickup — start a semitone under and settle UP into pitch. One scheduled ramp at spawn, never a per-frame write.
+      const fr=snd.osc.frequency;
+      fr.cancelScheduledValues(now); fr.setValueAtTime(f*0.94387, now); fr.linearRampToValueAtTime(f, now+S.speedGlideMs/1000);
+    }else snd.osc.frequency.value=f;
+    if(call && snd.gateGain && S.callBoost>1){                // THE CALL: the first 16th-gate open of a new Echo is louder, then it settles into the field. Rides the gate the per-frame pulse already owns — the next open/close writes it home whatever happens.
+      const gg=snd.gateGain.gain; gg.cancelScheduledValues(now); gg.setValueAtTime(S.callBoost, now); gg.setTargetAtTime(1, now, 0.06);
     }
   }catch(e){}
 }
@@ -4381,6 +4417,7 @@ function spawnTarget(opts){
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
     else if(kind===4){ tg.vel.multiplyScalar(CFG.moverVelMul); }                                               // mover: faster, more erratic drift
   }
+  if(CFG.sing.on) singTargetSound(snd, kind, _beatSpawnK, true);   // ORBS SING THEIR DISTANCE: pitch this orb's hum from its FINAL k (the tank's close re-draw above already landed) and let its first gate-open call out. Raw boolean first so the parcel off costs one read and no call.
   tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
 }
@@ -4388,7 +4425,7 @@ function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); 
 function reconcileTargetSounds(){
   for(const tg of targets){
     if(!soundOn){ if(tg.snd){ stopTargetSound(tg.snd); tg.snd=null; } }
-    else if(state.running && !templeActive && listener && !tg.snd){ tg.snd=makeTargetSound(tg.mesh); voiceTargetSound(tg.snd, tg.kind); tg.sndAccum=999; }
+    else if(state.running && !templeActive && listener && !tg.snd){ tg.snd=makeTargetSound(tg.mesh); voiceTargetSound(tg.snd, tg.kind); if(CFG.sing.on) singTargetSound(tg.snd, tg.kind, tg.bowK, false); tg.sndAccum=999; }   // a rebuilt voice re-sings its distance; no call boost — the orb announced itself once, at spawn
   }
 }
 
