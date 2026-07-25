@@ -913,6 +913,9 @@ const CFG = {
   // STAR-BOUND SPAWNS + THE VOICE FLIES HOME (the sky spine, parcel I): the Echo now calls from the BEARING of a real risen stick star — spawnTarget takes its AZIMUTH from the sky instead of from the roll, and nothing else. DIRECTION ONLY: the beat-quantized distance, the spawn pitch band, the open windows, the grading and the scoring are the same draws in the same order they always were, so the sacred quantization is never bent to fit a star. Land the shot and, in the NEXT beat gap, a thin line traces from the burst toward that star's TRUE current position and the star ticks one level brighter — the voice you returned flies home and stays there. Volleys stagger their two lines by a sixteenth. The line is the trail pool's own THREE.Line (no new material, no new geometry) and it is hidden for as long as any window is open, so the cue you actually play to is never painted over.
   // Kill-switch is stars.on:false → spawnTarget's roll IS the fallback, byte-identical and taken verbatim (no star is even looked at), no orb carries a bearing, no line ever exists. So is a sky with nothing risen above minAltDeg, or nothing outside the aim cone: the fallback is the same silent path, and the seam is that there is none. Trainer and Temple never bind a bearing at all.
   stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500, minAltDeg:8, preferUnlit:true, lineAlpha:0.35, lineBeats:1 },   // levels = how many returns one star can hold (5 — the 5th is the warm one) · glowStep = brightness added per level (level 5 ≈ 2.75× a plain star: legible at a glance without out-shouting ☉/☽ or the sign art) · fullTint = the cast a fully-recovered star takes, candle-warm against the cool 0xcfe0f5 field · saveMs = trailing write throttle, so a two-return beat costs ONE localStorage write and a whole night costs a handful · minAltDeg = how far above the horizon a star must be to call an Echo (8° keeps the bearing honestly overhead: the dojo's horizon shader is already fading anything lower) · preferUnlit = call from a star that still has room to brighten, so a night fills the sky out instead of re-lighting the same handful (false = any risen star, equally) · lineAlpha = the flight line's peak opacity (a rumour of a line — raise it if the ceremony reads as clutter, 0 hides the flight and keeps the accretion) · lineBeats = how long the voice takes to fly home, in beats (1 = it lands about where the next window opens, which is exactly when it disappears)
+  // THE STANDING CHORUS (the sky spine, parcel J): the sky you can see is also the save file you can HEAR. Every star a night has lit can sing one soft sustained stem, and its note is its own identity — a fixed hash of "<figureKey>:<starIndex>" into the ACTIVE theme's PENTA, so the chorus speaks MOONLIGHT's key (and any future theme's) for free and a given star sings the same note on every device forever. The only thing a LEVEL buys the ear is one octave: a fully recovered star sings its note an octave up, and never more, so the chorus can never spread into a second register. Tonight's ensemble is a deterministic hash(local date + id) ranking of the lit stars, risen ones ranked first (what you hear is what is overhead) and capped at maxStems — a 40-star sky sings a different octet each night. It is re-picked at every sanctioned moment, so a star lit two minutes ago is already in the pool at the next mercy bar: growth is heard inside the session that earned it.
+  // It sings in EXACTLY three places — the start/pause overlay (the boot chorus: one stem enters per menuFadeSec, so a longer history is a longer entrance), the mercy bar (the same breath wave 1's tideBloom already takes, at mercyVelMul), and THE BOW's HOLD (held under the Mandala) — and its output node RESTS at gain 0 (mute, not quiet), so active combat cannot hear a stem even as a release tail. THE ONE NEW VOICE (SPEC §5's single sanctioned addition) is unavoidable: every existing musical voice hangs off drumBus, and applyAudioState MUTES drumBus whenever the run is not live — which is precisely the overlay where the boot chorus has to sing. It is one shared PolySynth on Destination, so it inherits the ♪ mute button and the Temple silence and nothing else. Kill-switch is chorus.on:false → the node is never built, no ensemble is ever picked, and the menu, the mercy bar and the Bow sound exactly as they do today. So does a first-ever boot: 0 recovered stars → chorusPick returns 0 and every site returns before a note (the synth is not even constructed).
+  chorus:{ on:true, maxStems:8, stemVel:0.10, menuFadeSec:1.0, mercyVelMul:1.6, risenFirst:true },   // maxStems = the hard ceiling on stems sounding at once (8 — past that the pentatonic stops reading as a chorus and starts reading as a chord cluster) · stemVel = one stem's velocity (deliberately under the pad's own bloom: this is a room tone, not a part) · menuFadeSec = seconds between stems walking in at the overlay (0 = the whole ensemble arrives as one chord) · mercyVelMul = how much louder the swell is than the menu, since it has the arrangement to sing over (1 = the same) · risenFirst = rank stars that are above the horizon RIGHT NOW ahead of set ones, so the sky and the sound agree about where the voices are (false = pure hash order)
   chordVolley:{ on:true, dyadVel:0.5, triadVel:0.32 },   // dyadVel = the 2nd arrival's harmony velocity, itself SHAPED by the hit's tightness (parcel E's q ratio) so a loose volley is a soft one · triadVel = the 3rd arrival's full chord, deliberately UNDER the dyad (three voices at once already read louder) · a 4th same-beat kill (fireQuant's ceiling) adds nothing: the chord already rang
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
@@ -4096,6 +4099,110 @@ function volleyNote(tg){
     pad.triggerAttackRelease(_volleyDyad, '4n', st, V.dyadVel*(shaped ? Math.min(1,(VV.breathyVel+(VV.fullVel-VV.breathyVel)*q)/Math.max(0.001,VV.fullVel)) : 1));   // SECOND on the beat: the dyad inherits the arrival's shaped velocity as a RATIO of parcel E's own full-vs-breathy law, so a tight volley rings and a scraped one only breathes (voice.on:false → the flat dyadVel)
   }catch(e){}
 }
+/* ===== THE STANDING CHORUS (wave 3 parcel J) — the save file you can HEAR =====
+   Three sanctioned moments, one trigger path, and a node that rests at gain 0. chorusSing() is the ONLY place a stem
+   is ever struck: the overlay holds them (chorusMenu), the mercy bar swells them for one bar (chorusMercy, on wave 1's
+   own tideBloom slot) and the Bow holds them under the Mandala (chorusBow) — and every one of those call sites is
+   reached through a raw CFG.chorus.on read, so with the parcel off nothing here is built, called or read.
+   The silence during play is a real gain of 0, not a promise about call sites: chorusVol.mute is the RESTING state,
+   opened only by chorusGate for the length of one moment and shut again by that moment's own clock (or instantly by
+   chorusHush, which enterRunning takes on the way into the field). A tail cannot survive into combat.
+   The ensemble is re-picked at every moment from _starLit itself, so parcel H's accretion is the single source of
+   truth and a star lit mid-run is in the pool the instant it lights. No per-frame work exists in this parcel at all:
+   there is no animate() hook, no Transport callback of its own, and the top-K selection runs on preallocated scratch.
+   THE ONE NEW VOICE: pad/arp/bass/lead/tune all hang off drumBus, which applyAudioState mutes whenever the run is not
+   live — exactly the overlay the boot chorus has to sing at — so the chorus cannot be voiced on them. It is the single
+   sanctioned PolySynth of SPEC §5, on Destination, inheriting the ♪ mute and the Temple silence and nothing else. */
+const CHORUS_VOL_DB=-16;                 // fixed trim on the chorus bus (pad sits at -17, arp at -9): a room tone under everything. Tune the chorus by ear through CFG stemVel/mercyVelMul, not by moving this
+const CHORUS_PITCH_SALT=0x9e3779b1;      // ONE constant salt for the pitch hash, never the date: a star's note is its identity, and only the ensemble rotates nightly
+const CHORUS_TAIL_SEC=2.5;               // slack past a moment's stated length before the gate shuts, so the stems' own release is never chopped (envelope release is 2.2)
+const _CHORUS_MAX=16;                    // scratch ceiling for maxStems — the top-K arrays are allocated once at this size and never grown or reallocated
+let chorusVoice=null, chorusVol=null, _chorusShutT=0;
+const _chorusPickId=new Array(_CHORUS_MAX), _chorusPickLv=new Int32Array(_CHORUS_MAX), _chorusKey=new Uint8Array(_CHORUS_MAX), _chorusRank=new Uint32Array(_CHORUS_MAX);
+let _chorusN=0;                          // how many of the scratch slots tonight's ensemble actually filled
+const _chorusW=new THREE.Vector3();      // scratch for the risen test (its OWN vector, so a pick can never be entangled with parcel I's _starW)
+function chorusLive(){ return !!(CFG.chorus&&CFG.chorus.on) && soundOn && toneReady && !templeActive; }   // the Temple is the trophy room, not a concert: its own Destination mute already silences this, and the guard keeps the pick from running there at all
+function chorusCap(){ return Math.max(1, Math.min(_CHORUS_MAX, CFG.chorus.maxStems|0)); }
+function chorusEnsure(){
+  if(chorusVoice || !toneReady) return chorusVoice;
+  try{
+    chorusVol=new Tone.Volume(CHORUS_VOL_DB).toDestination(); chorusVol.mute=true;   // BORN MUTED: the parcel's silence is the node's default state
+    chorusVoice=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.9,decay:0.4,sustain:0.9,release:2.2}}).connect(new Tone.Filter(1500,'lowpass').connect(chorusVol));   // slow attack + near-full sustain = a voice that swells rather than plays; the lowpass keeps the triangle from glinting over the arrangement
+    chorusVoice.maxPolyphony=chorusCap()*2;   // the AUDIBLE ensemble is capped at maxStems by chorusPick — the doubling is release-tail headroom for the one handover the game has (the Bow's hold letting go straight into the boot chorus), never a 9th stem
+  }catch(e){ chorusVoice=null; chorusVol=null; }
+  return chorusVoice;
+}
+function chorusHash(s,h){   // FNV-1a through Math.imul (a plain multiply would overflow 2^53 and stop being deterministic): same note, same night, every device
+  h=h>>>0;
+  for(let i=0;i<s.length;i++) h=Math.imul(h^s.charCodeAt(i), 16777619)>>>0;
+  return h>>>0;
+}
+function chorusDaySalt(){ const d=new Date(); return ((d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())>>>0); }   // the LOCAL calendar date: the ensemble turns over at the player's own midnight, the same clock the sky is drawn against
+function chorusFreq(id,level){
+  const n=(PENTA&&PENTA.length)|0; if(!n) return 0;
+  const f=PENTA[chorusHash(id,CHORUS_PITCH_SALT)%n]; if(!(f>0)) return 0;   // figure + index, hashed into the ACTIVE theme's scale: no new pitch material anywhere in this parcel
+  const cap=CFG.stars.levels|0;
+  return (cap>0 && level>=cap) ? f*2 : f;   // AT MOST an octave of shimmer: only a fully recovered star lifts, so a long collection stays one chorus instead of becoming two
+}
+function chorusBetter(k,r,k2,r2){ return k<k2 || (k===k2 && r<r2); }   // risen (k=0) before set (k=1), then hash order — the whole ranking law
+function chorusOffer(id,lv,key,rank,cap){   // insertion into a fixed top-K: no sort, no array growth, nothing allocated per candidate
+  let i=_chorusN;
+  if(i>=cap){ const j=cap-1; if(!chorusBetter(key,rank,_chorusKey[j],_chorusRank[j])) return; i=j; }   // full and no better than the worst kept: dropped outright
+  else _chorusN++;
+  while(i>0 && chorusBetter(key,rank,_chorusKey[i-1],_chorusRank[i-1])){ _chorusPickId[i]=_chorusPickId[i-1]; _chorusPickLv[i]=_chorusPickLv[i-1]; _chorusKey[i]=_chorusKey[i-1]; _chorusRank[i]=_chorusRank[i-1]; i--; }
+  _chorusPickId[i]=id; _chorusPickLv[i]=lv; _chorusKey[i]=key; _chorusRank[i]=rank;
+}
+function chorusPick(){
+  // TONIGHT'S ENSEMBLE: hash(local date + id) ranks every lit star, risen ones ahead of set ones, and the best
+  // maxStems sing. Deterministic for a given date + collection, and re-run at each moment so mid-run growth joins.
+  _chorusN=0;
+  const cap=chorusCap(), salt=chorusDaySalt(), risenFirst=CFG.chorus.risenFirst!==false;
+  const canSee=!!(_starLitIdx && _stickFig && _stickFig.pGeo);   // no fixture (decorative sky, or a failed load) → nothing is "risen", and the ranking degrades to pure hash order
+  for(const id in _starLit){
+    const lv=_starLit[id]|0; if(lv<=0) continue;
+    let risen=false;
+    if(canSee){ const i=_starLitIdx[id]; if(i!==undefined) risen=starWorldAt(i,_chorusW).y>0; }   // overhead RIGHT NOW, read off the same vertices the sky draws — an id this fixture doesn't carry simply ranks with the set stars
+    chorusOffer(id, lv, (risenFirst&&!risen)?1:0, chorusHash(id,salt), cap);
+  }
+  return _chorusN;
+}
+function chorusGate(sec){   // open the hard mute for ONE moment; that moment's own clock shuts it again (sec<=0 = held open until chorusHush)
+  if(_chorusShutT){ clearTimeout(_chorusShutT); _chorusShutT=0; }
+  if(!chorusVol) return;
+  try{ chorusVol.mute=false; }catch(e){}
+  if(sec>0) _chorusShutT=setTimeout(chorusHush, sec*1000);
+}
+function chorusHush(){   // gain 0, tails included — the resting state of the whole parcel, and the one thing play ever asks of it
+  if(_chorusShutT){ clearTimeout(_chorusShutT); _chorusShutT=0; }
+  if(!chorusVoice) return;
+  try{ chorusVoice.releaseAll(); }catch(e){}
+  try{ chorusVol.mute=true; }catch(e){}
+}
+function chorusSing(velMul,stagger,holdSec,at){
+  // The ONE trigger path. holdSec>0 = a moment of a stated length (mercy, Bow); holdSec<=0 = held until hushed (menu).
+  if(!chorusLive()) return 0;
+  const n=chorusPick(); if(!n) return 0;                       // NOTHING RECOVERED: not one note, and the synth is never even constructed — a first-ever boot is today's audio by construction, not by a volume
+  if(!chorusEnsure()) return 0;
+  chorusHush();                                                // the previous moment lets go first: the chorus is never two ensembles deep
+  const C=CFG.chorus, vel=Math.max(0.001,(+C.stemVel||0)*(velMul>0?velMul:1)), st=Math.max(0,stagger);
+  const now=Tone.now(), t0=(at>now)?at:(now+0.05);             // a scheduled grid slot is honoured exactly (the mercy swell lands ON the downbeat); an unscheduled moment takes a hair of setup
+  chorusGate(holdSec>0 ? (t0-now)+st*(n-1)+holdSec+CHORUS_TAIL_SEC : 0);
+  try{
+    for(let i=0;i<n;i++){
+      const f=chorusFreq(_chorusPickId[i],_chorusPickLv[i]); if(!(f>0)) continue;
+      const t=t0+i*st;
+      if(holdSec>0) chorusVoice.triggerAttackRelease(f, holdSec, t, vel);
+      else chorusVoice.triggerAttack(f, t, vel);
+    }
+  }catch(e){}
+  return n;
+}
+function chorusMenu(){   // THE BOOT CHORUS: the overlay is the one place stems are simply HELD — one walks in per menuFadeSec, so a longer history is a longer entrance
+  if(state.running || trainMode || document.hidden) return;   // a hidden tab never starts a drone it cannot be asked to stop · play never starts one at all · and the TRAINER stays inert end to end (waves 1-2 hard constraint): the other two moments are trainer-proof by construction (onGrid returns before the tide block, bowLive demands !trainMode), so gating the card here is what makes the whole parcel inert in a trainer session rather than half of it
+  chorusSing(1, +CFG.chorus.menuFadeSec||0, 0, 0);
+}
+function chorusMercy(time){ chorusSing(+CFG.chorus.mercyVelMul||1, 0, 4*(60/Math.max(20,state.bpm)), time); }   // THE MERCY BAR: the whole ensemble arrives as one chord on the same downbeat the pad blooms on, and lets go across the bar — the swell is where a star lit this run is heard for the first time
+function chorusBow(sec){ chorusSing(1, 0, Math.max(0.5,sec), 0); }   // THE BOW's HOLD: held for exactly the stage that carries the Mandala, the line and the ✦, then gone with the night
 function applyAudioState(){
   if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);
   if(drumBus) drumBus.mute = !(state.running && !templeActive && soundOn);
@@ -4381,6 +4488,7 @@ function bowEnterHold(){
   _bow.endAt=_bow.t+tail+(B.senseiSec||0); _bow.senseiAt=_bow.endAt-(B.senseiSec||0);
   if(toneReady && soundOn && pad && CHORD_TRIAD){ try{ pad.triggerAttackRelease(CHORD_TRIAD[0], tail+0.5, Tone.now(), 0.16); }catch(e){} }   // the resolution: ONE held pad note on the tonic, ringing under the glyph. onGrid has nothing left to play.
   if(_bow.dots){ const cv=bowCanvasEl(); if(cv) cv.style.display='block'; }   // no dots → the canvas never even shows
+  if(CFG.chorus.on) chorusBow(_bow.endAt-_bow.t);   // THE STANDING CHORUS holds under the Mandala for exactly this stage — the night's last sound is the sky it filled. Raw boolean first; a hitless Bow still gets it (the stems are the collection's, not this run's)
 }
 function bowUpdate(dt){
   if(!state.running || templeActive || !(CFG.bow && CFG.bow.on)){ bowReset(); return; }   // a pause, the Temple, or a hot kill-switch abandons the ceremony and restores everything
@@ -4530,6 +4638,7 @@ function onGrid(time){
       else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
       else if(tideBloom && tideLift>0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
     }
+    if(CFG.chorus.on && tideBloom) chorusMercy(time);   // THE STANDING CHORUS: the mercy downbeat is one of the parcel's three sanctioned moments — the lit sky swells with the bloom and lets go across the bar. Raw boolean first, so with the parcel off this slot costs one read and no call, and the trainer (which returned far above) never reaches it at all
     if(tick && (i%2===0)){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, (i===0?0.9:0.75)*tv); }   // QUIET TICK: the metronome thins as tickI climbs — velocity-shaped so beats dissolve over a bar, skipped entirely once they reach 0 (×1 with the parcel off). Pitches/timing untouched
   }catch(e){}
   if(i%2===0){
@@ -6902,6 +7011,7 @@ function enterRunning(){
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); clearTempleResume(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
   document.body.classList.remove('overlay-paused');
+  if(CFG.chorus.on) chorusHush();   // THE STANDING CHORUS never follows you into the field: the held menu stems let go AND the bus goes to gain 0 here, so not even a release tail crosses into play. Raw boolean first
   closeTransitEssayReader(false); state.running=true; overlay.classList.add('hidden'); clock.getDelta(); applyAudioState(); syncTransport();
   if(_themeReveal){ _themeReveal=false; if(!trainMode) flashTheme(); else showGhostToast(T('trainerToast','MOONLINE TRAINING')); }   // full runs name the song; trainer announces itself
   if(trainMode && trainCoachEl && trainCoachEl.textContent) trainCoachEl.classList.add('on');
@@ -6928,8 +7038,8 @@ function exitRunning(){
 }
 document.addEventListener('visibilitychange',()=>{
   transitEssayVisibilityChanged(); skyBriefVisibilityChanged(); skyChatVisibilityChanged();
-  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); if(CFG.stars.on) starLitFlush(); clock.getDelta(); }   // parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty). The flush moved AFTER exitRunning for parcel I: that exit lands the voices still in the air, and this is the write that banks them
-  else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); }
+  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); if(CFG.stars.on) starLitFlush(); if(CFG.chorus.on) chorusHush(); clock.getDelta(); }   // parcel J: a hidden tab holds no chorus — the exit above lands on the pause card, and chorusMenu already declines to start under document.hidden, so this is the belt for the drone that was ALREADY held when the tab went away. parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty). The flush moved AFTER exitRunning for parcel I: that exit lands the voices still in the air, and this is the write that banks them
+  else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); if(CFG.chorus.on) chorusMenu(); }   // parcel J: coming back to a card that is still up is an arrival like any other, so the chorus walks in again (chorusMenu's own guards decline while a run is live)
 });
 function showToneBlock(reason){
   const l=gid('ovLede'); if(!l) return;
@@ -7248,6 +7358,7 @@ function showPause(){
   fetchSkyBriefForPause();
   // run-end breath: after a real hold, the song exhales once more (soft pad/root) — marks the session without a new UI panel
   if(state.t>=25) themeBreath();
+  if(CFG.chorus.on) chorusMenu();   // THE BOOT CHORUS: the card is up, so tonight's ensemble walks in, one stem per menuFadeSec — the only ambience the overlay has ever had, and it is exactly as long as your history. Raw boolean first: parcel off (or nothing recovered) leaves the overlay as silent as it is today
   noteSongPeak();
   submitDojo(); loadDojoBoard();
 }
