@@ -910,7 +910,9 @@ const CFG = {
   // Kill-switch is chordVolley.on:false → the second same-beat kill sounds exactly like the first (today's behavior) and the tracker is never even read. Inert in the trainer and the Temple. SOUND ONLY: zero visual, zero score, zero streak, zero ghostRec — the grade path above is untouched and only SCORING arrivals are counted at all (clanks, whiffs, decoys and late GOODs never reach it, and the swell's DRUM-FILL tank is excluded because its hits are their own stated figure — a legacy random tank's final kill is a scoring arrival like any other and does join a volley). A clank's kill-voice mute never reaches the volley: that mute is the lead kill-note ONLY (SPEC §3 v1.1 amendment), so the harmony you earned still rings.
   // THE LIT SKY (the sky spine): a returned voice stops being an event and becomes SKY. Every star in the zodiac stick fixture carries a stable identity "<figureKey>:<starIndex>" read from the fixture AS LOADED (the figure's own id + its index in that figure's own star list — never a fixture edit, and it survives any re-order or schema cap), and a recovered star holds a LEVEL 1..levels in localStorage['aimdojo.starChorus'] that ONLY RISES: no decay, no upkeep, no delete path, so nothing in this game can take a returned voice back. It draws on the vertex-colour buffer the two stick draw calls ALREADY own — the level multiplies that star's colour by 1+level*glowStep and additive blending spreads the extra energy through the same radial point sprite, so a lit star is brighter AND wider at its TRUE position: no invented star, no fabricated glow, no third draw call, no shader. Full level adds fullTint. It NEVER pulses, for anyone (reduceMotion or not) — a breathing star would be the sky lying about what it is. Same sky in the dojo and in the Temple: the Temple is the trophy room and this is sky content, not a run mechanic.
   // Kill-switch is stars.on:false → the id catalog is never built, localStorage is never read or written, and every stick paint (build, Listen gold, dim, restore) takes today's _paintRange path verbatim. An EMPTY collection renders identically too: with nothing lit every multiplier is exactly 1, so a first-ever boot looks like today's sky by arithmetic, not by a branch.
-  stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500 },   // levels = how many returns one star can hold (5 — the 5th is the warm one) · glowStep = brightness added per level (level 5 ≈ 2.75× a plain star: legible at a glance without out-shouting ☉/☽ or the sign art) · fullTint = the cast a fully-recovered star takes, candle-warm against the cool 0xcfe0f5 field · saveMs = trailing write throttle, so a two-return beat costs ONE localStorage write and a whole night costs a handful
+  // STAR-BOUND SPAWNS + THE VOICE FLIES HOME (the sky spine, parcel I): the Echo now calls from the BEARING of a real risen stick star — spawnTarget takes its AZIMUTH from the sky instead of from the roll, and nothing else. DIRECTION ONLY: the beat-quantized distance, the spawn pitch band, the open windows, the grading and the scoring are the same draws in the same order they always were, so the sacred quantization is never bent to fit a star. Land the shot and, in the NEXT beat gap, a thin line traces from the burst toward that star's TRUE current position and the star ticks one level brighter — the voice you returned flies home and stays there. Volleys stagger their two lines by a sixteenth. The line is the trail pool's own THREE.Line (no new material, no new geometry) and it is hidden for as long as any window is open, so the cue you actually play to is never painted over.
+  // Kill-switch is stars.on:false → spawnTarget's roll IS the fallback, byte-identical and taken verbatim (no star is even looked at), no orb carries a bearing, no line ever exists. So is a sky with nothing risen above minAltDeg, or nothing outside the aim cone: the fallback is the same silent path, and the seam is that there is none. Trainer and Temple never bind a bearing at all.
+  stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500, minAltDeg:8, preferUnlit:true, lineAlpha:0.35, lineBeats:1 },   // levels = how many returns one star can hold (5 — the 5th is the warm one) · glowStep = brightness added per level (level 5 ≈ 2.75× a plain star: legible at a glance without out-shouting ☉/☽ or the sign art) · fullTint = the cast a fully-recovered star takes, candle-warm against the cool 0xcfe0f5 field · saveMs = trailing write throttle, so a two-return beat costs ONE localStorage write and a whole night costs a handful · minAltDeg = how far above the horizon a star must be to call an Echo (8° keeps the bearing honestly overhead: the dojo's horizon shader is already fading anything lower) · preferUnlit = call from a star that still has room to brighten, so a night fills the sky out instead of re-lighting the same handful (false = any risen star, equally) · lineAlpha = the flight line's peak opacity (a rumour of a line — raise it if the ceremony reads as clutter, 0 hides the flight and keeps the accretion) · lineBeats = how long the voice takes to fly home, in beats (1 = it lands about where the next window opens, which is exactly when it disappears)
   chordVolley:{ on:true, dyadVel:0.5, triadVel:0.32 },   // dyadVel = the 2nd arrival's harmony velocity, itself SHAPED by the hit's tightness (parcel E's q ratio) so a loose volley is a soft one · triadVel = the 3rd arrival's full chord, deliberately UNDER the dyad (three voices at once already read louder) · a 4th same-beat kill (fireQuant's ceiling) adds nothing: the chord already rang
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
@@ -2419,6 +2421,100 @@ function starLitGain(id){   // THE accretion setter — the only writer, and it 
 }
 if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars off there is not a single storage access in the build
 
+/* ===== STAR-BOUND SPAWNS + THE VOICE FLIES HOME (wave 3 parcel I) =====
+   The star is a BEARING and nothing else. starSpawnAz hands spawnTarget one azimuth — the same number the random
+   roll produced yesterday, taken from a real risen star instead — and every other law is untouched: the distance is
+   still beat-quantized by beatSpawnDist (flight time = k sixteenths), the pitch is still the same ±beatSpawnPitchDeg
+   roll, the open windows, the grading, the score and the daily invariants never learn that a star was involved.
+   The bearing is read from the SAME vertices the sticks draw (pGeo positions × the sphere quaternion), so a called
+   star is where the sky says it is, this second, and the sphere keeps turning while the Echo is in the air.
+   The return: a scoring arrival on a star-bound Echo queues a flight. It launches in the next BEAT GAP (never inside
+   an open window — starWinOpen keeps the line invisible for as long as any window is up, so the glow you play to is
+   never painted over), traces from the burst toward the star's true current position over stars.lineBeats, fades,
+   and grants the level on arrival. reduceMotion: no line at all — the star simply brightens at that next gap.
+   Nothing here can lose a return: every teardown (pause, Temple, new night) grants the pending levels first, and a
+   flight over the cap skips the ceremony and grants immediately.
+   Kill-switch: CFG.stars.on false → spawnTarget's own roll runs verbatim, no orb carries tg.starId, and not one line
+   below is ever reached. Trainer and Temple never bind a bearing, so they never fly one home either. */
+const _STAR_FLY_MAX=6;                   // hard cap on simultaneous flights: fireQuant allows 4 arrivals a beat and a line is a pooled trail mesh — past this the accretion still lands, only the ceremony is skipped
+const _starFly=[], _starFlyPool=[];      // live flights + their pooled records (no allocation per return after the first few)
+const _starW=new THREE.Vector3();        // scratch: the world position of one star, reused by every read
+let _starPickBuf=null;                   // Int32Array candidate scratch, sized once to the catalog — the selection pass allocates nothing
+let _starSpawnId=null;                   // the id starSpawnAz just chose (null = it found nothing and the caller must take today's roll), latched the way _beatSpawnK latches its subdivision
+function starWorldAt(i,out){             // vertex i of the sticks buffer, in world space: the TRUE position, the one the player can see
+  const p=_stickFig.pGeo.attributes.position.array, j=i*3;
+  return out.set(p[j],p[j+1],p[j+2]).applyQuaternion(skySphere.quaternion);
+}
+function starSpawnAz(a0,minDot,pit){
+  // Returns the azimuth of a risen star that satisfies the SAME spawnMinDeg-from-aim cone the random roll respects,
+  // preferring stars that can still brighten. _starSpawnId is the found-flag: null → the caller rolls as it always did.
+  _starSpawnId=null;
+  if(!_starLitIds || !_stickFig || !_stickFig.pGeo) return 0;   // fixture missing/failed → the decorative sky is up and there is nothing to call from
+  const S=CFG.stars, ids=_starLitIds, n=ids.length;
+  if(!n) return 0;
+  if(!_starPickBuf || _starPickBuf.length<n) _starPickBuf=new Int32Array(n);   // grown once, at the first spawn of the first night; the fixture's size never changes under it
+  const buf=_starPickBuf, cap=S.levels|0, cp=Math.cos(pit), sp=Math.sin(pit);
+  const yMin=SKY_CHART.stick.R*Math.sin(THREE.MathUtils.degToRad(+S.minAltDeg||0));   // altitude test in raw sphere units: y > R·sin(minAlt) IS "risen above minAltDeg", with no trig per star
+  let lo=0, hi=n;   // one pass, one buffer: still-brightening candidates fill from the FRONT, already-full ones from the BACK
+  for(let i=0;i<n;i++){
+    const id=ids[i]; if(!id) continue;                                  // a figure the fixture gave no id: drawn, never lightable, never called
+    const w=starWorldAt(i,_starW); if(w.y<=yMin) continue;              // below the horizon (or too near it) — the sky is not calling from under the floor
+    const h=Math.sqrt(w.x*w.x+w.z*w.z); if(h<1e-6) continue;            // straight overhead: no bearing to take
+    if(cp*((w.x/h)*a0.x+(w.z/h)*a0.z)+sp*a0.y > minDot) continue;       // inside the cone around where the player is ALREADY aiming — the same test, on the same pitch this orb will actually spawn at
+    if((_starLit[id]|0)>=cap) buf[--hi]=i; else buf[lo++]=i;
+  }
+  const nFull=n-hi;
+  let idx=-1;
+  if(S.preferUnlit && lo>0) idx=buf[Math.min(lo-1,(rnd()*lo)|0)];        // the sky fills OUT before it fills up
+  else { const tot=lo+nFull; if(!tot) return 0; const r=Math.min(tot-1,(rnd()*tot)|0); idx = r<lo ? buf[r] : buf[hi+(r-lo)]; }
+  starWorldAt(idx,_starW); _starSpawnId=ids[idx];
+  return Math.atan2(_starW.x,_starW.z);   // the SAME convention the roll uses: dir=(sin az·cos pit, sin pit, cos az·cos pit)
+}
+function starWinOpen(){ return !!(CFG.grooveGroove && CFG.grooveVuln) && state.running && !templeActive && _openAmt>0; }   // "a window is open right now" — the strict inverse of orbOpen()'s escape hatch: with the vuln mechanic itself off there are no windows at all, so there is nothing for a flight to stay out of (and _openAmt is only maintained while a dojo run is live)
+function starVoiceHome(tg){   // a SCORING arrival on a star-bound Echo: queue the voice. The LEVEL lands when it arrives — or the moment anything tears the flight down, so a return is never lost
+  const id=tg.starId; if(!id) return;
+  if(_starFly.length>=_STAR_FLY_MAX){ starLitGain(id); return; }
+  const spb=60/Math.max(20,state.bpm);
+  let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting for this gap stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
+  const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
+  const i=_starLitIdx?_starLitIdx[id]:undefined;
+  f.id=id; f.i=(i===undefined?-1:i); f.age=0; f.wait=q*spb*0.25; f.mesh=null;
+  f.life=Math.max(0.05,(+CFG.stars.lineBeats||0)*spb);
+  f.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
+  _starFly.push(f);
+}
+function starFlyRetire(f,grant){
+  if(f.mesh){ releaseTrailMesh(f.mesh); f.mesh=null; }
+  if(grant) starLitGain(f.id);   // ACCRETION: the one call, through parcel H's only writer
+  f.id=''; f.i=-1; _starFlyPool.push(f);
+}
+function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the accretion does not
+  for(let k=_starFly.length-1;k>=0;k--) starFlyRetire(_starFly[k],true);
+  _starFly.length=0;
+}
+function starFlyStep(dt){
+  const open=starWinOpen();
+  for(let k=_starFly.length-1;k>=0;k--){
+    const f=_starFly[k];
+    if(f.wait>0){ f.wait-=dt; continue; }
+    if(f.age<=0 && open) continue;                                       // THE GAP: a voice never leaves inside an open window — it waits for the beat to let go
+    if(reduceMotion || f.i<0){ starFlyRetire(f,true); swapRemove(_starFly,k); continue; }   // reduced motion (or an id this fixture doesn't draw): no flight line — the star simply brightens on this next beat
+    f.age+=dt;
+    if(f.age>=f.life){ starFlyRetire(f,true); swapRemove(_starFly,k); continue; }
+    let m=f.mesh;
+    if(!m){ m=f.mesh=newTrailMesh(); m.position.set(0,0,0);              // the trail pool's own additive, depth-test-free THREE.Line — no new material, no new geometry class. World coords, so the mesh sits at the origin instead of on the player
+      const ca=m.geometry.attributes.color.array; ca[0]=ca[1]=ca[2]=0; ca[3]=ca[4]=ca[5]=1; m.geometry.attributes.color.needsUpdate=true;   // tail dark → head pale, written ONCE: the same vertex-colour ramp buildTrail paints with
+      m.geometry.setDrawRange(0,2); }
+    const p=f.age/f.life, e=1-(1-p)*(1-p)*(1-p);                         // ease-out in world space ≈ steady on screen: it leaves fast and settles into the star
+    const w=starWorldAt(f.i,_starW), pa=m.geometry.attributes.position.array;   // re-read every frame: the sphere turns while the voice is in the air, and the line must end where the star IS
+    pa[0]=f.from.x; pa[1]=f.from.y; pa[2]=f.from.z;
+    pa[3]=f.from.x+(w.x-f.from.x)*e; pa[4]=f.from.y+(w.y-f.from.y)*e; pa[5]=f.from.z+(w.z-f.from.z)*e;
+    m.geometry.attributes.position.needsUpdate=true;
+    m.material.opacity=(+CFG.stars.lineAlpha||0)*Math.min(1,(1-p)*2.5);   // holds, then thins away over the last 40% — by then the next window is opening and the line is gone anyway
+    m.visible=!open;
+  }
+}
+
 /* D4: zodiac stick figures — the 13 ecliptic constellations (incl. ⛎ Ophiuchus, equal citizen) as faint additive
    stars + thin connecting lines, from the PUBLIC static fixture fixtures/zodiac_sticks_v1.json (approximate J2000
    ecliptic lon/lat of the real bright stars — shared astronomy geometry, never natal data). Shown in clocked +
@@ -3364,7 +3460,7 @@ function enterSkyTemple(options){
   templeActive=true; _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
   abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
-  clearProjectiles(); clearRings(); resetFlock(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;
+  clearProjectiles(); clearRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: the lines go with it, the levels they were carrying land first (and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into)
   hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
   if(_lsn.line){ _lsn.line.visible=false; _lsn.lineT=-1; }
   if(_lsn.card) _lsn.card.style.display='none';
@@ -4564,14 +4660,19 @@ function spawnTarget(opts){
   opts=opts||{};
   const r=targetRadius();
   const core=acquireTargetMesh(), shell=core.userData.shell;
-  const a0=setAimDir(_spawnAim0); let dir3;
+  const a0=setAimDir(_spawnAim0); let dir3, starId=null;
   if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)
     const minDot=Math.cos(THREE.MathUtils.degToRad(lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT())));
-    let tries=0;
-    do{
-      const az=rnd()*Math.PI*2, pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)
-      dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));
-    }while(dir3.dot(a0)>minDot && ++tries<8);
+    let sAz=0, sPit=0;
+    if(CFG.stars.on && !trainMode){ sPit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg); sAz=starSpawnAz(a0,minDot,sPit); starId=_starSpawnId; }   // STAR-BOUND SPAWN: the PITCH is rolled first only so the aim-cone test can run on the direction this orb will really take — the star supplies the AZIMUTH and nothing else, and the distance below is drawn by exactly the same beatSpawnDist() call it always was. Raw boolean first, so with the parcel off (or in the trainer, which keeps its didactic field) this costs one read, no roll and no call. Free-play's rnd() is plain Math.random (the seeded daily is gone), so a fallback that has already drawn this pitch is not a stream divergence — it is one unused number
+    if(starId) dir3=_spawnDir.set(Math.sin(sAz)*Math.cos(sPit), Math.sin(sPit), Math.cos(sAz)*Math.cos(sPit));   // the Echo calls from a real risen star's bearing
+    else{                                                 // …and with nothing risen, nothing outside the aim cone, or the parcel off, THIS is the path — today's, verbatim
+      let tries=0;
+      do{
+        const az=rnd()*Math.PI*2, pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)
+        dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));
+      }while(dir3.dot(a0)>minDot && ++tries<8);
+    }
   }else{
     camera.getWorldDirection(_spawnFwd);
     _spawnFlat.set(_spawnFwd.x,0,_spawnFwd.z).normalize();
@@ -4594,6 +4695,7 @@ function spawnTarget(opts){
   const life=opts.life!=null?opts.life:(60/state.bpm)*CFG.rhythmLifeBeats;   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock
   tg._chipT=0;   // MULTI-HIT TANK: per-chip shell scale-punch flash timer (only used when hpMax>1)
+  tg.starId=starId;   // STAR-BOUND SPAWNS: the star this Echo called from, or null — which is every orb in the trainer, every orb with the parcel off, and every orb the sky had no risen bearing for. Assigned here, with the other per-spawn resets, so a pooled record can never carry a stale bearing home
   tg.fill16=-1; tg.fig=null; tg.lifeBeatsEff=0;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base, figure or stretched life); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for. lifeBeatsEff 0 = "my life is the standard rhythmLifeBeats", which is every orb that is not the fill (and, with the kill-switch off, every orb there will ever be) — orbRed's ink law reads it
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
@@ -4710,6 +4812,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(good && CFG.flickBonus.on && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive) maybeArmFlickBonus();   // RAIL-FLICK BONUS (disabled — CFG.flickBonus.on:false): a FLAWLESS/PERFECT on-beat kill on a hot streak would arm the flick treat
   if(good) playHit(gradeIdx); else { if(CFG.voice.on) voiceBreak(); sfx('offbeat'); }   // a late GOOD is still a non-FLAWLESS arrival, so it ends the consonance run (audio only — the grade, the score and sfx('offbeat') are exactly as they were)
   if(good && CFG.chordVolley.on && !(CFG.tank.fillOnly && tg.fill16>=0)) volleyNote(tg);   // CHORD VOLLEYS: only SCORING arrivals are offered to the tracker (a late GOOD, a clank, a whiff and a decoy all miss this line by construction), and the exclusion is the FILL TAG — tg.fill16>=0 under the raw fillOnly read, the same one-and-only marker handleTankHit and the walking note read — not "any multi-hit orb". The swell's stated figure stays its own voice; a legacy random tank (fillOnly:false, where fill16 is -1 on every orb that ever exists) lands a scoring kill like anything else and is allowed back into a dyad
+  if(good && CFG.stars.on && tg.starId) starVoiceHome(tg);   // THE VOICE FLIES HOME: only a LANDED SCORING arrival returns a voice (a clank, a whiff, a decoy and a late GOOD all miss this line by construction), and only from an orb that was called by a star at all — so the trainer and the Temple, where no orb ever carries a bearing, can never reach it. Queued here, BEFORE killTarget hands the mesh back to the pool, because the burst position is the flight's origin. Raw boolean first so the parcel off costs one read and no call. Nothing about the grade, the score, the streak or ghostRec above changed
   chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
 }
 function missGrooveDuck(heavy){   // short musical flinch (lighter than v1 — half-beat −16dB was too busy with shake+sparks)
@@ -5704,6 +5807,7 @@ function updateTrail(dt){
       }
     }
   }
+  if(CFG.stars.on && _starFly.length) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes — one boolean and one length read per frame with nothing in the air, and nothing at all with the parcel off
   for(let i=ghosts.length-1;i>=0;i--){ const g=ghosts[i]; g.age+=dt; const k=1-g.age/g.life;
     if(k<=0){ releaseTrailMesh(g.mesh); swapRemove(ghosts,i); }
     else { g.mat.opacity=k; g.mesh.scale.setScalar(1+(1-k)*0.7); }   // bloom outward as it fades
@@ -6812,6 +6916,7 @@ function exitRunning(){
   if(templeActive) exitSkyTemple({forPause:true, resume:false, toast:false, audio:false});
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false;
   bowReset();   // THE BOW and the pause are distinct exits: an ESC (or tab-hide) mid-ceremony abandons it and puts the tempo, the glyph and the spawn gate back. No-op when no Bow is running — including on the Bow's OWN exit, which already reset itself.
+  if(CFG.stars.on) starFlyClear();   // pausing lands every voice still in the air: the line has nothing left to fly over, and a return that already happened must not depend on the player coming back
   abortFlickBonus();   // RAIL-FLICK BONUS: pausing forfeits any pending cascade — un-flag locked orbs, unfreeze the field (they resume with full life)
   try{ clearListen(true); }catch(e){}   // drop study card with pause (Esc = pause only; card must not linger under the overlay)
   state.running=false; applyAudioState(); syncTransport();
@@ -6823,7 +6928,7 @@ function exitRunning(){
 }
 document.addEventListener('visibilitychange',()=>{
   transitEssayVisibilityChanged(); skyBriefVisibilityChanged(); skyChatVisibilityChanged();
-  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(CFG.stars.on) starLitFlush(); if(state.running) exitRunning(); clock.getDelta(); }   // parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty)
+  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); if(CFG.stars.on) starLitFlush(); clock.getDelta(); }   // parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty). The flush moved AFTER exitRunning for parcel I: that exit lands the voices still in the air, and this is the write that banks them
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); }
 });
 function showToneBlock(reason){
@@ -6869,6 +6974,7 @@ function resetSession(){
   else { windX=0; windZ=0; }                                  // wind-off → no wind
   for(const t of targets) removeTarget(t); targets.length=0;
   clearProjectiles();
+  if(CFG.stars.on) starFlyClear();   // a new night never inherits a voice still in the air — and never drops the level it was carrying
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
