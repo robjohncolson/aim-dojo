@@ -1,6 +1,6 @@
 # The Sky Spine — Redesign Wave 3 (every voice is a star; the chorus is the save file)
 
-**Version:** 1.1 · 2026-07-25 (1.0 body preserved; wave-3 review resolutions are marked "1.1 amendment" in place)
+**Version:** 1.2 · 2026-07-25 (1.0 body preserved; wave-3 review resolutions are marked "1.1 amendment" / "1.2 amendment" in place)
 **Branch:** `redesign/moon-chorus` (continues from waves 1-2, both merged; merge to `main` after user playtest)
 **Files touched:** `index.html` (+ regenerated `tools/index-inline.mirror.js` per commit). No new assets, no build, no server, no new fixtures — the star data is `fixtures/zodiac_sticks_v1.json`, already shipped and rendered.
 **Origin:** 2026-07-24 redesign panel — the judges' #1 synthesis: merge "Every Voice Is a Star" with "The Standing Chorus" into one accretion spine. This is the wave that changes why you return.
@@ -83,6 +83,15 @@ Three review findings, all of the same shape: the parcel was reaching into machi
 
 **(c) The flight system freezes while a window is open.** 1.0 only hid the meshes, so stagger waits still ran down, flights still aged, launched and retired inside the scoring window. In force from 1.1: while `starWinOpen()` is true, **nothing advances** — no drain, no wait decrement, no aging, no launch, no retire, no tick. All flight-state advancement happens in gap frames exclusively, so the sixteenth of stagger between two same-beat returns is a real sixteenth of gap time. Visibility is still managed, but as a single set-write at each freeze boundary rather than a per-frame per-flight write (a line already in the air is a scene object the renderer keeps drawing). Accepted consequence: at a fast tempo the gap is a small slice of the beat, so a line takes several beats of wall clock to cross `lineBeats` of gap time. The level still lands, and every teardown grants the debt, the ring and the air before dropping them.
 
+### 1.2 amendment — "the next gap" is defined by the beat clock, not by observed frames
+
+Round-2 review found the freeze of 1.1(c) had no way to end on a slow device. `starFlyStep` sampled `_openAmt` on render frames and drained only on a frame that happened to fall in a gap; at 172 BPM that gap is ~49 ms wide, so anything drawing slower than ~20 fps could sample inside a window every single frame and starve a queued return **forever** — the levels never land, and the pending ring silently rots. Frame-sampling a musical event is not a contract the renderer can honour. In force from 1.2:
+
+- **A return is stamped with a beat, at the instant it is queued.** `starGapBeat()` computes the next closed-window moment analytically — the mid-point between this window's close and the next one's open, which is exactly half a beat past the ideal the current position rounds to. It is derived from the **same values the open window itself reads** (Transport beat position, `audioLat()`, `CFG.grooveFireEarlyBeat`); no constant is re-derived and no second clock is introduced. The stamp rides on the pending record (`due`) and on the debt list as one stamp for the whole list (it is filled oldest-first, so the first stamp in is the earliest).
+- **The tick fires at the first opportunity past the stamp** — a render frame **or** the `onGrid` callback, whichever reaches it first — **even if a new window has since opened.** The level tick is law and always drains; a return whose stamp has not passed is never paid early.
+- **Visuals degrade, state never does.** A drain forced inside a window builds no mesh (the aging loop that creates one is still frozen), so no line ever draws in a window; such a flight simply starts late, or is skipped when the line cap is full. Debt drains monotonically and no frame rate can starve it.
+- **No transport = no windows.** With the Transport stopped (sound off, a graph that never started) or `grooveVuln` off, the gap is *now* — which also repairs the pathological case where a stopped Transport pinned `_openAmt` at 1 and the freeze was permanent.
+
 ### Acceptance
 - Beat-quantized distance, open-window timing, grading, scoring: untouched (verify by diff read — the star contributes ONLY the azimuth used where the old random azimuth was used).
 - Trainer and Temple: no star binding, no flights.
@@ -90,6 +99,8 @@ Three review findings, all of the same shape: the parcel was reaching into machi
 - Fallback (no risen qualifying star) is silent and seamless.
 - (1.1) `rnd()` is called the same number of times, in the same order, whether or not a star binds.
 - (1.1) No `starLitGain` call is reachable from the scoring path; a 20-kill volley loses zero levels with the line cap saturated.
+- (1.2) At 172 BPM and 10 fps every queued return still lands: no frame rate, and no stopped Transport, can starve the drain.
+- (1.2) A return is never paid before its own stamped gap, and a line still never draws inside an open window.
 
 ## 5. Parcel J — THE STANDING CHORUS (the save file you hear)
 
@@ -115,6 +126,14 @@ Wave-3 review found four defects that share one root: the parcel stated its guar
 - **The boot chorus sings from the first user gesture the browser permits.** 1.0's "boot chorus" could never play on the initial start overlay: the only caller of the audio init was PLAY, so before PLAY there was no graph, and the instant PLAY built one it entered the run and hushed. No autoplay policy anywhere lets a page sing untouched, so the honest contract is not "at load" but **"at the first gesture"** — one pointerdown/keydown while the start card is up builds the graph (the existing init path, callable without entering the run) and walks tonight's ensemble in. If that first gesture *is* the PLAY activation, the run proceeds exactly as today and that visit has no menu chorus. Pause/Bow/menu-return keep their existing sing calls.
 - **Nothing is allocated inside the audio scheduler.** The chorus voice is built where the rest of the audio graph is built, so a mercy downbeat only ever *attacks* pre-built voices; the nightly date salt is computed once per session at the main-thread moments (overlay, Bow, first gesture) and read from cache by the pick.
 
+### 1.2 amendment — nothing sings before the catalog binds
+
+1.1 closed the phantom-id hole with `starLitBind`'s prune, but `chorusPick` kept a pre-fixture arm: when the sky had not landed yet it ranked **everything** in `_starLit` by pure hash order. So a payload like `{v:1,lv:{"fake:1":1}}` sang on the start overlay before the idle fixture fetch completed — or forever, if that fetch failed. Ranking cannot be the guard, because the thing being guarded against is exactly the id ranking has no opinion about. In force from 1.2:
+
+- **The pre-fixture fallback arm is removed.** Until `starLitBind` has run against a real fixture, the ensemble is **empty** and `chorusPick` returns 0. The pick also skips, locally, any id with no vertex — the guarantee belongs to the pick, not borrowed from another function.
+- **The boot-gesture path is unchanged.** The first gesture still builds the graph and still asks; it simply gets today's themeless menu until the catalog is there. A few hundred ms of menu silence on a cold cache is correct behaviour, not a regression.
+- **The stems join at bind.** `buildZodiacSticks` re-offers the boot chorus once, the moment it binds the catalog; every existing guard still applies (live run, trainer, hidden tab, no audio), and an overlay already singing the same ensemble is a no-op via `chorusHeldSame`.
+
 ### Acceptance
 - Zero audible change during active combat (outside mercy/Bow) with any collection size.
 - Menu ambience with 0 recovered stars = exactly today's silence/theme behavior.
@@ -125,6 +144,8 @@ Wave-3 review found four defects that share one root: the parcel stated its guar
 - (1.1) Re-entering the pause card with an unchanged collection neither swallows nor re-attacks the chorus.
 - (1.1) A returning player with a lit sky hears the chorus on the start overlay, before PLAY; `chorus.on:false` arms no listener and starts no audio before PLAY.
 - (1.1) No `new` of a synth or a `Date` occurs inside a Transport callback.
+- (1.2) A storage payload of ids the fixture does not carry sings nothing, at any moment, including before the fixture lands and when it never lands at all.
+- (1.2) A returning player on a cold cache hears the overlay chorus join when the catalog binds, not before; the join is a no-op if the same ensemble is already sounding.
 
 ## 6. Build order & review
 

@@ -914,7 +914,7 @@ const CFG = {
   // Kill-switch is stars.on:false → spawnTarget's roll IS the fallback, byte-identical and taken verbatim (no star is even looked at), no orb carries a bearing, no line ever exists. So is a sky with nothing risen above minAltDeg, or nothing outside the aim cone: the fallback is the same silent path, and the seam is that there is none. Trainer and Temple never bind a bearing at all.
   stars:{ on:true, levels:5, glowStep:0.35, fullTint:0xffe9c4, saveMs:1500, minAltDeg:8, preferUnlit:true, lineAlpha:0.35, lineBeats:1 },   // levels = how many returns one star can hold (5 — the 5th is the warm one) · glowStep = brightness added per level (level 5 ≈ 2.75× a plain star: legible at a glance without out-shouting ☉/☽ or the sign art) · fullTint = the cast a fully-recovered star takes, candle-warm against the cool 0xcfe0f5 field · saveMs = trailing write throttle, so a two-return beat costs ONE localStorage write and a whole night costs a handful · minAltDeg = how far above the horizon a star must be to call an Echo (8° keeps the bearing honestly overhead: the dojo's horizon shader is already fading anything lower) · preferUnlit = call from a star that still has room to brighten, so a night fills the sky out instead of re-lighting the same handful (false = any risen star, equally) · lineAlpha = the flight line's peak opacity (a rumour of a line — raise it if the ceremony reads as clutter, 0 hides the flight and keeps the accretion) · lineBeats = how long the voice takes to fly home, in beats (1 = it lands about where the next window opens, which is exactly when it disappears)
   // THE STANDING CHORUS (the sky spine, parcel J): the sky you can see is also the save file you can HEAR. Every star a night has lit can sing one soft sustained stem, and its note is its own identity — a fixed hash of "<figureKey>:<starIndex>" into the ACTIVE theme's PENTA, so the chorus speaks MOONLIGHT's key (and any future theme's) for free and a given star sings the same note on every device forever. The only thing a LEVEL buys the ear is one octave: a fully recovered star sings its note an octave up, and never more, so the chorus can never spread into a second register. Tonight's ensemble is a deterministic hash(local date + id) ranking of the lit stars, risen ones ranked first (what you hear is what is overhead) and capped at maxStems — a 40-star sky sings a different octet each night. It is re-picked at every sanctioned moment, so a star lit two minutes ago is already in the pool at the next mercy bar: growth is heard inside the session that earned it.
-  // It sings in EXACTLY three places — the start/pause overlay (the boot chorus: one stem enters per menuFadeSec, so a longer history is a longer entrance), the mercy bar (the same breath wave 1's tideBloom already takes, at mercyVelMul), and THE BOW's HOLD (held under the Mandala) — and its output node RESTS at gain 0 (mute, not quiet), so active combat cannot hear a stem even as a release tail: the mercy bar's own tail is cut at the tide's mercy→rise boundary by a 120 ms ramp, because "silent during combat" is meant literally. The overlay's chorus starts at the FIRST USER GESTURE the browser permits (a page cannot make a sound before it is touched, and the graph did not exist before PLAY) — unless that gesture is PLAY itself, which enters the run exactly as it does today. THE ONE NEW VOICE (SPEC §5's single sanctioned addition) is unavoidable: every existing musical voice hangs off drumBus, and applyAudioState MUTES drumBus whenever the run is not live — which is precisely the overlay where the boot chorus has to sing. It is one shared PolySynth on Destination at exactly maxStems polyphony, so it inherits the ♪ mute button and the Temple silence and nothing else. Kill-switch is chorus.on:false → the node is never built, no gesture is ever listened for, no ensemble is ever picked, and the menu, the mercy bar and the Bow sound exactly as they do today. So does a first-ever boot: 0 recovered stars → chorusPick returns 0 and every site returns before a note (the node is built with the audio graph and simply never opens its gate).
+  // It sings in EXACTLY three places — the start/pause overlay (the boot chorus: one stem enters per menuFadeSec, so a longer history is a longer entrance), the mercy bar (the same breath wave 1's tideBloom already takes, at mercyVelMul), and THE BOW's HOLD (held under the Mandala) — and its output node RESTS at gain 0 (mute, not quiet), so active combat cannot hear a stem even as a release tail: the mercy bar's own tail is cut at the tide's mercy→rise boundary by a 120 ms ramp, because "silent during combat" is meant literally. The overlay's chorus starts at the FIRST USER GESTURE the browser permits (a page cannot make a sound before it is touched, and the graph did not exist before PLAY) — unless that gesture is PLAY itself, which enters the run exactly as it does today. THE ONE NEW VOICE (SPEC §5's single sanctioned addition) is unavoidable: every existing musical voice hangs off drumBus, and applyAudioState MUTES drumBus whenever the run is not live — which is precisely the overlay where the boot chorus has to sing. It is one shared PolySynth on Destination at exactly maxStems polyphony, so it inherits the ♪ mute button and the Temple silence and nothing else. Kill-switch is chorus.on:false → the node is never built, no gesture is ever listened for, no ensemble is ever picked, and the menu, the mercy bar and the Bow sound exactly as they do today. So does a first-ever boot: 0 recovered stars → chorusPick returns 0 and every site returns before a note (the node is built with the audio graph and simply never opens its gate). And so does any moment BEFORE the star catalog binds (1.2) — with no fixture there is no way to tell a real star from an id someone typed into storage, so the ensemble is empty until buildZodiacSticks binds it and re-offers the boot chorus itself.
   chorus:{ on:true, maxStems:8, stemVel:0.10, menuFadeSec:1.0, mercyVelMul:1.6, risenFirst:true },   // maxStems = the hard ceiling on stems sounding at once (8 — past that the pentatonic stops reading as a chorus and starts reading as a chord cluster) · stemVel = one stem's velocity (deliberately under the pad's own bloom: this is a room tone, not a part) · menuFadeSec = seconds between stems walking in at the overlay (0 = the whole ensemble arrives as one chord) · mercyVelMul = how much louder the swell is than the menu, since it has the arrangement to sing over (1 = the same) · risenFirst = rank stars that are above the horizon RIGHT NOW ahead of set ones, so the sky and the sound agree about where the voices are (false = pure hash order)
   chordVolley:{ on:true, dyadVel:0.5, triadVel:0.32 },   // dyadVel = the 2nd arrival's harmony velocity, itself SHAPED by the hit's tightness (parcel E's q ratio) so a loose volley is a soft one · triadVel = the 3rd arrival's full chord, deliberately UNDER the dyad (three voices at once already read louder) · a 4th same-beat kill (fireQuant's ceiling) adds nothing: the chord already rang
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -2454,14 +2454,25 @@ if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars o
        the ring is full, because a tick inside an open window is exactly the thing this parcel must never do. A ring
        overflow displaces the OLDEST return into _starDebt, which is granted (silently, with no line) at the very next
        gap. The ceremony is optional garnish; the tick is the law, and it always lands.
-   (2) THE WHOLE FLIGHT SYSTEM IS FROZEN WHILE A WINDOW IS OPEN. starFlyStep returns immediately whenever starWinOpen()
-       is true: no drain, no stagger countdown, no aging, no launch, no retire, no tick. Every piece of flight state
-       advances in gap frames and nowhere else, so the sixteenth of stagger between two same-beat returns is a real
-       sixteenth of gap time instead of something a long window can eat. The one thing the freeze must still do is
-       LOOK frozen — a line already in the air is a scene object the renderer keeps drawing — so the meshes are hidden
-       as a set on the way into the freeze and shown again on the way out (one boundary write, not a per-frame one).
-       Consequence, stated because it is a feel choice and not a bug: at a fast tempo the gap is a small slice of the
-       beat, so the line takes several beats of wall clock to cross lineBeats of gap time. The level still lands.
+   (2) THE WHOLE FLIGHT SYSTEM IS FROZEN WHILE A WINDOW IS OPEN. Past the tick, starFlyStep returns immediately
+       whenever starWinOpen() is true: no stagger countdown, no aging, no launch, no retire. Every piece of flight
+       animation advances in gap frames and nowhere else, so the sixteenth of stagger between two same-beat returns is
+       a real sixteenth of gap time instead of something a long window can eat. The one thing the freeze must still do
+       is LOOK frozen — a line already in the air is a scene object the renderer keeps drawing — so the meshes are
+       hidden as a set on the way into the freeze and shown again on the way out (one boundary write, not a per-frame
+       one). Consequence, stated because it is a feel choice and not a bug: at a fast tempo the gap is a small slice of
+       the beat, so the line takes several beats of wall clock to cross lineBeats of gap time. The level still lands.
+   (3) THE GAP IS THE BEAT CLOCK'S, NOT THE FRAME'S (1.2). "Wait for a frame that happens to land in a gap" is not a
+       promise the renderer can keep: at 172 BPM the gap between two open windows is ~49 ms, so a device drawing
+       slower than that could sample _openAmt inside a window every single frame and starve a queued return forever.
+       So a return is stamped, at the instant it is queued, with the beat position of the NEXT closed-window moment —
+       starGapBeat computes it analytically from the SAME values the window itself is drawn from (the Transport's own
+       beat position, audioLat, grooveFireEarlyBeat), and it is simply the mid-point between one window's close and
+       the next one's open: half a beat past the ideal this position rounds to. The tick then lands at the first
+       opportunity whose Transport position has passed that stamp — a render frame OR onGrid, whichever comes first,
+       and EVEN IF a new window has since opened, because the level is law and only the line is garnish. A drain
+       inside a window still builds no mesh (the aging loop that creates one is frozen), so no line ever draws in a
+       window; such a flight simply starts late. Debt drains monotonically: nothing can be starved by a frame rate.
    reduceMotion: no line at all — the star simply brightens at that next gap.
    Nothing here can lose a return: every teardown (pause, Temple, new night) grants the pending ring, the debt AND the
    airborne flights before it drops them.
@@ -2472,6 +2483,7 @@ const _STAR_PEND_MAX=16;                 // the pending ring: deep enough that a
 const _starFly=[], _starFlyPool=[];      // live flights + their pooled records (no allocation per return after the first few)
 const _starPend=[], _starPendPool=[];    // returns queued by the scoring path, waiting for a gap to become flights — the ring, and its own pool
 const _starDebt=[];                      // ids the ring overflowed: granted at the next gap, oldest first, with no line. Ids only, because a displaced return has no ceremony left to describe
+let _starDebtDue=0;                      // the beat the OLDEST displaced return became payable — one stamp for the whole debt list, because it is filled oldest-first and the oldest stamp is the earliest one
 let _starFlyHid=false;                   // are the airborne lines currently hidden for an open window? one flag, one write per boundary
 const _starW=new THREE.Vector3();        // scratch: the world position of one star, reused by every read
 let _starPickBuf=null;                   // Int32Array candidate scratch, sized once to the catalog — the selection pass allocates nothing
@@ -2515,11 +2527,31 @@ function starSpawnAz(a0,minDot,pit){
   return Math.atan2(_starW.x,_starW.z);   // the SAME convention the roll uses: dir=(sin az·cos pit, sin pit, cos az·cos pit)
 }
 function starWinOpen(){ return !!(CFG.grooveGroove && CFG.grooveVuln) && state.running && !templeActive && _openAmt>0; }   // "a window is open right now" — the strict inverse of orbOpen()'s escape hatch: with the vuln mechanic itself off there are no windows at all, so there is nothing for a flight to stay out of (and _openAmt is only maintained while a dojo run is live)
+function starBeatNow(){ try{ return Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return 0; } }   // the ONE clock this parcel measures a due against — the same Transport beat position the glow, the strobe and onGrid are all drawn from. It only ever restarts at teardownTransport, and starFlyClear has already granted and dropped every stamp by then, so no due can outlive the timeline it was written on
+function starGapBeat(){
+  // THE NEXT CLOSED-WINDOW MOMENT, in Transport beats (1.2). Not a re-derivation: every value here is read where the
+  // open window itself reads it — Transport position, audioLat()'s heard-timeline shift, CFG.grooveFireEarlyBeat's
+  // ideal — so this function and _openAmt can never disagree about where a beat is. The windows are symmetric about
+  // each ideal, so the mid-point between one closing and the next opening is exactly half a beat past the ideal the
+  // current position rounds to; that mid-point is the most-closed instant the beat has, and it exists at any tempo
+  // and any window width. No transport (sound off, a graph that never started) or no vuln mechanic = no windows at
+  // all, and then the gap is simply NOW.
+  let hb=0, started=false;
+  try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; started=(Tone.Transport.state==='started'); }catch(e){ return 0; }
+  if(!started || !(CFG.grooveGroove && CFG.grooveVuln)) return hb;
+  const lat=audioLat()/(60/Math.max(20,state.bpm));                                                    // the heard-timeline correction, in beats — the same shift the glow subtracts before it rounds
+  const h=hb-lat;
+  const early=Math.max(0,Math.min(0.45, CFG.grooveFireEarlyBeat!=null?CFG.grooveFireEarlyBeat:0));
+  const ideal=early>0?(Math.round(h+early)-early):Math.round(h);
+  let g=ideal+0.5; if(g<=h) g+=1;                                                                      // rounding puts h inside [ideal-0.5, ideal+0.5), so the +1 is float insurance and nothing else
+  return g+lat;                                                                                        // back onto the raw Transport beats every reader measures against
+}
 function starVoiceHome(tg){   // a SCORING arrival on a star-bound Echo: QUEUE it, and do nothing else. No grant, no geometry, no allocation after the pool warms — the tick belongs to the next gap, and the scoring window never sees one
   const id=tg.starId; if(!id) return;
-  if(_starPend.length>=_STAR_PEND_MAX){ const old=_starPend.shift(); _starDebt.push(old.id); old.id=''; _starPendPool.push(old); }   // ring full: the OLDEST return loses its ceremony (its burst is long gone anyway) and keeps its level, to be granted at the next gap
-  const p=_starPendPool.pop()||{id:'',from:new THREE.Vector3()};
-  p.id=id; p.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
+  const due=starGapBeat();   // stamped HERE, from the beat clock, because this is the moment the return exists — a frame that never lands in a gap can no longer decide when (or whether) it is paid
+  if(_starPend.length>=_STAR_PEND_MAX){ const old=_starPend.shift(); if(!_starDebt.length) _starDebtDue=old.due; _starDebt.push(old.id); old.id=''; _starPendPool.push(old); }   // ring full: the OLDEST return loses its ceremony (its burst is long gone anyway) and keeps its level AND its due — the displaced stamps are non-decreasing, so the first one in is the whole list's
+  const p=_starPendPool.pop()||{id:'',due:0,from:new THREE.Vector3()};
+  p.id=id; p.due=due; p.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
   _starPend.push(p);
 }
 function starFlyRetire(f,grant){
@@ -2527,41 +2559,42 @@ function starFlyRetire(f,grant){
   if(grant) starLitGain(f.id);   // ACCRETION: the one call, through parcel H's only writer
   f.id=''; f.i=-1; _starFlyPool.push(f);
 }
-function starFlyDrain(){   // GAP FRAMES ONLY (starFlyStep is the sole caller and it has already refused to run inside a window): every waiting return ticks here, with a line if the ceremony has room and without one if it does not
-  for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]);   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
-  _starDebt.length=0;
-  if(!_starPend.length) return;
+function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the moment the BEAT CLOCK has passed the gap it was stamped with, with a line if the ceremony has room and without one if it does not. Callable from a frame or from onGrid — whichever reaches the due first — and it costs two number reads when nothing is payable
+  if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
+  if(!_starPend.length || _starPend[0].due>hb) return;                    // the ring is stamped in queue order, so the oldest stamp is the earliest: not due at the front = nothing behind it is due either
   const spb=60/Math.max(20,state.bpm);
   let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting to leave stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
+  let n=0;
   for(let k=0;k<_starPend.length;k++){
-    const p=_starPend[k], i=_starLitIdx?_starLitIdx[p.id]:undefined;
-    if(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX) starLitGain(p.id);   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony, and the level lands right here, in this gap
+    const p=_starPend[k]; if(p.due>hb) break;                             // queued AFTER this gap arrived: its own gap is still ahead of it, and paying it early would put a tick inside a window
+    n=k+1;
+    const i=_starLitIdx?_starLitIdx[p.id]:undefined;
+    if(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX) starLitGain(p.id);   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony, and the level lands right here, on this beat
     else{
       const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
-      f.id=p.id; f.i=i; f.age=0; f.wait=(q++)*spb*0.25; f.mesh=null;
+      f.id=p.id; f.i=i; f.age=0; f.wait=(q++)*spb*0.25; f.mesh=null;      // born WITHOUT a mesh: only the (frozen-in-a-window) aging loop ever builds one, which is why a drain that had to fire inside a window still cannot draw a line
       f.life=Math.max(0.05,(+CFG.stars.lineBeats||0)*spb);
       f.from.copy(p.from);
       _starFly.push(f);
     }
     p.id=''; _starPendPool.push(p);
   }
-  _starPend.length=0;
+  if(n>=_starPend.length) _starPend.length=0;
+  else { let w=0; for(let k=n;k<_starPend.length;k++) _starPend[w++]=_starPend[k]; _starPend.length=w; }   // compacted in place: the not-yet-due tail keeps its order and the ring allocates nothing
 }
-function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the accretion does not — the debt, the ring and the air, in that order
+function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the accretion does not — the debt, the ring and the air, in that order. Dues are irrelevant here: a teardown pays everything outright, which is also what keeps a stamp from surviving the Transport restart that follows
   for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]);
-  _starDebt.length=0;
+  _starDebt.length=0; _starDebtDue=0;
   for(let k=0;k<_starPend.length;k++){ const p=_starPend[k]; starLitGain(p.id); p.id=''; _starPendPool.push(p); }
   _starPend.length=0;
   for(let k=_starFly.length-1;k>=0;k--) starFlyRetire(_starFly[k],true);
   _starFly.length=0; _starFlyHid=false;
 }
 function starFlyStep(dt){
-  if(starWinOpen()){                                                     // FROZEN: while any window is open NOTHING here advances — no drain, no stagger countdown, no aging, no launch, no retire, no tick. The only work is making the freeze look like one
-    if(!_starFlyHid){ for(let k=0;k<_starFly.length;k++){ const m=_starFly[k].mesh; if(m) m.visible=false; } _starFlyHid=true; }   // a line already in the air is a scene object the renderer keeps drawing, so it is hidden as a SET, once, at the boundary
-    return;
-  }
-  if(_starFlyHid){ for(let k=0;k<_starFly.length;k++){ const m=_starFly[k].mesh; if(m) m.visible=true; } _starFlyHid=false; }   // …and comes back exactly where it froze
-  starFlyDrain();                                                        // THE TICK: this frame is a gap by construction, so every waiting return lands now
+  const open=starWinOpen();
+  if(open!==_starFlyHid){ for(let k=0;k<_starFly.length;k++){ const m=_starFly[k].mesh; if(m) m.visible=!open; } _starFlyHid=open; }   // a line already in the air is a scene object the renderer keeps drawing, so visibility is written as a SET, once, at each boundary — and comes back exactly where it froze
+  starFlyDrain(starBeatNow());                                           // THE TICK, ahead of the freeze: the beat clock decides whether a return is payable, so a frame rate slower than the gap can no longer starve one. Nothing here draws — a flight built in a window has no mesh until the loop below (which the window freezes) builds it
+  if(open) return;                                                       // FROZEN: past the tick nothing advances inside a window — no stagger countdown, no aging, no launch, no retire
   for(let k=_starFly.length-1;k>=0;k--){
     const f=_starFly[k];
     if(f.wait>0){ f.wait-=dt; continue; }                                // gap time only — a long window can no longer eat a volley's stagger
@@ -2632,6 +2665,7 @@ function buildZodiacSticks(cat){
   if(!LOW) pts.layers.enable(1);   // constellations shimmer in the floor reflection alongside the dome
   _stickFig={map:figMap,pGeo:pGeo,lGeo:lGeo,signs:signMeta};   // static centroids make glossary sign Listen possible even when every API is offline
   if(SON) starLitBind(starIds);   // parcel H: bind + light the save file before the first draw, so a returned voice is already glowing when the sticks appear
+  if(SON && CFG.chorus.on) chorusMenu();   // parcel J (1.2): the catalog has just bound, so the ensemble that was necessarily empty before it — a chorus may not sing an id the sky cannot draw — exists now. This is the ONE re-offer, and every guard still applies: chorusMenu declines a live run, the trainer and a hidden tab, chorusSing declines a silent or Tone-less page, and chorusHeldSame makes it a no-op if the overlay is already singing. On a warm boot the gesture has not happened yet and it is simply a returned 0
   refreshPublicListenMeta();
 }
 function sticksValid(c){ return !!c && c.type==='zodiac_sticks' && Array.isArray(c.figures); }
@@ -4180,7 +4214,11 @@ function volleyNote(tg){
    all, which is what the re-entered pause card does every time. The graph is built with the rest of the audio graph
    (initAudio) and first sounds at the FIRST USER GESTURE (chorusBootGesture), never on demand inside a callback.
    The ensemble is re-picked at every moment from _starLit itself, so parcel H's accretion is the single source of
-   truth and a star lit mid-run is in the pool the instant it lights. No per-frame work exists in this parcel at all:
+   truth and a star lit mid-run is in the pool the instant it lights — but NEVER before the catalog binds (1.2): with
+   no fixture there is no way to tell a real star from an id someone typed into localStorage, so chorusPick returns 0
+   until starLitBind has run and buildZodiacSticks re-offers the boot chorus at that moment. The cost is a beat of
+   menu silence on a cold cache; the guarantee bought with it is that nothing outside the real catalog ever sings.
+   No per-frame work exists in this parcel at all:
    there is no animate() hook, no Transport callback of its own, and the top-K selection runs on preallocated scratch.
    THE ONE NEW VOICE: pad/arp/bass/lead/tune all hang off drumBus, which applyAudioState mutes whenever the run is not
    live — exactly the overlay the boot chorus has to sing at — so the chorus cannot be voiced on them. It is the single
@@ -4236,12 +4274,19 @@ function chorusPick(){
   // TONIGHT'S ENSEMBLE: hash(local date + id) ranks every lit star, risen ones ahead of set ones, and the best
   // maxStems sing. Deterministic for a given date + collection, and re-run at each moment so mid-run growth joins.
   _chorusN=0;
+  if(!(_starLitIdx && _stickFig && _stickFig.pGeo)) return 0;
+  // NOTHING SINGS BEFORE THE CATALOG BINDS (1.2). The old pre-fixture arm ranked _starLit by pure hash order when the
+  // sky had not landed yet — so on a cold cache, or on a fixture fetch that never returns, a hand-edited save could
+  // put ids the real catalog does not carry into the ensemble and SING them, which is the one thing this parcel
+  // promised could not happen. The honest reading of "nothing outside the real catalog ever sings" is that until
+  // starLitBind has run against a real fixture the ensemble is EMPTY: the menu is exactly today's themeless menu, and
+  // the stems join when the catalog lands (buildZodiacSticks re-offers the boot chorus the moment it binds). A few
+  // hundred ms of silence on a cold boot is the correct behaviour, not a regression.
   const cap=chorusCap(), salt=_chorusSalt||chorusSaltRefresh(), risenFirst=CFG.chorus.risenFirst!==false;   // the cached date, and a self-heal for the one path that can pick before any main-thread moment has run (a first gesture straight onto PLAY). Zero can never be a real salt — the smallest is year*10000
-  const canSee=!!(_starLitIdx && _stickFig && _stickFig.pGeo);   // no fixture (decorative sky, or a failed load) → nothing is "risen", and the ranking degrades to pure hash order
   for(const id in _starLit){
     const lv=_starLit[id]|0; if(lv<=0) continue;
-    let risen=false;
-    if(canSee){ const i=_starLitIdx[id]; if(i!==undefined) risen=starWorldAt(i,_chorusW).y>0; }   // overhead RIGHT NOW, read off the same vertices the sky draws. Once starLitBind has run, canSee implies every id here HAS a vertex (the bind drops the ones that don't), so the i===undefined arm only survives for the boot window before the fixture lands — the phantom that used to sing from a hand-edited save is gone by construction, not by ranking
+    const i=_starLitIdx[id]; if(i===undefined) continue;   // no vertex = not in the catalog = not a star, and a thing the sky cannot draw does not get a voice. The bind's prune means this cannot fire in practice; it stands so the guarantee is LOCAL to the pick instead of borrowed from another function
+    const risen=starWorldAt(i,_chorusW).y>0;   // overhead RIGHT NOW, read off the same vertices the sky draws
     chorusOffer(id, lv, (risenFirst&&!risen)?1:0, chorusHash(id,salt), cap);
   }
   return _chorusN;
@@ -4724,6 +4769,7 @@ function onGrid(time){
     }
     restSlots=spawned?0:restSlots+1; grid8++; return;
   }
+  if(CFG.stars.on && (_starPend.length || _starDebt.length)) starFlyDrain(starBeatNow());   // THE SECOND OPPORTUNITY (1.2): the gap a return is stamped with belongs to the beat clock, so the beat clock gets to pay it too — whichever of this callback and the render frame reaches the due first. It grants nothing that is not due, allocates nothing (pooled records, one buffer repaint), builds no mesh and schedules no sound, and the trainer returned far above so the parcel stays inert there. Raw boolean first, and the length reads keep a quiet run at three numbers per eighth
   if(_bow.stage>=BOW.RIT){   // THE BOW, closing bars: play has ended, so the arrangement THINS to pad + root and resolves to the TONIC (chord index 0 of the active theme) while the Transport ritards. No drums, no tick, no arp, no hook, no spawns, no groove bookkeeping — and stage HOLD is silent, because the single held pad note was already struck at the resolution.
     try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(CHORD_ROOT[0], '2n', time, 0.42); if(pad && CHORD_TRIAD) pad.triggerAttackRelease(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
     grid8++; return;
@@ -7236,7 +7282,7 @@ function chorusBootGesture(e){
   if(state.running || !CFG.chorus.on) return;
   const t=e&&e.target;
   if(t && t.closest && t.closest('#beginBtn,#beginTrain')) return;   // the gesture that starts the run is not an invitation to sing
-  chorusMenu();   // chorusMenu's own guards still decline for a live run, the trainer and a hidden tab; chorusPick still returns 0 for a sky with nothing lit, so a first-ever visit hears exactly today's silence
+  chorusMenu();   // chorusMenu's own guards still decline for a live run, the trainer and a hidden tab; chorusPick still returns 0 for a sky with nothing lit — or for one whose catalog has not bound yet (1.2), which buildZodiacSticks answers with its own re-offer the moment the fixture lands — so a first-ever visit hears exactly today's silence
 }
 if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown',chorusBootGesture,true); document.addEventListener('keydown',chorusBootGesture,true); }   // raw boolean first: with the parcel off nothing is armed, no listener exists, and audio still starts exactly where it does today (inside startRun). Capture phase so a handler that stops propagation cannot swallow the one gesture the graph is waiting for
 
