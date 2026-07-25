@@ -885,6 +885,9 @@ const CFG = {
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
   // Kill-switch is tide.on:false (keep the OBJECT — the read sites take its *Lo values): every multiplier returns 1, the mercy gate never closes, and the per-event changeBpm law in maybeAdjust() runs exactly as before.
   tide:{ on:true, riseBars:6, peakBars:2, mercyBars:1, densityLo:0.45, dollyLo:0.5, brownianLo:0.55, clutchGate:0.75, padPeakVel:0.12, bpmUpMul:2.0, tintExhale:0.35 },   // *Lo = the value at the TROUGH as a fraction of the CFG default (1.0 at the crest) · clutchGate = min tideI that arms the clutch flourish, so a peak reads as a peak · padPeakVel = pad/arp velocity lift at the crest and on the mercy bloom · bpmUpMul scales CFG.bpmUp because one step now covers a whole ~9-bar swell instead of ~half an accuracy window (first guess 2.0 — tune by ear) · tintExhale = mercy theme-aura lift (!reduceMotion, visual only)
+  // QUIET TICK (session shape): MASTERY IS MEASURED IN SILENCE. One smoothed signal tickI 0..1 rises SLOW (riseK per scoring arrival) and falls FAST (fallK per miss) — deliberately the inverse easing of grooveI — and THINS the metronome: Tier 0 (tickI<t1) ticks every beat (today), Tier 1 (≥t1) beats 1 & 3, Tier 2 (≥t2) the downbeat alone. Skipped beats FADE OUT by velocity across the run-up to their threshold (no hard gate), and after a miss the tick's own Volume node ducks and ramps home over returnBeats — the tick returns as mercy, not as a klaxon. At Tier≥1 the last mercyCarryBeats beats of a TIDES mercy bar go silent whatever the tier: you carry the count into the next swell yourself.
+  // Kill-switch is quietTick.on:false → tickGain() is always 1 and the volume node never moves, so every tick keeps its literal velocity. Hard-off in the trainer (there the loud ticks ARE the lesson) and below minBpm (near the 20 BPM floor the tick is load-bearing). Only the metronome thins — the WASD lane cues and shotCue are untouched — and no tier is ever announced anywhere: the thinning IS the information.
+  quietTick:{ on:true, t1:0.55, t2:0.85, riseK:0.06, fallK:0.6, returnBeats:1, minBpm:40, mercyCarryBeats:2 },   // t1/t2 = tier thresholds on tickI · riseK per scoring kill / fallK per miss (≈10 clean kills earn Tier 1; one miss gives most of it back) · returnBeats = length of the post-miss volume ramp · minBpm = tempo under which the metronome never thins · mercyCarryBeats = silent beats at the END of a tide mercy bar (0 disables the handoff)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
@@ -3478,7 +3481,7 @@ let _userOffsetSec = (function(){ try{ const v=parseFloat(localStorage.getItem('
 function audioLat(){ return (((rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0)) + _userOffsetSec; }   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
 let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in the heard timeline) → powers the pause-menu "calibrate from my taps"
 let reverbInput=null, reverbQueued=false;
-let kick=null, snare=null, hat=null, tick=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
+let kick=null, snare=null, hat=null, tick=null, tickVol=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
 let gridId=null, grid8=0, cd=0, restSlots=0, rhythmGeneration=0;   // invalidates Tone.Draw work queued across Temple/pause/session boundaries
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh, fireMuzzle=null, firePluck=null;
 /* ========================= TUNE LIBRARY =========================
@@ -3756,7 +3759,7 @@ function buildDrums(){
     snare=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.16,sustain:0}}).connect(snFilt);
     const hatFilt=new Tone.Filter(8000,'highpass').connect(drumBus);
     hat=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0}}).connect(hatFilt);
-    tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(new Tone.Volume(3).connect(drumBus));
+    tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(tickVol=new Tone.Volume(TICK_VOL_DB).connect(drumBus));   // QUIET TICK: the same +3 dB trim, now HELD (tickVol) so the metronome alone can duck and swell back after a miss without touching drumBus (which missGrooveDuck owns)
     shotCue=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.03}}).connect(new Tone.Volume(1).connect(drumBus));   // groove Phase 1 shot-timing feedback: its OWN voice + a distinct SINE timbre so it never voice-steals the (triangle) metronome tick
     bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.006,decay:0.28,sustain:0.18,release:0.22}}).connect(new Tone.Filter(520,'lowpass').connect(new Tone.Volume(-6).connect(drumBus)));   // THEME bassline voice — warmer + louder + longer sustain so root walks read as distinct lines (was -9 / short blips that all themes shared)
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(4200,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }   // CHORD-ARP BED (pass 3: ducked vol -6→-9 so the new TUNE hook can cut through; still bright enough to carry harmony)
@@ -3910,6 +3913,35 @@ function tideStepBpm(){
   if(acc>=CFG.upThreshold) changeBpm(+CFG.bpmUp*(CFG.tide.bpmUpMul!=null?CFG.tide.bpmUpMul:1), true);
   else if(acc<=CFG.downThreshold) changeBpm(-CFG.bpmDown, false);
 }
+/* ---- QUIET TICK: the metronome is a crutch you earn the right to put down ----
+   tickI is written ONLY by the accuracy funnel (pushEvent) and read ONLY by the tick triggers in onGrid: rise SLOW
+   on scoring arrivals, fall FAST on any miss — the mirror of grooveI's build-fast/strip-slow. tickI 0 with the node
+   resting at TICK_VOL_DB is the neutral state, so a parcel-off run, the trainer, the temple, and anything under
+   minBpm all trigger exactly today's ticks. Nothing here has a voice of its own: the ONLY channel is how much
+   metronome you hear (no toast, no HUD, no tier announcement — the thinning IS the information). */
+let tickI=0;
+const TICK_VOL_DB=3, TICK_RETURN_DB=-16;   // the tick node's resting trim, and how far it ducks when a miss brings thinned beats back. It ramps home over quietTick.returnBeats — a hard return would read as a klaxon ("you failed") instead of mercy ("here, take the count again")
+function quietTickLive(){ const Q=CFG.quietTick; return !!(Q&&Q.on) && !trainMode && !templeActive && state.bpm>=(Q.minBpm||0); }   // trainer keeps its didactic ticks; near the BPM floor the tick is load-bearing, so the thinning simply never arms
+function tickBand(){ return Math.max(0.01,(CFG.quietTick.t2-CFG.quietTick.t1)*0.5); }   // fade runway into each threshold, DERIVED rather than a 9th knob: at riseK 0.06 a beat takes ~2-3 kills (about a bar of play) to fade out, so ticks dissolve instead of vanishing between two beats
+function tickGain(i){
+  // Velocity multiplier for the metronome tick on grid step i (ticks only fire on even steps, so beat = i>>1 = 0..3).
+  if(!quietTickLive()) return 1;                                    // parcel off / trainer / temple / slow tempo → today's literal velocity, no branch below runs
+  const Q=CFG.quietTick, beat=i>>1;
+  if(tideMercy && tickI>=Q.t1 && beat>=4-Math.max(0,Math.min(4,Q.mercyCarryBeats|0))) return 0;   // TIDES handoff: from Tier 1 up, the TAIL of the mercy bar is silent — the player carries the count into the next swell
+  if(beat===0) return 1;                                            // the downbeat is the anchor and never thins (outside the mercy carry) — Tier 2 is quiet, never absent
+  const thr = (beat===2) ? Q.t2 : Q.t1;                             // beats 2 & 4 go first (Tier 1); beat 3 survives until Tier 2
+  return Math.max(0, Math.min(1, (thr-tickI)/tickBand()));
+}
+function tickBump(){ if(quietTickLive()) tickI=Math.min(1, tickI+CFG.quietTick.riseK); }   // earned slowly, one scoring arrival at a time
+function tickDrop(){
+  if(!quietTickLive()) return;
+  const Q=CFG.quietTick, was=tickI; tickI=Math.max(0, tickI-Q.fallK);                      // lost fast: one miss gives back most of a Tier
+  if(!(tickVol && toneReady && was>Q.t1-tickBand())) return;                               // nothing was thinned yet → nothing to bring back, and no reason to touch the node
+  try{ const now=Tone.now(), sec=Math.max(0.05,(Q.returnBeats||0)*(60/Math.max(20,state.bpm)));
+    tickVol.volume.cancelScheduledValues(now); tickVol.volume.setValueAtTime(TICK_VOL_DB+TICK_RETURN_DB, now); tickVol.volume.linearRampToValueAtTime(TICK_VOL_DB, now+sec);
+  }catch(e){}   // the returning ticks swell back in across ~returnBeats. Gain only — the Transport and every note time are untouched
+}
+function tickVolReset(){ if(!tickVol) return; try{ const now=Tone.now(); tickVol.volume.cancelScheduledValues(now); tickVol.volume.setValueAtTime(TICK_VOL_DB, now); }catch(e){} }   // a new run always starts with the metronome at full voice, even if it ended mid-ramp
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
@@ -3968,7 +4000,7 @@ function onGrid(time){
     // TIER-0 HUM: faint root + soft tick before the full groove so the song identity is present from the first bars (very quiet — doesn't fight learning)
     if(tier===0){
       if(bass && BASS && i===0) bass.triggerAttackRelease(CHORD_ROOT[ci], '4n', time, 0.28);
-      if(tick && i===0) tick.triggerAttackRelease(1568,'32n',time, 0.35);
+      if(tick && i===0){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(1568,'32n',time, 0.35*tv); }   // QUIET TICK: ×1 unless the parcel is live (a downbeat only ever thins on a mercy-carry beat)
     }
     if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(CHORD_ROOT[ci]*bm, BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root
     // TORIYANSE director's cut: at high groove, answering fifth chirps on the off-beats (the signal "talks back")
@@ -3992,7 +4024,7 @@ function onGrid(time){
       else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
       else if(tideBloom && tideLift>0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
     }
-    if(tick && (i%2===0)) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, i===0?0.9:0.75);
+    if(tick && (i%2===0)){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, (i===0?0.9:0.75)*tv); }   // QUIET TICK: the metronome thins as tickI climbs — velocity-shaped so beats dissolve over a bar, skipped entirely once they reach 0 (×1 with the parcel off). Pitches/timing untouched
   }catch(e){}
   if(i%2===0){
     try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){}
@@ -4179,6 +4211,7 @@ const events=[]; let sinceAdjust=0, eventsGood=0, eventsHead=0;
 function windowAccuracy(){ return events.length ? eventsGood/events.length : null; }
 function pushEvent(good){
   good=!!good;
+  if(good) tickBump(); else tickDrop();   // QUIET TICK: this IS the ledger windowAccuracy reads, so it's the one honest funnel — every scoring arrival (gradeRhythmHit good) raises tickI, every whiff / expire / clank / decoy / late-GOOD drops it. Both no-op with the parcel off or in the trainer, so the accuracy engine below is unchanged.
   if(events.length<CFG.windowSize){ events.push(good); if(good) eventsGood++; }
   else { if(events[eventsHead]) eventsGood--; events[eventsHead]=good; if(good) eventsGood++; eventsHead=(eventsHead+1)%CFG.windowSize; }
   changeRange(good ? CFG.rangeHitStep : -CFG.rangeMissStep);   // DISTANCE TRAINER: the spawn shell creeps sub-perceptually FARTHER on each hit, eases back on a miss -> converges on your reliable reach
@@ -6393,7 +6426,7 @@ function resetSession(){
   clearProjectiles();
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0;   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; tickI=0; tickVolReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
   teardownTransport();
