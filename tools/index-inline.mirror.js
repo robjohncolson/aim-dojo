@@ -5552,7 +5552,7 @@ function unitAngle(a,b){
    mercy end), and the true age is mapped back onto the standard rhythmLifeBeats timeline before the identical curve
    below runs. Every normal orb carries lifeBeatsEff 0 → eff===maxB → the factor is exactly 1 and the arithmetic is
    byte-for-byte today's (x*1===x); with tank.fillOnly:false no orb ever has any other value. */
-function orbRed(tg){ const spb=60/state.bpm, maxB=CFG.rhythmLifeBeats, eff=tg.lifeBeatsEff>0?tg.lifeBeatsEff:maxB, a=((state.t-tg.born)/spb)*(eff>0?maxB/eff:1);
+function orbRed(tg){ const spb=60/state.bpm, maxB=CFG.rhythmLifeBeats, eff=tg.lifeBeatsEff>0?tg.lifeBeatsEff:maxB, sc=maxB/eff, a=((state.t-tg.born)/spb)*(isFinite(sc)&&sc>0?sc:1);   // sc guarded finite-positive: rhythmLifeBeats 0/Infinity would otherwise freeze the trail white (×0) or NaN it (∞/∞); degenerate configs age on raw beats instead
   return Math.max(0, Math.min(1, a<=INK_OPT ? a/INK_OPT : 1-(a-INK_OPT)/Math.max(0.5,maxB-INK_OPT))); }
 function newTrailMesh(){
   let m=trailMeshPool.pop();
