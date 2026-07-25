@@ -1,6 +1,6 @@
 # The Sky Spine — Redesign Wave 3 (every voice is a star; the chorus is the save file)
 
-**Version:** 1.2 · 2026-07-25 (1.0 body preserved; wave-3 review resolutions are marked "1.1 amendment" / "1.2 amendment" in place)
+**Version:** 1.3 · 2026-07-25 (1.0 body preserved; wave-3 review resolutions are marked "1.1 amendment" / "1.2 amendment" / "1.3 amendment" in place)
 **Branch:** `redesign/moon-chorus` (continues from waves 1-2, both merged; merge to `main` after user playtest)
 **Files touched:** `index.html` (+ regenerated `tools/index-inline.mirror.js` per commit). No new assets, no build, no server, no new fixtures — the star data is `fixtures/zodiac_sticks_v1.json`, already shipped and rendered.
 **Origin:** 2026-07-24 redesign panel — the judges' #1 synthesis: merge "Every Voice Is a Star" with "The Standing Chorus" into one accretion spine. This is the wave that changes why you return.
@@ -92,6 +92,14 @@ Round-2 review found the freeze of 1.1(c) had no way to end on a slow device. `s
 - **Visuals degrade, state never does.** A drain forced inside a window builds no mesh (the aging loop that creates one is still frozen), so no line ever draws in a window; such a flight simply starts late, or is skipped when the line cap is full. Debt drains monotonically and no frame rate can starve it.
 - **No transport = no windows.** With the Transport stopped (sound off, a graph that never started) or `grooveVuln` off, the gap is *now* — which also repairs the pathological case where a stopped Transport pinned `_openAmt` at 1 and the freeze was permanent.
 
+### 1.3 amendment — the tick is applied at the drain, and a flight record owes nothing
+
+Round-3 review found the 1.2 drain only *half* left the renderer's hands. A due return that got a line was moved into `_starFly` with its level still unpaid, and the payment happened at `starFlyRetire` — which lives **below** the open-window freeze. So the LAW-level tick was back under the frame's control after all: at a pathological render cadence, or with a stale-stuck `starWinOpen()`, a return could be drained and still never ticked. In force from 1.3:
+
+- **`starFlyDrain` applies the tick, unconditionally, at drain time.** Every return whose stamp has passed is granted right there — line or no line, window or no window — alongside the debt payment that already ticked in place. Nothing downstream of the drain owes a level.
+- **The flight record is pure garnish.** `starFlyRetire` no longer grants anything and has no `grant` parameter to pass; a record in `_starFly` is by construction already paid. The freeze may still gate mesh/visual work, and only that.
+- **Exactly one tick per return, structurally.** A return is in exactly one of three states: queued and unpaid (`_starPend`), displaced and unpaid (`_starDebt`), or paid (dropped, or carried as a flight). `starLitGain` therefore has exactly four reachable call sites — debt and ring inside `starFlyDrain`, debt and ring inside `starFlyClear`'s teardown — and the teardown retires airborne flights *without* granting, because they were paid when they launched. `reduceMotion` and the line-cap arms are the same single call as every other return.
+
 ### Acceptance
 - Beat-quantized distance, open-window timing, grading, scoring: untouched (verify by diff read — the star contributes ONLY the azimuth used where the old random azimuth was used).
 - Trainer and Temple: no star binding, no flights.
@@ -101,6 +109,7 @@ Round-2 review found the freeze of 1.1(c) had no way to end on a slow device. `s
 - (1.1) No `starLitGain` call is reachable from the scoring path; a 20-kill volley loses zero levels with the line cap saturated.
 - (1.2) At 172 BPM and 10 fps every queued return still lands: no frame rate, and no stopped Transport, can starve the drain.
 - (1.2) A return is never paid before its own stamped gap, and a line still never draws inside an open window.
+- (1.3) A return that drains into a flight has already ticked; freezing every subsequent frame (or pinning `starWinOpen()` true forever) loses no level. No path grants the same return twice — including a teardown that happens mid-flight.
 
 ## 5. Parcel J — THE STANDING CHORUS (the save file you hear)
 
@@ -143,6 +152,18 @@ Round-2 review found three defects that all live in the *lifetime* of a moment r
   - **Context adoption is NOT available on the pinned Tone (14.8.49) and must not be attempted there.** Verified against the pinned build: it evaluates `const Transport = getContext().transport` (and the same for `Destination`) at **script load**, so its `AudioContext` is created the moment the file lands and those singletons are bound to it permanently. `Tone.setContext()` would move every later-built node onto an adopted context while `Transport` — the game's entire clock — stayed on the abandoned one. Unlocking a bare context inside the first gesture and adopting it is a real path only on a build whose `Transport` resolves per call; on this one the stated fallback is the implementation, and the reason is recorded in the code comment.
 - **The voice pool is warmed with the graph.** Tone 14.8.49's `PolySynth` allocates lazily inside `_getNextAvailableVoice`, so the first mercy still constructed up to `maxStems` whole voice graphs inside the Transport callback. `chorusEnsure` now asks the pool for every voice it is allowed and hands them straight back (constructed, nothing attacked, nothing scheduled, `activeVoices` still 0), and stops Tone's own 1 Hz voice GC **for this synth only** — without that, the GC trims the warmed pool back within seconds and puts the allocation right back inside the mercy. Both steps are private to the pinned build and both are swallowed: on any Tone that renames them the warm simply does not happen and the pool grows as it does today.
 
+### 1.3 amendment — a promised note must be able to end itself, and a scheduled moment defends instead of deferring
+
+1.2 made the fence absolute over everything the parcel could still take back. Round-3 review found the remaining hole is the thing it cannot: a note the **audio clock** has already accepted. An attack handed to Tone at `now + CHORUS_LEAD_SEC`, or at a scheduled mercy downbeat, is delivered whenever the context decides that time has come — and a context that **suspends** in between (a tab hidden between the promise and the beat) can deliver it long after the fence that was meant to void it. Because a menu stem is never given a length, such an orphan was a *held* voice: inaudible behind the muted bus, but holding a slot in a pool pinned at exactly `maxStems` indefinitely, which could drop a stem from the next mercy chord. Two independent guards, in force from 1.3, so neither has to be perfect:
+
+- **(a) Every stem with a future time is self-terminating.** Any attack scheduled ahead — including the 50 ms-lead chain notes and the staggered menu notes — is struck with `triggerAttackRelease` carrying the moment's own `holdSec`, so a post-fence orphan plays late behind a muted bus and hands its voice back on its own. **Indefinite sustain survives in exactly one place:** a note struck synchronously at `Tone.now()`, which is already sounding when the call returns and which `releaseAll`/`chorusCut` can therefore always reach. Consequence: a *held* moment (the overlay) takes no lead at all — `CHORUS_LEAD_SEC` becomes a stated-length lead only — and the shape "indefinite attack sitting in the future" no longer exists anywhere in the parcel. (Verified against the pinned Tone 14.8.49: a future-timed attack is deferred through `context.setTimeout` and only claims a voice when it fires; a voice rejoins `_availableVoices` through its own `onsilence`, independently of the voice GC the warm step stops.)
+- **(b) A scheduled moment is defended, never deferred.** The mercy downbeat is a musical event with a time, so the time is never moved: if the pool is unexpectedly busy when the chord is asked for, the 60 ms `chorusCut` borrow-release runs **first** and the chord still strikes at its scheduled time, with the outgoing voices ramping out under it. This branch is hoisted above the busy test so "a scheduled moment never waits" is structural rather than a property of which branch it falls through. The unscheduled `CHORUS_SWAP_MS` wait is unchanged and remains the accepted artifact of 1.1, on the overlay and the Bow only.
+- **`chorusSweep` stays as the third-line reclaim.** Together: no hush can be outrun by a promised note, and no orphan can starve a chord of a stem.
+
+### 1.3 amendment — the entrance step is `menuFadeSec`, exactly
+
+The chain waited `menuFadeSec − CHORUS_LEAD_SEC` and then scheduled `CHORUS_LEAD_SEC` ahead of its own fresh `Tone.now()`. Those two do not cancel — every note already carried the lead — so the **emitted** attack times were `menuFadeSec − 0.05` apart: 950 ms at the shipped 1.0 s. In force from 1.3: the callback waits the full `menuFadeSec` and the same constant lead (zero, for a held moment) is added to every note, so note-to-note spacing is exactly `menuFadeSec`.
+
 ### Acceptance
 - Zero audible change during active combat (outside mercy/Bow) with any collection size.
 - Menu ambience with 0 recovered stars = exactly today's silence/theme behavior.
@@ -159,6 +180,9 @@ Round-2 review found three defects that all live in the *lifetime* of a moment r
 - (1.2) A gesture inside the Save My Sky form, the records board or the temple chat neither sings nor disarms the boot listener; the next arrival on the card still sings.
 - (1.2) With the Tone CDN slow, the first gesture still yields a boot chorus when the script lands, without a second gesture; if the library never lands, PLAY's existing message is the only change.
 - (1.2) No voice graph is constructed inside a Transport callback on the first mercy bar of a session.
+- (1.3) A tab hidden across a promised attack costs no voice: the orphan self-releases and its slot is free again, so the next mercy chord still sounds all `n` stems. The only indefinite notes in flight are ones struck at `Tone.now()`, which any hush releases.
+- (1.3) A mercy downbeat that finds the pool busy strikes at the same audio time it would have struck at with the pool free; only the outgoing voices change.
+- (1.3) The overlay's stems enter exactly `menuFadeSec` apart (1.0 s at the shipped value, not 0.95 s).
 
 ## 6. Build order & review
 

@@ -2473,6 +2473,14 @@ if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars o
        and EVEN IF a new window has since opened, because the level is law and only the line is garnish. A drain
        inside a window still builds no mesh (the aging loop that creates one is frozen), so no line ever draws in a
        window; such a flight simply starts late. Debt drains monotonically: nothing can be starved by a frame rate.
+   (4) THE DRAIN PAYS; THE FLIGHT IS PURE GARNISH (1.3). Until now a drained return that got a line handed its level to
+       the flight record and the record paid it at starFlyRetire — which lives BELOW the freeze, so the LAW-level tick
+       was back in the renderer's hands after all: at a pathological cadence (or with starWinOpen stuck true) a return
+       could be drained and still never ticked. So the tick is applied AT DRAIN TIME, unconditionally, to every return
+       whose stamp has passed — line or no line, window or no window. starFlyRetire grants nothing at all any more (it
+       has no grant parameter to pass), which makes exactly-one-tick-per-return structural: a return is paid once, in
+       starFlyDrain or in starFlyClear's outright teardown of the two UNPAID lists (debt, ring), and a flight record is
+       by construction already-paid. The freeze still gates every piece of mesh/visual work, and nothing else.
    reduceMotion: no line at all — the star simply brightens at that next gap.
    Nothing here can lose a return: every teardown (pause, Temple, new night) grants the pending ring, the debt AND the
    airborne flights before it drops them.
@@ -2554,12 +2562,11 @@ function starVoiceHome(tg){   // a SCORING arrival on a star-bound Echo: QUEUE i
   p.id=id; p.due=due; p.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
   _starPend.push(p);
 }
-function starFlyRetire(f,grant){
+function starFlyRetire(f){   // THE CEREMONY ENDS, AND ONLY THE CEREMONY (1.3): a flight record carries ZERO tick responsibility — its level was granted at drain time, before this record existed — so retiring one hands back a mesh and a pooled record and grants nothing. There is no grant flag left to pass, which is what makes double-ticking unrepresentable rather than merely avoided
   if(f.mesh){ releaseTrailMesh(f.mesh); f.mesh=null; }
-  if(grant) starLitGain(f.id);   // ACCRETION: the one call, through parcel H's only writer
   f.id=''; f.i=-1; _starFlyPool.push(f);
 }
-function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the moment the BEAT CLOCK has passed the gap it was stamped with, with a line if the ceremony has room and without one if it does not. Callable from a frame or from onGrid — whichever reaches the due first — and it costs two number reads when nothing is payable
+function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the moment the BEAT CLOCK has passed the gap it was stamped with, with a line if the ceremony has room and without one if it does not. Callable from a frame or from onGrid — whichever reaches the due first — and it costs two number reads when nothing is payable. THE ONE PLACE A LIVE RETURN IS PAID (1.3): every id that leaves either queue here leaves it GRANTED, so nothing downstream of this function owes a level and the freeze below can never delay one
   if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
   if(!_starPend.length || _starPend[0].due>hb) return;                    // the ring is stamped in queue order, so the oldest stamp is the earliest: not due at the front = nothing behind it is due either
   const spb=60/Math.max(20,state.bpm);
@@ -2568,9 +2575,9 @@ function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the 
   for(let k=0;k<_starPend.length;k++){
     const p=_starPend[k]; if(p.due>hb) break;                             // queued AFTER this gap arrived: its own gap is still ahead of it, and paying it early would put a tick inside a window
     n=k+1;
+    starLitGain(p.id);                                                    // THE TICK, HERE AND UNCONDITIONALLY (1.3). It used to ride on the flight record and land at starFlyRetire — which sits BELOW the open-window freeze, so a due return that drained into a flight had its level deferred until a gap frame actually arrived, and a pathological render cadence (or a stale-stuck starWinOpen) could hold it off forever even though the drain had run. The drain is the moment the beat clock says the return is owed, so the drain is where it is paid: every payable return ticks exactly once, right here, whether or not a line is ever built for it. Everything below this line is garnish
     const i=_starLitIdx?_starLitIdx[p.id]:undefined;
-    if(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX) starLitGain(p.id);   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony, and the level lands right here, on this beat
-    else{
+    if(!(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX)){   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony (the level already landed above)
       const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
       f.id=p.id; f.i=i; f.age=0; f.wait=(q++)*spb*0.25; f.mesh=null;      // born WITHOUT a mesh: only the (frozen-in-a-window) aging loop ever builds one, which is why a drain that had to fire inside a window still cannot draw a line
       f.life=Math.max(0.05,(+CFG.stars.lineBeats||0)*spb);
@@ -2587,7 +2594,7 @@ function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the
   _starDebt.length=0; _starDebtDue=0;
   for(let k=0;k<_starPend.length;k++){ const p=_starPend[k]; starLitGain(p.id); p.id=''; _starPendPool.push(p); }
   _starPend.length=0;
-  for(let k=_starFly.length-1;k>=0;k--) starFlyRetire(_starFly[k],true);
+  for(let k=_starFly.length-1;k>=0;k--) starFlyRetire(_starFly[k]);   // (1.3) NOT granted here: anything airborne was already paid at the drain that launched it, so a teardown that re-granted it would double the level. The unpaid ones are the two lists above, and they are paid outright
   _starFly.length=0; _starFlyHid=false;
 }
 function starFlyStep(dt){
@@ -2599,7 +2606,7 @@ function starFlyStep(dt){
     const f=_starFly[k];
     if(f.wait>0){ f.wait-=dt; continue; }                                // gap time only — a long window can no longer eat a volley's stagger
     f.age+=dt;                                                           // no reduceMotion / bad-index arm here any more: starFlyDrain refuses to build a flight for either case, so anything in this array has a line to draw and a vertex to draw it to
-    if(f.age>=f.life){ starFlyRetire(f,true); swapRemove(_starFly,k); continue; }
+    if(f.age>=f.life){ starFlyRetire(f); swapRemove(_starFly,k); continue; }   // (1.3) the line simply ends: its level landed at the drain, one gap or many beats ago
     let m=f.mesh;
     if(!m){ m=f.mesh=newTrailMesh(); m.position.set(0,0,0); m.visible=true;   // the trail pool's own additive, depth-test-free THREE.Line — no new material, no new geometry class. World coords, so the mesh sits at the origin instead of on the player. Born visible because a launch only ever happens in a gap
       const ca=m.geometry.attributes.color.array; ca[0]=ca[1]=ca[2]=0; ca[3]=ca[4]=ca[5]=1; m.geometry.attributes.color.needsUpdate=true;   // tail dark → head pale, written ONCE: the same vertex-colour ramp buildTrail paints with
@@ -4209,7 +4216,8 @@ function volleyNote(tg){
    Polyphony is EXACTLY chorus.maxStems, enforced on the synth. Tone does not voice-steal — past the cap it DROPS the
    note, and a released voice is not free again until its oscillator stops a full release later — so a hard cap only
    works if a replacing moment first takes the pool back: chorusCut borrows a very short release, and chorusSing waits
-   CHORUS_SWAP_MS for the pool before striking (never for a scheduled moment — the mercy downbeat is sacred). A held
+   CHORUS_SWAP_MS for the pool before striking (never for a scheduled moment — the mercy downbeat is sacred, and (1.3)
+   when IT finds the pool busy it cuts first and keeps its time to the sample). A held
    moment asked for the ensemble it is already singing simply keeps singing (chorusHeldSame) instead of swapping at
    all, which is what the re-entered pause card does every time. The graph is built with the rest of the audio graph
    (initAudio, voice pool and all — chorusWarm) and first sounds at the FIRST USER GESTURE (chorusBootGesture), never
@@ -4218,6 +4226,15 @@ function volleyNote(tg){
    swap wait — carries the generation it was promised in (chorusFence), and every ending bumps that generation, so
    after a hush not one further note can land. Nothing is ever handed to the audio clock more than CHORUS_LEAD_SEC
    ahead except the mercy downbeat, which is scheduled by definition and is swept back off the pool by the fence.
+   ...AND THE AUDIO CLOCK IS ITS OWN FUTURE (1.3). A fence cannot reach a note the clock has already accepted, and a
+   SUSPENDED context (a tab hidden between the promise and the beat) can deliver such a note arbitrarily late — after
+   the hush, inside the run. Two independent guards, so neither has to be perfect: (a) every stem given a future time
+   is SELF-TERMINATING (chorusStem attacks it with the moment's own hold), so a post-fence orphan plays late behind a
+   muted bus and then hands its voice back on its own; indefinite sustain exists only for a note struck synchronously
+   at Tone.now(), which the fence can always reach. (b) a SCHEDULED moment is defended rather than deferred: if the
+   pool is somehow busy when the mercy chord is asked for, chorusCut borrows it back first and the chord still lands on
+   its own downbeat. chorusSweep stays as the third-line reclaim. Together: no hush can be outrun by a promised note,
+   and no orphan can starve a chord of a stem.
    The ensemble is re-picked at every moment from _starLit itself, so parcel H's accretion is the single source of
    truth and a star lit mid-run is in the pool the instant it lights — but NEVER before the catalog binds (1.2): with
    no fixture there is no way to tell a real star from an id someone typed into localStorage, so chorusPick returns 0
@@ -4236,7 +4253,7 @@ const CHORUS_SHUT_DB=-60;                // where that fade lands before the har
 const CHORUS_REL_SEC=2.2;                // the stems' own envelope release, held as a constant because chorusCut has to borrow it and put it back
 const CHORUS_CUT_SEC=0.06;               // the release chorusCut borrows: how fast an OUTGOING ensemble is taken off the voice pool so an incoming one can have it
 const CHORUS_SWAP_MS=260;                // how long a replaced moment waits before striking — CHORUS_CUT_SEC plus the context's own lookahead and timeout granularity, since a voice rejoins the pool on its oscillator's real onstop, not on the schedule
-const CHORUS_LEAD_SEC=0.05;              // (1.2) THE HORIZON: the furthest ahead an UNSCHEDULED stem is ever handed to the audio clock. A note already on that clock cannot be taken back, so the parcel never puts one there that a hush might need to cancel — the overlay's stagger walks in on JS time instead (chorusChain), re-reading the fence at every step
+const CHORUS_LEAD_SEC=0.05;              // (1.2) THE HORIZON: the furthest ahead an UNSCHEDULED stem is ever handed to the audio clock. A note already on that clock cannot be taken back, so the parcel never puts one there that a hush might need to cancel — the overlay's stagger walks in on JS time instead (chorusChain), re-reading the fence at every step. (1.3) It is now a STATED-LENGTH lead only: a held stem takes no lead at all (chorusStem strikes it at Tone.now()), so the one shape of note a fence cannot void — an indefinite attack sitting in the future — no longer exists anywhere in the parcel
 const CHORUS_SWEEP_MS=250;               // (1.2) how long after a fence the late reclaim runs, to take back a voice that attacked inside the scheduler's own lookahead (the mercy downbeat is struck AT a scheduled time and is allowed to be). Must sit past that lookahead; a newer strike bumps the generation and the sweep no-ops
 const _CHORUS_MAX=16;                    // scratch ceiling for maxStems — the top-K arrays are allocated once at this size and never grown or reallocated
 let chorusVoice=null, chorusVol=null, _chorusShutT=0, _chorusStrikeT=0, _chorusChainT=0, _chorusSweepT=0;
@@ -4409,33 +4426,47 @@ function chorusHeldSame(n,vel,holdSec){
   for(let i=0;i<n;i++){ if(_chorusOnId[i]!==_chorusPickId[i] || _chorusOnLv[i]!==_chorusPickLv[i]) return false; }   // same stars, same levels, same ORDER — the pick is deterministic, so a real change (a star lit this run, a date rollover, a star setting) always fails this
   return true;
 }
-function chorusStem(i,vel,holdSec,t){   // ONE stem, on the pick's ith slot: the only place a triggerAttack exists in this parcel
+function chorusStem(i,vel,holdSec,t){
+  // ONE stem, on the pick's ith slot: the only place an attack of any shape exists in this parcel — and THE
+  // SELF-TERMINATION LAW (1.3). A fence is a statement about the future, but the audio clock is not the only future
+  // there is: an attack promised at now+CHORUS_LEAD_SEC (or at a scheduled mercy downbeat) fires whenever the context
+  // decides that time has arrived, and a context that SUSPENDS in between — a tab hidden between the promise and the
+  // beat — can deliver it long after the fence that was supposed to void it. An orphan like that is inaudible (it
+  // fires behind a muted bus) but it was a HELD note, so it kept a slot in a pool pinned at exactly maxStems forever,
+  // and the next mercy chord silently lost a stem to it. So: every stem given a FUTURE time is self-terminating —
+  // triggerAttackRelease with the moment's own hold, which a late delivery simply plays late and then gives back.
+  // Indefinite sustain survives in exactly one place: a note struck synchronously at Tone.now(), which is already
+  // sounding by the time the call returns, so releaseAll/chorusCut can always reach its envelope.
   const f=chorusFreq(_chorusPickId[i],_chorusPickLv[i]); if(!(f>0)) return;
-  if(holdSec>0) chorusVoice.triggerAttackRelease(f, holdSec, t, vel);
-  else chorusVoice.triggerAttack(f, t, vel);
+  if(holdSec>0){ chorusVoice.triggerAttackRelease(f, holdSec, t, vel); return; }   // a stated length is a length wherever it lands: mercy and the Bow are safe at any scheduled time
+  chorusVoice.triggerAttack(f, Tone.now(), vel);   // HELD (the overlay): NEVER handed to the clock ahead — the time argument is deliberately not honoured here, because an indefinite note in the future is the one thing no fence can take back
 }
 function chorusChain(gen,i,n,vel,st,holdSec){
   // THE ENTRANCE, ONE STEP AT A TIME (1.2). The overlay's stems walk in one per menuFadeSec, and that stagger used to
   // be seven notes scheduled up to seven SECONDS out on the audio clock, where a hush cannot reach them (see
   // chorusFence). So the walk runs on JS time: each step waits its own gap, re-reads the fence, and only then hands
-  // its note over — never more than CHORUS_LEAD_SEC ahead. Spacing is unchanged (the wait is the gap minus the lead),
-  // and a few ms of timer drift is nothing to a drone that enters one voice per second.
+  // its note over — never more than CHORUS_LEAD_SEC ahead, and for a HELD stem not ahead at all (1.3, chorusStem).
+  // SPACING (1.3): the wait is the FULL gap. It used to be the gap minus the lead while every step then scheduled the
+  // lead ahead of its own fresh Tone.now() — the two never cancelled (each note already carried the lead), so the
+  // emitted attacks were st-CHORUS_LEAD_SEC apart, i.e. 950 ms at the shipped menuFadeSec of 1.0. Waiting the gap and
+  // adding the same constant to every note leaves note-to-note spacing exactly menuFadeSec, which is what the CFG says
+  // it is; a few ms of timer drift is nothing to a drone that enters one voice per second.
   _chorusChainT=0;
   if(gen!==_chorusGen || !chorusVoice || !chorusLive()) return;   // hushed, shut, rested, re-struck, silenced or gone to the Temple since this stem was promised: it is never struck
-  try{ chorusStem(i,vel,holdSec,Tone.now()+CHORUS_LEAD_SEC); }catch(e){}
-  if(i+1<n) _chorusChainT=setTimeout(()=>chorusChain(gen,i+1,n,vel,st,holdSec), Math.max(0, st*1000-CHORUS_LEAD_SEC*1000));
+  try{ chorusStem(i,vel,holdSec,Tone.now()+(holdSec>0?CHORUS_LEAD_SEC:0)); }catch(e){}
+  if(i+1<n) _chorusChainT=setTimeout(()=>chorusChain(gen,i+1,n,vel,st,holdSec), Math.max(0, st*1000));
 }
 function chorusStrike(velMul,stagger,holdSec,at){
   // THE STRIKE, on whatever chorusPick last chose. Split out of chorusSing so a moment that had to free the voice
   // pool first can wait for it and then land through this one path — the scheduling law lives here and only here.
   const n=_chorusN; if(!n || !chorusVoice) return 0;
   const C=CFG.chorus, vel=Math.max(0.001,(+C.stemVel||0)*(velMul>0?velMul:1)), st=Math.max(0,stagger);
-  const now=Tone.now(), t0=(at>now)?at:(now+CHORUS_LEAD_SEC);   // a scheduled grid slot is honoured exactly (the mercy swell lands ON the downbeat); an unscheduled moment takes a hair of setup
+  const now=Tone.now(), t0=(at>now)?at:(now+(holdSec>0?CHORUS_LEAD_SEC:0));   // a scheduled grid slot is honoured exactly (the mercy swell lands ON the downbeat); an unscheduled STATED-LENGTH moment takes a hair of setup; a HELD one takes none at all, because (1.3) an indefinite note is only ever struck at Tone.now()
   const gen=chorusFence();                                      // (1.2) this strike owns the parcel from here: its chain carries this generation, and anything an earlier moment promised is now void
   chorusGate(holdSec>0 ? (t0-now)+st*(n-1)+holdSec+CHORUS_TAIL_SEC : 0);
   try{
     chorusStem(0,vel,holdSec,t0);
-    if(st>0) { if(n>1) _chorusChainT=setTimeout(()=>chorusChain(gen,1,n,vel,st,holdSec), Math.max(0, st*1000-CHORUS_LEAD_SEC*1000)); }   // a WALKED entrance: only the first stem is committed now
+    if(st>0) { if(n>1) _chorusChainT=setTimeout(()=>chorusChain(gen,1,n,vel,st,holdSec), Math.max(0, st*1000)); }   // a WALKED entrance: only the first stem is committed now, and the step is the FULL gap (1.3) so the emitted attacks are exactly menuFadeSec apart
     else for(let i=1;i<n;i++) chorusStem(i,vel,holdSec,t0);   // the mercy bar and the Bow arrive as ONE chord on t0, inside the scheduler's own lookahead — the no-wait path a scheduled moment is owed
   }catch(e){}
   _chorusHeld=(holdSec<=0); _chorusOnN=n; _chorusOnVel=vel;    // what is sounding (or is walking in under this generation), mirrored off the pick so the next held moment can recognise itself
@@ -4449,9 +4480,13 @@ function chorusSing(velMul,stagger,holdSec,at){
   const C=CFG.chorus, vel=Math.max(0.001,(+C.stemVel||0)*(velMul>0?velMul:1));
   if(chorusHeldSame(n,vel,holdSec)) return n;                  // already singing exactly this: the common pause->menu return is a no-op, not a hush and a re-attack
   if(!chorusEnsure()) return 0;
-  if(!chorusBusy()){ chorusRest(); return chorusStrike(velMul,stagger,holdSec,at); }   // the pool is free: today's path, one strike, nothing waited on
+  if(at>0){                                                    // A SCHEDULED MOMENT IS DEFENDED, NEVER DEFERRED (1.3). The mercy downbeat is a musical event with a time, so the time is never moved: if the pool is unexpectedly busy — an orphan the fence could not reach, a swell whose own voices have not stopped yet — the borrow-release runs FIRST and the chord still lands on the beat it was scheduled for, with the outgoing voices ramping out under it across CHORUS_CUT_SEC. Hoisted above the busy test so "a scheduled moment never waits" is structural rather than a property of which branch it happens to fall through
+    if(chorusBusy()) chorusCut();                              // 60 ms borrowed release: the pool is handed back before the chord that needs it, and the strike time below is untouched by this
+    chorusRest();
+    return chorusStrike(velMul,stagger,holdSec,at);
+  }
+  if(!chorusBusy()){ chorusRest(); return chorusStrike(velMul,stagger,holdSec,0); }   // the pool is free: today's path, one strike, nothing waited on
   chorusCut(); chorusRest();                                   // a moment is still holding voices — take them back (no releaseAll after this: a second release would re-schedule the stop we just pulled in)
-  if(at>0) return chorusStrike(velMul,stagger,holdSec,at);     // a SCHEDULED moment never waits: the mercy downbeat is sacred, and by construction it is never the one that finds the pool busy
   const gen=_chorusGen;                                        // (1.2) the generation the rest above just minted: if ANY ending happens in the next quarter second — PLAY, the tide's boundary, a hidden tab — this wait is void by the fence, not merely by a clearTimeout that a re-entrant path might have missed
   _chorusStrikeT=setTimeout(()=>{ _chorusStrikeT=0; if(gen!==_chorusGen) return; if(chorusLive() && chorusPick()) chorusStrike(velMul,stagger,holdSec,0); }, CHORUS_SWAP_MS);   // and this is the whole "steal artifact": a quarter second between the old ensemble letting go and the new one walking in, on the overlay and the Bow only
   return n;
