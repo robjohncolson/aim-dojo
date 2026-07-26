@@ -211,6 +211,9 @@
                                             
                                              
                                                                                                        
+                                                                                                                                                                                                 
+                                                                           
+                                        
                                                                                     
                                                                                                                                                                                                     
                                                                                    
@@ -446,6 +449,7 @@
                                               
                                                                                
                                                                       
+                                                                                                                     
                                                           
                                                                                                                                            
                                                                                                                                                                                 
@@ -728,6 +732,7 @@
                                                                                                                                          
                                                                                                                 
                                                          
+                                        
                                                                                                                                                                                        
                                                                                                                              
                                                                                                            
@@ -934,6 +939,8 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
@@ -3627,6 +3634,7 @@ function enterSkyTemple(options){
     else if(_skySel.kind==='sign') focus={kind:'sign',pick:_skySel};
   }
   setSkyTempleFocus(focus); refreshSkyChatForTemple(); applyAudioState(); syncTransport(); clock.getDelta();
+  if(CFG.phases.on) phasesRingDraw();   // PHASES WITNESSED: the ring of eight is painted ONCE here, on entry — it is a trophy in the trophy room, not a frame cost, and it changes nothing about the Temple's mechanics. Raw boolean first: with the parcel off the canvas is never un-hidden and the file is never opened
   if(options.quiet){ try{ showGhostToast(T('skyTempleResumed','TEMPLE RESTORED')); }catch(e){} }
   else{
     try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
@@ -4830,7 +4838,7 @@ function bowUpdate(dt){
   if(_bow.stage===BOW.RIT && _bow.t>=_bow.manAt) bowEnterHold();
   if(_bow.stage!==BOW.HOLD) return;
   if(_bow.dots) bowDrawMandala((_bow.t-_bow.manAt)/Math.max(0.1,B.mandalaSec||0));   // hitless Bow: no glyph, no canvas, no per-frame draw
-  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ showGhostToast(CFG.sensei.on?senseiBowLine():bowSkyLine(), (B.lineHoldSec||0)+1); }catch(e){} }   // SENSEI'S ONE QUESTION: still exactly ONE line here — senseiBowLine returns THIS SAME sky fact unless the night actually said something new, so the diagnosis can only ever replace it, never stack with it. Raw boolean first: with the parcel off the expression IS bowSkyLine(), and it is also the only moment the night's reading is taken and remembered. THE line — exactly one per Bow, the session's only new toast, held for lineHoldSec (+1s of fade) via the .show-slow variant instead of the 1.5s default
+  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ const _ln=CFG.sensei.on?senseiBowLine():bowSkyLine(); showGhostToast((CFG.phases.on&&phasesBowLine())||_ln, (B.lineHoldSec||0)+1); }catch(e){} }   // THE BOW'S PRIORITY CHAIN (wave 5a), and still exactly ONE toast: eighth-stamp (parcel M, once in a life) > Sensei's diagnosis (wave 4) > the sky fact (wave 1). Each tier can only ever REPLACE the one below it, never stack with it. Wave 4's expression is evaluated FIRST and unchanged, so senseiBowLine still takes and remembers tonight's reading even on the single night the ring speaks over it: only the SPEAKING is replaced, never the noticing. Raw booleans first — with phases off the argument IS wave 4's expression, with both off it is bowSkyLine() verbatim. THE line — exactly one per Bow, the session's only new toast, held for lineHoldSec (+1s of fade) via the .show-slow variant instead of the 1.5s default
   if(!_bow.bowed && _bow.t>=_bow.senseiAt){ _bow.bowed=true; try{ showTrainCoach('✦', true); }catch(e){} }   // sensei bows back through the existing coach chrome — no new surface
   if(_bow.t>=_bow.endAt) bowFinish();
 }
@@ -4855,8 +4863,9 @@ function bowSkyLine(){
   // Moon ELONGATION needs no observer location, no pack and no network — the cheapest fact that is still honest.
   try{
     const d=new Date(); d.setDate(d.getDate()+1); d.setHours(21,0,0,0);         // tomorrow ~9pm local: the night the player will actually stand under
-    const L=approxLuminaryLons(d.getTime()), el=((L.moon-L.sun)%360+360)%360;   // 0° new · 90° first quarter · 180° full · 270° last quarter
-    const ph=Math.floor(((el+22.5)%360)/45)%8, t=Math.floor(d.getTime()/86400000)%BOW_LINE_EN.length;   // template picked deterministically BY DATE: one night, one phrasing
+    const ph=moonPhaseBucket(d.getTime());                                      // THE one phase authority (wave 5a) — the same buckets the deal deals by and the Temple ring stamps
+    if(ph<0) return T('bowLineFallback','TOMORROW NIGHT THE SKY IS STILL THERE');   // an unreadable sky keeps the ritual's line, exactly as the catch below always did for the throwing half of the same failure
+    const t=Math.floor(d.getTime()/86400000)%BOW_LINE_EN.length;                // template picked deterministically BY DATE: one night, one phrasing
     return T('bowLine'+t, BOW_LINE_EN[t]).replace('{m}', T('bowMoon'+ph, BOW_MOON_EN[ph]));
   }catch(e){ return T('bowLineFallback','TOMORROW NIGHT THE SKY IS STILL THERE'); }   // offline/unavailable is impossible here in practice, but the ritual still gets its line
 }
@@ -4882,6 +4891,18 @@ function bowDrawMandala(u){
   }
   g.globalCompositeOperation='source-over';
 }
+function moonPhaseBucket(atMs){
+  // THE ONE PHASE AUTHORITY (extracted wave 5a, parcel M): the elongation bucket wave 4 deals by, wave 1's Bow names
+  // and the Temple ring stamps — one expression instead of three copies, so those three can never disagree about which
+  // night it is. 0° new · 90° first quarter · 180° full · 270° last quarter, in 8 equal buckets CENTRED on the named
+  // phases. Geocentric: no observer location, no pack, no network. Anything that is not a bucket (a clock the browser
+  // cannot read, a longitude that comes back NaN) is -1, and every caller reads -1 as "the sky said nothing" rather
+  // than dealing, naming or stamping bucket 0 by accident. atMs optional — omitted is now, exactly as before.
+  try{
+    const L=approxLuminaryLons(atMs), b=Math.floor((((((L.moon-L.sun)%360)+360)%360)+22.5)%360/45)%8;
+    return (b>=0&&b<8)?b:-1;
+  }catch(e){ return -1; }
+}
 /* ---- THE SKY DEALS THE NIGHT (wave 4, parcel K) ----
    ONE rule per night, chosen by the real moon, plus a planet tilt that is only ever a weight. Everything the deal
    does passes through _deal: a flat bag of EFFECTIVE VALUES, written once per run by dealCompute and read at the
@@ -4906,9 +4927,8 @@ function dealCompute(){
   // glyphs already ride — no network, no second ephemeris, no observer location needed (elongation is geocentric).
   dealReset();
   if(!CFG.deal.on || trainMode) return;   // raw boolean first, and post-graduation only: the trainer's field is a lesson, not a night
-  let ph=-1;
-  try{ const L=approxLuminaryLons(); ph=Math.floor((((((L.moon-L.sun)%360)+360)%360)+22.5)%360/45)%8; }catch(e){ return; }   // 0° new · 90° first quarter · 180° full · 270° last quarter, in 8 equal buckets centred on the named phases — the SAME expression bowSkyLine buckets by
-  if(!(ph>=0&&ph<8)) return;   // a NaN longitude (a clock the browser cannot read) deals nothing rather than dealing bucket 0 by accident
+  const ph=moonPhaseBucket();   // THE one phase authority (wave 5a): the same bucket bowSkyLine names and the Temple ring stamps — one expression, so the deal and the line can never disagree about which night it is
+  if(ph<0) return;   // an unreadable sky (a clock the browser cannot read) deals nothing rather than dealing bucket 0 by accident — the same guard the inline try/catch and range test were
   const D=CFG.deal;
   _deal.ph=ph;
   if(ph===0) _deal.spreadMul=+D.spreadMul||1;                                                             // NEW MOON · the dark listens — localization night: the field opens up behind you
@@ -5107,6 +5127,108 @@ function senseiBowLine(){
     if(repeat) return bowSkyLine();
     return T('sensei'+(d.dir?'Late':'Early')+SENSEI_BINS[d.bin], SENSEI_LINE_EN[d.dir*3+d.bin]);
   }catch(e){ return bowSkyLine(); }   // the ritual keeps its line whatever the reading does
+}
+/* ---- PHASES WITNESSED (wave 5a, parcel M) ----
+   The only record this parcel keeps is WHICH MOON WAS UP on a night you played: the first scoring hit of a
+   post-graduation run stamps today's elongation bucket (moonPhaseBucket — one phase authority, shared with the deal
+   and the Bow) with the local civil date, and that stamp is permanent. ACCRETION ONLY: the bucket keeps its FIRST
+   date forever, so a second session the same night writes nothing at all, and there is no delete path, no decay, no
+   upkeep. Nothing here counts, compares, or notices an absence — a night nobody played leaves no mark of any kind,
+   which is the whole point: the ring fills, it never empties, and it cannot be behind.
+   STORAGE IS UNTRUSTED (wave-3/4 discipline): the loader is a validator — a plain non-array object at v===1, an st
+   that is a plain map, and eight keys "0".."7" whose values are literally YYYY-MM-DD. Anything else is a player who
+   has witnessed nothing, silently. Writes are trailing-throttled and can never throw into a run.
+   THE RING is drawn once on Temple entry (never per frame), and the eighth stamp earns exactly one sentence, once in
+   a player's life, at the TOP of the Bow's priority chain. Kill-switch phases.on:false → the file is never opened
+   from any surface, the canvas is never un-hidden, and the Bow's chain is wave 4's expression verbatim. */
+const PHASES_KEY='aimdojo.phases';
+const PHASES_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;   // THE WHOLE GRAMMAR for a stamp: this build writes phasesToday() and nothing else, so nothing else is a date here — no ISO timestamps, no epoch numbers, no ' ' padding
+const PHASES_SAVE_MS=1200;                    // trailing throttle, in the starLitSaveSoon shape. Not a CFG knob: the spec's literal is {on:true} exactly, and a night can only ever produce one stamp plus (once in a life) one completion flag — this exists so those two land in ONE write, not so anyone tunes it
+let _phases=null;          // bucket 0..7 -> "YYYY-MM-DD" of the FIRST night that bucket was witnessed; null until the file is read (and never read at all with the parcel off)
+let _phasesLoaded=false;   // the file is opened at most once per page life, by whichever surface needs it first (a stamp, the Bow's line, the Temple ring)
+let _phasesSaid=false;     // the one-time eighth-stamp line has been SPOKEN — the only thing the envelope's flag records, because completeness itself is derivable from the eight stamps
+let _phasesRun=false;      // this run has already taken its stamp attempt (reset by resetSession) — so every hit after the first costs one boolean read and nothing else
+let _phasesSaveT=0, _phasesDirty=false;
+function phasesToday(){
+  const d=new Date(), m=d.getMonth()+1, dd=d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;   // the LOCAL CIVIL DATE — the same calendar dealPackIsToday's freshness gate and dealWind's seed turn over on, so "tonight" means one thing across the build
+}
+function phasesLoad(){
+  if(_phasesLoaded) return; _phasesLoaded=true;
+  _phases=Object.create(null);
+  let raw=null; try{ raw=localStorage.getItem(PHASES_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;   // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a string, a future v:2 — every one of them is "witnessed nothing", silently
+  const src=o.st;
+  if(!src || typeof src!=='object' || Array.isArray(src)) return;        // …and st is a plain MAP of buckets. An array of dates carries no buckets, so it can only ever be someone else's data
+  const st=Object.create(null);
+  for(let b=0;b<8;b++){ const v=src[b]; if(typeof v==='string' && PHASES_DATE_RE.test(v)) st[b]=v; }   // the eight buckets ARE the key whitelist: a hand-written "9" or "full" is not read at all, and a value that is not this build's date string is not a stamp
+  _phases=st; _phasesSaid=(o.c===1);   // c is admitted at exactly 1: a truthy string, a 2, a future flag shape all read as "not yet spoken", which at worst offers the line to a completed ring one more time — never a repeat of a line that is silently lost
+}
+function phasesFlush(){
+  if(_phasesSaveT){ clearTimeout(_phasesSaveT); _phasesSaveT=0; }
+  if(!_phasesDirty) return; _phasesDirty=false;
+  const st={}; for(let b=0;b<8;b++) if(_phases && _phases[b]) st[b]=_phases[b];   // written from the VALIDATED map, so a hand-edited file is rewritten clean rather than carried forward
+  try{ localStorage.setItem(PHASES_KEY, JSON.stringify({v:1, st:st, c:_phasesSaid?1:0})); }catch(e){}   // a full or blocked quota loses the write, never the run
+}
+function phasesSaveSoon(){
+  if(_phasesDirty) return;
+  _phasesDirty=true; _phasesSaveT=setTimeout(phasesFlush, PHASES_SAVE_MS);   // trailing: the (very rare) night that both stamps a bucket and completes the ring spends ONE write
+}
+function phasesComplete(){ if(!_phases) return false; for(let b=0;b<8;b++) if(!_phases[b]) return false; return true; }   // caller loads first — this asks the map, never the file
+function phasesWitness(){
+  // ONE attempt per run, taken at the FIRST scoring hit: a run you actually played, however briefly. The call site
+  // reads the raw kill-switch and this latch before it ever reaches here, so a night with the parcel off — or the
+  // second hit of any night — costs nothing at all.
+  if(_phasesRun || trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both
+  _phasesRun=true;                                      // latched whatever the answer, so an unreadable sky is not retried once per hit for the rest of the night
+  const b=moonPhaseBucket(); if(b<0) return;
+  phasesLoad();
+  if(_phases[b]) return;   // ACCRETION ONLY, and idempotent: this bucket already keeps its first night, and a first night is not something a later night may overwrite
+  _phases[b]=phasesToday();
+  phasesSaveSoon();
+}
+function phasesBowLine(){
+  // The TOP of the Bow's priority chain, and the only sentence this parcel will ever speak: the eighth distinct phase
+  // has stamped, so the ring is closed. It replaces the night's other line (never joins it) and it fires exactly once
+  // in a player's life — the flag is persisted the moment it is spoken, and '' every other night forever after.
+  if(_phasesSaid) return '';
+  phasesLoad();
+  if(_phasesSaid || !phasesComplete()) return '';
+  _phasesSaid=true; phasesSaveSoon();   // in memory FIRST: a blocked quota must still stop this same page from saying it twice
+  return T('phasesEighth','THE EIGHTH NIGHT · THE MOON HAS WATCHED THEM ALL');
+}
+let _phasesCv;
+function phasesCanvasEl(){ if(_phasesCv===undefined) _phasesCv=(typeof document!=='undefined')?document.getElementById('templePhaseRing'):null; return _phasesCv; }
+function phasesDrawDisc(g,cx,cy,r,b){
+  // The bucket's OWN shape: the lit limb is a semicircle and the terminator is a half-ellipse whose width is |cos| of
+  // the phase angle — a crescent when the terminator bulges toward the lit limb, a gibbous when it bulges away. Waxing
+  // buckets are lit on the right, waning on the left (the northern convention the Bow's names already assume).
+  if(b===0) return;   // NEW MOON's true shape is no lit limb at all — the brighter outline is the whole stamp, because drawing light there would be the ring lying about which moon was up
+  const c=Math.cos(b*Math.PI/4), a=r*Math.abs(c), waxing=(b>=1&&b<=3);
+  g.beginPath();
+  if(waxing) g.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false); else g.arc(cx,cy,r,Math.PI/2,Math.PI*1.5,false);
+  g.ellipse(cx,cy,a,r,0, waxing?Math.PI/2:-Math.PI/2, waxing?-Math.PI/2:Math.PI/2, c>0);   // c>0 (the two crescents) sweeps the terminator across the LIT side; c<0 (the two gibbous) across the dark. c===0 is a quarter: a===0, so the sweep is the straight terminator either way
+  g.closePath();
+  g.fillStyle='rgba(198,216,246,.72)'; g.fill();   // the Mandala's moonlight monochrome — one palette for everything this game draws about the moon
+}
+function phasesRingDraw(){
+  // Once, on Temple entry. No labels, no counts, no interaction, no per-frame work — and identical for a player who
+  // stamped over eight days and one who stamped over eight months, because the ring holds no dates, only witnesses.
+  const cv=phasesCanvasEl(); if(!cv) return;
+  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
+  phasesLoad();
+  const W=cv.width, cx=W/2, cy=cv.height/2, ring=W*0.355, r=W*0.105;
+  g.clearRect(0,0,W,cv.height);
+  if(phasesComplete()){ g.beginPath(); g.arc(cx,cy,ring,0,6.2831853); g.strokeStyle='rgba(198,216,246,.32)'; g.lineWidth=1; g.stroke(); }   // THE RING CLOSES: one continuous circle behind the eight, and the only thing about this drawing that ever changes twice
+  for(let b=0;b<8;b++){
+    const th=-Math.PI/2+b*Math.PI/4, dx=cx+Math.cos(th)*ring, dy=cy+Math.sin(th)*ring;   // bucket 0 (new) at the top, waxing clockwise — the order the sky walks
+    g.beginPath(); g.arc(dx,dy,r,0,6.2831853);
+    g.strokeStyle=_phases[b]?'rgba(198,216,246,.46)':'rgba(198,216,246,.15)'; g.lineWidth=1; g.stroke();   // unstamped is a faint outline: a place the sky still has, not a thing you are missing
+    if(_phases[b]) phasesDrawDisc(g,dx,dy,r,b);
+  }
+  cv.hidden=false;
 }
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
@@ -5481,6 +5603,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   recordHit(tg);
   pushReaction(beats);
   pushEvent(good);   // timing-grade popup (FLAWLESS/PERFECT/…) removed per playtest — the distance/height flash (recordHit) is the only post-hit readout now
+  if(good && CFG.phases.on && !_phasesRun) phasesWitness();   // PHASES WITNESSED: the FIRST scoring arrival of a post-graduation run stamps tonight's moon in the Temple ring — a night you actually played, however briefly. Raw boolean and the run latch first, so the parcel off (or any hit after the first) costs two reads and no call, and nothing about the grade, the score or the streak above changed
   if(good) bowNote(tg);   // THE BOW: the Mandala's only data source — {errMs, k} per SCORING arrival, run-local and capped (no-op with the parcel off, in the trainer, or in the Temple)
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
@@ -5651,139 +5774,139 @@ let _gpIndex=null, _gpPrev={};
 window.addEventListener('gamepadconnected', e=>{ _gpIndex=e.gamepad.index; _gpPrev={}; try{ showGhostToast('🎮 '+(e.gamepad.id||T('gamepad','gamepad')).slice(0,22)+(e.gamepad.mapping==='standard'?'':' ⚠ '+T('unmapped','unmapped'))); }catch(_e){} });   // ⚠ = browser didn't give it the W3C standard layout (buttons/axes may not line up — try Chrome, or the pad's XInput mode)
 window.addEventListener('gamepaddisconnected', e=>{ if(_gpIndex===e.gamepad.index){ _gpIndex=null; _gpPrev={}; } });
 function _gpAxis(v){ const dz=CFG.padDeadzone; if(Math.abs(v)<dz) return 0; const n=(v-Math.sign(v)*dz)/(1-dz); return Math.sign(n)*Math.pow(Math.abs(n), CFG.padExpo); }   // deadzone + expo response
-function padBeginBlocked(){   // a pad BEGIN/RESUME must not yank the player out of the record-name input, or start a run behind the open share modal (it sits above the card, so a mouse never could). Checked at press time AND in startRun's deferred resume path.
-  const ae=document.activeElement, s=gid('shareOverlay'), chart=gid('chartSettingsPanel'), note=gid('transitEssayReader');
-  const chartOpen=!!(chart&&chart.classList.contains('on')&&settingsBox&&settingsBox.style.display!=='none');
-  return (!!ae && (ae.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) || chartOpen || (!!s && !s.classList.contains('hidden')) || (!!note && !note.classList.contains('hidden'));
-}
-function padRumble(ms, mag){   // felt-not-seen hit feedback (mirrors the iso game's haptics). No-op without a pad or actuator support.
-  if(!CFG.padRumble || _gpIndex===null || !navigator.getGamepads) return;
-  const gp=navigator.getGamepads()[_gpIndex], a=gp && gp.vibrationActuator;
-  if(!a || !a.playEffect) return;
-  try{ const p=a.playEffect('dual-rumble', {duration:ms, strongMagnitude:mag, weakMagnitude:mag*0.6}); if(p&&p.catch) p.catch(()=>{}); }catch(e){}   // playEffect REJECTS async on unsupported actuators (Firefox ships the method regardless) — a sync catch alone leaks an unhandled rejection per hit
-}
-function pollGamepad(dt){
-  if(_gpIndex===null || !navigator.getGamepads) return;
-  const gp=navigator.getGamepads()[_gpIndex];
-  if(!gp) return;
-  // dual sticks -> aim (yaw/pitch). Both sticks sum so either one aims.
-  const ax=_gpAxis(gp.axes[2]||0)+_gpAxis(gp.axes[0]||0), ay=_gpAxis(gp.axes[3]||0)+_gpAxis(gp.axes[1]||0);
-  if(state.running && (ax!==0 || ay!==0) && !templeLookFrozen()){
-    const rate=CFG.padLookRate;
-    yaw   -= ax*rate*dt;                                                  // stick right -> look right
-    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch - ay*rate*dt));   // stick up -> look up
-    markAimDirty();
-  }
-  const _down=(i)=>{ const b=gp.buttons[i]; return !!b && (b.pressed || b.value>0.4); };
-  const _edge=(i)=>{ const p=_down(i), was=_gpPrev[i]; _gpPrev[i]=p; return p && !was; };   // true only on the frame a button goes down
-  // evaluate ALL edges first (no short-circuit) so every button's prev-state updates each frame
-  const fT=_edge(3), fL=_edge(2), fB=_edge(0), fR=_edge(1);     // face diamond: top/left/bottom/right
-  const dU=_edge(12), dL=_edge(14), dD=_edge(13), dR=_edge(15); // D-pad: up/left/down/right
-  const zL=_edge(6), zR=_edge(7);                               // triggers ZL / ZR
-  const st=_edge(9);                                            // START / menu
-  if(fT||dU) wasdLanePress(0);   // W
-  if(fL||dL) wasdLanePress(1);   // A
-  if(fB||dD) wasdLanePress(2);   // S
-  if(fR||dR) wasdLanePress(3);   // D
-  if(zL||zR) fire();             // fire() self-guards on state.running
-  if(!state.running){
-    // START / face-bottom: RESUME after a choice exists; never bypass the binary TRAIN/FULL gate on cold load
-    if((st||fB) && !padBeginBlocked() && (state.started || gateChosen)) startRun(true);
-  }
-  else if(st){ if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(e){} } else exitRunning(); }   // START pauses: exit the lock when held (pointerlockchange shows the pause), else pause directly (pad-started runs never lock)
-}
-// WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
-// (no blur handler needed - TAP grading is immediate; no held/timestamp state)
-function dismissListenIfOpen(){   // pointer-lock friendly: no free mouse needed (× is useless while aiming)
-  if(!_lsn.sel) return false;
-  clearListen(true);
-  return true;
-}
-function toggleSkyFreeze(){
-  if(templeActive){ skyFrozen=false; return; }
-  // R-CLICK while a Listen chip is open → dismiss first (under pointer lock you cannot hit the ×)
-  if(state.running && dismissListenIfOpen()) return;
-  // NATURAL = live sky: no freeze (Stellarium-like). Decorative + THEATRE keep freeze for pretty lighting.
-  if(SKY_MODE!=='decorative' && SKY_TIME==='natural'){
-    try{ showGhostToast(T('skyNaturalNoFreeze','SKY FOLLOWS REAL TIME')); }catch(e){}
-    return;
-  }
-  skyFrozen=!skyFrozen; showGhostToast('🌅 '+(skyFrozen?T('skyFrozen','SKY FROZEN'):T('skyResumed','SKY RESUMED')));
-}
-canvas.addEventListener('contextmenu', e=>e.preventDefault());
-document.addEventListener('keydown', e=>{
-  if(e.repeat || !state.running) return;
-  const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-  // X clears temple focus; outside temple the same pointer-lock-safe keys clear the gold sky mark.
-  if(e.code==='KeyX'||e.code==='KeyQ'||e.code==='Backspace'){
-    if(templeActive){ clearSkyTempleFocus(); e.preventDefault(); }
-    else if(dismissListenIfOpen()){ e.preventDefault(); }
-  }
-});
-document.addEventListener('keydown',e=>{
-  if(e.code!=='Escape' || !state.running) return;
-  if(_templeChatOpen){ e.preventDefault(); e.stopImmediatePropagation(); closeSkyChatComposer(true); return; }
-  // Free-mouse inspect: Esc returns to aim without pausing the run.
-  if(_templeFreeMouse&&templeActive){ e.preventDefault(); e.stopImmediatePropagation(); setTempleFreeMouse(false); return; }
-  if(isTypingTarget(e.target)) return;
-  // Esc pauses (and remembers temple). E still leaves temple back to dojo without pausing.
-  if(templeActive){
-    e.preventDefault(); e.stopImmediatePropagation();
-    if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(err){} }
-    else exitRunning();
-    return;
-  }
-  if(document.pointerLockElement!==canvas){ e.preventDefault(); exitRunning(); }
-},true);
+                                                                                                                                                                                                                                                                     
+                                                                                                                          
+                                                                                                             
+                                                                                                                                                                                                   
+ 
+                                                                                                                                       
+                                                                         
+                                                                           
+                                 
+                                                                                                                                                                                                                                                                                                         
+ 
+                         
+                                                       
+                                             
+                 
+                                                                        
+                                                                                                           
+                                                                 
+                               
+                                                                                                      
+                                                                                                       
+                   
+   
+                                                                                        
+                                                                                                                                        
+                                                                                                
+                                                                                                      
+                                                                                            
+                                                                                   
+                                                                               
+                                     
+                                     
+                                     
+                                     
+                                                                       
+                     
+                                                                                                              
+                                                                                       
+   
+                                                                                                                                                                                                                                                               
+ 
+                                                                                        
+                                                                               
+                                                                                                            
+                             
+                    
+              
+ 
+                           
+                                              
+                                                                                                  
+                                                    
+                                                                                                           
+                                                      
+                                                                                     
+           
+   
+                                                                                                                    
+ 
+                                                              
+                                         
+                                        
+                                                                                                     
+                                                                                                   
+                                                             
+                                                                  
+                                                         
+   
+   
+                                        
+                                                 
+                                                                                                              
+                                                                    
+                                                                                                                            
+                                      
+                                                                                           
+                   
+                                                     
+                                                                                              
+                       
+           
+   
+                                                                                
+        
 
-/* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
-let windX=0, windZ=0;   // free-play prototype wind (horizontal accel m/s²); 0 in the daily → every ballistics integration below is bit-identical to no-wind
-const _windFlag=(location.search+location.hash).indexOf('wind')>=0;   // ?wind / #wind opt-in (mirrors the ?fps flag)
-const projectiles=[];
-const PROJ_GEO=new THREE.SphereGeometry(0.17,8,6);
-const PROJ_MAT=new THREE.MeshBasicMaterial({color:0x9fe8ff});
-const projectileMeshPool=[], projectilePool=[];
-function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.Mesh(PROJ_GEO, PROJ_MAT); m.visible=true; scene.add(m); return m; }
-function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
-function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter in-key whoosh (sits with the theme, doesn't fight the bed)
-  if(!soundOn || !toneReady) return;
-  try{
-    const now=Tone.now();
-    const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)
-    const hi=(PENTA&&PENTA.length)?PENTA[Math.min(4,PENTA.length-1)]:440;
-    const sensei=true;   // SENSEI-only dojo (difficulty picker cut 2026-07-09)
-    if(fireMuzzle) fireMuzzle.triggerAttackRelease(0.032, now, sensei?0.62:0.5);
-    if(firePluck) firePluck.triggerAttackRelease(lo*2, '32n', now, sensei?0.78:0.65);   // octave up = clear “shot” without stealing the lead melody
-    if(arcWhoosh){
-      const ft=Math.max(0.18, Math.min(2.2, flightT||0.6));
-      const a=lo*0.9, b=hi*1.05;
-      arcWhoosh.triggerAttackRelease(a, ft, now, sensei?0.38:0.32);
-      arcWhoosh.frequency.cancelScheduledValues(now);
-      arcWhoosh.frequency.setValueAtTime(a, now);
-      arcWhoosh.frequency.linearRampToValueAtTime(b, now+ft*0.85);
-    }
-  }catch(e){}
-}
-function spawnProjectile(){
-  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
-  const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
-  playFireLaunch(_T);
-  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
-  // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
-  pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
-  projectiles.push(pr);
-  if(projectiles.length>64){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest (raised 40→64 with K1's full-length lofts: fire-quant × a 7.5s max arc can hold ~45 live shots legitimately)
-}
-function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
-function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
-function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
-  const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
-  let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
-  t = t<0?0 : t>1?1 : t;
-  const dx=c.x-(a.x+sx*t), dy=c.y-(a.y+sy*t), dz=c.z-(a.z+sz*t);
-  return dx*dx+dy*dy+dz*dz;
-}
-const _prev=new THREE.Vector3();
+                                                                                                                                                                                                                                                                            
+                                                                                                                                                            
+                                                                                                                     
+                     
+                                                  
+                                                             
+                                               
+                                                                                                                                                   
+                                                                                                                 
+                                                                                                                                         
+                                    
+      
+                         
+                                                                                                     
+                                                                         
+                                                                               
+                                                                                
+                                                                                                                                                    
+                  
+                                                           
+                                
+                                                                   
+                                                     
+                                                 
+                                                                  
+     
+             
+ 
+                           
+                                                                                                                                            
+                                                                                                                                                   
+                     
+                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                 
+                       
+                                                                                                                                                                                                                                                                                                      
+ 
+                                                                                                                                          
+                                                                                                                                                                                   
+                                                                                                                                                                                                     
+                                                                 
+                                                                 
+                        
+                                                                
+                           
+ 
+                                
                                
                                            
                             
@@ -7715,6 +7838,7 @@ const _prev=new THREE.Vector3();
                                                                                     
                                                                                                  
                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                                   

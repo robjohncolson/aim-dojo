@@ -211,6 +211,9 @@
                                             
                                              
                                                                                                        
+                                                                                                                                                                                                 
+                                                                           
+                                        
                                                                                     
                                                                                                                                                                                                     
                                                                                    
@@ -446,6 +449,7 @@
                                               
                                                                                
                                                                       
+                                                                                                                     
                                                           
                                                                                                                                            
                                                                                                                                                                                 
@@ -728,6 +732,7 @@ window.JA={
   bowMoon0:'新月', bowMoon1:'満ちる三日月', bowMoon2:'上弦の月', bowMoon3:'満ちる月', bowMoon4:'満月', bowMoon5:'欠ける月', bowMoon6:'下弦の月', bowMoon7:'欠ける三日月',
   bowLine0:'あすの夜 · {m}', bowLine1:'{m} が あすの夜を まっている', bowLine2:'また あした · {m}', bowLineFallback:'あすの夜も 空はここにある',
   bowDoneEyebrow:'この夜は おわり', bowNewNight:'はじめる — あたらしい夜',
+  phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
   dealRule0:'やみが きいている', dealRule1:'風が うごきだす', dealRule2:'はやい声が めざめる', dealRule3:'風が おぼえている', dealRule4:'すべての合唱', dealRule5:'こだまは ふたつで こたえる', dealRule6:'遠い声が よぶ', dealRule7:'太鼓が やすむ',
   dealUpvenus:'金星が 出ている', dealUpjupiter:'木星が 出ている', dealUpmars:'火星が 出ている', dealUpsaturn:'土星が 出ている', dealUpmercury:'水星が 出ている',
   senseiEarlynear:'ちかいこだまに リンクが はやくとどく · むこうから 来るのを まって', senseiLatenear:'ちかいこだまに リンクが おそくとどく · もう そこにいるよ',
@@ -934,6 +939,8 @@ const CFG = {
   // SENSEI'S ONE QUESTION (wave 4, parcel L): the game already keeps the only ledger this needs — THE BOW's _bowHits, one signed arrival error + the subdivision k that Echo was spawned for. Binned by LEAD (near/mid/far), a night answers ONE question: at which distance does this player consistently arrive off the beat, and which way? When the answer is real (enough samples, a bias big enough to hear), the Bow's one line becomes that observation INSTEAD OF the sky fact — the two never stack, and the line is never a number, never a grade, never twice running.
   // HOW IT REACHES TOMORROW: the observation is persisted (localStorage['aimdojo.sensei']) and, while it is fresh, the run's FIRST weightSwells swells bias the beat-quantized k CHOICE toward the weak lead. WEIGHTS ONLY, on the ONE draw beatSpawnDist already takes — same draw, same order, same count — so the sacred "distance = k sixteenths" law is untouched and a drilled night differs from a plain one only in which feasible k the same random number lands on. It is never announced, never visible, and it expires in silence.
   // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
+  // PHASES WITNESSED (wave 5a, parcel M): a night you actually played is stamped by the sky that was actually overhead — the SAME elongation bucket the deal deals by and the Bow names (ONE phase authority, never two) — and the eight stamps close a ring in the Temple. ACCRETION ONLY: a bucket keeps its FIRST date forever, a second session the same night writes nothing, and no path in this game can take a stamp back. No counts, no calendar, no gaps — a night nobody played is ordinary dark sky, not a hole. The ring is the whole reward; the one-time eighth-stamp line at the top of the Bow's chain is the only thing it ever says, once, ever.
+  phases:{ on:true },   // on:false → the file is never opened (no read, no write, from any surface), no ring is drawn, and the Bow's line chain is wave 4's exactly. Nothing else to tune: the eight buckets belong to the sky, not to a knob
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
@@ -3627,6 +3634,7 @@ function _templeAspectColor(id){
                                                                     
    
                                                                                                             
+                                                                                                                                                                                                                                                                                                                           
                                                                                                 
        
                                                                         
@@ -4830,7 +4838,7 @@ function _templeAspectColor(id){
                                                                 
                                    
                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                    
                                      
  
@@ -4855,8 +4863,9 @@ function _templeAspectColor(id){
                                                                                                                  
       
                                                                                                                                                       
-                                                                                                                                             
-                                                                                                                                                                             
+                                                                                                                                                                                    
+                                                                                                                                                                                                                 
+                                                                                                                                                     
                                                                                            
                                                                                                                                                                                
  
@@ -4882,6 +4891,18 @@ function _templeAspectColor(id){
    
                                            
  
+                               
+                                                                                                                     
+                                                                                                                       
+                                                                                                                     
+                                                                                                                      
+                                                                                                                    
+                                                                                                              
+      
+                                                                                                     
+                            
+                         
+ 
                                                        
                                                                                                                   
                                                                                                                  
@@ -4906,9 +4927,8 @@ function _templeAspectColor(id){
                                                                                                                    
               
                                                                                                                                       
-            
-                                                                                                                                                                                                                                                                                      
-                                                                                                                                          
+                                                                                                                                                                                                                       
+                                                                                                                                                                                            
                    
               
                                                                                                                                                                                             
@@ -5107,6 +5127,108 @@ function _templeAspectColor(id){
                                    
                                                                                                 
                                                                                             
+ 
+                                                 
+                                                                                                           
+                                                                                                                    
+                                                                                                                  
+                                                                                                                    
+                                                                                                                   
+                                                                                       
+                                                                                                                   
+                                                                                                                    
+                                                                                                 
+                                                                                                                     
+                                                                                                                  
+                                                                                                           
+                                  
+                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                               
+                                                                                                                                                           
+                                                                                                                                                                                         
+                                                                                                                                                                         
+                                       
+                       
+                                                       
+                                                                                                                                                                                                                                  
+ 
+                      
+                                               
+                              
+                                                                               
+                  
+                                                          
+                                                                                                                                                                                                                                                
+                 
+                                                                                                                                                                                               
+                               
+                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                               
+ 
+                       
+                                                                 
+                                               
+                                                                                                                                                                                         
+                                                                                                                                                                 
+ 
+                          
+                          
+                                                                                                                                                                                 
+ 
+                                                                                                                                                                                   
+                         
+                                                                                                                   
+                                                                                                                  
+                                                    
+                                                                                                                                                    
+                                                                                                                                                                  
+                                            
+               
+                                                                                                                                                                       
+                           
+                   
+ 
+                         
+                                                                                                                      
+                                                                                                                      
+                                                                                                                
+                            
+               
+                                                 
+                                                                                                                               
+                                                                              
+ 
+              
+                                                                                                                                                                   
+                                     
+                                                                                                                      
+                                                                                                                       
+                                                                                                               
+                                                                                                                                                                                           
+                                                                      
+                
+                                                                                                        
+                                                                                                                                                                                                                                                                                     
+                
+                                                                                                                                                    
+ 
+                          
+                                                                                                                    
+                                                                                                                    
+                                            
+                                                                    
+               
+                                                                    
+                               
+                                                                                                                                                                                                                                                                     
+                       
+                                                                                                                                                                 
+                                              
+                                                                                                                                                                                                  
+                                               
+   
+                  
  
                       
                                                         
@@ -5481,6 +5603,7 @@ function _templeAspectColor(id){
                 
                       
                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                          
                                                                   
                                                                                                                                                                        
@@ -7715,6 +7838,7 @@ function _templeAspectColor(id){
                                                                                     
                                                                                                  
                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                                   

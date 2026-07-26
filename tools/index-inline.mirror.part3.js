@@ -211,6 +211,9 @@
                                             
                                              
                                                                                                        
+                                                                                                                                                                                                 
+                                                                           
+                                        
                                                                                     
                                                                                                                                                                                                     
                                                                                    
@@ -446,6 +449,7 @@
                                               
                                                                                
                                                                       
+                                                                                                                     
                                                           
                                                                                                                                            
                                                                                                                                                                                 
@@ -728,6 +732,7 @@
                                                                                                                                          
                                                                                                                 
                                                          
+                                        
                                                                                                                                                                                        
                                                                                                                              
                                                                                                            
@@ -934,6 +939,8 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
@@ -3627,6 +3634,7 @@
                                                                     
    
                                                                                                             
+                                                                                                                                                                                                                                                                                                                           
                                                                                                 
        
                                                                         
@@ -4830,7 +4838,7 @@
                                                                 
                                    
                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                    
                                      
  
@@ -4855,8 +4863,9 @@
                                                                                                                  
       
                                                                                                                                                       
-                                                                                                                                             
-                                                                                                                                                                             
+                                                                                                                                                                                    
+                                                                                                                                                                                                                 
+                                                                                                                                                     
                                                                                            
                                                                                                                                                                                
  
@@ -4882,6 +4891,18 @@
    
                                            
  
+                               
+                                                                                                                     
+                                                                                                                       
+                                                                                                                     
+                                                                                                                      
+                                                                                                                    
+                                                                                                              
+      
+                                                                                                     
+                            
+                         
+ 
                                                        
                                                                                                                   
                                                                                                                  
@@ -4906,9 +4927,8 @@
                                                                                                                    
               
                                                                                                                                       
-            
-                                                                                                                                                                                                                                                                                      
-                                                                                                                                          
+                                                                                                                                                                                                                       
+                                                                                                                                                                                            
                    
               
                                                                                                                                                                                             
@@ -5107,6 +5127,108 @@
                                    
                                                                                                 
                                                                                             
+ 
+                                                 
+                                                                                                           
+                                                                                                                    
+                                                                                                                  
+                                                                                                                    
+                                                                                                                   
+                                                                                       
+                                                                                                                   
+                                                                                                                    
+                                                                                                 
+                                                                                                                     
+                                                                                                                  
+                                                                                                           
+                                  
+                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                               
+                                                                                                                                                           
+                                                                                                                                                                                         
+                                                                                                                                                                         
+                                       
+                       
+                                                       
+                                                                                                                                                                                                                                  
+ 
+                      
+                                               
+                              
+                                                                               
+                  
+                                                          
+                                                                                                                                                                                                                                                
+                 
+                                                                                                                                                                                               
+                               
+                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                               
+ 
+                       
+                                                                 
+                                               
+                                                                                                                                                                                         
+                                                                                                                                                                 
+ 
+                          
+                          
+                                                                                                                                                                                 
+ 
+                                                                                                                                                                                   
+                         
+                                                                                                                   
+                                                                                                                  
+                                                    
+                                                                                                                                                    
+                                                                                                                                                                  
+                                            
+               
+                                                                                                                                                                       
+                           
+                   
+ 
+                         
+                                                                                                                      
+                                                                                                                      
+                                                                                                                
+                            
+               
+                                                 
+                                                                                                                               
+                                                                              
+ 
+              
+                                                                                                                                                                   
+                                     
+                                                                                                                      
+                                                                                                                       
+                                                                                                               
+                                                                                                                                                                                           
+                                                                      
+                
+                                                                                                        
+                                                                                                                                                                                                                                                                                     
+                
+                                                                                                                                                    
+ 
+                          
+                                                                                                                    
+                                                                                                                    
+                                            
+                                                                    
+               
+                                                                    
+                               
+                                                                                                                                                                                                                                                                     
+                       
+                                                                                                                                                                 
+                                              
+                                                                                                                                                                                                  
+                                               
+   
+                  
  
                       
                                                         
@@ -5481,6 +5603,7 @@
                 
                       
                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                          
                                                                   
                                                                                                                                                                        
@@ -5651,139 +5774,139 @@
                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                     
                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                     
-                                                                                                                          
-                                                                                                             
-                                                                                                                                                                                                   
- 
-                                                                                                                                       
-                                                                         
-                                                                           
-                                 
-                                                                                                                                                                                                                                                                                                         
- 
-                         
-                                                       
-                                             
-                 
-                                                                        
-                                                                                                           
-                                                                 
-                               
-                                                                                                      
-                                                                                                       
-                   
-   
-                                                                                        
-                                                                                                                                        
-                                                                                                
-                                                                                                      
-                                                                                            
-                                                                                   
-                                                                               
-                                     
-                                     
-                                     
-                                     
-                                                                       
-                     
-                                                                                                              
-                                                                                       
-   
-                                                                                                                                                                                                                                                               
- 
-                                                                                        
-                                                                               
-                                                                                                            
-                             
-                    
-              
- 
-                           
-                                              
-                                                                                                  
-                                                    
-                                                                                                           
-                                                      
-                                                                                     
-           
-   
-                                                                                                                    
- 
-                                                              
-                                         
-                                        
-                                                                                                     
-                                                                                                   
-                                                             
-                                                                  
-                                                         
-   
-   
-                                        
-                                                 
-                                                                                                              
-                                                                    
-                                                                                                                            
-                                      
-                                                                                           
-                   
-                                                     
-                                                                                              
-                       
-           
-   
-                                                                                
-        
+function padBeginBlocked(){   // a pad BEGIN/RESUME must not yank the player out of the record-name input, or start a run behind the open share modal (it sits above the card, so a mouse never could). Checked at press time AND in startRun's deferred resume path.
+  const ae=document.activeElement, s=gid('shareOverlay'), chart=gid('chartSettingsPanel'), note=gid('transitEssayReader');
+  const chartOpen=!!(chart&&chart.classList.contains('on')&&settingsBox&&settingsBox.style.display!=='none');
+  return (!!ae && (ae.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) || chartOpen || (!!s && !s.classList.contains('hidden')) || (!!note && !note.classList.contains('hidden'));
+}
+function padRumble(ms, mag){   // felt-not-seen hit feedback (mirrors the iso game's haptics). No-op without a pad or actuator support.
+  if(!CFG.padRumble || _gpIndex===null || !navigator.getGamepads) return;
+  const gp=navigator.getGamepads()[_gpIndex], a=gp && gp.vibrationActuator;
+  if(!a || !a.playEffect) return;
+  try{ const p=a.playEffect('dual-rumble', {duration:ms, strongMagnitude:mag, weakMagnitude:mag*0.6}); if(p&&p.catch) p.catch(()=>{}); }catch(e){}   // playEffect REJECTS async on unsupported actuators (Firefox ships the method regardless) — a sync catch alone leaks an unhandled rejection per hit
+}
+function pollGamepad(dt){
+  if(_gpIndex===null || !navigator.getGamepads) return;
+  const gp=navigator.getGamepads()[_gpIndex];
+  if(!gp) return;
+  // dual sticks -> aim (yaw/pitch). Both sticks sum so either one aims.
+  const ax=_gpAxis(gp.axes[2]||0)+_gpAxis(gp.axes[0]||0), ay=_gpAxis(gp.axes[3]||0)+_gpAxis(gp.axes[1]||0);
+  if(state.running && (ax!==0 || ay!==0) && !templeLookFrozen()){
+    const rate=CFG.padLookRate;
+    yaw   -= ax*rate*dt;                                                  // stick right -> look right
+    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch - ay*rate*dt));   // stick up -> look up
+    markAimDirty();
+  }
+  const _down=(i)=>{ const b=gp.buttons[i]; return !!b && (b.pressed || b.value>0.4); };
+  const _edge=(i)=>{ const p=_down(i), was=_gpPrev[i]; _gpPrev[i]=p; return p && !was; };   // true only on the frame a button goes down
+  // evaluate ALL edges first (no short-circuit) so every button's prev-state updates each frame
+  const fT=_edge(3), fL=_edge(2), fB=_edge(0), fR=_edge(1);     // face diamond: top/left/bottom/right
+  const dU=_edge(12), dL=_edge(14), dD=_edge(13), dR=_edge(15); // D-pad: up/left/down/right
+  const zL=_edge(6), zR=_edge(7);                               // triggers ZL / ZR
+  const st=_edge(9);                                            // START / menu
+  if(fT||dU) wasdLanePress(0);   // W
+  if(fL||dL) wasdLanePress(1);   // A
+  if(fB||dD) wasdLanePress(2);   // S
+  if(fR||dR) wasdLanePress(3);   // D
+  if(zL||zR) fire();             // fire() self-guards on state.running
+  if(!state.running){
+    // START / face-bottom: RESUME after a choice exists; never bypass the binary TRAIN/FULL gate on cold load
+    if((st||fB) && !padBeginBlocked() && (state.started || gateChosen)) startRun(true);
+  }
+  else if(st){ if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(e){} } else exitRunning(); }   // START pauses: exit the lock when held (pointerlockchange shows the pause), else pause directly (pad-started runs never lock)
+}
+// WASD-rhythm TAP notes: no keyup handler needed (grading is on keydown + anticipation)
+// (no blur handler needed - TAP grading is immediate; no held/timestamp state)
+function dismissListenIfOpen(){   // pointer-lock friendly: no free mouse needed (× is useless while aiming)
+  if(!_lsn.sel) return false;
+  clearListen(true);
+  return true;
+}
+function toggleSkyFreeze(){
+  if(templeActive){ skyFrozen=false; return; }
+  // R-CLICK while a Listen chip is open → dismiss first (under pointer lock you cannot hit the ×)
+  if(state.running && dismissListenIfOpen()) return;
+  // NATURAL = live sky: no freeze (Stellarium-like). Decorative + THEATRE keep freeze for pretty lighting.
+  if(SKY_MODE!=='decorative' && SKY_TIME==='natural'){
+    try{ showGhostToast(T('skyNaturalNoFreeze','SKY FOLLOWS REAL TIME')); }catch(e){}
+    return;
+  }
+  skyFrozen=!skyFrozen; showGhostToast('🌅 '+(skyFrozen?T('skyFrozen','SKY FROZEN'):T('skyResumed','SKY RESUMED')));
+}
+canvas.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('keydown', e=>{
+  if(e.repeat || !state.running) return;
+  const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  // X clears temple focus; outside temple the same pointer-lock-safe keys clear the gold sky mark.
+  if(e.code==='KeyX'||e.code==='KeyQ'||e.code==='Backspace'){
+    if(templeActive){ clearSkyTempleFocus(); e.preventDefault(); }
+    else if(dismissListenIfOpen()){ e.preventDefault(); }
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.code!=='Escape' || !state.running) return;
+  if(_templeChatOpen){ e.preventDefault(); e.stopImmediatePropagation(); closeSkyChatComposer(true); return; }
+  // Free-mouse inspect: Esc returns to aim without pausing the run.
+  if(_templeFreeMouse&&templeActive){ e.preventDefault(); e.stopImmediatePropagation(); setTempleFreeMouse(false); return; }
+  if(isTypingTarget(e.target)) return;
+  // Esc pauses (and remembers temple). E still leaves temple back to dojo without pausing.
+  if(templeActive){
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(err){} }
+    else exitRunning();
+    return;
+  }
+  if(document.pointerLockElement!==canvas){ e.preventDefault(); exitRunning(); }
+},true);
 
-                                                                                                                                                                                                                                                                            
-                                                                                                                                                            
-                                                                                                                     
-                     
-                                                  
-                                                             
-                                               
-                                                                                                                                                   
-                                                                                                                 
-                                                                                                                                         
-                                    
-      
-                         
-                                                                                                     
-                                                                         
-                                                                               
-                                                                                
-                                                                                                                                                    
-                  
-                                                           
-                                
-                                                                   
-                                                     
-                                                 
-                                                                  
-     
-             
- 
-                           
-                                                                                                                                            
-                                                                                                                                                   
-                     
-                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                 
-                       
-                                                                                                                                                                                                                                                                                                      
- 
-                                                                                                                                          
-                                                                                                                                                                                   
-                                                                                                                                                                                                     
-                                                                 
-                                                                 
-                        
-                                                                
-                           
- 
-                                
+/* ========================= PROJECTILE (ballistic gravity arc — aim above + lead. The DEFAULT and the ARC daily. The daily stays seeded-fair because the ARC path consumes NO rng/Math.random — firing never touches the seeded spawn stream.) ========================= */
+let windX=0, windZ=0;   // free-play prototype wind (horizontal accel m/s²); 0 in the daily → every ballistics integration below is bit-identical to no-wind
+const _windFlag=(location.search+location.hash).indexOf('wind')>=0;   // ?wind / #wind opt-in (mirrors the ?fps flag)
+const projectiles=[];
+const PROJ_GEO=new THREE.SphereGeometry(0.17,8,6);
+const PROJ_MAT=new THREE.MeshBasicMaterial({color:0x9fe8ff});
+const projectileMeshPool=[], projectilePool=[];
+function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.Mesh(PROJ_GEO, PROJ_MAT); m.visible=true; scene.add(m); return m; }
+function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
+function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter in-key whoosh (sits with the theme, doesn't fight the bed)
+  if(!soundOn || !toneReady) return;
+  try{
+    const now=Tone.now();
+    const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)
+    const hi=(PENTA&&PENTA.length)?PENTA[Math.min(4,PENTA.length-1)]:440;
+    const sensei=true;   // SENSEI-only dojo (difficulty picker cut 2026-07-09)
+    if(fireMuzzle) fireMuzzle.triggerAttackRelease(0.032, now, sensei?0.62:0.5);
+    if(firePluck) firePluck.triggerAttackRelease(lo*2, '32n', now, sensei?0.78:0.65);   // octave up = clear “shot” without stealing the lead melody
+    if(arcWhoosh){
+      const ft=Math.max(0.18, Math.min(2.2, flightT||0.6));
+      const a=lo*0.9, b=hi*1.05;
+      arcWhoosh.triggerAttackRelease(a, ft, now, sensei?0.38:0.32);
+      arcWhoosh.frequency.cancelScheduledValues(now);
+      arcWhoosh.frequency.setValueAtTime(a, now);
+      arcWhoosh.frequency.linearRampToValueAtTime(b, now+ft*0.85);
+    }
+  }catch(e){}
+}
+function spawnProjectile(){
+  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
+  const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
+  playFireLaunch(_T);
+  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
+  // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
+  pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
+  projectiles.push(pr);
+  if(projectiles.length>64){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest (raised 40→64 with K1's full-length lofts: fire-quant × a 7.5s max arc can hold ~45 live shots legitimately)
+}
+function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
+function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
+function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
+  const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
+  let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
+  t = t<0?0 : t>1?1 : t;
+  const dx=c.x-(a.x+sx*t), dy=c.y-(a.y+sy*t), dz=c.z-(a.z+sz*t);
+  return dx*dx+dy*dy+dz*dz;
+}
+const _prev=new THREE.Vector3();
 function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const pr=projectiles[i];
@@ -7715,6 +7838,7 @@ function resetSession(){
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
   senseiArm();   // SENSEI'S ONE QUESTION: read the one observation the last Bow left (if it is still fresh) and latch the lead this night's opening swells will quietly ask more of. Storage only — no draw, no CFG write, nothing said, and nothing at all with the parcel off or in the trainer
+  _phasesRun=false;   // PHASES WITNESSED: this night has not taken its stamp attempt yet. Memory only — no read, no write, no bucket computed here, because a night nobody scores in never opens the file at all
   dealCompute();   // THE SKY DEALS THE NIGHT: the ONE rule and the planet tilt for this run, resolved here — before the first spawn, once, from the real sky. dealCompute writes only _deal (never CFG), returns immediately with the parcel off or in the trainer, and leaves _deal neutral if the ephemeris cannot be read
   if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
   else if(CFG.deal.on && _deal.windMul>0) dealWind();         // THE WIND STIRS / THE WIND REMEMBERS: the two waxing phases deal the shipped prototype ON — same clouds, same ballistics, same HUD, seeded from the local date so the night is the same everywhere and, crucially, so it spends NO Math.random draw where an undealt night spends none. Every other phase (and ?wind on any night) keeps today's behaviour exactly

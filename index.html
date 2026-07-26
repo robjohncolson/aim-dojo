@@ -211,6 +211,9 @@ body.temple-chat-open .sky-temple-body{pointer-events:auto;overscroll-behavior:c
 body.temple-free-mouse #reticle{opacity:.28}
 body.temple-free-mouse canvas{cursor:default}
 .sky-temple-kicker{font:10px var(--mono);letter-spacing:.24em;color:var(--menu-gold);margin-bottom:6px}
+/* PHASES WITNESSED: the ring of eight, under the plaque line. Painted once on entry, never interactive (the panel is pointer-events:none and this is not one of the strips that opt back in). */
+.sky-temple-phases{display:block;margin:0 auto 10px;width:66px;height:66px}
+.sky-temple-phases[hidden]{display:none}
 /* Controls first — always visible when the chip opens (before study text loads). */
 .sky-temple-controls{margin:0 0 10px;padding:8px 9px;border:1px solid rgba(232,197,106,.32);background:rgba(232,197,106,.06);font:9.5px/1.45 var(--mono);letter-spacing:.04em;color:var(--bone-dim)}
 .sky-temple-controls b{color:var(--menu-gold);font-weight:600;letter-spacing:.08em}
@@ -446,6 +449,7 @@ body.overlay-paused #pauseStats{order:0}
 <div id="trainCoach" aria-live="polite"></div>
 <aside id="skyTemplePanel" role="status" aria-live="polite" aria-hidden="true">
   <div class="sky-temple-kicker" id="skyTempleKicker">SKY TEMPLE</div>
+  <canvas class="sky-temple-phases" id="templePhaseRing" width="132" height="132" aria-hidden="true" hidden></canvas>
   <div class="sky-temple-controls" id="skyTempleControls">
     <div class="sky-temple-hint" id="skyTempleHint">FIRE investigate · SHIFT+E free mouse (view locked) · T ask · E leave · ESC pause</div>
     <div class="sky-temple-guide" id="skyTempleGuide">SHIFT+E frees the mouse for this panel; the view stays put. T opens ask (needs a saved chart). Scroll for full text.</div>
@@ -728,6 +732,7 @@ window.JA={
   bowMoon0:'新月', bowMoon1:'満ちる三日月', bowMoon2:'上弦の月', bowMoon3:'満ちる月', bowMoon4:'満月', bowMoon5:'欠ける月', bowMoon6:'下弦の月', bowMoon7:'欠ける三日月',
   bowLine0:'あすの夜 · {m}', bowLine1:'{m} が あすの夜を まっている', bowLine2:'また あした · {m}', bowLineFallback:'あすの夜も 空はここにある',
   bowDoneEyebrow:'この夜は おわり', bowNewNight:'はじめる — あたらしい夜',
+  phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
   dealRule0:'やみが きいている', dealRule1:'風が うごきだす', dealRule2:'はやい声が めざめる', dealRule3:'風が おぼえている', dealRule4:'すべての合唱', dealRule5:'こだまは ふたつで こたえる', dealRule6:'遠い声が よぶ', dealRule7:'太鼓が やすむ',
   dealUpvenus:'金星が 出ている', dealUpjupiter:'木星が 出ている', dealUpmars:'火星が 出ている', dealUpsaturn:'土星が 出ている', dealUpmercury:'水星が 出ている',
   senseiEarlynear:'ちかいこだまに リンクが はやくとどく · むこうから 来るのを まって', senseiLatenear:'ちかいこだまに リンクが おそくとどく · もう そこにいるよ',
@@ -934,6 +939,8 @@ const CFG = {
   // SENSEI'S ONE QUESTION (wave 4, parcel L): the game already keeps the only ledger this needs — THE BOW's _bowHits, one signed arrival error + the subdivision k that Echo was spawned for. Binned by LEAD (near/mid/far), a night answers ONE question: at which distance does this player consistently arrive off the beat, and which way? When the answer is real (enough samples, a bias big enough to hear), the Bow's one line becomes that observation INSTEAD OF the sky fact — the two never stack, and the line is never a number, never a grade, never twice running.
   // HOW IT REACHES TOMORROW: the observation is persisted (localStorage['aimdojo.sensei']) and, while it is fresh, the run's FIRST weightSwells swells bias the beat-quantized k CHOICE toward the weak lead. WEIGHTS ONLY, on the ONE draw beatSpawnDist already takes — same draw, same order, same count — so the sacred "distance = k sixteenths" law is untouched and a drilled night differs from a plain one only in which feasible k the same random number lands on. It is never announced, never visible, and it expires in silence.
   // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
+  // PHASES WITNESSED (wave 5a, parcel M): a night you actually played is stamped by the sky that was actually overhead — the SAME elongation bucket the deal deals by and the Bow names (ONE phase authority, never two) — and the eight stamps close a ring in the Temple. ACCRETION ONLY: a bucket keeps its FIRST date forever, a second session the same night writes nothing, and no path in this game can take a stamp back. No counts, no calendar, no gaps — a night nobody played is ordinary dark sky, not a hole. The ring is the whole reward; the one-time eighth-stamp line at the top of the Bow's chain is the only thing it ever says, once, ever.
+  phases:{ on:true },   // on:false → the file is never opened (no read, no write, from any surface), no ring is drawn, and the Bow's line chain is wave 4's exactly. Nothing else to tune: the eight buckets belong to the sky, not to a knob
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
@@ -3627,6 +3634,7 @@ function enterSkyTemple(options){
     else if(_skySel.kind==='sign') focus={kind:'sign',pick:_skySel};
   }
   setSkyTempleFocus(focus); refreshSkyChatForTemple(); applyAudioState(); syncTransport(); clock.getDelta();
+  if(CFG.phases.on) phasesRingDraw();   // PHASES WITNESSED: the ring of eight is painted ONCE here, on entry — it is a trophy in the trophy room, not a frame cost, and it changes nothing about the Temple's mechanics. Raw boolean first: with the parcel off the canvas is never un-hidden and the file is never opened
   if(options.quiet){ try{ showGhostToast(T('skyTempleResumed','TEMPLE RESTORED')); }catch(e){} }
   else{
     try{ showGhostToast(T('skyTempleEntered','SKY TEMPLE')); }catch(e){}
@@ -4830,7 +4838,7 @@ function bowUpdate(dt){
   if(_bow.stage===BOW.RIT && _bow.t>=_bow.manAt) bowEnterHold();
   if(_bow.stage!==BOW.HOLD) return;
   if(_bow.dots) bowDrawMandala((_bow.t-_bow.manAt)/Math.max(0.1,B.mandalaSec||0));   // hitless Bow: no glyph, no canvas, no per-frame draw
-  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ showGhostToast(CFG.sensei.on?senseiBowLine():bowSkyLine(), (B.lineHoldSec||0)+1); }catch(e){} }   // SENSEI'S ONE QUESTION: still exactly ONE line here — senseiBowLine returns THIS SAME sky fact unless the night actually said something new, so the diagnosis can only ever replace it, never stack with it. Raw boolean first: with the parcel off the expression IS bowSkyLine(), and it is also the only moment the night's reading is taken and remembered. THE line — exactly one per Bow, the session's only new toast, held for lineHoldSec (+1s of fade) via the .show-slow variant instead of the 1.5s default
+  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ const _ln=CFG.sensei.on?senseiBowLine():bowSkyLine(); showGhostToast((CFG.phases.on&&phasesBowLine())||_ln, (B.lineHoldSec||0)+1); }catch(e){} }   // THE BOW'S PRIORITY CHAIN (wave 5a), and still exactly ONE toast: eighth-stamp (parcel M, once in a life) > Sensei's diagnosis (wave 4) > the sky fact (wave 1). Each tier can only ever REPLACE the one below it, never stack with it. Wave 4's expression is evaluated FIRST and unchanged, so senseiBowLine still takes and remembers tonight's reading even on the single night the ring speaks over it: only the SPEAKING is replaced, never the noticing. Raw booleans first — with phases off the argument IS wave 4's expression, with both off it is bowSkyLine() verbatim. THE line — exactly one per Bow, the session's only new toast, held for lineHoldSec (+1s of fade) via the .show-slow variant instead of the 1.5s default
   if(!_bow.bowed && _bow.t>=_bow.senseiAt){ _bow.bowed=true; try{ showTrainCoach('✦', true); }catch(e){} }   // sensei bows back through the existing coach chrome — no new surface
   if(_bow.t>=_bow.endAt) bowFinish();
 }
@@ -4855,8 +4863,9 @@ function bowSkyLine(){
   // Moon ELONGATION needs no observer location, no pack and no network — the cheapest fact that is still honest.
   try{
     const d=new Date(); d.setDate(d.getDate()+1); d.setHours(21,0,0,0);         // tomorrow ~9pm local: the night the player will actually stand under
-    const L=approxLuminaryLons(d.getTime()), el=((L.moon-L.sun)%360+360)%360;   // 0° new · 90° first quarter · 180° full · 270° last quarter
-    const ph=Math.floor(((el+22.5)%360)/45)%8, t=Math.floor(d.getTime()/86400000)%BOW_LINE_EN.length;   // template picked deterministically BY DATE: one night, one phrasing
+    const ph=moonPhaseBucket(d.getTime());                                      // THE one phase authority (wave 5a) — the same buckets the deal deals by and the Temple ring stamps
+    if(ph<0) return T('bowLineFallback','TOMORROW NIGHT THE SKY IS STILL THERE');   // an unreadable sky keeps the ritual's line, exactly as the catch below always did for the throwing half of the same failure
+    const t=Math.floor(d.getTime()/86400000)%BOW_LINE_EN.length;                // template picked deterministically BY DATE: one night, one phrasing
     return T('bowLine'+t, BOW_LINE_EN[t]).replace('{m}', T('bowMoon'+ph, BOW_MOON_EN[ph]));
   }catch(e){ return T('bowLineFallback','TOMORROW NIGHT THE SKY IS STILL THERE'); }   // offline/unavailable is impossible here in practice, but the ritual still gets its line
 }
@@ -4882,6 +4891,18 @@ function bowDrawMandala(u){
   }
   g.globalCompositeOperation='source-over';
 }
+function moonPhaseBucket(atMs){
+  // THE ONE PHASE AUTHORITY (extracted wave 5a, parcel M): the elongation bucket wave 4 deals by, wave 1's Bow names
+  // and the Temple ring stamps — one expression instead of three copies, so those three can never disagree about which
+  // night it is. 0° new · 90° first quarter · 180° full · 270° last quarter, in 8 equal buckets CENTRED on the named
+  // phases. Geocentric: no observer location, no pack, no network. Anything that is not a bucket (a clock the browser
+  // cannot read, a longitude that comes back NaN) is -1, and every caller reads -1 as "the sky said nothing" rather
+  // than dealing, naming or stamping bucket 0 by accident. atMs optional — omitted is now, exactly as before.
+  try{
+    const L=approxLuminaryLons(atMs), b=Math.floor((((((L.moon-L.sun)%360)+360)%360)+22.5)%360/45)%8;
+    return (b>=0&&b<8)?b:-1;
+  }catch(e){ return -1; }
+}
 /* ---- THE SKY DEALS THE NIGHT (wave 4, parcel K) ----
    ONE rule per night, chosen by the real moon, plus a planet tilt that is only ever a weight. Everything the deal
    does passes through _deal: a flat bag of EFFECTIVE VALUES, written once per run by dealCompute and read at the
@@ -4906,9 +4927,8 @@ function dealCompute(){
   // glyphs already ride — no network, no second ephemeris, no observer location needed (elongation is geocentric).
   dealReset();
   if(!CFG.deal.on || trainMode) return;   // raw boolean first, and post-graduation only: the trainer's field is a lesson, not a night
-  let ph=-1;
-  try{ const L=approxLuminaryLons(); ph=Math.floor((((((L.moon-L.sun)%360)+360)%360)+22.5)%360/45)%8; }catch(e){ return; }   // 0° new · 90° first quarter · 180° full · 270° last quarter, in 8 equal buckets centred on the named phases — the SAME expression bowSkyLine buckets by
-  if(!(ph>=0&&ph<8)) return;   // a NaN longitude (a clock the browser cannot read) deals nothing rather than dealing bucket 0 by accident
+  const ph=moonPhaseBucket();   // THE one phase authority (wave 5a): the same bucket bowSkyLine names and the Temple ring stamps — one expression, so the deal and the line can never disagree about which night it is
+  if(ph<0) return;   // an unreadable sky (a clock the browser cannot read) deals nothing rather than dealing bucket 0 by accident — the same guard the inline try/catch and range test were
   const D=CFG.deal;
   _deal.ph=ph;
   if(ph===0) _deal.spreadMul=+D.spreadMul||1;                                                             // NEW MOON · the dark listens — localization night: the field opens up behind you
@@ -5107,6 +5127,108 @@ function senseiBowLine(){
     if(repeat) return bowSkyLine();
     return T('sensei'+(d.dir?'Late':'Early')+SENSEI_BINS[d.bin], SENSEI_LINE_EN[d.dir*3+d.bin]);
   }catch(e){ return bowSkyLine(); }   // the ritual keeps its line whatever the reading does
+}
+/* ---- PHASES WITNESSED (wave 5a, parcel M) ----
+   The only record this parcel keeps is WHICH MOON WAS UP on a night you played: the first scoring hit of a
+   post-graduation run stamps today's elongation bucket (moonPhaseBucket — one phase authority, shared with the deal
+   and the Bow) with the local civil date, and that stamp is permanent. ACCRETION ONLY: the bucket keeps its FIRST
+   date forever, so a second session the same night writes nothing at all, and there is no delete path, no decay, no
+   upkeep. Nothing here counts, compares, or notices an absence — a night nobody played leaves no mark of any kind,
+   which is the whole point: the ring fills, it never empties, and it cannot be behind.
+   STORAGE IS UNTRUSTED (wave-3/4 discipline): the loader is a validator — a plain non-array object at v===1, an st
+   that is a plain map, and eight keys "0".."7" whose values are literally YYYY-MM-DD. Anything else is a player who
+   has witnessed nothing, silently. Writes are trailing-throttled and can never throw into a run.
+   THE RING is drawn once on Temple entry (never per frame), and the eighth stamp earns exactly one sentence, once in
+   a player's life, at the TOP of the Bow's priority chain. Kill-switch phases.on:false → the file is never opened
+   from any surface, the canvas is never un-hidden, and the Bow's chain is wave 4's expression verbatim. */
+const PHASES_KEY='aimdojo.phases';
+const PHASES_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;   // THE WHOLE GRAMMAR for a stamp: this build writes phasesToday() and nothing else, so nothing else is a date here — no ISO timestamps, no epoch numbers, no ' ' padding
+const PHASES_SAVE_MS=1200;                    // trailing throttle, in the starLitSaveSoon shape. Not a CFG knob: the spec's literal is {on:true} exactly, and a night can only ever produce one stamp plus (once in a life) one completion flag — this exists so those two land in ONE write, not so anyone tunes it
+let _phases=null;          // bucket 0..7 -> "YYYY-MM-DD" of the FIRST night that bucket was witnessed; null until the file is read (and never read at all with the parcel off)
+let _phasesLoaded=false;   // the file is opened at most once per page life, by whichever surface needs it first (a stamp, the Bow's line, the Temple ring)
+let _phasesSaid=false;     // the one-time eighth-stamp line has been SPOKEN — the only thing the envelope's flag records, because completeness itself is derivable from the eight stamps
+let _phasesRun=false;      // this run has already taken its stamp attempt (reset by resetSession) — so every hit after the first costs one boolean read and nothing else
+let _phasesSaveT=0, _phasesDirty=false;
+function phasesToday(){
+  const d=new Date(), m=d.getMonth()+1, dd=d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;   // the LOCAL CIVIL DATE — the same calendar dealPackIsToday's freshness gate and dealWind's seed turn over on, so "tonight" means one thing across the build
+}
+function phasesLoad(){
+  if(_phasesLoaded) return; _phasesLoaded=true;
+  _phases=Object.create(null);
+  let raw=null; try{ raw=localStorage.getItem(PHASES_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;   // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a string, a future v:2 — every one of them is "witnessed nothing", silently
+  const src=o.st;
+  if(!src || typeof src!=='object' || Array.isArray(src)) return;        // …and st is a plain MAP of buckets. An array of dates carries no buckets, so it can only ever be someone else's data
+  const st=Object.create(null);
+  for(let b=0;b<8;b++){ const v=src[b]; if(typeof v==='string' && PHASES_DATE_RE.test(v)) st[b]=v; }   // the eight buckets ARE the key whitelist: a hand-written "9" or "full" is not read at all, and a value that is not this build's date string is not a stamp
+  _phases=st; _phasesSaid=(o.c===1);   // c is admitted at exactly 1: a truthy string, a 2, a future flag shape all read as "not yet spoken", which at worst offers the line to a completed ring one more time — never a repeat of a line that is silently lost
+}
+function phasesFlush(){
+  if(_phasesSaveT){ clearTimeout(_phasesSaveT); _phasesSaveT=0; }
+  if(!_phasesDirty) return; _phasesDirty=false;
+  const st={}; for(let b=0;b<8;b++) if(_phases && _phases[b]) st[b]=_phases[b];   // written from the VALIDATED map, so a hand-edited file is rewritten clean rather than carried forward
+  try{ localStorage.setItem(PHASES_KEY, JSON.stringify({v:1, st:st, c:_phasesSaid?1:0})); }catch(e){}   // a full or blocked quota loses the write, never the run
+}
+function phasesSaveSoon(){
+  if(_phasesDirty) return;
+  _phasesDirty=true; _phasesSaveT=setTimeout(phasesFlush, PHASES_SAVE_MS);   // trailing: the (very rare) night that both stamps a bucket and completes the ring spends ONE write
+}
+function phasesComplete(){ if(!_phases) return false; for(let b=0;b<8;b++) if(!_phases[b]) return false; return true; }   // caller loads first — this asks the map, never the file
+function phasesWitness(){
+  // ONE attempt per run, taken at the FIRST scoring hit: a run you actually played, however briefly. The call site
+  // reads the raw kill-switch and this latch before it ever reaches here, so a night with the parcel off — or the
+  // second hit of any night — costs nothing at all.
+  if(_phasesRun || trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both
+  _phasesRun=true;                                      // latched whatever the answer, so an unreadable sky is not retried once per hit for the rest of the night
+  const b=moonPhaseBucket(); if(b<0) return;
+  phasesLoad();
+  if(_phases[b]) return;   // ACCRETION ONLY, and idempotent: this bucket already keeps its first night, and a first night is not something a later night may overwrite
+  _phases[b]=phasesToday();
+  phasesSaveSoon();
+}
+function phasesBowLine(){
+  // The TOP of the Bow's priority chain, and the only sentence this parcel will ever speak: the eighth distinct phase
+  // has stamped, so the ring is closed. It replaces the night's other line (never joins it) and it fires exactly once
+  // in a player's life — the flag is persisted the moment it is spoken, and '' every other night forever after.
+  if(_phasesSaid) return '';
+  phasesLoad();
+  if(_phasesSaid || !phasesComplete()) return '';
+  _phasesSaid=true; phasesSaveSoon();   // in memory FIRST: a blocked quota must still stop this same page from saying it twice
+  return T('phasesEighth','THE EIGHTH NIGHT · THE MOON HAS WATCHED THEM ALL');
+}
+let _phasesCv;
+function phasesCanvasEl(){ if(_phasesCv===undefined) _phasesCv=(typeof document!=='undefined')?document.getElementById('templePhaseRing'):null; return _phasesCv; }
+function phasesDrawDisc(g,cx,cy,r,b){
+  // The bucket's OWN shape: the lit limb is a semicircle and the terminator is a half-ellipse whose width is |cos| of
+  // the phase angle — a crescent when the terminator bulges toward the lit limb, a gibbous when it bulges away. Waxing
+  // buckets are lit on the right, waning on the left (the northern convention the Bow's names already assume).
+  if(b===0) return;   // NEW MOON's true shape is no lit limb at all — the brighter outline is the whole stamp, because drawing light there would be the ring lying about which moon was up
+  const c=Math.cos(b*Math.PI/4), a=r*Math.abs(c), waxing=(b>=1&&b<=3);
+  g.beginPath();
+  if(waxing) g.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false); else g.arc(cx,cy,r,Math.PI/2,Math.PI*1.5,false);
+  g.ellipse(cx,cy,a,r,0, waxing?Math.PI/2:-Math.PI/2, waxing?-Math.PI/2:Math.PI/2, c>0);   // c>0 (the two crescents) sweeps the terminator across the LIT side; c<0 (the two gibbous) across the dark. c===0 is a quarter: a===0, so the sweep is the straight terminator either way
+  g.closePath();
+  g.fillStyle='rgba(198,216,246,.72)'; g.fill();   // the Mandala's moonlight monochrome — one palette for everything this game draws about the moon
+}
+function phasesRingDraw(){
+  // Once, on Temple entry. No labels, no counts, no interaction, no per-frame work — and identical for a player who
+  // stamped over eight days and one who stamped over eight months, because the ring holds no dates, only witnesses.
+  const cv=phasesCanvasEl(); if(!cv) return;
+  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
+  phasesLoad();
+  const W=cv.width, cx=W/2, cy=cv.height/2, ring=W*0.355, r=W*0.105;
+  g.clearRect(0,0,W,cv.height);
+  if(phasesComplete()){ g.beginPath(); g.arc(cx,cy,ring,0,6.2831853); g.strokeStyle='rgba(198,216,246,.32)'; g.lineWidth=1; g.stroke(); }   // THE RING CLOSES: one continuous circle behind the eight, and the only thing about this drawing that ever changes twice
+  for(let b=0;b<8;b++){
+    const th=-Math.PI/2+b*Math.PI/4, dx=cx+Math.cos(th)*ring, dy=cy+Math.sin(th)*ring;   // bucket 0 (new) at the top, waxing clockwise — the order the sky walks
+    g.beginPath(); g.arc(dx,dy,r,0,6.2831853);
+    g.strokeStyle=_phases[b]?'rgba(198,216,246,.46)':'rgba(198,216,246,.15)'; g.lineWidth=1; g.stroke();   // unstamped is a faint outline: a place the sky still has, not a thing you are missing
+    if(_phases[b]) phasesDrawDisc(g,dx,dy,r,b);
+  }
+  cv.hidden=false;
 }
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
@@ -5481,6 +5603,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   recordHit(tg);
   pushReaction(beats);
   pushEvent(good);   // timing-grade popup (FLAWLESS/PERFECT/…) removed per playtest — the distance/height flash (recordHit) is the only post-hit readout now
+  if(good && CFG.phases.on && !_phasesRun) phasesWitness();   // PHASES WITNESSED: the FIRST scoring arrival of a post-graduation run stamps tonight's moon in the Temple ring — a night you actually played, however briefly. Raw boolean and the run latch first, so the parcel off (or any hit after the first) costs two reads and no call, and nothing about the grade, the score or the streak above changed
   if(good) bowNote(tg);   // THE BOW: the Mandala's only data source — {errMs, k} per SCORING arrival, run-local and capped (no-op with the parcel off, in the trainer, or in the Temple)
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
   let clutch=false;                                                          // clutch flourish: a good hit that's long-range OR last-second (clutchAnd → far AND late)
@@ -7715,6 +7838,7 @@ function resetSession(){
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
   senseiArm();   // SENSEI'S ONE QUESTION: read the one observation the last Bow left (if it is still fresh) and latch the lead this night's opening swells will quietly ask more of. Storage only — no draw, no CFG write, nothing said, and nothing at all with the parcel off or in the trainer
+  _phasesRun=false;   // PHASES WITNESSED: this night has not taken its stamp attempt yet. Memory only — no read, no write, no bucket computed here, because a night nobody scores in never opens the file at all
   dealCompute();   // THE SKY DEALS THE NIGHT: the ONE rule and the planet tilt for this run, resolved here — before the first spawn, once, from the real sky. dealCompute writes only _deal (never CFG), returns immediately with the parcel off or in the trainer, and leaves _deal neutral if the ephemeris cannot be read
   if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
   else if(CFG.deal.on && _deal.windMul>0) dealWind();         // THE WIND STIRS / THE WIND REMEMBERS: the two waxing phases deal the shipped prototype ON — same clouds, same ballistics, same HUD, seeded from the local date so the night is the same everywhere and, crucially, so it spends NO Math.random draw where an undealt night spends none. Every other phase (and ?wind on any night) keeps today's behaviour exactly
