@@ -730,6 +730,9 @@ window.JA={
   bowDoneEyebrow:'この夜は おわり', bowNewNight:'はじめる — あたらしい夜',
   dealRule0:'やみが きいている', dealRule1:'風が うごきだす', dealRule2:'はやい声が めざめる', dealRule3:'風が おぼえている', dealRule4:'すべての合唱', dealRule5:'こだまは ふたつで こたえる', dealRule6:'遠い声が よぶ', dealRule7:'太鼓が やすむ',
   dealUpvenus:'金星が 出ている', dealUpjupiter:'木星が 出ている', dealUpmars:'火星が 出ている', dealUpsaturn:'土星が 出ている', dealUpmercury:'水星が 出ている',
+  senseiEarlynear:'ちかいこだまに リンクが はやくとどく · むこうから 来るのを まって', senseiLatenear:'ちかいこだまに リンクが おそくとどく · もう そこにいるよ',
+  senseiEarlymid:'なかほどのこだまに リンクが はやくとどく · ひといき ためてから', senseiLatemid:'なかほどのこだまに リンクが おそくとどく · ひといき はやく 送って',
+  senseiEarlyfar:'遠いこだまに リンクが はやくとどく · いきを させてあげて', senseiLatefar:'遠いこだまに リンクが おそくとどく · 遠い声は もっと先に 送って',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
@@ -927,6 +930,10 @@ const CFG = {
          moverMul:1.8, fullDensityMul:1.2, fullGoldMul:1.8, fullMercyMul:1.3, pairChance:0.35,
          farMul:1.3, quietDensityMul:0.8, quietTickMul:1.6, quietBpmMul:0.6,
          venusMul:1.8, mercuryMul:1.8, marsMul:1.8, jupiterConc:1 },   // planetAltDeg = how far above the horizon a mover must be to count as "up" (5° — lower than the stars' 8°, because a planet low on the horizon is still the one you can point at from the driveway) · spreadMul widens the NEW MOON's minimum-angle-from-aim cone (more bearings behind you) · windMul = the WAXING CRESCENT's share of the shipped wind band (the WAXING GIBBOUS takes the full band) · quickMul/quickLifeMul = the FIRST QUARTER's speed-orb weight and its brisker orb life · moverMul = the WAXING GIBBOUS's wandering-orb weight · fullDensityMul/fullGoldMul/fullMercyMul = the FULL MOON's generous night (more field, more gold, a taller mercy swell) · pairChance = the WANING GIBBOUS's chance that a spawn is answered by a companion sharing a landable arrival beat (0 = no pairs and no extra draws) · farMul scales the LAST QUARTER's whole distance band outward (gold with it) · quietDensityMul/quietTickMul/quietBpmMul = the WANING CRESCENT's sparser field, sooner silence and gentler tempo climb · venusMul/mercuryMul/marsMul = risen-planet weights on gold/speed/mover · jupiterConc = extra concurrent Echoes while Jupiter is up
+  // SENSEI'S ONE QUESTION (wave 4, parcel L): the game already keeps the only ledger this needs — THE BOW's _bowHits, one signed arrival error + the subdivision k that Echo was spawned for. Binned by LEAD (near/mid/far), a night answers ONE question: at which distance does this player consistently arrive off the beat, and which way? When the answer is real (enough samples, a bias big enough to hear), the Bow's one line becomes that observation INSTEAD OF the sky fact — the two never stack, and the line is never a number, never a grade, never twice running.
+  // HOW IT REACHES TOMORROW: the observation is persisted (localStorage['aimdojo.sensei']) and, while it is fresh, the run's FIRST weightSwells swells bias the beat-quantized k CHOICE toward the weak lead. WEIGHTS ONLY, on the ONE draw beatSpawnDist already takes — same draw, same order, same count — so the sacred "distance = k sixteenths" law is untouched and a drilled night differs from a plain one only in which feasible k the same random number lands on. It is never announced, never visible, and it expires in silence.
+  // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
+  sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
@@ -3172,46 +3179,46 @@ function pickSkyTempleNatal(){
   }
   return best;
 }
-function _templeBodyFromPick(pick){
-  if(!pick||pick.kind!=='body'||!pick.meta) return null;
-  if(pick.meta.temple) return pick.meta.temple;
-  const raw={id:pick.id,lon_j2000:pick.meta.lon,sign:pick.meta.sign,degree_in_sign:pick.meta.degree_in_sign,retro:pick.meta.retro};
-  return SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord?SKY_TEMPLE_DATA.normalizeBodyRecord(raw,'transit'):null;
-}
-function snapshotTempleForResume(){
-  _templeResumeWanted=true;
-  _templeResumeSel=_skySel&&_skySel.id!=null?{kind:_skySel.kind,id:_skySel.id}:null;
-  const f=_templeFocus;
-  if(!f){ _templeResumeFocus=null; return; }
-  if(f.kind==='aspect'&&f.record) _templeResumeFocus={kind:'aspect',key:f.record.key};
-  else if(f.kind==='natal') _templeResumeFocus={kind:'natal',id:f.id};
-  else if(f.kind==='body'&&f.pick) _templeResumeFocus={kind:'body',id:f.pick.id};
-  else if(f.kind==='sign'&&f.pick) _templeResumeFocus={kind:'sign',id:f.pick.id};
-  else _templeResumeFocus=null;
-}
-function clearTempleResume(){ _templeResumeWanted=false; _templeResumeSel=null; _templeResumeFocus=null; }
-function rebindTempleSel(sel){
-  if(!sel||!_lsnMeta) return false;
-  if(sel.kind==='body'&&_lsnMeta.bodies[sel.id]){
-    const meta=_lsnMeta.bodies[sel.id];
-    _skySel={kind:'body',id:sel.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
-    return true;
-  }
-  if(sel.kind==='sign'&&_lsnMeta.signs[sel.id]){
-    const meta=_lsnMeta.signs[sel.id];
-    _skySel={kind:'sign',id:sel.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
-    return true;
-  }
-  return false;
-}
-function restoreTempleAfterResume(){
-  if(!_templeResumeWanted) return false;
-  const focusSnap=_templeResumeFocus, selSnap=_templeResumeSel;
-  clearTempleResume();
-  if(selSnap) rebindTempleSel(selSnap);
-  if(!_skySel) return false;
-  return enterSkyTemple({quiet:true, resumeFocus:focusSnap});
-}
+                                   
+                                                        
+                                               
+                                                                                                                                   
+                                                                                                                      
+ 
+                                   
+                           
+                                                                                    
+                       
+                                            
+                                                                                      
+                                                                      
+                                                                                 
+                                                                                 
+                               
+ 
+                                                                                                          
+                              
+                                   
+                                                 
+                                       
+                                                                                                                       
+                
+   
+                                                
+                                      
+                                                                                                                       
+                
+   
+               
+ 
+                                    
+                                        
+                                                               
+                      
+                                       
+                            
+                                                             
+ 
                                                
                                                                                                
                                                      
@@ -4804,7 +4811,7 @@ function restoreTempleAfterResume(){
                                                                 
                                    
                                                                                                                                            
-                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                    
                                      
  
@@ -4947,6 +4954,88 @@ function restoreTempleAfterResume(){
                                                   
                                                                                      
                                            
+ 
+                                                     
+                                                                                                                     
+                                                                                                                      
+                                                                                                                   
+                                                                                                                     
+                                                                                                                   
+                                                                                                                      
+                                                                                                                        
+                                                                                           
+                                  
+                                                                                                                                                    
+                                                                                                                                                 
+                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                           
+                                                                                                                                                                       
+                                                           
+                                                                                                                                                                                          
+                      
+                                                                                                                   
+                                                                                                                    
+                                                                                                                     
+                                                                                    
+                       
+                                                               
+                                                                                                                                                              
+                                                                       
+                                                                                                                                                          
+                                                                              
+                                                                                                                                                                                         
+                                                                                                                                                                                   
+                            
+ 
+                       
+                                                                                                                               
+                                                                                                                                                                                                                                                                                       
+ 
+                     
+                                                                                                                
+                
+                                                                                                                                           
+                                      
+                                                        
+ 
+                                                                                                                                                                                                                                                                                                                     
+                             
+                                                                                                                  
+                                                                                                                 
+                                                                                                                              
+                                                             
+                                                                             
+                              
+              
+                                                                                     
+                                           
+ 
+                          
+                                                                                                                  
+                                                                                                                     
+                                                                                                
+                                                                                     
+                                 
+                                                                                                  
+                       
+                                                                                                                              
+                        
+                                                     
+ 
+                         
+                                                                                                                    
+                                                                                                                  
+                                                                                                                   
+      
+                                                                                                                                      
+                             
+                                                                                                                                                                          
+                                                                                       
+                  
+                                   
+                                                                                                
+                                                                                            
  
                       
                                                         
@@ -5162,7 +5251,8 @@ function restoreTempleAfterResume(){
                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                   
                                                
-                                                                             
+                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                   
  
@@ -7553,6 +7643,7 @@ function restoreTempleAfterResume(){
                      
                                                                                     
                                                                                                  
+                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                                   

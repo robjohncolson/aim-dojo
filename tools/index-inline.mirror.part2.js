@@ -730,6 +730,9 @@
                                                          
                                                                                                                                                                                        
                                                                                                                              
+                                                                                                           
+                                                                                                            
+                                                                                                        
                                                                        
                                                                                                                                                                                                         
                                                                        
@@ -927,6 +930,10 @@
                                                                                               
                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                 
@@ -3172,46 +3179,46 @@
    
               
  
-                                   
-                                                        
-                                               
-                                                                                                                                   
-                                                                                                                      
- 
-                                   
-                           
-                                                                                    
-                       
-                                            
-                                                                                      
-                                                                      
-                                                                                 
-                                                                                 
-                               
- 
-                                                                                                          
-                              
-                                   
-                                                 
-                                       
-                                                                                                                       
-                
-   
-                                                
-                                      
-                                                                                                                       
-                
-   
-               
- 
-                                    
-                                        
-                                                               
-                      
-                                       
-                            
-                                                             
- 
+function _templeBodyFromPick(pick){
+  if(!pick||pick.kind!=='body'||!pick.meta) return null;
+  if(pick.meta.temple) return pick.meta.temple;
+  const raw={id:pick.id,lon_j2000:pick.meta.lon,sign:pick.meta.sign,degree_in_sign:pick.meta.degree_in_sign,retro:pick.meta.retro};
+  return SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord?SKY_TEMPLE_DATA.normalizeBodyRecord(raw,'transit'):null;
+}
+function snapshotTempleForResume(){
+  _templeResumeWanted=true;
+  _templeResumeSel=_skySel&&_skySel.id!=null?{kind:_skySel.kind,id:_skySel.id}:null;
+  const f=_templeFocus;
+  if(!f){ _templeResumeFocus=null; return; }
+  if(f.kind==='aspect'&&f.record) _templeResumeFocus={kind:'aspect',key:f.record.key};
+  else if(f.kind==='natal') _templeResumeFocus={kind:'natal',id:f.id};
+  else if(f.kind==='body'&&f.pick) _templeResumeFocus={kind:'body',id:f.pick.id};
+  else if(f.kind==='sign'&&f.pick) _templeResumeFocus={kind:'sign',id:f.pick.id};
+  else _templeResumeFocus=null;
+}
+function clearTempleResume(){ _templeResumeWanted=false; _templeResumeSel=null; _templeResumeFocus=null; }
+function rebindTempleSel(sel){
+  if(!sel||!_lsnMeta) return false;
+  if(sel.kind==='body'&&_lsnMeta.bodies[sel.id]){
+    const meta=_lsnMeta.bodies[sel.id];
+    _skySel={kind:'body',id:sel.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
+    return true;
+  }
+  if(sel.kind==='sign'&&_lsnMeta.signs[sel.id]){
+    const meta=_lsnMeta.signs[sel.id];
+    _skySel={kind:'sign',id:sel.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
+    return true;
+  }
+  return false;
+}
+function restoreTempleAfterResume(){
+  if(!_templeResumeWanted) return false;
+  const focusSnap=_templeResumeFocus, selSnap=_templeResumeSel;
+  clearTempleResume();
+  if(selSnap) rebindTempleSel(selSnap);
+  if(!_skySel) return false;
+  return enterSkyTemple({quiet:true, resumeFocus:focusSnap});
+}
 function fillTempleStudy(pick, data, skeleton){
   // Full Listen-style study block inside the temple panel (glossary + optional personal desk).
   const body=_templeUi.body; if(!body||!pick) return;
@@ -4804,7 +4811,7 @@ function bowUpdate(dt){
   if(_bow.stage===BOW.RIT && _bow.t>=_bow.manAt) bowEnterHold();
   if(_bow.stage!==BOW.HOLD) return;
   if(_bow.dots) bowDrawMandala((_bow.t-_bow.manAt)/Math.max(0.1,B.mandalaSec||0));   // hitless Bow: no glyph, no canvas, no per-frame draw
-  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ showGhostToast(bowSkyLine(), (B.lineHoldSec||0)+1); }catch(e){} }   // THE line — exactly one per Bow, the session's only new toast, held for lineHoldSec (+1s of fade) via the .show-slow variant instead of the 1.5s default
+  if(!_bow.lined && _bow.t>=_bow.lineAt){ _bow.lined=true; try{ showGhostToast(CFG.sensei.on?senseiBowLine():bowSkyLine(), (B.lineHoldSec||0)+1); }catch(e){} }   // SENSEI'S ONE QUESTION: still exactly ONE line here — senseiBowLine returns THIS SAME sky fact unless the night actually said something new, so the diagnosis can only ever replace it, never stack with it. Raw boolean first: with the parcel off the expression IS bowSkyLine(), and it is also the only moment the night's reading is taken and remembered. THE line — exactly one per Bow, the session's only new toast, held for lineHoldSec (+1s of fade) via the .show-slow variant instead of the 1.5s default
   if(!_bow.bowed && _bow.t>=_bow.senseiAt){ _bow.bowed=true; try{ showTrainCoach('✦', true); }catch(e){} }   // sensei bows back through the existing coach chrome — no new surface
   if(_bow.t>=_bow.endAt) bowFinish();
 }
@@ -4947,6 +4954,88 @@ function dealWind(){
   x=Math.imul(x^0x85ebca6b,0xc2b2ae35); x^=x>>>13;
   const m=(CFG.windMin+((x>>>0)/4294967296)*(CFG.windMax-CFG.windMin))*_deal.windMul;
   windX=Math.cos(a)*m; windZ=Math.sin(a)*m;
+}
+/* ---- SENSEI'S ONE QUESTION (wave 4, parcel L) ----
+   THE BOW's ledger is already the whole instrument: one {errMs,k} per scoring arrival, where k is the subdivision of
+   LEAD that Echo was spawned for. Bin the ledger by k — NEAR (≤4 sixteenths) · MID (5-8) · FAR (≥9) — and a night can
+   answer exactly one question: at which distance does this player consistently arrive off the beat, and which way?
+   That answer replaces the Bow's sky fact (never joins it), is persisted, and while it is fresh it bends the opening
+   swells' k choice toward the weak lead — WEIGHTS on the single draw beatSpawnDist already takes, so the stream is
+   unchanged draw for draw. Nothing here is announced, counted, compared to yesterday, or scored: it is an observation
+   with a two-night cooldown, and its only other expression is a night that happens to ask more of the lead you lean on.
+   Everything below rests inert with sensei.on:false, in the trainer, and in the Temple. */
+const SENSEI_KEY='aimdojo.sensei';
+const SENSEI_BINS=['near','mid','far'];   // the ONLY bin names storage may carry (indexOf IS the validator) — and the second half of every line key
+const SENSEI_DIRS=['early','late'];       // …and the only two directions, index-aligned with dir 0=early (mean arrival BEFORE the beat) / 1=late
+const SENSEI_LINE_EN=['YOUR LINKS MEET THE NEAR ECHOES EARLY · LET THEM COME TO YOU','YOUR LINKS FIND THE MIDDLE ECHOES EARLY · HOLD ONE BREATH','YOUR LINKS REACH THE FAR ECHOES EARLY · LET THEM BREATHE',
+  'YOUR LINKS MEET THE NEAR ECHOES LATE · THEY ARE ALREADY THERE','YOUR LINKS FIND THE MIDDLE ECHOES LATE · SEND ONE BREATH SOONER','YOUR LINKS REACH THE FAR ECHOES LATE · THE LONG LEAD ASKS FOR MORE'];   // index = dir*3 + bin. Six observations and no seventh: each names WHERE and WHICH WAY, then offers one breath of advice. No number, no count, no verdict, and nothing about a night that already happened
+let _senseiPrev=null;   // the last stored observation {bin,dir} while it is still fresh — the ONLY thing the cooldown reads (a record older than freshHours is not "last time" and is forgotten for every purpose at once)
+let _senseiWeak=-1;     // the lead bin this run's opening swells drill, or -1 for a neutral night — written once at resetSession, read only through senseiWeightLive()
+function senseiReset(){ _senseiPrev=null; _senseiWeak=-1; }
+function senseiBin(k){ return k<1 ? -1 : (k<=4 ? 0 : (k<=8 ? 1 : 2)); }   // k 0 = the unquantized cube-root fallback distance: it encodes no lead at all, so it is not evidence about one
+function senseiLoad(){
+  // A VALIDATOR, not a parser (the wave-3 storage discipline): anything that is not exactly this build's envelope,
+  // carrying one of the three bin names and one of the two directions, inside the freshness window, is no memory at
+  // all — silently. Storage can be hand-edited, quota-blocked, or another origin's; none of that may reach the game.
+  let raw=null; try{ raw=localStorage.getItem(SENSEI_KEY); }catch(e){ return null; }
+  if(!raw) return null;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return null; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return null;   // an array, a number, a string, a future v:2 — every one of them is "no memory"
+  const bin=SENSEI_BINS.indexOf(o.bin), dir=SENSEI_DIRS.indexOf(o.dir);
+  if(bin<0 || dir<0) return null;                                            // the whitelists ARE the grammar: nothing else can name a bin or a direction
+  const day=+o.day, now=Date.now(), hrs=Math.max(0,+CFG.sensei.freshHours||0);
+  if(!isFinite(day) || day<=0 || day>now+3600000) return null;               // a stamp from the future is a clock that moved, not an observation — forgotten rather than trusted forever
+  if((now-day)/3600000>=hrs) return null;                                    // expired: no drill, and no cooldown either, so a player back after a week hears an observation again
+  return {bin:bin, dir:dir};
+}
+function senseiSave(d){
+  _senseiPrev={bin:d.bin, dir:d.dir};   // in memory FIRST: a blocked quota must still stop this same run from repeating itself
+  try{ localStorage.setItem(SENSEI_KEY, JSON.stringify({v:1, day:Date.now(), bin:SENSEI_BINS[d.bin], dir:SENSEI_DIRS[d.dir], n:d.n|0})); }catch(e){}   // day = the local ms stamp the night was read at, because freshness is measured in HOURS and a bare date key cannot answer that
+}
+function senseiArm(){
+  // Called once per run from resetSession: read the memory, decide whether this night drills, and nothing else.
+  senseiReset();
+  if(!CFG.sensei.on || trainMode) return;   // raw boolean first, post-graduation only — and with the parcel off storage is not even opened
+  const r=senseiLoad(); if(!r) return;
+  _senseiPrev={bin:r.bin, dir:r.dir}; _senseiWeak=r.bin;
+}
+function senseiWeightLive(){ return _senseiWeak>=0 && _tideCycle>=0 && _tideCycle<(CFG.sensei.weightSwells|0); }   // the OPENING swells only, counted by the tide's own cycle latch (no second clock). With TIDES off _tideCycle rests at -1 forever: there are no swells to ride, so the drill simply never applies
+function senseiPickK(u, okK){
+  // The bias, and the whole of it: the SAME uniform number the unweighted pick used, walked across a weighted CDF
+  // instead of a flat one. No second draw, no reroll, no reordering of the feasible set — a weak-bin k is simply
+  // wider under the same u. Nothing weak-bin feasible → every weight is 1 → this returns floor(u*len), the pick that shipped.
+  const w=Math.max(0,+CFG.sensei.weightMul||1), n=okK.length;
+  let tot=0; for(let i=0;i<n;i++) tot+=(senseiBin(okK[i])===_senseiWeak?w:1);
+  if(!(tot>0)) return (u*n)|0;
+  let x=u*tot;
+  for(let i=0;i<n;i++){ x-=(senseiBin(okK[i])===_senseiWeak?w:1); if(x<0) return i; }
+  return n-1;   // floating-point tail only
+}
+function senseiDiagnose(){
+  // Per-bin MEAN SIGNED error over this night's ledger. A bin speaks only with minSamples behind it and a mean at
+  // least biasMs off the beat; of those, the worst one speaks. Signed means a night that is half early and half late
+  // averages to nothing and says nothing — which is correct: that is not a habit, it is spread.
+  const S=CFG.sensei, need=Math.max(1,S.minSamples|0), bias=Math.max(0,+S.biasMs||0);
+  const sum=[0,0,0], cnt=[0,0,0];
+  for(const h of _bowHits){ const b=senseiBin(h.k); if(b<0) continue; sum[b]+=h.errMs; cnt[b]++; }
+  let bin=-1, worst=-1;
+  for(let b=0;b<3;b++){ if(cnt[b]<need) continue; const m=Math.abs(sum[b]/cnt[b]); if(m>=bias && m>worst){ worst=m; bin=b; } }
+  if(bin<0) return null;
+  return {bin:bin, dir:(sum[bin]<0?0:1), n:cnt[bin]};
+}
+function senseiBowLine(){
+  // THE Bow's one line, and this parcel's whole text budget: the observation REPLACES the sky fact, never joins it.
+  // The memory is written whichever line ends up showing — a repeat is still tonight's reading, so tomorrow still
+  // drills it; only the SPEAKING has a cooldown, because being told the same thing twice is nagging, not noticing.
+  try{
+    if(!CFG.sensei.on || trainMode) return bowSkyLine();   // own guard as defence in depth; the call site reads the raw boolean first
+    const d=senseiDiagnose();
+    if(!d) return bowSkyLine();                            // nothing the game can honestly claim to have noticed → the night ends on the sky, exactly as it did in wave 1
+    const repeat=!!(_senseiPrev && _senseiPrev.bin===d.bin && _senseiPrev.dir===d.dir);
+    senseiSave(d);
+    if(repeat) return bowSkyLine();
+    return T('sensei'+(d.dir?'Late':'Early')+SENSEI_BINS[d.bin], SENSEI_LINE_EN[d.dir*3+d.bin]);
+  }catch(e){ return bowSkyLine(); }   // the ritual keeps its line whatever the reading does
 }
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
@@ -5162,7 +5251,8 @@ function beatSpawnDist(maxK){   // BEAT-QUANTIZED SPAWN: return a distance whose
   if(!ok.length && fm!==1){ const n0=CFG.rangeNear, f0=Math.min(CFG.rangeMax, state.range);   // …and if the shifted band reaches nothing at this tempo, the UNSHIFTED band is tried before giving up. Two reasons, both hard: the sacred beat-quantized law must never be dropped for a mood, and the null return below hands the caller a cube-root fallback that spends an EXTRA rnd() draw — a far night must not be able to add one
     for(const k of CFG.beatSpawnSixteenths){ if(maxK && k>maxK) continue; const T=(k/16)*beatLen, r=g*T/(2*s); if(r>=1) continue; const d=s*T*Math.sqrt(1-r*r); if(d>=n0 && d<=f0){ ok.push(d); okK.push(k); } } }
   if(!ok.length){ _beatSpawnK=0; return null; }
-  let pick=(rnd()*ok.length)|0;   // ONE draw, always, whatever the sky dealt
+  const u=rnd(); let pick=(u*ok.length)|0;   // ONE draw, always, whatever the sky dealt
+  if(CFG.sensei.on && senseiWeightLive()) pick=senseiPickK(u, okK);   // SENSEI'S ONE QUESTION: the opening swells of a night that carries a fresh observation lean the SAME number toward the weak lead — a weighted walk over the identical feasible set, no second draw and no reroll, so the stream is untouched. Raw boolean first, so an off build (and every neutral night) makes no call and no read here at all
   if(CFG.deal.on && _dealPairK>=0 && ok.length>1 && okK[pick]===_dealPairK) pick=(pick+1)%ok.length;   // THE ECHOES ANSWER IN PAIRS: a companion that drew its primary's own subdivision is nudged to the neighbouring candidate — deterministically, spending nothing — so the pair really is two release times into one arrival beat and not one distance twice
   _beatSpawnK=okK[pick]; return ok[pick];   // _beatSpawnK: the subdivision this distance encodes, latched for spawnTarget to carry on the orb (THE BOW's Mandala plots radius by k). Same draw, same rnd stream — nothing about the pick changed.
 }
@@ -5794,74 +5884,74 @@ function updateTargetMarks(){                                                 //
     else m.hlabel.classList.remove('on','held'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
 }
-/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
-const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
-const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
-const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
-if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
-function showWasdGlyph(key, spoiled, on){
-  if(!wasdGlyphEl) return;
-  if(!on){ if(wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.remove('on'); return; }
-  setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':WASD_COL[key]);
-  if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
-}
-function drawWasdLane(){
-  if(!hudCtx){ showWasdGlyph(0,false,false); return; }
-  const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
-  if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
-  const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
-  if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
-  else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
-  const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
-  const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
-  if(showHud){ hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
-  const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
-  const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketTarget=!!(pocketCueOn && pocketExpected()!=='on');
-  const pocketDim=Number.isFinite(CFG.pocketMainDim)?Math.max(0,Math.min(1,CFG.pocketMainDim)):0.28;
-  const pocketMainAlpha=pocketTarget?pocketDim:1;
-  // ---- the inner HIT-LINE ring (gated by the 'WASD center cue' toggle; the letter below keeps its OWN toggle so reduceMotion users never lose it) ----
-  if(showHud){ hudCtx.globalAlpha=0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
-    hudCtx.globalAlpha=0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0&&!pocketTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
-  // ---- the IN-FOCUS note: optional legacy circle converges at expected; an explicitly enabled colored target instead keeps the raw path so both rings cross there. ----
-  let letterKey=_combo[0], spoiled=false, hitHeld=false;
-  { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-    syncWasdResolutionGrid(nd);
-    let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
-    const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
-    let ci, ckey, main, rawOff;
-    if(pocketLive()){
-      const k=Math.round(beats-cueI);   // main whose pocket ideal is nearest to now
-      ci=k*nd; main=true; rawOff=beats-k; ckey=_combo[((ci%len)+len)%len];
-    } else {
-      ci=Math.round(beats*nd); ckey=_combo[((ci%len)+len)%len]; main=((((ci%nd)+nd)%nd)===0); rawOff=beats-ci/nd;
-    }
-    spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey;
-    if(showHud && !reduceMotion){ const half=pocketLive()?0.5:(0.5/nd), visualCue=pocketCueOn?0:cueI, off=spoiled?(_spoilOff-visualCue):(hit?(_hitOff-visualCue):(rawOff-visualCue)); let ra,al;
-      if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
-      else { const f=Math.min(1,off/half), lateScale=pocketCueOn?Math.max(0,Math.min(1,Number.isFinite(CFG.pocketLateScale)?CFG.pocketLateScale:0.55)):0.55; ra=Rin+f*span*lateScale; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
-      if(spoiled) al=0.5;   // a spoiled note's circle freezes (grey, steady) so the wrong-key feedback is readable
-      if(hit){ al=1; const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color
-      al*=pocketMainAlpha;
-      const lw=main?4.5:2.5;
-      hudCtx.globalAlpha=al*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
-      hudCtx.globalAlpha=Math.min(1,(main?1:0.55)*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
-    } }
-  // Optional developer cue remains available behind pocketCircleCue, but the rolling-buffer parcel defaults it off and has no phase/listening ghosts.
-  if(pocketTarget){
-    const id=pocketExpected(), ta=Number.isFinite(CFG.pocketTargetAlpha)?Math.max(0,Math.min(1,CFG.pocketTargetAlpha)):0.92, rt=radiusForIdeal(pocketIdeal(id),Rin,span,0.5);
-    hudCtx.globalAlpha=ta*0.45; hudCtx.lineWidth=8; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(rt);
-    hudCtx.globalAlpha=ta; hudCtx.lineWidth=5; hudCtx.strokeStyle=(fa>0&&(hitHeld||spoiled))?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):pocketColorCss(id);
-    ARC(rt);
-  }
-  // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
-  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
-  // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
-  // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
-  if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
-  if(CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?T('tapPerfect','PERFECT'):(_tapOffMs<0?T('tapAhead','AHEAD '):T('tapBehind','BEHIND '))+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font=IS_JA?'bold 16px "Share Tech Mono","Hiragino Kaku Gothic ProN","Yu Gothic Medium",Meiryo,"Noto Sans JP",monospace':'bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
-  hudCtx.globalAlpha=1;
-}
-/* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                           
+                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                        
+                                                                                   
+                                         
+                          
+                                                                                                 
+                                                                                                                     
+                                                                            
+ 
+                        
+                                                      
+                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                       
+                                                                                                                                                    
+                                                                                      
+                                                                           
+                                                                                                                                        
+                                                                                                 
+                                                                                                                                                        
+                                                                                           
+                                                                                                                                
+                                                                                                    
+                                                 
+                                                                                                                                                         
+                                                                                                                           
+                                                                                                                                                                                                             
+                                                                                                                                                                          
+                                                        
+                                                                                                                        
+                               
+                                                                                                                      
+                                                            
+                               
+                     
+                                                                                    
+                                                                          
+            
+                                                                                                                 
+     
+                                                                                      
+                                                                                                                                                                                                
+                                                                                                                                                        
+                                                                                                                                                                                                                                                                                      
+                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                            
+                          
+                            
+                                                                                                      
+                                                                                                                                                                        
+       
+                                                                                                                                                      
+                   
+                                                                                                                                                                             
+                                                                                                  
+                                                                                                                                                                               
+            
+   
+                                                                                                                                                                               
+                                                                                  
+                                                                                                                                                                                                                                      
+                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                       
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                       
@@ -7553,6 +7643,7 @@ function drawWasdLane(){
                      
                                                                                     
                                                                                                  
+                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                                   

@@ -730,6 +730,9 @@
                                                          
                                                                                                                                                                                        
                                                                                                                              
+                                                                                                           
+                                                                                                            
+                                                                                                        
                                                                        
                                                                                                                                                                                                         
                                                                        
@@ -927,6 +930,10 @@
                                                                                               
                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                 
@@ -4804,7 +4811,7 @@
                                                                 
                                    
                                                                                                                                            
-                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                    
                                      
  
@@ -4947,6 +4954,88 @@
                                                   
                                                                                      
                                            
+ 
+                                                     
+                                                                                                                     
+                                                                                                                      
+                                                                                                                   
+                                                                                                                     
+                                                                                                                   
+                                                                                                                      
+                                                                                                                        
+                                                                                           
+                                  
+                                                                                                                                                    
+                                                                                                                                                 
+                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                           
+                                                                                                                                                                       
+                                                           
+                                                                                                                                                                                          
+                      
+                                                                                                                   
+                                                                                                                    
+                                                                                                                     
+                                                                                    
+                       
+                                                               
+                                                                                                                                                              
+                                                                       
+                                                                                                                                                          
+                                                                              
+                                                                                                                                                                                         
+                                                                                                                                                                                   
+                            
+ 
+                       
+                                                                                                                               
+                                                                                                                                                                                                                                                                                       
+ 
+                     
+                                                                                                                
+                
+                                                                                                                                           
+                                      
+                                                        
+ 
+                                                                                                                                                                                                                                                                                                                     
+                             
+                                                                                                                  
+                                                                                                                 
+                                                                                                                              
+                                                             
+                                                                             
+                              
+              
+                                                                                     
+                                           
+ 
+                          
+                                                                                                                  
+                                                                                                                     
+                                                                                                
+                                                                                     
+                                 
+                                                                                                  
+                       
+                                                                                                                              
+                        
+                                                     
+ 
+                         
+                                                                                                                    
+                                                                                                                  
+                                                                                                                   
+      
+                                                                                                                                      
+                             
+                                                                                                                                                                          
+                                                                                       
+                  
+                                   
+                                                                                                
+                                                                                            
  
                       
                                                         
@@ -5162,7 +5251,8 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                   
                                                
-                                                                             
+                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                   
  
@@ -5794,74 +5884,74 @@
                                                   
                                                                                                                                                                                                              
  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                           
-                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                        
-                                                                                   
-                                         
-                          
-                                                                                                 
-                                                                                                                     
-                                                                            
- 
-                        
-                                                      
-                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                       
-                                                                                                                                                    
-                                                                                      
-                                                                           
-                                                                                                                                        
-                                                                                                 
-                                                                                                                                                        
-                                                                                           
-                                                                                                                                
-                                                                                                    
-                                                 
-                                                                                                                                                         
-                                                                                                                           
-                                                                                                                                                                                                             
-                                                                                                                                                                          
-                                                        
-                                                                                                                        
-                               
-                                                                                                                      
-                                                            
-                               
-                     
-                                                                                    
-                                                                          
-            
-                                                                                                                 
-     
-                                                                                      
-                                                                                                                                                                                                
-                                                                                                                                                        
-                                                                                                                                                                                                                                                                                      
-                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                            
-                          
-                            
-                                                                                                      
-                                                                                                                                                                        
-       
-                                                                                                                                                      
-                   
-                                                                                                                                                                             
-                                                                                                  
-                                                                                                                                                                               
-            
-   
-                                                                                                                                                                               
-                                                                                  
-                                                                                                                                                                                                                                      
-                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-                       
- 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
+const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
+const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
+const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
+if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
+function showWasdGlyph(key, spoiled, on){
+  if(!wasdGlyphEl) return;
+  if(!on){ if(wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.remove('on'); return; }
+  setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':WASD_COL[key]);
+  if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
+}
+function drawWasdLane(){
+  if(!hudCtx){ showWasdGlyph(0,false,false); return; }
+  const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
+  if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
+  const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
+  if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
+  else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
+  const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
+  const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
+  if(showHud){ hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
+  const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
+  const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketTarget=!!(pocketCueOn && pocketExpected()!=='on');
+  const pocketDim=Number.isFinite(CFG.pocketMainDim)?Math.max(0,Math.min(1,CFG.pocketMainDim)):0.28;
+  const pocketMainAlpha=pocketTarget?pocketDim:1;
+  // ---- the inner HIT-LINE ring (gated by the 'WASD center cue' toggle; the letter below keeps its OWN toggle so reduceMotion users never lose it) ----
+  if(showHud){ hudCtx.globalAlpha=0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
+    hudCtx.globalAlpha=0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0&&!pocketTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
+  // ---- the IN-FOCUS note: optional legacy circle converges at expected; an explicitly enabled colored target instead keeps the raw path so both rings cross there. ----
+  let letterKey=_combo[0], spoiled=false, hitHeld=false;
+  { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+    syncWasdResolutionGrid(nd);
+    let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
+    const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
+    let ci, ckey, main, rawOff;
+    if(pocketLive()){
+      const k=Math.round(beats-cueI);   // main whose pocket ideal is nearest to now
+      ci=k*nd; main=true; rawOff=beats-k; ckey=_combo[((ci%len)+len)%len];
+    } else {
+      ci=Math.round(beats*nd); ckey=_combo[((ci%len)+len)%len]; main=((((ci%nd)+nd)%nd)===0); rawOff=beats-ci/nd;
+    }
+    spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey;
+    if(showHud && !reduceMotion){ const half=pocketLive()?0.5:(0.5/nd), visualCue=pocketCueOn?0:cueI, off=spoiled?(_spoilOff-visualCue):(hit?(_hitOff-visualCue):(rawOff-visualCue)); let ra,al;
+      if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
+      else { const f=Math.min(1,off/half), lateScale=pocketCueOn?Math.max(0,Math.min(1,Number.isFinite(CFG.pocketLateScale)?CFG.pocketLateScale:0.55)):0.55; ra=Rin+f*span*lateScale; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
+      if(spoiled) al=0.5;   // a spoiled note's circle freezes (grey, steady) so the wrong-key feedback is readable
+      if(hit){ al=1; const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color
+      al*=pocketMainAlpha;
+      const lw=main?4.5:2.5;
+      hudCtx.globalAlpha=al*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
+      hudCtx.globalAlpha=Math.min(1,(main?1:0.55)*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
+    } }
+  // Optional developer cue remains available behind pocketCircleCue, but the rolling-buffer parcel defaults it off and has no phase/listening ghosts.
+  if(pocketTarget){
+    const id=pocketExpected(), ta=Number.isFinite(CFG.pocketTargetAlpha)?Math.max(0,Math.min(1,CFG.pocketTargetAlpha)):0.92, rt=radiusForIdeal(pocketIdeal(id),Rin,span,0.5);
+    hudCtx.globalAlpha=ta*0.45; hudCtx.lineWidth=8; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(rt);
+    hudCtx.globalAlpha=ta; hudCtx.lineWidth=5; hudCtx.strokeStyle=(fa>0&&(hitHeld||spoiled))?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):pocketColorCss(id);
+    ARC(rt);
+  }
+  // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
+  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
+  // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
+  // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
+  if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
+  if(CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?T('tapPerfect','PERFECT'):(_tapOffMs<0?T('tapAhead','AHEAD '):T('tapBehind','BEHIND '))+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font=IS_JA?'bold 16px "Share Tech Mono","Hiragino Kaku Gothic ProN","Yu Gothic Medium",Meiryo,"Noto Sans JP",monospace':'bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
+  hudCtx.globalAlpha=1;
+}
+/* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
 const FLOCK={ max:190, ghostMax:60, burstBase:8, burstAcc:0.06, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 8..14; rainbow flock once the bonus combo is this hot
   spawnDist:2.6, riseY:0.6, minY:EYE+0.6, cone:0.42, speed:[3.6,6.2], up:[0.8,1.8], // SKY-SIDE INVARIANT: keep every star ABOVE EYE LEVEL. A world point with y > camera.y always projects above the horizon line (any pitch), and above the horizon there is only sky — so a star can NEVER be drawn against the floor, and the ground read can't be corrupted. This is the actual fix for "stars under the floor": they were never below y=0 (old pads 0.55→1.6 chased a position bug that didn't exist). The real cause is that these are additive + depthWrite:false + fog:false = zero depth cues, so a bright near blob over the far fogged floor reads as sitting IN the ground. Keeping them sky-side removes the confusion entirely. minY is eye+0.6 so even a star pinned at the pad clears the horizon: its max world radius is 0.33 (geom radius 0.3165 x max scale 1.037) and camera shake lifts the eye by at most CFG.shakePos=0.14 -> lowest tip 4.27 > highest eye 4.14. If you ever raise base/shakePos, re-check that margin.
   swirl:0.85, dragPerSec:0.55, grav:0.35, bob:3.2, jitter:0.06,                      // softer grav so they don't dive; lighter jitter
@@ -7553,6 +7643,7 @@ function resetSession(){
   rhythmGeneration++;
   rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
   pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
+  senseiArm();   // SENSEI'S ONE QUESTION: read the one observation the last Bow left (if it is still fresh) and latch the lead this night's opening swells will quietly ask more of. Storage only — no draw, no CFG write, nothing said, and nothing at all with the parcel off or in the trainer
   dealCompute();   // THE SKY DEALS THE NIGHT: the ONE rule and the planet tilt for this run, resolved here — before the first spawn, once, from the real sky. dealCompute writes only _deal (never CFG), returns immediately with the parcel off or in the trainer, and leaves _deal neutral if the ephemeris cannot be read
   if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
   else if(CFG.deal.on && _deal.windMul>0) dealWind();         // THE WIND STIRS / THE WIND REMEMBERS: the two waxing phases deal the shipped prototype ON — same clouds, same ballistics, same HUD, seeded from the local date so the night is the same everywhere and, crucially, so it spends NO Math.random draw where an undealt night spends none. Every other phase (and ?wind on any night) keeps today's behaviour exactly
