@@ -956,7 +956,7 @@
                                                                                               
                                                                                               
                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                        
@@ -992,7 +992,10 @@
                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                               
                                                                                                                                                                            
                                                                                                                                   
@@ -1107,9 +1110,7 @@
                                                                                                                                                                                                                                                                                                            
                                                                                                            
                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                 
                                                                                                                                                                                                                                                                                                  
                                                                                                                                                              
@@ -4700,11 +4701,31 @@ function fillOff16(base16){   // heard sixteenths since the fill bar's downbeat 
   let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
   return (b - audioLat()/(60/Math.max(20,state.bpm)))*4 - base16;
 }
-function fillOpen(tg){   // the tank's sub-node gate: this hit must land on the figure's NEXT sixteenth, inside the SAME skill-tightened window orbOpen's glow is drawn from — the pocket is not narrower than the game's, only moved off the beat
-  if(!(CFG.grooveGroove && CFG.grooveVuln)) return true;   // the same escape hatch orbOpen() takes when the vuln mechanic itself is off
-  const need = tg.fig ? tg.fig[tg.hpMax-tg.hp] : null; if(need==null) return false;   // hpMax-hp = how many hits have already landed, so this is the note about to be played
+function fillOpen(tg){   // the tank's sub-node gate: this hit must land on ONE OF the figure's remaining sixteenths, inside the SAME skill-tightened window orbOpen's glow is drawn from — the pocket is not narrower than the game's, only moved off the beat
+  // AN INDEX, NOT A BOOLEAN (spec 1.2 amendment T2). It shipped testing ONLY tg.fig[hpMax-hp] — the next gate owed — so a
+  // gate you let pass stayed owed forever: the figure's clock had moved on, no later arrival could ever match a sixteenth
+  // that was already in the past, and the tank was DEAD-LOCKED into the neutral expiry with every remaining hit unplayable.
+  // One dropped note killed the whole offer. Now it returns the EARLIEST REMAINING gate whose window contains THIS arrival
+  // (-1 = none: a genuinely off-figure landing), and the caller consumes every gate up to and including it — so a dropped
+  // gate is absorbed by the next one you land, and landing the mercy downbeat always finishes the fill no matter what you missed.
+  const i0=tg.hpMax-tg.hp;   // hpMax-hp = how many hits have already landed = the first gate still owed
+  if(!(CFG.grooveGroove && CFG.grooveVuln)) return i0;   // the same escape hatch orbOpen() takes when the vuln mechanic itself is off — every landing consumes exactly the next gate, which is one-hit-one-gate, exactly today's behaviour
+  if(!tg.fig) return -1;
   const spb=60/Math.max(20,state.bpm), win=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();
-  return Math.abs(fillOff16(tg.fill16)-need)*spb*0.25 < win;   // seconds off the figure's sixteenth vs the same seconds window
+  const off=fillOff16(tg.fill16);
+  for(let j=i0; j<tg.fig.length; j++){ if(Math.abs(off-tg.fig[j])*spb*0.25 < win) return j; }   // the SAME seconds-off-the-sixteenth test against the SAME window, only searched forward from the first gate still owed. The windows cannot overlap at whole-beat spacing unless win > half a beat, and even then FIRST match wins, so a hit is never credited two gates for one sixteenth
+  return -1;   // seconds off every remaining sixteenth vs the same seconds window
+}
+function fillGlowAmt(){   // THE BLINK CUE (spec 1.2, T4): 0..1 nearness to the live fill tank's NEXT NEEDED gate, or -1 when nothing is asking. Same law as fillOpen judges by — heard sixteenths since the fill bar's downbeat vs tg.fig[hpMax-hp], in seconds against the skill-tightened window — so the light and the pocket cannot disagree about where the gate is. The visual half-width is that window widened to at least CFG.tank.blinkWin BEATS, because at the 28bpm floor the judged window alone is a pinprick on a two-second beat, and never narrowed below it, because a cue tighter than the window it advertises lies. fillOnly keeps at most one tank alive so the first match is the answer; the loop is over patternConcurrency-few targets and every non-fill orb costs one field read
+  if(!(CFG.grooveGroove && CFG.grooveVuln)) return -1;   // no windows at all → nothing to blink about (the strict inverse of fillOpen's escape hatch)
+  for(const tg of targets){
+    if(tg.dead || tg.fill16<0 || !tg.fig) continue;
+    const need=tg.fig[tg.hpMax-tg.hp]; if(need==null) return -1;   // the figure is spent (a kill is mid-flight) — let the field's own beat have the shell back
+    const spb=60/Math.max(20,state.bpm), win=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();
+    const winV=Math.max(win, CFG.tank.blinkWin*spb);
+    return Math.max(0, 1 - Math.abs(fillOff16(tg.fill16)-need)*spb*0.25/winV);
+  }
+  return -1;
 }
 function fillNote(n, s){   // the fill's walking voice: scale degrees UNDER the tonic, one per landed hit, LANDING on the tonic at the 1
   if(!PENTA || !PENTA.length) return 440;
@@ -5798,13 +5819,13 @@ function dropTarget(tg){
 function releaseTargetRecord(tg){
   releaseTrailPoints(tg.trail); tg.mesh=tg.shell=tg.snd=tg.trailMesh=null; tg.idx=-1; targetRecordPool.push(tg);
 }
-function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
-function diffT(){ return Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))); }
-function targetRadius(){ return lerp(CFG.radSlow, 0.62, diffT()); }
-function activeTargetCount(){ return targets.length; }
-function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats*(CFG.deal.on?_deal.quickLifeMul:1)}); }   // THE SKY DEALS THE NIGHT: a FIRST QUARTER runs a brisker field (quickLifeMul). The ink law follows it honestly — spawnTarget latches the shortened life into lifeBeatsEff, the same field the drum fill uses to stretch one
-let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
-function specialOrbsLive(){ return CFG.specialOrbs; }
+                                                                 
+                                                                                                  
+                                                                   
+                                                      
+                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                   
+                                                     
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                
@@ -5821,6 +5842,12 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
                                                                                                                                                                                                                                                   
  
                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                      
+                       
+                                                                         
+                                                                      
+ 
                            
                                
                 
@@ -5881,9 +5908,24 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
      
    
                                                                                                                                   
+                                                                                                                         
+                                                                                                                        
+                                                                                                                       
+                                                                                                                          
+                                                                                                                  
+                                                                                                                       
+                                                                                                                          
+                                                                                                                          
+                                                                                                                        
+                                                                                
+                  
+                                                                                                                                                                                         
+                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+       
                         
                                                                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                   
                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                 
@@ -6016,8 +6058,17 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
                           
                                                       
  
-                                                                                                            
-                                                                     
+                                                                                                                  
+                                                                                                                     
+                                                                                                                         
+                                                                                                                          
+                                                                                                                        
+                                                                                                                             
+                                                                                                                         
+                                                                                                                          
+                                                                                                      
+                                                               
+                    
                                        
                                                                                                                                                                                                                                                                                  
                     
@@ -6029,10 +6080,14 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
  
                                                                                                                                                                                                                                                                                                                                                   
                                   
-                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                          
+                                                                                                                                           
+                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                               
+   
                                                                                                                                                                                                                      
-          
-                                                                                               
+               
+                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                         
                                       
@@ -6041,7 +6096,7 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
  
                       
                                                                                                                                 
-                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                   
  
@@ -7052,6 +7107,7 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
 
                                      
                 
+                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                              
                                                                             
                                                                                                                                                                     
@@ -7065,6 +7121,16 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
                                                                                
                                                                                                            
                                                                                                                                                                                   
+                                                                                                                         
+                                                                                                                          
+                                                                                                                           
+                                                                                                                       
+                                                                                                                          
+                                                                                                                            
+                                                                                                                            
+                                                                                                                             
+                                                        
+                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                         
                                                                                                                                           
                        
@@ -7103,7 +7169,7 @@ function specialOrbsLive(){ return CFG.specialOrbs; }
                                          
                 
                                                                                                                                      
-                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                 
                                      
          

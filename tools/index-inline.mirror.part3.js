@@ -956,7 +956,7 @@
                                                                                               
                                                                                               
                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                        
@@ -992,7 +992,10 @@
                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                               
                                                                                                                                                                            
                                                                                                                                   
@@ -1107,9 +1110,7 @@
                                                                                                                                                                                                                                                                                                            
                                                                                                            
                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                 
                                                                                                                                                                                                                                                                                                  
                                                                                                                                                              
@@ -4700,11 +4701,31 @@
                                                                       
                                                                  
  
-                                                                                                                                                                                                                                                  
-                                                                                                                                        
-                                                                                                                                                                             
+                                                                                                                                                                                                                                                               
+                                                                                                                          
+                                                                                                                          
+                                                                                                                            
+                                                                                                                           
+                                                                                                                          
+                                                                                                                                  
+                                                                                                        
+                                                                                                                                                                                                                                           
+                        
                                                                                                                     
-                                                                                                                               
+                                 
+                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                  
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                      
+                           
+                                                   
+                                                                                                                                                               
+                                                                                                                      
+                                                    
+                                                                              
+   
+            
  
                                                                                                                                         
                                          
@@ -5798,13 +5819,13 @@
                                  
                                                                                                                 
  
-                                                                 
-                                                                                                  
-                                                                   
-                                                      
-                                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                   
-                                                     
+function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
+function diffT(){ return Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))); }
+function targetRadius(){ return lerp(CFG.radSlow, 0.62, diffT()); }
+function activeTargetCount(){ return targets.length; }
+function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats*(CFG.deal.on?_deal.quickLifeMul:1)}); }   // THE SKY DEALS THE NIGHT: a FIRST QUARTER runs a brisker field (quickLifeMul). The ink law follows it honestly — spawnTarget latches the shortened life into lifeBeatsEff, the same field the drum fill uses to stretch one
+let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
+function specialOrbsLive(){ return CFG.specialOrbs; }
 
 function beatSpawnDist(maxK){   // BEAT-QUANTIZED SPAWN: return a distance whose ballistic flight time is an integer # of 16th-notes (k/16 beat), so landing the shot on the orb's beat means releasing exactly k sixteenths early — a rhythmic pocket. Model: a shot at speed s that returns to ~eye height at time T covers d = s·T·√(1−(gT/2s)²). Picks uniformly among the sixteenth-values reachable within the current skill-gated range; maxK caps the lead (tanks pass a small maxK to spawn CLOSE). null → the caller falls back to the old cube-root distance.
   const s=projSpeedNow(), g=CFG.projGravity, beatLen=60/Math.max(20,state.bpm);
@@ -5821,6 +5842,12 @@ function beatSpawnDist(maxK){   // BEAT-QUANTIZED SPAWN: return a distance whose
   _beatSpawnK=okK[pick]; return ok[pick];   // _beatSpawnK: the subdivision this distance encodes, latched for spawnTarget to carry on the orb (THE BOW's Mandala plots radius by k). Same draw, same rnd stream — nothing about the pick changed.
 }
 let _beatSpawnK=0;   // k (sixteenths of lead) of the LAST beatSpawnDist() draw; 0 = unquantized fallback distance
+function tankCloseDist(){   // THE FILL'S FLOOR OF LAST RESORT (spec 1.2, T5a): the closest distance a tank may legally occupy when beatSpawnDist(maxLeadSixteenths) found no quantized answer at all. Same ballistic model, evaluated at exactly maxLeadSixteenths (the LONGEST lead the tank is allowed, hence the largest distance in the capped set), then clamped into the live band: too short → the near edge, too long for this skill-gated reach → the far edge, and either way the shortest lead the range can actually hold. It draws NOTHING (no rnd(), no stream), takes the raw CFG.rangeNear rather than the dealt band because "the fill is close" outranks a LAST QUARTER's outward push, and returns null only if the shot cannot come back to eye height in that flight at all — a real impossibility rather than a merely empty feasible set, which needs a beat longer than 2·projSpeed/projGravity and so never happens at any playable tempo
+  const s=projSpeedNow(), g=CFG.projGravity, T=(Math.max(1,CFG.tank.maxLeadSixteenths|0)/16)*(60/Math.max(20,state.bpm)), r=g*T/(2*s);
+  if(r>=1) return null;
+  const far=Math.max(CFG.rangeNear, Math.min(CFG.rangeMax, state.range));
+  return Math.min(far, Math.max(CFG.rangeNear, s*T*Math.sqrt(1-r*r)));
+}
 function spawnTarget(opts){
   if(templeActive) return null;
   opts=opts||{};
@@ -5881,9 +5908,24 @@ function spawnTarget(opts){
     }
   }
   else if(CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm && rnd()<CFG.multiHitChance){ hp=rnd()<0.5?3:2; }
+  // TANKS SPAWN CLOSE IS AN INVARIANT (spec 1.2 amendment T5a). The close re-draw runs HERE, before the tank is dressed,
+  // because its RESULT is now allowed to veto the election. beatSpawnDist(maxLeadSixteenths=4) returns null whenever no
+  // k<=4 lands inside the live band — and above a middling tempo that is EVERY tempo: a 4-sixteenth flight covers only
+  // ~4.9m at 86bpm mid-skill (rangeNear is 8m), so the whole feasible set {2,3,4} is empty above ~52bpm at learning speed
+  // and ~135bpm at expert speed. The shipped code then silently KEPT the first, uncapped draw — which is the full
+  // beatSpawnSixteenths list up to k=16 — so the swell's fill could be a four-beat-lead orb across the room asking for
+  // three hits one beat apart, the exact opposite of what the constant promises. Now: clamp to the NEAR EDGE (the closest
+  // legal spawn there is), and if even that has no answer, drop the election and let this orb be plain — no tank beats an
+  // unreachable tank. Both new branches are gated on the fill tag under the raw kill-switch, so a fillOnly:false legacy
+  // tank still takes today's silent-keep path, draw for draw and byte for byte.
+  let _tankD=null;
+  if(hp>1 && CFG.beatSpawn){ _tankD=beatSpawnDist(CFG.tank.maxLeadSixteenths);   // the same single draw, in the same guard, at the same point in the rnd() stream as the shipped re-draw
+    if(_tankD==null && CFG.tank.fillOnly && tg.fill16>=0){ const k0=_beatSpawnK; _tankD=tankCloseDist();   // k0 = the k the FIRST draw latched; the failed call above has already reset _beatSpawnK to 0
+      if(_tankD==null){ hp=1; tg.fig=null; tg.fill16=-1; _beatSpawnK=k0; }   // no distance at all (the shot cannot return to eye height in a 4-sixteenth flight at this speed): abandon the tank, restore the honest k of the position this orb is keeping, and it lives on as a plain Echo. The figure draw above is already spent and stays spent — this is the active parcel's own night. _fillSpent8 latched at ELECTION time, so the swell does not try again: this is one silent swell without a fill, which is the whole point
+    } }
   tg.hp=hp; tg.hpMax=hp;
   if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
-    if(CFG.beatSpawn){ const dS=beatSpawnDist(CFG.tank.maxLeadSixteenths); if(dS!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dS); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
+    if(_tankD!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, _tankD); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
   if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);
     tg.expireAt=state.t+lifeF; tg.lifeBeatsEff=lifeF/spbF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves. lifeBeatsEff latches that stretched life in BEATS so the white→red→white ink law (orbRed) runs on the life this orb actually has: the trail is a clock, and a clock that says "fresh" through the four beats you can still play the figure in was lying
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
@@ -6016,8 +6058,17 @@ function missCamKick(strong){   // subtle FOV only — trauma carries the rest
   if(reduceMotion) return;
   missKickDur=strong?0.12:0.08; missKickT=missKickDur;
 }
-function clankShot(tg, point){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
-  state.shots++; state.streak=0; pushEvent(false); flashReticleBad();
+function clankShot(tg, point, soft){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
+  // SOFT THUD (spec 1.2 amendment T3): soft=true is the DRUM FILL's off-figure landing, and it is the ONE clank that
+  // charges nothing. A stated figure is an offer, and declining it is already free (onExpire's neutral branch) — but the
+  // shipped code charged you a shot, broke your streak and fed pushEvent(false) into the adaptive-accuracy window and the
+  // Quiet Tick ledger for every arrival that missed a sixteenth, on the one orb you are LOCKED INTO for the rest of the
+  // swell. Declining the whole fill cost nothing while trying it and being 40ms out cost three penalties: exactly backwards.
+  // Everything you can HEAR or SEE still fires — the thud, the spark, the reticle flash, the musical flinch, the beat of
+  // your own silence — because that feedback is how you find the sixteenth. Only the LEDGER is spared. Every other caller
+  // passes two arguments, so soft is undefined there and this is byte-identical to the shipped clank.
+  if(!soft){ state.shots++; state.streak=0; pushEvent(false); }
+  flashReticleBad();
   playClankSfx(); missGrooveDuck(true);
   if(CFG.voice.on) voiceClank();   // THE LEAD INSTRUMENT: the ONLY thing a clank adds is your own silence for the next beat — the shell's thud above already played and nothing about the scoring above changed. Raw boolean first so the parcel off costs one read and no call.
   if(!reduceMotion){
@@ -6029,10 +6080,14 @@ function clankShot(tg, point){   // OFF-beat shield hit — clearer than a whiff
 }
 /* ===== MULTI-HIT TANK: a bigger AMBER orb that takes 2-3 ON-BEAT hits — "keep hitting the big one on the beat." Each hit chips it (a note walks UP + the shell pops + the count ticks down) as pure PROGRESS; the last hit pops it (scored like a normal orb, amber burst). Off-beat landings clank. Simple + rhythmic — no sub-figure. ===== */
 function handleTankHit(tg, point){
-  if(CFG.tank.fillOnly && tg.fill16>=0){ if(!fillOpen(tg)){ clankShot(tg, point); return; } }   // THE TANK IS A DRUM FILL: this orb answers to its FIGURE, not the whole beat — its notes sit on the "4" and the "and", where orbOpen never opens. Raw boolean first so the parcel off costs one read and no call
+  if(CFG.tank.fillOnly && tg.fill16>=0){   // THE TANK IS A DRUM FILL: this orb answers to its FIGURE, not the whole beat — its notes sit on the whole beats INSIDE the fill bar (3 and 4), where orbOpen does open but the count does not. Raw boolean first so the parcel off costs one read and no call
+    const i=tg.hpMax-tg.hp, j=fillOpen(tg);   // i = the first gate still owed, j = the gate this arrival actually landed in (spec 1.2, T2)
+    if(j<0){ clankShot(tg, point, true); return; }   // off every remaining sixteenth → a SOFT thud: the sound and the spark, none of the ledger (T3)
+    tg.hp-=(j-i+1);   // CONSUME i..j: the gate you landed AND every gate you let pass on the way to it. A dropped note costs you its NOTE (the walk below skips those steps) and never the fill, so the tank can no longer dead-lock, and the mercy downbeat — the last gate, always — always finishes it whatever came before
+  }
   else if(!orbOpen()){ clankShot(tg, point); return; }      // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
-  tg.hp--;
-  if(tg.hp<=0){   // last hit → KILL with extra juice (kick + octave sparkle on the lead voice)
+  else tg.hp--;
+  if(tg.hp<=0){   // last hit → KILL with extra juice (kick + octave sparkle on the lead voice). A SKIP can never reach here early: hp<=0 needs j-i+1 >= hpMax-i, i.e. j >= hpMax-1, and j indexes a figure of exactly hpMax gates — so the killing blow is ALWAYS the last gate, the mercy downbeat, and the tonic below is always the note that is due
     if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit, kf=(tg.fill16>=0)?fillNote(tg.hpMax, tg.hpMax-1):PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)];   // THE FILL lands its last note on the TONIC — and it lands it on the mercy downbeat, where wave 1's pad bloom is already breathing, so the finale pop and the exhale are one event (alignment, not a new sound)
       if(kick) kick.triggerAttackRelease('C1','8n',Tone.now(),0.95); if(v){ v.triggerAttackRelease(kf, '8n', t, 0.9); v.triggerAttackRelease(kf*2, '16n', t+0.05, 0.55); } }catch(e){} }
     gradeRhythmHit(tg, point); return;
@@ -6041,7 +6096,7 @@ function handleTankHit(tg, point){
 }
 function tankChip(tg){
   tg._chipT=0.28;                                           // shell scale-punch flash (animated in updateTanks) — a hair longer
-  const step=tg.hpMax - tg.hp;                              // 1,2,… as it charges up
+  const step=tg.hpMax - tg.hp;                              // 1,2,… as it charges up. THE FILL (spec 1.2, T2): hp is now decremented by however many gates the arrival consumed, so step-1 is exactly the INDEX OF THE GATE THAT WAS LANDED — the walk plays the note of where you actually are in the figure, and a gate you let pass simply has its step skipped. Musically that is a run with a note missing, which is what you played; it is not a wrong note, and the walk still arrives at the tonic on the 1
   if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit, n=(tg.fill16>=0)?fillNote(tg.hpMax, step-1):PENTA[Math.min(1+step, PENTA.length-1)]; if(v) v.triggerAttackRelease(n, '16n', t, 0.7); if(kick) kick.triggerAttackRelease('C2','32n',Tone.now(),0.5); }catch(e){} }   // a note that WALKS UP with each hit — the tank sings a little rising run as it charges. THE FILL walks the same way but CHORD_ROOT-relative (degrees under the tonic), so the run is already aimed at the 1 before the finale plays it
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.38);
 }
@@ -7052,6 +7107,7 @@ function animate(frameNow){
 
   if(state.running && !templeActive){
     state.t+=dt;
+    _fillAmt=-1;   // THE FILL'S OWN PULSE rests at "nothing is asking" every frame and is re-earned inside the vuln branch below, so a build with the vuln mechanic off (or reduced motion on top of it) can never read a stale amount off a previous frame
     if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
       let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
       const _bps=60/Math.max(20,state.bpm), _lat=audioLat(); hb-=_lat/_bps;   // heard timeline (reported latency + user offset) → the glow matches the audible beat
@@ -7065,6 +7121,16 @@ function animate(frameNow){
       const _peak=CFG.openShellOpacityPeak!=null?CFG.openShellOpacityPeak:0.42;
       const _so=_openAmt>0?Math.min(_peak, (_floor+(_peak-_floor)*_openAmt)*(CFG.openGlowBoost||1)):_floor;
       TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
+      // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2 amendment T4). The shipped tank wore the FIELD's whole-beat glow, so
+      // the one orb that answers to a count of gates lit up identically on gates it still needed and gates it had already
+      // spent — the middle gate of the 3-figure was, visually, dark: nothing on screen said "again, now". blinkWin was the
+      // knob for exactly this cue and had been dead since the tank became a fill. Now the (at most one) live fill tank
+      // overrides this material with its OWN amount, shaped by the same law from the distance to the gate it still needs.
+      // With T1's whole-beat gates the two clocks mostly agree — which is the point: they agree on the beats the tank wants
+      // and part company on the beats it does not, so the count reads honestly off the shell. TANK_SHELL_MAT is shared, but
+      // fillOnly guarantees at most one tank alive, and with fillOnly:false _fillAmt is -1 forever and this line never runs.
+      _fillAmt = CFG.tank.fillOnly ? fillGlowAmt() : -1;
+      if(_fillAmt>=0) TANK_SHELL_MAT.opacity = _fillAmt>0 ? Math.min(_peak, (_floor+(_peak-_floor)*_fillAmt)*(CFG.openGlowBoost||1)) : _floor;   // the identical opacity law as _so above, on the fill's clock instead of the beat's
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
     try{ updatePocketMisses(); }catch(e){}   // unconditional on target presence: close overdue main events before this frame's field work
     if(targets.length){
@@ -7103,7 +7169,7 @@ function animate(frameNow){
         const _sh=tg.mesh.userData.shell;
         if(_sh){
           const base=CFG.openShellScale!=null?CFG.openShellScale:1.55, peak=CFG.openShellScalePeak!=null?CFG.openShellScalePeak:1.92;
-          const a=(CFG.grooveGroove&&CFG.grooveVuln)?_openAmt:0;
+          const a=(CFG.grooveGroove&&CFG.grooveVuln)?((_fillAmt>=0 && tg.fill16>=0)?_fillAmt:_openAmt):0;   // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2, T4): the bubble inflates with the same amount its opacity was just shaped from, so the tank's shell reads as ONE cue and not a light arguing with a size. _fillAmt is -1 on every frame of a fillOnly:false build and tg.fill16 is -1 on every orb that is not the fill, so this is _openAmt verbatim for everything else
           const pulse=a>0?(base+(peak-base)*a*(0.94+0.06*Math.sin(state.t*9+(tg.idx||0)))):base;
           _sh.scale.setScalar(pulse);
         }
@@ -8478,89 +8544,89 @@ function updateChartTempleHint(){
   el.hidden=!need;
   if(need) el.textContent=T('chartTempleHint','Sign in and save a birth chart here to use Ask (T) in Sky Temple.');
 }
-function showPause(){
-  if(!state.started) return;
-  document.body.classList.add('overlay-paused');
-  flushSkyDayAnnounce();   // a day pack that landed mid-run waited for a surface; this is one
-  ovEyebrow.textContent=trainMode
-    ? TF('pauseTrainEyebrow','TRAINING · STEP {n}',{n:trainPhase+1})
-    : (state.needsReset ? T('bowDoneEyebrow','THE NIGHT IS COMPLETE') : T('pauseFullEyebrow','PAUSED'));   // THE BOW ended the session (state.needsReset), so this card is a closing report, not a pause
-  ovTitle.innerHTML=trainMode
-    ? T('pauseTrainTitleHtml','KEEP <span class="acc">LISTENING</span>')
-    : T('pauseFullTitleHtml','LISTENER\'S <span class="acc">REPORT</span>');
-  if(keysRow) keysRow.style.display='none';
-  if(phonesNote) phonesNote.style.display='none';
-  // session recap — plain numbers, not story
-  const song=activeTheme?songDisplay(activeTheme.name):'—';
-  ovLede.style.display='block';
-  ovLede.innerHTML=trainMode
-    ? (trainPhase===0
-      ? TF('pauseTrainSteps','Training · {time} · steps <b>{n}/{N}</b>',{time:fmtTime(state.t),n:trainWasd,N:TRAIN_NEED_WASD})
-      : TF('pauseTrainVoices','Training · {time} · voices <b>{n}</b>',{time:fmtTime(state.t),n:trainOrbs}))
-    : TF('pauseFullLede','<b>{song}</b> · {time} · peak <b>{bpm}</b> bpm',{song:song,time:fmtTime(state.t),bpm:Math.round(state.maxBpm)});
-  const primaryLbl = state.needsReset ? T('bowNewNight','PLAY — A NEW NIGHT') : T('resume','RESUME');   // needsReset means the next enterRunning() runs resetSession(), so the button must not promise to resume a night that is over
-  if(beginLabel) beginLabel.textContent=primaryLbl;
-  else beginBtn.textContent='▶ '+primaryLbl;
-  showModePick(false);   // mid-run pause = resume only (not the new/experienced gate)
-  pauseStats.style.display='flex';
-  if(settingsBox){ settingsBox.style.display='block'; refreshSettings(); renderTransitEssayUi(); renderSkyBriefUi(); updateChartTempleHint(); }
-  pauseStats.innerHTML=
-    '<div class="chip"><div class="ck">'+T('chipTime','TIME')+'</div><div class="cv">'+fmtTime(state.t)+'</div></div>'+
-    '<div class="chip"><div class="ck">'+T('chipFinal','BPM')+'</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
-    '<div class="chip"><div class="ck">'+T('chipPeak','PEAK')+'</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
-  overlay.classList.remove('hidden');
-  if(CFG.nightCard.on) cardOffer();   // NIGHT CARDS: the card is offered on the surface the Bow already lands on — one small button in the existing chrome row, and only while TONIGHT's summary exists. No toast announces it. Raw boolean first: with the parcel off this card is byte-identical to today's
-  fetchSkyBriefForPause();
-  // run-end breath: after a real hold, the song exhales once more (soft pad/root) — marks the session without a new UI panel
-  if(state.t>=25) themeBreath();
-  if(CFG.chorus.on) chorusMenu();   // THE BOOT CHORUS: the card is up, so tonight's ensemble walks in, one stem per menuFadeSec — the only ambience the overlay has ever had, and it is exactly as long as your history. Raw boolean first: parcel off (or nothing recovered) leaves the overlay as silent as it is today
-  noteSongPeak();
-  submitDojo(); loadDojoBoard();
-}
+                     
+                            
+                                                
+                                                                                              
+                                 
+                                                                    
+                                                                                                                                                                                                         
+                             
+                                                                        
+                                                                            
+                                           
+                                                 
+                                             
+                                                           
+                               
+                            
+                     
+                                                                                                                              
+                                                                                                           
+                                                                                                                                          
+                                                                                                                                                                                                                                      
+                                                   
+                                            
+                                                                                      
+                                  
+                                                                                                                                               
+                       
+                                                                                                                       
+                                                                                                                                  
+                                                                                                                                     
+                                     
+                                                                                                                                                                                                                                                                                                              
+                          
+                                                                                                                             
+                                
+                                                                                                                                                                                                                                                                                                                          
+                 
+                                
+ 
 
-(function(){ const m=gid('muteBtn'); if(m){ m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; } })();
-gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; try{ localStorage.setItem('aimdojo.soundOn', soundOn?'1':'0'); }catch(e){} queueCloudPrefs({sound_on:soundOn}); const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); reconcileTargetSounds(); });
+                                                                                                                           
+                                                                                                                                                                                                                                                                                                                               
 
-/* ========================= SHARE MODAL ========================= */
-(function(){
-  const shareOverlay=gid('shareOverlay'), shareBtn=gid('shareBtn'), shareClose=gid('shareClose');
-  const copyBtn=gid('copyBtn'), shareUrlInput=gid('shareUrl'), copyMsg=gid('copyMsg'), qrBox=gid('qrcode');
-  const QR_JS='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-  if(!shareOverlay || !shareBtn) return;
-  function linkUrl(){ return (location.protocol==='file:') ? location.href : (location.origin+location.pathname); }
-  function fallbackQR(url){
-    const img=document.createElement('img');                 // fallback if the QR lib didn't load
-    img.alt=TF('qrAlt','QR code for {url}',{url:url});
-    img.src='https://api.qrserver.com/v1/create-qr-code/?size=188x188&margin=0&data='+encodeURIComponent(url);
-    qrBox.appendChild(img);
-  }
-  function drawQR(url){
-    try{ new QRCode(qrBox,{text:url,width:188,height:188,colorDark:'#0b0d0c',colorLight:'#d8e0d4',correctLevel:QRCode.CorrectLevel.M}); return true; }catch(e){ return false; }
-  }
-  function buildQR(){
-    const url=linkUrl(); shareUrlInput.value=url; qrBox.innerHTML='';
-    if(window.QRCode){ if(!drawQR(url)) fallbackQR(url); return; }
-    loadScriptOnce(QR_JS).then(()=>{ if(shareOverlay.classList.contains('hidden')) return; qrBox.innerHTML=''; if(!drawQR(url)) fallbackQR(url); })
-      .catch(()=>{ qrBox.innerHTML=''; fallbackQR(url); });
-  }
-  function openShare(){ buildQR(); copyMsg.textContent=''; shareOverlay.classList.remove('hidden'); }
-  function closeShare(){ shareOverlay.classList.add('hidden'); }
-  shareBtn.addEventListener('click', openShare);
-  shareClose.addEventListener('click', closeShare);
-  shareOverlay.addEventListener('click', e=>{ if(e.target===shareOverlay) closeShare(); });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !shareOverlay.classList.contains('hidden')) closeShare(); });
-  copyBtn.addEventListener('click', async ()=>{
-    const url=shareUrlInput.value;
-    try{ await navigator.clipboard.writeText(url); copyMsg.textContent=T('copyOk','LINK COPIED')+' ✓'; }
-    catch(e){
-      try{ shareUrlInput.focus(); shareUrlInput.select(); document.execCommand('copy'); copyMsg.textContent=T('copyOk','LINK COPIED')+' ✓'; }
-      catch(_){ copyMsg.textContent=TF('copyManual','PRESS {keys} TO COPY',{keys:'⌘/CTRL+C'}); shareUrlInput.focus(); shareUrlInput.select(); }
-    }
-  });
-})();
+                                                                     
+            
+                                                                                                 
+                                                                                                           
+                                                                                    
+                                        
+                                                                                                                   
+                           
+                                                                                                  
+                                                      
+                                                                                                              
+                           
+   
+                       
+                                                                                                                                                                               
+   
+                     
+                                                                     
+                                                                  
+                                                                                                                                                   
+                                                           
+   
+                                                                                                     
+                                                                
+                                                
+                                                   
+                                                                                           
+                                                                                                                                
+                                               
+                                  
+                                                                                                        
+             
+                                                                                                                                             
+                                                                                                                                               
+     
+     
+     
 
-renderPrimary(false,false);
-animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
+                           
+                                                                                                                                                                                                   
                                                                                                                                                                   
                                                                                                                                                                                                                                               
                                                                                        

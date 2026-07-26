@@ -956,7 +956,7 @@ const CFG = {
   deal:{ on:true, planetAltDeg:5, spreadMul:1.5, windMul:0.7, quickMul:2.2, quickLifeMul:0.85,
          moverMul:1.8, fullDensityMul:1.2, fullGoldMul:1.8, fullMercyMul:1.3, pairChance:0.35,
          farMul:1.3, quietDensityMul:0.8, quietTickMul:1.6, quietBpmMul:0.6,
-         venusMul:1.8, mercuryMul:1.8, marsMul:1.8, jupiterDensMul:1.15, saturnFillMul:1.6 },   // planetAltDeg = how far above the horizon a mover must be to count as "up" (5° — lower than the stars' 8°, because a planet low on the horizon is still the one you can point at from the driveway) · spreadMul widens the NEW MOON's minimum-angle-from-aim cone (more bearings behind you — a wider cone rejects more rolled directions, so this night's spawns draw more often than a plain night's, which an active phase rule is allowed to do; see THE STREAM RULE above) · windMul = the WAXING CRESCENT's share of the shipped wind band (the WAXING GIBBOUS takes the full band) · quickMul/quickLifeMul = the FIRST QUARTER's speed-orb weight and its brisker orb life · moverMul = the WAXING GIBBOUS's wandering-orb weight · fullDensityMul/fullGoldMul/fullMercyMul = the FULL MOON's generous night (more field, more gold, a taller mercy swell) · pairChance = the WANING GIBBOUS's chance that a spawn is answered by a companion sharing a landable arrival beat (0 = no pairs and no extra draws; both members of a dealt pair are pinned PLAIN — see THE STREAM RULE above) · farMul scales the LAST QUARTER's whole distance band outward (gold with it) · quietDensityMul/quietTickMul/quietBpmMul = the WANING CRESCENT's sparser field, sooner silence and gentler tempo climb · venusMul/mercuryMul/marsMul = risen-planet weights on gold/speed/mover · jupiterDensMul = the fuller field a risen JUPITER brings, as a multiplier on the density p the spawn roll already compares against (1.2 — it was a +1 concurrency CAP, which is a gate: raising it made a beat take a spawn roll a planet-less night never takes) · saturnFillMul = how much a risen SATURN leans the drum fill's own 3-vs-2 figure draw toward the heavier three (1.2 — it was tank eligibility above tank.maxBpm, again a gate; above that tempo there is now no tank, Saturn or not). EVERY planet knob on this line is a WEIGHT on a roll that is spent anyway — see (c) in THE STREAM RULE
+         venusMul:1.8, mercuryMul:1.8, marsMul:1.8, jupiterDensMul:1.15, saturnFillMul:1.2 },   // planetAltDeg = how far above the horizon a mover must be to count as "up" (5° — lower than the stars' 8°, because a planet low on the horizon is still the one you can point at from the driveway) · spreadMul widens the NEW MOON's minimum-angle-from-aim cone (more bearings behind you — a wider cone rejects more rolled directions, so this night's spawns draw more often than a plain night's, which an active phase rule is allowed to do; see THE STREAM RULE above) · windMul = the WAXING CRESCENT's share of the shipped wind band (the WAXING GIBBOUS takes the full band) · quickMul/quickLifeMul = the FIRST QUARTER's speed-orb weight and its brisker orb life · moverMul = the WAXING GIBBOUS's wandering-orb weight · fullDensityMul/fullGoldMul/fullMercyMul = the FULL MOON's generous night (more field, more gold, a taller mercy swell) · pairChance = the WANING GIBBOUS's chance that a spawn is answered by a companion sharing a landable arrival beat (0 = no pairs and no extra draws; both members of a dealt pair are pinned PLAIN — see THE STREAM RULE above) · farMul scales the LAST QUARTER's whole distance band outward (gold with it) · quietDensityMul/quietTickMul/quietBpmMul = the WANING CRESCENT's sparser field, sooner silence and gentler tempo climb · venusMul/mercuryMul/marsMul = risen-planet weights on gold/speed/mover · jupiterDensMul = the fuller field a risen JUPITER brings, as a multiplier on the density p the spawn roll already compares against (1.2 — it was a +1 concurrency CAP, which is a gate: raising it made a beat take a spawn roll a planet-less night never takes) · saturnFillMul = how much a risen SATURN leans the drum fill's own 3-vs-2 figure draw toward the heavier three (re-cut in SKY DEAL 1.2 — it was tank eligibility above tank.maxBpm, again a gate; above that tempo there is now no tank, Saturn or not). THE VALUE IS 1.2 (MUSIC LANGUAGE 1.2 amendment, T5b): it shipped at 1.6, which put rnd()<min(1,0.5*1.6)=0.80 — a risen Saturn made FOUR IN FIVE fills the three-note figure, which is a rule wearing a weight's clothes. 1.2 → 0.60 vs the base 0.50: a lean you can feel over a session and never a near-certainty on the night. EVERY planet knob on this line is a WEIGHT on a roll that is spent anyway — see (c) in THE STREAM RULE
   // SENSEI'S ONE QUESTION (wave 4, parcel L): the game already keeps the only ledger this needs — THE BOW's _bowHits, one signed arrival error + the subdivision k that Echo was spawned for. Binned by LEAD (near/mid/far), a night answers ONE question: at which distance does this player consistently arrive off the beat, and which way? When the answer is real (enough samples, a bias big enough to hear), the Bow's one line becomes that observation INSTEAD OF the sky fact — the two never stack, and the line is never a number, never a grade, never twice running.
   // HOW IT REACHES TOMORROW: the observation is persisted (localStorage['aimdojo.sensei']) and, while it is fresh, the run's FIRST weightSwells swells bias the beat-quantized k CHOICE toward the weak lead. WEIGHTS ONLY, on the ONE draw beatSpawnDist already takes — same draw, same order, same count — so the sacred "distance = k sixteenths" law is untouched and a drilled night differs from a plain one only in which feasible k the same random number lands on. It is never announced, never visible, and it expires in silence.
   // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
@@ -992,7 +992,10 @@ const CFG = {
   specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
   // THE TANK IS A DRUM FILL (music language): the multi-hit tank stops being a random interruption and becomes the phrase's PUNCTUATION. With fillOnly (and TIDES live) the rnd()<multiHitChance roll is gone entirely: AT MOST ONE tank per swell, elected in the first half of the FINAL PEAK BAR (the bar before mercy), and the hits it asks for are a STATED figure of sixteenths counted from that bar's downbeat — fig2 = "and-of-4 → 1", fig3 = "4 → and-of-4 → 1", where the 1 is the MERCY DOWNBEAT. The figure replaces the whole-beat orbOpen gate on that one orb (its notes sit off the beat, where orbOpen never opens) and is judged by the SAME skill-tightened grooveOpenSec seconds every other arrival is judged by, just re-centred on the figure's sixteenth. The walking note per landed hit becomes an ascending run through the theme's own scale that LANDS ON THE TONIC (CHORD_ROOT[0], octave-lifted into the walk's register) exactly on the 1 — so the existing tank finale and wave 1's mercy pad bloom fire on the same downbeat and the fill literally launches the exhale. No new sound, no new voice, no scheduling of its own: alignment does all of the work.
   // Kill-switch is tank.fillOnly:false (or tide.on:false) → the multiHitChance roll and the whole-beat gate run exactly as today, and every orb carries fill16:-1 so no figure code is ever reached. Inert in the trainer (specials are off there, and the tide block returns before the election) and in the Temple (no spawns at all). SCORING IS UNTOUCHED: a fill hit chips and the last one calls gradeRhythmHit exactly as today, so the daily/ghost invariant score===h.length still holds; an incomplete figure is NOT punished AT ALL — at mercy end the tank takes a NEUTRAL expiry branch (no streak reset, no pushEvent, no FADED, no whiff, no groove duck), because a stated figure is an offer and declining it is not a miss. Its trail also ages on its OWN stretched life (lifeBeatsEff), so the white→red→white ink still reads as the honest clock it is on every other orb.
-  tank:{ maxBpm:150, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16, fillOnly:true, fig2:[14,16], fig3:[12,14,16] },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). maxBpm: no tanks above this (3 fast leads on one orb gets brutal) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated hits are manageable · fillOnly = the tank spawns ONLY as the swell's closing fill (see above) · fig2/fig3 = the required hits as SIXTEENTHS from the fill bar's downbeat, 16 = the mercy downbeat (the landing note). The ARRAY LENGTH is the hit count, so a longer figure is a longer tank with no other edit — and the 2-vs-3 pick is the same single rnd() draw today's tank already takes.
+  tank:{ maxBpm:150, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16, fillOnly:true, fig2:[12,16], fig3:[8,12,16] },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). maxBpm: no tanks above this (3 fast leads on one orb gets brutal) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated hits are manageable, and spec 1.2 (T5a) made that an INVARIANT rather than a wish — see the fill re-draw in spawnTarget · fillOnly = the tank spawns ONLY as the swell's closing fill (see above) · fig2/fig3 = the required hits as SIXTEENTHS from the fill bar's downbeat, 16 = the mercy downbeat (the landing note). The ARRAY LENGTH is the hit count, so a longer figure is a longer tank with no other edit — and the 2-vs-3 pick is the same single rnd() draw today's tank already takes.
+  // THE FIGURE SITS ON WHOLE BEATS (SPEC_MUSIC_LANGUAGE 1.2 amendment T1 — every "spec 1.2" below is that document's parcel-G amendment, T1..T5). It shipped as fig2 [14,16] / fig3 [12,14,16] — gates TWO sixteenths apart, on the "and-of-4". The flight time of a tank's own shot is k sixteenths (k drawn from beatSpawnSixteenths, capped at maxLeadSixteenths=4), so the time between LANDING one gate and having to RELEASE for the next is (spacing-k) sixteenths plus the two window edges you may use: budget = (spacing-k)·(15/bpm)s + 2·win, win = grooveOpenSec (0.26s learning → 0.12s expert). At spacing 2 that budget is NEGATIVE wherever k>2: k=4 needs bpm>15/win to break even (≈58bpm learning, ≈125bpm expert) and k=3 needs bpm>7.5/win (≈29bpm / ≈63bpm) — at the 28bpm start it was −0.55s (k=4, learning) to −0.83s (k=4, expert), i.e. the second note had to be fired BEFORE the first one landed. Nobody can play that.
+  // At spacing 4 ("4 → 1" and "3 → 4 → 1") the worst case is k=maxLeadSixteenths=4, where the tempo term vanishes and the budget is exactly 2·win = +0.52s learning / +0.24s expert AT EVERY TEMPO; k=3 gives +1.06s at 28bpm and +0.34s at 150bpm expert, k=2 gives +1.59s / +0.44s. Positive at every live tempo (28 → 150, or → 172 on a FULL MOON), by construction and not by luck. Every gate now falls where the whole-beat glow already peaks, so the fill's pulse and the field's pulse agree; the last gate is still the MERCY DOWNBEAT, so the finale pop + tideBloom payoff is untouched. The 3-figure's OPENER moved inside the election window's reach (the fill bar's first half elects, leaving 2-8 sixteenths before sixteenth 8, vs 6-12 before sixteenth 12) — a late election can now put that opener inside the flight time, which is exactly the case T2's forward search absorbs: the opener is consumed by the beat-4 landing instead of dead-locking the fill.
+  // openFrac is VESTIGIAL (spec 1.2): the wide whole-beat tank window it fed — tankOpen()/tankGlow()/tankBeatPhase() — was already unreachable (the fill's figure gate is the tank's only window) and those three husks were deleted. blinkWin was dead with them and is REVIVED by T4 as the fill's own blink: the floor on the visual half-width, in BEATS, of the light that tracks the tank's NEXT needed gate (the cue is the judged window, but never narrower than this — at 20-40bpm win alone is a pinprick — and never narrower than the pocket it advertises, because a cue tighter than its own window lies).
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
@@ -1107,9 +1110,7 @@ let _jukeIdx=-1;   // last whole-beat index an orb-JUKE fired on (groove Phase 1
 function wasdBeats(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b - (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // WASD note grid, phase-shifted onto the "and" so the freeze PEAKS off-beat; the metronome / orb-strobe / juke / shot all stay on the RAW whole beat
 let _openAmt=1;   // orb-vulnerability glow 0..1 (peaks on the beat); recomputed each frame in the run loop
 function orbOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || _openAmt>0; }   // a shot only KILLS while the orb glows OPEN (on the beat); an off-beat hit clanks off the shield
-function tankBeatPhase(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} const bps=60/Math.max(20,state.bpm), lat=audioLat(); const p=b-lat/bps; return p-Math.floor(p); }   // heard beat phase 0..1 (audioLat = reported latency + user offset)
-function tankOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || tankBeatPhase()<=CFG.tank.openFrac; }   // TANK VULN is a WIDE window: killable during the first CFG.tank.openFrac of EVERY beat (0.75 = the first three of four 16ths; the last one rests), vs the narrow orbOpen. So you UNLOAD several hits per beat and a rapid follow-up still counts — instead of "one hit closes the window."
-function tankGlow(b){ const p=b-Math.floor(b), d=Math.min(p, Math.abs(p-0.5), 1-p); return 0.05+0.55*Math.max(0, 1-d/CFG.tank.blinkWin); }   // TANK glow BLINKS on the 8th-note grid (the "1" and the "and") — discrete "tap here" flashes, not a continuous plateau; the hit window (tankOpen) stays wide/forgiving underneath
+let _fillAmt=-1;   // THE FILL'S OWN PULSE (spec 1.2, T4): 0..1 nearness to the live drum-fill tank's NEXT needed gate, or -1 = "no fill tank is asking for anything right now", which is every frame of a fillOnly:false build. Written once per frame beside _openAmt in the run loop and read by the two places the shell is shaped (TANK_SHELL_MAT opacity, and that one target's shell scale) — so the tank blinks on its FIGURE while the field blinks on the beat. The three husks that used to live on this line (tankBeatPhase/tankOpen/tankGlow — the wide whole-beat tank window) were deleted here: nothing had called them since the tank became a fill, and CFG.tank.blinkWin now feeds this cue instead of that one.
 let _fireGrid=-1;   // FIRE QUANTIZE: last 1/fireQuantDiv-beat grid index a shot launched on (so at most one shot per grid step)
 /* RAIL-FLICK BONUS (#4) state — freeze the field, flick-lock orbs on the beat, cascade-detonate. bonusActive spans BOTH the lock phase and the resolve/cascade phase (field stays frozen through both). Never scales dt/Tone.Transport (the beat MUST keep ticking so on-beat locking works). */
 let bonusActive=false, _bonusResolving=false, _bonusJustArmed=false, bonusEndsBeat=0, _bonusEntryBeat=0, _bonusCascadeBeat=0, _bonusLast=-999, _bonusGrace=0;
@@ -4700,11 +4701,31 @@ function paintStudySurface(pick, data, skeleton){
                                                                       
                                                                  
  
-                                                                                                                                                                                                                                                  
-                                                                                                                                        
-                                                                                                                                                                             
+                                                                                                                                                                                                                                                               
+                                                                                                                          
+                                                                                                                          
+                                                                                                                            
+                                                                                                                           
+                                                                                                                          
+                                                                                                                                  
+                                                                                                        
+                                                                                                                                                                                                                                           
+                        
                                                                                                                     
-                                                                                                                               
+                                 
+                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                  
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                      
+                           
+                                                   
+                                                                                                                                                               
+                                                                                                                      
+                                                    
+                                                                              
+   
+            
  
                                                                                                                                         
                                          
@@ -5821,6 +5842,12 @@ function paintStudySurface(pick, data, skeleton){
                                                                                                                                                                                                                                                   
  
                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                      
+                       
+                                                                         
+                                                                      
+ 
                            
                                
                 
@@ -5881,9 +5908,24 @@ function paintStudySurface(pick, data, skeleton){
      
    
                                                                                                                                   
+                                                                                                                         
+                                                                                                                        
+                                                                                                                       
+                                                                                                                          
+                                                                                                                  
+                                                                                                                       
+                                                                                                                          
+                                                                                                                          
+                                                                                                                        
+                                                                                
+                  
+                                                                                                                                                                                         
+                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+       
                         
                                                                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                   
                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                 
@@ -6016,8 +6058,17 @@ function paintStudySurface(pick, data, skeleton){
                           
                                                       
  
-                                                                                                            
-                                                                     
+                                                                                                                  
+                                                                                                                     
+                                                                                                                         
+                                                                                                                          
+                                                                                                                        
+                                                                                                                             
+                                                                                                                         
+                                                                                                                          
+                                                                                                      
+                                                               
+                    
                                        
                                                                                                                                                                                                                                                                                  
                     
@@ -6029,10 +6080,14 @@ function paintStudySurface(pick, data, skeleton){
  
                                                                                                                                                                                                                                                                                                                                                   
                                   
-                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                          
+                                                                                                                                           
+                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                               
+   
                                                                                                                                                                                                                      
-          
-                                                                                               
+               
+                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                         
                                       
@@ -6041,7 +6096,7 @@ function paintStudySurface(pick, data, skeleton){
  
                       
                                                                                                                                 
-                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                   
  
@@ -7052,6 +7107,7 @@ function paintStudySurface(pick, data, skeleton){
 
                                      
                 
+                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                              
                                                                             
                                                                                                                                                                     
@@ -7065,6 +7121,16 @@ function paintStudySurface(pick, data, skeleton){
                                                                                
                                                                                                            
                                                                                                                                                                                   
+                                                                                                                         
+                                                                                                                          
+                                                                                                                           
+                                                                                                                       
+                                                                                                                          
+                                                                                                                            
+                                                                                                                            
+                                                                                                                             
+                                                        
+                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                         
                                                                                                                                           
                        
@@ -7103,7 +7169,7 @@ function paintStudySurface(pick, data, skeleton){
                                          
                 
                                                                                                                                      
-                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                 
                                      
          
