@@ -144,6 +144,10 @@ function floorFrame(expected, beats, pocketEnabled = true) {
       beatQuant: true,
       beatQuantDivs: [2, 4, 8],
       beatQuantT: [0.4, 0.75],
+      // THE FORTY FIX (parcel R): the lane reads its OWN ladder now, so the floor-tint sandbox must carry it. diffT() is stubbed at 0 below,
+      // so wasdNoteDiv() returns 1 exactly as the old inline beatQuantT expression did — every expectation in these tests is unchanged.
+      wasdNoteDivs: [2, 4, 8],
+      wasdNoteT: [0.75, 1.01],
       floorBeat: true,
       floorBeatDayMul: 2.2,
       floorBeatMax: 0.45,
@@ -182,9 +186,38 @@ function floorFrame(expected, beats, pocketEnabled = true) {
     wasdBeats: () => beats,
     wasdBeatsHeard: () => beats,
   });
-  vm.runInContext(`${extractFunction("updateFloorBeat")}; updateFloorBeat();`, context);
+  vm.runInContext(`${extractFunction("wasdNoteDiv")}; ${extractFunction("updateFloorBeat")}; updateFloorBeat();`, context);
   return { amount: amount.value, color: seen.color };
 }
+
+test("THE FORTY FIX: the lane demands exactly one key per beat across 20-50 bpm and never four (R)", () => {
+  const cfg = extractCfg();
+  assert.equal(cfg.wasdNoteDivs.join(","), "2,4,8", "lane divs mirror the strobe's shape");
+  assert.equal(cfg.wasdNoteT.join(","), "0.75,1.01", "lane thresholds are the lane's own: 50.0 bpm, then off the top of the world");
+  assert.equal(cfg.beatQuantT.join(","), "0.4,0.75", "the ORB STROBE's audited 36/50 deepening is untouched by the decoupling");
+
+  const context = vm.createContext({ Math, Number, CFG: cfg });
+  vm.runInContext(extractFunction("wasdNoteDiv"), context);
+  // diffT() verbatim (index.html): clamp((bpm-minBpm)/(maxBpm-minBpm)) — linear in tempo, so a threshold IS a tempo.
+  const diffT = (bpm) => Math.max(0, Math.min(1, (bpm - cfg.minBpm) / (cfg.maxBpm - cfg.minBpm)));
+  const nd = (bpm) => vm.runInContext(`wasdNoteDiv(${diffT(bpm)})`, context);
+
+  for (let bpm = 20; bpm < 50; bpm += 0.5) assert.equal(nd(bpm), 1, `one demanded press per beat at ${bpm} bpm`);
+  for (let bpm = 50; bpm <= 60; bpm += 0.5) assert.equal(nd(bpm), 2, `mains stay one per beat with one optional ghost at ${bpm} bpm`);
+  assert.equal(nd(60), 2, "the summit never asks for four presses a beat (240/min is a mash test)");
+  assert.equal(nd(1e6), 2, "diffT clamps at 1.00, so wasdNoteT[1]=1.01 is out of the world by construction");
+});
+
+test("DE-COERCION: an in-between note is claimable but cannot break the combo (R)", () => {
+  // The lane draw ghosts a bonus note (dim ring + dim letter) and animate's combo reset is gated on _curMain.
+  assert.match(html, /const lw=main\?4\.5:2\.0, ghost=main\?1:0\.45;/, "bonus ring renders as a ghost");
+  assert.match(html, /showWasdGlyph\(letterKey, spoiled, \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld, ghostNote\)/, "bonus letter renders as a ghost");
+  assert.match(html, /if\(_curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)\{ _baseMul=1; _wasdCombo=0; \}/, "only a MAIN going unresolved zeroes the bonus combo");
+  assert.match(html, /else if\(acc>0\) _wasdCombo\+\+;/, "claiming a bonus note still credits the combo");
+  assert.equal((html.match(/nd=wasdNoteDiv\(\)/g) || []).length, 6, "all six inline note-density computations call the one helper");
+  assert.equal((html.match(/nd=Math\.max\(1,spb\/2\)/g) || []).length, 0, "no duplicated inline density expression survives");
+  assert.equal((html.match(/spb=dT<t\[0\]\?d\[0\]:\(dT<t\[1\]\?d\[1\]:d\[2\]\)/g) || []).length, 1, "the one surviving tier expression is the ORB STROBE's own");
+});
 
 test("rolling-pocket CFG: feature shelved by default; buffer knobs remain (B1, B6)", () => {
   const cfg = extractCfg();

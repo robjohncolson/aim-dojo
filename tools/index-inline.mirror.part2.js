@@ -951,6 +951,7 @@
                                                                    
                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
@@ -1207,6 +1208,27 @@
                                                    
                                                 
  
+                                                                                                                                         
+                                                                                                                                              
+                                                   
+                                                                                                                                                  
+                                                                                                                                             
+                                                                                                                                                  
+                                                                                                                                                   
+                                                                                                                                                   
+                                                                                                                                               
+                                                                                                                                                 
+                                                                                                                                                
+                                                                                                                                                
+                                                                                                                                                    
+                                                                                                                                                  
+                                                                                                                                                
+                                                                                                                                                 
+                                                                                 
+                         
+                                                                               
+                                                          
+ 
                                                                                                                                                                                       
                                                                 
                                                       
@@ -1331,7 +1353,7 @@
  
                                                                                                                                                 
                                                                                          
-                                                                                                                                                                                                                                         
+                                                                                                                                            
                              
                                          
                                                            
@@ -2829,33 +2851,33 @@
                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                        
 
-                                                                                                     
-                                                                                                                
-                                                                                                                      
-                                                                                                                                                 
-                                                                                                      
-                                                                                                           
-                                                                                                                                            
-                                                                                                                                          
-                                                                                                        
-                                                                                                                                                               
-                                                                                                                                                       
-                                                                                                         
-                                                      
-                                                                                                                                                                  
-                               
-                                                                                            
-                                                                                                                                                                                     
-                                                                                                                                                                                                                       
-                                                                                                                                                    
- 
-                          
-                                                                                                               
-                                     
-                                                                                   
-                                       
-                                                          
- 
+/* ========================= SKY LISTEN (Parcels K + N — study, not combat) =========================
+   In clocked or clocked_chart, natural or theatre: a clear celestial pick becomes LISTEN — a brief muzzle line,
+   gold constellation/existing glyph, and an immediate static glossary card. A saved authenticated chart may enrich it
+   from Railway; legacy natal-id packs keep the explicitly local "deep desk" (:8742). A listen NEVER spawns a projectile and NEVER touches shots,
+   streak, clank, whiff or the fire grid — the single integration point is one early-return in fire().
+    Dismiss (pointer-lock safe): R-CLICK · X/Q/Backspace · fire into empty sky · new listen · holdSec auto.
+   Esc is PAUSE only. The card × is cosmetic under lock (mouse aims, never free for UI). All copy is symbolic study language, never fate. */
+let _stickFig=null, _lsnMeta=null;            // fallback centroids + ☉/☽ first; exact day/personal pack metadata atomically replaces them
+const _lsnBody={};                            // mover display metadata collected during the chart build
+const _lsn={sel:null, line:null, lineT:-1, ghost:null, emphasis:[], card:null, cardBody:null, dismissBtn:null, holdT:-1, seq:0, cache:new Map(), goldFig:null};
+const _lsnW=new THREE.Vector3(), _lsnP=new THREE.Vector3(), _lsnDir2=new THREE.Vector3(), _lsnRt=new THREE.Vector3(), _LSN_UP=new THREE.Vector3(0,1,0);
+const LSN_SIGN_FIG={scorpio:'scorpius', capricorn:'capricornus'};   // pack sign ids ↔ fixture figure ids
+const LSN_GOLD=new THREE.Color(0xffd24a), LSN_DIM=0.5;
+function refreshPublicListenMeta(){   // API-independent pick map: constellation centroids + honest Meeus ☉/☽ (sign left unknown until a pack supplies boundaries)
+  if(_chartPackRank>=0) return;
+  const signs=Object.create(null), bodies=Object.create(null), ghostLon=Object.create(null);
+  if(_stickFig&&_stickFig.signs) for(const id in _stickFig.signs){ const s=_stickFig.signs[id]; signs[id]={glyph:SKY_SIGN_GLYPHS[id]||s.glyph||'?',pos:s.pos,lon:null,sprite:null}; }
+  if(_lum) for(const id of ['sun','moon']){ const t=_lum[id]; if(!t) continue; bodies[id]={name:id==='sun'?'Sun':'Moon',glyph:id==='sun'?'☉':'☽',sign:null,lon:t.lon,pos:t.glyph.position,sprite:t.glyph,delta:null}; }
+  _lsnMeta={source:'fallback',bodies:bodies,signs:signs,ghostLon:ghostLon,templeGhosts:Object.create(null),aspects:[],signOf:()=>null,natalId:null};
+}
+refreshPublicListenMeta();
+function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centre); huge when behind the camera
+  camera.getWorldDirection(_lsnDir2);
+  _lsnP.copy(worldPos).sub(camera.position); if(_lsnP.dot(_lsnDir2)<=0) return 1e9;
+  _lsnP.copy(worldPos).project(camera);
+  return Math.hypot(_lsnP.x*0.5*viewW, _lsnP.y*0.5*viewH);
+}
 function _lsnOrbBlocksSky(){   // true only if the aim ray pierces an Echo or its disc covers the reticle (never Listen "through" a sphere). The old combatPx near-miss clause is GONE (2026-07-26): star-bound spawns put Echoes ON the zodiac band, so near-miss priority made held-E selection nearly impossible — and held-E is already an explicit sky gesture, so only a truly covering orb should win. THE BLOCK IS THE SILHOUETTE (1.4): both pads are now skim margins, not authority — the test answers "is this Echo actually in front of the star", and the ONLY reason it is not a bare ray–sphere test is that an orb one pixel off the reticle should not be shot through.
   // 1) ray–sphere (pad = a thin skim margin on the true radius)  2) projected disc + pxPad (0 by default, so the disc IS the drawn disc)
   camera.getWorldDirection(_lsnDir2);
@@ -5570,47 +5592,47 @@ function cardLoad(){
   }
   _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
 }
-function cardSave(){
-  // ONE write per Bow. Not throttled and not accreted: a night produces exactly one of these, and it REPLACES
-  // yesterday's outright — the card is the only thing in this game that is deliberately not kept.
-  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor bows: defence in depth (bowLive already gates the ceremony itself)
-  const n=_bowHits.length; if(!n) return;   // a hitless night leaves no card at all — no write, no button, nothing to explain
-  const cap=Math.max(1,CFG.nightCard.maxDots|0), from=Math.max(0,n-cap), pairs=[], hits=[];
-  for(let i=from;i<n;i++){ const e=Math.round(_bowHits[i].errMs), k=_bowHits[i].k|0; pairs.push([e,k]); hits.push({errMs:e,k:k}); }   // the MOST RECENT, exactly as the Mandala kept them, rounded to whole ms (the glyph plots angles, not measurements)
-  const stars=_cardStars.slice(0,cap);
-  const rec={ v:1, d:phasesToday(), phase:moonPhaseBucket(), rule:(CFG.deal.on?_deal.ph:-1),
-    hb:Math.round((60/Math.max(20,state.bpm))*500), hits:pairs, stars:stars };   // phase = THE one phase authority (the moon that was actually up); rule = the night the sky actually DEALT, so a night with the deal off names nothing rather than naming a rule that never applied; hb = the half-beat the glyph's angles were measured against, so a reopened card is the same picture and not a rescaled one
-  _cardLoaded=true;
-  _card={ d:rec.d, phase:rec.phase, rule:rec.rule, hb:rec.hb, hits:hits, stars:stars };   // in memory FIRST: a full or blocked quota still offers this page the card it just earned
-  try{ localStorage.setItem(CARD_KEY, JSON.stringify(rec)); }catch(e){}   // a lost write costs tonight's card and nothing else — the stars, the stamp and the records were all banked by their own parcels
-}
-function cardToday(){ cardLoad(); return (_card && _card.d===phasesToday()) ? _card : null; }   // yesterday's card is GONE: the same local civil calendar the stamp, the greeting and the deal's freshness gate turn over on
-function cardStale(){
-  // The night turned over while a surface was still up: take the WHOLE offer down. The button first, so nothing can
-  // re-open what is gone, then the view — a wrapper with nothing paintable in it is not something to leave on screen.
-  const b=gid('nightCardBtn'); if(b) b.style.display='none';
-  cardClose();
-}
-function cardFresh(){
-  // 1.1 amendment (wave 5a review, M2): THE ONE DATE GATE, and every card entry point takes it — the offer, the open,
-  // the paint and both shares. cardOffer used to be the only same-day test in the parcel, which meant a button or a
-  // view left open ACROSS LOCAL MIDNIGHT stayed live: still clickable, still exportable, and painting nothing into a
-  // wrapper that stayed up. A card belongs to one night; at every door, it is either tonight's or there is no card.
-  const rec=cardToday();
-  if(!rec){ cardStale(); return null; }
-  return rec;
-}
-function cardOffer(){
-  // The whole offer: one button in the chrome row that already holds RECORDS and SHARE, shown only while tonight has
-  // something to show. Never a toast, never a badge, never a nag.
-  const b=gid('nightCardBtn'); if(!b) return;
-  const rec=cardFresh();       // a card that has aged out of today takes its own button and view down with it
-  b.style.display=rec?'':'none';
-  if(rec && _cardOpen) cardPaint();   // a second Bow tonight repaints the view that is already open
-}
-function cardOpen(){ if(!cardFresh()) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); cardPaint(); }   // the gate FIRST (M2): a stale button refuses to open and hides itself instead
-function cardClose(){ const w=gid('nightCardWrap'); if(!w) return; _cardOpen=false; w.style.display='none'; }
-function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||''; }
+                    
+                                                                                                              
+                                                                                                  
+                                                                                                                                                                       
+                                                                                                                              
+                                                                                           
+                                                                                                                                                                                                                                                          
+                                      
+                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                 
+                   
+                                                                                                                                                                                    
+                                                                                                                                                                                                           
+ 
+                                                                                                                                                                                                                             
+                     
+                                                                                                                    
+                                                                                                                      
+                                                            
+              
+ 
+                     
+                                                                                                                      
+                                                                                                                    
+                                                                                                                     
+                                                                                                                    
+                        
+                                       
+             
+ 
+                     
+                                                                                                                     
+                                                                  
+                                             
+                                                                                                              
+                                
+                                                                                                    
+ 
+                                                                                                                                                                                                                                                               
+                                                                                                             
+                                                                                    
                          
                                                                                                                  
                                                                                                                         
@@ -6315,7 +6337,7 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
                                                                                                                    
                                                                                                                                                                                     
                              
-                                                                                                                                         
+                                                                                                                                                                       
                                                                                                               
                                                                                                                             
                                                                                                                                                                                                              
@@ -6675,15 +6697,16 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
                                                   
                                                                                                                                                                                                              
  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                            
                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                         
                                                                                    
-                                         
+                                                                                                                                                                     
                           
                                                                                                  
-                                                                                                                     
+                                                                                                                                                 
                                                                             
  
                         
@@ -6704,8 +6727,8 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
                                                                                                                            
                                                                                                                                                                                                              
                                                                                                                                                                           
-                                                        
-                                                                                                                        
+                                                                                                                                                                                        
+                           
                                
                                                                                                                       
                                                             
@@ -6716,16 +6739,16 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
             
                                                                                                                  
      
-                                                                                      
+                                                                                                       
                                                                                                                                                                                                 
                                                                                                                                                         
                                                                                                                                                                                                                                                                                       
                                                                                                                    
                                                                                                                                                                                                                                                                                                                                             
                           
-                            
-                                                                                                      
-                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                               
+                                                                                                            
+                                                                                                                                                                
        
                                                                                                                                                       
                    
@@ -6735,7 +6758,7 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
             
    
                                                                                                                                                                                
-                                                                                  
+                                                                                             
                                                                                                                                                                                                                                       
                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -6861,7 +6884,7 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
                                                                                                              
                                                             
                 
-                                                                                                                        
+                           
                                                                                                           
                                                                                                                       
                                                        
@@ -7062,7 +7085,7 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
                                                                                                                                                                                                                                                               
                                                                                                                                                
                   
-                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                        
                                                                                             
  
                                                        
@@ -7324,10 +7347,10 @@ function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||'
                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                            
                  
-                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                    
                                      
                                                                                                                                                                      
-                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                      
                                                                                      
                                                                                                                                                                                                                                                          

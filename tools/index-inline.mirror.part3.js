@@ -951,6 +951,7 @@
                                                                    
                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
@@ -1207,6 +1208,27 @@
                                                    
                                                 
  
+                                                                                                                                         
+                                                                                                                                              
+                                                   
+                                                                                                                                                  
+                                                                                                                                             
+                                                                                                                                                  
+                                                                                                                                                   
+                                                                                                                                                   
+                                                                                                                                               
+                                                                                                                                                 
+                                                                                                                                                
+                                                                                                                                                
+                                                                                                                                                    
+                                                                                                                                                  
+                                                                                                                                                
+                                                                                                                                                 
+                                                                                 
+                         
+                                                                               
+                                                          
+ 
                                                                                                                                                                                       
                                                                 
                                                       
@@ -1331,7 +1353,7 @@
  
                                                                                                                                                 
                                                                                          
-                                                                                                                                                                                                                                         
+                                                                                                                                            
                              
                                          
                                                            
@@ -5570,47 +5592,47 @@
    
                                                                            
  
-                    
-                                                                                                              
-                                                                                                  
-                                                                                                                                                                       
-                                                                                                                              
-                                                                                           
-                                                                                                                                                                                                                                                          
-                                      
-                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                 
-                   
-                                                                                                                                                                                    
-                                                                                                                                                                                                           
- 
-                                                                                                                                                                                                                             
-                     
-                                                                                                                    
-                                                                                                                      
-                                                            
-              
- 
-                     
-                                                                                                                      
-                                                                                                                    
-                                                                                                                     
-                                                                                                                    
-                        
-                                       
-             
- 
-                     
-                                                                                                                     
-                                                                  
-                                             
-                                                                                                              
-                                
-                                                                                                    
- 
-                                                                                                                                                                                                                                                               
-                                                                                                             
-                                                                                    
+function cardSave(){
+  // ONE write per Bow. Not throttled and not accreted: a night produces exactly one of these, and it REPLACES
+  // yesterday's outright — the card is the only thing in this game that is deliberately not kept.
+  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor bows: defence in depth (bowLive already gates the ceremony itself)
+  const n=_bowHits.length; if(!n) return;   // a hitless night leaves no card at all — no write, no button, nothing to explain
+  const cap=Math.max(1,CFG.nightCard.maxDots|0), from=Math.max(0,n-cap), pairs=[], hits=[];
+  for(let i=from;i<n;i++){ const e=Math.round(_bowHits[i].errMs), k=_bowHits[i].k|0; pairs.push([e,k]); hits.push({errMs:e,k:k}); }   // the MOST RECENT, exactly as the Mandala kept them, rounded to whole ms (the glyph plots angles, not measurements)
+  const stars=_cardStars.slice(0,cap);
+  const rec={ v:1, d:phasesToday(), phase:moonPhaseBucket(), rule:(CFG.deal.on?_deal.ph:-1),
+    hb:Math.round((60/Math.max(20,state.bpm))*500), hits:pairs, stars:stars };   // phase = THE one phase authority (the moon that was actually up); rule = the night the sky actually DEALT, so a night with the deal off names nothing rather than naming a rule that never applied; hb = the half-beat the glyph's angles were measured against, so a reopened card is the same picture and not a rescaled one
+  _cardLoaded=true;
+  _card={ d:rec.d, phase:rec.phase, rule:rec.rule, hb:rec.hb, hits:hits, stars:stars };   // in memory FIRST: a full or blocked quota still offers this page the card it just earned
+  try{ localStorage.setItem(CARD_KEY, JSON.stringify(rec)); }catch(e){}   // a lost write costs tonight's card and nothing else — the stars, the stamp and the records were all banked by their own parcels
+}
+function cardToday(){ cardLoad(); return (_card && _card.d===phasesToday()) ? _card : null; }   // yesterday's card is GONE: the same local civil calendar the stamp, the greeting and the deal's freshness gate turn over on
+function cardStale(){
+  // The night turned over while a surface was still up: take the WHOLE offer down. The button first, so nothing can
+  // re-open what is gone, then the view — a wrapper with nothing paintable in it is not something to leave on screen.
+  const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  cardClose();
+}
+function cardFresh(){
+  // 1.1 amendment (wave 5a review, M2): THE ONE DATE GATE, and every card entry point takes it — the offer, the open,
+  // the paint and both shares. cardOffer used to be the only same-day test in the parcel, which meant a button or a
+  // view left open ACROSS LOCAL MIDNIGHT stayed live: still clickable, still exportable, and painting nothing into a
+  // wrapper that stayed up. A card belongs to one night; at every door, it is either tonight's or there is no card.
+  const rec=cardToday();
+  if(!rec){ cardStale(); return null; }
+  return rec;
+}
+function cardOffer(){
+  // The whole offer: one button in the chrome row that already holds RECORDS and SHARE, shown only while tonight has
+  // something to show. Never a toast, never a badge, never a nag.
+  const b=gid('nightCardBtn'); if(!b) return;
+  const rec=cardFresh();       // a card that has aged out of today takes its own button and view down with it
+  b.style.display=rec?'':'none';
+  if(rec && _cardOpen) cardPaint();   // a second Bow tonight repaints the view that is already open
+}
+function cardOpen(){ if(!cardFresh()) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); cardPaint(); }   // the gate FIRST (M2): a stale button refuses to open and hides itself instead
+function cardClose(){ const w=gid('nightCardWrap'); if(!w) return; _cardOpen=false; w.style.display='none'; }
+function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||''; }
 function cardDateText(d){
   // The date, and the ONLY numbers on the card — a date is not a score, and a night you can name is the point of
   // keeping one. EN spells the month so it can never be read as a fraction; JA takes the numeric form it actually uses.
@@ -6315,7 +6337,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(_bow.stage>=BOW.LAST) return;   // the ceremony owns the field from Last Light on; the lane goes quiet with it
   if(bonusActive){ flickLockPress(); return; }   // RAIL-FLICK BONUS: any WASD/pad-face tap CONFIRMS a flick-lock (on-beat + crosshair on an orb) instead of driving the rhythm grid
   if(!CFG.wasdRhythm) return;
-  const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+  const len=_combo.length, nd=wasdNoteDiv();   // THE FORTY FIX: the LANE's density, not the orb strobe's — one demanded key per beat on every rung of the tempo ladder
   let beats=wasdBeats();   // WASD grid shifted onto the "and" (groove phase); latency correction applied next
   const bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5, Math.max(CFG.wasdWindow, full*CFG.wasdWindowFrac));
   const lat=audioLat(); beats-=lat/bps;   // grade in the HEARD timeline (audioLat = reported latency + user offset) -- without this, high-latency audio makes every tap grade BEHIND and PERFECT unreachable
@@ -6675,15 +6697,16 @@ function updateTargetMarks(){                                                 //
     else m.hlabel.classList.remove('on','held'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
 }
-/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
+/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride the LANE's own ladder (wasdNoteDiv — one per beat from 20 to 50 bpm, an optional in-between one from 50 to 60; it used to be half the orb-jump rate, which THE SIXTY CAP turned into a doubled press demand from ~37.5 bpm up). On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); in-between (BONUS) notes draw as dim ghosts and stack a combo that calms the field further + intensifies the groove — claiming one credits it, skipping one costs nothing, and only a MAIN going unresolved resets it. Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
+const WASD_COL_GHOST=WASD_COL.map(c=>c+'73');   // DE-COERCION (parcel R): the same four colors at alpha 0x73 (0.45) — an in-between (bonus) note is drawn as a GHOST of its key, so the eye reads "optional" with no new text and no new glyph. Precomputed once (setStyle caches, so the letter costs nothing per frame).
 const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
-function showWasdGlyph(key, spoiled, on){
+function showWasdGlyph(key, spoiled, on, ghost){   // ghost = this note is an in-between (bonus) one: same letter, dimmed, because it is claimable but never demanded
   if(!wasdGlyphEl) return;
   if(!on){ if(wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.remove('on'); return; }
-  setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':WASD_COL[key]);
+  setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':(ghost?WASD_COL_GHOST[key]:WASD_COL[key]));
   if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
 }
 function drawWasdLane(){
@@ -6704,8 +6727,8 @@ function drawWasdLane(){
   if(showHud){ hudCtx.globalAlpha=0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
     hudCtx.globalAlpha=0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0&&!pocketTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
   // ---- the IN-FOCUS note: optional legacy circle converges at expected; an explicitly enabled colored target instead keeps the raw path so both rings cross there. ----
-  let letterKey=_combo[0], spoiled=false, hitHeld=false;
-  { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+  let letterKey=_combo[0], spoiled=false, hitHeld=false, ghostNote=false;   // ghostNote: the in-focus note is an in-between (bonus) one — only possible at nd>1, i.e. the 50..60 summit
+  { const nd=wasdNoteDiv();
     syncWasdResolutionGrid(nd);
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
     const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
@@ -6716,16 +6739,16 @@ function drawWasdLane(){
     } else {
       ci=Math.round(beats*nd); ckey=_combo[((ci%len)+len)%len]; main=((((ci%nd)+nd)%nd)===0); rawOff=beats-ci/nd;
     }
-    spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey;
+    spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey; ghostNote=!main;
     if(showHud && !reduceMotion){ const half=pocketLive()?0.5:(0.5/nd), visualCue=pocketCueOn?0:cueI, off=spoiled?(_spoilOff-visualCue):(hit?(_hitOff-visualCue):(rawOff-visualCue)); let ra,al;
       if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
       else { const f=Math.min(1,off/half), lateScale=pocketCueOn?Math.max(0,Math.min(1,Number.isFinite(CFG.pocketLateScale)?CFG.pocketLateScale:0.55)):0.55; ra=Rin+f*span*lateScale; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
       if(spoiled) al=0.5;   // a spoiled note's circle freezes (grey, steady) so the wrong-key feedback is readable
       if(hit){ al=1; const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color
       al*=pocketMainAlpha;
-      const lw=main?4.5:2.5;
-      hudCtx.globalAlpha=al*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
-      hudCtx.globalAlpha=Math.min(1,(main?1:0.55)*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
+      const lw=main?4.5:2.0, ghost=main?1:0.45;   // DE-COERCION (parcel R): the in-between ring is a GHOST — thinner (2.0) and dimmed through its BACKING stroke too (0.45, was 0.55 on the ink only), so a bonus note never competes with the beat for the eye. MAIN path is byte-identical: ghost=1 leaves both alphas exactly as they were.
+      hudCtx.globalAlpha=al*0.5*ghost; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
+      hudCtx.globalAlpha=Math.min(1,ghost*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
     } }
   // Optional developer cue remains available behind pocketCircleCue, but the rolling-buffer parcel defaults it off and has no phase/listening ghosts.
   if(pocketTarget){
@@ -6735,7 +6758,7 @@ function drawWasdLane(){
     ARC(rt);
   }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
-  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
+  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote);
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
@@ -6861,7 +6884,7 @@ function updateFloorBeat(){
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
     const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
     beats-=cueI;
-    const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+    const nd=wasdNoteDiv();
     // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
     const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length, ckey=_combo[(((biKey*nd)%len)+len)%len];
     const bi=Math.round(beats), off=Math.abs(beats-bi);
@@ -7062,7 +7085,7 @@ let _spoilShown=false;
 function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
   const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;
-  if(active && _spoilNote>=0){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
+  if(active && _spoilNote>=0){ const nd=wasdNoteDiv(); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
   if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
 }
 function showTiming(grade, sub, cls, pathTxt, pathCls){
@@ -7324,10 +7347,10 @@ function animate(frameNow){
       const _tideW=CFG.tide.on?tideMul(CFG.tide.brownianLo):1;   // TIDES: wander cap + juke sharpness breathe with the swell (kill-switch first → literally ×1, no call, with the parcel off). grooveGlideSpeed is NOT scaled — the leadable glide is the sacred loop
       const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())*_tideW), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
       if(doSnap){
-        if(CFG.wasdRhythm && strobe){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);   // notes at HALF the orb-jump rate -> quarter/8th/16th as skill (diffT) rises
+        if(CFG.wasdRhythm && strobe){ const nd=wasdNoteDiv();   // THE FORTY FIX: the lane's OWN ladder (wasdNoteDiv) — no longer half the orb-jump rate, so the strobe can deepen to 1/8 at 50 bpm without conscripting the fingers
           syncWasdResolutionGrid(nd);
           const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
-          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi)){ if(_curMain) _baseMul=1; _wasdCombo=0; }   // unresolved focus leaves legacy damping/combo; rolling main misses use the later all-pocket sweep
+          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; _wasdCombo=0; }   // DE-COERCION (parcel R): only a MAIN leaving unresolved costs damping AND combo. A skipped in-between note is a declined invitation, so it cannot zero _wasdCombo — pressing once per beat is a clean run at every tempo. (Rolling main misses still come from the all-pocket sweep.)
             if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
         } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _resolved.clear(); }
         const _raw=wasdMul(); _mulEff = _raw<_mulEff ? _raw : Math.min(_raw, _mulEff+0.35); }   // asymmetric envelope: calm lands INSTANTLY, punishment ramps +0.35/snap (a miss wakes the field over ~3 snaps instead of one full-amplitude jump-scare)
@@ -8172,68 +8195,68 @@ function skyCancelChartEdit(){
   if(profile) skyFillForm(profile,true);
   skyRenderAccount(true);
 }
-function skySoftFailure(error,action){
-  const code=error&&error.code, status=error&&error.status;
-  const detail=(error&&typeof error.message==='string')?error.message.trim():'';
-  const usableDetail=detail&&detail.length<=140&&!/^personal sky/i.test(detail)&&!/^check date/i.test(detail);
-  // Prefer the real validation/API detail so free-text timezone mistakes aren't a mystery.
-  if(code==='validation'||status===400||status===422){
-    if(usableDetail) return detail.toUpperCase();
-    return T('saveSkyCheckFields','CHECK DATE, TIME, TIMEZONE & PLACE');
-  }
-  if(code==='not_authenticated'||status===401||status===403) return T('saveSkyExpired','SKY LINK EXPIRED · SIGN IN AGAIN');
-  if(usableDetail&&(status===503||code==='service_unavailable'||/natal backend/i.test(detail))) return detail.toUpperCase();
-  return action==='link'?T('saveSkyLinkFailed','SKY LINK COULD NOT SEND'):action==='clear'?T('saveSkyClearFailed','CHART COULD NOT CLEAR'):T('saveSkyUnavailable','PERSONAL SKY UNAVAILABLE');
-}
-function ensureSkyProfileController(){
-  if(_skyProfileController) return _skyProfileController;
-  if(!CFG.saveMySky||!PERSONAL_API_BASE||!window.AimDojoSaveMySky) return null;
-  try{ _skyProfileController=window.AimDojoSaveMySky.createPersonalSkyController({baseUrl:PERSONAL_API_BASE,timeoutMs:CFG.skyListen.apiMs,getAccessToken:()=>_skyAuthSession&&_skyAuthSession.access_token}); }
-  catch(e){ _skyProfileController=null; }
-  return _skyProfileController;
-}
-function skyApplyControllerState(state,announce){
-  if(!state) return false;
-  if(announce) skyChatReset();
-  _personalListenExpected=!!state.hasChart;
-  if(state.hasChart) _skyChartEditing=false;
-  if(state.profile) skyFillForm(state.profile,announce||state.hasChart);
-  let linked=false; if(state.personalMode&&state.pack) linked=linkRemotePersonalSky(state.pack);
-  skyRenderAccount(true);
-  if(announce){
-    if(linked){ const toastTicket=_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySavedLinked','CHART SAVED · SKY LINKED'),false); showGhostToast('CHART SAVED'); _skyLinkedToastTimer=setTimeout(()=>{ _skyLinkedToastTimer=null; if(toastTicket===_skyUiSeq&&_remotePersonalSky) showGhostToast('SKY LINKED'); },950); }
-    else if(state.hasChart){ skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
-  }
-  if(state.hasChart){ startTransitEssayFlow(); fetchSkyBriefForPause(); }
-  else { skyChatReset(); transitEssayReset(); skyBriefReset(); }
-  return linked;
-}
-async function skyLoadSavedProfile(ticket){
-  const ctl=ensureSkyProfileController(); if(!ctl||ticket!==_skyUiSeq||!_skyAuthSession) return;
-  skySetStatus(T('saveSkyChecking','CHECKING SAVED SKY…'),true);
-  try{
-    const pending=ctl.load(); renderSkyBriefUi(); const state=await pending; if(ticket!==_skyUiSeq) return;
-    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { skyChatReset(); transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
-    skySetStatus(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):state.hasChart?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED'),false);
-    skyRenderAccount(true);
-  }catch(error){
-    if(ticket!==_skyUiSeq) return; const state=ctl.state;
-    if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); startTransitEssayFlow(); fetchSkyBriefForPause(); }
-    else { skyChatReset(); skyBriefReset(); skySetStatus(skySoftFailure(error,'load'),false); }
-    skyRenderAccount(true);
-  }
-}
-function skyHandleSession(session){   // called outside Supabase's auth callback (current supabase-js callbacks must stay synchronous)
-  const ctl=ensureSkyProfileController(), next=session&&session.user?String(session.user.id||''):'';
-  if(!ctl){ skySetStatus(T('saveSkyNotConfigured','SAVE MY SKY IS NOT CONFIGURED'),false); return; }
-  if(_skyAuthUser!==next) skySetStatus('',false);   // cancel a busy save/load surface when auth switches or signs out
-  if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); }
-  _skyAuthUser=next;
-  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; _skyChartEditing=false; skyChatReset(); transitEssayReset(); skyBriefReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
-  ctl.setAuthenticated(true); skyRenderAccount(true);
-  if(_skyProfileUser!==next){ _skyProfileUser=next; _cloudPrefsLoaded=false; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); loadCloudPrefs(); }
-  else if(!_cloudPrefsLoaded) loadCloudPrefs();
-}
+                                      
+                                                           
+                                                                                
+                                                                                                              
+                                                                                           
+                                                      
+                                                 
+                                                                        
+   
+                                                                                                                           
+                                                                                                                            
+                                                                                                                                                                                              
+ 
+                                      
+                                                         
+                                                                               
+                                                                                                                                                                                                               
+                                         
+                               
+ 
+                                                 
+                          
+                              
+                                           
+                                            
+                                                                        
+                                                                                                
+                         
+               
+                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                         
+   
+                                                                         
+                                                                
+                
+ 
+                                           
+                                                                                                
+                                                                
+      
+                                                                                                           
+                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                    
+                           
+                
+                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                               
+                           
+   
+ 
+                                                                                                                                      
+                                                                                                    
+                                                                                                    
+                                                                                                                      
+                                                                                                                                                                     
+                    
+                                                                                                                                                                                                                                                                                                                                                                                        
+                                                     
+                                                                                                                                                       
+                                               
+ 
                                                                                                                             
                                                                                          
                           

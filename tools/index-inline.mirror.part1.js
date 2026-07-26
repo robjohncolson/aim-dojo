@@ -951,6 +951,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:4, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity (lowered 7→4 so the beat-JUKE reads as a clean cut instead of drowning in random drift), speed cap HIGH→LOW skill (lerp by diffT), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
+  wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01],   // THE FORTY FIX (wave 7, parcel R): the NOTE LANE now owns its own density ladder instead of borrowing the orb strobe's. It was one ladder on purpose (2026-06-23, "no separate difficulty system") and that was right while the tiers sat at bpm 80.8/134.0 — nobody ever reached them. THE SIXTY CAP moved the same thresholds to 36.0/50.0, so from ~37.5 bpm on the lane silently DOUBLED the required presses (and quadrupled them at 50) onto raw downbeats that collide with shot arrival — one demanded key per beat, the lane's whole contract, quietly stopped being true a third of the way up the mountain. Same SHAPE as beatQuantT (divs/2 = notes per beat), different thresholds: see wasdNoteDiv() for the crossing arithmetic. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched — this is a decoupling, not a retune.
   wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is opt-in via pause BEAT CIRCLE (and forced on in early training unless user forced OFF).
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
@@ -1207,6 +1208,27 @@ function remapWasdNoteIndex(ci, fromNd, toNd){
   const raw=ci*toNd/fromNd, mapped=Math.round(raw);
   return Math.abs(raw-mapped)<=1e-9?mapped:null;
 }
+/* THE LANE'S OWN DENSITY — the single authority for `nd` (notes per beat). Pure: pass dT to test a tempo, omit it to read the live ramp.
+   THE CROSSING MATH (computed against the shipped constants, not asserted). diffT() = clamp((bpm-minBpm)/(maxBpm-minBpm)) = (bpm-20)/40, so a
+   threshold t IS a tempo: bpm = 20 + 40t, exactly.
+     ORB STROBE  beatQuantT [0.40, 0.75] -> 36.0 and 50.0 bpm  (before THE SIXTY CAP these same numbers were 80.8 / 134.0 bpm — unreachable, which
+                 is why one shared ladder was safe for two years). UNTOUCHED here: parcel P's deepening is the orb's, and it stays the orb's.
+     LANE        wasdNoteT  [0.75, 1.01] -> 50.0 and 60.4 bpm. diffT SATURATES at 1.00 at maxBpm 60, so the second rung is DELIBERATELY out of the
+                 world: nd = 1 across the whole 20.0..49.9 band and nd = 2 across 50..60, and 4 never happens. (4/beat at 60 = 240 presses/min is a
+                 mash test, not a rhythm game.) To let the summit reach 4 again, drop wasdNoteT[1] below 1.00 — nothing else needs to move; setting
+                 wasdNoteDivs/wasdNoteT to beatQuantDivs/beatQuantT restores the old shared ladder exactly, which is this parcel's kill-switch.
+   THE REACHABLE TEMPO LADDER (BFS over the shipped adaptive law — SENSEI bpmUp 2.5 x CFG.tide.bpmUpMul 2.0 up, bpmDown 2.5 down, clamped 20..60,
+   from startBpm 28): the run can occupy 33 distinct rungs — 20, 20.5, 22.5, 23, 25 ... 57.5, 58, 60. Under the OLD shared ladder 19 of those 33
+   rungs (every rung from 37.5 up) demanded 2 or 4 presses per beat, peaking at 240/min; under this one only the 9 summit rungs (50..60) carry a
+   second note at all, it is OPTIONAL (see the de-coercion below), and the demanded rate is one per beat — 20..60/min — at every rung on the ladder.
+   DE-COERCION rides with it (parcel R, option D): in the 50..60 band the in-between notes render as DIM GHOSTS (drawWasdLane), claiming one still
+   credits _wasdCombo (_wasdResolve, unchanged), but only a MAIN can break the combo (animate gates its reset on _curMain). The bonus note is an
+   invitation, never a demand — which is also the first time the combo/FLOCK system has had an honest food supply, since under the old ladder its
+   only source lived above 80.8 bpm and the cap put that out of reach forever. */
+function wasdNoteDiv(dT){
+  const t=Number.isFinite(dT)?dT:diffT(), d=CFG.wasdNoteDivs, th=CFG.wasdNoteT;
+  return Math.max(1,(t<th[0]?d[0]:(t<th[1]?d[1]:d[2]))/2);
+}
 function syncWasdResolutionGrid(nd){   // keep common note positions resolved; discard notes that do not exist on the new density instead of letting raw ci collide with future events
   const nextNd=Math.max(1,Math.round(Number.isFinite(nd)?nd:1));
   if(_resolvedNd==null){ _resolvedNd=nextNd; return; }
@@ -1331,7 +1353,7 @@ function pocketSweepMisses(beats, nd, bps, w){   // mains past the full legal la
 }
 function updatePocketMisses(){   // unconditional run-loop feed: silence still counts when no Echo is alive; flick bonus pauses the pocket clock
   if(!pocketLive()||!state.running||!toneReady||Tone.Transport.state!=='started') return;
-  const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2), bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5,Math.max(CFG.wasdWindow,full*CFG.wasdWindowFrac));
+  const nd=wasdNoteDiv(), bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5,Math.max(CFG.wasdWindow,full*CFG.wasdWindowFrac));
   syncWasdResolutionGrid(nd);
   const beats=wasdBeats()-audioLat()/bps;
   if(bonusActive){ pocketSkipMisses(beats,bps,w); return; }
@@ -2829,33 +2851,33 @@ function sticksValid(c){ return !!c && c.type==='zodiac_sticks' && Array.isArray
 async function loadSticks(){ try{ const r=await fetch('fixtures/zodiac_sticks_v1.json',{cache:'no-store'}); if(!r.ok) return null; const c=await r.json(); return sticksValid(c)?c:null; }catch(e){ return null; } }
 if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.sun, l0.moon); }   // v2.1 G5: both clocked modes get sphere luminaries from frame one (two tiny glyph rasters — no fetch, no boot risk); a personal pack retunes the lons when it lands
 
-/* ========================= SKY LISTEN (Parcels K + N — study, not combat) =========================
-   In clocked or clocked_chart, natural or theatre: a clear celestial pick becomes LISTEN — a brief muzzle line,
-   gold constellation/existing glyph, and an immediate static glossary card. A saved authenticated chart may enrich it
-   from Railway; legacy natal-id packs keep the explicitly local "deep desk" (:8742). A listen NEVER spawns a projectile and NEVER touches shots,
-   streak, clank, whiff or the fire grid — the single integration point is one early-return in fire().
-    Dismiss (pointer-lock safe): R-CLICK · X/Q/Backspace · fire into empty sky · new listen · holdSec auto.
-   Esc is PAUSE only. The card × is cosmetic under lock (mouse aims, never free for UI). All copy is symbolic study language, never fate. */
-let _stickFig=null, _lsnMeta=null;            // fallback centroids + ☉/☽ first; exact day/personal pack metadata atomically replaces them
-const _lsnBody={};                            // mover display metadata collected during the chart build
-const _lsn={sel:null, line:null, lineT:-1, ghost:null, emphasis:[], card:null, cardBody:null, dismissBtn:null, holdT:-1, seq:0, cache:new Map(), goldFig:null};
-const _lsnW=new THREE.Vector3(), _lsnP=new THREE.Vector3(), _lsnDir2=new THREE.Vector3(), _lsnRt=new THREE.Vector3(), _LSN_UP=new THREE.Vector3(0,1,0);
-const LSN_SIGN_FIG={scorpio:'scorpius', capricorn:'capricornus'};   // pack sign ids ↔ fixture figure ids
-const LSN_GOLD=new THREE.Color(0xffd24a), LSN_DIM=0.5;
-function refreshPublicListenMeta(){   // API-independent pick map: constellation centroids + honest Meeus ☉/☽ (sign left unknown until a pack supplies boundaries)
-  if(_chartPackRank>=0) return;
-  const signs=Object.create(null), bodies=Object.create(null), ghostLon=Object.create(null);
-  if(_stickFig&&_stickFig.signs) for(const id in _stickFig.signs){ const s=_stickFig.signs[id]; signs[id]={glyph:SKY_SIGN_GLYPHS[id]||s.glyph||'?',pos:s.pos,lon:null,sprite:null}; }
-  if(_lum) for(const id of ['sun','moon']){ const t=_lum[id]; if(!t) continue; bodies[id]={name:id==='sun'?'Sun':'Moon',glyph:id==='sun'?'☉':'☽',sign:null,lon:t.lon,pos:t.glyph.position,sprite:t.glyph,delta:null}; }
-  _lsnMeta={source:'fallback',bodies:bodies,signs:signs,ghostLon:ghostLon,templeGhosts:Object.create(null),aspects:[],signOf:()=>null,natalId:null};
-}
-refreshPublicListenMeta();
-function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centre); huge when behind the camera
-  camera.getWorldDirection(_lsnDir2);
-  _lsnP.copy(worldPos).sub(camera.position); if(_lsnP.dot(_lsnDir2)<=0) return 1e9;
-  _lsnP.copy(worldPos).project(camera);
-  return Math.hypot(_lsnP.x*0.5*viewW, _lsnP.y*0.5*viewH);
-}
+                                                                                                     
+                                                                                                                
+                                                                                                                      
+                                                                                                                                                 
+                                                                                                      
+                                                                                                           
+                                                                                                                                            
+                                                                                                                                          
+                                                                                                        
+                                                                                                                                                               
+                                                                                                                                                       
+                                                                                                         
+                                                      
+                                                                                                                                                                  
+                               
+                                                                                            
+                                                                                                                                                                                     
+                                                                                                                                                                                                                       
+                                                                                                                                                    
+ 
+                          
+                                                                                                               
+                                     
+                                                                                   
+                                       
+                                                          
+ 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                          
                                      
@@ -6315,7 +6337,7 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
                                                                                                                    
                                                                                                                                                                                     
                              
-                                                                                                                                         
+                                                                                                                                                                       
                                                                                                               
                                                                                                                             
                                                                                                                                                                                                              
@@ -6675,15 +6697,16 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
                                                   
                                                                                                                                                                                                              
  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                            
                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                         
                                                                                    
-                                         
+                                                                                                                                                                     
                           
                                                                                                  
-                                                                                                                     
+                                                                                                                                                 
                                                                             
  
                         
@@ -6704,8 +6727,8 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
                                                                                                                            
                                                                                                                                                                                                              
                                                                                                                                                                           
-                                                        
-                                                                                                                        
+                                                                                                                                                                                        
+                           
                                
                                                                                                                       
                                                             
@@ -6716,16 +6739,16 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
             
                                                                                                                  
      
-                                                                                      
+                                                                                                       
                                                                                                                                                                                                 
                                                                                                                                                         
                                                                                                                                                                                                                                                                                       
                                                                                                                    
                                                                                                                                                                                                                                                                                                                                             
                           
-                            
-                                                                                                      
-                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                               
+                                                                                                            
+                                                                                                                                                                
        
                                                                                                                                                       
                    
@@ -6735,7 +6758,7 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
             
    
                                                                                                                                                                                
-                                                                                  
+                                                                                             
                                                                                                                                                                                                                                       
                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -6861,7 +6884,7 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
                                                                                                              
                                                             
                 
-                                                                                                                        
+                           
                                                                                                           
                                                                                                                       
                                                        
@@ -7062,7 +7085,7 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
                                                                                                                                                                                                                                                               
                                                                                                                                                
                   
-                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                        
                                                                                             
  
                                                        
@@ -7324,10 +7347,10 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                            
                  
-                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                    
                                      
                                                                                                                                                                      
-                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                      
                                                                                      
                                                                                                                                                                                                                                                          

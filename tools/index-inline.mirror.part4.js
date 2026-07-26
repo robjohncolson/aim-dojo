@@ -951,6 +951,7 @@
                                                                    
                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
@@ -1207,6 +1208,27 @@
                                                    
                                                 
  
+                                                                                                                                         
+                                                                                                                                              
+                                                   
+                                                                                                                                                  
+                                                                                                                                             
+                                                                                                                                                  
+                                                                                                                                                   
+                                                                                                                                                   
+                                                                                                                                               
+                                                                                                                                                 
+                                                                                                                                                
+                                                                                                                                                
+                                                                                                                                                    
+                                                                                                                                                  
+                                                                                                                                                
+                                                                                                                                                 
+                                                                                 
+                         
+                                                                               
+                                                          
+ 
                                                                                                                                                                                       
                                                                 
                                                       
@@ -1331,7 +1353,7 @@
  
                                                                                                                                                 
                                                                                          
-                                                                                                                                                                                                                                         
+                                                                                                                                            
                              
                                          
                                                            
@@ -6315,7 +6337,7 @@
                                                                                                                    
                                                                                                                                                                                     
                              
-                                                                                                                                         
+                                                                                                                                                                       
                                                                                                               
                                                                                                                             
                                                                                                                                                                                                              
@@ -6675,15 +6697,16 @@
                                                   
                                                                                                                                                                                                              
  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                            
                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                         
                                                                                    
-                                         
+                                                                                                                                                                     
                           
                                                                                                  
-                                                                                                                     
+                                                                                                                                                 
                                                                             
  
                         
@@ -6704,8 +6727,8 @@
                                                                                                                            
                                                                                                                                                                                                              
                                                                                                                                                                           
-                                                        
-                                                                                                                        
+                                                                                                                                                                                        
+                           
                                
                                                                                                                       
                                                             
@@ -6716,16 +6739,16 @@
             
                                                                                                                  
      
-                                                                                      
+                                                                                                       
                                                                                                                                                                                                 
                                                                                                                                                         
                                                                                                                                                                                                                                                                                       
                                                                                                                    
                                                                                                                                                                                                                                                                                                                                             
                           
-                            
-                                                                                                      
-                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                               
+                                                                                                            
+                                                                                                                                                                
        
                                                                                                                                                       
                    
@@ -6735,7 +6758,7 @@
             
    
                                                                                                                                                                                
-                                                                                  
+                                                                                             
                                                                                                                                                                                                                                       
                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -6861,7 +6884,7 @@
                                                                                                              
                                                             
                 
-                                                                                                                        
+                           
                                                                                                           
                                                                                                                       
                                                        
@@ -7062,7 +7085,7 @@
                                                                                                                                                                                                                                                               
                                                                                                                                                
                   
-                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                        
                                                                                             
  
                                                        
@@ -7324,10 +7347,10 @@
                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                            
                  
-                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                    
                                      
                                                                                                                                                                      
-                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                      
                                                                                      
                                                                                                                                                                                                                                                          
@@ -8172,68 +8195,68 @@
                                         
                          
  
-                                      
-                                                           
-                                                                                
-                                                                                                              
-                                                                                           
-                                                      
-                                                 
-                                                                        
-   
-                                                                                                                           
-                                                                                                                            
-                                                                                                                                                                                              
- 
-                                      
-                                                         
-                                                                               
-                                                                                                                                                                                                               
-                                         
-                               
- 
-                                                 
-                          
-                              
-                                           
-                                            
-                                                                        
-                                                                                                
-                         
-               
-                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                         
-   
-                                                                         
-                                                                
-                
- 
-                                           
-                                                                                                
-                                                                
-      
-                                                                                                           
-                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                    
-                           
-                
-                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                       
-                                                                                               
-                           
-   
- 
-                                                                                                                                      
-                                                                                                    
-                                                                                                    
-                                                                                                                      
-                                                                                                                                                                     
-                    
-                                                                                                                                                                                                                                                                                                                                                                                        
-                                                     
-                                                                                                                                                       
-                                               
- 
+function skySoftFailure(error,action){
+  const code=error&&error.code, status=error&&error.status;
+  const detail=(error&&typeof error.message==='string')?error.message.trim():'';
+  const usableDetail=detail&&detail.length<=140&&!/^personal sky/i.test(detail)&&!/^check date/i.test(detail);
+  // Prefer the real validation/API detail so free-text timezone mistakes aren't a mystery.
+  if(code==='validation'||status===400||status===422){
+    if(usableDetail) return detail.toUpperCase();
+    return T('saveSkyCheckFields','CHECK DATE, TIME, TIMEZONE & PLACE');
+  }
+  if(code==='not_authenticated'||status===401||status===403) return T('saveSkyExpired','SKY LINK EXPIRED · SIGN IN AGAIN');
+  if(usableDetail&&(status===503||code==='service_unavailable'||/natal backend/i.test(detail))) return detail.toUpperCase();
+  return action==='link'?T('saveSkyLinkFailed','SKY LINK COULD NOT SEND'):action==='clear'?T('saveSkyClearFailed','CHART COULD NOT CLEAR'):T('saveSkyUnavailable','PERSONAL SKY UNAVAILABLE');
+}
+function ensureSkyProfileController(){
+  if(_skyProfileController) return _skyProfileController;
+  if(!CFG.saveMySky||!PERSONAL_API_BASE||!window.AimDojoSaveMySky) return null;
+  try{ _skyProfileController=window.AimDojoSaveMySky.createPersonalSkyController({baseUrl:PERSONAL_API_BASE,timeoutMs:CFG.skyListen.apiMs,getAccessToken:()=>_skyAuthSession&&_skyAuthSession.access_token}); }
+  catch(e){ _skyProfileController=null; }
+  return _skyProfileController;
+}
+function skyApplyControllerState(state,announce){
+  if(!state) return false;
+  if(announce) skyChatReset();
+  _personalListenExpected=!!state.hasChart;
+  if(state.hasChart) _skyChartEditing=false;
+  if(state.profile) skyFillForm(state.profile,announce||state.hasChart);
+  let linked=false; if(state.personalMode&&state.pack) linked=linkRemotePersonalSky(state.pack);
+  skyRenderAccount(true);
+  if(announce){
+    if(linked){ const toastTicket=_skyUiSeq; cancelSkyLinkedToast(); skySetStatus(T('saveSkySavedLinked','CHART SAVED · SKY LINKED'),false); showGhostToast('CHART SAVED'); _skyLinkedToastTimer=setTimeout(()=>{ _skyLinkedToastTimer=null; if(toastTicket===_skyUiSeq&&_remotePersonalSky) showGhostToast('SKY LINKED'); },950); }
+    else if(state.hasChart){ skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); showGhostToast('CHART SAVED'); }
+  }
+  if(state.hasChart){ startTransitEssayFlow(); fetchSkyBriefForPause(); }
+  else { skyChatReset(); transitEssayReset(); skyBriefReset(); }
+  return linked;
+}
+async function skyLoadSavedProfile(ticket){
+  const ctl=ensureSkyProfileController(); if(!ctl||ticket!==_skyUiSeq||!_skyAuthSession) return;
+  skySetStatus(T('saveSkyChecking','CHECKING SAVED SKY…'),true);
+  try{
+    const pending=ctl.load(); renderSkyBriefUi(); const state=await pending; if(ticket!==_skyUiSeq) return;
+    _personalListenExpected=!!state.hasChart; if(state.hasChart) skyApplyControllerState(state,false); else { skyChatReset(); transitEssayReset(); skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); skyClearForm(); }
+    skySetStatus(_remotePersonalSky?T('saveSkyLinked','SKY LINKED'):state.hasChart?(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE')):T('saveSkyNoChart','SIGNED IN · NO CHART SAVED'),false);
+    skyRenderAccount(true);
+  }catch(error){
+    if(ticket!==_skyUiSeq) return; const state=ctl.state;
+    if(state&&state.hasChart){ _personalListenExpected=true; if(_chartPackRank>=2) downgradePersonalSky(); if(_lsn&&_lsn.cache) _lsn.cache.clear(); if(state.profile) skyFillForm(state.profile,false); skySetStatus(SKY_MODE==='decorative'?T('saveSkyDecorative','CHART SAVED · DECORATIVE SKY ON'):T('saveSkySavedUnavailable','CHART SAVED · PERSONAL SKY UNAVAILABLE'),false); startTransitEssayFlow(); fetchSkyBriefForPause(); }
+    else { skyChatReset(); skyBriefReset(); skySetStatus(skySoftFailure(error,'load'),false); }
+    skyRenderAccount(true);
+  }
+}
+function skyHandleSession(session){   // called outside Supabase's auth callback (current supabase-js callbacks must stay synchronous)
+  const ctl=ensureSkyProfileController(), next=session&&session.user?String(session.user.id||''):'';
+  if(!ctl){ skySetStatus(T('saveSkyNotConfigured','SAVE MY SKY IS NOT CONFIGURED'),false); return; }
+  if(_skyAuthUser!==next) skySetStatus('',false);   // cancel a busy save/load surface when auth switches or signs out
+  if(_skyAuthUser&&_skyAuthUser!==next){ ctl.setAuthenticated(false); _personalListenExpected=false; skyBriefReset(); if(_chartPackRank>=2) downgradePersonalSky(); }
+  _skyAuthUser=next;
+  if(!next){ ++_skyUiSeq; _skyProfileUser=''; ctl.setAuthenticated(false); _personalListenExpected=false; _skyChartEditing=false; skyChatReset(); transitEssayReset(); skyBriefReset(); skyClearForm(); skyRenderAccount(false); return; }   // initial guest resolution preserves an explicitly requested legacy local/drop-in chart; real sign-out was quarantined synchronously above
+  ctl.setAuthenticated(true); skyRenderAccount(true);
+  if(_skyProfileUser!==next){ _skyProfileUser=next; _cloudPrefsLoaded=false; const ticket=++_skyUiSeq; skyLoadSavedProfile(ticket); loadCloudPrefs(); }
+  else if(!_cloudPrefsLoaded) loadCloudPrefs();
+}
 function skyAcceptAuthSession(session){   // synchronous account quarantine; no async Supabase call inside onAuthStateChange
   session=session||null; const next=session&&session.user?String(session.user.id||''):'';
   if(next!==_skyAuthUser){

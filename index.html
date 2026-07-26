@@ -951,6 +951,7 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:4, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity (lowered 7→4 so the beat-JUKE reads as a clean cut instead of drowning in random drift), speed cap HIGH→LOW skill (lerp by diffT), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
+  wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01],   // THE FORTY FIX (wave 7, parcel R): the NOTE LANE now owns its own density ladder instead of borrowing the orb strobe's. It was one ladder on purpose (2026-06-23, "no separate difficulty system") and that was right while the tiers sat at bpm 80.8/134.0 — nobody ever reached them. THE SIXTY CAP moved the same thresholds to 36.0/50.0, so from ~37.5 bpm on the lane silently DOUBLED the required presses (and quadrupled them at 50) onto raw downbeats that collide with shot arrival — one demanded key per beat, the lane's whole contract, quietly stopped being true a third of the way up the mountain. Same SHAPE as beatQuantT (divs/2 = notes per beat), different thresholds: see wasdNoteDiv() for the crossing arithmetic. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched — this is a decoupling, not a retune.
   wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is opt-in via pause BEAT CIRCLE (and forced on in early training unless user forced OFF).
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
@@ -1207,6 +1208,27 @@ function remapWasdNoteIndex(ci, fromNd, toNd){
   const raw=ci*toNd/fromNd, mapped=Math.round(raw);
   return Math.abs(raw-mapped)<=1e-9?mapped:null;
 }
+/* THE LANE'S OWN DENSITY — the single authority for `nd` (notes per beat). Pure: pass dT to test a tempo, omit it to read the live ramp.
+   THE CROSSING MATH (computed against the shipped constants, not asserted). diffT() = clamp((bpm-minBpm)/(maxBpm-minBpm)) = (bpm-20)/40, so a
+   threshold t IS a tempo: bpm = 20 + 40t, exactly.
+     ORB STROBE  beatQuantT [0.40, 0.75] -> 36.0 and 50.0 bpm  (before THE SIXTY CAP these same numbers were 80.8 / 134.0 bpm — unreachable, which
+                 is why one shared ladder was safe for two years). UNTOUCHED here: parcel P's deepening is the orb's, and it stays the orb's.
+     LANE        wasdNoteT  [0.75, 1.01] -> 50.0 and 60.4 bpm. diffT SATURATES at 1.00 at maxBpm 60, so the second rung is DELIBERATELY out of the
+                 world: nd = 1 across the whole 20.0..49.9 band and nd = 2 across 50..60, and 4 never happens. (4/beat at 60 = 240 presses/min is a
+                 mash test, not a rhythm game.) To let the summit reach 4 again, drop wasdNoteT[1] below 1.00 — nothing else needs to move; setting
+                 wasdNoteDivs/wasdNoteT to beatQuantDivs/beatQuantT restores the old shared ladder exactly, which is this parcel's kill-switch.
+   THE REACHABLE TEMPO LADDER (BFS over the shipped adaptive law — SENSEI bpmUp 2.5 x CFG.tide.bpmUpMul 2.0 up, bpmDown 2.5 down, clamped 20..60,
+   from startBpm 28): the run can occupy 33 distinct rungs — 20, 20.5, 22.5, 23, 25 ... 57.5, 58, 60. Under the OLD shared ladder 19 of those 33
+   rungs (every rung from 37.5 up) demanded 2 or 4 presses per beat, peaking at 240/min; under this one only the 9 summit rungs (50..60) carry a
+   second note at all, it is OPTIONAL (see the de-coercion below), and the demanded rate is one per beat — 20..60/min — at every rung on the ladder.
+   DE-COERCION rides with it (parcel R, option D): in the 50..60 band the in-between notes render as DIM GHOSTS (drawWasdLane), claiming one still
+   credits _wasdCombo (_wasdResolve, unchanged), but only a MAIN can break the combo (animate gates its reset on _curMain). The bonus note is an
+   invitation, never a demand — which is also the first time the combo/FLOCK system has had an honest food supply, since under the old ladder its
+   only source lived above 80.8 bpm and the cap put that out of reach forever. */
+function wasdNoteDiv(dT){
+  const t=Number.isFinite(dT)?dT:diffT(), d=CFG.wasdNoteDivs, th=CFG.wasdNoteT;
+  return Math.max(1,(t<th[0]?d[0]:(t<th[1]?d[1]:d[2]))/2);
+}
 function syncWasdResolutionGrid(nd){   // keep common note positions resolved; discard notes that do not exist on the new density instead of letting raw ci collide with future events
   const nextNd=Math.max(1,Math.round(Number.isFinite(nd)?nd:1));
   if(_resolvedNd==null){ _resolvedNd=nextNd; return; }
@@ -1331,7 +1353,7 @@ function pocketSweepMisses(beats, nd, bps, w){   // mains past the full legal la
 }
 function updatePocketMisses(){   // unconditional run-loop feed: silence still counts when no Echo is alive; flick bonus pauses the pocket clock
   if(!pocketLive()||!state.running||!toneReady||Tone.Transport.state!=='started') return;
-  const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2), bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5,Math.max(CFG.wasdWindow,full*CFG.wasdWindowFrac));
+  const nd=wasdNoteDiv(), bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5,Math.max(CFG.wasdWindow,full*CFG.wasdWindowFrac));
   syncWasdResolutionGrid(nd);
   const beats=wasdBeats()-audioLat()/bps;
   if(bonusActive){ pocketSkipMisses(beats,bps,w); return; }
@@ -6315,7 +6337,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   if(_bow.stage>=BOW.LAST) return;   // the ceremony owns the field from Last Light on; the lane goes quiet with it
   if(bonusActive){ flickLockPress(); return; }   // RAIL-FLICK BONUS: any WASD/pad-face tap CONFIRMS a flick-lock (on-beat + crosshair on an orb) instead of driving the rhythm grid
   if(!CFG.wasdRhythm) return;
-  const len=_combo.length, dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+  const len=_combo.length, nd=wasdNoteDiv();   // THE FORTY FIX: the LANE's density, not the orb strobe's — one demanded key per beat on every rung of the tempo ladder
   let beats=wasdBeats();   // WASD grid shifted onto the "and" (groove phase); latency correction applied next
   const bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5, Math.max(CFG.wasdWindow, full*CFG.wasdWindowFrac));
   const lat=audioLat(); beats-=lat/bps;   // grade in the HEARD timeline (audioLat = reported latency + user offset) -- without this, high-latency audio makes every tap grade BEHIND and PERFECT unreachable
@@ -6675,15 +6697,16 @@ function updateTargetMarks(){                                                 //
     else m.hlabel.classList.remove('on','held'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
 }
-/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride at HALF the orb-jump rate, so they ramp quarter -> +8th -> +16th with skill (diffT), like the targets. On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); off-beat (BONUS) notes stack a combo that calms the field further + intensifies the groove (any miss resets it). Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
+/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride the LANE's own ladder (wasdNoteDiv — one per beat from 20 to 50 bpm, an optional in-between one from 50 to 60; it used to be half the orb-jump rate, which THE SIXTY CAP turned into a doubled press demand from ~37.5 bpm up). On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); in-between (BONUS) notes draw as dim ghosts and stack a combo that calms the field further + intensifies the groove — claiming one credits it, skipping one costs nothing, and only a MAIN going unresolved resets it. Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
+const WASD_COL_GHOST=WASD_COL.map(c=>c+'73');   // DE-COERCION (parcel R): the same four colors at alpha 0x73 (0.45) — an in-between (bonus) note is drawn as a GHOST of its key, so the eye reads "optional" with no new text and no new glyph. Precomputed once (setStyle caches, so the letter costs nothing per frame).
 const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
-function showWasdGlyph(key, spoiled, on){
+function showWasdGlyph(key, spoiled, on, ghost){   // ghost = this note is an in-between (bonus) one: same letter, dimmed, because it is claimable but never demanded
   if(!wasdGlyphEl) return;
   if(!on){ if(wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.remove('on'); return; }
-  setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':WASD_COL[key]);
+  setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':(ghost?WASD_COL_GHOST[key]:WASD_COL[key]));
   if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
 }
 function drawWasdLane(){
@@ -6704,8 +6727,8 @@ function drawWasdLane(){
   if(showHud){ hudCtx.globalAlpha=0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
     hudCtx.globalAlpha=0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0&&!pocketTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
   // ---- the IN-FOCUS note: optional legacy circle converges at expected; an explicitly enabled colored target instead keeps the raw path so both rings cross there. ----
-  let letterKey=_combo[0], spoiled=false, hitHeld=false;
-  { const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+  let letterKey=_combo[0], spoiled=false, hitHeld=false, ghostNote=false;   // ghostNote: the in-focus note is an in-between (bonus) one — only possible at nd>1, i.e. the 50..60 summit
+  { const nd=wasdNoteDiv();
     syncWasdResolutionGrid(nd);
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
     const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
@@ -6716,16 +6739,16 @@ function drawWasdLane(){
     } else {
       ci=Math.round(beats*nd); ckey=_combo[((ci%len)+len)%len]; main=((((ci%nd)+nd)%nd)===0); rawOff=beats-ci/nd;
     }
-    spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey;
+    spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey; ghostNote=!main;
     if(showHud && !reduceMotion){ const half=pocketLive()?0.5:(0.5/nd), visualCue=pocketCueOn?0:cueI, off=spoiled?(_spoilOff-visualCue):(hit?(_hitOff-visualCue):(rawOff-visualCue)); let ra,al;
       if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
       else { const f=Math.min(1,off/half), lateScale=pocketCueOn?Math.max(0,Math.min(1,Number.isFinite(CFG.pocketLateScale)?CFG.pocketLateScale:0.55)):0.55; ra=Rin+f*span*lateScale; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
       if(spoiled) al=0.5;   // a spoiled note's circle freezes (grey, steady) so the wrong-key feedback is readable
       if(hit){ al=1; const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color
       al*=pocketMainAlpha;
-      const lw=main?4.5:2.5;
-      hudCtx.globalAlpha=al*0.5; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
-      hudCtx.globalAlpha=Math.min(1,(main?1:0.55)*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
+      const lw=main?4.5:2.0, ghost=main?1:0.45;   // DE-COERCION (parcel R): the in-between ring is a GHOST — thinner (2.0) and dimmed through its BACKING stroke too (0.45, was 0.55 on the ink only), so a bonus note never competes with the beat for the eye. MAIN path is byte-identical: ghost=1 leaves both alphas exactly as they were.
+      hudCtx.globalAlpha=al*0.5*ghost; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
+      hudCtx.globalAlpha=Math.min(1,ghost*al*(1+0.35*dayAmt)); hudCtx.lineWidth=lw; hudCtx.strokeStyle=spoiled?'rgba(150,152,160,0.85)':WASD_COL[ckey]; ARC(ra);
     } }
   // Optional developer cue remains available behind pocketCircleCue, but the rolling-buffer parcel defaults it off and has no phase/listening ghosts.
   if(pocketTarget){
@@ -6735,7 +6758,7 @@ function drawWasdLane(){
     ARC(rt);
   }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
-  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld);
+  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote);
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
@@ -6861,7 +6884,7 @@ function updateFloorBeat(){
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
     const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
     beats-=cueI;
-    const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
+    const nd=wasdNoteDiv();
     // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
     const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length, ckey=_combo[(((biKey*nd)%len)+len)%len];
     const bi=Math.round(beats), off=Math.abs(beats-bi);
@@ -7062,7 +7085,7 @@ let _spoilShown=false;
 function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
   const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;
-  if(active && _spoilNote>=0){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
+  if(active && _spoilNote>=0){ const nd=wasdNoteDiv(); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
   if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
 }
 function showTiming(grade, sub, cls, pathTxt, pathCls){
@@ -7324,10 +7347,10 @@ function animate(frameNow){
       const _tideW=CFG.tide.on?tideMul(CFG.tide.brownianLo):1;   // TIDES: wander cap + juke sharpness breathe with the swell (kill-switch first → literally ×1, no call, with the parcel off). grooveGlideSpeed is NOT scaled — the leadable glide is the sacred loop
       const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())*_tideW), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
       if(doSnap){
-        if(CFG.wasdRhythm && strobe){ const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);   // notes at HALF the orb-jump rate -> quarter/8th/16th as skill (diffT) rises
+        if(CFG.wasdRhythm && strobe){ const nd=wasdNoteDiv();   // THE FORTY FIX: the lane's OWN ladder (wasdNoteDiv) — no longer half the orb-jump rate, so the strobe can deepen to 1/8 at 50 bpm without conscripting the fingers
           syncWasdResolutionGrid(nd);
           const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
-          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi)){ if(_curMain) _baseMul=1; _wasdCombo=0; }   // unresolved focus leaves legacy damping/combo; rolling main misses use the later all-pocket sweep
+          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; _wasdCombo=0; }   // DE-COERCION (parcel R): only a MAIN leaving unresolved costs damping AND combo. A skipped in-between note is a declined invitation, so it cannot zero _wasdCombo — pressing once per beat is a clean run at every tempo. (Rolling main misses still come from the all-pocket sweep.)
             if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
         } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _resolved.clear(); }
         const _raw=wasdMul(); _mulEff = _raw<_mulEff ? _raw : Math.min(_raw, _mulEff+0.35); }   // asymmetric envelope: calm lands INSTANTLY, punishment ramps +0.35/snap (a miss wakes the field over ~3 snaps instead of one full-amplitude jump-scare)
