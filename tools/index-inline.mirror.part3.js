@@ -6107,7 +6107,7 @@ function updateTanks(dt){   // per-frame: the per-chip shell "pop" (the amber ha
   for(const tg of targets){
     if(tg.dead || tg.hpMax<=1 || !tg.shell) continue;
     if(tg._chipT>0 && !reduceMotion){ tg._chipT=Math.max(0, tg._chipT-dt); tg.shell.scale.setScalar(1.55*(1+0.75*(tg._chipT/0.28))); }
-    else { tg._chipT=0; tg.shell.scale.setScalar(1.55); }
+    else { tg._chipT=0; if(!(CFG.tank.fillOnly && tg.fill16>=0 && _fillAmt>=0)) tg.shell.scale.setScalar(1.55); }   // the live FILL tank's scale was already set this frame by the lens-bubble on the fill's own clock (spec 1.2 T4) — flat 1.55 here was clobbering the blink every rendered frame; the chip-pop above still wins during its 0.28s (a hit reaction outranks the pulse)
   }
 }
 function onWhiff(){
