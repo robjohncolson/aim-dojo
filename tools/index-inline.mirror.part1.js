@@ -924,13 +924,13 @@ const CFG = {
   chordVolley:{ on:true, dyadVel:0.5, triadVel:0.32 },   // dyadVel = the 2nd arrival's harmony velocity, itself SHAPED by the hit's tightness (parcel E's q ratio) so a loose volley is a soft one · triadVel = the 3rd arrival's full chord, deliberately UNDER the dyad (three voices at once already read louder) · a 4th same-beat kill (fireQuant's ceiling) adds nothing: the chord already rang
   // THE SKY DEALS THE NIGHT (wave 4, parcel K): there is nothing to configure, because the sky already chose. At resetSession the REAL moon phase — the Meeus elongation the Bow's line already reads, in the same 8 equal buckets — sets tonight's ONE rule, and the planets actually above the horizon tilt the orb mix. The crescent you see from the car IS the announcement; the game only names what you can already look up at. One rule per night, never stacked: a planet is a WEIGHT, never a second rule.
   // HOW IT REACHES THE GAME: dealCompute writes a small _deal object of EFFECTIVE VALUES (the SENSEI_PACK pattern — base CFG is never mutated, so nothing leaks into the next night, the trainer, or the Temple) and the existing read-sites multiply by it. Almost everything the deal does is therefore a CONSTANT that a roll already compares against: it adds no roll, removes none, reorders none. A dealt night also naturally reaches the spawn scheduler's own gates (live orb count, the minGap cooldown) on different beats than a plain one — that is the RESULT of the weights, not a second draw.
-  // THE STREAM RULE (1.1), stated in general because two rules now need it: the point of the discipline is KILL-SWITCH EQUIVALENCE, not stream-freezing. (a) deal.on:false is byte-identical to wave 3 in behaviour AND in the rnd() stream — absolute, no exception, ever. (b) An ACTIVE phase rule MAY alter the draw count or order on its OWN nights: free-play has no shared seed (the seeded daily was retired) and the daily invariants live nowhere near here, so a night that plays differently may also draw differently. Two rules use that licence — the NEW MOON's widened cone, which lets the spawn direction's reroll loop run more often, and the WANING GIBBOUS's pairs, which spends a roll of its own plus a whole companion spawn. Neither is reachable on any other night. (c) The PLANET TILT is strictly weights-only, always, on every night: a risen planet may move a threshold a roll compares against and nothing else, because a planet must never become a second rule.
+  // THE STREAM RULE (1.1), stated in general because two rules now need it: the point of the discipline is KILL-SWITCH EQUIVALENCE, not stream-freezing. (a) deal.on:false is byte-identical to wave 3 in behaviour AND in the rnd() stream — absolute, no exception, ever. (b) An ACTIVE phase rule MAY alter the draw count or order on its OWN nights: free-play has no shared seed (the seeded daily was retired) and the daily invariants live nowhere near here, so a night that plays differently may also draw differently. Two rules use that licence — the NEW MOON's widened cone, which lets the spawn direction's reroll loop run more often, and the WANING GIBBOUS's pairs, which spends a roll of its own plus a whole companion spawn. Neither is reachable on any other night. (c) The PLANET TILT is strictly weights-only, always, on every night: a risen planet may move a threshold a roll compares against and nothing else, because a planet must never become a second rule. 1.2 MADE (c) TRUE: two planets were quietly breaking it by moving GATES rather than thresholds — Jupiter's +1 concurrency cap let a beat take a spawn roll a planet-less night skips, and Saturn's tank eligibility above tank.maxBpm let the fill spend its figure roll where a planet-less night spends none. Both were re-cut onto rolls that are spent either way (density p, and the fill's own 3-vs-2 draw), so a Jupiter or Saturn night is now draw-for-draw identical to the same night with nothing risen. THE TEST for any future planet: name the roll it moves, and show that roll is taken whether or not the planet is up. Only the FULL MOON still opens the tank gate, and only because it is a phase rule (b), not a planet.
   // FAIL-OPEN: the phase rule needs only local date + the Meeus approximation already in the client, so it deals with the network down, the API dead and the sky pack absent — in that case the planet mix is simply today's neutral weights and the line carries no planet fragment. Same night + same sky = same deal, on every device.
   // Kill-switch is deal.on:false → dealCompute returns before it reads a single thing, _deal rests neutral (every multiplier 1, every chance 0), every read-site is guarded by the raw boolean FIRST so an off night makes no _deal read anywhere hot, and behaviour AND the rnd() stream are byte-identical to wave 3. Inert in the trainer (a trainer night keeps its didactic field; a mid-run graduation plays out neutral and the sky deals the NEXT night) and in the Temple, which spawns nothing at all.
   deal:{ on:true, planetAltDeg:5, spreadMul:1.5, windMul:0.7, quickMul:2.2, quickLifeMul:0.85,
          moverMul:1.8, fullDensityMul:1.2, fullGoldMul:1.8, fullMercyMul:1.3, pairChance:0.35,
          farMul:1.3, quietDensityMul:0.8, quietTickMul:1.6, quietBpmMul:0.6,
-         venusMul:1.8, mercuryMul:1.8, marsMul:1.8, jupiterConc:1 },   // planetAltDeg = how far above the horizon a mover must be to count as "up" (5° — lower than the stars' 8°, because a planet low on the horizon is still the one you can point at from the driveway) · spreadMul widens the NEW MOON's minimum-angle-from-aim cone (more bearings behind you — a wider cone rejects more rolled directions, so this night's spawns draw more often than a plain night's, which an active phase rule is allowed to do; see THE STREAM RULE above) · windMul = the WAXING CRESCENT's share of the shipped wind band (the WAXING GIBBOUS takes the full band) · quickMul/quickLifeMul = the FIRST QUARTER's speed-orb weight and its brisker orb life · moverMul = the WAXING GIBBOUS's wandering-orb weight · fullDensityMul/fullGoldMul/fullMercyMul = the FULL MOON's generous night (more field, more gold, a taller mercy swell) · pairChance = the WANING GIBBOUS's chance that a spawn is answered by a companion sharing a landable arrival beat (0 = no pairs and no extra draws; both members of a dealt pair are pinned PLAIN — see THE STREAM RULE above) · farMul scales the LAST QUARTER's whole distance band outward (gold with it) · quietDensityMul/quietTickMul/quietBpmMul = the WANING CRESCENT's sparser field, sooner silence and gentler tempo climb · venusMul/mercuryMul/marsMul = risen-planet weights on gold/speed/mover · jupiterConc = extra concurrent Echoes while Jupiter is up
+         venusMul:1.8, mercuryMul:1.8, marsMul:1.8, jupiterDensMul:1.15, saturnFillMul:1.6 },   // planetAltDeg = how far above the horizon a mover must be to count as "up" (5° — lower than the stars' 8°, because a planet low on the horizon is still the one you can point at from the driveway) · spreadMul widens the NEW MOON's minimum-angle-from-aim cone (more bearings behind you — a wider cone rejects more rolled directions, so this night's spawns draw more often than a plain night's, which an active phase rule is allowed to do; see THE STREAM RULE above) · windMul = the WAXING CRESCENT's share of the shipped wind band (the WAXING GIBBOUS takes the full band) · quickMul/quickLifeMul = the FIRST QUARTER's speed-orb weight and its brisker orb life · moverMul = the WAXING GIBBOUS's wandering-orb weight · fullDensityMul/fullGoldMul/fullMercyMul = the FULL MOON's generous night (more field, more gold, a taller mercy swell) · pairChance = the WANING GIBBOUS's chance that a spawn is answered by a companion sharing a landable arrival beat (0 = no pairs and no extra draws; both members of a dealt pair are pinned PLAIN — see THE STREAM RULE above) · farMul scales the LAST QUARTER's whole distance band outward (gold with it) · quietDensityMul/quietTickMul/quietBpmMul = the WANING CRESCENT's sparser field, sooner silence and gentler tempo climb · venusMul/mercuryMul/marsMul = risen-planet weights on gold/speed/mover · jupiterDensMul = the fuller field a risen JUPITER brings, as a multiplier on the density p the spawn roll already compares against (1.2 — it was a +1 concurrency CAP, which is a gate: raising it made a beat take a spawn roll a planet-less night never takes) · saturnFillMul = how much a risen SATURN leans the drum fill's own 3-vs-2 figure draw toward the heavier three (1.2 — it was tank eligibility above tank.maxBpm, again a gate; above that tempo there is now no tank, Saturn or not). EVERY planet knob on this line is a WEIGHT on a roll that is spent anyway — see (c) in THE STREAM RULE
   // SENSEI'S ONE QUESTION (wave 4, parcel L): the game already keeps the only ledger this needs — THE BOW's _bowHits, one signed arrival error + the subdivision k that Echo was spawned for. Binned by LEAD (near/mid/far), a night answers ONE question: at which distance does this player consistently arrive off the beat, and which way? When the answer is real (enough samples, a bias big enough to hear), the Bow's one line becomes that observation INSTEAD OF the sky fact — the two never stack, and the line is never a number, never a grade, never twice running.
   // HOW IT REACHES TOMORROW: the observation is persisted (localStorage['aimdojo.sensei']) and, while it is fresh, the run's FIRST weightSwells swells bias the beat-quantized k CHOICE toward the weak lead. WEIGHTS ONLY, on the ONE draw beatSpawnDist already takes — same draw, same order, same count — so the sacred "distance = k sixteenths" law is untouched and a drilled night differs from a plain one only in which feasible k the same random number lands on. It is never announced, never visible, and it expires in silence.
   // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
@@ -1683,7 +1683,7 @@ function canonicalSkySign(id){ id=String(id==null?'':id).toLowerCase(); return i
 function skyGeometryRank(pack){ return pack&&pack.type==='skyday'?1:(pack&&pack._sample?0:2); }   // Meeus/fallback < synthetic sample < public day < legacy personal; authenticated personal is applied explicitly at rank 3
 let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, _publicSkyPack=null, atmosAmt=0, _sunLonRad=0;
 let _remotePersonalSky=false, _personalListenExpected=false, _skyAuthSession=null, _skyProfileController=null;   // authenticated Save my sky state; separate from legacy local natal_id packs
-let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyDayAnnounced=false, _skyDayPending=null, _skyGlossary=null, _skyGlossaryReady=false;   // _skyDayPending: a day pack that arrived mid-run, held for the next menu/pause surface (announceSkyDay never toasts over a running field)
+let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyDayAnnounced=false, _skyDayPending=null, _skyGlossary=null, _skyGlossaryReady=false;   // _skyDayPending: a day pack that arrived mid-run, held for the next menu/pause surface — on a DEALING build only (1.2), because the threshold line it would collide with exists only there; with deal.on:false this stays null forever and the toast is spoken on arrival exactly as wave 3 did
 const _chartSignSprite=Object.create(null), _chartMoverSprite=Object.create(null);
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
 const SPH_TILT=SKY_CHART.ecl.tiltDeg*Math.PI/180;
@@ -2363,19 +2363,23 @@ function skydayValid(p){
 }
 function deviceSkyTimezone(){ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(e){ return 'UTC'; } }
 function announceSkyDay(pack){
-  // ONCE PER TAB, and NEVER OVER A RUNNING FIELD. The day pack lands on an idle callback, so it can arrive at any
-  // moment — including a second into a run, on top of the threshold flash, or in the middle of a beat that needs the
-  // player's whole attention. A late arrival is not urgent: it is a fact about the sky, and the sky's own surfaces
-  // are the menu and the pause card. So a run in progress simply parks it and the next pause card speaks it, which
-  // also means it can no longer collide with anything the threshold moment is saying.
+  // ONCE PER TAB, and — ON A DEALING BUILD — never over a running field. The day pack lands on an idle callback, so it
+  // can arrive at any moment: including a second into a run, on top of the threshold flash, or in the middle of a beat
+  // that needs the player's whole attention. A late arrival is not urgent — it is a fact about the sky, and the sky's
+  // own surfaces are the menu and the pause card — so a run in progress parks it and the next pause card speaks it.
+  // 1.2: THE DEFERRAL IS SCOPED TO THE DEAL, because the collision it cures is. The thing a mid-run toast could step on
+  // is the DEAL LINE that now owns the threshold flash; with CFG.deal.on false nothing else speaks there at all, and
+  // deal.on:false is the parcel's one absolute promise — byte-identical to wave 3, which announced immediately. So the
+  // raw kill-switch is read FIRST and an off build takes the wave-3 path verbatim, never parking anything (which also
+  // leaves flushSkyDayAnnounce with nothing it could ever have to say on that build).
   if(_skyDayAnnounced) return;
-  if(state.running){ _skyDayPending=pack; return; }
+  if(CFG.deal.on && state.running){ _skyDayPending=pack; return; }
   _skyDayAnnounced=true; _skyDayPending=null;
   const count=Array.isArray(pack&&pack.movers)?pack.movers.length:0, raw=pack&&typeof pack.cache_date==='string'?pack.cache_date:''; let stamp='';
   if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) try{ stamp=new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',timeZone:'UTC'}).format(new Date(raw+'T12:00:00Z')).toUpperCase(); }catch(e){}
   showGhostToast('SKY · '+(stamp?stamp+' · ':'')+count+' '+(count===1?'BODY':'BODIES'));
 }
-function flushSkyDayAnnounce(){ if(_skyDayPending && !state.running) announceSkyDay(_skyDayPending); }   // the parked announcement, spoken at the next menu/pause surface — a no-op on every card that had nothing waiting
+function flushSkyDayAnnounce(){ if(_skyDayPending && !state.running) announceSkyDay(_skyDayPending); }   // the parked announcement, spoken at the next menu/pause surface — a no-op on every card that had nothing waiting, and (1.2) a no-op for the whole life of a deal.on:false build, which never parks anything
 async function loadSkyDay(){
   if(SKY_MODE==='decorative') return null;
   const C=CFG.skyDay, ctl=(typeof AbortController!=='undefined')?new AbortController():null;
@@ -3095,56 +3099,56 @@ function _templeAspectColor(id){
   if(id==='sextile') return new THREE.Color(0xa8d8ff);
   return new THREE.Color(0xffd66f);
 }
-function rebuildSkyTempleGeometry(){
-  const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
-    :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}
-      :(_templeFocus.kind==='body'?{kind:'body',id:_templeFocus.body&&_templeFocus.body.id}
-        :(_templeFocus.kind==='sign'?{kind:'sign',id:_templeFocus.pick&&_templeFocus.pick.id}:null))));
-  _templeDisposeChildren();
-  const meta=_lsnMeta, R=SKY_CHART.R;
-  if(!meta){ _templeGroup.visible=false; return; }
-  // No ecliptic great-circle rail — it washed out sticks, sign art, and planet globes (visual simplify L1).
-  const ghosts=meta.templeGhosts||Object.create(null);
-  for(const id of Object.keys(ghosts).slice(0,SKY_CHART.caps.ghost)){
-    const body=ghosts[id]; if(!body || !isFinite(body.lonJ2000)) continue;
-    const mat=new THREE.SpriteMaterial({map:glyphTex(body.glyph||'·'),color:0xc9d4ff,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending});
-    const sprite=new THREE.Sprite(mat), size=SKY_CHART.ghost.scale*1.55;   // larger than dojo ghosts — temple investigation target
-    sprite.position.copy(eclipticDir(body.lonJ2000,0)).multiplyScalar(R*0.985); sprite.scale.set(size,size,1); sprite.renderOrder=3;
-    _templeGroup.add(sprite); _templeNatal.push({kind:'natal',id:id,body:body,sprite:sprite,local:sprite.position.clone(),baseScale:size});
-  }
-  const records=Array.isArray(meta.aspects)?meta.aspects.slice(0,Math.min(24,CFG.skyTemple.maxAspectLines||24)):[];
-  if(records.length){
-    const pos=new Float32Array(records.length*6), col=new Float32Array(records.length*6);
-    records.forEach((record,i)=>{
-      const start=eclipticDir(record.transit.lonJ2000,0).multiplyScalar(R*0.992);
-      const end=eclipticDir(record.natal.lonJ2000,0).multiplyScalar(R*0.985);
-      pos.set([start.x,start.y,start.z,end.x,end.y,end.z],i*6);
-      const c=_templeAspectColor(record.aspectId), light=0.35+0.65*Math.max(0,Math.min(1,record.tightness||0)); c.multiplyScalar(light);
-      col.set([c.r,c.g,c.b,c.r,c.g,c.b],i*6);
-      _templeAspects.push({kind:'aspect',record:record,start:start,end:end,index:i});
-    });
-    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
-    // depthTest:false so chords that pass under the former floor still draw (full sphere)
-    const mat=horizonFadeMat(new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending}));
-    _templeAspectMesh=new THREE.LineSegments(geo,mat); _templeAspectMesh.frustumCulled=false; _templeAspectMesh.renderOrder=2; _templeGroup.add(_templeAspectMesh);
-    const hGeo=new THREE.BufferGeometry(); hGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
-    const hMat=horizonFadeMat(new THREE.LineBasicMaterial({color:0xffdf72,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending}));
-    _templeHighlight=new THREE.Line(hGeo,hMat); _templeHighlight.frustumCulled=false; _templeHighlight.renderOrder=4; _templeHighlight.visible=false; _templeGroup.add(_templeHighlight);
-  }
-  _templeGroup.visible=templeActive;
-  if(templeActive){
-    let rebound=_templeFocus;
-    if(priorFocus&&priorFocus.kind==='aspect') rebound=_templeAspects.find(item=>item.record&&item.record.key===priorFocus.key)||null;
-    else if(priorFocus&&priorFocus.kind==='natal') rebound=_templeNatal.find(item=>item.id===priorFocus.id)||null;
-    else if(priorFocus&&priorFocus.kind==='body'){
-      const meta=_lsnMeta.bodies[priorFocus.id], pick=meta?{kind:'body',id:priorFocus.id,meta:meta}:null, body=_templeBodyFromPick(pick);
-      rebound=body?{kind:'body',body:body,pick:pick}:null;
-    }else if(priorFocus&&priorFocus.kind==='sign'){
-      const meta=_lsnMeta.signs[priorFocus.id]; rebound=meta?{kind:'sign',pick:{kind:'sign',id:priorFocus.id,meta:meta}}:null;
-    }
-    setSkyTempleFocus(rebound);
-  }
-}
+                                    
+                                                                                                                               
+                                                                   
+                                                                                           
+                                                                                                       
+                           
+                                     
+                                                  
+                                                                                                            
+                                                      
+                                                                     
+                                                                          
+                                                                                                                                                                                             
+                                                                                                                                   
+                                                                                                                                    
+                                                                                                                                           
+   
+                                                                                                                   
+                     
+                                                                                         
+                                 
+                                                                                 
+                                                                             
+                                                               
+                                                                                                                                        
+                                             
+                                                                                     
+       
+                                                                                                                                                                    
+                                                                                          
+                                                                                                                                                                                     
+                                                                                                                                                                   
+                                                                                                                          
+                                                                                                                                                                                   
+                                                                                                                                                                                         
+   
+                                    
+                   
+                             
+                                                                                                                                      
+                                                                                                                  
+                                                  
+                                                                                                                                         
+                                                          
+                                                   
+                                                                                                                              
+     
+                               
+   
+ 
                                   
                                                        
                                                  
@@ -4890,7 +4894,7 @@ function rebuildSkyTempleGeometry(){
                                                                                                                                                                                                                                                                                                            
                                                                                                                                    
                                                                                                           
-                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                        
                      
@@ -4946,11 +4950,18 @@ function rebuildSkyTempleGeometry(){
                                                       
                                                                                                                                                                                                       
    
+                                                                                                                    
+                                                                                                                  
+                                                                                                                  
+                                                                                                                     
+                                                                                                                      
+                                                                                                                   
+                                                                                                            
                                                                                                   
                                                                                             
                                                                                                 
-                                                                                                                                                   
-                                                                                                                              
+                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                        
                                                                      
  
                     
@@ -5016,24 +5027,36 @@ function rebuildSkyTempleGeometry(){
                                                                                                                                                                        
                                                            
                                                                                                                                                                                           
+                                                                                                                                                                                                                                                             
+                      
+                                                                                                                     
+                                                                                                                   
+                                                                                                                  
+                                                                                                                 
+                                                                                                                   
+                                                    
+                                      
+                                                           
+                                                                                                                 
+ 
                       
                                                                                                                     
                                                                                                                      
                                                                                                                    
                                                                                                                  
-                                                                                                                  
-                                                                                                            
-                                                                                      
+                                                                                                                 
+                                                                                                                    
+                                                                                                                            
                                                                                     
                        
                                                                
                                                                                                                                                               
                                                                        
                                                                                                                                                           
-               
-                                                                                                                                                                                                                                                                                                                          
-                                                                              
-                                                                                                                                                                                         
+                         
+                                                                                                                                                                                                                                                                                                                                
+                                                                                        
+                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                    
                             
  
@@ -5189,10 +5212,10 @@ function rebuildSkyTempleGeometry(){
                                    
                     
                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                        
              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                       
                   
                                                                                                                                                                                                                                                                                   
@@ -5360,8 +5383,8 @@ function rebuildSkyTempleGeometry(){
                                                                                                                                                                       
                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                         
      
    
