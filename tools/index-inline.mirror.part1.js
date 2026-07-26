@@ -1086,8 +1086,10 @@ const CFG = {
   // wasdLanePress grades against (wasdBeats() − audioLat()/bps) plus grooveFreezePhase — so the lane's tap point lands
   // EXACTLY mid-band ("the and") and the band edge is "the 1", with a proven residual of 0 at every tempo and latency.
   // on:false → today's floor, floorBeat flash and note-lane HUD return byte-identically (raw boolean first at every site,
-  // and with it off no mesh, no shader, no uniform and no per-frame call exist at all). Post-graduation only; hidden in the Temple.
-  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs / mercyBoost / fillMark / holdDemo are THE BANDS parcel's information channels (the lane glyph mid-band · the mercy bar as one unmistakable wide bright band · the fill's amber gate marks · the hold-scaffold debug flag). THE RIVER ships the ribbon, the course and the clock and reads none of those four yet — they are stated here so the flat literal is the whole parcel's contract in one place
+  // and with it off no mesh, no shader, no uniform and no per-frame call exist at all). The note-lane HUD is byte-identical with
+  // the road ON as well, and stays so until THE BANDS actually draws the required lane on the road (ROAD_LANE_READY): a cue may be
+  // MOVED into the world, never merely deleted from the crosshair. Post-graduation only; hidden in the Temple.
+  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs / mercyBoost / fillMark / holdDemo are THE BANDS parcel's information channels (the lane glyph mid-band · the mercy bar as one unmistakable wide bright band · the fill's amber gate marks · the hold-scaffold debug flag). THE RIVER ships the ribbon, the course and the clock and reads none of those four yet — they are stated here so the flat literal is the whole parcel's contract in one place. Because bandGlyphs is DECLARED but not yet DRAWN, the note lane keeps its centre letter: ROAD_LANE_READY (index.html:1641) is what stands the lane down, and THE BANDS binds it to bandGlyphs in the commit that renders the glyph
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
@@ -1636,6 +1638,7 @@ function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0
 function roadCourseD(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); return s; }   // its slope, metres per beat — the second half of the re-basing pair (and, next parcel, the tracking drill's bank)
 function roadBeatNow(){ return wasdBeatsHeard() + (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // ONE CLOCK: literally the grading expression (wasdBeats() − audioLat()/bps) plus the groove phase, so the band edge is the heard "1" and the lane note is mid-band. Reads, never writes
 function roadLive(){ return !!(CFG.road && CFG.road.on) && !trainMode && !templeActive; }   // raw kill-switch FIRST; post-graduation only (the trainer keeps its didactic floor) and the Temple's floor-dissolve is never touched
+const ROAD_LANE_READY=false;                                              // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL YET? THE RIVER ships the ribbon, the course and the clock — band tint by required lane and the mid-band glyph are THE BANDS parcel. The road may only subsume the NOTE LANE once it actually renders it: stand the centre letter down before then and a default run (wasdHud:false, wasdLetter:true) has a beat clock with no "which key", which is a cue LOST, not a cue MOVED. THE BANDS flips this to `!!(CFG.road&&CFG.road.bandGlyphs)` in the same commit that draws the glyph; until then the lane is untouched and this const is the single honest switch for it
 let roadMesh=null, roadMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
 const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
 (function buildRoad(){
@@ -1700,7 +1703,7 @@ function roadSync(){
   if(gridColIdx!==_roadInkIdx){ _roadInkIdx=gridColIdx; _roadInk.setHex(GRID_COLS[gridColIdx][0]); }   // the road inherits tonight's grid-colour roll: it REPLACES the lattice, so the nightly roll survives instead of going quiet with it. A read of an index that already exists — zero new draws
   if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
     const r=roadBeatNow();
-    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7065). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
+    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7069). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
     return;
   }
   const r=roadBeatNow();                                                  // the ONLY per-frame writes: three floats, no allocation, no array, no call into any gameplay path
@@ -2841,15 +2844,15 @@ const _starW=new THREE.Vector3();        // scratch: the world position of one s
 let _starPickBuf=null;                   // Int32Array candidate scratch, sized once to the catalog — the selection pass allocates nothing
 let _starSpawnId=null;                   // the id starSpawnAz just chose (null = it found nothing and the caller must take today's roll), latched the way _beatSpawnK latches its subdivision
 let _starPickN=Date.now()|0;             // STREAM-EXTERNAL selection state (1.1). Star selection must consume ZERO draws from rnd(), so that spawnTarget's rnd() stream is byte-identical to today's whether a star binds or not — see starSpawnAz. Seeded from the wall clock (never from rnd(), never from Math.random) and advanced only by starPickRnd
-function starPickRnd(){                  // an integer hash of a monotonically increasing counter: a well-distributed [0,1) that shares state with nothing in the build
-  _starPickN=(_starPickN+0x9e3779b9)|0;
-  let x=_starPickN; x^=x>>>16; x=Math.imul(x,0x21f0aaad); x^=x>>>15; x=Math.imul(x,0x735a2d97); x^=x>>>15;
-  return (x>>>0)/4294967296;
-}
-function starWorldAt(i,out){             // vertex i of the sticks buffer, in world space: the TRUE position, the one the player can see
-  const p=_stickFig.pGeo.attributes.position.array, j=i*3;
-  return out.set(p[j],p[j+1],p[j+2]).applyQuaternion(skySphere.quaternion);
-}
+                                                                                                                                                                       
+                                       
+                                                                                                          
+                            
+ 
+                                                                                                                                        
+                                                          
+                                                                           
+ 
                                     
                                                                                                                     
                                                                                                                              
@@ -6884,8 +6887,8 @@ function starWorldAt(i,out){             // vertex i of the sticks buffer, in wo
  
                         
                                                       
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                        
                                                                                                                                                     
                                                                                       

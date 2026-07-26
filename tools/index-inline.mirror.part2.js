@@ -1086,8 +1086,10 @@
                                                                                                                        
                                                                                                                        
                                                                                                                           
-                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                 
+                                                                                                                                   
+                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
   
                                                                                    
                                                                                                     
@@ -1636,6 +1638,7 @@
                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                
                                                                            
                       
@@ -2841,15 +2844,15 @@
                                                                                                                                           
                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                       
-                                       
-                                                                                                          
-                            
- 
-                                                                                                                                        
-                                                          
-                                                                           
- 
+function starPickRnd(){                  // an integer hash of a monotonically increasing counter: a well-distributed [0,1) that shares state with nothing in the build
+  _starPickN=(_starPickN+0x9e3779b9)|0;
+  let x=_starPickN; x^=x>>>16; x=Math.imul(x,0x21f0aaad); x^=x>>>15; x=Math.imul(x,0x735a2d97); x^=x>>>15;
+  return (x>>>0)/4294967296;
+}
+function starWorldAt(i,out){             // vertex i of the sticks buffer, in world space: the TRUE position, the one the player can see
+  const p=_stickFig.pGeo.attributes.position.array, j=i*3;
+  return out.set(p[j],p[j+1],p[j+2]).applyQuaternion(skySphere.quaternion);
+}
 function starSpawnAz(a0,minDot,pit){
   // Returns the azimuth of a risen star that satisfies the SAME spawnMinDeg-from-aim cone the random roll respects,
   // preferring stars that can still brighten. _starSpawnId is the found-flag: null → the caller keeps the azimuth it rolled.
@@ -6884,8 +6887,8 @@ function phasesDrawDisc(g,cx,cy,r,b){
  
                         
                                                       
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                        
                                                                                                                                                     
                                                                                       

@@ -224,6 +224,25 @@ test("DE-COERCION: an in-between note is claimable but cannot break the combo (R
   assert.equal((html.match(/spb=dT<t\[0\]\?d\[0\]:\(dT<t\[1\]\?d\[1\]:d\[2\]\)/g) || []).length, 1, "the one surviving tier expression is the ORB STROBE's own");
 });
 
+test("THE RIVER: the note lane only stands down once the road actually carries the lane (S)", () => {
+  // A cue may be MOVED into the world, never merely deleted from the crosshair. THE RIVER ships the ribbon, the course and
+  // the clock but no required-lane channel, so with the shipped defaults (road.on:true, wasdHud:false, wasdLetter:true) the
+  // centre letter must still be the answer to "which key is due". ROAD_LANE_READY is the one switch THE BANDS flips, in the
+  // same commit that draws the mid-band glyph — this test is what makes forgetting it impossible.
+  assert.match(html, /const ROAD_LANE_READY=false;/, "the road does not render the required lane yet");
+  assert.match(html, /const laneCue=!\(roadLive\(\) && ROAD_LANE_READY\);/, "the lane stands down on the road CARRYING it, not merely on the road existing");
+  // The centre-cue gate's three clauses, verbatim — the truth table below is a transcription of exactly this text.
+  assert.match(html, /&& \(CFG\.wasdHud \|\| \(CFG\.wasdTapText && !laneCue\) \|\| \(\(CFG\.wasdLetter \|\| reduceMotion\) && laneCue\)\);/, "the centre-cue gate is the three-clause one");
+  // Truth table over (wasdHud, wasdTapText, wasdLetter, reduceMotion) with laneCue true: identical to the pre-road gate.
+  for (let bits = 0; bits < 16; bits += 1) {
+    const wasdHud = !!(bits & 1), wasdTapText = !!(bits & 2), wasdLetter = !!(bits & 4), reduceMotion = !!(bits & 8);
+    const laneCue = true;   // !(roadLive() && false) — every configuration this build can reach
+    const now = wasdHud || (wasdTapText && !laneCue) || ((wasdLetter || reduceMotion) && laneCue);
+    const shipped = wasdHud || wasdLetter || reduceMotion;
+    assert.equal(now, shipped, `centre-cue gate unchanged for bits ${bits}`);
+  }
+});
+
 test("rolling-pocket CFG: feature shelved by default; buffer knobs remain (B1, B6)", () => {
   const cfg = extractCfg();
   // Product default: OFF (zen free-play). Logic is covered with groovePocket forced true in sandbox tests.
