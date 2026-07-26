@@ -1,42 +1,60 @@
-# Aim Dojo
+# Moon Chorus
 
-A browser-based **rhythm & spatial-audio aim trainer**. A slow groove sets the pulse, with a
-woodblock tick on every beat to count by. An orb appears on a beat, somewhere around you —
-**beat 1 you find it, beat 2 you track it, beat 3 you fire**. The tempo (or world speed)
-adapts automatically to how well you're hitting.
+*(repo, domain and storage keys stay `aim-dojo` — the name is display-only)*
 
-It's a small static site — no build step, no install. Three.js renders the 3D
-arena and Tone.js + the Web Audio API drive the rhythm and the distance-aware spatial sound
-(close orbs are dry and loud, far ones quiet and washed in reverb).
+A browser-based **rhythm & spatial-audio aim trainer played under a real sky**. A slow groove sets
+the pulse; Echoes appear on the beat, somewhere around you, and each one's *distance is its rhythm* —
+spawn distances are quantized so the flight time of your shot is a whole number of sixteenths. You
+are graded at **arrival**, not on the trigger: the link has to reach the Echo while it is glowing, so
+a far voice needs an earlier send than a near one, and two shots fired a beat apart can land together.
+Between sends you press the letter the floor flashes, which steadies the Moonline. The tempo adapts
+to how you're doing, and every Echo you land is a voice carried home.
+
+Around that loop the night has a life of its own: it comes in **swells** with a mercy bar to breathe
+in; the metronome **thins out** as your arrivals steady, until the quiet is the reward; the amber
+multi-hit Echo asks for a stated **drum fill** instead of a flurry; each Echo calls from the bearing
+of a **real star that is actually up**, and landing its voice brightens that star in your sky
+permanently — brightened stars form a **standing chorus** that sings back to you on the start screen
+when you return. The real moon phase **deals the night's one rule**, named in a single line at the
+threshold. Holster — stop playing for a dozen quiet seconds — and the night **bows** on purpose: the
+last Echoes rise, the music resolves, one wordless glyph of your own timing, one true line, and a
+**night card** waiting at the door. Nothing in there is configured; it is all discovered.
+
+It's a small static site — no build step, no install. Three.js renders the arena and the sky,
+Tone.js + the Web Audio API drive the rhythm and the distance-aware spatial sound (close Echoes are
+dry and loud, far ones quiet and washed in reverb).
 
 ## Play
 
-**Live:** https://robjohncolson.github.io/aim-dojo/
+**Live:** [aim-dojo.vercel.app](https://aim-dojo.vercel.app) · mirror: https://robjohncolson.github.io/aim-dojo/
 
 Or run it locally — just open `index.html` in any modern browser (Chrome/Edge/Firefox/Safari).
-Click **ENTER THE DOJO** to lock the mouse and start.
+Press **PLAY — WAKE THE MOONLINE** to lock the mouse and start. Every visit begins with Moon Sensei's
+short training night (step → send → land, three phases), then opens into the full night.
 
 | Input | Action |
 |-------|--------|
 | **Mouse** | Turn & aim |
-| **Left click** | Fire on the beat |
-| **Esc** | Pause & settings |
+| **WASD** | Step on the letter the floor flashes |
+| **Left click** | Send — land it while the Echo glows |
+| **Right click** | Close a sky note (in THEATRE, hold the sky still) |
+| **Hold E + click** | Mark a star under the reticle |
+| **E** | With a mark: enter the Sky Temple · in the Temple: leave |
+| **Shift+E** | In the Temple: free the mouse (view stays put) |
+| **T** | In the Temple: ask the sky (needs a saved chart) |
+| **Esc** | Pause / resume |
+| **Drag / SEND** | Touch equivalents of aim and fire |
 
-🎧 Headphones help (the spatial audio is a real localization cue), but laptop speakers work too.
+In-game **HELP** lives in the pause card (PLAY · SKY · CHART · **HELP**) and repeats all of this in
+the game's own language.
 
-## Modes
-
-- **Rhythm** — orbs spawn on the beat and you fire in time; the tempo adapts to your accuracy.
-- **Free hunt** — orbs stream continuously and the world speed adapts.
-
-Spawn field can be **360° around** (you have to localize by ear and turn) or **front only**.
-Everything — sensitivity, FOV, speed-up / slow-down thresholds, orb density — is adjustable
-from the pause/settings screen.
+🎧 Headphones help — the spatial audio is a real localization cue, and the chorus is worth hearing —
+but laptop speakers work too.
 
 ## Share
 
-Use the **⧉ SHARE THIS DOJO** button on the start/pause screen for a QR code and a copy-able
-link to the live page.
+Use the **⧉ SHARE** button on the start/pause screen for a QR code and a copy-able link to the live
+page.
 
 ## Deploy
 
@@ -65,8 +83,9 @@ Meeus Sun/Moon positions, and the in-game symbolic glossary. It also makes a
 soft, timed request to the Sidereal public day endpoint so all 12 major movers
 can appear when that service is available.
 
-New visitors start with accelerated **THEATRE** sky motion. Switch to **NATURAL**
-in the pause settings to follow real day/night pace; that choice is saved.
+The sky runs at **NATURAL** pace by default — real day/night motion for your location. **THEATRE**
+(a sky that wheels in minutes) is opt-in from the pause card's SKY tab or `?theatre=1`; that choice
+is saved.
 
 The checked-in client uses the public Railway sky-day service. Override it per
 visit for local development or another deployment:
@@ -83,7 +102,7 @@ details.
 
 ### Optional Save my sky
 
-The pause settings include a collapsed **SAVE MY SKY** section. Play and
+The pause card's **CHART** tab holds a **SAVE MY SKY** section. Play and
 training never require it. A user can request a Supabase email magic link,
 save one private birth profile to Sidereal Railway, and clear or replace that
 profile later. A saved profile enables authenticated `/api/me/skypack` geometry
@@ -136,6 +155,9 @@ Run SQL once: `supabase-prefs.sql`, then `supabase-prefs-v2.sql` for the extra c
 Without migration, the client falls back to the original four columns.
 Birth data never enters this table.
 
+Your lit sky, witnessed moon phases, last night played, and the most recent night card live in
+`localStorage['aimdojo.*']` only — they are private to the browser and are never uploaded.
+
 In Supabase Auth, enable email magic links and add each exact deployed page
 origin/path (plus local development, for example `http://localhost:8931/`) to
 the allowed redirect URLs. The browser follows the current
@@ -164,7 +186,8 @@ node --test tests/*.test.js
 ## Tech
 
 - [Three.js](https://threejs.org/) r128 (3D scene, WebGL)
-- [Tone.js](https://tonejs.github.io/) 14.x (transport, drums) + Web Audio `PositionalAudio` / convolver reverb
+- [Tone.js](https://tonejs.github.io/) 14.8.49 (transport, drums) + Web Audio `PositionalAudio` / convolver reverb
+- [supabase-js](https://supabase.com/docs/reference/javascript) 2.x (optional sign-in, records, cloud prefs)
 - [qrcodejs](https://github.com/davidshimjs/qrcodejs) (client-side QR generation)
 
 All loaded from CDN; nothing to install.
@@ -173,7 +196,8 @@ All loaded from CDN; nothing to install.
 
 The Sky Temple's celestial backdrop and planet globes use **equirectangular
 NASA-derived visualization textures** (`assets/sky/`). Not affiliated with NASA;
-symbolic game use only.
+symbolic game use only. The zodiac stick figures the Echoes call from are drawn from
+`fixtures/zodiac_sticks_v1.json`.
 
 ## License
 

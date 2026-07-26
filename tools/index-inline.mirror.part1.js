@@ -601,14 +601,56 @@
                                                                                                                                          
                   
             
+                                                                                                                                                                                             
                                                                                                                                       
+                                
+                                                                   
+                                                   
+                                                                                                    
+                                                                                        
+                                                                                                                    
+               
+              
+                                
+                                                                          
+                                                   
+                                                                                                                                 
+                                                                                              
+                                                                                                                                                                        
+               
+              
+                                
+                                                                        
+                                                  
+                                                                                                                                                                    
+                                                                                                                                 
+               
+              
+                                
+                                                             
+                                                 
+                                                                                           
+                                                                                                                                                                    
+                                                                                                                                                                                                                       
+                                                                                                                            
+               
+              
+                                
+                                                                       
+                                                 
+                                                                                                                                                                                                         
+                                                                                                   
+                                                                             
+               
+              
                                 
                                                            
                                                   
                                               
                                                                                  
+                                                                        
                                                                      
-                                                                      
+                                                                                       
                                                 
                                                                                                
                                                                       
@@ -623,6 +665,7 @@
                                                                              
                                                            
                                                                    
+                                                                                                             
                
               
                                 
@@ -716,7 +759,17 @@ window.JA={
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
   playSettingsSummary:'あそび', skySettingsSummary:'そら', chartSettingsSummary:'わたしのチャート', helpSettingsSummary:'ヘルプ',
+  helpVerbsTitle:'みっつの うごき', helpNightTitle:'夜の いき', helpTankTitle:'おおきな こだま', helpSkyTitle:'ほしぞら', helpBowTitle:'夜のおわり',
   helpDojoTitle:'道場', helpTempleTitle:'空の神殿', helpChartTitle:'チャート',
+  // HELP tab: each list is swapped WHOLE (innerHTML) — keycaps and button names stay Latin, per the stats/keys principle
+  helpVerbsHtml:'<li><b>ふむ</b> — 床が光ったら その文字を押す。月の糸が ととのう。</li><li><b>送る</b> — ビートの<b>あいだ</b>でリンクをはなす。ビートの上ではない。</li><li><b>とどける</b> — <b>とどいた しゅんかん</b>で きまる。指をはなした時ではない。遠い声ほど 早めに送る。</li>',
+  helpNightHtml:'<li>こだまは 波のように やってきて、そのあと 1小節だけ お休み。新しい声は来ず 合唱がふくらむ。そこで いきをつく。</li><li>世界の太鼓は 波の切れ目でしか はやさを変えない — きみの手の下では 変わらない。</li><li>きれいに とどけつづけると チクタクが うすくなって 1拍めだけになる。はずすと そっと もどる。しずかなのは きみが じぶんで 拍をきざんでいる しるし。</li>',
+  helpTankHtml:'<li>波のおわりに 出てくる。れんだではなく かたち — 光る順に <b>3</b>、<b>4</b>、そして お休みをひらく <b>1</b> にとどける。</li><li>かたちを はずしても へるものはない。見送っても そのまま 帰っていく。</li>',
+  helpSkyHtml:'<li>こだまは みんな いま空に出ている ほんとうの星の方角から よんでいる。</li><li>とどけた声は つぎの あいだに 星へ帰り、その星は きみの空で ずっと明るくなる。明るい星は きみが もどってきた夜に うたってくれる。</li><li><b>E をおしたまま</b> 何もない空へ送ると 星に印がつく。もういちど <b>E</b> で 空の神殿へ。こだまが前にいるときは 道場がそう教えて、リンクは こだまへ とんでいく。</li><li>月が その夜のきまりを くばる。しきいで 一行だけ 名前を告げる。せっていは いらない。</li>',
+  helpBowHtml:'<li>十すうびょう 送らず 踏まずにいると 夜が おじぎをする — のこったこだまが 空へのぼり、太鼓がゆるんで とけ、きみのタイミングの紋がひとつ、そして ほんとうの一行。</li><li>そのさいしょの ひといきで 気が変わったら、なにも失わずに つづきへ もどれる。</li><li>おじぎのあとは 戸口で <b>NIGHT CARD</b> が まっている。</li>',
+  helpDojoHtml:'<li><b>MOUSE</b> — 視点 / ねらい</li><li><b>WASD</b> — 床が光ったら 見えている文字を押す</li><li><b>L-CLICK</b> — 送る。こだまが光るうちに とどける</li><li><b>SEND</b>（タッチ）— 同じリンク。ドラッグでねらう</li><li><b>R-CLICK</b> — 空のノートを閉じる（THEATRE では 空をとめる）</li><li><b>ESC</b> — ポーズ / 再開</li><li><b>HOLD E + FIRE</b> — 照準下の空の対象に印をつける（金色に光る）</li><li><b>E</b>（印のあと もういちど）— 空の神殿に入る</li>',
+  helpTempleHtml:'<li><b>入る</b> — 道場から: <b>HOLD E + FIRE</b> で印、そして もういちど <b>E</b></li><li><b>FIRE</b> — 照準下の対象をしらべる</li><li><b>SHIFT+E</b> — パネル用にマウス解放。視点はそのまま</li><li><b>T</b> — 空にたずねる（CHART でチャート保存が必要）</li><li><b>E</b> — 神殿を出る（道場へ）</li><li><b>ESC</b> — ポーズ（再開で神殿にもどる）</li><li>八つの月の輪は きみが遊んだ夜の 月のかたち。ふえるだけ。</li>',
+  helpChartHtml:'<li>任意。なくても遊べる。</li><li>CHART でサインイン → 出生チャートを ひとつ保存。</li><li>神殿の <b>T</b>（質問）と 今日の空のノートが つかえるようになる。</li><li>保存すると 入力欄は たたまれる。<b>EDIT CHART</b> か <b>NEW CHART</b> を使ってね。</li>',
   observerLocation:'場所', observerGeo:'現在地を使う', observerLat:'緯度', observerLon:'経度', observerSave:'保存',
   observerNaturalMode:'自然の空 · 現在地', observerTheatreMode:'任意 · NATURAL のみ', observerSetPrompt:'ほんとうの空には場所を設定', observerLocating:'現在地を確認中…',
   observerGeoFailed:'現在地を取得できない · 緯度と経度を入力してね', observerManualInvalid:'緯度 −90〜90、経度 −180〜180 を両方入力', observerSaveFailed:'場所を保存できない',
@@ -813,7 +866,10 @@ window.JA={
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
       txt('nightCardLabel','nightCard'); txt('nightCardCopyLabel','copy'); txt('nightCardSaveLabel','cardSaveLabel'); attr('nightCardCv','aria-label','cardAria');   // NIGHT CARDS: the COPY label is the share modal's own word, reused rather than duplicated
       txt('playSettingsSummary','playSettingsSummary'); txt('skySettingsSummary','skySettingsSummary'); txt('chartSettingsSummary','chartSettingsSummary'); txt('helpSettingsSummary','helpSettingsSummary');
+      txt('helpVerbsTitle','helpVerbsTitle'); txt('helpNightTitle','helpNightTitle'); txt('helpTankTitle','helpTankTitle'); txt('helpSkyTitle','helpSkyTitle'); txt('helpBowTitle','helpBowTitle');
       txt('helpDojoTitle','helpDojoTitle'); txt('helpTempleTitle','helpTempleTitle'); txt('helpChartTitle','helpChartTitle');
+      html('#helpVerbsList','helpVerbsHtml'); html('#helpNightList','helpNightHtml'); html('#helpTankList','helpTankHtml'); html('#helpSkyList','helpSkyHtml'); html('#helpBowList','helpBowHtml');
+      html('#helpDojoList','helpDojoHtml'); html('#helpTempleList','helpTempleHtml'); html('#helpChartList','helpChartHtml');   // whole-list swap: the HELP lists are the one place JA needs markup, not a label
       txt('observerLocationLabel','observerLocation'); txt('observerGeoLabel','observerGeo'); txt('observerLatLabel','observerLat'); txt('observerLonLabel','observerLon'); txt('observerSaveLabel','observerSave'); txt('observerLocationStatus','observerSetPrompt');
       txt('saveSkyTitle','saveSkyTitle'); txt('saveSkyHelp','saveSkyHelp'); txt('saveSkyEmailLabel','saveSkyEmail'); txt('saveSkyLinkLabel','saveSkyLink'); txt('saveSkySignOutLabel','saveSkySignOut');
       txt('saveSkyDateLabel','saveSkyDate'); txt('saveSkyTimeLabel','saveSkyTime'); txt('saveSkyUnknownLabel','saveSkyUnknown'); txt('saveSkyTzLabel','saveSkyTz'); txt('saveSkyPlaceLabel','saveSkyPlace'); txt('saveSkyLatLabel','saveSkyLat'); txt('saveSkyLonLabel','saveSkyLon'); txt('saveSkySubmitLabel','saveSkySubmit'); txt('saveSkyClearLabel','saveSkyClear');
