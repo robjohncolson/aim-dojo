@@ -937,7 +937,7 @@ const CFG = {
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
-  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. combatPx + enlarged orbBlock* = any Echo near reticle ALWAYS wins combat. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
+  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. orbBlock* = an Echo the aim ray pierces (or whose disc covers the reticle) still wins combat under held-E. combatPx = VESTIGIAL (2026-07-26): the near-miss combat-priority clause died when star-bound spawns put Echoes ON the zodiac band and made held-E selection nearly impossible. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
   skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62, signArtLowMode:'off' },   // TEMPLE ORBS: milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). signArtLowMode (P5 F1): 'off'=glyph-only on LOW (default, sheds 13 additive planes) · 'always'=force belt on LOW. Flat literal — nested {} would break the CFG contract test regex.
@@ -2743,13 +2743,12 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
   _lsnP.copy(worldPos).project(camera);
   return Math.hypot(_lsnP.x*0.5*viewW, _lsnP.y*0.5*viewH);
 }
-function _lsnOrbBlocksSky(){   // true if ANY live Echo is near enough to the reticle that combat should win (never Listen a zodiac "through" or next to a sphere)
+function _lsnOrbBlocksSky(){   // true only if the aim ray pierces an Echo or its disc covers the reticle (never Listen "through" a sphere). The old combatPx near-miss clause is GONE (2026-07-26): star-bound spawns put Echoes ON the zodiac band, so near-miss priority made held-E selection nearly impossible — and held-E is already an explicit sky gesture, so only a truly covering orb should win.
   // 1) ray–sphere  2) projected disc + pad  3) hard combatPx priority — orbs off-center but still "aimed" must block Listen
   camera.getWorldDirection(_lsnDir2);
   const halfFovY=0.5*(camera.fov||95)*Math.PI/180, tanHalf=Math.tan(halfFovY)||0.5;
   const pad=CFG.skyListen.orbBlockPad!=null?CFG.skyListen.orbBlockPad:2.7;
   const pxPad=CFG.skyListen.orbBlockPx!=null?CFG.skyListen.orbBlockPx:52;
-  const combatPx=CFG.skyListen.combatPx!=null?CFG.skyListen.combatPx:88;
   for(const tg of targets){
     if(!tg || tg.dead || !tg.mesh) continue;
     _lsnP.copy(tg.mesh.position).sub(camera.position);
@@ -2759,7 +2758,7 @@ function _lsnOrbBlocksSky(){   // true if ANY live Echo is near enough to the re
     if(perpSq<=wr*wr) return true;   // aim ray pierces (or skims) the orb volume
     const scrR=(wr/along)/tanHalf*(viewH*0.5)+pxPad;
     const scr=_lsnScreenPx(tg.mesh.position);
-    if(scr<scrR || scr<combatPx) return true;   // disc covers reticle OR Echo is inside combat priority radius
+    if(scr<scrR) return true;   // disc covers reticle (combatPx near-miss clause removed — see function comment)
   }
   return false;
 }
