@@ -5585,6 +5585,7 @@ function paintStudySurface(pick, data, skeleton){
                                                
       
                   
+                                                                                                                                                                                                  
                                            
                                                                                                                                                                                                            
                                                                                                                                                          
