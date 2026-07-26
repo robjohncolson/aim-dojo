@@ -1085,11 +1085,12 @@ const CFG = {
   // ONE CLOCK: the band edge crossing the now-line IS the audible beat, because roadBeatNow() is literally the expression
   // wasdLanePress grades against (wasdBeats() − audioLat()/bps) plus grooveFreezePhase — so the lane's tap point lands
   // EXACTLY mid-band ("the and") and the band edge is "the 1", with a proven residual of 0 at every tempo and latency.
-  // on:false → today's floor, floorBeat flash and note-lane HUD return byte-identically (raw boolean first at every site,
-  // and with it off no mesh, no shader, no uniform and no per-frame call exist at all). The note-lane HUD is byte-identical with
-  // the road ON as well, and stays so until THE BANDS actually draws the required lane on the road (ROAD_LANE_READY): a cue may be
-  // MOVED into the world, never merely deleted from the crosshair. Post-graduation only; hidden in the Temple.
-  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs / mercyBoost / fillMark / holdDemo are THE BANDS parcel's information channels (the lane glyph mid-band · the mercy bar as one unmistakable wide bright band · the fill's amber gate marks · the hold-scaffold debug flag). THE RIVER ships the ribbon, the course and the clock and reads none of those four yet — they are stated here so the flat literal is the whole parcel's contract in one place. Because bandGlyphs is DECLARED but not yet DRAWN, the note lane keeps its centre letter: ROAD_LANE_READY (index.html:1641) is what stands the lane down, and THE BANDS binds it to bandGlyphs in the commit that renders the glyph
+  // on:false → today's floor, floorBeat flash, note-lane HUD and the NOISE DOLLY return byte-identically (raw boolean first at
+  // every site, and with it off no mesh, no shader, no uniform, no texture and no per-frame call exist at all).
+  // THE MEANING (parcel S2) fills the ribbon in: every band now carries its beat's required lane colour + glyph, the swell's
+  // position as luminance, the mercy bar as one wide bright band, the fill's gates as amber edge-marks, and — behind the
+  // now-line — THE WAKE, the run you just played. The bend at your feet drives the camera instead of the old noise lissajous.
+  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1642) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
@@ -1563,7 +1564,7 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
    Nothing here is drawn for prettiness; the sky above already owns wonder.
 
    ONE CLOCK — the agreement is by CONSTRUCTION, not by tuning (computed, not asserted):
-     grading  (wasdLanePress, index.html:6513-6515):  G = wasdBeats() − audioLat()/bps   ( = raw − grooveFreezePhase − lat/bps )
+     grading  (wasdLanePress, index.html:6760-6762):  G = wasdBeats() − audioLat()/bps   ( = raw − grooveFreezePhase − lat/bps )
      road     (roadBeatNow below):                    R = wasdBeatsHeard() + grooveFreezePhase
                                                         = (wasdBeats() − audioLat()/bps) + grooveFreezePhase = G + grooveFreezePhase
      R − G ≡ grooveFreezePhase, EXACTLY. Swept over the reachable ladder (bpm 20/28/33/40/50/57.5/60) × latency
@@ -1638,18 +1639,214 @@ function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0
 function roadCourseD(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); return s; }   // its slope, metres per beat — the second half of the re-basing pair (and, next parcel, the tracking drill's bank)
 function roadBeatNow(){ return wasdBeatsHeard() + (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // ONE CLOCK: literally the grading expression (wasdBeats() − audioLat()/bps) plus the groove phase, so the band edge is the heard "1" and the lane note is mid-band. Reads, never writes
 function roadLive(){ return !!(CFG.road && CFG.road.on) && !trainMode && !templeActive; }   // raw kill-switch FIRST; post-graduation only (the trainer keeps its didactic floor) and the Temple's floor-dissolve is never touched
-const ROAD_LANE_READY=false;                                              // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL YET? THE RIVER ships the ribbon, the course and the clock — band tint by required lane and the mid-band glyph are THE BANDS parcel. The road may only subsume the NOTE LANE once it actually renders it: stand the centre letter down before then and a default run (wasdHud:false, wasdLetter:true) has a beat clock with no "which key", which is a cue LOST, not a cue MOVED. THE BANDS flips this to `!!(CFG.road&&CFG.road.bandGlyphs)` in the same commit that draws the glyph; until then the lane is untouched and this const is the single honest switch for it
+const ROAD_LANE_READY=!!(CFG.road && CFG.road.bandGlyphs);                 // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL? THE MEANING draws it — the band is tinted by its beat's required lane and the lane's own glyph is rendered mid-band — so the crosshair letter may finally stand down: the cue is MOVED into the world, not deleted from it. Bound to the very flag that draws the glyph, so the two can never disagree; bandGlyphs:false (or road.on:false, which roadLive() reads first) restores the centre letter in the same read
+
+/* ========================= THE STAR ROAD — THE MEANING (wave 7, parcel S · SPEC_STAR_ROAD §3, decisions 3+4 + the band encodings) =========================
+   THE RIVER built the conveyor; THE MEANING is what it carries. Still zero gameplay math: everything below is a PURE READ of
+   state the game already keeps, turned into a byte, uploaded once per BEAT into a 23×1 texture. THE TREADMILL LAW holds —
+   PLAYER_POS never moves, no ballistic / spawn / grading quantity is written, and the only line outside this block that changes
+   behaviour is the DOLLY, which SPEC §3 decision 3 explicitly re-sources (see COURSE-DRIVEN BANKING below).
+
+   INFORMATION, NEVER DECORATION — one fact, one channel, and every one of them derives from the SAME state the game plays:
+     · band colour + mid-band glyph = that beat's REQUIRED LANE. `_combo[(n·nd) mod len]` is character-for-character the
+       expression drawWasdLane and wasdLanePress read; nd is the lane's own wasdNoteDiv(). The glyph sits at fract(R)=0.5,
+       which is exactly where the lane's MAIN note grades (G = R − grooveFreezePhase ⇒ integer G ⇔ mid-band), so the letter
+       passes under your feet at the instant its key is due — proven residual 0.000e+0 beat at every rung × latency.
+     · band luminance = the SWELL. roadTideAt(n) replays onGrid's own tide expression on the eighth index of that beat
+       (g = 2n, bar = ⌊g/8⌋, cb = bar mod 9, f = (g mod 8)/8): 0 disagreements against onGrid over 6 full swells.
+     · the MERCY BAR = one wide bright band. Its four beats drop their interior "1" lines and burn at road.mercyBoost, so the
+       exhale is a single 40 m slab of light 8 beats out — 2.0 bars = 24.0 s of warning at 20 bpm, 8.0 s at 60.
+     · FILL GATES = amber edge-marks on the elected tank's still-OWED sixteenths. Every CFG.tank figure value is a multiple of
+       4 (fig3 [8,12,16] → beats 2,3,4 of the fill bar = "3, 4, 1"), so a gate is always EXACTLY one band edge, never a smear.
+     · THE WAKE = the run you just played, behind you to the horizon (decision 4). Landed beats keep their lane colour lit,
+       missed beats go dark. Turn around and the last 14 beats are there.
+   Nothing is drawn for prettiness; the sky above already owns wonder.
+
+   WHY THE WAKE'S VERDICT IS FINAL AT THE BAND EDGE (computed, not asserted). The lane's window is
+   w = min(full·0.5, max(wasdWindow 0.16 s, full·0.4)) with full = bps/nd. Over the whole 38-rung reachable ladder the smallest
+   note interval is 0.500 s, so full·0.4 ≥ 0.200 s > 0.16 s and the 0.4 branch is the ONLY reachable one: the window is 0.400
+   note-intervals at every tempo. Band n−1's note lives at R = n−0.5, so it stops being claimable at R = n−0.1; band n's note
+   opens at R = n+0.1. There is a 0.200-beat DEAD ZONE straddling every band edge, so at the instant a band leaves the now-line
+   its verdict can no longer change — the wake is written once and is never a lie. The verdict itself is latched from `_hitNote`
+   (set on a CORRECT press, cleared when the lane leaves that note) reduced to its MAIN beat, so it survives a wasdNoteDiv
+   change and a bonus ghost can never be mistaken for the beat. A backwards jump in the clock (a new run, teardownTransport)
+   clears the ring — no gameplay reset site is touched to do it.
+
+   COURSE-DRIVEN BANKING = THE TRACKING DRILL (decision 3). With road.on, post-graduation, the dolly's NOISE lissajous is
+   replaced by the river: the drift steers to where the road is heading ROAD_TURN_LEAD beats out — a real geometric angle,
+   atan(ΔX′ / ROAD_BAND_M) — and the camera BANKS into the same bend. Applied at the existing dolly site, under the existing
+   laws untouched (CFG.dolly, dollyStrength × dollySkillRamp via dollyStrengthMul(), the tide's dollyLo breathing, reduceMotion
+   → the whole block is skipped, templeActive → skipped). Swept over a year of courses × 8 phase buckets × 24 now-positions,
+   the heading at 4 beats is median 2.30° / p90 5.45° / max 9.16°; ROAD_TURN_FULL is that p90, so the drift saturates on the
+   hardest 10% of bends and leans at 42% of budget on a median one. The YAW BUDGET IS UNCHANGED: the noise dolly's harmonic
+   coefficients sum to exactly 1.00 on both its paths, so its peak was CFG.dollyYawDeg × dm — precisely what the clamped course
+   term reaches. The PITCH axis is retired under the road on purpose: a flat ribbon that bends in the plane has no vertical
+   fact to state, and a vertical wander with nothing to say would be decoration. ROLL is new and bounded: 6.5° × dm peaks at
+   3.25° at 60 bpm, UNDER the shipped trauma roll (CFG.shakeRoll 0.060 rad = 3.44°) that already tilts the same camera — and
+   roll cannot touch the shot, because camera.rotation is 'YXZ' (R = Ry·Rx·Rz) and Rz leaves the local −Z axis fixed, so
+   camera.getWorldDirection() — the one thing computeShotPlan reads — is identically independent of it.
+
+   COST: one 23×1 RGBA8 texture (92 bytes) re-uploaded once per BEAT (every 3.00 s at 20 bpm, 1.00 s at 60) into a pre-allocated
+   Uint8Array — no per-frame allocation anywhere, and the per-frame uniform writes are still the same three floats plus uBeat0.
+   Two extra texel fetches per fragment (the band this pixel is IN, and the band that OWNS the nearest boundary — a wide band
+   needs to know whether its leading "1" belongs to it or is being swallowed) and a third for the glyph, behind an `if` that
+   the overwhelming majority of fragments fail. reduceMotion is unchanged and FIRST CLASS: uNow stays pinned to 0, so the road
+   stands still with band 0 at the feet and the next eight ahead as a ruler — the wake behind is STATIC HISTORY and renders
+   identically, because there is no motion in it to reduce.
+   ========================================================================================================================= */
+const ROAD_WAKE=Math.max(1,Math.ceil(ROAD_FADE1/ROAD_BAND_M)|0);          // 14 bands of history behind the now-line — exactly where the alpha ramp gives out, so the wake reaches the visible horizon and not one byte further
+const ROAD_SLOTS=ROAD_WAKE+1+ROAD_LOOK;                                   // 23 = 14 behind · the band at your feet · lookAheadBeats ahead. Slot i is beat (n0 + i − ROAD_WAKE); beyond the ends the ribbon is plain (the road states 8 beats, not 13)
+const ROAD_TIDE_LO=0.45, ROAD_LANE_MIX=0.80, ROAD_WAKE_DARK=0.16, ROAD_WAKE_BLANK=0.55;   // band body luminance at the swell's trough (crest = 1.0) · how far the base ink is pulled to the lane colour · a MISSED beat's band behind you · a beat that was never judged (pre-run, lane off)
+const ROAD_INK_BODY=0.16, ROAD_INK_GLYPH=1.30;                            // the band interior once it carries information (plain ribbon keeps ROAD_INK_BASE 0.10) · the glyph's own ink
+const ROAD_GLYPH_W=5.2, ROAD_GLYPH_L=8.6, ROAD_GLYPH_F0=25, ROAD_GLYPH_F1=45;   // the letter is STRETCHED down the road like real pavement text (1.65:1) to survive foreshortening: at EYE 4 m / fov 95 / 1080p its mid-band footprint is 289×147 px one band out, 178×55 at two, 128×28 at three — so it fades between bands +2 and +4 and the band COLOUR carries the lane for all eight. Drawing it out to band 8 would be 53×2 px of noise
+const ROAD_TURN_LEAD=4, ROAD_TURN_FULL=5.45*0.017453293, ROAD_BANK_DEG=6.5;   // beats of lead the drift steers to (half the look-ahead: the bend you can already read) · the heading that spends the whole dolly budget (the p90 of a swept year — see the block comment) · the bank's peak in degrees before dollyStrengthMul
+const ROAD_HOLD_AT=4, ROAD_HOLD_LEN=3;                                    // holdDemo only: a sustained band opens on beat 4 of every 8 and runs 3 beats, so head / body / tail / release are all exercised by the one flag
 let roadMesh=null, roadMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
 const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
+const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], _roadMark=new THREE.Color();   // the LANE's own four colours and the FILL's own amber — filled from WASD_HEX / TANK_COLOR in roadSync's one-time block, because both of those literals are declared further down the file and this parcel refuses to keep a second copy of either
+const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};                         // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate
+function roadTideAt(n){
+  // THE SWELL AT BEAT n — onGrid's own tide expression, replayed on that beat's EIGHTH index. onGrid runs on Tone's '8n'
+  // repeat from a Transport that teardownTransport resets to 0 alongside grid8, so the eighth whose audio sounds at heard
+  // beat b is exactly g = 2b: this is the same clock, read at a different time, not a second one. Returns {m,i}:
+  //   m = 0 not mercy · 1 the mercy bar's FIRST beat (it keeps its "1" line) · 2 a mercy continuation (its line is swallowed,
+  //       which is what makes the bar read as ONE wide band) — and i = tideI, the luminance rider.
+  // Kill-switch first: with tide.on:false the swell rests neutral exactly as onGrid's own else-branch leaves it.
+  if(!(CFG.tide && CFG.tide.on)) return _roadTide0;
+  const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);
+  const g=2*n, bar=Math.floor(g/8), cb=((bar%cyc)+cyc)%cyc, f=(((g%8)+8)%8)/8;
+  const mercy=cb>=rise+peak;
+  _roadTideR.m = mercy ? ((cb===rise+peak && (((g%8)+8)%8)===0) ? 1 : 2) : 0;
+  _roadTideR.i = mercy ? 0 : (cb<rise ? (cb+f)/rise : 1);
+  return _roadTideR;
+}
+function roadHoldAt(n){
+  // THE HOLD SCAFFOLD (SPEC §3, render capability only). 0 none · 1 head (keeps its "1", carries the glyph) · 2 body ·
+  // 3 tail, the last held beat · 4 release, whose leading edge is the RELEASE bar that closes the sustain. Bodies and tails
+  // swallow their own "1" line, so a len>1 band is ONE colour stretched over N beats exactly as the spec asks.
+  // NO GAMEPLAY READS AT ALL: this is a pure function of the beat index behind a debug flag — nothing grades a hold, nothing
+  // spawns one, no input path knows it exists. The raw boolean is read FIRST, so holdDemo:false costs one property read and
+  // every band is an ordinary band. The notation surface is staged, not switched on.
+  if(!(CFG.road && CFG.road.holdDemo)) return 0;
+  const m=((n%8)+8)%8, s=ROAD_HOLD_AT, L=Math.max(2,ROAD_HOLD_LEN);
+  if(m===s) return 1;
+  if(m>s && m<s+L-1) return 2;
+  if(m===s+L-1) return 3;
+  if(m===s+L) return 4;
+  return 0;
+}
+function roadLaneAt(n){
+  // THE REQUIRED KEY AT BEAT n. `_combo[((ci%len)+len)%len]` with ci = n·nd is the SAME expression drawWasdLane picks the
+  // centre letter with and wasdLanePress grades against — one sequence, now read one beat-band at a time instead of one
+  // frame at a time. A HELD band shows its HEAD's key for its whole length (one colour, one letter, N beats).
+  const nd=wasdNoteDiv(), len=_combo.length;
+  let h=n; for(let g=0; g<8; g++){ const hv=roadHoldAt(h); if(hv!==2 && hv!==3) break; h--; }
+  const ci=h*nd; return _combo[(((ci%len)+len)%len)];
+}
+const _roadGates=[];
+function roadFillGates(){
+  // THE FILL'S OWED GATES as absolute HEARD beats. tg.fig holds sixteenths from the fill bar's downbeat and tg.fill16 is that
+  // downbeat, so gate j sounds at heard beat (fill16 + fig[j])/4 — the very expression fillOpen()/fillGlowAmt() judge with
+  // (fillOff16 = heardBeats·4 − fill16), read forward instead of now. Only gates STILL OWED are marked (hpMax−hp is the first
+  // one outstanding, exactly as fillOpen's i0): a gate you already landed stops asking. fillOnly keeps at most one tank alive,
+  // so the first match is the answer. Reused array, no allocation; raw kill-switches first, and the loop is over
+  // patternConcurrency-few targets once per BEAT.
+  _roadGates.length=0;
+  if(!(CFG.road && CFG.road.fillMark) || !(CFG.tank && CFG.tank.fillOnly)) return _roadGates;
+  for(const tg of targets){
+    if(tg.dead || tg.fill16<0 || !tg.fig) continue;
+    for(let j=Math.max(0,tg.hpMax-tg.hp); j<tg.fig.length; j++) _roadGates.push((tg.fill16+tg.fig[j])*0.25);
+    return _roadGates;
+  }
+  return _roadGates;
+}
+const _roadWake=new Uint8Array(ROAD_WAKE);                                // THE WAKE ring: beat n's verdict at n mod ROAD_WAKE. 0 = never judged · 1 = landed · 2 = missed
+let _roadWakeTo=-1e9, _roadWakeFrom=1e9, _roadHitBeat=-1e9, _roadBeat0=NaN, _roadLastR=-1e9;
+function roadWakeReset(){ _roadWake.fill(0); _roadWakeTo=-1e9; _roadWakeFrom=1e9; _roadHitBeat=-1e9; }
+function roadWakeAt(n){ return (n<_roadWakeFrom || n>_roadWakeTo) ? 0 : _roadWake[((n%ROAD_WAKE)+ROAD_WAKE)%ROAD_WAKE]; }
+function roadWakeWrite(n){
+  // Band n has left the now-line and its verdict is FINAL (the 0.200-beat dead zone above). A beat counts as LANDED when the
+  // lane's own _hitNote — set only by a CORRECT key on a claimed note — last pointed at THIS beat's MAIN. Reduced to a beat
+  // index rather than kept as a raw note index so a wasdNoteDiv change across the 50 bpm threshold cannot mis-file history,
+  // and so a bonus ghost (never a main) can never be read as the beat.
+  const judged=!!(CFG.wasdRhythm && state.running && !templeActive && !trainMode);
+  _roadWake[((n%ROAD_WAKE)+ROAD_WAKE)%ROAD_WAKE] = judged ? (_roadHitBeat===n ? 1 : 2) : 0;
+  if(n>_roadWakeTo) _roadWakeTo=n;
+  if(n<_roadWakeFrom || _roadWakeTo-_roadWakeFrom>=ROAD_WAKE) _roadWakeFrom=Math.max(_roadWakeTo-ROAD_WAKE+1, Math.min(_roadWakeFrom,n));
+}
+function roadWakeLatch(){
+  // Per-frame, two integer reads: remember the MAIN beat of the last correctly-answered note while the lane still holds it
+  // (_hitNote is cleared the moment the lane leaves that note, which is well before the band edge reaches the feet).
+  if(_hitNote<0) return;
+  const nd=wasdNoteDiv(); if((((_hitNote%nd)+nd)%nd)!==0) return;         // a bonus ghost is an invitation, not the beat — it never writes history
+  _roadHitBeat=Math.round(_hitNote/nd);
+}
+let _roadGlyphTex=null, _roadGlyphSig='';
+function roadGlyphTex(){
+  // The four lane letters as ONE 256×64 atlas (four 64 px cells), drawn from WASD_GLYPH — the player's OWN key legends, so a
+  // non-QWERTY layout reads its own keys on the road exactly as it does at the crosshair. Rebuilt only when that array
+  // actually changes (navigator.keyboard resolves once, asynchronously, and a physical key can teach it later), never per
+  // frame. Each letter is drawn inside the middle 48 px of its cell so LinearFilter can never bleed a neighbour across a
+  // cell seam. No asset file: this is the makeGridGlowTex / glyphTex pattern the page already uses.
+  const sig=WASD_GLYPH.join('');
+  if(_roadGlyphTex && _roadGlyphSig===sig) return _roadGlyphTex;
+  const c=document.createElement('canvas'); c.width=256; c.height=64; const g=c.getContext('2d');
+  g.clearRect(0,0,256,64); g.textAlign='center'; g.textBaseline='middle'; g.fillStyle='#fff';
+  for(let i=0;i<4;i++){ const s=String(WASD_GLYPH[i]||'').slice(0,1)||'?';
+    g.font='bold 44px "Share Tech Mono",monospace';
+    const w=g.measureText(s).width; if(w>44) g.font='bold '+Math.max(16,Math.floor(44*44/w))+'px "Share Tech Mono",monospace';
+    g.fillText(s, i*64+32, 34); }
+  if(_roadGlyphTex) _roadGlyphTex.dispose();
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.minFilter=t.magFilter=THREE.LinearFilter; t.generateMipmaps=false;
+  _roadGlyphSig=sig; return (_roadGlyphTex=t);
+}
+const _roadBandBuf=new Uint8Array(ROAD_SLOTS*4);
+let roadBandTex=null;
+function roadBandFill(n0){
+  // ONE UPLOAD PER BEAT. Slot i carries beat n0+i−ROAD_WAKE, packed into four bytes:
+  //   R = lane(0..3) + 4·wake(0..2) + 12·mercy(0..2)   (max 47)   G = tideI × 255   B = fillMark(0..1) + 2·hold(0..4) (max 9)
+  //   A = 255 when the slot carries information at all — 0 leaves the shader with THE RIVER's plain ribbon, byte for byte.
+  // Every field is a pure read of live game state; nothing here writes anything the game will ever look at again.
+  const B=_roadBandBuf;
+  const lane=!!(CFG.wasdRhythm && state.running && !templeActive && !trainMode && toneReady);
+  const gates=lane?roadFillGates():_roadGates;
+  for(let i=0;i<ROAD_SLOTS;i++){
+    const n=n0+i-ROAD_WAKE, o=i*4;
+    if(!lane){ B[o]=0; B[o+1]=0; B[o+2]=0; B[o+3]=0; continue; }
+    const td=roadTideAt(n), hold=roadHoldAt(n);
+    const wake=(i<ROAD_WAKE) ? roadWakeAt(n) : 0;
+    let mark=0; for(let j=0;j<gates.length;j++){ if(Math.abs(gates[j]-n)<0.001){ mark=1; break; } }
+    B[o]=(roadLaneAt(n)&3) + 4*wake + 12*td.m;
+    B[o+1]=Math.max(0,Math.min(255, Math.round(td.i*255)));
+    B[o+2]=mark + 2*hold;
+    B[o+3]=255;
+  }
+  if(roadBandTex) roadBandTex.needsUpdate=true;
+}
+function roadLean(b){
+  // THE BEND AT THE NOW-LINE, normalised to ±1. ΔX′ over ROAD_TURN_LEAD beats is the course's HEADING CHANGE there, and one
+  // beat is ROAD_BAND_M metres of road, so atan(ΔX′/ROAD_BAND_M) is literally the angle the road is pointing at the lead
+  // point — a geometric fact of tonight's river, not a tuned number. Positive = the river bends toward world +X, which is to
+  // the RIGHT of the road's own direction of travel (the ribbon's axis is fixed in the world; turning around does not turn
+  // the river). Reads the same roadCourseD the re-basing pair already uses — one course, now three readers.
+  const sl=roadCourseD(b+ROAD_TURN_LEAD)-roadCourseD(b);
+  const t=Math.atan2(sl, ROAD_BAND_M)/ROAD_TURN_FULL;
+  return t<-1?-1:(t>1?1:t);
+}
 (function buildRoad(){
   if(!(CFG.road && CFG.road.on)) return;                                  // THE KILL-SWITCH, raw boolean first: no geometry, no shader compile, no uniform, nothing to call — the dojo floor is the one that shipped
-  const HW=_roadG(ROAD_HALF_W), INV=_roadG(1/ROAD_BAND_M);
+  const HW=_roadG(ROAD_HALF_W), INV=_roadG(1/ROAD_BAND_M), SL=_roadG(ROAD_SLOTS), WK=_roadG(ROAD_WAKE), ISL=_roadG(1/ROAD_SLOTS);
+  roadBandTex=new THREE.DataTexture(_roadBandBuf, ROAD_SLOTS, 1, THREE.RGBAFormat);   // THE MEANING's band table: 23 texels, one per visible beat. NEAREST + ClampToEdge + no mips = the bytes arrive exactly as written, and a dynamic index into it is free where a uniform array would have cost a loop
+  roadBandTex.magFilter=roadBandTex.minFilter=THREE.NearestFilter; roadBandTex.generateMipmaps=false;
+  roadBandTex.wrapS=roadBandTex.wrapT=THREE.ClampToEdgeWrapping; roadBandTex.needsUpdate=true;
   roadMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
     uniforms:{ uNow:{value:0}, uBase:{value:_roadBase}, uA:{value:new THREE.Vector3()}, uW:{value:new THREE.Vector3()}, uP:{value:new THREE.Vector3()},
-               uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0} },
+               uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0}, uBeat0:{value:0},
+               uBands:{value:roadBandTex}, uGlyph:{value:roadGlyphTex()}, uGlyphOn:{value:(CFG.road.bandGlyphs?1:0)}, uMercyB:{value:Math.max(1,+CFG.road.mercyBoost||1)},
+               uL0:{value:_roadLaneCol[0]}, uL1:{value:_roadLaneCol[1]}, uL2:{value:_roadLaneCol[2]}, uL3:{value:_roadLaneCol[3]}, uMark:{value:_roadMark} },
     vertexShader:'varying vec2 vXZ; void main(){ vec4 wp=modelMatrix*vec4(position,1.0); vXZ=wp.xz; gl_Position=projectionMatrix*viewMatrix*wp; }',
     fragmentShader:[
-      'uniform float uNow,uAmt,uPulse; uniform vec2 uBase; uniform vec3 uA,uW,uP,uInk; varying vec2 vXZ;',
+      'uniform float uNow,uAmt,uPulse,uBeat0,uGlyphOn,uMercyB; uniform vec2 uBase; uniform vec3 uA,uW,uP,uInk,uL0,uL1,uL2,uL3,uMark; uniform sampler2D uBands,uGlyph; varying vec2 vXZ;',
       'void main(){',
       '  float u=-vXZ.y, d=abs(u);',                                                                      // u = metres AHEAD (world −Z); the ribbon runs BOTH ways — turn around and the road is there, going away
       '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',d); if(fade<=0.004) discard;',   // cheapest rejection first
@@ -1661,11 +1858,45 @@ const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
       '  float ribbon=1.0-smoothstep('+HW+'-aa,'+HW+'+aa,lat); if(ribbon<=0.004) discard;',
       '  float fb=fract(b), e=min(fb,1.0-fb);',                                                           // distance IN BEATS to the nearest band boundary — the boundary IS the beat, so the line is centred on it
       '  float ew='+(LOW?'0.060':'0.030+d*0.0016')+';',
-      '  float ink='+_roadG(ROAD_INK_BASE)+'+'+_roadG(ROAD_INK_EDGE)+'*(1.0-smoothstep(0.0,ew,e))'
+      // ---- THE MEANING: two texel reads. sI = the band this fragment lies IN (its colour, glyph, swell, wake); sE = the band
+      //      that OWNS the nearest boundary (round(b)) — a wide band has to be able to SWALLOW its own leading "1", and only
+      //      that band knows whether it should. uBeat0 is the beat slot 0 was filled for, so the index is exact by construction.
+      '  float sI=floor(b)-uBeat0+'+WK+', sE=floor(b+0.5)-uBeat0+'+WK+';',
+      '  float vI=step(-0.5,sI)*step(sI,'+SL+'-0.5), vE=step(-0.5,sE)*step(sE,'+SL+'-0.5);',
+      '  vec4 tI=texture2D(uBands, vec2((clamp(sI,0.0,'+SL+'-1.0)+0.5)*'+ISL+',0.5));',
+      '  vec4 tE=texture2D(uBands, vec2((clamp(sE,0.0,'+SL+'-1.0)+0.5)*'+ISL+',0.5));',
+      '  float has=tI.a*vI;',                                                                             // 0 = no information for this beat: every term below collapses and the fragment is THE RIVER's plain ribbon again
+      '  float f1=floor(tI.r*255.0+0.5);',
+      '  float mercy=floor(f1/12.0); f1-=mercy*12.0;',
+      '  float wake=floor(f1/4.0); f1-=wake*4.0;',
+      '  float lane=f1, tide=tI.g, hold=floor(floor(tI.b*255.0+0.5)/2.0);',
+      '  float e1=floor(tE.r*255.0+0.5), b2=floor(tE.b*255.0+0.5);',
+      '  float holdE=floor(b2/2.0), markE=(b2-holdE*2.0)*tE.a*vE, mercyE=floor(e1/12.0);',
+      '  float cont=min(1.0, step(1.5,mercyE)+step(1.5,holdE)*step(holdE,3.5))*tE.a*vE;',                 // this boundary lies INSIDE a wide band (a mercy continuation, or a hold's body/tail) → no "1" line: that is what makes the mercy bar read as ONE slab and a sustain as ONE colour
+      '  float rel=step(3.5,holdE)*tE.a*vE;',                                                             // the hold's RELEASE edge — a thicker, brighter rule that says "let go here"
+      // ---- luminance: the band body rides the swell, and the mercy bar overrides it upward (the exhale is the one thing you must not miss)
+      '  float lum=mix(1.0, '+_roadG(ROAD_TIDE_LO)+'+'+_roadG(1-ROAD_TIDE_LO)+'*tide, has);',
+      '  lum=mix(lum, uMercyB, min(1.0,mercy)*has);',
+      '  float missed=step(1.5,wake), blank=step(wake,0.5)*step(sI,'+WK+'-0.5);',                          // wake 1 = LANDED and needs no term at all: it is the band at full lane colour, which is the point
+      '  lum*=1.0-has*(missed*'+_roadG(1-ROAD_WAKE_DARK)+'+blank*'+_roadG(1-ROAD_WAKE_BLANK)+');',        // THE WAKE: a beat you landed keeps its colour lit, one you missed goes dark, one never judged is a plain stretch of river
+      '  float mixL='+_roadG(ROAD_LANE_MIX)+'*has*(1.0-missed*0.75)*(1.0-blank);',
+      '  vec3 lc=mix(mix(uL0,uL1,step(0.5,lane)), mix(uL2,uL3,step(2.5,lane)), step(1.5,lane));',         // the four lane colours without a dynamic array index — three mixes, no loop, no branch
+      '  vec3 col=mix(uInk, lc, mixL);',
+      '  float ewr=ew*(1.0+rel*1.6), edge=(1.0-smoothstep(0.0,ewr,e))*(1.0-cont);',
+      '  float ink=mix('+_roadG(ROAD_INK_BASE)+','+_roadG(ROAD_INK_BODY)+',has)*lum+'+_roadG(ROAD_INK_EDGE)+'*edge*(1.0+rel*0.6)'
         +(LOW?'':'+'+_roadG(ROAD_INK_RAIL)+'*smoothstep('+HW+'-aa*3.0,'+HW+',lat)')                       // the two rails: the ribbon's own boundary, and what makes the bend readable eight beats out
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
       '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_BAND_M)+'?1.0:0.4);',                    // reduceMotion only: the bands pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
-      '  gl_FragColor=vec4(uInk*ink, ribbon*fade*uAmt);',
+      '  col=mix(col, uMark, min(1.0, edge*markE));',                                                     // THE FILL'S GATES: the tank's own amber on the beats its figure still owes — "3, 4, 1" rolling in
+      // ---- the lane's GLYPH, mid-band: fract(b)=0.5 is where the lane's main note grades, so the letter reaches the feet
+      //      exactly when its key is due. Stretched down the road (ROAD_GLYPH_L : ROAD_GLYPH_W) like pavement text so
+      //      foreshortening reads it right, drawn only AHEAD of the now-line (the wake is history, and history needs no letters).
+      '  float gv=(fb-0.5)*'+_roadG(ROAD_BAND_M/ROAD_GLYPH_L)+'+0.5, gu=(vXZ.x-cx)*'+_roadG(1/ROAD_GLYPH_W)+'+0.5;',
+      '  float ing=step(0.0,gu)*step(gu,1.0)*step(0.0,gv)*step(gv,1.0)*has*uGlyphOn*step('+WK+'-0.5,sI);',
+      '  ing*=(1.0-smoothstep('+_roadG(ROAD_GLYPH_F0)+','+_roadG(ROAD_GLYPH_F1)+',d))*(1.0-step(1.5,hold)*step(hold,3.5));',   // a HELD band carries one letter at its HEAD, not one per beat
+      '  if(ing>0.004){ float ga=texture2D(uGlyph, vec2((lane+gu)*0.25, gv)).a*ing;',
+      '    ink+='+_roadG(ROAD_INK_GLYPH)+'*ga*lum; col=mix(col, lc, min(1.0, ga*0.85)); }',
+      '  gl_FragColor=vec4(col*ink, ribbon*fade*uAmt);',
       '}'
     ].join('\n') });
   roadMesh=new THREE.Mesh(new THREE.PlaneGeometry(ROAD_PLANE_W, ROAD_PLANE_L), roadMat);
@@ -1697,17 +1928,29 @@ function roadSync(){
     U.uW.value.set(c.w[0]||0, c.w[1]||0, c.w[2]||0);
     U.uP.value.set(c.p[0]||0, c.p[1]||0, c.p[2]||0);
     U.uAmt.value=ROAD_ALPHA;
+    for(let i=0;i<4;i++) _roadLaneCol[i].setHex(WASD_HEX[i]);             // THE MEANING: the lane's own four colours and the fill's own amber, read from the ONE declaration of each (WASD_HEX index.html:7121 / TANK_COLOR index.html:6322) at first frame — by then both are long since initialised, and the road never keeps a second copy
+    _roadMark.setHex(TANK_COLOR);
     if(reduceMotion){ U.uNow.value=0; _roadBase.set(roadCourseX(0), roadCourseD(0)); }   // the STILL road's clock and re-basing pair are constants — written once, beside the course they belong to, and never again
     _roadUp=true;
   }
   if(gridColIdx!==_roadInkIdx){ _roadInkIdx=gridColIdx; _roadInk.setHex(GRID_COLS[gridColIdx][0]); }   // the road inherits tonight's grid-colour roll: it REPLACES the lattice, so the nightly roll survives instead of going quiet with it. A read of an index that already exists — zero new draws
-  if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
-    const r=roadBeatNow();
-    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7069). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
-    return;
+  const r=roadBeatNow();
+  roadWakeLatch();                                                        // two integer reads: catch the lane's verdict while the note is still in focus (see roadWakeLatch)
+  if(r<_roadLastR-0.5) roadWakeReset();                                   // the clock went BACKWARDS: a new run (teardownTransport puts the Transport back to 0). The wake is this run's history, so it starts empty — and no gameplay reset site had to be touched to say so
+  _roadLastR=r;
+  const n0=Math.floor(r);
+  if(n0!==_roadBeat0){                                                    // ONCE PER BEAT, and only then: 23 texels of band data, into a buffer that already exists
+    if(Number.isFinite(_roadBeat0)) for(let n=Math.max(_roadBeat0, n0-ROAD_WAKE); n<n0; n++) roadWakeWrite(n);   // every band that left the now-line since the last upload gets its (already final) verdict — a dropped frame cannot punch a hole in the wake
+    _roadBeat0=n0; roadBandFill(n0);
+    U.uBeat0.value=reduceMotion?0:n0;                                     // the still road's geometry is pinned to uNow=0, so slot ROAD_WAKE must stay the band at the feet: the table scrolls through the texture instead of the road scrolling under it. Same 23 beats, same order, zero motion
+    const gt=roadGlyphTex(); if(U.uGlyph.value!==gt) U.uGlyph.value=gt;   // the atlas is rebuilt only when WASD_GLYPH itself changes (navigator.keyboard resolves once, and a physical key can teach it later), which is at most a handful of times in a whole session — otherwise this is one string compare
+    U.uGlyphOn.value=(CFG.road.bandGlyphs?1:0); U.uMercyB.value=Math.max(1,+CFG.road.mercyBoost||1);
   }
-  const r=roadBeatNow();                                                  // the ONLY per-frame writes: three floats, no allocation, no array, no call into any gameplay path
-  U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r));
+  if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
+    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7302). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
+    return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
+  }
+  U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r));          // the ONLY per-frame writes: three floats, no allocation, no array, no call into any gameplay path
 }
 
 /* ========================= SKY: stars, sun, moon, day/night ========================= */
@@ -2617,233 +2860,233 @@ function linkRemotePersonalSky(pack){
   const ok=queueSkyGeometry(pack,3); if(ok){ _remotePersonalSky=true; _personalListenExpected=true; if(_lsn&&_lsn.cache) _lsn.cache.clear(); }   // rank 3: authenticated profile wins a late legacy local/drop-in rank-2 pack
   return ok;
 }
-function downgradePersonalSky(){   // authenticated profile authority: no stale remote OR legacy personal pack after no-chart/DELETE/sign-out
-  cancelSkyLinkedToast();
-  try{ clearListen(true); }catch(e){}
-  _remotePersonalSky=false; _skypack=null;
-  if(_lsn&&_lsn.cache) _lsn.cache.clear();
-  if(chartSkyGroup) chartSkyGroup.visible=false;   // luminaries/sticks are separate children and remain available offline
-  _chartPackRank=-1; _chartQueuedRank=-1; _lumPackRank=0;
-  const now=approxLuminaryLons();
-  if(_lum) retuneLuminaries({movers:[{id:'sun',lon_j2000:now.sun},{id:'moon',lon_j2000:now.moon}]},0);
-  _lsnMeta=null;
-  if(_publicSkyPack && skydayValid(_publicSkyPack)) queueSkyGeometry(_publicSkyPack,1);
-  else refreshPublicListenMeta();
-  if(templeActive){ _templeFocus=null; rebuildSkyTempleGeometry(); }   // deletion/sign-out immediately removes private ghosts, chords, and panel data
-}
-async function loadSkypack(allowSample){   // B3. Personal channels first: ?skypack= URL → skypack.json drop-in → localhost API (EXPLICIT ?skyApi opt-in — never a silent localhost dependency). A REQUESTED personal source that fails is NEVER papered over with the sample pack — it degrades to plain clocked + one toast. The in-repo synthetic sample only serves packless visitors, and announces itself. allowSample:false (clocked luminary retune) skips the sample entirely — approx-now lons are more honest than a synthetic chart.
-  const q=location.search+location.hash;
-  if(location.protocol==='file:') try{ console.log('skypack: file:// blocks fetch of local packs — serve over http(s), or pass ?skypack= with a CORS-enabled https URL'); }catch(e){}
-  const get=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); if(!r.ok) return {absent:true}; const p=await r.json(); return skypackValid(p)?{pack:p}:{invalid:true}; }catch(e){ return {absent:true}; } };
-  let personal=false;
-  const m=q.match(/[?&#]skypack=([^&#]+)/);
-  if(m){ personal=true; let u=m[1]; try{ u=decodeURIComponent(u); }catch(e){} const r=await get(u); if(r.pack) return r.pack; }
-  const drop=await get('skypack.json');
-  if(drop.pack) return drop.pack;
-  if(drop.invalid) personal=true;   // a PRESENT-but-broken drop-in is a failed personal pack, not "no pack"
-  if(/[?&#]skyApi(?:=1)?(?=[&#]|$)/i.test(q)){ personal=true; const r=await get(CFG.skyListen.api.replace(/\/+$/,'')+'/api/skypack'); if(r.pack) return r.pack; }   // legacy bare ?skyApi means LOCAL personal desk; a valued ?skyApi=https://… is reserved for public sky-day
-  if(personal || allowSample===false) return null;   // you asked for YOUR chart and it failed — showing invented positions instead would be a lie
-  const smp=await get('fixtures/skypack_mock.json'); if(smp.pack){ smp.pack._sample=true; return smp.pack; }   // demo sky for packless visitors
-  return null;
-}
-function skyGlossaryValid(g){
-  if(!g || g.schema_version!==1 || g.type!=='sky_glossary' || g.system!=='midpoint_v1') return false;
-  const objs=[g.signs,g.planets,g.planet_in_sign]; if(objs.some(o=>!o||typeof o!=='object'||Array.isArray(o))) return false;
-  const rec=r=>!!r&&typeof r==='object'&&!Array.isArray(r)&&typeof r.glyph==='string'&&r.glyph&&typeof r.title==='string'&&r.title&&typeof r.text==='string'&&r.text;
-  return SKY_SIGN_IDS.every(id=>rec(g.signs[id])) && SKY_BODY_IDS.every(id=>rec(g.planets[id]));
-}
-async function loadSkyGlossary(){
-  try{ const r=await fetch('fixtures/sky_glossary_v1.json',{cache:'no-store'}); if(!r.ok) return null; const g=await r.json(); if(!skyGlossaryValid(g)) return null;
-    _skyGlossary=g; _skyGlossaryReady=true; refreshPublicListenMeta(); return g; }catch(e){ return null; }
-}
-function skydayValid(p){
-  if(!p || p.schema_version!==1 || p.type!=='skyday' || p.system!=='midpoint_v1' || p.privacy!=='public' || p.projection!=='ecliptic_band_v2' || ('natal_id' in p)) return false;
-  if(!Array.isArray(p.sign_band)||p.sign_band.length!==SKY_SIGN_IDS.length||!Array.isArray(p.movers)||p.movers.length!==SKY_BODY_IDS.length) return false;
-  if(!['natal_ghosts','resonances','same_body_delta','resonance_rank'].every(k=>Array.isArray(p[k])&&p[k].length===0)) return false;
-  const signs=Object.create(null), bodies=Object.create(null), finiteNum=n=>typeof n==='number'&&isFinite(n);
-  for(const s of p.sign_band){ const id=canonicalSkySign(s&&s.id); if(!SKY_SIGN_SET[id]||signs[id]||!finiteNum(s.lon_start_j2000)||!finiteNum(s.lon_end_j2000)||typeof s.glyph!=='string'||!s.glyph) return false; signs[id]=true; }
-  for(const m of p.movers){ const id=String(m&&m.id); if(!SKY_BODY_SET[id]||bodies[id]||!finiteNum(m.lon_j2000)||!finiteNum(m.degree_in_sign)||typeof m.glyph!=='string'||!m.glyph||typeof m.name!=='string'||!m.name||typeof m.retro!=='boolean') return false;
-    const sign=canonicalSkySign(m.sign); if(!SKY_SIGN_SET[sign]) return false; bodies[id]=true; }
-  return SKY_SIGN_IDS.every(id=>signs[id])&&SKY_BODY_IDS.every(id=>bodies[id]);
-}
-function deviceSkyTimezone(){ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(e){ return 'UTC'; } }
-function announceSkyDay(pack){
-  // ONCE PER TAB, and — ON A DEALING BUILD — never over a running field. The day pack lands on an idle callback, so it
-  // can arrive at any moment: including a second into a run, on top of the threshold flash, or in the middle of a beat
-  // that needs the player's whole attention. A late arrival is not urgent — it is a fact about the sky, and the sky's
-  // own surfaces are the menu and the pause card — so a run in progress parks it and the next pause card speaks it.
-  // 1.2: THE DEFERRAL IS SCOPED TO THE DEAL, because the collision it cures is. The thing a mid-run toast could step on
-  // is the DEAL LINE that now owns the threshold flash; with CFG.deal.on false nothing else speaks there at all, and
-  // deal.on:false is the parcel's one absolute promise — byte-identical to wave 3, which announced immediately. So the
-  // raw kill-switch is read FIRST and an off build takes the wave-3 path verbatim, never parking anything (which also
-  // leaves flushSkyDayAnnounce with nothing it could ever have to say on that build).
-  if(_skyDayAnnounced) return;
-  if(CFG.deal.on && state.running){ _skyDayPending=pack; return; }
-  _skyDayAnnounced=true; _skyDayPending=null;
-  const count=Array.isArray(pack&&pack.movers)?pack.movers.length:0, raw=pack&&typeof pack.cache_date==='string'?pack.cache_date:''; let stamp='';
-  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) try{ stamp=new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',timeZone:'UTC'}).format(new Date(raw+'T12:00:00Z')).toUpperCase(); }catch(e){}
-  showGhostToast('SKY · '+(stamp?stamp+' · ':'')+count+' '+(count===1?'BODY':'BODIES'));
-}
-function flushSkyDayAnnounce(){ if(_skyDayPending && !state.running) announceSkyDay(_skyDayPending); }   // the parked announcement, spoken at the next menu/pause surface — a no-op on every card that had nothing waiting, and (1.2) a no-op for the whole life of a deal.on:false build, which never parks anything
-async function loadSkyDay(){
-  if(SKY_MODE==='decorative') return null;
-  const C=CFG.skyDay, ctl=(typeof AbortController!=='undefined')?new AbortController():null;
-  const to=setTimeout(()=>{ if(ctl) ctl.abort(); },Math.max(1000,+C.timeoutMs||8000));
-  const path=(typeof C.path==='string'&&C.path.charAt(0)==='/')?C.path:'/api/sky-day';
-  try{ const r=await fetch(SKY_DAY_API_BASE+path+'?tz='+encodeURIComponent(deviceSkyTimezone()),ctl?{signal:ctl.signal}:{}); if(!r.ok) return null;
-    const p=await r.json(); return skydayValid(p)?p:null; }catch(e){ return null; }finally{ clearTimeout(to); }
-}
-/* ===== THE LIT SKY (wave 3 parcel H) — the save file you can see =====
-   Identity: each stick star is "<figureKey>:<starIndex>" straight out of fixtures/zodiac_sticks_v1.json as loaded —
-   the figure's own id, and the star's index within that figure's own list, so the id is stable under any re-order of
-   the figures and under the schema caps buildZodiacSticks re-enforces. THE FIXTURE IS NEVER EDITED.
-   State: _starLit is { id -> level 1..CFG.stars.levels }, persisted plain + versioned at localStorage['aimdojo.starChorus'],
-   loaded once at boot and written on a trailing throttle. ACCRETION ONLY — starLitGain() is the single write path and
-   it has no inverse; corrupt, absent or quota-blocked storage degrades to an empty sky in silence and never throws.
-   TRUST NOTHING FROM STORAGE (1.1): the loader is a validator, not a parser. The envelope must be a plain non-array
-   object with v===1 exactly; lv must be a plain non-array object; every KEY must match the "<figureKey>:<starIndex>"
-   grammar and every VALUE is coerced to an integer clamped 1..levels. A bad envelope is an empty sky, a bad entry is
-   simply dropped. Grammar is all the loader can check — the catalog does not exist yet at boot — so starLitBind runs
-   the second half the moment the fixture lands and drops every id the REAL catalog does not carry. After that bind
-   there is no id in _starLit that the sky cannot draw, which is what render (H) and the chorus (J) both assume: a
-   hand-written "orion:99" can never brighten a vertex it doesn't own, and it can never sing.
-   Render: no new object, no new geometry, no new material, no per-frame work. The level becomes a per-star multiplier
-   in the vertex-colour buffer the sticks already carry, so brightening happens exactly where the sticks already write
-   their vertices — at the star's TRUE position, in whichever sky is drawing them (dojo AND Temple, one buffer, one
-   sphere). Static forever: no pulsing for anyone.
-   Kill-switch: CFG.stars.on false → none of this binds, storage is untouched, and the paint sites take _paintRange. */
-const STAR_LIT_KEY='aimdojo.starChorus';
-const STAR_FIG_RE=/^[A-Za-z0-9_-]{1,24}$/;                        // …and the figure half on its own: buildZodiacSticks mints an id ONLY for a figure key that matches, so the catalog can never produce an id its own loader would refuse tomorrow
-const STAR_ID_RE=/^[A-Za-z0-9_-]{1,24}:(?:0|[1-9][0-9]{0,2})$/;   // THE ID GRAMMAR, and the only shape starLitLoad will admit: a figure key (the fixture's own f.id) + ':' + a non-padded star index, 0..999 to cover SKY_CHART.stick.maxStars. Nothing else parses as a star, so nothing else can ever reach the render or chorus loops
-let _starLit=Object.create(null);        // id -> level, and after starLitBind every key here is CATALOG-BACKED: an id the real fixture doesn't carry is dropped at bind (never written back — the prune touches memory only, so a narrower fixture can't quietly erase the file), because an id the sky cannot draw is a phantom the chorus must not sing
-let _starLitIds=null;                    // vertex index -> id, index-aligned with the sticks points buffer (parcels I/J read this; null until the fixture builds)
-let _starLitIdx=null;                    // id -> vertex index
-let _starLitMul=null;                    // Float32Array(n*3) render multipliers, all 1 when nothing is lit — allocated ONCE at bind, never per frame
-let _starLitSaveT=0, _starLitDirty=false;
-const _STAR_LIT_TINT=new THREE.Color(), _STAR_LIT_GOLD=new Float32Array(3);   // scratch + a lazily cached constant: a repaint runs on every level tick, so it allocates nothing
-function starLitLoad(){   // read once at boot; ANY malformation is an empty sky, never an exception — a save file you can lose to a throw is not a save file
-  let raw=null; try{ raw=localStorage.getItem(STAR_LIT_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                    // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a string, a future v:2 — every one of them is an empty sky, silently
-  const src=o.lv;
-  if(!src || typeof src!=='object' || Array.isArray(src)) return;                         // …and lv is a plain MAP. An array of levels has no ids in it, so it can only ever be someone else's data
-  const cap=CFG.stars.levels|0, lv=Object.create(null);
-  for(const id in src){
-    if(!STAR_ID_RE.test(id)) continue;                                                    // grammar only, here: the catalog is still a fetch away, so starLitBind finishes the job
-    const n=Math.floor(+src[id]); if(!isFinite(n) || n<1) continue;                       // NaN, null, "3 stars", 0, -4, Infinity: not a level, not kept
-    lv[id]=Math.min(cap,n);                                                               // clamp to the cap on READ only: a hand-edited 99 must not out-glow the design, and lowering CFG.stars.levels must not rewrite the file
-  }
-  _starLit=lv;
-}
-function starLitFlush(){   // hook: a later wave mirrors this same object to Supabase — localStorage stays the source of truth
-  if(_starLitSaveT){ clearTimeout(_starLitSaveT); _starLitSaveT=0; }
-  if(!_starLitDirty) return; _starLitDirty=false;
-  try{ localStorage.setItem(STAR_LIT_KEY, JSON.stringify({v:1, lv:_starLit})); }catch(e){}   // a full or blocked quota loses the write, never the run
-}
-function starLitSaveSoon(){   // THROTTLED: a volley can return two voices inside one beat gap; one trailing write per saveMs covers a whole night
-  if(_starLitDirty) return;
-  _starLitDirty=true; _starLitSaveT=setTimeout(starLitFlush, Math.max(0,CFG.stars.saveMs|0));
-}
-function starLitMulSet(i,level){   // a level-up costs three float writes; the warm tint lands only at the cap
-  const j=i*3, g=1+level*(+CFG.stars.glowStep||0);
-  if(level>=(CFG.stars.levels|0)){ _STAR_LIT_TINT.setHex(CFG.stars.fullTint); _starLitMul[j]=g*_STAR_LIT_TINT.r; _starLitMul[j+1]=g*_STAR_LIT_TINT.g; _starLitMul[j+2]=g*_STAR_LIT_TINT.b; }
-  else { _starLitMul[j]=g; _starLitMul[j+1]=g; _starLitMul[j+2]=g; }
-}
-function _paintLitStars(i0,i1,r,g,b){   // the points-only twin of _paintRange: every write is scaled by that star's own level, so Listen's gold, dim and restore all PRESERVE accretion instead of erasing it
-  const a=_stickFig.pGeo.attributes.color, m=_starLitMul;
-  for(let i=i0;i<i1;i++){ const j=i*3; a.setXYZ(i, r*m[j], g*m[j+1], b*m[j+2]); }
-  a.needsUpdate=true;
-}
-function starLitRepaint(){   // ONE place decides what the stick points look like right now: the levels, under whatever Listen emphasis is currently up
-  if(!_starLitMul || !_stickFig || !_stickFig.pGeo) return;
-  const n=_stickFig.pGeo.attributes.color.count, f=(_lsn.goldFig!=null)?_stickFig.map[_lsn.goldFig]:null;
-  if(!f){ _paintLitStars(0,n,1,1,1); return; }
-  if(!_STAR_LIT_GOLD[0]){ const pb=new THREE.Color(SKY_CHART.stick.ptCol); _STAR_LIT_GOLD[0]=LSN_GOLD.r/pb.r; _STAR_LIT_GOLD[1]=LSN_GOLD.g/pb.g; _STAR_LIT_GOLD[2]=LSN_GOLD.b/pb.b; }
-  _paintLitStars(0,n,LSN_DIM,LSN_DIM,LSN_DIM);
-  _paintLitStars(f.p0,f.p1,_STAR_LIT_GOLD[0],_STAR_LIT_GOLD[1],_STAR_LIT_GOLD[2]);
-}
-function starLitBind(ids){   // the fixture just built: bind ids -> vertex indices, drop everything the catalog does not carry, then light what previous nights earned so it glows on the FIRST frame the sticks draw
-  _starLitIds=ids; _starLitIdx=Object.create(null); _starLitMul=new Float32Array(ids.length*3).fill(1);
-  for(let i=0;i<ids.length;i++){ if(ids[i]) _starLitIdx[ids[i]]=i; }
-  const kept=Object.create(null);   // THE SECOND HALF OF THE LOAD: the boot pass could only check the grammar, this one checks the sky. An id with no vertex has nothing to brighten and no bearing to be called from, so it is not a star — it is dropped here, before the first draw and before the chorus can offer it a note
-  for(const id in _starLit){ const i=_starLitIdx[id]; if(i===undefined) continue; kept[id]=_starLit[id]; starLitMulSet(i,_starLit[id]); }
-  _starLit=kept;   // memory only: no starLitSaveSoon, so a pruning bind never rewrites the file on its own — the drop costs nothing until real accretion saves next
-  starLitRepaint();
-}
-function starLitLevel(id){ return (id&&_starLit[id])|0; }   // 0 = never recovered (parcels I/J read; H only writes)
-function starLitGain(id){   // THE accretion setter — the only writer, and it has no inverse
-  if(!id) return 0;
-  const cap=CFG.stars.levels|0, cur=_starLit[id]|0;
-  if(cur>=cap) return cur;   // a full star is done rising; the sky simply keeps it
-  const next=cur+1; _starLit[id]=next; starLitSaveSoon();
-  if(CFG.nightCard.on) cardStar(id);   // NIGHT CARDS: this star was brightened TONIGHT, so tonight's card haloes it. Memory only — one array push on the ONE accretion path, no storage of its own, and nothing at all with the parcel off
-  const i=_starLitIdx?_starLitIdx[id]:undefined;
-  if(i!==undefined){ starLitMulSet(i,next); starLitRepaint(); }   // the guard survives the bind-time prune only as a pre-fixture safety: every id that can reach here came off _starLitIds, so in practice a gain always has a vertex to brighten
-  return next;
-}
-if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars off there is not a single storage access in the build
+                                                                                                                                             
+                         
+                                     
+                                          
+                                          
+                                                                                                                          
+                                                         
+                                 
+                                                                                                      
+                
+                                                                                       
+                                 
+                                                                                                                                                      
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                        
+                                                                                                                                                                                     
+                                                                                                                                                                                                                    
+                     
+                                           
+                                                                                                                               
+                                       
+                                 
+                                                                                                            
+                                                                                                                                                                                                                                                                               
+                                                                                                                                                  
+                                                                                                                                                
+              
+ 
+                             
+                                                                                                     
+                                                                                                                            
+                                                                                                                                                                     
+                                                                                                
+ 
+                                 
+                                                                                                                                                                    
+                                                                                                          
+ 
+                        
+                                                                                                                                                                                 
+                                                                                                                                                          
+                                                                                                                                    
+                                                                                                             
+                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                
+                                                                                                 
+                                                                               
+ 
+                                                                                                                               
+                              
+                                                                                                                       
+                                                                                                                       
+                                                                                                                      
+                                                                                                                    
+                                                                                                                        
+                                                                                                                     
+                                                                                                                       
+                                                                                                                      
+                                                                                      
+                              
+                                                                  
+                                             
+                                                                                                                                                  
+                                                                                                                                                                                              
+                                                                                        
+ 
+                                                                                                                                                                                                                                                                                                                      
+                            
+                                          
+                                                                                            
+                                                                                      
+                                                                                      
+                                                                                                                                                   
+                                                                                                               
+ 
+                                                                        
+                                                                                                                    
+                                                                                                                     
+                                                                                                    
+                                                                                                                             
+                                                                                                                      
+                                                                                                                    
+                                                                                                                    
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                   
+                                                                                                                  
+                                                                                             
+                                                                                                                      
+                                                                                                                      
+                                                                                                                   
+                                                  
+                                                                                                                       
+                                        
+                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                  
+                                                              
+                                                                                                                                                     
+                                         
+                                                                                                                                                                                
+                                                                                                                                                             
+                                                                                 
+                  
+                                                          
+                                                                                                                                                                                                                                                          
+                 
+                                                                                                                                                                                                    
+                                                       
+                       
+                                                                                                                                                                                   
+                                                                                                                                                         
+                                                                                                                                                                                                                                  
+   
+              
+ 
+                                                                                                                              
+                                                                    
+                                                 
+                                                                                                                                                      
+ 
+                                                                                                                                                  
+                           
+                                                                                             
+ 
+                                                                                                              
+                                                  
+                                                                                                                                                                                            
+                                                                    
+ 
+                                                                                                                                                                                                              
+                                                         
+                                                                                 
+                     
+ 
+                                                                                                                                                       
+                                                           
+                                                                                                         
+                                              
+                                                                                                                                                                                     
+                                              
+                                                                                  
+ 
+                                                                                                                                                                                                                     
+                                                                                                       
+                                                                    
+                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                         
+                                                                                                                                                                    
+                   
+ 
+                                                                                                                    
+                                                                                            
+                   
+                                                   
+                                                                                   
+                                                         
+                                                                                                                                                                                                                                           
+                                                
+                                                                                                                                                                                                                                                  
+              
+ 
+                                                                                                                                    
 
-/* ===== STAR-BOUND SPAWNS + THE VOICE FLIES HOME (wave 3 parcel I) =====
-   The star is a BEARING and nothing else. starSpawnAz hands spawnTarget one azimuth — the same number the random
-   roll produced yesterday, taken from a real risen star instead — and every other law is untouched: the distance is
-   still beat-quantized by beatSpawnDist (flight time = k sixteenths), the pitch is still the same ±beatSpawnPitchDeg
-   roll, the open windows, the grading, the score and the daily invariants never learn that a star was involved.
-   The bearing is read from the SAME vertices the sticks draw (pGeo positions × the sphere quaternion), so a called
-   star is where the sky says it is, this second, and the sphere keeps turning while the Echo is in the air.
-   THE GAP IS THE LAW (1.1). Two rules hold this parcel out of combat's way, and both are structural:
-   (1) THE SCORING PATH ONLY QUEUES. starVoiceHome copies an id and a burst position into a small pending ring and
-       returns. It grants nothing, allocates nothing, touches no geometry and never calls starLitGain — not even when
-       the ring is full, because a tick inside an open window is exactly the thing this parcel must never do. A ring
-       overflow displaces the OLDEST return into _starDebt, which is granted (silently, with no line) at the very next
-       gap. The ceremony is optional garnish; the tick is the law, and it always lands.
-   (2) THE WHOLE FLIGHT SYSTEM IS FROZEN WHILE A WINDOW IS OPEN. Past the tick, starFlyStep returns immediately
-       whenever starWinOpen() is true: no stagger countdown, no aging, no launch, no retire. Every piece of flight
-       animation advances in gap frames and nowhere else, so the sixteenth of stagger between two same-beat returns is
-       a real sixteenth of gap time instead of something a long window can eat. The one thing the freeze must still do
-       is LOOK frozen — a line already in the air is a scene object the renderer keeps drawing — so the meshes are
-       hidden as a set on the way into the freeze and shown again on the way out (one boundary write, not a per-frame
-       one). Consequence, stated because it is a feel choice and not a bug: at a fast tempo the gap is a small slice of
-       the beat, so the line takes several beats of wall clock to cross lineBeats of gap time. The level still lands.
-   (3) THE GAP IS THE BEAT CLOCK'S, NOT THE FRAME'S (1.2). "Wait for a frame that happens to land in a gap" is not a
-       promise the renderer can keep: at the OLD 172 BPM ceiling the gap between two open windows was ~49 ms, so a device drawing
-       slower than that could sample _openAmt inside a window every single frame and starve a queued return forever.
-       [THE SIXTY CAP (parcel P): the ceiling is 60 now, where that same gap measures a 1.000s beat minus 2 x 0.120s of expert
-       window = 760 ms — longer than a frame on anything that can run this at all. The analytic stamp below is KEPT and is NOT
-       relaxed: it is a correctness guarantee, not a performance workaround, and "wait for a frame in the gap" would still be a
-       promise about the renderer that the beat clock has no business making. Nothing in this block changes; the margin got wide.]
-       So a return is stamped, at the instant it is queued, with the beat position of the NEXT closed-window moment —
-       starGapBeat computes it analytically from the SAME values the window itself is drawn from (the Transport's own
-       beat position, audioLat, grooveFireEarlyBeat), and it is simply the mid-point between one window's close and
-       the next one's open: half a beat past the ideal this position rounds to. The tick then lands at the first
-       opportunity whose Transport position has passed that stamp — a render frame OR onGrid, whichever comes first,
-       and EVEN IF a new window has since opened, because the level is law and only the line is garnish. A drain
-       inside a window still builds no mesh (the aging loop that creates one is frozen), so no line ever draws in a
-       window; such a flight simply starts late. Debt drains monotonically: nothing can be starved by a frame rate.
-   (4) THE DRAIN PAYS; THE FLIGHT IS PURE GARNISH (1.3). Until now a drained return that got a line handed its level to
-       the flight record and the record paid it at starFlyRetire — which lives BELOW the freeze, so the LAW-level tick
-       was back in the renderer's hands after all: at a pathological cadence (or with starWinOpen stuck true) a return
-       could be drained and still never ticked. So the tick is applied AT DRAIN TIME, unconditionally, to every return
-       whose stamp has passed — line or no line, window or no window. starFlyRetire grants nothing at all any more (it
-       has no grant parameter to pass), which makes exactly-one-tick-per-return structural: a return is paid once, in
-       starFlyDrain or in starFlyClear's outright teardown of the two UNPAID lists (debt, ring), and a flight record is
-       by construction already-paid. The freeze still gates every piece of mesh/visual work, and nothing else.
-   reduceMotion: no line at all — the star simply brightens at that next gap.
-   Nothing here can lose a return: the level is PAID at drain (v1.3 — starFlyDrain/starFlyClear are the only payers),
-   so airborne flights are already-paid garnish; teardown pays only the still-unpaid pending ring and debt, then drops the visuals.
-   Kill-switch: CFG.stars.on false → spawnTarget's own roll runs verbatim, no orb carries tg.starId, and not one line
-   below is ever reached. Trainer and Temple never bind a bearing, so they never fly one home either. */
-const _STAR_FLY_MAX=6;                   // hard cap on simultaneous LINES: fireQuant allows 4 arrivals a beat and a line is a pooled trail mesh — past this the accretion still lands at the gap, only the ceremony is skipped
-const _STAR_PEND_MAX=16;                 // the pending ring: deep enough that a real volley never reaches it (4 arrivals a beat against a gap every beat), shallow enough to be a fixed cost. Oldest-first — an overflow drops the LINE, never the level
-const _starFly=[], _starFlyPool=[];      // live flights + their pooled records (no allocation per return after the first few)
-const _starPend=[], _starPendPool=[];    // returns queued by the scoring path, waiting for a gap to become flights — the ring, and its own pool
-const _starDebt=[];                      // ids the ring overflowed: granted at the next gap, oldest first, with no line. Ids only, because a displaced return has no ceremony left to describe
-let _starDebtDue=0;                      // the beat the OLDEST displaced return became payable — one stamp for the whole debt list, because it is filled oldest-first and the oldest stamp is the earliest one
-let _starFlyHid=false;                   // are the airborne lines currently hidden for an open window? one flag, one write per boundary
-const _starW=new THREE.Vector3();        // scratch: the world position of one star, reused by every read
-let _starPickBuf=null;                   // Int32Array candidate scratch, sized once to the catalog — the selection pass allocates nothing
-let _starSpawnId=null;                   // the id starSpawnAz just chose (null = it found nothing and the caller must take today's roll), latched the way _beatSpawnK latches its subdivision
-let _starPickN=Date.now()|0;             // STREAM-EXTERNAL selection state (1.1). Star selection must consume ZERO draws from rnd(), so that spawnTarget's rnd() stream is byte-identical to today's whether a star binds or not — see starSpawnAz. Seeded from the wall clock (never from rnd(), never from Math.random) and advanced only by starPickRnd
+                                                                         
+                                                                                                                 
+                                                                                                                    
+                                                                                                                     
+                                                                                                                
+                                                                                                                   
+                                                                                                            
+                                                                                                     
+                                                                                                                  
+                                                                                                                     
+                                                                                                                    
+                                                                                                                      
+                                                                                       
+                                                                                                               
+                                                                                                                  
+                                                                                                                      
+                                                                                                                      
+                                                                                                                  
+                                                                                                                     
+                                                                                                                       
+                                                                                                                     
+                                                                                                                    
+                                                                                                                                 
+                                                                                                                    
+                                                                                                                              
+                                                                                                                              
+                                                                                                                               
+                                                                                                                                  
+                                                                                                                     
+                                                                                                                     
+                                                                                                                   
+                                                                                                                
+                                                                                                                    
+                                                                                                                
+                                                                                                                   
+                                                                                                                   
+                                                                                                                       
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                     
+                                                                                                                       
+                                                                                                              
+                                                                             
+                                                                                                                     
+                                                                                                                                   
+                                                                                                                     
+                                                                                                        
+                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                         
+                                                                                                                              
+                                                                                                                                                
+                                                                                                                                                                                               
+                                                                                                                                                                                                               
+                                                                                                                                        
+                                                                                                         
+                                                                                                                                          
+                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                        
                                        
                                                                                                           
@@ -6887,8 +7130,8 @@ let _starPickN=Date.now()|0;             // STREAM-EXTERNAL selection state (1.1
  
                         
                                                       
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                        
                                                                                                                                                     
                                                                                       
@@ -7447,9 +7690,13 @@ let _starPickN=Date.now()|0;             // STREAM-EXTERNAL selection state (1.1
                                                                                                                               
      
    
-                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                          
                                               
                                                                                                                                                        
                                                                                                                                     
@@ -7458,7 +7705,7 @@ let _starPickN=Date.now()|0;             // STREAM-EXTERNAL selection state (1.1
                                                                                                     
      
    
-                                                                                            
+                                                                                                                                                                                                                                                                                                        
                                           
                                                                                                                                                                         
                                     

@@ -219,28 +219,116 @@ test("DE-COERCION: an in-between note is claimable but cannot break the combo (R
   assert.match(html, /showWasdGlyph\(letterKey, spoiled, laneCue && \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld, ghostNote\)/, "bonus letter renders as a ghost");
   assert.match(html, /if\(_curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)\{ _baseMul=1; _wasdCombo=0; \}/, "only a MAIN going unresolved zeroes the bonus combo");
   assert.match(html, /else if\(acc>0\) _wasdCombo\+\+;/, "claiming a bonus note still credits the combo");
-  assert.equal((html.match(/nd=wasdNoteDiv\(\)/g) || []).length, 6, "all six inline note-density computations call the one helper");
+  // 6 -> 8: THE MEANING (wave 7, parcel S2) added two READERS of the lane's density — roadLaneAt (which beat-band shows
+  // which key) and roadWakeLatch (is this resolved note a MAIN?). Both call the one helper, which is what this line pins;
+  // the "no duplicated inline density expression survives" assertion below is the half that must never move.
+  assert.equal((html.match(/nd=wasdNoteDiv\(\)/g) || []).length, 8, "every inline note-density computation calls the one helper");
   assert.equal((html.match(/nd=Math\.max\(1,spb\/2\)/g) || []).length, 0, "no duplicated inline density expression survives");
   assert.equal((html.match(/spb=dT<t\[0\]\?d\[0\]:\(dT<t\[1\]\?d\[1\]:d\[2\]\)/g) || []).length, 1, "the one surviving tier expression is the ORB STROBE's own");
 });
 
-test("THE RIVER: the note lane only stands down once the road actually carries the lane (S)", () => {
-  // A cue may be MOVED into the world, never merely deleted from the crosshair. THE RIVER ships the ribbon, the course and
-  // the clock but no required-lane channel, so with the shipped defaults (road.on:true, wasdHud:false, wasdLetter:true) the
-  // centre letter must still be the answer to "which key is due". ROAD_LANE_READY is the one switch THE BANDS flips, in the
-  // same commit that draws the mid-band glyph — this test is what makes forgetting it impossible.
-  assert.match(html, /const ROAD_LANE_READY=false;/, "the road does not render the required lane yet");
+test("THE MEANING: the note lane stands down on the flag that DRAWS the lane, and only then (S)", () => {
+  // A cue may be MOVED into the world, never merely deleted from the crosshair. THE RIVER shipped ROAD_LANE_READY=false
+  // because it carried no required-lane channel; THE MEANING draws the band tint AND the mid-band glyph, so the switch is
+  // now bound to the very CFG flag that draws them. Bound, not merely flipped: bandGlyphs:false must put the centre letter
+  // straight back, in the same read, with no second place to forget.
+  assert.match(html, /const ROAD_LANE_READY=!!\(CFG\.road && CFG\.road\.bandGlyphs\);/, "the switch IS the draw flag");
+  assert.match(html, /uGlyphOn:\{value:\(CFG\.road\.bandGlyphs\?1:0\)\}/, "…and that same flag is what the shader gates the glyph on");
   assert.match(html, /const laneCue=!\(roadLive\(\) && ROAD_LANE_READY\);/, "the lane stands down on the road CARRYING it, not merely on the road existing");
   // The centre-cue gate's three clauses, verbatim — the truth table below is a transcription of exactly this text.
   assert.match(html, /&& \(CFG\.wasdHud \|\| \(CFG\.wasdTapText && !laneCue\) \|\| \(\(CFG\.wasdLetter \|\| reduceMotion\) && laneCue\)\);/, "the centre-cue gate is the three-clause one");
-  // Truth table over (wasdHud, wasdTapText, wasdLetter, reduceMotion) with laneCue true: identical to the pre-road gate.
-  for (let bits = 0; bits < 16; bits += 1) {
-    const wasdHud = !!(bits & 1), wasdTapText = !!(bits & 2), wasdLetter = !!(bits & 4), reduceMotion = !!(bits & 8);
-    const laneCue = true;   // !(roadLive() && false) — every configuration this build can reach
+  // 32-way sweep over (wasdHud, wasdTapText, wasdLetter, reduceMotion, laneCue). With laneCue TRUE — the trainer, the
+  // Temple, bandGlyphs:false and EVERY configuration under road.on:false — the gate must still reduce to the pre-road one.
+  let standDowns = 0;
+  for (let bits = 0; bits < 32; bits += 1) {
+    const wasdHud = !!(bits & 1), wasdTapText = !!(bits & 2), wasdLetter = !!(bits & 4), reduceMotion = !!(bits & 8), laneCue = !(bits & 16);
     const now = wasdHud || (wasdTapText && !laneCue) || ((wasdLetter || reduceMotion) && laneCue);
     const shipped = wasdHud || wasdLetter || reduceMotion;
-    assert.equal(now, shipped, `centre-cue gate unchanged for bits ${bits}`);
+    if (laneCue) assert.equal(now, shipped, `centre-cue gate unchanged for bits ${bits}`);
+    else {
+      // Lane carried by the road: the LETTER term is gone and nothing else is. The circle and the readout keep their own
+      // opt-ins, so an explicitly enabled cue is never collateral damage of the day the lane moved into the world.
+      assert.equal(now, wasdHud || wasdTapText, `only the letter term stands down for bits ${bits}`);
+      if (shipped && !now) standDowns += 1;
+    }
   }
+  assert.ok(standDowns > 0, "the shipped default (wasdHud:false, wasdTapText:false, wasdLetter:true) is a configuration that actually stands the letter down");
+});
+
+test("THE MEANING: every band channel is a pure read of the state the game plays (S)", () => {
+  const cfg = extractCfg();
+  const context = vm.createContext({ Math, Number, CFG: cfg });
+  vm.runInContext(`${extractFunction("roadTideAt")}; const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};`, context);
+  const tideAt = (n) => {
+    const r = vm.runInContext(`roadTideAt(${n})`, context);
+    return { m: r.m, i: r.i };
+  };
+  // ONE CLOCK: replay onGrid's OWN tide expression on the eighth counter and demand agreement at every band edge.
+  const TD = cfg.tide, rise = TD.riseBars, peak = TD.peakBars, cyc = rise + peak + TD.mercyBars;
+  for (let g = 0; g < 8 * cyc * 6; g += 2) {
+    const bar = Math.floor(g / 8), cb = bar % cyc, f = (g % 8) / 8;
+    const mercy = cb >= rise + peak;
+    const i = mercy ? 0 : (cb < rise ? (cb + f) / rise : 1);
+    const road = tideAt(g / 2);
+    assert.equal(road.m > 0, mercy, `mercy agrees at eighth ${g}`);
+    assert.equal(road.i, i, `tideI agrees at eighth ${g}`);
+  }
+  // The mercy BAR is one wide band: exactly one of its four beats keeps its "1" (m=1) and the rest swallow theirs (m=2).
+  const first = (rise + peak) * 4;
+  assert.equal(tideAt(first).m, 1, "the mercy bar's downbeat keeps its own edge");
+  for (let k = 1; k < 4; k += 1) assert.equal(tideAt(first + k).m, 2, `mercy beat ${k} is swallowed into the wide band`);
+  assert.equal(tideAt(first - 1).m, 0, "the beat before mercy is an ordinary crest band");
+  // Every tank figure value is a multiple of 4, so a fill gate is EXACTLY one band edge and never a smear across one.
+  for (const fig of [cfg.tank.fig2, cfg.tank.fig3]) for (const s of fig) assert.equal(s % 4, 0, `gate sixteenth ${s} lands on a whole beat`);
+  // The byte packing the shader decodes has to fit in a byte at its worst case, or a channel silently eats another.
+  assert.ok(3 + 4 * 2 + 12 * 2 < 256, "R = lane + 4*wake + 12*mercy fits");
+  assert.ok(1 + 2 * 4 < 256, "B = fillMark + 2*hold fits");
+});
+
+test("THE MEANING: the wake's verdict is already final when a band leaves the now-line (S)", () => {
+  // wasdLanePress grades with w = min(full*0.5, max(wasdWindow, full*0.4)), full = bps/nd. Over the whole reachable ladder
+  // that is 0.400 note-intervals, so band n-1's note (at R = n-0.5) closes at R = n-0.1 and band n's opens at R = n+0.1:
+  // a 0.200-beat dead zone straddles every band edge. THE WAKE is written once, at the edge, and can never be a lie.
+  const cfg = extractCfg();
+  const context = vm.createContext({ Math, Number, CFG: cfg });
+  vm.runInContext(extractFunction("wasdNoteDiv"), context);
+  const diffT = (bpm) => Math.max(0, Math.min(1, (bpm - cfg.minBpm) / (cfg.maxBpm - cfg.minBpm)));
+  let minDead = Infinity;
+  for (let bpm = cfg.minBpm; bpm <= cfg.maxBpm; bpm += 0.25) {
+    const nd = vm.runInContext(`wasdNoteDiv(${diffT(bpm)})`, context);
+    const bps = 60 / Math.max(20, bpm), full = bps / nd;
+    const w = Math.min(full * 0.5, Math.max(cfg.wasdWindow, full * cfg.wasdWindowFrac));
+    const fracBeat = (w / full) / nd;                       // the window as a fraction of ONE BAND
+    minDead = Math.min(minDead, (0.5 - fracBeat) * 2);
+  }
+  assert.ok(minDead > 0, `a dead zone exists at every reachable tempo (min ${minDead.toFixed(3)} beat)`);
+  assert.equal(minDead.toFixed(3), "0.200", "and it is 0.200 beat wide everywhere under the sixty cap");
+  // Only a MAIN writes history: a bonus ghost is an invitation, and declining one is not a miss.
+  assert.match(html, /if\(\(\(\(_hitNote%nd\)\+nd\)%nd\)!==0\) return;/, "roadWakeLatch ignores in-between notes");
+  assert.match(html, /_roadWake\[\(\(n%ROAD_WAKE\)\+ROAD_WAKE\)%ROAD_WAKE\] = judged \? \(_roadHitBeat===n \? 1 : 2\) : 0;/, "landed = the lane's own _hitNote, reduced to its main beat");
+});
+
+test("THE MEANING: road.on:false restores the noise dolly and the whole parcel goes quiet (S)", () => {
+  // Raw-boolean-first at every site. roadLive() reads CFG.road.on before anything else, so with the road off the dolly
+  // takes the shipped branch on the shipped arguments, the bank is identically 0, and no texture/uniform/call exists.
+  assert.match(html, /function roadLive\(\)\{ return !!\(CFG\.road && CFG\.road\.on\) && !trainMode && !templeActive; \}/, "the kill-switch is the first read");
+  assert.match(html, /if\(roadLive\(\)\)\{ {3}\/\/ COURSE-DRIVEN BANKING/, "the course branch is gated on it");
+  assert.match(html, /\} else if\(CFG\.dollyHuman\)\{/, "…and the SENSEI noise branch is still the next one");
+  assert.match(html, /let _dollyY=0, _dollyP=0, _dollyR=0;/, "the bank starts at zero every frame");
+  assert.match(html, /camera\.rotation\.set\(pitch\+recoilPitch\+shP\+_dollyP, yaw\+recoilYaw\+shY\+_dollyY, shR\+_dollyR, 'YXZ'\)/, "the bank rides the roll slot the trauma shake already owns");
+  assert.match(html, /if\(!\(CFG\.road && CFG\.road\.on\)\) return;/, "buildRoad still compiles nothing with the road off");
+  // The hold scaffold proves a RENDER capability and nothing else: a pure function of the beat index, behind its own flag.
+  assert.match(html, /if\(!\(CFG\.road && CFG\.road\.holdDemo\)\) return 0;/, "the hold scaffold reads its raw flag first");
+  const hold = extractFunction("roadHoldAt");
+  assert.doesNotMatch(hold, /state\.|targets|_resolved|_hitNote|rnd\(|Math\.random|score|streak/, "the hold scaffold reads no gameplay state at all");
+  const cfg = extractCfg();
+  assert.equal(cfg.road.holdDemo, false, "and it ships off");
+  assert.equal(cfg.road.on, true);
+  assert.equal(cfg.road.bandGlyphs, true);
+  assert.equal(cfg.road.fillMark, true);
+  assert.equal(cfg.road.mercyBoost, 1.6);
+  assert.equal(cfg.road.lookAheadBeats, 8);
+  assert.equal(cfg.road.widthM, 14);
 });
 
 test("rolling-pocket CFG: feature shelved by default; buffer knobs remain (B1, B6)", () => {
