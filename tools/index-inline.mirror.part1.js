@@ -733,6 +733,10 @@ window.JA={
   bowLine0:'あすの夜 · {m}', bowLine1:'{m} が あすの夜を まっている', bowLine2:'また あした · {m}', bowLineFallback:'あすの夜も 空はここにある',
   bowDoneEyebrow:'この夜は おわり', bowNewNight:'はじめる — あたらしい夜',
   phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
+  rememberLine:'{n}夜が めぐった · {star} が きみの席を まもっていた', rememberAlone:'道場は きみの場所を あけて まっていた',
+  rememberAnchortaurus:'アルデバラン', rememberAnchorleo:'レグルス', rememberAnchorvirgo:'スピカ', rememberAnchorscorpius:'アンタレス',
+  rememberFigaries:'おひつじ', rememberFigtaurus:'おうし', rememberFiggemini:'ふたご', rememberFigcancer:'かに', rememberFigleo:'しし', rememberFigvirgo:'おとめ', rememberFiglibra:'てんびん',
+  rememberFigscorpius:'さそり', rememberFigophiuchus:'へびつかい', rememberFigsagittarius:'いて', rememberFigcapricornus:'やぎ', rememberFigaquarius:'みずがめ', rememberFigpisces:'うお',
   dealRule0:'やみが きいている', dealRule1:'風が うごきだす', dealRule2:'はやい声が めざめる', dealRule3:'風が おぼえている', dealRule4:'すべての合唱', dealRule5:'こだまは ふたつで こたえる', dealRule6:'遠い声が よぶ', dealRule7:'太鼓が やすむ',
   dealUpvenus:'金星が 出ている', dealUpjupiter:'木星が 出ている', dealUpmars:'火星が 出ている', dealUpsaturn:'土星が 出ている', dealUpmercury:'水星が 出ている',
   senseiEarlynear:'ちかいこだまに リンクが はやくとどく · むこうから 来るのを まって', senseiLatenear:'ちかいこだまに リンクが おそくとどく · もう そこにいるよ',
@@ -941,6 +945,9 @@ const CFG = {
   // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
   // PHASES WITNESSED (wave 5a, parcel M): a night you actually played is stamped by the sky that was actually overhead — the SAME elongation bucket the deal deals by and the Bow names (ONE phase authority, never two) — and the eight stamps close a ring in the Temple. ACCRETION ONLY: a bucket keeps its FIRST date forever, a second session the same night writes nothing, and no path in this game can take a stamp back. No counts, no calendar, no gaps — a night nobody played is ordinary dark sky, not a hole. The ring is the whole reward; the one-time eighth-stamp line at the top of the Bow's chain is the only thing it ever says, once, ever.
   phases:{ on:true },   // on:false → the file is never opened (no read, no write, from any surface), no ring is drawn, and the Bow's line chain is wave 4's exactly. Nothing else to tune: the eight buckets belong to the sky, not to a knob
+  // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
+  // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
+  remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
@@ -3087,24 +3094,24 @@ if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPL
 // Controls strip is first in the chip — never bury how-to under study text.
 if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','SHIFT+E free mouse · T ask · FIRE investigate · E leave · ESC pause');
 if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blocks HUD clicks — free the mouse (Shift+E) to scroll this chip, or press T to ask (frees mouse + opens ask).');
-const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
-let _templeAspectMesh=null, _templeHighlight=null;
-const _templeAspects=[], _templeNatal=[];
-const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new THREE.Vector3(), _templeTmp=new THREE.Vector3();
-function _templeDisposeChildren(){
-  while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
-    if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
-    if(obj.material && obj.material.dispose) obj.material.dispose();
-  }
-  _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
-}
-function _templeAspectColor(id){
-  if(id==='square') return new THREE.Color(0xff8a78);
-  if(id==='opposition') return new THREE.Color(0x88bfff);
-  if(id==='trine') return new THREE.Color(0x8fe3c0);
-  if(id==='sextile') return new THREE.Color(0xa8d8ff);
-  return new THREE.Color(0xffd66f);
-}
+                                                                                              
+                                                  
+                                         
+                                                                                                                                 
+                                  
+                                                                                                                                 
+                                                                                                                                                                                 
+                                                                    
+   
+                                                                                                
+ 
+                                
+                                                     
+                                                         
+                                                    
+                                                      
+                                   
+ 
                                     
                                                                                                                                
                                                                    
@@ -5230,6 +5237,99 @@ function _templeAspectColor(id){
    
                   
  
+                                                      
+                                                                                                                  
+                                                                                                                    
+                                                                                                                      
+                                                                                                                  
+                                                                                                                      
+                                                                                       
+                                                                                                                    
+                                                                                                                      
+                                                                                                                   
+                                                                                                                   
+                                                                                                    
+                                                                                                                   
+                                                                                                                      
+                                                                                            
+                                                                                                                     
+                                                                                                               
+                                                                                              
+                                                                                                                      
+                                       
+                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                      
+                                                                                                                                                                     
+                                                                                                                                                            
+                                                                                                                                                                     
+                                           
+                        
+                                                   
+                                                                                 
+                  
+                                                          
+                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                            
+ 
+                         
+                                                                       
+                                                   
+                                                                                                                                                                                                                                        
+ 
+                            
+                            
+                                                                                                                                                                                                                                                 
+ 
+                              
+                                                                                                               
+                                                                                                                     
+                                                                  
+                                           
+                                                                                               
+                                                                                                                                                         
+ 
+                        
+                                                                                                                   
+                                                                                                                    
+                                                                                                                   
+                                                                                                                                                      
+                                
+                                                                                                                                                                                                                                                                        
+                              
+                                                                                                        
+                                           
+                             
+                                                                      
+                                                                                                                
+ 
+                        
+                                                                                                                     
+                                                                                                                     
+                                                                                                                                                                                 
+                 
+                                                                                                                                                 
+                                                                                                                                                                                     
+                                                                                                                  
+                                           
+                                                                                                                                                                                                           
+                                                                                                                                              
+                            
+                                                                                                                                                                                                     
+                                                                                                                                                                                               
+ 
+                           
+                                                                                                                    
+                                                                                                                       
+                                                                           
+                                                                                                                                                          
+                        
+                 
+                            
+                                                                                      
+                                                                                                                                                                      
+ 
                       
                                                         
                                      
@@ -5603,6 +5703,7 @@ function _templeAspectColor(id){
                 
                       
                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                          
                                                                   
@@ -7972,9 +8073,15 @@ function _templeAspectColor(id){
                                                                                                                   
                                                                                                                     
                                                                                                     
+                                                                                                                     
+                                                                                                                   
+                                                                                                                 
+                                                                                                                      
+                                                                                                                  
                                                                      
-                                                                                                              
-                                                       
+                                             
+                                                                                                                                                                        
+                                                           
                                                                                          
  
                                                                                                                            

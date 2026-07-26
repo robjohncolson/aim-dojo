@@ -733,6 +733,10 @@ window.JA={
   bowLine0:'あすの夜 · {m}', bowLine1:'{m} が あすの夜を まっている', bowLine2:'また あした · {m}', bowLineFallback:'あすの夜も 空はここにある',
   bowDoneEyebrow:'この夜は おわり', bowNewNight:'はじめる — あたらしい夜',
   phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
+  rememberLine:'{n}夜が めぐった · {star} が きみの席を まもっていた', rememberAlone:'道場は きみの場所を あけて まっていた',
+  rememberAnchortaurus:'アルデバラン', rememberAnchorleo:'レグルス', rememberAnchorvirgo:'スピカ', rememberAnchorscorpius:'アンタレス',
+  rememberFigaries:'おひつじ', rememberFigtaurus:'おうし', rememberFiggemini:'ふたご', rememberFigcancer:'かに', rememberFigleo:'しし', rememberFigvirgo:'おとめ', rememberFiglibra:'てんびん',
+  rememberFigscorpius:'さそり', rememberFigophiuchus:'へびつかい', rememberFigsagittarius:'いて', rememberFigcapricornus:'やぎ', rememberFigaquarius:'みずがめ', rememberFigpisces:'うお',
   dealRule0:'やみが きいている', dealRule1:'風が うごきだす', dealRule2:'はやい声が めざめる', dealRule3:'風が おぼえている', dealRule4:'すべての合唱', dealRule5:'こだまは ふたつで こたえる', dealRule6:'遠い声が よぶ', dealRule7:'太鼓が やすむ',
   dealUpvenus:'金星が 出ている', dealUpjupiter:'木星が 出ている', dealUpmars:'火星が 出ている', dealUpsaturn:'土星が 出ている', dealUpmercury:'水星が 出ている',
   senseiEarlynear:'ちかいこだまに リンクが はやくとどく · むこうから 来るのを まって', senseiLatenear:'ちかいこだまに リンクが おそくとどく · もう そこにいるよ',
@@ -941,6 +945,9 @@ const CFG = {
   // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
   // PHASES WITNESSED (wave 5a, parcel M): a night you actually played is stamped by the sky that was actually overhead — the SAME elongation bucket the deal deals by and the Bow names (ONE phase authority, never two) — and the eight stamps close a ring in the Temple. ACCRETION ONLY: a bucket keeps its FIRST date forever, a second session the same night writes nothing, and no path in this game can take a stamp back. No counts, no calendar, no gaps — a night nobody played is ordinary dark sky, not a hole. The ring is the whole reward; the one-time eighth-stamp line at the top of the Bow's chain is the only thing it ever says, once, ever.
   phases:{ on:true },   // on:false → the file is never opened (no read, no write, from any surface), no ring is drawn, and the Bow's line chain is wave 4's exactly. Nothing else to tune: the eight buckets belong to the sky, not to a knob
+  // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
+  // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
+  remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
@@ -5230,6 +5237,99 @@ function phasesRingDraw(){
   }
   cv.hidden=false;
 }
+/* ---- THE SKY REMEMBERS YOU (wave 5a, parcel N) ----
+   ONE date, one greeting. localStorage['aimdojo.lastNight'] holds the local civil date of the last night that was
+   actually PLAYED (the same witness parcel M stamps by: the first scoring arrival of a post-graduation run), and at
+   the threshold of the first run of a later day it buys exactly one warm sentence — how many nights turned, and which
+   of the player's own lit stars kept the seat. That is the entire feature. It counts nothing, compares nothing to
+   anybody, and has no opposite: a long absence is a bigger welcome, never a smaller anything, and the words "missed",
+   "streak", "lost" and "again" are not in this parcel's vocabulary in either language.
+   THE STAR NAME IS A DELIBERATE, SPEC'D EXCEPTION (SPEC_MEMORY_SOLO §3) to wave 3's rule that a star is never NAMED
+   during play: that rule guards the FIELD, where a proper name would turn sky into a HUD label. This is the doorway —
+   the greeting lands in the threshold flash before the first spawn, once, and no name is ever spoken again for the
+   rest of the night. The four zodiac anchors (Aldebaran/Regulus/Spica/Antares) are preferred because a real person
+   can walk outside and find them; any other lit figure is greeted by its own creature-name instead.
+   THE THRESHOLD'S PRIORITY CHAIN, enforced at the one call site in flashTheme: comeback (this parcel) > the deal's
+   line (wave 4) > the song name. Exactly one line, never two — and the deal still DEALS on a greeted night (its rules
+   were resolved at resetSession); the only thing this parcel takes from it is the sentence.
+   STORAGE IS UNTRUSTED (wave-3/4 discipline): a plain non-array object at v===1 whose d is literally YYYY-MM-DD, and
+   nothing else is a date. Corrupt, absent, or dated in the FUTURE (a clock wound back) = a fresh player who is
+   greeted by nothing, silently. Writes are trailing-throttled and can never throw into a run.
+   Kill-switch remember.on:false → the file is never opened from any surface and the threshold is wave 4's exactly. */
+const REMEMBER_KEY='aimdojo.lastNight';
+const REMEMBER_FIGS=['aries','taurus','gemini','cancer','leo','virgo','libra','scorpius','ophiuchus','sagittarius','capricornus','aquarius','pisces'];   // the fixture's OWN figure keys, in the fixture's own order — the greeting picks out of this fixed list rather than out of _starLit's key order, so which star speaks can never depend on the order a save file happened to be written in
+const REMEMBER_ANCHOR_EN={taurus:'ALDEBARAN', leo:'REGULUS', virgo:'SPICA', scorpius:'ANTARES'};   // the four zodiac anchors that carry a proper name in the lore AND in the real sky: the greeting prefers these because they are findable from a driveway
+const REMEMBER_FIG_EN={aries:'THE RAM', taurus:'THE BULL', gemini:'THE TWINS', cancer:'THE CRAB', leo:'THE LION', virgo:'THE MAIDEN', libra:'THE SCALES', scorpius:'THE SCORPION', ophiuchus:'THE SERPENT-BEARER', sagittarius:'THE ARCHER', capricornus:'THE SEA-GOAT', aquarius:'THE WATER-BEARER', pisces:'THE FISHES'};   // all thirteen carry a name so the fallback is TOTAL — the four anchor figures never reach this table while their anchor names exist above it, but the dictionary is complete rather than clever
+let _rememberDay=null;        // "YYYY-MM-DD" of the last night actually played, or null for a player this browser has never witnessed
+let _rememberLoaded=false;    // the file is opened at most once per page life, by whichever surface needs it first (the threshold, or the night's first scoring hit)
+let _rememberSaid=false;      // the greeting has been SPOKEN this page life — a hitless restart must not re-greet, because a welcome twice is not a welcome
+let _rememberStamped=false;   // this page life has already taken its "tonight was played" write attempt, so every scoring hit after the first costs one boolean read
+let _rememberSaveT=0, _rememberDirty=false;
+function rememberLoad(){
+  if(_rememberLoaded) return; _rememberLoaded=true;
+  let raw=null; try{ raw=localStorage.getItem(REMEMBER_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                 // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a player the sky has yet to meet, silently
+  if(typeof o.d==='string' && PHASES_DATE_RE.test(o.d)) _rememberDay=o.d;              // …and d is literally this build's own date string (the grammar parcel M already defines — one date grammar for the whole memory layer). An epoch number, an ISO timestamp, ' ' padding: not a night
+}
+function rememberFlush(){
+  if(_rememberSaveT){ clearTimeout(_rememberSaveT); _rememberSaveT=0; }
+  if(!_rememberDirty) return; _rememberDirty=false;
+  try{ localStorage.setItem(REMEMBER_KEY, JSON.stringify({v:1, d:_rememberDay})); }catch(e){}   // a full or blocked quota loses the write, never the run — and the worst a lost write can do is greet you once more than it should have
+}
+function rememberSaveSoon(){
+  if(_rememberDirty) return;
+  _rememberDirty=true; _rememberSaveT=setTimeout(rememberFlush, PHASES_SAVE_MS);   // the memory layer's one trailing throttle, shared with the ring: a night writes this file exactly once, and it lands in the same quiet moment the stamp does
+}
+function rememberGap(from,to){
+  // Nights between two local civil dates, as a plain integer. Both sides are built at LOCAL midnight, so a DST
+  // boundary inside the gap shifts the difference by an hour at most and the rounding absorbs it — the same calendar
+  // the deal's freshness gate and the ring's stamps turn over on.
+  const a=from.split('-'), b=to.split('-');
+  const n=Math.round((new Date(+b[0],+b[1]-1,+b[2]) - new Date(+a[0],+a[1]-1,+a[2]))/86400000);
+  return isFinite(n)?n:0;   // a hand-written "2026-99-99" rolls into a real date rather than throwing; a NaN is simply no gap, and no gap is no greeting
+}
+function rememberStar(){
+  // WHOSE seat it was: one of the player's OWN lit stars, preferring the four anchors, chosen deterministically by
+  // the date (the way the Bow picks its phrasing) so one night has one voice — and so two returns a month apart are
+  // greeted by two different stars without a single random draw. Never a level, never a count, never a comparison.
+  if(!CFG.stars.on) return '';   // raw boolean first: with the lit sky off there is no lit set to name, and this parcel falls to its starless variant
+  const lit=Object.create(null);
+  for(const id in _starLit){ const i=id.indexOf(':'); if(i>0) lit[id.slice(0,i)]=true; }   // the figure half of "<figureKey>:<starIndex>" — every key here already passed wave 3's grammar, and a figure this build does not know simply never matches the tables below
+  const anchors=[], others=[];
+  for(const k of REMEMBER_FIGS){ if(!lit[k]) continue; (REMEMBER_ANCHOR_EN[k]?anchors:others).push(k); }
+  const pool=anchors.length?anchors:others;
+  if(!pool.length) return '';
+  const k=pool[Math.abs(Math.floor(Date.now()/86400000))%pool.length];
+  return anchors.length ? T('rememberAnchor'+k, REMEMBER_ANCHOR_EN[k]) : T('rememberFig'+k, REMEMBER_FIG_EN[k]);
+}
+function rememberLine(){
+  // THE TOP OF THE THRESHOLD'S CHAIN, and the whole text budget of this parcel: one sentence, once, on the first run
+  // of a day that follows a real absence. '' every other night — which is what hands the threshold back to the deal.
+  if(_rememberSaid || trainMode) return '';   // post-graduation only (the trainer is a lesson, not a life) — defence in depth: flashTheme is never reached in the trainer anyway
+  rememberLoad();
+  if(!_rememberDay) return '';                // a fresh, corrupt or absent file: the sky has no seat to have kept, and says so by saying nothing
+  const today=phasesToday();                  // ONE calendar for the memory layer (a pure local-civil-date helper — it opens no file, so it belongs to neither parcel's kill-switch)
+  if(_rememberDay===today) return '';         // already played tonight: the second run of a night is not a return
+  const n=rememberGap(_rememberDay, today);
+  if(n < Math.max(1, CFG.remember.gapDays|0)) return '';   // under the threshold — and a FUTURE date (a clock wound back) lands at n<=0 here, so a wrong clock greets nobody instead of greeting everybody
+  _rememberSaid=true;                         // latched at the moment it is SPOKEN, never before: a night that says nothing has spent nothing
+  const star=rememberStar();
+  return star ? TF('rememberLine','✦ {n} NIGHTS TURNED · {star} HELD YOUR SEAT', {n:n, star:star})   // n >= gapDays >= 1 nights, so the plural is always the true one and no singular case can exist
+              : T('rememberAlone','✦ THE DOJO KEPT YOUR PLACE');                                     // nothing lit yet: the room itself does the remembering, and no star is invented to speak
+}
+function rememberWitness(){
+  // "Tonight was played" — the same witness the ring stamps by, taken at the FIRST scoring arrival. One attempt per
+  // page life: the call site reads the raw kill-switch and this latch before it ever reaches here, so a night with the
+  // parcel off — or any hit after the first — costs two reads and no call.
+  if(_rememberStamped || trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both
+  _rememberStamped=true;
+  rememberLoad();
+  const today=phasesToday();
+  if(_rememberDay===today) return;   // a second session tonight writes nothing at all
+  _rememberDay=today; rememberSaveSoon();   // in memory FIRST, so this same page's later thresholds already know the night is spoken for even if the write is refused
+}
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
@@ -5603,6 +5703,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   recordHit(tg);
   pushReaction(beats);
   pushEvent(good);   // timing-grade popup (FLAWLESS/PERFECT/…) removed per playtest — the distance/height flash (recordHit) is the only post-hit readout now
+  if(good && CFG.remember.on && !_rememberStamped) rememberWitness();   // THE SKY REMEMBERS YOU: the same witness, and the whole write path — the FIRST scoring arrival of a post-graduation run records that tonight was played, so a later return can be greeted by name. Raw boolean and the page latch first, so the parcel off (or any hit after the first) costs two reads and no call, and nothing about the grade, the score or the streak above changed
   if(good && CFG.phases.on && !_phasesRun) phasesWitness();   // PHASES WITNESSED: the FIRST scoring arrival of a post-graduation run stamps tonight's moon in the Temple ring — a night you actually played, however briefly. Raw boolean and the run latch first, so the parcel off (or any hit after the first) costs two reads and no call, and nothing about the grade, the score or the streak above changed
   if(good) bowNote(tg);   // THE BOW: the Mandala's only data source — {errMs, k} per SCORING arrival, run-local and capped (no-op with the parcel off, in the trainer, or in the Temple)
   popHitMarker(); addTrauma(good?CFG.hitTrauma:CFG.hitTrauma*0.7);
@@ -7972,9 +8073,15 @@ function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + openin
   // and no toast is used at the threshold at all, so the deal line can never race the song name or be overwritten
   // mid-animation. Pre-graduation (the trainer never reaches this call), deal.on:false, and any night the ephemeris
   // could not be read (dealLine() returns '') all keep the song name exactly as it has always been.
+  // THE THRESHOLD'S PRIORITY CHAIN (wave 5a), and still exactly ONE line: the comeback greeting (parcel N, the first
+  // run of a day after a real absence) > the night the sky dealt (wave 4) > the song name. Each tier can only ever
+  // REPLACE the one below it, never stack with it, and a greeted night is still fully dealt — dealCompute ran at
+  // resetSession, so only the SENTENCE is given away, never a rule. Raw booleans first: with remember off this is one
+  // read and no call and the flash is wave 4's exactly; with both off it is the song name, as it has always been.
   const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook();
-  const dl=CFG.deal.on?dealLine():'';   // raw boolean first: with the parcel off this is one read and no call
-  setText(f, dl||('♪ '+songDisplay(activeTheme.name)));
+  const rl=CFG.remember.on?rememberLine():'';
+  const dl=rl?'':(CFG.deal.on?dealLine():'');   // not even evaluated on a greeted night: dealLine is a pure read of _deal, so skipping it changes nothing but the words
+  setText(f, rl||dl||('♪ '+songDisplay(activeTheme.name)));
   f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath();
 }
 function noteSongPeak(){   // per-song personal bests — flash only when you set a new peak BPM or longest hold on THIS song
