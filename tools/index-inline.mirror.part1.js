@@ -923,13 +923,14 @@ const CFG = {
   chorus:{ on:true, maxStems:8, stemVel:0.10, menuFadeSec:1.0, mercyVelMul:1.6, risenFirst:true },   // maxStems = the hard ceiling on stems sounding at once (8 — past that the pentatonic stops reading as a chorus and starts reading as a chord cluster) · stemVel = one stem's velocity (deliberately under the pad's own bloom: this is a room tone, not a part) · menuFadeSec = seconds between stems walking in at the overlay (0 = the whole ensemble arrives as one chord) · mercyVelMul = how much louder the swell is than the menu, since it has the arrangement to sing over (1 = the same) · risenFirst = rank stars that are above the horizon RIGHT NOW ahead of set ones, so the sky and the sound agree about where the voices are (false = pure hash order)
   chordVolley:{ on:true, dyadVel:0.5, triadVel:0.32 },   // dyadVel = the 2nd arrival's harmony velocity, itself SHAPED by the hit's tightness (parcel E's q ratio) so a loose volley is a soft one · triadVel = the 3rd arrival's full chord, deliberately UNDER the dyad (three voices at once already read louder) · a 4th same-beat kill (fireQuant's ceiling) adds nothing: the chord already rang
   // THE SKY DEALS THE NIGHT (wave 4, parcel K): there is nothing to configure, because the sky already chose. At resetSession the REAL moon phase — the Meeus elongation the Bow's line already reads, in the same 8 equal buckets — sets tonight's ONE rule, and the planets actually above the horizon tilt the orb mix. The crescent you see from the car IS the announcement; the game only names what you can already look up at. One rule per night, never stacked: a planet is a WEIGHT, never a second rule.
-  // HOW IT REACHES THE GAME: dealCompute writes a small _deal object of EFFECTIVE VALUES (the SENSEI_PACK pattern — base CFG is never mutated, so nothing leaks into the next night, the trainer, or the Temple) and the existing read-sites multiply by it. The deal therefore only ever changes CONSTANTS that rolls already compare against: it adds no roll, removes none, and reorders none. A dealt night naturally reaches the spawn scheduler's own gates (live orb count, the minGap cooldown) on different beats than a plain one — that is the RESULT of the weights, not a second draw. THE ONE EXCEPTION is the Waning Gibbous pairs rule, which issues a companion spawn of its own and so genuinely spends extra draws; it is confined to that phase's nights and costs nothing, because free-play has no shared seed (the seeded daily was retired) and the daily invariants live nowhere near here.
+  // HOW IT REACHES THE GAME: dealCompute writes a small _deal object of EFFECTIVE VALUES (the SENSEI_PACK pattern — base CFG is never mutated, so nothing leaks into the next night, the trainer, or the Temple) and the existing read-sites multiply by it. Almost everything the deal does is therefore a CONSTANT that a roll already compares against: it adds no roll, removes none, reorders none. A dealt night also naturally reaches the spawn scheduler's own gates (live orb count, the minGap cooldown) on different beats than a plain one — that is the RESULT of the weights, not a second draw.
+  // THE STREAM RULE (1.1), stated in general because two rules now need it: the point of the discipline is KILL-SWITCH EQUIVALENCE, not stream-freezing. (a) deal.on:false is byte-identical to wave 3 in behaviour AND in the rnd() stream — absolute, no exception, ever. (b) An ACTIVE phase rule MAY alter the draw count or order on its OWN nights: free-play has no shared seed (the seeded daily was retired) and the daily invariants live nowhere near here, so a night that plays differently may also draw differently. Two rules use that licence — the NEW MOON's widened cone, which lets the spawn direction's reroll loop run more often, and the WANING GIBBOUS's pairs, which spends a roll of its own plus a whole companion spawn. Neither is reachable on any other night. (c) The PLANET TILT is strictly weights-only, always, on every night: a risen planet may move a threshold a roll compares against and nothing else, because a planet must never become a second rule.
   // FAIL-OPEN: the phase rule needs only local date + the Meeus approximation already in the client, so it deals with the network down, the API dead and the sky pack absent — in that case the planet mix is simply today's neutral weights and the line carries no planet fragment. Same night + same sky = same deal, on every device.
   // Kill-switch is deal.on:false → dealCompute returns before it reads a single thing, _deal rests neutral (every multiplier 1, every chance 0), every read-site is guarded by the raw boolean FIRST so an off night makes no _deal read anywhere hot, and behaviour AND the rnd() stream are byte-identical to wave 3. Inert in the trainer (a trainer night keeps its didactic field; a mid-run graduation plays out neutral and the sky deals the NEXT night) and in the Temple, which spawns nothing at all.
   deal:{ on:true, planetAltDeg:5, spreadMul:1.5, windMul:0.7, quickMul:2.2, quickLifeMul:0.85,
          moverMul:1.8, fullDensityMul:1.2, fullGoldMul:1.8, fullMercyMul:1.3, pairChance:0.35,
          farMul:1.3, quietDensityMul:0.8, quietTickMul:1.6, quietBpmMul:0.6,
-         venusMul:1.8, mercuryMul:1.8, marsMul:1.8, jupiterConc:1 },   // planetAltDeg = how far above the horizon a mover must be to count as "up" (5° — lower than the stars' 8°, because a planet low on the horizon is still the one you can point at from the driveway) · spreadMul widens the NEW MOON's minimum-angle-from-aim cone (more bearings behind you) · windMul = the WAXING CRESCENT's share of the shipped wind band (the WAXING GIBBOUS takes the full band) · quickMul/quickLifeMul = the FIRST QUARTER's speed-orb weight and its brisker orb life · moverMul = the WAXING GIBBOUS's wandering-orb weight · fullDensityMul/fullGoldMul/fullMercyMul = the FULL MOON's generous night (more field, more gold, a taller mercy swell) · pairChance = the WANING GIBBOUS's chance that a spawn is answered by a companion sharing a landable arrival beat (0 = no pairs and no extra draws) · farMul scales the LAST QUARTER's whole distance band outward (gold with it) · quietDensityMul/quietTickMul/quietBpmMul = the WANING CRESCENT's sparser field, sooner silence and gentler tempo climb · venusMul/mercuryMul/marsMul = risen-planet weights on gold/speed/mover · jupiterConc = extra concurrent Echoes while Jupiter is up
+         venusMul:1.8, mercuryMul:1.8, marsMul:1.8, jupiterConc:1 },   // planetAltDeg = how far above the horizon a mover must be to count as "up" (5° — lower than the stars' 8°, because a planet low on the horizon is still the one you can point at from the driveway) · spreadMul widens the NEW MOON's minimum-angle-from-aim cone (more bearings behind you — a wider cone rejects more rolled directions, so this night's spawns draw more often than a plain night's, which an active phase rule is allowed to do; see THE STREAM RULE above) · windMul = the WAXING CRESCENT's share of the shipped wind band (the WAXING GIBBOUS takes the full band) · quickMul/quickLifeMul = the FIRST QUARTER's speed-orb weight and its brisker orb life · moverMul = the WAXING GIBBOUS's wandering-orb weight · fullDensityMul/fullGoldMul/fullMercyMul = the FULL MOON's generous night (more field, more gold, a taller mercy swell) · pairChance = the WANING GIBBOUS's chance that a spawn is answered by a companion sharing a landable arrival beat (0 = no pairs and no extra draws; both members of a dealt pair are pinned PLAIN — see THE STREAM RULE above) · farMul scales the LAST QUARTER's whole distance band outward (gold with it) · quietDensityMul/quietTickMul/quietBpmMul = the WANING CRESCENT's sparser field, sooner silence and gentler tempo climb · venusMul/mercuryMul/marsMul = risen-planet weights on gold/speed/mover · jupiterConc = extra concurrent Echoes while Jupiter is up
   // SENSEI'S ONE QUESTION (wave 4, parcel L): the game already keeps the only ledger this needs — THE BOW's _bowHits, one signed arrival error + the subdivision k that Echo was spawned for. Binned by LEAD (near/mid/far), a night answers ONE question: at which distance does this player consistently arrive off the beat, and which way? When the answer is real (enough samples, a bias big enough to hear), the Bow's one line becomes that observation INSTEAD OF the sky fact — the two never stack, and the line is never a number, never a grade, never twice running.
   // HOW IT REACHES TOMORROW: the observation is persisted (localStorage['aimdojo.sensei']) and, while it is fresh, the run's FIRST weightSwells swells bias the beat-quantized k CHOICE toward the weak lead. WEIGHTS ONLY, on the ONE draw beatSpawnDist already takes — same draw, same order, same count — so the sacred "distance = k sixteenths" law is untouched and a drilled night differs from a plain one only in which feasible k the same random number lands on. It is never announced, never visible, and it expires in silence.
   // Kill-switch is sensei.on:false → storage is never read or written, the Bow line is bowSkyLine() verbatim, and the k pick is today's uniform one, draw for draw. Post-graduation only (the trainer's leads are a lesson, not a measurement) and inert in the Temple, which neither spawns nor bows.
@@ -1631,14 +1632,22 @@ function updateSky(dt){
   _lite.copy(LITE_NIGHT).lerp(LITE_DAY, day); dLight.color.copy(_lite); setScalarCached(dLight,'intensity',0.22+0.7*day);
   _liteDir.copy(sunDir); if(sunY<0) _liteDir.negate(); dLight.position.copy(_liteDir).multiplyScalar(60);  // key light from the sun when up (in clocked* sunDir IS the transformed ☉ — v2.1 §4.4); below the horizon, the negation is a soft night fill from the opposite sky, not a physical moon
   skyDomeMat.uniforms.uTime.value=skyT; setScalarCached(skyDomeMat.uniforms.uCloud,'value',(LOW?0:(GLOW?Math.max(atmos*0.9,0.15):atmos*0.9))*((CFG.skyMaps&&CFG.skyMaps.enabled!==false)?(1-_templeBlend*(CFG.skyMaps.cloudDuck!=null?CFG.skyMaps.cloudDuck:1)):1));          // procedural clouds: drift + fade in with the day, at atmosphere weight (LOW: uCloud=0 skips the fbm cloud branch entirely → cheapest sky dome). GLOW: faint mist banding survives at night (key-art sky is never pure gradient)
-  if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
-  else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
+  applyCloudWind();                                                                                            // the cloud drift vector, written UNCONDITIONALLY — see applyCloudWind
   skyDomeMat.uniforms.uCloudCol.value.copy(WHITE).lerp(_hor, 0.30);                         // clouds pick up the sky tint (warm at dusk)
   if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull (opens with temple) + soft glyph breath — zero cost while absent
   if(templeActive||_templeBlend>0.01) updateSkyTempleVisuals();   // keep aspect/ghost opacities in sync while the full-sphere blend is open
   updateTempleOrbs(dt);                                          // TEMPLE ORBS: milky-shell fade + camera-relative planet globe (near-free no-op outside temple unless dojoShell)
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
   if(!templeActive && day>0.02) renderReflection();          // no mirror pass in temple (floor is gone)
+}
+function applyCloudWind(){
+  // THE ONE WRITER of the cloud drift vector, and it writes UNCONDITIONALLY — including the wind-less case. A dealt
+  // wind (THE WIND STIRS / THE WIND REMEMBERS) lives in windX/windZ for exactly one night, so the vector must be
+  // re-stated whenever the wind state is re-decided, never merely left standing: a tab that plays a waxing night and
+  // then a wind-less one has to get its still sky back. The wind-less branch is the baseline gentle drift verbatim —
+  // (0.006, 0.004), the same two numbers a no-wind sky has always had — so nothing about an undealt night changed.
+  if(windX||windZ) skyDomeMat.uniforms.uWind.value.set(windX*CFG.windCloudK, windZ*CFG.windCloudK);            // clouds drift ALONG the wind (free-play prototype)
+  else skyDomeMat.uniforms.uWind.value.set(0.006,0.004);                                                       // default gentle drift (daily + wind-off)
 }
 let skyT=0;
 
@@ -1674,7 +1683,7 @@ function canonicalSkySign(id){ id=String(id==null?'':id).toLowerCase(); return i
 function skyGeometryRank(pack){ return pack&&pack.type==='skyday'?1:(pack&&pack._sample?0:2); }   // Meeus/fallback < synthetic sample < public day < legacy personal; authenticated personal is applied explicitly at rank 3
 let chartSkyGroup=null, stickGroup=null, lumGroup=null, _lum=null, _skypack=null, _publicSkyPack=null, atmosAmt=0, _sunLonRad=0;
 let _remotePersonalSky=false, _personalListenExpected=false, _skyAuthSession=null, _skyProfileController=null;   // authenticated Save my sky state; separate from legacy local natal_id packs
-let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyDayAnnounced=false, _skyGlossary=null, _skyGlossaryReady=false;
+let _chartPackRank=-1, _chartQueuedRank=-1, _lumPackRank=0, _publicSkyReady=false, _skyDayAnnounced=false, _skyDayPending=null, _skyGlossary=null, _skyGlossaryReady=false;   // _skyDayPending: a day pack that arrived mid-run, held for the next menu/pause surface (announceSkyDay never toasts over a running field)
 const _chartSignSprite=Object.create(null), _chartMoverSprite=Object.create(null);
 const skySphere=new THREE.Group(); scene.add(skySphere);     // v2.1 G1: THE celestial sphere — sole parent of sticks + chart + luminaries; one quaternion drives the whole sky (empty & untouched in decorative)
 const SPH_TILT=SKY_CHART.ecl.tiltDeg*Math.PI/180;
@@ -2354,12 +2363,19 @@ function skydayValid(p){
 }
 function deviceSkyTimezone(){ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(e){ return 'UTC'; } }
 function announceSkyDay(pack){
+  // ONCE PER TAB, and NEVER OVER A RUNNING FIELD. The day pack lands on an idle callback, so it can arrive at any
+  // moment — including a second into a run, on top of the threshold flash, or in the middle of a beat that needs the
+  // player's whole attention. A late arrival is not urgent: it is a fact about the sky, and the sky's own surfaces
+  // are the menu and the pause card. So a run in progress simply parks it and the next pause card speaks it, which
+  // also means it can no longer collide with anything the threshold moment is saying.
   if(_skyDayAnnounced) return;
-  _skyDayAnnounced=true;
+  if(state.running){ _skyDayPending=pack; return; }
+  _skyDayAnnounced=true; _skyDayPending=null;
   const count=Array.isArray(pack&&pack.movers)?pack.movers.length:0, raw=pack&&typeof pack.cache_date==='string'?pack.cache_date:''; let stamp='';
   if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) try{ stamp=new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',timeZone:'UTC'}).format(new Date(raw+'T12:00:00Z')).toUpperCase(); }catch(e){}
   showGhostToast('SKY · '+(stamp?stamp+' · ':'')+count+' '+(count===1?'BODY':'BODIES'));
 }
+function flushSkyDayAnnounce(){ if(_skyDayPending && !state.running) announceSkyDay(_skyDayPending); }   // the parked announcement, spoken at the next menu/pause surface — a no-op on every card that had nothing waiting
 async function loadSkyDay(){
   if(SKY_MODE==='decorative') return null;
   const C=CFG.skyDay, ctl=(typeof AbortController!=='undefined')?new AbortController():null;
@@ -3129,56 +3145,56 @@ function rebuildSkyTempleGeometry(){
     setSkyTempleFocus(rebound);
   }
 }
-function updateSkyTempleVisuals(){
-  _templeGroup.visible=templeActive||_templeBlend>0.01;
-  if(!templeActive && _templeBlend<=0.01) return;
-  // While templeActive, full opacity immediately (do not wait on floor blend) so the sphere is obvious looking up or down.
-  const open=templeActive?1:Math.max(_templeBlend,0.001);
-  const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
-  // Transit aspect chords: quieter than before so sticks/globes/art stay readable.
-  const aspectOp=CFG.skyTemple.aspectLineOpacity!=null?CFG.skyTemple.aspectLineOpacity:0.42;
-  const hiOp=CFG.skyTemple.aspectHighlightOpacity!=null?CFG.skyTemple.aspectHighlightOpacity:0.65;
-  if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',aspectOp*open*dim);
-  if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?hiOp*open:0);
-  for(const pick of _templeNatal){
-    // Full sphere: no horizon hide — natal ghosts exist underfoot and above.
-    const focused=_templeFocus===pick;
-    pick.sprite.material.color.setHex(focused?0xffd24a:0xc9d4ff);
-    pick.sprite.material.depthTest=false;
-    setScalarCached(pick.sprite.material,'opacity',(focused?0.95:0.62)*open);
-    const s=pick.baseScale*(focused?1.35:1); pick.sprite.scale.set(s,s,1); pick.sprite.visible=open>0.01;
-  }
-}
-function _templeScreen(local,out){
-  _templeTmp.copy(local).applyQuaternion(skySphere.quaternion);
-  camera.getWorldDirection(_templeFwd); _templeA.copy(_templeTmp).sub(camera.position);
-  if(_templeA.dot(_templeFwd)<=0.05) return false;
-  _templeTmp.project(camera); out.x=(_templeTmp.x+1)*viewW*0.5; out.y=(1-_templeTmp.y)*viewH*0.5; return isFinite(out.x)&&isFinite(out.y);
-}
-function pickSkyTempleAspect(){
-  if(!SKY_TEMPLE_DATA||!SKY_TEMPLE_DATA.rayToSegment) return null;
-  let best=null,bestD=CFG.skyTemple.aspectPickPx||18;
-  camera.getWorldDirection(_templeFwd);
-  const tanHalf=Math.tan((camera.fov||95)*Math.PI/360)||1;
-  for(const item of _templeAspects){
-    _templeA.copy(item.start).applyQuaternion(skySphere.quaternion); _templeB.copy(item.end).applyQuaternion(skySphere.quaternion);
-    const hit=SKY_TEMPLE_DATA.rayToSegment(camera.position,_templeFwd,_templeA,_templeB);
-    // Full sphere: aspect chords that cross underfoot are pickable (no dojo horizon cut).
-    if(!hit||hit.rayT<=0.05||!hit.segmentPoint) continue;
-    const worldPerPx=(2*Math.max(0.1,hit.rayT)*tanHalf)/Math.max(1,viewH), d=hit.distance/worldPerPx;
-    if(d<bestD){ bestD=d; best=item; }
-  }
-  return best;
-}
-function pickSkyTempleNatal(){
-  let best=null,bestD=CFG.skyListen.bodyPx; const p={x:0,y:0};
-  for(const item of _templeNatal){
-    // Full sphere: natal ghosts below the former floor remain selectable.
-    if(!_templeScreen(item.local,p)) continue;
-    const d=Math.hypot(p.x-viewCX,p.y-viewCY); if(d<bestD){ bestD=d; best=item; }
-  }
-  return best;
-}
+                                  
+                                                       
+                                                 
+                                                                                                                           
+                                                         
+                                                             
+                                                                                   
+                                                                                            
+                                                                                                  
+                                                                                                
+                                                                                                                 
+                                  
+                                                                             
+                                      
+                                                                 
+                                         
+                                                                             
+                                                                                                         
+   
+ 
+                                  
+                                                               
+                                                                                       
+                                                  
+                                                                                                                                          
+ 
+                               
+                                                                  
+                                                     
+                                       
+                                                          
+                                    
+                                                                                                                                   
+                                                                                         
+                                                                                          
+                                                         
+                                                                                                     
+                                      
+   
+              
+ 
+                              
+                                                              
+                                  
+                                                                          
+                                              
+                                                                                 
+   
+              
+ 
                                    
                                                         
                                                
@@ -4876,10 +4892,11 @@ function pickSkyTempleNatal(){
                                                                                                           
                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                       
                      
                                                                                                            
                                                                                                               
-                                                                                       
+                                                                                                           
  
                        
                                                                                                                     
@@ -4901,13 +4918,28 @@ function pickSkyTempleNatal(){
                                                                                                                                                                             
                 
  
+                               
+                                                                                                                     
+                                                                                                                    
+                                                                                                                   
+                                                                                                                
+                                                                                                                     
+                                                                                                                     
+                                                                                                                      
+                                                                                                               
+                                                                       
+                                                    
+                                                       
+                                                                           
+ 
                        
                                                                                                                  
                                                                                                                   
-                                                                                                                  
-                                                                                       
+                                                                                                                
+                                                                                                                    
+                         
                                         
-                                                       
+                                                                                 
                                                                                                                                                                                         
                                
                                
@@ -4931,16 +4963,27 @@ function pickSkyTempleNatal(){
                                                                                                          
  
                          
-                                                                                                                   
-                                                                                                                   
                                                                                                                      
-                                                                                                              
-                                                                                                                    
                                                                                                                   
-                                                                                
-                                     
-                                                                                             
-                                                                                                                                                        
+                                                                                                                   
+                                                                                                                      
+                                                                                                                    
+                                                                                                                    
+                                                                                                                    
+                                                                                                                      
+                                                                                                                       
+                                                                                                                    
+                                                                                                                     
+                                                                                                                    
+                                                                                                           
+                                                                                                                                                                                                                                                         
+                                                                                                                                        
+                    
+      
+                                                           
+                                                                                                                          
+                                                                                                      
+                                                                                                                                                                                
  
                     
                                                                                                                  
@@ -4974,15 +5017,21 @@ function pickSkyTempleNatal(){
                                                            
                                                                                                                                                                                           
                       
-                                                                                                                   
                                                                                                                     
                                                                                                                      
+                                                                                                                   
+                                                                                                                 
+                                                                                                                  
+                                                                                                            
+                                                                                      
                                                                                     
                        
                                                                
                                                                                                                                                               
                                                                        
                                                                                                                                                           
+               
+                                                                                                                                                                                                                                                                                                                          
                                                                               
                                                                                                                                                                                          
                                                                                                                                                                                    
@@ -5147,7 +5196,7 @@ function pickSkyTempleNatal(){
                                                                                                       
                   
                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                
        
      
@@ -5265,7 +5314,7 @@ function pickSkyTempleNatal(){
                                                         
                                                                                                                                                                                                    
                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                             
                        
                                                                                                                                                                                  
@@ -5305,7 +5354,7 @@ function pickSkyTempleNatal(){
                                                                            
                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                     
                                                                                                                                   
                                                                                                                                                                       
@@ -5356,7 +5405,7 @@ function pickSkyTempleNatal(){
                                                                    
                                                      
                                                                                    
-                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                           
  
                                                                                                                                                                                           
@@ -7509,7 +7558,7 @@ function pickSkyTempleNatal(){
                                                    
                                                                                                                                                                                                                         
                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                              
                                                          
                           
@@ -7648,6 +7697,7 @@ function pickSkyTempleNatal(){
                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                    
                                                             
                      
                                                                                                                                                                                                         
@@ -7769,7 +7819,18 @@ function pickSkyTempleNatal(){
                                                                                                             
                                                         
                                                                                                           
-                                                                                                                                                                                                                                                                                                          
+                                                                                            
+                                                                                                                 
+                                                                                                                   
+                                                                                                                      
+                                                                                                                  
+                                                                                                                    
+                                                                                                    
+                                                                     
+                                                                                                              
+                                                       
+                                                                                         
+ 
                                                                                                                            
                                         
                                                                                      
@@ -7894,6 +7955,7 @@ function pickSkyTempleNatal(){
                      
                             
                                                 
+                                                                                              
                                  
                                                                     
                                                                                                                                                                                                          

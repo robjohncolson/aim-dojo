@@ -923,13 +923,14 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                               
                                                                                               
                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                        
@@ -1631,14 +1632,22 @@
                                                                                                                          
                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                   
-                                                                                                                                                         
+                                                                                                                                                                                      
                                                                                                                                          
                                                                                                                                                                                        
                                                                                                                                             
                                                                                                                                                                                   
                                                                                                                                
                                                                                                         
+ 
+                          
+                                                                                                                    
+                                                                                                                 
+                                                                                                                     
+                                                                                                                     
+                                                                                                                   
+                                                                                                                                                                   
+                                                                                                                                                         
  
            
 
@@ -1674,7 +1683,7 @@
                                                                                                                                                                                                                              
                                                                                                                                 
                                                                                                                                                                                               
-                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                         
                                                                                   
                                                                                                                                                                                                                  
                                                  
@@ -2354,12 +2363,19 @@
  
                                                                                                                                
                               
+                                                                                                                  
+                                                                                                                     
+                                                                                                                   
+                                                                                                                   
+                                                                                      
                               
-                        
+                                                   
+                                             
                                                                                                                                                   
                                                                                                                                                                                               
                                                                                         
  
+                                                                                                                                                                                                                           
                             
                                           
                                                                                             
@@ -3129,56 +3145,56 @@
                                
    
  
-                                  
-                                                       
-                                                 
-                                                                                                                           
-                                                         
-                                                             
-                                                                                   
-                                                                                            
-                                                                                                  
-                                                                                                
-                                                                                                                 
-                                  
-                                                                             
-                                      
-                                                                 
-                                         
-                                                                             
-                                                                                                         
-   
- 
-                                  
-                                                               
-                                                                                       
-                                                  
-                                                                                                                                          
- 
-                               
-                                                                  
-                                                     
-                                       
-                                                          
-                                    
-                                                                                                                                   
-                                                                                         
-                                                                                          
-                                                         
-                                                                                                     
-                                      
-   
-              
- 
-                              
-                                                              
-                                  
-                                                                          
-                                              
-                                                                                 
-   
-              
- 
+function updateSkyTempleVisuals(){
+  _templeGroup.visible=templeActive||_templeBlend>0.01;
+  if(!templeActive && _templeBlend<=0.01) return;
+  // While templeActive, full opacity immediately (do not wait on floor blend) so the sphere is obvious looking up or down.
+  const open=templeActive?1:Math.max(_templeBlend,0.001);
+  const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
+  // Transit aspect chords: quieter than before so sticks/globes/art stay readable.
+  const aspectOp=CFG.skyTemple.aspectLineOpacity!=null?CFG.skyTemple.aspectLineOpacity:0.42;
+  const hiOp=CFG.skyTemple.aspectHighlightOpacity!=null?CFG.skyTemple.aspectHighlightOpacity:0.65;
+  if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',aspectOp*open*dim);
+  if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?hiOp*open:0);
+  for(const pick of _templeNatal){
+    // Full sphere: no horizon hide — natal ghosts exist underfoot and above.
+    const focused=_templeFocus===pick;
+    pick.sprite.material.color.setHex(focused?0xffd24a:0xc9d4ff);
+    pick.sprite.material.depthTest=false;
+    setScalarCached(pick.sprite.material,'opacity',(focused?0.95:0.62)*open);
+    const s=pick.baseScale*(focused?1.35:1); pick.sprite.scale.set(s,s,1); pick.sprite.visible=open>0.01;
+  }
+}
+function _templeScreen(local,out){
+  _templeTmp.copy(local).applyQuaternion(skySphere.quaternion);
+  camera.getWorldDirection(_templeFwd); _templeA.copy(_templeTmp).sub(camera.position);
+  if(_templeA.dot(_templeFwd)<=0.05) return false;
+  _templeTmp.project(camera); out.x=(_templeTmp.x+1)*viewW*0.5; out.y=(1-_templeTmp.y)*viewH*0.5; return isFinite(out.x)&&isFinite(out.y);
+}
+function pickSkyTempleAspect(){
+  if(!SKY_TEMPLE_DATA||!SKY_TEMPLE_DATA.rayToSegment) return null;
+  let best=null,bestD=CFG.skyTemple.aspectPickPx||18;
+  camera.getWorldDirection(_templeFwd);
+  const tanHalf=Math.tan((camera.fov||95)*Math.PI/360)||1;
+  for(const item of _templeAspects){
+    _templeA.copy(item.start).applyQuaternion(skySphere.quaternion); _templeB.copy(item.end).applyQuaternion(skySphere.quaternion);
+    const hit=SKY_TEMPLE_DATA.rayToSegment(camera.position,_templeFwd,_templeA,_templeB);
+    // Full sphere: aspect chords that cross underfoot are pickable (no dojo horizon cut).
+    if(!hit||hit.rayT<=0.05||!hit.segmentPoint) continue;
+    const worldPerPx=(2*Math.max(0.1,hit.rayT)*tanHalf)/Math.max(1,viewH), d=hit.distance/worldPerPx;
+    if(d<bestD){ bestD=d; best=item; }
+  }
+  return best;
+}
+function pickSkyTempleNatal(){
+  let best=null,bestD=CFG.skyListen.bodyPx; const p={x:0,y:0};
+  for(const item of _templeNatal){
+    // Full sphere: natal ghosts below the former floor remain selectable.
+    if(!_templeScreen(item.local,p)) continue;
+    const d=Math.hypot(p.x-viewCX,p.y-viewCY); if(d<bestD){ bestD=d; best=item; }
+  }
+  return best;
+}
 function _templeBodyFromPick(pick){
   if(!pick||pick.kind!=='body'||!pick.meta) return null;
   if(pick.meta.temple) return pick.meta.temple;
@@ -4876,10 +4892,11 @@ const DEAL_UP_EN={venus:'VENUS IS UP', jupiter:'JUPITER IS UP', mars:'MARS IS UP
 const _deal={ ph:-1, planet:'', spreadMul:1, windMul:0, quickMul:1, quickLifeMul:1, moverMul:1, goldMul:1,
   densityMul:1, mercyMul:1, pairChance:0, farMul:1, tickMul:1, bpmMul:1, concAdd:0, tankAny:false };   // THE NEUTRAL NIGHT, and the literal every reset starts from: ph -1 = "the sky dealt nothing", which is what the line reads to decide whether it has anything to say
 let _dealPairK=-1;   // the PRIMARY's subdivision while its companion is being spawned (-1 = not in a pair). beatSpawnDist reads it to steer the companion onto a DIFFERENT k — without spending a draw — so the two Echoes ask for two different release times that land on one beat: a chord volley you can plan
+let _dealPairing=false;   // true while EITHER member of a dealt pair is being built. spawnTarget's kind roll reads it and pins kind 0: a pair is pure volley material (1.1), and gold's goldDistMul would move a member off the distance its own k was drawn for — which is the one thing the pair exists to guarantee
 function dealReset(){
   _deal.ph=-1; _deal.planet=''; _deal.spreadMul=1; _deal.windMul=0; _deal.quickMul=1; _deal.quickLifeMul=1;
   _deal.moverMul=1; _deal.goldMul=1; _deal.densityMul=1; _deal.mercyMul=1; _deal.pairChance=0; _deal.farMul=1;
-  _deal.tickMul=1; _deal.bpmMul=1; _deal.concAdd=0; _deal.tankAny=false; _dealPairK=-1;
+  _deal.tickMul=1; _deal.bpmMul=1; _deal.concAdd=0; _deal.tankAny=false; _dealPairK=-1; _dealPairing=false;
 }
 function dealCompute(){
   // Called ONCE per run, from resetSession, before anything spawns. The phase comes from the Meeus sun/moon the sky
@@ -4901,13 +4918,28 @@ function dealCompute(){
   else { _deal.densityMul=+D.quietDensityMul||1; _deal.tickMul=+D.quietTickMul||1; _deal.bpmMul=+D.quietBpmMul||1; }   // WANING CRESCENT · the drum rests — the quiet night
   dealPlanets();
 }
+function dealPackIsToday(pack){
+  // THE DEAL'S OWN FRESHNESS GATE, and deal-only: skydayValid answers "is this a well-formed public day pack", which
+  // a pack cached overnight still is — but a mix tilted by planets that set hours ago is not "what you can point at
+  // from the driveway", it is yesterday's sky wearing today's date. The pack pipeline caches under `tz:cache_date`
+  // where cache_date is the CIVIL DATE IN THE REQUESTED TZ, and loadSkyDay always asks with the device's own tz
+  // (deviceSkyTimezone), so the honest comparison is against the device's local calendar date — the same local clock
+  // dealWind and the chorus salt turn over on. No cache_date, a malformed one, or any mismatch reads exactly like an
+  // absent pack: neutral mix, no planet fragment, and the phase rule still deals. The SKY'S OWN rendering pipeline is
+  // untouched by this — a stale pack still draws the sphere it always drew; only the deal declines to read it.
+  const raw=pack&&typeof pack.cache_date==='string'?pack.cache_date:'';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  const d=new Date(), m=d.getMonth()+1, dd=d.getDate();
+  return raw===(d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd);
+}
 function dealPlanets(){
   // The movers that are ACTUALLY up, on the same ecliptic→horizontal transform the sticks and the luminaries are
   // drawn by — so what tilts the mix is exactly what a player standing outside could point at. No pack (API down,
-  // decorative sky, a cold cache) → this returns having changed nothing: neutral mix, no planet fragment, and the
-  // phase rule above still deals. That IS the fail-open contract, not a degraded mode.
+  // decorative sky, a cold cache) or a pack that is not TODAY'S (dealPackIsToday) → this returns having changed
+  // nothing: neutral mix, no planet fragment, and the phase rule above still deals. That IS the fail-open contract,
+  // not a degraded mode.
   const D=CFG.deal, pack=_publicSkyPack;
-  if(!pack || !skydayValid(pack) || !skySphere) return;
+  if(!pack || !skydayValid(pack) || !dealPackIsToday(pack) || !skySphere) return;
   const yMin=SKY_CHART.R*Math.sin(THREE.MathUtils.degToRad(+D.planetAltDeg||0));   // "risen above planetAltDeg" as one comparison in raw sphere units, the way starSpawnAz tests a star
   const up=Object.create(null);
   for(const mv of pack.movers){
@@ -4931,16 +4963,27 @@ function dealLine(){
   return '✦ '+T('bowMoon'+ph, BOW_MOON_EN[ph])+' · '+(pl?pl+' · ':'')+T('dealRule'+ph, DEAL_RULE_EN[ph]);
 }
 function dealPairSpawn(){
-  // WANING GIBBOUS only. The companion is a NORMAL orb — no new kind, no new law: it takes the same beat-quantized
-  // distance draw every Echo takes, and the only thing the pair does is steer it onto a DIFFERENT subdivision than
-  // its primary (see _dealPairK in beatSpawnDist), so the two ask for two different release moments that LAND on one
-  // beat. That is a chord volley you can plan, built entirely out of the distance-is-syncopation law the game
-  // already runs on. This is the parcel's ONE draw of its own — the roll below plus the companion's own spawn — and
-  // it exists on this phase's nights and nowhere else; free-play has no shared seed, so nothing downstream cares.
-  if(_deal.pairChance<=0 || !state.running || templeActive || trainMode) return;
-  if(rnd()>=_deal.pairChance) return;
-  _dealPairK=_beatSpawnK;   // the primary's FINAL k, latched by the spawn that just returned
-  try{ spawnRhythmOrb(); }finally{ _dealPairK=-1; }   // cleared whatever happens, so a throw can never leave a stale pairing to steer an unrelated Echo
+  // WANING GIBBOUS only, and it owns the WHOLE spawn moment on that night: the pair is decided BEFORE the primary is
+  // built, because both members have to be plain Echoes and a kind cannot be taken back once it has moved an orb.
+  // Both members are NORMAL orbs — no new kind, no new law: each takes the same beat-quantized distance draw every
+  // Echo takes, and the only thing the pair does is steer the companion onto a DIFFERENT subdivision than its primary
+  // (see _dealPairK in beatSpawnDist), so the two ask for two different release moments that LAND on one beat. That
+  // is a chord volley you can plan, built entirely out of the distance-is-syncopation law the game already runs on.
+  // WHY KIND 0 IS PINNED (1.1): gold overrides the orb's POSITION by goldDistMul after the distance is drawn, which
+  // silently divorces that member's real flight time from the k it was chosen for — the shared landable beat, the one
+  // thing the rule promises, would be gone. Speed's shortened life and the mover's faster drift break the same promise
+  // more gently. So a dealt pair is pure volley material and takes no kind override at all; the rest of the field's
+  // kind rolls are untouched. The roll is still SPENT (the ternary below discards it) so a pairs night's spawn costs
+  // exactly the draws every other night's spawn costs — the phase's extra draws stay confined to the pair roll here
+  // and the companion's own spawn, which an ACTIVE phase rule is allowed to spend on its own nights (1.1).
+  if(_deal.pairChance<=0 || !state.running || templeActive || trainMode){ spawnRhythmOrb(); return; }   // defence in depth: the call site already read the raw boolean and the chance, so this is the ordinary spawn on any night that reaches it anyway
+  if(rnd()>=_deal.pairChance){ spawnRhythmOrb(); return; }   // an unpaired beat on a pairs night is an ordinary beat, kind roll and all
+  _dealPairing=true;
+  try{
+    spawnRhythmOrb();          // the PRIMARY, pinned plain
+    _dealPairK=_beatSpawnK;    // its FINAL k, latched by the spawn that just returned (the tank's close re-draw included)
+    spawnRhythmOrb();          // the COMPANION, pinned plain and steered onto a different subdivision
+  }finally{ _dealPairK=-1; _dealPairing=false; }   // cleared whatever happens, so a throw can never leave a stale pairing to steer — or silence the kind of — an unrelated Echo
 }
 function dealWind(){
   // The two waxing phases deal the shipped wind system ON — same clouds, same ballistics, same HUD, nothing new.
@@ -4974,15 +5017,21 @@ let _senseiWeak=-1;     // the lead bin this run's opening swells drill, or -1 f
 function senseiReset(){ _senseiPrev=null; _senseiWeak=-1; }
 function senseiBin(k){ return k<1 ? -1 : (k<=4 ? 0 : (k<=8 ? 1 : 2)); }   // k 0 = the unquantized cube-root fallback distance: it encodes no lead at all, so it is not evidence about one
 function senseiLoad(){
-  // A VALIDATOR, not a parser (the wave-3 storage discipline): anything that is not exactly this build's envelope,
-  // carrying one of the three bin names and one of the two directions, inside the freshness window, is no memory at
-  // all — silently. Storage can be hand-edited, quota-blocked, or another origin's; none of that may reach the game.
+  // A VALIDATOR, not a parser (the wave-3 storage discipline): anything that is not exactly this build's envelope —
+  // one of the three bin names, one of the two directions, a sample count that is a real count (a finite integer, at
+  // least 1), and a stamp inside the freshness window — is no memory at all, silently. EVERY field is checked even
+  // though only bin and dir are returned: a record whose n is a fraction, zero, negative, NaN, Infinity or not a
+  // number at all was not written by this build, and a half-trusted record is worse than none. n and day are both
+  // COERCED then checked, the same way (a numeric string that really is a count is a count). Storage can be
+  // hand-edited, quota-blocked, or another origin's; none of that may reach the game.
   let raw=null; try{ raw=localStorage.getItem(SENSEI_KEY); }catch(e){ return null; }
   if(!raw) return null;
   let o=null; try{ o=JSON.parse(raw); }catch(e){ return null; }
   if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return null;   // an array, a number, a string, a future v:2 — every one of them is "no memory"
   const bin=SENSEI_BINS.indexOf(o.bin), dir=SENSEI_DIRS.indexOf(o.dir);
   if(bin<0 || dir<0) return null;                                            // the whitelists ARE the grammar: nothing else can name a bin or a direction
+  const n=+o.n;
+  if(!isFinite(n) || Math.floor(n)!==n || n<1) return null;                  // n is a COUNT of arrivals: senseiSave only ever writes cnt[bin], which senseiDiagnose reached through minSamples ≥ 1. Anything else — 0, 2.5, -3, null, [], "x", Infinity — is not this build's envelope, and the whole record goes with it
   const day=+o.day, now=Date.now(), hrs=Math.max(0,+CFG.sensei.freshHours||0);
   if(!isFinite(day) || day<=0 || day>now+3600000) return null;               // a stamp from the future is a clock that moved, not an observation — forgotten rather than trusted forever
   if((now-day)/3600000>=hrs) return null;                                    // expired: no drill, and no cooldown either, so a player back after a week hears an observation again
@@ -5147,7 +5196,7 @@ function onGrid(time){
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
         if(fillArm>=0){ _fillSpent8=fillArm; _fillPend16=fillArm*2; }   // THE TANK IS A DRUM FILL: elect THIS spawn (the swell is spent either way — a dropped Draw costs the swell its fill, never a stray tank). grid8 counts EIGHTHS, so the same downbeat in sixteenths is ×2
-        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ spawnRhythmOrb(); if(CFG.deal.on) dealPairSpawn(); } }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ spawnRhythmOrb(); if(CFG.deal.on) dealPairSpawn(); } }   // THE ECHOES ANSWER IN PAIRS: the companion rides the SAME Draw as its primary — one spawn moment, two Echoes — so it inherits the epoch/running/temple guards verbatim and can never arrive alone. Raw boolean first; dealPairSpawn returns before its roll on all seven other phases
+        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else spawnRhythmOrb(); } }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else spawnRhythmOrb(); } }   // THE ECHOES ANSWER IN PAIRS: on a pairs night dealPairSpawn OWNS this spawn moment — it decides the pair first (both members must be plain Echoes, so the decision cannot come after the primary is built) and then issues one orb or two, riding the SAME Draw either way, so the companion inherits the epoch/running/temple guards verbatim and can never arrive alone. Raw boolean FIRST: with the parcel off, and on all seven other phases, this is spawnRhythmOrb() and nothing else
         spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
       }
     }
@@ -5265,7 +5314,7 @@ function spawnTarget(opts){
   const a0=setAimDir(_spawnAim0); let dir3, starId=null;
   if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)
     let minDeg=lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT());
-    if(CFG.deal.on && _deal.spreadMul!==1) minDeg=Math.min(170, minDeg*_deal.spreadMul);   // THE DARK LISTENS (NEW MOON): the minimum angle FROM YOUR AIM opens up, which in this uniform 360° field is exactly "wider spread, more bearings behind you" — the same constant this cone already reads, clamped short of 180° so the reroll loop can still find a direction. Raw boolean first, and the whole statement is skipped on every other night, so the expression below is the one that shipped
+    if(CFG.deal.on && _deal.spreadMul!==1) minDeg=Math.min(170, minDeg*_deal.spreadMul);   // THE DARK LISTENS (NEW MOON): the minimum angle FROM YOUR AIM opens up, which in this uniform 360° field is exactly "wider spread, more bearings behind you" — the same constant this cone already reads, clamped short of 180° so the reroll loop can still find a direction. Raw boolean first, and the whole statement is skipped on every other night, so the expression below is the one that shipped. STREAM: a wider cone rejects more directions, so the loop below runs more iterations and this night's spawn draws more than a plain night's. That is the DEAL'S OWN NIGHT changing its own draws, which the stream rule permits (see CFG.deal) — keeping it draw-neutral would mean pinning the loop to a fixed iteration count or rotating the rejected direction instead of rerolling it, and either one rewrites the shipped spawn direction for every night, which is a far bigger change than the rule is worth
     const minDot=Math.cos(THREE.MathUtils.degToRad(minDeg));
     let tries=0, pit=0;
     do{                                                   // TODAY'S ROLL, ALWAYS, FIRST — same draws, same order, same count, whatever the sky is doing (see the override below)
@@ -5305,7 +5354,7 @@ function spawnTarget(opts){
   tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const dl=CFG.deal.on;   // THE SKY DEALS THE NIGHT tilts the MIX and nothing else: the phase rule and every risen planet move these three thresholds, the SAME single draw decides the kind, and a planet can therefore never become a second rule. Raw boolean first — an off night reads the three base chances verbatim
-    const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
+    const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = (dl&&_dealPairing) ? 0 : (kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0))); }   // gold + speed (3) + mover (4) — except a member of a dealt PAIR, which is pinned plain (1.1: pairs are pure volley material, and gold's goldDistMul would move it off the distance its own k was drawn for). The draw is still taken and simply discarded, so a pair member's spawn costs exactly what every other spawn costs
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
   let hp=1;   // MULTI-HIT TANK (kind 0, free-play): a plain orb can roll 2-3 hp — hit it on that many consecutive BEATS to pop it
   if(CFG.tank.fillOnly && CFG.tide.on){   // THE TANK IS A DRUM FILL: no random roll at all — the swell's fill bar already elected this orb, or nothing here is a tank
@@ -5356,7 +5405,7 @@ function maybeAdjust(){
   if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
   if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
   const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
-  if(up) changeBpm(+CFG.bpmUp,true); else if(down) changeBpm(-CFG.bpmDown,false);
+  if(up) changeBpm(+CFG.bpmUp*(CFG.deal.on?_deal.bpmMul:1),true); else if(down) changeBpm(-CFG.bpmDown,false);   // THE SKY DEALS THE NIGHT: a WANING CRESCENT climbs gentler here too. "the drum rests" is a named rule about the NIGHT, not about one tempo path — tideStepBpm carries it when TIDES are on, and this per-event path carries it when they are off, so no inherited kill-switch combination can quietly cancel a rule the threshold line already promised. Raw boolean first; the DOWN step is untouched (the drum rests, it does not stall)
   if(up||down) sinceAdjust=0;            // hold the bpm/speed adjust cadence even when railed (range is now a per-hit micro-creep in pushEvent, not a chunked march here)
 }
 function changeRange(delta){ state.range=Math.max(CFG.rangeStart,Math.min(CFG.rangeMax,state.range+delta)); }   // never closer than the start, never past the ballistically-reachable cap
@@ -5801,89 +5850,89 @@ function computeShotPlan(M, V){                                                 
   V.set((_arcI.x-M.x)/T - 0.5*windX*T, (_arcI.y-M.y)/T + 0.5*g*T, (_arcI.z-M.z)/T - 0.5*windZ*T);   // back-solve the muzzle launch to land at _arcI under gravity AND wind (so the real bullet + the ribbon both reach the drawn impact)
   return T;
 }
-function sampleArc(M, V, T, samples, outArr){                                                // integrate the parabola (M, V, gravity) — exactly the path the real projectile flies
-  const g=CFG.projGravity, sdt=T/(samples-1); let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
-  for(let i=0;i<samples;i++){ const k=i*3; outArr[k]=px; outArr[k+1]=py; outArr[k+2]=pz; vx+=windX*sdt; vy-=g*sdt; vz+=windZ*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt; }   // wind (0 in the daily) → the ribbon curves exactly like the bullet
-}
-function simShotHits(M, V, T, tg){                                                           // march the actual shot vs the target's predicted motion → does it connect? (path-accurate lock)
-  const g=CFG.projGravity, sdt=1/90; let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
-  const T0=tg.mesh.position, Vt=tg.vel, rr=(tg.radius*tg.sc)+CFG.projRadius+0.12, rr2=rr*rr;
-  let bestH2=Infinity, bestDy=0, bestDx=0, bestDz=0;                                              // closest HORIZONTAL approach + the miss components there → the arc-delta gauges (vertical + lateral miss)
-  for(let t=0; t<=T+0.15 && py>-1; t+=sdt){ vx+=windX*sdt; vy-=g*sdt; vz+=windZ*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt;   // wind (0 in the daily) → the LOCK marches the real wind-blown path
-    const dx=px-(T0.x+Vt.x*t), dy=py-(T0.y+Vt.y*t), dz=pz-(T0.z+Vt.z*t), h2=dx*dx+dz*dz;
-    if(h2<bestH2){ bestH2=h2; bestDy=dy; bestDx=dx; bestDz=dz; }                                  // miss at the moment the shot passes the target's range: dy = vertical (dy<0 = arc below the orb → loft higher); (dx,dz) = horizontal → projected to left/right
-    if(dx*dx+dy*dy+dz*dz<=rr2){ _scVMiss=0; _scMissX=0; _scMissZ=0; _scVMissOn=true; return true; } }
-  _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
-}
-function updateArcPreview(dt){                                                               // rainbow ribbon = real shot path (same plan spawnProjectile uses)
-  if(!(CFG.projectile && CFG.projArc && state.running && !templeActive)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
-  if(bonusActive){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
-  ensureArcObjs();
-  // scroll ROYGBIV bands muzzle→impact every frame; speed scales with current projectile muzzle speed
-  if(!reduceMotion){
-    _arcScroll += dt * (projSpeedNow() * 0.085);   // faster bullets → faster stripe crawl
-    if(arcRibbon.material.uniforms) arcRibbon.material.uniforms.uScroll.value=_arcScroll;
-  }
-  if(reduceMotion){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } }
-  else animateArcPulse();
-  arcAccum+=dt; if(arcAccum<ARC_UPDATE_STEP){
-    // still keep opacity current when throttled
-    if(arcRibbon.visible && arcRibbon.material.uniforms) arcRibbon.material.uniforms.uOpacity.value=RIB_OP_BASE+RIB_OP_DAY*dayAmt;
-    return;
-  }
-  arcAccum=0;
-  const T=computeShotPlan(_arcM, _arcV);
-  sampleArc(_arcM, _arcV, T, ARC_SAMP, _arcPts);
-  const rp=arcRibbon.geometry.attributes.position.array, cam=camera.position;
-  for(let i=0;i<ARC_SAMP;i++){ const k=i*3, i0=Math.max(i-1,0)*3, i1=Math.min(i+1,ARC_SAMP-1)*3;
-    _ribTan.set(_arcPts[i1]-_arcPts[i0], _arcPts[i1+1]-_arcPts[i0+1], _arcPts[i1+2]-_arcPts[i0+2]);
-    _ribToCam.set(cam.x-_arcPts[k], cam.y-_arcPts[k+1], cam.z-_arcPts[k+2]);
-    _ribOff.crossVectors(_ribTan,_ribToCam); const L=_ribOff.length(); if(L>1e-5) _ribOff.multiplyScalar(RIB_HALF/L); else _ribOff.set(RIB_HALF,0,0);
-    const vi=i*6; rp[vi]=_arcPts[k]-_ribOff.x; rp[vi+1]=_arcPts[k+1]-_ribOff.y; rp[vi+2]=_arcPts[k+2]-_ribOff.z;
-    rp[vi+3]=_arcPts[k]+_ribOff.x; rp[vi+4]=_arcPts[k+1]+_ribOff.y; rp[vi+5]=_arcPts[k+2]+_ribOff.z;
-  }
-  arcRibbon.geometry.attributes.position.needsUpdate=true;
-  if(arcRibbon.material.uniforms) arcRibbon.material.uniforms.uOpacity.value=RIB_OP_BASE+RIB_OP_DAY*dayAmt;
-  arcRibbon.visible=true;
-  arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.95,0.95,0.95); arcLand.material.opacity=0.8+0.18*dayAmt; arcLand.visible=_planLanded;
-  arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
-  const _g=CFG.projGravity, _tA=_arcV.y>0 ? _arcV.y/_g : 0;
-  if(_tA>0.05 && arcApex){
-    const apX=_arcM.x+_arcV.x*_tA, apY=_arcM.y+_arcV.y*_tA-0.5*_g*_tA*_tA, apZ=_arcM.z+_arcV.z*_tA;
-    _arcApexY=apY; _arcApexOn=true;
-    const _hl=Math.hypot(_arcV.x,_arcV.z)||1, _ux=_arcV.x/_hl, _uz=_arcV.z/_hl, _half=1.6;
-    const ap=arcApex.geometry.attributes.position.array;
-    ap[0]=apX-_ux*_half; ap[1]=apY; ap[2]=apZ-_uz*_half; ap[3]=apX+_ux*_half; ap[4]=apY; ap[5]=apZ+_uz*_half;
-    arcApex.geometry.attributes.position.needsUpdate=true; arcApex.visible=true;
-  } else { if(arcApex) arcApex.visible=false; _arcApexOn=false; }
-}
-/* ---- floor HUD under each target: beat-pulsed ring + dropline + distance label (all modes) ---- */
-const targetMarks=[]; const _tmFloor=new THREE.Vector3(), _tmH=new THREE.Vector3();
-function ensureTargetMark(i){
-  let m=targetMarks[i]; if(m) return m;
-  const ring=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.5})); ring.frustumCulled=false; scene.add(ring);   // NORMAL blend (additive washes out by day)
-  const dg=new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
-  const drop=new THREE.Line(dg, new THREE.LineBasicMaterial({color:0xffce5c,transparent:true,opacity:0.35})); drop.frustumCulled=false; scene.add(drop);
-  const label=document.createElement('div'); label.className='tgtDist'; document.body.appendChild(label);
-  const hlabel=document.createElement('div'); hlabel.className='tgtKey'; document.body.appendChild(hlabel);   // REPURPOSED: the WASD-rhythm required-key glyph, floats AT the orb
-  return targetMarks[i]={ring,drop,label,hlabel};
-}
-function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
-  if(!state.running || templeActive){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on','held'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
-  const bl=60/Math.max(20,state.bpm), beat=reduceMotion?0:Math.pow(1-(state.t%bl)/bl, 1.6);   // reduced-motion -> beat=0 -> a static ring (no pulse)
-  let i=0;
-  for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
-    const r=0.5+beat*0.38; m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.4+beat*0.5; m.ring.visible=true;
-    const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;
-    m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true;
-    _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
-    if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
-    else m.label.classList.remove('on');
-    if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, T('lock','LOCK')); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
-    else if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); m.hlabel.classList.remove('held'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
-    else m.hlabel.classList.remove('on','held'); }
-  for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
-}
+                                                                                                                                                                                   
+                                                                                             
+                                                                                                                                                                                                                                              
+ 
+                                                                                                                                                                                              
+                                                                                    
+                                                                                            
+                                                                                                                                                                                                             
+                                                                                                                                                                                               
+                                                                                        
+                                                                                                                                                                                                                                                                  
+                                                                                                     
+                                                                                                
+ 
+                                                                                                                                                                
+                                                                                                                        
+                                                                 
+                  
+                                                                                                      
+                    
+                                                                                          
+                                                                                         
+   
+                                                                                 
+                         
+                                             
+                                                
+                                                                                                                                  
+           
+   
+             
+                                        
+                                                
+                                                                             
+                                                                                                
+                                                                                                   
+                                                                            
+                                                                                                                                                     
+                                                                                                                
+                                                                                                    
+   
+                                                          
+                                                                                                           
+                         
+                                                                                                                                                         
+                                                                                 
+                                                           
+                          
+                                                                                                   
+                                   
+                                                                                          
+                                                        
+                                                                                                             
+                                                                                
+                                                                 
+ 
+                                                                                                     
+                                                                                   
+                             
+                                       
+                                                                                                                                                                                                                   
+                                                                                                                     
+                                                                                                                                                        
+                                                                                                         
+                                                                                                                                                                                  
+                                                 
+ 
+                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                     
+          
+                                                                                                    
+                                                                                                                                                 
+                                                                                                                      
+                                                                              
+                                                                                                                             
+                                                                                                                                                                                              
+                                        
+                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                  
+                                                                                                                                                                                                             
+ 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                            
                                                                                                                                                                                                                                     
@@ -7509,7 +7558,7 @@ function updateTargetMarks(){                                                 //
                                                    
                                                                                                                                                                                                                         
                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                              
                                                          
                           
@@ -7648,6 +7697,7 @@ function updateTargetMarks(){                                                 //
                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                    
                                                             
                      
                                                                                                                                                                                                         
@@ -7769,7 +7819,18 @@ function updateTargetMarks(){                                                 //
                                                                                                             
                                                         
                                                                                                           
-                                                                                                                                                                                                                                                                                                          
+                                                                                            
+                                                                                                                 
+                                                                                                                   
+                                                                                                                      
+                                                                                                                  
+                                                                                                                    
+                                                                                                    
+                                                                     
+                                                                                                              
+                                                       
+                                                                                         
+ 
                                                                                                                            
                                         
                                                                                      
@@ -7894,6 +7955,7 @@ function updateTargetMarks(){                                                 //
                      
                             
                                                 
+                                                                                              
                                  
                                                                     
                                                                                                                                                                                                          
