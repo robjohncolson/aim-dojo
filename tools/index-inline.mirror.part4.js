@@ -1057,6 +1057,17 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                   
+                                                                                                                                 
+                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                               
                                                                                                                                                                            
                                                                                                                                   
@@ -5798,7 +5809,7 @@
                                                                                                       
                   
                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                
        
      
@@ -5914,6 +5925,7 @@
                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                   
  
                                                                                                                   
@@ -5922,6 +5934,47 @@
                        
                                                                          
                                                                       
+ 
+                                                
+                                                                                                                       
+                                                                                                                       
+                                                                                                                     
+                                                                                                                         
+                                                                                                                          
+                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                               
+                                                                                                         
+                                                             
+                                                         
+ 
+                                                                                                                                                                                                                                                                                                                                                                         
+                    
+                                                                                                                         
+                                                                                                            
+                                                                                                                                                                                                   
+                                                                                                                                                                                                          
+                                                                                                                                                               
+                                                                                                                                                                                                                      
+                   
+                                                                                                                      
+                        
+ 
+                         
+                                                                                                                                                         
+                                        
+                                                                                                                                                                                                                                                                                                                          
+                                                                                                                  
+                                                                                                                
+                                                                                                                                                                                                                                         
+                    
+      
+                                                                                               
+                                                                                                                                                                                                     
+                                                                                                                                                                                           
  
                            
                                
@@ -5967,11 +6020,12 @@
                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                       
                                                                            
                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                     
                                                                                                                                   
                                                                                                                                                                       
@@ -8267,97 +8321,97 @@
                                                                                                                                         
                                                                                                        
  
-                          
-                                                                                  
-              
-                                                   
-                                                                                                                                                                                                                                                                                                                           
-                                           
-                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                               
-             
-     
-                           
-   
-                                                                                                 
-                                                                         
- 
-                                                                                             
-                                      
-                             
-                                                                                                                                                           
- 
-                                                                                                                 
-                                                                                                                                                                                   
-                                                                                                                                
+function startRun(viaPad){
+  if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
+  initAudio();
+  if(!toneReady){ showToneBlock('start'); return; }
+  if(viaPad===true){   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
+    if(rawCtx && rawCtx.state!=='running'){
+      const t0=performance.now(); let ok=false;
+      try{ rawCtx.resume().then(()=>{ ok=true; if(!state.running && performance.now()-t0<3000 && !padBeginBlocked()) enterRunning(); }).catch(()=>{}); }catch(e){}   // under sticky activation (any earlier click/keypress on the page) this resolves ~instantly; the 3s freshness + re-checked guards stop a resume that a much-later unrelated click (e.g. opening the share modal — the very gesture Chrome was waiting for) finally unblocks from yanking the player into a run
+      setTimeout(()=>{ if(!ok && !state.running) showToneBlock('pad'); }, 300);
+      return;
+    }
+    enterRunning(); return;
+  }
+  if(MOBILE || !canvas.requestPointerLock){ enterRunning(); }   // touch devices: no pointer lock
+  else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
+}
+beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
+const beginTrainBtn=gid('beginTrain');
+function setGateReady(ready){
+  if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
+}
+setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
+if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
+document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
 
-                                                                                                                       
-                                                                                                                      
-                                                                                                                       
-                                                                                                                       
-                                                                                                                       
-                                                                                                                     
-                                                                                                                     
-                                                                                                            
-                                                                                                                   
-                                                                                                                  
-                                                                                                                     
-                                                                                                                    
-                                                                                                              
-                                                                                                              
-                                                                                                                   
-                                                                                                                    
-                                                                            
-                                                                                                           
-                                                                                                                 
-                                                                                                                    
-                                                                                                                  
-                                                                                                                 
-                                                                                                                     
-                                                                                                                    
-                                                                                                                     
-                                                                                                                   
-                                                                                                                
-                                                     
-                            
-                                                       
-                                                                                                                                     
- 
-                                                                                                                                                     
-                                                                                                                                                                                      
-                                                                                                                                     
-                      
-                     
-                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                       
-   
-                        
-                                                                                                                                                     
-               
- 
-                              
-                                                                                                                                                         
-                  
-                                                                                      
-                
-                                                                                                                                                                                                                                                                                                                                                                               
-           
-   
-                                                                                                                                                        
-                          
-                           
-                                 
-                                                                                                                                                    
-                                                                                                                                                                  
-                             
-                             
-                                                                                                                                                                                                                                         
-                       
-                                                                                                                                                                                                                         
-     
- 
-                                                                                                                                                                                                                                                                                                                                                                                                                                           
+/* ===== THE FIRST GESTURE (parcel J) — the boot chorus sings as soon as the browser permits, and not one moment sooner
+   The boot chorus is supposed to be the first thing a returning player hears, and it was never heard: the ONLY caller
+   of initAudio was startRun, so before PLAY there was no audio graph at all, and the instant PLAY built one it entered
+   the run and hushed. No autoplay policy in any browser lets a page sing before it is touched, so the honest answer is
+   not to sing at load — it is to sing at the FIRST TOUCH. One pointerdown or keydown while the start card is up builds
+   the graph through the same initAudio call startRun makes (idempotent — startRun's own call then takes the already-
+   initialised branch) and walks tonight's ensemble in. If that first gesture IS the PLAY activation, this visit gets
+   no menu chorus and the run proceeds exactly as it does today: a stem that lives forty milliseconds before
+   enterRunning hushes it is a click, not a chorus. Pause, Bow and menu-return keep their own sing calls untouched.
+   (1.2) A LISTENER THAT ONLY SPENDS ITSELF ON THE MOMENT IT IS FOR. It used to disarm on whatever gesture arrived
+   first, wherever it landed and whatever state the page was in: a click inside the Save My Sky form, a gamepad run's
+   first press, a keystroke in the Temple all consumed the one chance, and a gesture that arrived before the CDN did
+   consumed nothing but did not help either. Now the handler acts ONLY when the start/pause card is the active
+   surface and the gesture is not the player working a sub-panel (form, records, share, chat) or pressing PLAY
+   itself; anything else is IGNORED WITHOUT DISARMING. And it disarms only when it has actually done its job — with
+   Tone loaded that is init + sing, and with Tone still in flight it stays armed and re-offers the moment the script
+   lands, so a slow CDN racing PLAY can no longer cost the visit its chorus.
+   THE UNLOCK CANNOT BE PRE-BUILT ON THIS TONE (verified against the pinned 14.8.49): the library evaluates
+   `const Transport = getContext().transport` and the same for Destination at SCRIPT LOAD, so its AudioContext is
+   created the moment the file lands and those singletons are bound to it for good. Tone.setContext() would swap the
+   context every later node is built on while Transport — the game's whole clock — stayed on the abandoned one, so
+   adopting a context we unlocked ourselves inside the gesture is not available here (it is a real path on builds
+   whose Transport is resolved per call; it is not one on this build, and the whole game rides Transport). What we do
+   instead is the spec's stated fallback: kick the fetch, keep the listener, and when the script lands resume Tone's
+   own context under the page's sticky activation (any earlier real gesture — and we know there was one, it is why we
+   are here) and sing if the card is still up. If that resume does not take — a browser that honours it only INSIDE
+   the gesture — we stay armed and the next gesture does it, which is exactly today's behaviour, never worse. */
+let _chorusBootArmed=false, _chorusBootPending=false;
+function chorusBootDisarm(){
+  if(!_chorusBootArmed) return; _chorusBootArmed=false;
+  document.removeEventListener('pointerdown',chorusBootGesture,true); document.removeEventListener('keydown',chorusBootGesture,true);
+}
+function chorusBootSkip(e){   // is this gesture the overlay's arrival, or is it someone else's? Anything but an arrival is ignored WITHOUT disarming
+  if(state.running || document.hidden || templeActive) return true;                      // a live run (gamepad starts included), a hidden tab, the Temple: not this listener's moment
+  if(!overlay || overlay.classList.contains('hidden')) return true;                      // the card is not the active surface at all
+  const t=e&&e.target;
+  if(t && t.closest){
+    if(t.closest('#beginBtn,#beginTrain')) return true;                                  // the gesture that starts the run is not an invitation to sing
+    if(t.closest('#settingsBox,#recordsWrap,#shareOverlay,#transitEssayReader,#skyTemplePanel')) return true;   // the player is working a sub-panel — a form, the records board, the share card, a reader, the chat: their gesture belongs to that panel, and the boot chorus waits for one that is simply "I am here"
+  }
+  const n=t&&t.nodeName;
+  if(n==='INPUT'||n==='TEXTAREA'||n==='SELECT'||(t&&t.isContentEditable)) return true;   // typing is not an arrival either, wherever the field lives
+  return false;
+}
+function chorusBootGesture(e){
+  if(!_chorusBootArmed || chorusBootSkip(e)) return;   // IGNORED, NOT CONSUMED: the listener is still here for the gesture this parcel is actually about
+  if(window.Tone){
+    chorusBootDisarm();   // the job can be done in this gesture: graph now, stems now
+    initAudio();
+    if(CFG.chorus.on) chorusMenu();   // chorusMenu's own guards still decline for a live run, the trainer and a hidden tab; chorusPick still returns 0 for a sky with nothing lit — or for one whose catalog has not bound yet (1.2), which buildZodiacSticks answers with its own re-offer the moment the fixture lands — so a first-ever visit hears exactly today's silence
+    return;
+  }
+  if(_chorusBootPending) return;   // the fetch is already in the air; more gestures do not make it land sooner, and the listener stays armed either way
+  _chorusBootPending=true;
+  loadToneOnce().then(()=>{
+    if(!window.Tone) return null;
+    initAudio();                                                   // the graph, on Tone's own load-time context (see the header: it cannot be ours)
+    return Promise.resolve(window.Tone.start()).catch(()=>{});     // and the resume, under the sticky activation the gesture that brought us here already granted
+  }).catch(()=>{}).then(()=>{
+    _chorusBootPending=false;
+    if(!toneReady || !(rawCtx && rawCtx.state==='running')) return;   // the CDN failed, the graph did not build, or the context is still suspended: STAY ARMED — PLAY's own showToneBlock tells the player, and the next gesture retries
+    chorusBootDisarm();
+    if(CFG.chorus.on) chorusMenu();                                  // no second gesture needed: the card is still up (chorusMenu declines if it is not), so the chorus lands as if the library had been there all along
+  });
+}
+if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown',chorusBootGesture,true); document.addEventListener('keydown',chorusBootGesture,true); }   // raw boolean first: with the parcel off nothing is armed, no listener exists, and audio still starts exactly where it does today (inside startRun). Capture phase so a handler that stops propagation cannot swallow the one gesture the graph is waiting for
 
 function resetSession(){
   if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
@@ -8380,7 +8434,7 @@ function resetSession(){
   clearRings();
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
-  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives)
+  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1; _polyK=-1; _polyPairing=false;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives). POLYRHYTHM PAIRS rides along: the try/finally in polyPairSpawn already makes both of these unreachable-when-set outside its own synchronous body, so this is belt-and-braces for a run that begins while nothing is half-built — and it is the line that guarantees "one pair live" starts every night at zero, since the targets it counted were freed above
   teardownTransport();
   Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0});
   // apply run kind BEFORE special latch — otherwise train CFG.specialOrbs=false never reaches the latch and ~26% of trainer orbs are gold/speed/mover

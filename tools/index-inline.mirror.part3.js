@@ -1057,6 +1057,17 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                   
+                                                                                                                                 
+                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                               
                                                                                                                                                                            
                                                                                                                                   
@@ -5798,7 +5809,7 @@ function onGrid(time){
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
         if(fillArm>=0){ _fillSpent8=fillArm; _fillPend16=fillArm*2; }   // THE TANK IS A DRUM FILL: elect THIS spawn (the swell is spent either way — a dropped Draw costs the swell its fill, never a stray tank). grid8 counts EIGHTHS, so the same downbeat in sixteenths is ×2
-        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else spawnRhythmOrb(); } }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else spawnRhythmOrb(); } }   // THE ECHOES ANSWER IN PAIRS: on a pairs night dealPairSpawn OWNS this spawn moment — it decides the pair first (both members must be plain Echoes, so the decision cannot come after the primary is built) and then issues one orb or two, riding the SAME Draw either way, so the companion inherits the epoch/running/temple guards verbatim and can never arrive alone. Raw boolean FIRST: with the parcel off, and on all seven other phases, this is spawnRhythmOrb() and nothing else
+        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else if(CFG.poly.on) polyPairSpawn(); else spawnRhythmOrb(); } }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else if(CFG.poly.on) polyPairSpawn(); else spawnRhythmOrb(); } }   // POLYRHYTHM PAIRS (wave 6) takes the spawn moment the SAME way and on the same terms — it decides the pair before the primary is built, then issues one orb or two on this one Draw, so a companion inherits the epoch/running/temple guards verbatim and can never arrive alone. It is ordered AFTER the deal because a pairs night's grammar outranks it (the two never co-occur, and polyLive locks the same door a second time), and its own gate is the first thing it reads: below the gate polyPairSpawn IS spawnRhythmOrb, draw for draw. Raw boolean FIRST, so with poly.on:false this expression is the wave-5 line verbatim. THE ECHOES ANSWER IN PAIRS: on a pairs night dealPairSpawn OWNS this spawn moment — it decides the pair first (both members must be plain Echoes, so the decision cannot come after the primary is built) and then issues one orb or two, riding the SAME Draw either way, so the companion inherits the epoch/running/temple guards verbatim and can never arrive alone. Raw boolean FIRST: with the parcel off, and on all seven other phases, this is spawnRhythmOrb() and nothing else
         spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
       }
     }
@@ -5914,6 +5925,7 @@ function beatSpawnDist(maxK){   // BEAT-QUANTIZED SPAWN: return a distance whose
   const u=rnd(); let pick=(u*ok.length)|0;   // ONE draw, always, whatever the sky dealt
   if(CFG.sensei.on && senseiWeightLive()) pick=senseiPickK(u, okK);   // SENSEI'S ONE QUESTION: the opening swells of a night that carries a fresh observation lean the SAME number toward the weak lead — a weighted walk over the identical feasible set, no second draw and no reroll, so the stream is untouched. Raw boolean first, so an off build (and every neutral night) makes no call and no read here at all
   if(CFG.deal.on && _dealPairK>=0 && ok.length>1 && okK[pick]===_dealPairK) pick=(pick+1)%ok.length;   // THE ECHOES ANSWER IN PAIRS: a companion that drew its primary's own subdivision is nudged to the neighbouring candidate — deterministically, spending nothing — so the pair really is two release times into one arrival beat and not one distance twice
+  if(CFG.poly.on && _polyK>0 && !maxK){ const pk=okK.indexOf(_polyK); if(pk>=0) pick=pk; }   // POLYRHYTHM PAIRS: this member's lead was CHOSEN, not rolled — the pair is only a polyrhythm if both k's are exactly the drawn ratio. The draw above is still TAKEN and simply discarded (a pinned spawn costs what every spawn costs), the pin is applied LAST so it outranks the sensei's weighted walk (and the dealt-pair nudge, which can never be live at the same time) on these two orbs only, and it is silent if the k is somehow not in this set — never, in practice: polyPairSpawn proved both k's against this same band, tempo and night one instruction earlier. !maxK keeps it off the TANK's close re-draw, which owns its own distance by invariant; on the shipped config a poly member can never be a tank at all (a pending fill election makes the pair stand down, and the legacy random-tank path needs tank.fillOnly:false)
   _beatSpawnK=okK[pick]; return ok[pick];   // _beatSpawnK: the subdivision this distance encodes, latched for spawnTarget to carry on the orb (THE BOW's Mandala plots radius by k). Same draw, same rnd stream — nothing about the pick changed.
 }
 let _beatSpawnK=0;   // k (sixteenths of lead) of the LAST beatSpawnDist() draw; 0 = unquantized fallback distance
@@ -5922,6 +5934,47 @@ function tankCloseDist(){   // THE FILL'S FLOOR OF LAST RESORT (spec 1.2, T5a): 
   if(r>=1) return null;
   const far=Math.max(CFG.rangeNear, Math.min(CFG.rangeMax, state.range));
   return Math.min(far, Math.max(CFG.rangeNear, s*T*Math.sqrt(1-r*r)));
+}
+/* ---- POLYRHYTHM PAIRS (wave 6, parcel Q) ----
+   Two Echoes, spawned together at the top of the mountain, whose beat-quantized leads are a stated RATIO: land both on
+   their beats and your hands have released a cross-rhythm. Everything here is a reader of systems that already exist —
+   beatSpawnDist decides the distances (this only PINS which k each member asks for), spawnRhythmOrb builds the orbs,
+   pitch-encodes-k voices them, the star cone binds them, the arrival grading and the chord volley pay them off. The full
+   design decisions, the computed timeline/feasibility table and the stream accounting live at CFG.poly; the code below is
+   the gate, the feasible-ratio filter and the two pinned spawns, and nothing else. */
+let _polyK=-1;   // the exact lead (k sixteenths) the member being built must take, or -1. beatSpawnDist reads it and — when that k is in the feasible set it has just computed — spends its draw and takes the pinned index instead. This is a PIN, not the WANING GIBBOUS's nudge: a dealt companion only has to DIFFER from its primary, while a poly pair's two leads ARE the ratio, so nothing here may be approximate
+let _polyPairing=false;   // true while EITHER member is being built: spawnTarget's kind roll reads it and pins kind 0 (the dealt pair's reason exactly — gold's goldDistMul would move a member off the distance its own k was drawn for, which is the one thing the pair exists to guarantee), and every orb carries it home as tg.poly so the one-pair-at-a-time gate can see the field
+const _polyOk=[];   // scratch: indices of the ratios feasible at the live band this slot. Module-level so an eligible slot allocates nothing
+function polyFeasibleK(k){   // is a lead of k sixteenths reachable RIGHT NOW — same ballistic model, same skill-gated band (farMul included) that beatSpawnDist is about to use, so a k this says yes to is a k that call will find in its feasible set. Draws NOTHING (no rnd(), no stream). It deliberately does NOT model beatSpawnDist's unshifted-band retry, because that branch only runs when the SHIFTED band's whole set is empty — in which case this returns false for both members and no pair is drawn at all, which is the same answer
+  const s=projSpeedNow(), g=CFG.projGravity, beatLen=60/Math.max(20,state.bpm);
+  const fm=CFG.deal.on?_deal.farMul:1, near=CFG.rangeNear*fm, far=Math.min(CFG.rangeMax, state.range)*fm;
+  const T=(k/16)*beatLen, r=g*T/(2*s); if(r>=1) return false;
+  const d=s*T*Math.sqrt(1-r*r); return d>=near && d<=far;
+}
+function polyOnField(){ for(let i=0;i<targets.length;i++) if(targets[i].poly) return true; return false; }   // AT MOST ONE PAIR LIVE: a scan of at most patternConcurrency+1 records, taken only when every other clause of the gate has already said yes. Both members are tagged, so the field is "busy" until the last of them is gone — answered, expired or cleared
+function polyLive(){
+  // THE GATE. Every clause is a pure read and the whole function draws nothing, because it runs at spawn slots that must
+  // cost the no-poly build exactly nothing on every skill, every swell phase and every night it says no to.
+  if(!CFG.poly.on || trainMode || templeActive || !state.running) return false;   // raw boolean FIRST; trainer + Temple inert (defence in depth — the trainer never reaches the spawn slot at all)
+  if(CFG.deal.on && _deal.pairChance>0) return false;   // the WANING GIBBOUS owns its own field grammar (and owns this spawn moment outright at the call site — this is the second lock on the same door)
+  if(CFG.bow.on && bowHolding()) return false;          // not during the Bow: play has ended (again a second lock — the NEW-spawn gate in onGrid already shut)
+  if(_fillPend16>=0) return false;                      // a drum-fill election is pending for this spawn: the fill outranks the pair, the pair stands down, and the election reaches the ordinary orb it was made for
+  const P=CFG.poly;
+  if(diffT()<P.gate || tideI<P.tideGate) return false;  // the last stretch of the mountain, at the crest of the swell
+  return !polyOnField();
+}
+function polyPairSpawn(){
+  if(!polyLive()){ spawnRhythmOrb(); return; }   // the ordinary spawn, not one draw spent: every slot below the gate is the poly.on:false build verbatim
+  const P=CFG.poly, R=P.ratios; let n=0;
+  for(let i=0;i<R.length;i++){ const cand=R[i]; if(polyFeasibleK(cand[0]) && polyFeasibleK(cand[1])) _polyOk[n++]=i; }   // FEASIBILITY BEFORE THE ROLL (the tank lesson): a ratio the live band cannot hold is silently not drawn — never a call the arc cannot reach, and never a pin beatSpawnDist would have to ignore
+  if(!n){ spawnRhythmOrb(); return; }            // nothing the range can hold this slot: still not one draw spent
+  if(rnd()>=P.chance){ spawnRhythmOrb(); return; }   // THE poly roll, and the first draw this parcel ever takes
+  const rt=R[_polyOk[(rnd()*n)|0]];              // ONE draw, always, however many ratios survived (today that is always exactly one — see the feasibility note at CFG.poly), so the pick costs the same wherever the constants move next
+  _polyPairing=true;
+  try{
+    _polyK=rt[0]; spawnRhythmOrb();   // the SHORT lead: released k1/16 beat before its arrival
+    _polyK=rt[1]; spawnRhythmOrb();   // the LONG lead: released k2/16 beat before its arrival — (k2−k1)/16 beat earlier than its partner for the same beat, a whole beat minus that for the next one
+  }finally{ _polyK=-1; _polyPairing=false; }   // cleared whatever happens, so a throw can never leave a stale pin to steer — or a stale pairing to silence the kind of — an unrelated Echo
 }
 function spawnTarget(opts){
   if(templeActive) return null;
@@ -5967,11 +6020,12 @@ function spawnTarget(opts){
   tg.starId=starId;   // STAR-BOUND SPAWNS: the star this Echo called from, or null — which is every orb in the trainer, every orb with the parcel off, and every orb the sky had no risen bearing for. Assigned here, with the other per-spawn resets, so a pooled record can never carry a stale bearing home
   tg.fill16=-1; tg.fig=null; tg.lifeBeatsEff=0;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base, figure or stretched life); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for. lifeBeatsEff 0 = "my life is the standard rhythmLifeBeats", which is every orb that is not the fill (and, with the kill-switch off, every orb there will ever be) — orbRed's ink law reads it
   if(CFG.deal.on && _deal.quickLifeMul!==1) tg.lifeBeatsEff=CFG.rhythmLifeBeats*_deal.quickLifeMul;   // THE QUICK ONES WAKE: a brisker field is a brisker CLOCK too — the trail's white→red→white ink law reads lifeBeatsEff, so latching the dealt life here keeps that timing cue honest instead of colouring against a life this orb does not have. Written AFTER the reset above and BEFORE the fill's own stretch below, which outranks it on the one orb that is a figure
+  tg.poly=_polyPairing;   // POLYRHYTHM PAIRS: the tag both members carry (and every other orb clears, so a pooled record can never haunt the gate with a pair that popped three swells ago). It is READ by exactly one thing — polyOnField's "at most one pair live" — and by nothing on any hot path: a poly member is a plain Echo in every other respect, scored, sung, star-bound and volleyed exactly as it would be alone. Written unconditionally, like tg.starId, so the field is honest even with the parcel off, where _polyPairing is false forever
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const dl=CFG.deal.on;   // THE SKY DEALS THE NIGHT tilts the MIX and nothing else: the phase rule and every risen planet move these three thresholds, the SAME single draw decides the kind, and a planet can therefore never become a second rule. Raw boolean first — an off night reads the three base chances verbatim
-    const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = (dl&&_dealPairing) ? 0 : (kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0))); }   // gold + speed (3) + mover (4) — except a member of a dealt PAIR, which is pinned plain (1.1: pairs are pure volley material, and gold's goldDistMul would move it off the distance its own k was drawn for). The draw is still taken and simply discarded, so a pair member's spawn costs exactly what every other spawn costs
+    const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = ((dl&&_dealPairing)||(CFG.poly.on&&_polyPairing)) ? 0 : (kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0))); }   // gold + speed (3) + mover (4) — except a member of a dealt PAIR, which is pinned plain (1.1: pairs are pure volley material, and gold's goldDistMul would move it off the distance its own k was drawn for). The draw is still taken and simply discarded, so a pair member's spawn costs exactly what every other spawn costs. POLYRHYTHM PAIRS (wave 6) pins kind 0 for exactly the same reason and by exactly the same means: its two members' distances ARE the ratio, and gold would silently move one of them off the lead it was chosen for. Raw boolean first on both sides, so an off parcel reads one flag and stops, and with poly.on:false this ternary is character-for-character the wave-5 decision
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
   let hp=1;   // MULTI-HIT TANK (kind 0, free-play): a plain orb can roll 2-3 hp — hit it on that many consecutive BEATS to pop it
   if(CFG.tank.fillOnly && CFG.tide.on){   // THE TANK IS A DRUM FILL: no random roll at all — the swell's fill bar already elected this orb, or nothing here is a tank
@@ -8267,97 +8321,97 @@ function showToneBlock(reason){
     ? T('toneFailedHtml','<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>PLAY</b> again.')
     : T('toneLoadingHtml','<b>Sound is still loading.</b> Wait a moment, then tap <b>PLAY</b> again.');
 }
-function startRun(viaPad){
-  if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
-  initAudio();
-  if(!toneReady){ showToneBlock('start'); return; }
-  if(viaPad===true){   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
-    if(rawCtx && rawCtx.state!=='running'){
-      const t0=performance.now(); let ok=false;
-      try{ rawCtx.resume().then(()=>{ ok=true; if(!state.running && performance.now()-t0<3000 && !padBeginBlocked()) enterRunning(); }).catch(()=>{}); }catch(e){}   // under sticky activation (any earlier click/keypress on the page) this resolves ~instantly; the 3s freshness + re-checked guards stop a resume that a much-later unrelated click (e.g. opening the share modal — the very gesture Chrome was waiting for) finally unblocks from yanking the player into a run
-      setTimeout(()=>{ if(!ok && !state.running) showToneBlock('pad'); }, 300);
-      return;
-    }
-    enterRunning(); return;
-  }
-  if(MOBILE || !canvas.requestPointerLock){ enterRunning(); }   // touch devices: no pointer lock
-  else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
-}
-beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
-const beginTrainBtn=gid('beginTrain');
-function setGateReady(ready){
-  if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
-}
-setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
-if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
-document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
+                          
+                                                                                  
+              
+                                                   
+                                                                                                                                                                                                                                                                                                                           
+                                           
+                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                               
+             
+     
+                           
+   
+                                                                                                 
+                                                                         
+ 
+                                                                                             
+                                      
+                             
+                                                                                                                                                           
+ 
+                                                                                                                 
+                                                                                                                                                                                   
+                                                                                                                                
 
-/* ===== THE FIRST GESTURE (parcel J) — the boot chorus sings as soon as the browser permits, and not one moment sooner
-   The boot chorus is supposed to be the first thing a returning player hears, and it was never heard: the ONLY caller
-   of initAudio was startRun, so before PLAY there was no audio graph at all, and the instant PLAY built one it entered
-   the run and hushed. No autoplay policy in any browser lets a page sing before it is touched, so the honest answer is
-   not to sing at load — it is to sing at the FIRST TOUCH. One pointerdown or keydown while the start card is up builds
-   the graph through the same initAudio call startRun makes (idempotent — startRun's own call then takes the already-
-   initialised branch) and walks tonight's ensemble in. If that first gesture IS the PLAY activation, this visit gets
-   no menu chorus and the run proceeds exactly as it does today: a stem that lives forty milliseconds before
-   enterRunning hushes it is a click, not a chorus. Pause, Bow and menu-return keep their own sing calls untouched.
-   (1.2) A LISTENER THAT ONLY SPENDS ITSELF ON THE MOMENT IT IS FOR. It used to disarm on whatever gesture arrived
-   first, wherever it landed and whatever state the page was in: a click inside the Save My Sky form, a gamepad run's
-   first press, a keystroke in the Temple all consumed the one chance, and a gesture that arrived before the CDN did
-   consumed nothing but did not help either. Now the handler acts ONLY when the start/pause card is the active
-   surface and the gesture is not the player working a sub-panel (form, records, share, chat) or pressing PLAY
-   itself; anything else is IGNORED WITHOUT DISARMING. And it disarms only when it has actually done its job — with
-   Tone loaded that is init + sing, and with Tone still in flight it stays armed and re-offers the moment the script
-   lands, so a slow CDN racing PLAY can no longer cost the visit its chorus.
-   THE UNLOCK CANNOT BE PRE-BUILT ON THIS TONE (verified against the pinned 14.8.49): the library evaluates
-   `const Transport = getContext().transport` and the same for Destination at SCRIPT LOAD, so its AudioContext is
-   created the moment the file lands and those singletons are bound to it for good. Tone.setContext() would swap the
-   context every later node is built on while Transport — the game's whole clock — stayed on the abandoned one, so
-   adopting a context we unlocked ourselves inside the gesture is not available here (it is a real path on builds
-   whose Transport is resolved per call; it is not one on this build, and the whole game rides Transport). What we do
-   instead is the spec's stated fallback: kick the fetch, keep the listener, and when the script lands resume Tone's
-   own context under the page's sticky activation (any earlier real gesture — and we know there was one, it is why we
-   are here) and sing if the card is still up. If that resume does not take — a browser that honours it only INSIDE
-   the gesture — we stay armed and the next gesture does it, which is exactly today's behaviour, never worse. */
-let _chorusBootArmed=false, _chorusBootPending=false;
-function chorusBootDisarm(){
-  if(!_chorusBootArmed) return; _chorusBootArmed=false;
-  document.removeEventListener('pointerdown',chorusBootGesture,true); document.removeEventListener('keydown',chorusBootGesture,true);
-}
-function chorusBootSkip(e){   // is this gesture the overlay's arrival, or is it someone else's? Anything but an arrival is ignored WITHOUT disarming
-  if(state.running || document.hidden || templeActive) return true;                      // a live run (gamepad starts included), a hidden tab, the Temple: not this listener's moment
-  if(!overlay || overlay.classList.contains('hidden')) return true;                      // the card is not the active surface at all
-  const t=e&&e.target;
-  if(t && t.closest){
-    if(t.closest('#beginBtn,#beginTrain')) return true;                                  // the gesture that starts the run is not an invitation to sing
-    if(t.closest('#settingsBox,#recordsWrap,#shareOverlay,#transitEssayReader,#skyTemplePanel')) return true;   // the player is working a sub-panel — a form, the records board, the share card, a reader, the chat: their gesture belongs to that panel, and the boot chorus waits for one that is simply "I am here"
-  }
-  const n=t&&t.nodeName;
-  if(n==='INPUT'||n==='TEXTAREA'||n==='SELECT'||(t&&t.isContentEditable)) return true;   // typing is not an arrival either, wherever the field lives
-  return false;
-}
-function chorusBootGesture(e){
-  if(!_chorusBootArmed || chorusBootSkip(e)) return;   // IGNORED, NOT CONSUMED: the listener is still here for the gesture this parcel is actually about
-  if(window.Tone){
-    chorusBootDisarm();   // the job can be done in this gesture: graph now, stems now
-    initAudio();
-    if(CFG.chorus.on) chorusMenu();   // chorusMenu's own guards still decline for a live run, the trainer and a hidden tab; chorusPick still returns 0 for a sky with nothing lit — or for one whose catalog has not bound yet (1.2), which buildZodiacSticks answers with its own re-offer the moment the fixture lands — so a first-ever visit hears exactly today's silence
-    return;
-  }
-  if(_chorusBootPending) return;   // the fetch is already in the air; more gestures do not make it land sooner, and the listener stays armed either way
-  _chorusBootPending=true;
-  loadToneOnce().then(()=>{
-    if(!window.Tone) return null;
-    initAudio();                                                   // the graph, on Tone's own load-time context (see the header: it cannot be ours)
-    return Promise.resolve(window.Tone.start()).catch(()=>{});     // and the resume, under the sticky activation the gesture that brought us here already granted
-  }).catch(()=>{}).then(()=>{
-    _chorusBootPending=false;
-    if(!toneReady || !(rawCtx && rawCtx.state==='running')) return;   // the CDN failed, the graph did not build, or the context is still suspended: STAY ARMED — PLAY's own showToneBlock tells the player, and the next gesture retries
-    chorusBootDisarm();
-    if(CFG.chorus.on) chorusMenu();                                  // no second gesture needed: the card is still up (chorusMenu declines if it is not), so the chorus lands as if the library had been there all along
-  });
-}
-if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown',chorusBootGesture,true); document.addEventListener('keydown',chorusBootGesture,true); }   // raw boolean first: with the parcel off nothing is armed, no listener exists, and audio still starts exactly where it does today (inside startRun). Capture phase so a handler that stops propagation cannot swallow the one gesture the graph is waiting for
+                                                                                                                       
+                                                                                                                      
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                     
+                                                                                                                     
+                                                                                                            
+                                                                                                                   
+                                                                                                                  
+                                                                                                                     
+                                                                                                                    
+                                                                                                              
+                                                                                                              
+                                                                                                                   
+                                                                                                                    
+                                                                            
+                                                                                                           
+                                                                                                                 
+                                                                                                                    
+                                                                                                                  
+                                                                                                                 
+                                                                                                                     
+                                                                                                                    
+                                                                                                                     
+                                                                                                                   
+                                                                                                                
+                                                     
+                            
+                                                       
+                                                                                                                                     
+ 
+                                                                                                                                                     
+                                                                                                                                                                                      
+                                                                                                                                     
+                      
+                     
+                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                       
+   
+                        
+                                                                                                                                                     
+               
+ 
+                              
+                                                                                                                                                         
+                  
+                                                                                      
+                
+                                                                                                                                                                                                                                                                                                                                                                               
+           
+   
+                                                                                                                                                        
+                          
+                           
+                                 
+                                                                                                                                                    
+                                                                                                                                                                  
+                             
+                             
+                                                                                                                                                                                                                                         
+                       
+                                                                                                                                                                                                                         
+     
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                           
 
                         
                                                                          
@@ -8380,7 +8434,7 @@ if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown
                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                       
                                                                                                                                                                                                   
                                                                                                                                                       

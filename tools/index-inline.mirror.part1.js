@@ -1057,6 +1057,17 @@ const CFG = {
   // THE FIGURE SITS ON WHOLE BEATS (SPEC_MUSIC_LANGUAGE 1.2 amendment T1 — every "spec 1.2" below is that document's parcel-G amendment, T1..T5). It shipped as fig2 [14,16] / fig3 [12,14,16] — gates TWO sixteenths apart, on the "and-of-4". The flight time of a tank's own shot is k sixteenths (k drawn from beatSpawnSixteenths, capped at maxLeadSixteenths=4), so the time between LANDING one gate and having to RELEASE for the next is (spacing-k) sixteenths plus the two window edges you may use: budget = (spacing-k)·(15/bpm)s + 2·win, win = grooveOpenSec (0.26s learning → 0.12s expert). At spacing 2 that budget is NEGATIVE wherever k>2: k=4 needs bpm>15/win to break even (≈58bpm learning, ≈125bpm expert) and k=3 needs bpm>7.5/win (≈29bpm / ≈63bpm) — at the 28bpm start it was −0.55s (k=4, learning) to −0.83s (k=4, expert), i.e. the second note had to be fired BEFORE the first one landed. Nobody can play that. (THE SIXTY CAP, parcel P: those break-even tempos — ≈125bpm and ≈63bpm — now sit ABOVE the ceiling entirely, so the rejected spacing-2 design would be dead-negative for k=4 at every reachable tempo and merely marginal for k=3. The cap does not resurrect it; it buries it. Kept as the stated reasoning for the shipped spacing.)
   // At spacing 4 ("4 → 1" and "3 → 4 → 1") the worst case is k=maxLeadSixteenths=4, where the tempo term vanishes and the budget is exactly 2·win AT EVERY TEMPO. RE-COMPUTED UNDER THE SIXTY CAP (parcel P, real solver, shipped constants — win = lerp(grooveOpenSec 0.26, 0.12, diffT) with diffT now spanning 20..60): bpm 20 → win 0.260s, k=2 +2.020s / k=3 +1.270s / k=4 +0.520s · bpm 28 (the start) → 0.232s, +1.535 / +1.000 / +0.464 · bpm 40 → 0.190s, +1.130 / +0.755 / +0.380 · bpm 50 → 0.155s, +0.910 / +0.610 / +0.310 · bpm 60 (the cap, full expert) → 0.120s, +0.740 / +0.490 / +0.240. Positive at every live tempo (28 → 60, and the FULL MOON's old "→ 172" clause is moot now that there is nothing above the cap), by construction and not by luck. The tightest case, +0.240s at the cap, is ARITHMETICALLY THE SAME worst case the old law had at expert speed — win's floor did not move, only the tempo you reach it at. Every gate now falls where the whole-beat glow already peaks, so the fill's pulse and the field's pulse agree; the last gate is still the MERCY DOWNBEAT, so the finale pop + tideBloom payoff is untouched. The 3-figure's OPENER moved inside the election window's reach (the fill bar's first half elects, leaving 2-8 sixteenths before sixteenth 8, vs 6-12 before sixteenth 12) — a late election can now put that opener inside the flight time, which is exactly the case T2's forward search absorbs: the opener is consumed by the beat-4 landing instead of dead-locking the fill.
   // openFrac is VESTIGIAL (spec 1.2): the wide whole-beat tank window it fed — tankOpen()/tankGlow()/tankBeatPhase() — was already unreachable (the fill's figure gate is the tank's only window) and those three husks were deleted. blinkWin was dead with them and is REVIVED by T4 as the fill's own blink: the floor on the visual half-width, in BEATS, of the light that tracks the tank's NEXT needed gate (the cue is the judged window, but never narrower than this — at 20-40bpm win alone is a pinprick — and never narrower than the pocket it advertises, because a cue tighter than its own window lies).
+  // POLYRHYTHM PAIRS (wave 6, parcel Q) — the expert ceiling THE SIXTY CAP made room for. Difficulty stopped climbing through tempo, so the last stretch of the mountain asks the question tempo never could: TWO Echoes whose beat-quantized leads are a RATIO, so landing both on their beats means physically releasing a cross-rhythm. No new kind, no new sound, no new word, no new UI: it is built entirely out of the distance-is-syncopation law (beatSpawnDist) and the pair-spawn machinery the WANING GIBBOUS already proved.
+  // WHEN: post-graduation, diffT()>=gate (0.75 = bpm 50 exactly), tideI>=tideGate (0.9 — the crest of the swell plus the tail of its rise, ~2.6 bars of every 9), never during the Bow, never on the deal's WANING GIBBOUS (ONE FIELD GRAMMAR PER NIGHT: dealt pairs are same-beat volley practice, poly pairs are cross-rhythm — they never co-occur), never while a drum-fill election is pending (ONE PRIMARY GRAMMAR PER ORB: the fill outranks the pair and the pair stands down, so the election is neither consumed nor dropped), and at most ONE poly pair on the field at a time.
+  // THE COMPUTED TIMELINE (beatSpawnDist's own model, SHIPPED constants — projSpeed 28 / projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28, fireQuantDiv 4; k is SIXTEENTHS OF A BEAT, so flight T = k/16 beat and the release for an arrival on beat B is at B − k/16):
+  //   bpm 50 (dT 0.75, s 61.0 m/s, beat 1.200s) — 4:6 T 0.300/0.450s d 18.29/27.40m · 8:12 d 36.49/54.52m · 12:16 d 54.52/72.29m
+  //   bpm 60 (dT 1.00, s 72.0 m/s, beat 1.000s) — 4:6 T 0.250/0.375s d 17.99/26.98m · 8:12 d 35.94/53.81m · 12:16 d 53.81/71.55m
+  //   RELEASE SPACING, both members onto the SAME beat: (k2−k1)/16 beat → 4:6 = 0.125 beat (150ms at 50, 125ms at 60) · 8:12 and 12:16 = 0.250 beat (300ms / 250ms). Onto CONSECUTIVE beats instead: 0.875 beat (1050/875ms) and 0.750 beat (900/750ms). Both routes are legal play; the same-beat route is the one the chord-volley system already pays.
+  //   FIRE QUANTIZE: fireQuantDiv 4 = one shot per 0.25 beat. 4:6's ideal releases are 0.125 beat apart, which FAILS the raw "≥ one grid step" reading — but the shipped mechanic is a GRID INDEX, not a spacing, and the two ideal releases sit in different cells (floor(−4/16·4) = −1 vs floor(−6/16·4) = −2), so the same-beat volley is legal. It is legal with ZERO slack on the later shot (k=4 lands exactly on a grid boundary, as k=8/12/16 already do), so an early k=4 release collides with its partner and is dropped: the tight route is genuinely tight, and the 0.875-beat route is always free. 8:12 and 12:16 pass both readings.
+  //   FEASIBILITY, AND THE FINDING THAT MATTERS (the tank lesson: computed, not asserted): under the sixty cap ONLY 4:6 is ever drawable. k=12 needs 53.8m and k=16 needs 71.6m against rangeMax 28 — out of reach at every tempo and every reach — and k=8 (35.9m) enters only on a LAST QUARTER's widened band, where its partner k=12 still does not. So [8,12] and [12,16] are silently never drawn. They are KEPT because the ratio list is the design's vocabulary and the filter is silent by construction (the star fallback's discipline): the day rangeMax, projSpeed or the cap moves, they speak with no edit here. 4:6 itself needs state.range ≥ 27.41 at bpm 50 and ≥ 26.98 at bpm 60 on a plain night — the top 3.5–6.0% of the distance shell's travel, so the pair calls only when the shell has genuinely marched out — and ≥ 21.08 / 20.76 on a LAST QUARTER (farMul 1.3, 41–43% of the shell), which quietly makes "the far ones call" the night the polyrhythm actually speaks. Emergent, not designed, and left standing.
+  //   AUDIO IS ALREADY THERE, WITH ONE HONEST CAVEAT: pitch-encodes-k (wave 2) voices each member from its OWN k at the one spawn site every orb sings from (singTargetSound(snd, kind, _beatSpawnK, true)) — verified: both members take the ordinary path, so both get their k-degree pitches with no new sound and no new code. BUT singDegree buckets k 2..16 into sing.degSpan 5 degrees, and k=4 and k=6 both round to degree 6 — so the one ratio that is currently drawable is heard as a UNISON at two release times, not as an interval (8:12 and 12:16 would each be one scale degree apart). This parcel adds no audio to fix that: it is a note for the tuning session next to grooveOpenSec[1] / projSpeedFast / bpmUp, and the knob is sing.degSpan or the k→degree map, which belongs to every orb rather than to this pair.
+  //   STREAM (per THE STREAM RULE): every draw lives inside CFG.poly.on. A spawn slot spends NOTHING unless the whole gate is open AND some ratio is feasible at the live band — both are pure reads. Then it spends exactly one roll against chance, and on a hit one more to pick the ratio (ONE draw, always, whatever the range holds). Each member then spawns through the ordinary path at the ordinary cost: the kind roll is still TAKEN and discarded (pinned plain), and beatSpawnDist still takes its single draw and discards the pick in favour of the pinned k. poly.on:false is byte-identical in behaviour AND in the rnd() stream — the call site reads the raw boolean and falls straight through to spawnRhythmOrb. Inert in the trainer and in the Temple (which spawns nothing at all).
+  poly:{ on:true, gate:0.75, tideGate:0.9, chance:0.22, ratios:[[4,6],[8,12],[12,16]] },   // gate = min diffT (0.75 = bpm 50) · tideGate = min tideI (0.9 = the crest; tideI rests at 1 with tide.on:false, so that axis simply stops gating) · chance = the roll at an eligible slot (0.22 — rare enough to stay an event, often enough to train; a playtest knob) · ratios = [k1,k2] beat-quantized leads in sixteenths OF A BEAT: 4:6 and 8:12 are 2:3, 12:16 is 3:4. on:false = the parcel gone, stream included
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
@@ -2902,82 +2913,82 @@ function _lsnMuzzle(out){   // same muzzle as computeShotPlan's M — WITHOUT to
   _lsnRt.crossVectors(_lsnDir2,_LSN_UP); if(_lsnRt.lengthSq()<1e-6) _lsnRt.set(1,0,0); else _lsnRt.normalize();
   return out.set(PLAYER_POS.x+_lsnRt.x*BLADE_DX+_lsnDir2.x*BLADE_DZ, PLAYER_POS.y-BLADE_DY+_lsnDir2.y*BLADE_DZ, PLAYER_POS.z+_lsnRt.z*BLADE_DX+_lsnDir2.z*BLADE_DZ);
 }
-function startListen(pick){
-  clearListen(false);
-  _lsn.sel=pick; _skySel=pick; _lsn.holdT=state.t;
-  if(!_lsn.line){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
-    _lsn.line=new THREE.Line(g, new THREE.LineBasicMaterial({color:0x9fd8ff, transparent:true, opacity:0.55, depthWrite:false, fog:false, blending:THREE.AdditiveBlending}));
-    _lsn.line.frustumCulled=false; scene.add(_lsn.line); }
-  const lp=_lsn.line.geometry.attributes.position; _lsnMuzzle(_lsnP);
-  lp.setXYZ(0,_lsnP.x,_lsnP.y,_lsnP.z); lp.setXYZ(1,pick.world.x,pick.world.y,pick.world.z); lp.needsUpdate=true;
-  _lsn.line.material.opacity=0.55; _lsn.line.visible=true; _lsn.lineT=state.t;
-  goldFigure(pick.kind==='sign' ? pick.id : pick.meta.sign);
-  emphasizeListenGlyphs(pick);
-  if(CFG.skyTemple.legacyListenCard){
-    const fallback=glossaryListenData(pick); showListenCard(pick,fallback,false);
-    if(_personalListenExpected || _lsnNatalId()) fetchListen(pick,fallback);
-  }else if(_lsn.card) _lsn.card.style.display='none';
-}
-function clearListen(hideCard){
-  _lsn.sel=null; _skySel=null; _lsn.holdT=-1; _lsn.seq++;
-  if(_lsn.line){ _lsn.line.visible=false; } _lsn.lineT=-1;
-  restoreListenGlyphs(); hideListenGhost();
-  restoreFigures();
-  if(hideCard!==false && _lsn.card) _lsn.card.style.display='none';
-}
-function emphasizeListenGlyphs(pick){   // Parcel L: mutate the existing sprites — no duplicate globe/planet representation
-  restoreListenGlyphs(); const C=SKY_CHART;
-  if(pick.kind==='body'){
-    emphasizeListenGlyph(pick.meta.sprite, C.mover.listenScale);
-    const sign=pick.meta.sign&&_lsnMeta.signs[pick.meta.sign]; if(sign) emphasizeListenGlyph(sign.sprite, C.sign.listenScale);
-  }else emphasizeListenGlyph(pick.meta.sprite, C.sign.listenScale);
-}
-function emphasizeListenGlyph(sp,scale){
-  if(!sp || !sp.material || _lsn.emphasis.some(e=>e.sp===sp)) return;
-  const fi=sp.userData.chartFadeIndex, fade=(fi==null?null:_chartFade[fi]);
-  _lsn.emphasis.push({sp:sp, sx:sp.scale.x, sy:sp.scale.y, col:sp.material.color.clone(), fade:fade, a0:fade?fade.a0:null});
-  sp.userData.listenSelected=true; sp.material.color.copy(LSN_GOLD); sp.scale.set(scale,scale,1);
-  if(fade) fade.a0=Math.max(0.95,fade.a0);   // updateChartSky owns opacity; boost its source rather than fighting the 20 Hz fade pass
-}
-function restoreListenGlyphs(){
-  for(const e of _lsn.emphasis){ e.sp.material.color.copy(e.col); e.sp.scale.set(e.sx,e.sy,1); e.sp.userData.listenSelected=false; if(e.fade) e.fade.a0=e.a0; }
-  _lsn.emphasis.length=0;
-}
-function showListenGhost(pick){
-  if(!_lsnMeta || !(pick.id in _lsnMeta.ghostLon)) return;
-  if(!_lsn.ghost){ const C=SKY_CHART.ghost;
-    _lsn.ghost=chartSprite(ringTex(), C.col, C.alpha, C.scale, C.scale, false, null, C.k); chartSkyGroup.add(_lsn.ghost); }
-  _lsn.ghost.position.copy(eclipticDir(_lsnMeta.ghostLon[pick.id],0)).multiplyScalar(SKY_CHART.R*0.99);
-  const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=true; _lsn.ghost.visible=true;
-}
-function hideListenGhost(){ if(!_lsn.ghost) return; const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=false; _lsn.ghost.visible=false; }
-function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(let i=i0;i<i1;i++){ a.setXYZ(i,r,g,b); } a.needsUpdate=true; }
-function goldFigure(signId){   // selected figure gold, the rest dimmed — pure vertex-colour rewrite, zero extra draw calls; additive blending makes darker = dimmer
-  restoreFigures();
-  if(!signId || !_stickFig) return;
-  const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
-  const S=SKY_CHART.stick, lb=new THREE.Color(S.lnCol);
-  _lsn.goldFig=fid;   // set BEFORE the paint so the lit-sky repaint below sees which figure is gold (nothing between here and the old assignment ever read it)
-  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: the identical dim+gold paint, with each star's own lit level riding through it
-  else{
-    const pb=new THREE.Color(S.ptCol);
-    _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
-    _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
-  }
-  if(_stickFig.lGeo){
-    _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
-    _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
-  }
-}
-function restoreFigures(){
-  if(_lsn.goldFig==null || !_stickFig) return;
-  _lsn.goldFig=null;   // cleared FIRST for the same reason goldFigure sets it first: starLitRepaint reads it to decide what "restored" means
-  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: restore means back to the LIT baseline, not back to flat white — accretion is never painted away
-  else _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, 1,1,1);
-  if(_stickFig.lGeo) _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, 1,1,1);
-}
-function _lsnCap(s){ s=String(s); return s.charAt(0).toUpperCase()+s.slice(1); }
-function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if(style) d.style.cssText=style; d.textContent=txt; parent.appendChild(d); return d; }
+                           
+                     
+                                                  
+                                                                                                                                   
+                                                                                                                                                                             
+                                                          
+                                                                     
+                                                                                                                 
+                                                                              
+                                                            
+                              
+                                     
+                                                                                 
+                                                                            
+                                                     
+ 
+                               
+                                                         
+                                                          
+                                           
+                   
+                                                                   
+ 
+                                                                                                                           
+                                           
+                         
+                                                                
+                                                                                                                              
+                                                                   
+ 
+                                        
+                                                                     
+                                                                           
+                                                                                                                            
+                                                                                                 
+                                                                                                                                      
+ 
+                               
+                                                                                                                                                               
+                         
+ 
+                               
+                                                          
+                                           
+                                                                                                                           
+                                                                                                       
+                                                                                                                 
+ 
+                                                                                                                                                                       
+                                                                                                                                            
+                                                                                                                                                                    
+                   
+                                   
+                                                                                      
+                                                       
+                                                                                                                                                               
+                                                                                                                                               
+       
+                                      
+                                                                                                     
+                                                                                                                                                                   
+   
+                     
+                                                                                                     
+                                                                                               
+   
+ 
+                          
+                                              
+                                                                                                                                             
+                                                                                                                                                                 
+                                                                                    
+                                                                                                  
+ 
+                                                                                
+                                                                                                                                                                    
                                                                                                                                 
                                                                       
                              
@@ -5798,7 +5809,7 @@ function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if
                                                                                                       
                   
                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                
        
      
@@ -5914,6 +5925,7 @@ function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if
                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                   
  
                                                                                                                   
@@ -5922,6 +5934,47 @@ function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if
                        
                                                                          
                                                                       
+ 
+                                                
+                                                                                                                       
+                                                                                                                       
+                                                                                                                     
+                                                                                                                         
+                                                                                                                          
+                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                               
+                                                                                                         
+                                                             
+                                                         
+ 
+                                                                                                                                                                                                                                                                                                                                                                         
+                    
+                                                                                                                         
+                                                                                                            
+                                                                                                                                                                                                   
+                                                                                                                                                                                                          
+                                                                                                                                                               
+                                                                                                                                                                                                                      
+                   
+                                                                                                                      
+                        
+ 
+                         
+                                                                                                                                                         
+                                        
+                                                                                                                                                                                                                                                                                                                          
+                                                                                                                  
+                                                                                                                
+                                                                                                                                                                                                                                         
+                    
+      
+                                                                                               
+                                                                                                                                                                                                     
+                                                                                                                                                                                           
  
                            
                                
@@ -5967,11 +6020,12 @@ function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if
                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                       
                                                                            
                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                     
                                                                                                                                   
                                                                                                                                                                       
@@ -8380,7 +8434,7 @@ function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if
                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                       
                                                                                                                                                                                                   
                                                                                                                                                       
