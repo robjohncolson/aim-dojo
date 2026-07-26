@@ -728,6 +728,8 @@
                                                                                                                                          
                                                                                                                 
                                                          
+                                                                                                                                                                                       
+                                                                                                                             
                                                                        
                                                                                                                                                                                                         
                                                                        
@@ -917,6 +919,14 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                              
+                                                                                              
+                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                 
@@ -4496,7 +4506,7 @@ function chorusMenu(){   // THE BOOT CHORUS: the overlay is the one place stems 
   chorusSaltRefresh();                                        // the card is a main-thread moment: this is where the local date is allowed to be read, and where a session that crossed midnight turns its ensemble over
   chorusSing(1, +CFG.chorus.menuFadeSec||0, 0, 0);
 }
-function chorusMercy(time){ chorusSing(+CFG.chorus.mercyVelMul||1, 0, 4*(60/Math.max(20,state.bpm)), time); }   // THE MERCY BAR: the whole ensemble arrives as one chord on the same downbeat the pad blooms on, and lets go across the bar — the swell is where a star lit this run is heard for the first time
+function chorusMercy(time){ chorusSing((+CFG.chorus.mercyVelMul||1)*(CFG.deal.on?_deal.mercyMul:1), 0, 4*(60/Math.max(20,state.bpm)), time); }   // THE SKY DEALS THE NIGHT: the FULL MOON's chorus swell is taller (fullMercyMul) — a velocity weight on the moment that already exists, no extra stem, no extra moment, ×1 on every other night. THE MERCY BAR: the whole ensemble arrives as one chord on the same downbeat the pad blooms on, and lets go across the bar — the swell is where a star lit this run is heard for the first time
 function chorusBow(sec){ chorusSaltRefresh(); chorusSing(1, 0, Math.max(0.5,sec), 0); }   // THE BOW's HOLD: held for exactly the stage that carries the Mandala, the line and the ✦, then gone with the night
 function applyAudioState(){
   if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);
@@ -4646,7 +4656,7 @@ function tideStepBpm(){
   // bpmDown is NOT scaled — mercy on the way down should stay gentle. changeBpm keeps all its bookkeeping (state.maxBpm, ramp, sfx).
   if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;   // same warm-up guard as maybeAdjust: no step before the window has meaning
   const acc=windowAccuracy(); if(acc==null) return;
-  if(acc>=CFG.upThreshold) changeBpm(+CFG.bpmUp*(CFG.tide.bpmUpMul!=null?CFG.tide.bpmUpMul:1), true);
+  if(acc>=CFG.upThreshold) changeBpm(+CFG.bpmUp*(CFG.tide.bpmUpMul!=null?CFG.tide.bpmUpMul:1)*(CFG.deal.on?_deal.bpmMul:1), true);   // THE SKY DEALS THE NIGHT: a WANING CRESCENT climbs gentler (quietBpmMul on the UP step only — the drum rests, it does not stall). changeBpm keeps every piece of its bookkeeping either way
   else if(acc<=CFG.downThreshold) changeBpm(-CFG.bpmDown, false);
 }
 /* ---- QUIET TICK: the metronome is a crutch you earn the right to put down ----
@@ -4668,7 +4678,7 @@ function tickGain(i){
   const thr = (beat===2) ? Q.t2 : Q.t1;                             // beats 2 & 4 go first (Tier 1); beat 3 survives until Tier 2
   return Math.max(0, Math.min(1, (thr-tickI)/tickBand()));
 }
-function tickBump(){ if(quietTickLive()) tickI=Math.min(1, tickI+CFG.quietTick.riseK); }   // earned slowly, one scoring arrival at a time
+function tickBump(){ if(quietTickLive()) tickI=Math.min(1, tickI+CFG.quietTick.riseK*(CFG.deal.on?_deal.tickMul:1)); }   // earned slowly, one scoring arrival at a time — a WANING CRESCENT lets the silence come sooner (quietTickMul on riseK, the one knob that sets the pace; fallK is untouched, so a miss still costs exactly what it costs). ×1 on every other night and with the parcel off
 function tickDrop(){
   if(!quietTickLive()) return;
   const Q=CFG.quietTick, was=tickI; tickI=Math.max(0, tickI-Q.fallK);                      // lost fast: one miss gives back most of a Tier
@@ -4846,6 +4856,98 @@ function bowDrawMandala(u){
   }
   g.globalCompositeOperation='source-over';
 }
+/* ---- THE SKY DEALS THE NIGHT (wave 4, parcel K) ----
+   ONE rule per night, chosen by the real moon, plus a planet tilt that is only ever a weight. Everything the deal
+   does passes through _deal: a flat bag of EFFECTIVE VALUES, written once per run by dealCompute and read at the
+   sites the knobs already lived at. Base CFG is never touched (the SENSEI_PACK discipline), so nothing survives the
+   night, nothing reaches the trainer, and deal.on:false leaves _deal at its neutral literal — every multiplier 1,
+   every chance 0 — which is also exactly what the trainer and a failed ephemeris get. Each read-site tests the raw
+   CFG boolean BEFORE it touches this object, so an off night never reads it at all. */
+const DEAL_RULE_EN=['THE DARK LISTENS','THE WIND STIRS','THE QUICK ONES WAKE','THE WIND REMEMBERS','THE FULL CHORUS','THE ECHOES ANSWER IN PAIRS','THE FAR ONES CALL','THE DRUM RESTS'];   // index = the same 0..7 elongation bucket BOW_MOON_EN is named by, so the line's two halves can never disagree about which night it is
+const DEAL_PLANETS=['venus','jupiter','mars','saturn','mercury'];   // the order the EYE finds them: the line names the first risen one, so a Venus night says Venus even when four movers are up. Every risen planet still applies its weight — only the naming is exclusive, because the line is one line
+const DEAL_UP_EN={venus:'VENUS IS UP', jupiter:'JUPITER IS UP', mars:'MARS IS UP', saturn:'SATURN IS UP', mercury:'MERCURY IS UP'};
+const _deal={ ph:-1, planet:'', spreadMul:1, windMul:0, quickMul:1, quickLifeMul:1, moverMul:1, goldMul:1,
+  densityMul:1, mercyMul:1, pairChance:0, farMul:1, tickMul:1, bpmMul:1, concAdd:0, tankAny:false };   // THE NEUTRAL NIGHT, and the literal every reset starts from: ph -1 = "the sky dealt nothing", which is what the line reads to decide whether it has anything to say
+let _dealPairK=-1;   // the PRIMARY's subdivision while its companion is being spawned (-1 = not in a pair). beatSpawnDist reads it to steer the companion onto a DIFFERENT k — without spending a draw — so the two Echoes ask for two different release times that land on one beat: a chord volley you can plan
+function dealReset(){
+  _deal.ph=-1; _deal.planet=''; _deal.spreadMul=1; _deal.windMul=0; _deal.quickMul=1; _deal.quickLifeMul=1;
+  _deal.moverMul=1; _deal.goldMul=1; _deal.densityMul=1; _deal.mercyMul=1; _deal.pairChance=0; _deal.farMul=1;
+  _deal.tickMul=1; _deal.bpmMul=1; _deal.concAdd=0; _deal.tankAny=false; _dealPairK=-1;
+}
+function dealCompute(){
+  // Called ONCE per run, from resetSession, before anything spawns. The phase comes from the Meeus sun/moon the sky
+  // glyphs already ride — no network, no second ephemeris, no observer location needed (elongation is geocentric).
+  dealReset();
+  if(!CFG.deal.on || trainMode) return;   // raw boolean first, and post-graduation only: the trainer's field is a lesson, not a night
+  let ph=-1;
+  try{ const L=approxLuminaryLons(); ph=Math.floor((((((L.moon-L.sun)%360)+360)%360)+22.5)%360/45)%8; }catch(e){ return; }   // 0° new · 90° first quarter · 180° full · 270° last quarter, in 8 equal buckets centred on the named phases — the SAME expression bowSkyLine buckets by
+  if(!(ph>=0&&ph<8)) return;   // a NaN longitude (a clock the browser cannot read) deals nothing rather than dealing bucket 0 by accident
+  const D=CFG.deal;
+  _deal.ph=ph;
+  if(ph===0) _deal.spreadMul=+D.spreadMul||1;                                                             // NEW MOON · the dark listens — localization night: the field opens up behind you
+  else if(ph===1) _deal.windMul=+D.windMul||0;                                                            // WAXING CRESCENT · the wind stirs — the shipped wind prototype, dealt gently
+  else if(ph===2){ _deal.quickMul=+D.quickMul||1; _deal.quickLifeMul=+D.quickLifeMul||1; }                // FIRST QUARTER · the quick ones wake
+  else if(ph===3){ _deal.windMul=1; _deal.moverMul=+D.moverMul||1; }                                      // WAXING GIBBOUS · the wind remembers — the full band, and the field wanders with it
+  else if(ph===4){ _deal.densityMul=+D.fullDensityMul||1; _deal.goldMul=+D.fullGoldMul||1; _deal.mercyMul=+D.fullMercyMul||1; _deal.tankAny=true; }   // FULL MOON · the full chorus — the generous night
+  else if(ph===5) _deal.pairChance=+D.pairChance||0;                                                      // WANING GIBBOUS · the echoes answer in pairs
+  else if(ph===6) _deal.farMul=+D.farMul||1;                                                              // LAST QUARTER · the far ones call — long-lead night
+  else { _deal.densityMul=+D.quietDensityMul||1; _deal.tickMul=+D.quietTickMul||1; _deal.bpmMul=+D.quietBpmMul||1; }   // WANING CRESCENT · the drum rests — the quiet night
+  dealPlanets();
+}
+function dealPlanets(){
+  // The movers that are ACTUALLY up, on the same ecliptic→horizontal transform the sticks and the luminaries are
+  // drawn by — so what tilts the mix is exactly what a player standing outside could point at. No pack (API down,
+  // decorative sky, a cold cache) → this returns having changed nothing: neutral mix, no planet fragment, and the
+  // phase rule above still deals. That IS the fail-open contract, not a degraded mode.
+  const D=CFG.deal, pack=_publicSkyPack;
+  if(!pack || !skydayValid(pack) || !skySphere) return;
+  const yMin=SKY_CHART.R*Math.sin(THREE.MathUtils.degToRad(+D.planetAltDeg||0));   // "risen above planetAltDeg" as one comparison in raw sphere units, the way starSpawnAz tests a star
+  const up=Object.create(null);
+  for(const mv of pack.movers){
+    if(!mv || DEAL_PLANETS.indexOf(mv.id)<0) continue;
+    if(eclipticDir(mv.lon_j2000,0).multiplyScalar(SKY_CHART.R).applyQuaternion(skySphere.quaternion).y>yMin) up[mv.id]=true;   // five vectors, once per run — this is a session boundary, not a frame
+  }
+  if(up.venus) _deal.goldMul*=(+D.venusMul||1);        // VENUS the bright one → more Ancient gold
+  if(up.mercury) _deal.quickMul*=(+D.mercuryMul||1);   // MERCURY the swift one → more Quick
+  if(up.mars) _deal.moverMul*=(+D.marsMul||1);         // MARS the restless one → more Wandering
+  if(up.saturn) _deal.tankAny=true;                    // SATURN the heavy one → the tank stays eligible at any tempo tonight, within today's rules
+  if(up.jupiter) _deal.concAdd=Math.max(0,D.jupiterConc|0);   // JUPITER the great one → the sky holds one more Echo at a time
+  for(const id of DEAL_PLANETS) if(up[id]){ _deal.planet=id; break; }
+}
+function dealLine(){
+  // THE one threshold line, and the whole text budget of this parcel: "✦ <PHASE> · <PLANET IF ANY> · <RULE>".
+  // The phase name is the Bow's own fragment (one dictionary, one voice); the rule name and the planet fragment are
+  // this parcel's only new strings. Nothing else announces anything, ever — no tier, no count, no yesterday.
+  const ph=_deal.ph;
+  if(ph<0) return '';
+  const pl=_deal.planet?T('dealUp'+_deal.planet, DEAL_UP_EN[_deal.planet]):'';
+  return '✦ '+T('bowMoon'+ph, BOW_MOON_EN[ph])+' · '+(pl?pl+' · ':'')+T('dealRule'+ph, DEAL_RULE_EN[ph]);
+}
+function dealPairSpawn(){
+  // WANING GIBBOUS only. The companion is a NORMAL orb — no new kind, no new law: it takes the same beat-quantized
+  // distance draw every Echo takes, and the only thing the pair does is steer it onto a DIFFERENT subdivision than
+  // its primary (see _dealPairK in beatSpawnDist), so the two ask for two different release moments that LAND on one
+  // beat. That is a chord volley you can plan, built entirely out of the distance-is-syncopation law the game
+  // already runs on. This is the parcel's ONE draw of its own — the roll below plus the companion's own spawn — and
+  // it exists on this phase's nights and nowhere else; free-play has no shared seed, so nothing downstream cares.
+  if(_deal.pairChance<=0 || !state.running || templeActive || trainMode) return;
+  if(rnd()>=_deal.pairChance) return;
+  _dealPairK=_beatSpawnK;   // the primary's FINAL k, latched by the spawn that just returned
+  try{ spawnRhythmOrb(); }finally{ _dealPairK=-1; }   // cleared whatever happens, so a throw can never leave a stale pairing to steer an unrelated Echo
+}
+function dealWind(){
+  // The two waxing phases deal the shipped wind system ON — same clouds, same ballistics, same HUD, nothing new.
+  // The direction and strength are SEEDED FROM THE LOCAL DATE, not from Math.random: the deal must be the same on
+  // every device under the same sky, and (just as load-bearing) the opt-in path's two Math.random draws must not
+  // appear on a night nobody opted in — rnd() IS Math.random in free play, so spending two here would shift the
+  // spawn stream against a deal.on:false build.
+  const d=new Date(), key=(d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())|0;
+  let x=Math.imul(key^0x9e3779b9,0x21f0aaad); x^=x>>>15; x=Math.imul(x,0x735a2d97); x^=x>>>15;
+  const a=((x>>>0)/4294967296)*Math.PI*2;
+  x=Math.imul(x^0x85ebca6b,0xc2b2ae35); x^=x>>>13;
+  const m=(CFG.windMin+((x>>>0)/4294967296)*(CFG.windMax-CFG.windMin))*_deal.windMul;
+  windX=Math.cos(a)*m; windZ=Math.sin(a)*m;
+}
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
@@ -4949,14 +5051,14 @@ function onGrid(time){
   const active=activeTargetCount();
   let spawned=false;
   if(cd>0){ cd--; }
-  else if(active<CFG.patternConcurrency && !tideMercy && !(CFG.bow.on && bowHolding())){       // kill-switch FIRST so the off path makes no call at all. THE BOW reuses this same NEW-spawn gate from the moment it commits (step 1 of the ceremony); bowHolding() is always false with bow.on:false. MERCY BAR: the NEW-spawn gate shuts for tideMercyBars. Live orbs, their lifetimes and every grading path are untouched — the field just drains and breathes. restSlots keeps counting through it, so the first eligible beat of the next rise is a forced spawn ("here it comes")
+  else if(active<CFG.patternConcurrency+(CFG.deal.on?_deal.concAdd:0) && !tideMercy && !(CFG.bow.on && bowHolding())){       // THE SKY DEALS THE NIGHT: a risen JUPITER lifts the concurrency CAP by jupiterConc — an effective value on the constant this gate already reads, never a second gate (0 with the parcel off, and the raw boolean is read first so an off night makes no _deal read here at all). kill-switch FIRST so the off path makes no call at all. THE BOW reuses this same NEW-spawn gate from the moment it commits (step 1 of the ceremony); bowHolding() is always false with bow.on:false. MERCY BAR: the NEW-spawn gate shuts for tideMercyBars. Live orbs, their lifetimes and every grading path are untouched — the field just drains and breathes. restSlots keeps counting through it, so the first eligible beat of the next rise is a forced spawn ("here it comes")
     const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only
     if(elig){
-      let p = CFG.densityScale*metricWeight(i)*(CFG.tide.on?tideMul(CFG.tide.densityLo):1);   // free-play orb density, thinned toward the trough by the swell. The raw kill-switch is read FIRST, so tide.on:false spends nothing at all here (tideMul's own guard stays as defense in depth)
+      let p = CFG.densityScale*metricWeight(i)*(CFG.tide.on?tideMul(CFG.tide.densityLo):1)*(CFG.deal.on?_deal.densityMul:1);   // free-play orb density, thinned toward the trough by the swell, then opened out by a FULL MOON or thinned again by a WANING CRESCENT — one more multiplier on the number this single roll already compares against, so the draw stays exactly one draw. The raw kill-switch is read FIRST, so tide.on:false spends nothing at all here (tideMul's own guard stays as defense in depth)
       if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
       if(rnd()<p){
         if(fillArm>=0){ _fillSpent8=fillArm; _fillPend16=fillArm*2; }   // THE TANK IS A DRUM FILL: elect THIS spawn (the swell is spent either way — a dropped Draw costs the swell its fill, never a stray tank). grid8 counts EIGHTHS, so the same downbeat in sixteenths is ×2
-        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }
+        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ spawnRhythmOrb(); if(CFG.deal.on) dealPairSpawn(); } }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ spawnRhythmOrb(); if(CFG.deal.on) dealPairSpawn(); } }   // THE ECHOES ANSWER IN PAIRS: the companion rides the SAME Draw as its primary — one spawn moment, two Echoes — so it inherits the epoch/running/temple guards verbatim and can never arrive alone. Raw boolean first; dealPairSpawn returns before its roll on all seven other phases
         spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
       }
     }
@@ -5047,17 +5149,22 @@ function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
 function diffT(){ return Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))); }
 function targetRadius(){ return lerp(CFG.radSlow, 0.62, diffT()); }
 function activeTargetCount(){ return targets.length; }
-function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats}); }
+function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats*(CFG.deal.on?_deal.quickLifeMul:1)}); }   // THE SKY DEALS THE NIGHT: a FIRST QUARTER runs a brisker field (quickLifeMul). The ink law follows it honestly — spawnTarget latches the shortened life into lifeBeatsEff, the same field the drum fill uses to stretch one
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
 function specialOrbsLive(){ return CFG.specialOrbs; }
 
 function beatSpawnDist(maxK){   // BEAT-QUANTIZED SPAWN: return a distance whose ballistic flight time is an integer # of 16th-notes (k/16 beat), so landing the shot on the orb's beat means releasing exactly k sixteenths early — a rhythmic pocket. Model: a shot at speed s that returns to ~eye height at time T covers d = s·T·√(1−(gT/2s)²). Picks uniformly among the sixteenth-values reachable within the current skill-gated range; maxK caps the lead (tanks pass a small maxK to spawn CLOSE). null → the caller falls back to the old cube-root distance.
   const s=projSpeedNow(), g=CFG.projGravity, beatLen=60/Math.max(20,state.bpm);
-  const near=CFG.rangeNear, far=Math.min(CFG.rangeMax, state.range);
+  const fm=CFG.deal.on?_deal.farMul:1;   // THE FAR ONES CALL (LAST QUARTER): the whole band — floor AND ceiling — moves outward, so the FEASIBLE SET shifts toward the long leads instead of the band merely widening. Raw boolean first; ×1 on every other night
+  const near=CFG.rangeNear*fm, far=Math.min(CFG.rangeMax, state.range)*fm;
   const ok=[], okK=[];
   for(const k of CFG.beatSpawnSixteenths){ if(maxK && k>maxK) continue; const T=(k/16)*beatLen, r=g*T/(2*s); if(r>=1) continue; const d=s*T*Math.sqrt(1-r*r); if(d>=near && d<=far){ ok.push(d); okK.push(k); } }   // r>=1: shot can't return to height in time T at this speed → that k is unreachable now
+  if(!ok.length && fm!==1){ const n0=CFG.rangeNear, f0=Math.min(CFG.rangeMax, state.range);   // …and if the shifted band reaches nothing at this tempo, the UNSHIFTED band is tried before giving up. Two reasons, both hard: the sacred beat-quantized law must never be dropped for a mood, and the null return below hands the caller a cube-root fallback that spends an EXTRA rnd() draw — a far night must not be able to add one
+    for(const k of CFG.beatSpawnSixteenths){ if(maxK && k>maxK) continue; const T=(k/16)*beatLen, r=g*T/(2*s); if(r>=1) continue; const d=s*T*Math.sqrt(1-r*r); if(d>=n0 && d<=f0){ ok.push(d); okK.push(k); } } }
   if(!ok.length){ _beatSpawnK=0; return null; }
-  const pick=(rnd()*ok.length)|0; _beatSpawnK=okK[pick]; return ok[pick];   // _beatSpawnK: the subdivision this distance encodes, latched for spawnTarget to carry on the orb (THE BOW's Mandala plots radius by k). Same draw, same rnd stream — nothing about the pick changed.
+  let pick=(rnd()*ok.length)|0;   // ONE draw, always, whatever the sky dealt
+  if(CFG.deal.on && _dealPairK>=0 && ok.length>1 && okK[pick]===_dealPairK) pick=(pick+1)%ok.length;   // THE ECHOES ANSWER IN PAIRS: a companion that drew its primary's own subdivision is nudged to the neighbouring candidate — deterministically, spending nothing — so the pair really is two release times into one arrival beat and not one distance twice
+  _beatSpawnK=okK[pick]; return ok[pick];   // _beatSpawnK: the subdivision this distance encodes, latched for spawnTarget to carry on the orb (THE BOW's Mandala plots radius by k). Same draw, same rnd stream — nothing about the pick changed.
 }
 let _beatSpawnK=0;   // k (sixteenths of lead) of the LAST beatSpawnDist() draw; 0 = unquantized fallback distance
 function spawnTarget(opts){
@@ -5067,7 +5174,9 @@ function spawnTarget(opts){
   const core=acquireTargetMesh(), shell=core.userData.shell;
   const a0=setAimDir(_spawnAim0); let dir3, starId=null;
   if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)
-    const minDot=Math.cos(THREE.MathUtils.degToRad(lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT())));
+    let minDeg=lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT());
+    if(CFG.deal.on && _deal.spreadMul!==1) minDeg=Math.min(170, minDeg*_deal.spreadMul);   // THE DARK LISTENS (NEW MOON): the minimum angle FROM YOUR AIM opens up, which in this uniform 360° field is exactly "wider spread, more bearings behind you" — the same constant this cone already reads, clamped short of 180° so the reroll loop can still find a direction. Raw boolean first, and the whole statement is skipped on every other night, so the expression below is the one that shipped
+    const minDot=Math.cos(THREE.MathUtils.degToRad(minDeg));
     let tries=0, pit=0;
     do{                                                   // TODAY'S ROLL, ALWAYS, FIRST — same draws, same order, same count, whatever the sky is doing (see the override below)
       const az=rnd()*Math.PI*2; pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)
@@ -5101,16 +5210,18 @@ function spawnTarget(opts){
   tg._chipT=0;   // MULTI-HIT TANK: per-chip shell scale-punch flash timer (only used when hpMax>1)
   tg.starId=starId;   // STAR-BOUND SPAWNS: the star this Echo called from, or null — which is every orb in the trainer, every orb with the parcel off, and every orb the sky had no risen bearing for. Assigned here, with the other per-spawn resets, so a pooled record can never carry a stale bearing home
   tg.fill16=-1; tg.fig=null; tg.lifeBeatsEff=0;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base, figure or stretched life); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for. lifeBeatsEff 0 = "my life is the standard rhythmLifeBeats", which is every orb that is not the fill (and, with the kill-switch off, every orb there will ever be) — orbRed's ink law reads it
+  if(CFG.deal.on && _deal.quickLifeMul!==1) tg.lifeBeatsEff=CFG.rhythmLifeBeats*_deal.quickLifeMul;   // THE QUICK ONES WAKE: a brisker field is a brisker CLOCK too — the trail's white→red→white ink law reads lifeBeatsEff, so latching the dealt life here keeps that timing cue honest instead of colouring against a life this orb does not have. Written AFTER the reset above and BEFORE the fill's own stretch below, which outranks it on the one orb that is a figure
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
   tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
-  if(_specialLive){ const kr=rnd(); const g=CFG.goldChanceFP, sp=g+CFG.speedChance, mv=sp+CFG.moverChance; kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
+  if(_specialLive){ const kr=rnd(); const dl=CFG.deal.on;   // THE SKY DEALS THE NIGHT tilts the MIX and nothing else: the phase rule and every risen planet move these three thresholds, the SAME single draw decides the kind, and a planet can therefore never become a second rule. Raw boolean first — an off night reads the three base chances verbatim
+    const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0)); }   // gold + speed (3) + mover (4)
   tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
   let hp=1;   // MULTI-HIT TANK (kind 0, free-play): a plain orb can roll 2-3 hp — hit it on that many consecutive BEATS to pop it
   if(CFG.tank.fillOnly && CFG.tide.on){   // THE TANK IS A DRUM FILL: no random roll at all — the swell's fill bar already elected this orb, or nothing here is a tank
     const pend=_fillPend16; _fillPend16=-1;   // consume the handoff WHATEVER happens below, so a rejected (or dropped) election can never leak onto a later orb
     const off=pend>=0?fillOff16(pend):0;     // …and re-validate it against the heard clock: within a bar of that downbeat, or the election is stale (a dropped Draw, a pause) and is simply dropped. The lower bound is generous because a large audio offset at a fast tempo legitimately reads a few sixteenths early; a stale election is a whole minGap (10+ sixteenths) late, so the two never overlap
-    if(pend>=0 && off>-8 && off<8 && CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm){
+    if(pend>=0 && off>-8 && off<8 && CFG.multiHit && _specialLive && kind===0 && (state.bpm<=CFG.tank.maxBpm || (CFG.deal.on&&_deal.tankAny))){   // THE SKY DEALS THE NIGHT: a FULL MOON (the generous night) or a risen SATURN (the heavy one) keeps the tank eligible at any tempo — an effective value on the constant this gate already reads, exactly as the concurrency cap is, and never a rule of its own. Raw boolean first, and the base cap is tested first so an off night short-circuits before any _deal read
       const fg=rnd()<0.5?CFG.tank.fig3:CFG.tank.fig2;   // the SAME single draw today's tank takes to pick 3-vs-2 hits; here the figure's LENGTH is the hit count
       if(fg && fg.length>=2){ hp=fg.length; tg.fig=fg; tg.fill16=pend; }
     }
@@ -5122,7 +5233,7 @@ function spawnTarget(opts){
   if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);
     tg.expireAt=state.t+lifeF; tg.lifeBeatsEff=lifeF/spbF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves. lifeBeatsEff latches that stretched life in BEATS so the white→red→white ink law (orbRed) runs on the life this orb actually has: the trail is a clock, and a clock that says "fresh" through the four beats you can still play the figure in was lying
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
-    if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller
+    if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller. THE FAR ONES CALL reaches gold through `dist` — the band it was drawn from already moved out — and deliberately NOT a second time here: goldDistMul on top of a farMul'd band would compound to ~1.8× and put the Ancient past the arc's reach, which is an unkillable orb, not a long lead
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
     else if(kind===4){ tg.vel.multiplyScalar(CFG.moverVelMul); }                                               // mover: faster, more erratic drift
   }
@@ -5751,159 +5862,159 @@ function drawWasdLane(){
   hudCtx.globalAlpha=1;
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
-const FLOCK={ max:190, ghostMax:60, burstBase:8, burstAcc:0.06, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 8..14; rainbow flock once the bonus combo is this hot
-  spawnDist:2.6, riseY:0.6, minY:EYE+0.6, cone:0.42, speed:[3.6,6.2], up:[0.8,1.8], // SKY-SIDE INVARIANT: keep every star ABOVE EYE LEVEL. A world point with y > camera.y always projects above the horizon line (any pitch), and above the horizon there is only sky — so a star can NEVER be drawn against the floor, and the ground read can't be corrupted. This is the actual fix for "stars under the floor": they were never below y=0 (old pads 0.55→1.6 chased a position bug that didn't exist). The real cause is that these are additive + depthWrite:false + fog:false = zero depth cues, so a bright near blob over the far fogged floor reads as sitting IN the ground. Keeping them sky-side removes the confusion entirely. minY is eye+0.6 so even a star pinned at the pad clears the horizon: its max world radius is 0.33 (geom radius 0.3165 x max scale 1.037) and camera shake lifts the eye by at most CFG.shakePos=0.14 -> lowest tip 4.27 > highest eye 4.14. If you ever raise base/shakePos, re-check that margin.
-  swirl:0.85, dragPerSec:0.55, grav:0.35, bob:3.2, jitter:0.06,                      // softer grav so they don't dive; lighter jitter
-  burst:[0.38,0.58], orbitFwd:8.0, orbitRise:2.4, orbitRadius:[2.2,3.6], orbitSpeed:3.4, orbitPull:1.5, orbitSteer:2.8, centerEase:0.28,   // HORIZONTAL RING (not a 3D sphere) — smaller radius + higher floor-relative center; old orbitRadius 5.2 + 3D spring could pull birds under y=0
-  orbitBob:0.55,                                                                      // soft vertical bob around the ring height (not full radial Y pull)
-  life:[4.0,5.6], spin:[1.6,5.0], base:[0.45,0.72],
-  trailEvery:0.07, ghostShrinkPerSec:0.52, branchRate:0.22, gold:0xfff6c8,   // trails SHRINK (real comet tails thin out; old ghostGrowPerSec:1.9 bloomed into white blobs)
-  densFade:0.72, densMin:0.30,                                               // dens: hot-combo opacity duck so additive stars don't stack to white. (moodMix removed — pure WASD colors stay pure)
-  rainbow:[0xff4d4d,0xff9a3d,0xffd84a,0x5be86b,0x43d9ff,0x6aa8ff,0xc06bff] };
-if(LOW){ FLOCK.max=40; FLOCK.ghostMax=12; FLOCK.burstBase=4; }   // LOW: a combo burst could push ~250 individual additive draw calls exactly when the screen is busiest — thin it hard; fewer, chunkier stars still pop
-const _flockGeo=(()=>{ const a=new THREE.BoxGeometry(0.62,0.09,0.09), b=new THREE.BoxGeometry(0.09,0.62,0.09);   // two merged crossed bars = a little 4-point star, like Formula Defense
-  const pa=a.attributes.position.array, pb=b.attributes.position.array, ia=a.index.array, ib=b.index.array;
-  const pos=new Float32Array(pa.length+pb.length); pos.set(pa,0); pos.set(pb,pa.length);
-  const idx=new Uint16Array(ia.length+ib.length); idx.set(ia,0); const off=pa.length/3;
-  for(let i=0;i<ib.length;i++) idx[ia.length+i]=ib[i]+off;
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1)); g.computeVertexNormals(); a.dispose(); b.dispose(); return g; })();
-const _flock=[], _flockPool=[], _flockGhosts=[], _flockGhostPool=[];   // live + recycled pools; meshes are reused for the session, never disposed mid-play
-const _FUP=new THREE.Vector3(0,1,0), _fFwd=new THREE.Vector3(), _fRight=new THREE.Vector3(), _fUp=new THREE.Vector3(), _fOrig=new THREE.Vector3(), _fDir=new THREE.Vector3(), _flockCenter=new THREE.Vector3(), _fToC=new THREE.Vector3(), _fTan=new THREE.Vector3();
-let _flockHasCenter=false, _flockSpin=1;   // shared orbit anchor: successive bursts pool into ONE swarm circling _flockCenter (direction _flockSpin) until it fully dissolves, then the next burst starts fresh
-function _flockMat(){ return new THREE.MeshBasicMaterial({transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:true, fog:true}); }   // fog:true = same atmosphere as the rest of the world (was the lone world object exempt; sky-side placement keeps them off the floor so fog no longer reads as "sinking into ground")
-function _flockMinY(p){ if(p.y < FLOCK.minY) p.y=FLOCK.minY; }   // sky-side pad — DO NOT lower (Claude's horizon invariant; leave the floor alone)
-function _flockDens(){ return Math.max(FLOCK.densMin, 1 - (_flock.length/Math.max(1,FLOCK.max))*FLOCK.densFade); }   // more live stars → each one quieter (additive stack control)
-function _acquireBird(){ const b=_flockPool.pop(); if(b){ b.mesh.visible=true; b.mesh.material.fog=true; return b; }
-  const m=new THREE.Mesh(_flockGeo,_flockMat()); m.renderOrder=2; scene.add(m); return {mesh:m, vel:new THREE.Vector3(), age:0, life:1, swirl:0, twk:0, spin:0, base:0.4, col:0xffffff, tt:0, depth:0, branched:false, burst:0.5, orbR:2}; }
-function _recycleBird(b){ b.mesh.visible=false; _flockPool.push(b); }
-function _acquireGhost(){ const g=_flockGhostPool.pop(); if(g){ g.mesh.visible=true; g.mesh.material.fog=true; return g; }
-  const m=new THREE.Mesh(_flockGeo,_flockMat()); m.renderOrder=1; scene.add(m); return {mesh:m, age:0, life:0.5, spin:0}; }
-function _birthBird(col, base, life, vel, swirl, depth){
-  if(_flock.length>=FLOCK.max) _recycleBird(_flock.shift());   // cap: retire the oldest (only reached from spawnFlock, BEFORE the update loop → never mutates the live loop)
-  const b=_acquireBird(), mt=b.mesh.material; mt.color.setHex(col); mt.opacity=1;
-  b.mesh.position.copy(_fOrig); _flockMinY(b.mesh.position);
-  b.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); b.mesh.scale.setScalar(base*0.4);
-  b.vel.copy(vel); if(b.vel.y<0.2) b.vel.y=0.2+Math.random()*0.4;   // never birth diving below the sky-side pad
-  b.age=0; b.life=life; b.swirl=swirl; b.twk=Math.random()*6.283;
-  b.spin=(FLOCK.spin[0]+Math.random()*(FLOCK.spin[1]-FLOCK.spin[0]))*(Math.random()<0.5?-1:1);
-  b.base=base; b.col=col; b.tt=0; b.depth=depth; b.branched=false;
-  b.burst=FLOCK.burst[0]+Math.random()*(FLOCK.burst[1]-FLOCK.burst[0]); b.orbR=FLOCK.orbitRadius[0]+Math.random()*(FLOCK.orbitRadius[1]-FLOCK.orbitRadius[0]); _flock.push(b); }
-function _dropGhost(pos, col, scl){ if(_flockGhosts.length>=FLOCK.ghostMax) return;
-  const g=_acquireGhost(), mt=g.mesh.material; mt.color.setHex(col); mt.opacity=0.26;
-  g.mesh.position.copy(pos); _flockMinY(g.mesh.position);
-  g.mesh.rotation.set(Math.random()*6.283,Math.random()*6.283,Math.random()*6.283); g.mesh.scale.setScalar(scl);
-  g.age=0; g.life=0.5; g.spin=(Math.random()-0.5)*3; _flockGhosts.push(g); }
-function spawnFlock(key, acc, rainbow){
-  if(reduceMotion) return;
-  // HORIZONTAL-ONLY placement; origin stays sky-side of the horizon (minY / riseY — leave those alone).
-  camera.getWorldDirection(_fFwd);
-  _fTan.set(_fFwd.x,0,_fFwd.z); let fl=_fTan.length();
-  if(fl < 0.08){ _fTan.set(-Math.sin(yaw), 0, -Math.cos(yaw)); fl=1; }   // nearly straight up/down → fall back to look-yaw so the burst still has a stable downrange
-  else _fTan.multiplyScalar(1/fl);
-  _fRight.crossVectors(_fTan,_FUP).normalize();
-  const y0=Math.max(FLOCK.minY, camera.position.y + FLOCK.riseY);   // burst ORIGIN sits just ABOVE the eye → the whole flock lives sky-side of the horizon (see minY)
-  _fOrig.set(camera.position.x + _fTan.x*FLOCK.spawnDist, y0, camera.position.z + _fTan.z*FLOCK.spawnDist);
-  _fToC.copy(_fOrig).addScaledVector(_fTan,FLOCK.orbitFwd); _fToC.y = Math.max(FLOCK.minY + 2.4, y0 + FLOCK.orbitRise);
-  if(_flockHasCenter){ _flockCenter.lerp(_fToC, FLOCK.centerEase); if(_flockCenter.y < FLOCK.minY+2.4) _flockCenter.y=FLOCK.minY+2.4; }
-  else { _flockCenter.copy(_fToC); _flockSpin=Math.random()<0.5?1:-1; _flockHasCenter=true; }
-  const n=Math.min(FLOCK.max, Math.round(FLOCK.burstBase+acc*FLOCK.burstAcc));
-  for(let i=0;i<n;i++){
-    const az=Math.random()*6.283, r=Math.random()*FLOCK.cone;
-    _fDir.copy(_fTan).addScaledVector(_fRight,Math.cos(az)*r).addScaledVector(_FUP,Math.sin(az)*r*0.55).normalize()
-      .multiplyScalar(FLOCK.speed[0]+Math.random()*(FLOCK.speed[1]-FLOCK.speed[0])).addScaledVector(_FUP,FLOCK.up[0]+Math.random()*(FLOCK.up[1]-FLOCK.up[0]));
-    // pure WASD/key (or gold) colours — no theme mood wash (that dulled the palette)
-    const col=rainbow?FLOCK.rainbow[i%FLOCK.rainbow.length]:(acc>=100&&i%3===0?FLOCK.gold:WASD_HEX[key]);
-    _birthBird(col, FLOCK.base[0]+Math.random()*(FLOCK.base[1]-FLOCK.base[0]), FLOCK.life[0]+Math.random()*(FLOCK.life[1]-FLOCK.life[0]), _fDir, (Math.random()-0.5)*2*FLOCK.swirl, 0);
-  }
-}
-function resetFlock(){ for(const b of _flock) _recycleBird(b); _flock.length=0; for(const g of _flockGhosts){ g.mesh.visible=false; _flockGhostPool.push(g); } _flockGhosts.length=0; _flockHasCenter=false; _sparkPend=null; }
-function updateFlock(dt){
-  if(_sparkPend){ spawnFlock(_sparkPend.key,_sparkPend.acc,!!_sparkPend.rainbow); _sparkPend=null; }
-  if(_flock.length===0 && _flockGhosts.length===0) return;
-  const drag=Math.pow(FLOCK.dragPerSec,dt), sdt=Math.sqrt(dt), tempo=Math.max(20,state.bpm)/60, twoPi=6.283, dens=_flockDens();
-  if(_flockHasCenter && _flockCenter.y < FLOCK.minY+2.4) _flockCenter.y=FLOCK.minY+2.4;
-  for(let i=_flock.length-1;i>=0;i--){ const b=_flock[i]; b.age+=dt; const t=b.age/b.life;
-    if(t>=1){ _recycleBird(b); _flock.splice(i,1); continue; }
-    if(b.age<b.burst){                                                                    // PHASE 1 — burst OUT
-      b.vel.applyAxisAngle(_FUP, b.swirl*dt);
-      b.vel.y += Math.sin(b.age*FLOCK.bob+b.twk)*FLOCK.bob*0.10*dt - FLOCK.grav*dt;
-      b.vel.multiplyScalar(drag);
-    } else {                                                                              // PHASE 2 — HORIZONTAL ring around _flockCenter
-      _fToC.set(_flockCenter.x - b.mesh.position.x, 0, _flockCenter.z - b.mesh.position.z);
-      const d=_fToC.length()||1e-3; _fToC.multiplyScalar(1/d);
-      _fTan.set(-_fToC.z, 0, _fToC.x);
-      const targetY=_flockCenter.y + Math.sin(b.age*FLOCK.bob*0.5+b.twk)*FLOCK.orbitBob;
-      _fDir.copy(_fTan).multiplyScalar(FLOCK.orbitSpeed*_flockSpin).addScaledVector(_fToC,(d-b.orbR)*FLOCK.orbitPull);
-      _fDir.y = (targetY - b.mesh.position.y)*FLOCK.orbitPull*0.85;
-      b.vel.lerp(_fDir, Math.min(1, FLOCK.orbitSteer*dt));
-    }
-    b.vel.x += (Math.random()-0.5)*FLOCK.jitter*sdt; b.vel.z += (Math.random()-0.5)*FLOCK.jitter*sdt;
-    b.mesh.position.addScaledVector(b.vel,dt);
-    if(b.mesh.position.y < FLOCK.minY){ b.mesh.position.y=FLOCK.minY; if(b.vel.y<0) b.vel.y=Math.abs(b.vel.y)*0.35+0.15; }
-    b.tt+=dt; if(b.tt>=FLOCK.trailEvery && t<0.72){ b.tt=0; _dropGhost(b.mesh.position,b.col,b.mesh.scale.x*0.72); }
-    if(!b.branched && b.depth<2 && _flock.length<FLOCK.max && t>0.15 && t<0.6 && Math.random()<FLOCK.branchRate*dt){
-      b.branched=true; _fOrig.copy(b.mesh.position); _flockMinY(_fOrig);
-      _birthBird(b.col, b.base*0.8, b.life*(1-t)*0.9, _fDir.copy(b.vel).applyAxisAngle(_FUP,(Math.random()-0.5)*1.1), b.swirl*(Math.random()<0.5?1.2:-1.2), b.depth+1);
-    }
-    const twk=0.66+0.34*Math.sin(state.t*tempo*twoPi+b.twk), bloom=Math.min(1,b.age/0.14);
-    b.mesh.material.opacity=Math.max(0,(1-t)*twk*dens);   // dens: duck opacity when the sky is crowded (stops additive white-out)
-    b.mesh.scale.setScalar(b.base*(0.5+bloom*0.7)*(0.8+0.4*(1-t))*(0.85+0.15*twk));
-    b.mesh.rotation.z += b.spin*dt;
-  }
-  if(_flock.length===0) _flockHasCenter=false;
-  const gShrink=Math.pow(FLOCK.ghostShrinkPerSec,dt);   // <1 → trails taper like real comet tails
-  for(let i=_flockGhosts.length-1;i>=0;i--){ const g=_flockGhosts[i]; g.age+=dt; const gt=g.age/g.life;
-    if(gt>=1){ g.mesh.visible=false; _flockGhostPool.push(g); _flockGhosts.splice(i,1); continue; }
-    _flockMinY(g.mesh.position);
-    g.mesh.scale.multiplyScalar(gShrink); g.mesh.rotation.x+=g.spin*dt; g.mesh.rotation.y+=g.spin*0.6*dt;
-    g.mesh.material.opacity=Math.max(0,0.26*(1-gt)*dens);
-  }
-}
-/* ---- WASD floor beat-tint: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer. ---- */
-const _floorBeatCol=new THREE.Color();
-function updateFloorBeat(){
-  let amt=0;
-  const floorCueOn=!templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'
-    && (!reduceMotion || trainMode);   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off)
-  if(floorCueOn){
-    let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
-    const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
-    beats-=cueI;
-    const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]), nd=Math.max(1,spb/2);
-    // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
-    const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length, ckey=_combo[(((biKey*nd)%len)+len)%len];
-    const bi=Math.round(beats), off=Math.abs(beats-bi);
-    const maxAmt=CFG.floorBeatMax;
-    if(trainMode && reduceMotion) amt=off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
-    else { const env=Math.max(0,1-off*2); amt=maxAmt*env*env; }
-    _floorBeatCol.setHex(WASD_HEX[ckey]);
-  }
-  const fsh=dayFloor&&dayFloor.material.userData.sh;
-  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
-  const gsh=nightGrid&&nightGrid.material.userData.shBeat;
-  if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
-}
-let _fireHot=false;
-function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens on the beat. That "LAUNCH now" cue rewarded pulling the trigger ON the beat — the exact instinct that fights landing the shot on the beat. Now the ORB GLOW is the sole "land it here now" cue (the beat pulse + audio carry the anticipation); the player LEADS the release and guesses the flight time. To bring the crosshair cue back as a PREDICTIVE "release now → land on beat" light, gate `hot` on a flight-time lookahead instead of `_openAmt>0`.
-  const hot = false;
-  if(hot!==_fireHot){ _fireHot=hot; if(el.reticle) el.reticle.classList.toggle('fire',hot); }
-}
-/* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
-const landRingPool=[];
-function spawnLandRing(x,z){
-  let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
-  if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
-  lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
-}
-function updateLandRings(dt){
-  for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
-    if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
-    const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
-}
+                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                      
+                                                                                                                                                                                                                                                                                           
+                                                                                                                                                          
+                                                   
+                                                                                                                                                                           
+                                                                                                                                                                                                   
+                                                                             
+                                                                                                                                                                                                                        
+                                                                                                                                                                                         
+                                                                                                           
+                                                                                        
+                                                                                       
+                                                          
+                                                                                                                                                                                                                    
+                                                                                                                                                           
+                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                   
+                                                                                                                                                                                   
+                                                                                                                    
+                                                                                                                                                                                                                                            
+                                                                     
+                                                                                                                          
+                                                                                                                           
+                                                        
+                                                                                                                                                                             
+                                                                                 
+                                                            
+                                                                                                                     
+                                                                                                                
+                                                                 
+                                                                                              
+                                                                  
+                                                                                                                                                                                
+                                                                                   
+                                                                                     
+                                                         
+                                                                                                                
+                                                                            
+                                       
+                          
+                                                                                                        
+                                  
+                                                      
+                                                                                                                                                                     
+                                  
+                                               
+                                                                                                                                                                      
+                                                                                                           
+                                                                                                                       
+                                                                                                                                       
+                                                                                             
+                                                                              
+                       
+                                                             
+                                                                                                                   
+                                                                                                                                                              
+                                                                                     
+                                                                                                         
+                                                                                                                                                                                       
+   
+ 
+                                                                                                                                                                                                                               
+                         
+                                                                                                    
+                                                          
+                                                                                                                               
+                                                                                       
+                                                                                          
+                                                              
+                                                                                                                
+                                             
+                                                                                   
+                                 
+                                                                                                                                          
+                                                                                           
+                                                              
+                                      
+                                                                                        
+                                                                                                                      
+                                                                   
+                                                          
+     
+                                                                                                     
+                                              
+                                                                                                                          
+                                                                                                                    
+                                                                                                                    
+                                                                        
+                                                                                                                                                                       
+     
+                                                                                          
+                                                                                                                                  
+                                                                                   
+                                   
+   
+                                              
+                                                                                                  
+                                                                                                       
+                                                                                                   
+                                
+                                                                                                         
+                                                         
+   
+ 
+                                                                                                                                                                             
+                                      
+                           
+            
+                                                                                                                                                                 
+                                                                                                                                         
+                 
+                                                                                                             
+                                                            
+                
+                                                                                                                        
+                                                                                                          
+                                                                                                                      
+                                                       
+                                  
+                                                                                               
+                                                               
+                                         
+   
+                                                    
+                                                                                                                                                                                                                                                              
+                                                          
+                                                                                                                                                         
+ 
+                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                    
+                                                                                             
+ 
+                                                                                             
+                      
+                            
+                                                                            
+                                                                                                                                                                                                                                                                     
+                                                                                 
+ 
+                             
+                                                                                          
+                                                                 
+                                                                                       
+ 
 
-/* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
-const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
-let scopeAccum=SCOPE_STEP;
+                                                                                                                                                     
+                                                         
+                          
                                                                                                                                                                       
                                                                                                                                            
                             
@@ -7308,7 +7419,7 @@ let scopeAccum=SCOPE_STEP;
                                                    
                                                                                                                                                                                                                         
                                                                                                                                             
-                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                              
                                                          
                           
@@ -7442,7 +7553,9 @@ let scopeAccum=SCOPE_STEP;
                      
                                                                                     
                                                                                                  
+                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                    
                                                             
                      
