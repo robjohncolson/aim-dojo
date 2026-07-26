@@ -308,6 +308,185 @@ test("THE MEANING: the wake's verdict is already final when a band leaves the no
   assert.match(html, /_roadWake\[\(\(n%ROAD_WAKE\)\+ROAD_WAKE\)%ROAD_WAKE\] = judged \? \(_roadHitBeat===n \? 1 : 2\) : 0;/, "landed = the lane's own _hitNote, reduced to its main beat");
 });
 
+// ---------------------------------------------------------------------------------------------------------------------
+// THE PLAYABILITY EPOCH (SPEC_STAR_ROAD v1.2 amendment - THE WAKE RECORDS ONLY JUDGED BEATS).
+// A beat gets a hit/miss verdict IFF the lane was live and judging when THAT BEAT passed; everything else is NEUTRAL (0).
+// ---------------------------------------------------------------------------------------------------------------------
+
+const ROAD_JUDGE_BOUNDS = (() => {
+  const found = /const ROAD_JUDGE_IN=([\d.]+), ROAD_JUDGE_OUT=([\d.]+);/.exec(html);
+  assert.ok(found, "the epoch's window boundaries are declared as flat named constants");
+  return { in: Number(found[1]), out: Number(found[2]) };
+})();
+
+function loadWakeSandbox() {
+  // The wake ring, the epoch pair and the four functions that move them - lifted verbatim out of index.html, so this
+  // sandbox can never drift from the shipped code. ROAD_WAKE is pinned at its shipped 14 (it only sizes the ring).
+  const context = vm.createContext({ Math, Number, Uint8Array, console });
+  const prelude = `
+    var ROAD_WAKE = 14;
+    var ROAD_JUDGE_IN = ${ROAD_JUDGE_BOUNDS.in}, ROAD_JUDGE_OUT = ${ROAD_JUDGE_BOUNDS.out};
+    var CFG = { wasdRhythm: true };
+    var BOW = { IDLE: 0, GRACE: 1, LAST: 2, RIT: 3, HOLD: 4 };
+    var _bow = { stage: 0 };
+    var state = { running: false };
+    var toneReady = true, templeActive = false, trainMode = false, bonusActive = false;
+    var _roadWake = new Uint8Array(ROAD_WAKE);
+    var _roadWakeTo = -1e9, _roadWakeFrom = 1e9, _roadHitBeat = -1e9, _roadBeat0 = NaN, _roadLastR = -1e9;
+    var _roadJudged = false, _roadEpoch = Infinity, _roadEpochEnd = Infinity;
+  `;
+  const source = ["roadJudging", "roadJudgeStamp", "roadWakeReset", "roadWakeAt", "roadWakeWrite"]
+    .map((name) => extractFunction(name))
+    .join("\n");
+  vm.runInContext(prelude + source, context);
+  context.read = (expression) => vm.runInContext(expression, context);
+  context.write = (statement) => vm.runInContext(statement, context);
+  // ONE FRAME OF roadSync, in its shipped order: the not-live early return stamps at the last beat the road saw, and the
+  // live path resets on a backwards clock, stamps, then backfills every band that left the now-line. The regexes below
+  // pin that this driver still IS roadSync; if the shipped order moves, this test fails instead of quietly lying.
+  context.frame = (r, live) => vm.runInContext(`(function(){
+    if(!${live}){ roadJudgeStamp(_roadLastR); return; }
+    if(${r} < _roadLastR - 0.5) roadWakeReset();
+    _roadLastR = ${r};
+    roadJudgeStamp(${r});
+    var n0 = Math.floor(${r});
+    if(n0 !== _roadBeat0){
+      if(Number.isFinite(_roadBeat0)) for(var n = Math.max(_roadBeat0, n0 - ROAD_WAKE); n < n0; n++) roadWakeWrite(n);
+      _roadBeat0 = n0;
+    }
+  })();`, context);
+  return context;
+}
+
+test("THE PLAYABILITY EPOCH: the driver above is roadSync's own order (v1.2)", () => {
+  assert.match(html, /if\(!live\)\{ roadJudgeStamp\(_roadLastR\); return; \}/, "not-live shuts the window at the last beat the road saw");
+  assert.match(html, /if\(r<_roadLastR-0\.5\) roadWakeReset\(\);/, "a backwards clock still empties the ring first");
+  assert.match(html, /_roadLastR=r;\s*\n\s*roadJudgeStamp\(r\);/, "…then the stamp, BEFORE any write");
+  assert.match(html, /if\(Number\.isFinite\(_roadBeat0\)\) for\(let n=Math\.max\(_roadBeat0, n0-ROAD_WAKE\); n<n0; n\+\+\) roadWakeWrite\(n\);/, "…then the catch-up backfill");
+  // The verdict is the BEAT'S OWN playability, never the write moment's - that conflation was the whole root cause.
+  assert.match(html, /const judged=\(n>=_roadEpoch && n<_roadEpochEnd\);/, "roadWakeWrite consults the epoch window");
+  const write = extractFunction("roadWakeWrite");
+  assert.doesNotMatch(write, /trainMode|templeActive|state\.running|_bow\.|bonusActive/, "…and reads no write-moment state at all");
+  // Zero per-frame allocations: the ordinary frame is one boolean compare and a return.
+  const stamp = extractFunction("roadJudgeStamp");
+  assert.doesNotMatch(stamp, /new |\[\]|\{\}|push\(/, "the stamp allocates nothing");
+  assert.match(stamp, /const j=roadJudging\(\); if\(j===_roadJudged\) return;/, "…and leaves on the first compare when nothing changed");
+  assert.match(html, /function roadWakeReset\(\)\{[^\n]*_roadJudged=false; _roadEpoch=Infinity; _roadEpochEnd=Infinity; \}/, "a new run forgets the epoch with the ring");
+});
+
+test("THE PLAYABILITY EPOCH: roadJudging names every state that rejects lane input (v1.2)", () => {
+  const context = loadWakeSandbox();
+  context.write("state.running = true;");
+  assert.equal(context.read("roadJudging()"), true, "a live post-graduation run is judging");
+  // Every guard wasdLanePress takes before it will claim a note, plus the trainer the road is gated out of.
+  for (const [statement, why] of [
+    ["state.running = false", "a pause"],
+    ["toneReady = false", "no audio clock"],
+    ["templeActive = true", "the Temple"],
+    ["trainMode = true", "the trainer"],
+    ["bonusActive = true", "the rail-flick bonus (a tap is a LOCK, not a claim)"],
+    ["_bow.stage = BOW.LAST", "the Bow from Last Light"],
+    ["_bow.stage = BOW.RIT", "the Bow's ritardando"],
+    ["_bow.stage = BOW.HOLD", "the Bow's Mandala"],
+    ["CFG.wasdRhythm = false", "the lane's own kill-switch"],
+  ]) {
+    const probe = loadWakeSandbox();
+    probe.write("state.running = true;");
+    probe.write(`${statement};`);
+    assert.equal(probe.read("roadJudging()"), false, `${why} is not judging`);
+  }
+  // GRACE is deliberately NOT in the predicate: it still accepts input, so a grace-cancel is a no-op, not a re-open.
+  const grace = loadWakeSandbox();
+  grace.write("state.running = true; _bow.stage = BOW.GRACE;");
+  assert.equal(grace.read("roadJudging()"), true, "the Bow's grace window is still play");
+  assert.match(html, /_bow\.stage<BOW\.LAST/, "the predicate opens the door exactly where wasdLanePress closes it");
+  assert.match(html, /if\(_bow\.stage>=BOW\.LAST\) return;\s+\/\/ the ceremony owns the field from Last Light on/, "…which is the lane's own guard");
+});
+
+test("THE PLAYABILITY EPOCH W1: the trainer's beats come back NEUTRAL, not as post-graduation misses (v1.2)", () => {
+  const context = loadWakeSandbox();
+  // 1. The gate screen. The road is live (no trainer, no Temple) but nothing is running, so nothing is judged.
+  context.frame(0, true);
+  assert.equal(context.read("_roadJudged"), false, "the menu judges nothing");
+  assert.equal(context.read("_roadBeat0"), 0, "…but the road has already latched a beat, which is what W1 fed on");
+  // 2. Fourteen beats of lesson. roadLive() is false for the whole trainer, so roadSync never reaches a write.
+  context.write("state.running = true; trainMode = true;");
+  for (let r = 0.5; r < 14.4; r += 0.5) context.frame(r, false);
+  assert.equal(context.read("_roadBeat0"), 0, "the trainer left the road's beat exactly where the menu did");
+  // 3. GRADUATION mid-beat 14 (setTrainPhase(3) clears trainMode; the very next frame is live and catches up).
+  context.write("trainMode = false;");
+  context.frame(14.3, true);
+  assert.equal(context.read("_roadEpoch"), 15, "the epoch stamps at ceil(14.3 - 0.1): beat 14's claim window was already open");
+  for (let n = 0; n <= 13; n += 1) assert.equal(context.read(`roadWakeAt(${n})`), 0, `lesson beat ${n} is NEUTRAL road, not a miss`);
+  // 4. Beat 14 straddled the graduation: it was never wholly yours to play, so it stays neutral too.
+  context.frame(15.0, true);
+  assert.equal(context.read("roadWakeAt(14)"), 0, "the graduation beat itself is NEUTRAL");
+  // 5. The FIRST fully post-graduation beat is judged - landed…
+  context.write("_roadHitBeat = 15;");
+  context.frame(16.0, true);
+  assert.equal(context.read("roadWakeAt(15)"), 1, "beat 15 is the first judged beat and it landed");
+  // …and a real miss right after it is still a real miss.
+  context.write("_roadHitBeat = -1e9;");
+  context.frame(17.0, true);
+  assert.equal(context.read("roadWakeAt(16)"), 2, "a beat you were offered and dropped still goes dark");
+});
+
+test("THE PLAYABILITY EPOCH W2: the Bow's ceremony is NEUTRAL and the run's real wake survives to the card (v1.2)", () => {
+  const context = loadWakeSandbox();
+  context.write("state.running = true;");
+  context.frame(200.0, true);
+  assert.equal(context.read("_roadEpoch"), 200, "judging opens at ceil(200.0 - 0.1)");
+  // Two real verdicts, earned: beat 200 landed, beat 201 was dropped.
+  context.write("_roadHitBeat = 200;");
+  context.frame(201.0, true);
+  context.write("_roadHitBeat = -1e9;");
+  context.frame(202.0, true);
+  assert.equal(context.read("roadWakeAt(200)"), 1);
+  assert.equal(context.read("roadWakeAt(201)"), 2);
+  // The Bow COMMITS -> GRACE. Input is still accepted here, so nothing about the wake moves…
+  context.write("_bow.stage = BOW.GRACE;");
+  context.frame(202.4, true);
+  assert.equal(context.read("_roadJudged"), true, "grace is still play");
+  assert.equal(context.read("_roadEpochEnd"), Infinity, "…so the window never closed");
+  // …and a GRACE-CANCEL (bowTouch) resumes play seamlessly: not one stamp, because the predicate never flipped.
+  context.write("_bow.stage = BOW.IDLE;");
+  context.frame(202.8, true);
+  assert.equal(context.read("_roadEpoch"), 200, "the epoch is untouched by a cancelled Bow");
+  assert.equal(context.read("_roadEpochEnd"), Infinity);
+  // The real thing: bowEnterLast at r = 203.6. Input rejection begins, the Transport keeps advancing.
+  context.write("_bow.stage = BOW.LAST; _roadHitBeat = 202;");
+  context.frame(203.6, true);
+  assert.equal(context.read("_roadEpochEnd"), 203, "the window closes at floor(203.6 - 0.9) + 1");
+  assert.equal(context.read("roadWakeAt(202)"), 1, "beat 202's window shut BEFORE the commit, so its verdict stands");
+  // Every ceremony beat from here is neutral - the road behind you reads as unplayed, never as a wall of misses.
+  context.write("_roadHitBeat = -1e9;");
+  for (const r of [204.0, 205.0, 206.0]) context.frame(r, true);
+  for (const n of [203, 204, 205]) assert.equal(context.read(`roadWakeAt(${n})`), 0, `ceremony beat ${n} is NEUTRAL`);
+  assert.equal(context.read("roadWakeAt(200)"), 1, "and the run's real wake is still there when the Night Card is taken");
+  assert.equal(context.read("roadWakeAt(201)"), 2);
+});
+
+test("THE PLAYABILITY EPOCH: the window's edges are the lane's OWN claim window (v1.2)", () => {
+  // Beat n's note sits at R = n + 0.5 and stays claimable for w = 0.4 note-intervals either side (the dead-zone proof
+  // above), so beat n is playable exactly over R in [n + 0.1, n + 0.9]. The epoch's arithmetic is that interval, nothing
+  // tuned: judging opening at r admits beats from ceil(r - 0.1); closing at r keeps beats below floor(r - 0.9) + 1.
+  assert.equal(ROAD_JUDGE_BOUNDS.in, 0.1);
+  assert.equal(ROAD_JUDGE_BOUNDS.out, 0.9);
+  const open = (r) => Math.ceil(r - ROAD_JUDGE_BOUNDS.in);
+  const end = (r) => Math.floor(r - ROAD_JUDGE_BOUNDS.out) + 1;
+  assert.equal(open(100.0), 100, "opening exactly on a band edge admits that band");
+  assert.equal(open(100.1), 100, "…and so does opening at the instant its window opens");
+  assert.equal(open(100.4), 101, "opening mid-window forfeits that band");
+  assert.equal(end(100.9), 101, "closing at the instant a window shuts keeps that band");
+  assert.equal(end(100.95), 101, "…and so does closing just after");
+  assert.equal(end(100.5), 100, "closing mid-window forfeits that band");
+  // The two edges agree: a window that opens and shuts at the same instant judges nothing.
+  for (let r = 100; r < 101; r += 0.05) assert.ok(end(r) <= open(r), `no beat is judged by a zero-length window at ${r.toFixed(2)}`);
+  // reduceMotion is untouched by any of this: the wake is static history on both paths.
+  const sync = extractFunction("roadSync");
+  assert.ok(sync.indexOf("roadJudgeStamp(r);") < sync.indexOf("U.uPulse.value="), "the stamp runs before the still-road path pulses and returns");
+});
+
 test("THE MEANING: road.on:false restores the noise dolly and the whole parcel goes quiet (S)", () => {
   // Raw-boolean-first at every site. roadLive() reads CFG.road.on before anything else, so with the road off the dolly
   // takes the shipped branch on the shipped arguments, the bank is identically 0, and no texture/uniform/call exists.

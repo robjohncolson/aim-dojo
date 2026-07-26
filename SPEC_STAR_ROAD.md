@@ -1,6 +1,6 @@
 ﻿# The Star Road â€” Season 2, Wave 7 (the floor becomes the timeline)
 
-**Version:** 1.0 Â· 2026-07-26
+**Version:** 1.2 Â· 2026-07-26 (1.2 = the wave-7 round-1 fix round: THE PLAYABILITY EPOCH, Â§3 below)
 **Branch:** `redesign/moon-chorus`
 **Files touched:** `index.html` (+ regenerated mirror parts per commit). No assets (the road is a shader, like the sky), no server.
 **Origin:** user design directive 2026-07-26: reshape the ground into a sky road â€” Mario Kart star-road flavored â€” whose colors are the COMING BEATS flowing toward the player: "by the time the color reaches the bottom of the screen is when to click the beatâ€¦ and this sets up the stage for hold-length information." Racing-game forward motion + the note-lane promoted into the world + a future notation surface, in one structure.
@@ -41,6 +41,43 @@
 3. **COURSE-DRIVEN BANKING = THE TRACKING DRILL.** When `road.on` (post-graduation), the dolly's noise wander is REPLACED by the course: camera bank (roll) and drift (yaw) follow the curvature at the now-line, applied at the existing dolly site with the existing strength/ramp laws (`dollyStrength`, skill ramp, reduceMotionâ†’off all inherited). You counter-steer the river's bends â€” and unlike the old noise, the bend is READABLE eight beats ahead on the road. Curvature intensity scales with the existing dolly skill ramp; the night seed sets the SHAPE (where it bends), skill sets how hard it leans. `road.on:false` â†’ the noise dolly returns exactly.
 4. **THE WAKE.** Behind the now-line, passed bands carry your performance: a band whose beat you landed stays lit in its lane color; a missed beat's band goes dark. The wake persists to the visible horizon (a small ring buffer of past-beat results â€” the run's recent history, not the whole session). Turning around shows you your run. reduceMotion: the wake renders identically (it's static history â€” no motion involved).
 
+#### 1.2 amendment - THE WAKE RECORDS ONLY JUDGED BEATS (a PLAYABILITY EPOCH)
+
+**Decided 2026-07-26 from the wave-7 round-1 review (two MEDIUM findings, one root cause).** Decision 4 as shipped conflated
+"no landed tap" with "MISSED": the wake's verdict was taken from the state at the moment of WRITING, so every beat the lane
+never actually judged still got a hit-or-miss byte. Two ways that lies to the player:
+
+- **W1 - the trainer graduation backfill.** `roadSync` returns early for the whole trainer (`roadLive()` is false), so the
+  first live frame after graduation catches up on the elapsed beats through `roadWakeWrite` - which re-evaluated `!trainMode`
+  at WRITE time and stamped up to `ROAD_WAKE` lesson beats as post-graduation MISSES. The full night opened with a wall of
+  dark bands behind you for beats that were a lesson.
+- **W2 - the Bow ceremony.** From `BOW.LAST` onward `fire()` and `wasdLanePress()` reject input while the Transport keeps
+  advancing, so every ceremony beat wrote MISSED and the run's real wake was scrubbed dark right before the Night Card.
+
+**The rule.** A beat gets a hit/miss verdict **iff the lane was live and judging when that beat passed**. Every other beat -
+trainer beats, Bow-ceremony beats, catch-up backfills across any inactive stretch - renders the **NEUTRAL** band (wake value
+0), indistinguishable from road that was never played. Silence about a beat you were never offered; the road never accuses.
+
+**The mechanism (one predicate, one epoch pair).** `roadJudging()` is the instantaneous truth - the lane is live and accepting
+taps - and `roadSync` stamps its TRANSITIONS into a half-open beat window `[_roadEpoch, _roadEpochEnd)`. `roadWakeWrite(n)`
+consults that window for **the beat's own** playability, never the write moment's. The window boundaries are the lane's own
+claim window, not a guess: a beat's note sits at `R = n + 0.5` and stays claimable for `w = 0.4` note-intervals either side,
+so beat `n` is playable exactly over `R in [n + 0.1, n + 0.9]`. Judging opening at `r` therefore admits beats from
+`ceil(r - 0.1)`; judging closing at `r` keeps beats below `floor(r - 0.9) + 1`. A beat whose window was cut by either edge is
+NEUTRAL - it was never wholly yours to play.
+
+`roadJudging()` must name **every** state that rejects lane input while `state.running` is true and the Transport advances:
+the trainer, the Temple, the rail-flick bonus (`bonusActive`, shipped off), and the Bow from `BOW.LAST`. The Bow's GRACE
+stage is deliberately NOT in it - grace still accepts input, so a grace-cancel is not a re-open but a no-op, and play resumes
+with the window never having closed. Pause paths self-solve: `syncTransport` pauses the Transport whenever
+`state.running && !templeActive` fails, so no beat passes to be judged, and the predicate closes and re-opens across the pause
+by the same one stamp. The Temple's composer and free-mouse are strictly temple-only states, so `!templeActive` already covers
+them.
+
+**Invariants.** Zero per-frame allocations (the stamp is one boolean compare and an early return); `reduceMotion` identical
+(the wake is static history either way); `road.on:false` untouched (`roadSync` still returns on the null mesh before any of
+this exists); no gameplay math is read or written - the epoch is a pure function of state the game already keeps.
+
 - The **now-line**: the road's under-feet crossing, latency-corrected; a thin bright rule. A band's leading edge crossing it = the beat, exact to the grading clock.
 
 ### The bands (each fact one visual channel)
@@ -62,6 +99,8 @@ road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fi
 - Zero gameplay-math diffs (the treadmill law) â€” verify by reading every hunk.
 - Temple hides the road; trainer unaffected; reduceMotion pulses in place; LOW-REZ ships a cheap path.
 - Frame cost: no new per-frame allocations; uniform updates on beat boundaries only.
+- **(1.2)** The wake never shows a verdict for a beat the lane did not judge: the trainer's beats and the Bow's ceremony beats
+  are NEUTRAL, and the run's real wake survives intact to the Night Card.
 
 ## 4. Build order & review
 

@@ -1762,14 +1762,43 @@ function roadFillGates(){
 }
 const _roadWake=new Uint8Array(ROAD_WAKE);                                // THE WAKE ring: beat n's verdict at n mod ROAD_WAKE. 0 = never judged · 1 = landed · 2 = missed
 let _roadWakeTo=-1e9, _roadWakeFrom=1e9, _roadHitBeat=-1e9, _roadBeat0=NaN, _roadLastR=-1e9;
-function roadWakeReset(){ _roadWake.fill(0); _roadWakeTo=-1e9; _roadWakeFrom=1e9; _roadHitBeat=-1e9; }
+/* THE PLAYABILITY EPOCH (v1.2 amendment — THE WAKE RECORDS ONLY JUDGED BEATS). The wake used to take its verdict from the state
+   at the moment of WRITING, which conflated "no landed tap" with "MISSED" for beats the lane never judged at all: the trainer's
+   lesson beats came back as post-graduation misses on the graduation frame's catch-up (W1), and the Bow's ceremony beats — input
+   rejected from BOW.LAST while the Transport keeps advancing — scrubbed the run's real wake dark right before the Night Card (W2).
+   The rule now: a beat gets a hit/miss verdict IFF the lane was live and judging when THAT BEAT passed; every other beat renders
+   the NEUTRAL band (0), indistinguishable from road that was never played. ONE predicate + ONE epoch pair carry it: roadJudging()
+   is the instantaneous truth, roadSync stamps its TRANSITIONS into the half-open beat window [_roadEpoch, _roadEpochEnd), and
+   roadWakeWrite asks that window about THE BEAT'S OWN playability instead of the write moment's. */
+const ROAD_JUDGE_IN=0.1, ROAD_JUDGE_OUT=0.9;                              // THE WINDOW BOUNDARIES ARE THE LANE'S OWN, not a guess: beat n's note lives at R = n+0.5 and stays claimable for w = 0.4 note-intervals either side (the block comment above proves 0.4 is the only reachable branch at every rung), so beat n is playable exactly over R ∈ [n+0.1, n+0.9]. A beat whose window either edge cut is NEUTRAL — it was never wholly yours to play
+let _roadJudged=false, _roadEpoch=Infinity, _roadEpochEnd=Infinity;       // the epoch pair, half-open in beats. Both Infinity = nothing is judged, which is exactly the pre-run / freshly-reset state
+function roadJudging(){
+  // IS THE LANE LIVE AND ACCEPTING TAPS, RIGHT NOW? Every state that rejects lane input while state.running is true and the
+  // Transport still advances has to be named here, or its beats become phantom misses. wasdLanePress's own guards, in order:
+  // !state.running / templeActive · _bow.stage>=BOW.LAST (the ceremony owns the field) · bonusActive (a tap becomes a flick
+  // LOCK, not a rhythm claim — shipped off, one boolean read) · !CFG.wasdRhythm. The trainer is added because the road is
+  // post-graduation only (roadLive), and toneReady because roadBandFill's own `lane` read demands it — with it false the
+  // Transport is not running and no beat passes anyway. NOT listed on purpose: BOW.GRACE, which still accepts input, so a
+  // grace-cancel is a NO-OP for the wake rather than a re-open. The Temple's composer and free-mouse are strictly
+  // temple-only states (setTempleFreeMouse hard-returns when !templeActive), and every pause path fails
+  // syncTransport's `state.running && !templeActive` and PAUSES the Transport, so no beat passes to be judged.
+  return !!(CFG.wasdRhythm && state.running && toneReady && !templeActive && !trainMode && !bonusActive && _bow.stage<BOW.LAST);
+}
+function roadJudgeStamp(r){
+  // ONE STAMP PER TRANSITION — the ordinary frame is one boolean compare and a return, and nothing here allocates.
+  const j=roadJudging(); if(j===_roadJudged) return;
+  _roadJudged=j;
+  if(j){ _roadEpoch=Math.ceil(r-ROAD_JUDGE_IN); _roadEpochEnd=Infinity; }   // OPEN: the first beat whose claim window had not yet opened. Catch-up beats before it (a whole trainer, a Temple visit, a pause) fall outside the window and write NEUTRAL
+  else _roadEpochEnd=Math.floor(r-ROAD_JUDGE_OUT)+1;                        // CLOSE: one past the last beat whose claim window had already shut. The beat you were mid-way through when the Bow committed is neutral, and everything before it keeps the verdict it earned
+}
+function roadWakeReset(){ _roadWake.fill(0); _roadWakeTo=-1e9; _roadWakeFrom=1e9; _roadHitBeat=-1e9; _roadJudged=false; _roadEpoch=Infinity; _roadEpochEnd=Infinity; }   // a new run empties the ring AND forgets the epoch, so the very next stamp (same frame — roadSync resets before it stamps) re-opens the window at the new clock's own beat
 function roadWakeAt(n){ return (n<_roadWakeFrom || n>_roadWakeTo) ? 0 : _roadWake[((n%ROAD_WAKE)+ROAD_WAKE)%ROAD_WAKE]; }
 function roadWakeWrite(n){
   // Band n has left the now-line and its verdict is FINAL (the 0.200-beat dead zone above). A beat counts as LANDED when the
   // lane's own _hitNote — set only by a CORRECT key on a claimed note — last pointed at THIS beat's MAIN. Reduced to a beat
   // index rather than kept as a raw note index so a wasdNoteDiv change across the 50 bpm threshold cannot mis-file history,
   // and so a bonus ghost (never a main) can never be read as the beat.
-  const judged=!!(CFG.wasdRhythm && state.running && !templeActive && !trainMode);
+  const judged=(n>=_roadEpoch && n<_roadEpochEnd);                         // v1.2: THE BEAT'S OWN playability, not the write moment's — the epoch window above, stamped when judging actually opened and closed
   _roadWake[((n%ROAD_WAKE)+ROAD_WAKE)%ROAD_WAKE] = judged ? (_roadHitBeat===n ? 1 : 2) : 0;
   if(n>_roadWakeTo) _roadWakeTo=n;
   if(n<_roadWakeFrom || _roadWakeTo-_roadWakeFrom>=ROAD_WAKE) _roadWakeFrom=Math.max(_roadWakeTo-ROAD_WAKE+1, Math.min(_roadWakeFrom,n));
@@ -1920,7 +1949,7 @@ function roadSync(){
   if(!roadMesh) return;                                                   // road.on:false → never built → the frame costs one null read
   const live=roadLive();
   if(live!==_roadVis){ _roadVis=live; roadMesh.visible=live; }
-  if(!live) return;
+  if(!live){ roadJudgeStamp(_roadLastR); return; }   // THE PLAYABILITY EPOCH (v1.2): the trainer and the Temple shut the judging window on the way OUT of the frame, at the last beat the road actually saw — nothing writes the wake on this path, so the clock does not need re-reading, and the next live frame re-opens the window at ITS beat. This is what makes the graduation catch-up (W1) NEUTRAL instead of fourteen phantom misses
   const U=roadMat.uniforms;
   if(!_roadUp){                                                           // tonight's course reaches the shader ONCE (it is a property of the night, not of the beat)
     const c=roadCourse();
@@ -1938,6 +1967,7 @@ function roadSync(){
   roadWakeLatch();                                                        // two integer reads: catch the lane's verdict while the note is still in focus (see roadWakeLatch)
   if(r<_roadLastR-0.5) roadWakeReset();                                   // the clock went BACKWARDS: a new run (teardownTransport puts the Transport back to 0). The wake is this run's history, so it starts empty — and no gameplay reset site had to be touched to say so
   _roadLastR=r;
+  roadJudgeStamp(r);                                                      // THE PLAYABILITY EPOCH (v1.2), stamped BEFORE any write: the Bow's ceremony (input rejected from BOW.LAST, Transport still advancing) closes the window here, so its beats — and only its beats — go NEUTRAL and the run's real wake survives to the Night Card (W2). A grace-cancel never reaches this line at all: GRACE still accepts input, so the predicate never flipped
   const n0=Math.floor(r);
   if(n0!==_roadBeat0){                                                    // ONCE PER BEAT, and only then: 23 texels of band data, into a buffer that already exists
     if(Number.isFinite(_roadBeat0)) for(let n=Math.max(_roadBeat0, n0-ROAD_WAKE); n<n0; n++) roadWakeWrite(n);   // every band that left the now-line since the last upload gets its (already final) verdict — a dropped frame cannot punch a hole in the wake
@@ -2802,64 +2832,64 @@ function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere 
   }
   for(let i=0;i<_chartBreath.length;i++){ const b=_chartBreath[i]; if(!b.sp.visible || b.sp.userData.listenSelected) continue; const s=b.s0*(1+0.05*Math.sin(skyT*0.55+b.ph))*(templeActive?1.15:1); b.sp.scale.set(s,s,1); }
 }
-function approxLuminaryLons(atMs){   // v2.1 §Modes fallback: Meeus low-precision solar (±0.01°) + lunar (±1°) ecliptic longitudes for RIGHT NOW — real astronomy in 6 lines, not Swiss Ephemeris. Equinox-of-date vs the pack's J2000 differs by ~0.4° (precession) — invisible at glyph scale. A loaded pack always overrides (retuneLuminaries). atMs (optional, default now) lets THE BOW ask the same math for tomorrow night — same formula, no network, no second ephemeris.
-  const n=(atMs!=null?atMs:Date.now())/86400000-10957.5, rad=Math.PI/180;   // days since J2000.0
-  const g=(357.528+0.9856003*n)*rad;
-  const sun=(280.460+0.9856474*n+1.915*Math.sin(g)+0.020*Math.sin(2*g))%360;
-  const mp=(134.963+13.064993*n)*rad;
-  const moon=(218.316+13.176396*n+6.289*Math.sin(mp))%360;
-  return {sun:(sun%360+360)%360, moon:(moon%360+360)%360};
-}
-function buildLuminaries(sunLon, moonLon){   // v2.1 G4: ☉ and ☽ live ON the sphere at their epoch longitudes — glyph over a soft under-glow (the retired art discs' own textures) for weight parity. Horizon decides visibility: a daytime moon shows only when its point is genuinely up; never a permanent dual-luminary wallpaper.
-  if(lumGroup) return;
-  lumGroup=new THREE.Group(); skySphere.add(lumGroup);
-  const L=SKY_CHART.lum, R=SKY_CHART.R;
-  const mk=(isSun,lon)=>{
-    lon=wrapDeg(lon,0);
-    const glow=chartSprite(isSun?sunTex:moonTex, 0xffffff, isSun?L.aGlowSun:L.aGlowMoon, isSun?L.glowSun:L.glowMoon, isSun?L.glowSun:L.glowMoon, true, null, isSun?0.15:0.7);
-    const glyph=chartSprite(glyphTex(isSun?'☉':'☽'), isSun?L.colSun:L.colMoon, isSun?L.aGlyphSun:L.aGlyphMoon, isSun?L.glyphSun:L.glyphMoon, isSun?L.glyphSun:L.glyphMoon, true, null, isSun?0.1:0.6);
-    glow.position.copy(eclipticDir(lon,0)).multiplyScalar(R); glyph.position.copy(glow.position);
-    if(!LOW){ glow.layers.enable(1); glyph.layers.enable(1); }   // luminaries gleam in the floor reflection, as the old discs did
-    lumGroup.add(glow); lumGroup.add(glyph);
-    if(!reduceMotion && !LOW) _chartBreath.push({sp:glyph, s0:(isSun?L.glyphSun:L.glyphMoon), ph:lon*0.11});
-    return {glyph:glyph, glow:glow, lon:lon};
-  };
-  _lum={sun:mk(true,sunLon), moon:mk(false,moonLon)};
-  _sunLonRad=(_lum.sun.lon)*Math.PI/180;
-  sun.visible=false; moon.visible=false;   // retire the art discs in clocked*: one ☉, one ☽, no independent second sun path (v2.1 §4.5; decorative never runs this)
-}
-function retuneLuminaries(pack,rank){   // source-ranked epoch update: a late public response can never overwrite a real personal sky
-  rank=(rank==null?skyGeometryRank(pack):rank); if(!_lum || !pack || rank<_lumPackRank) return false; _lumPackRank=rank;
-  for(const mv of (pack.movers||[]).slice(0,SKY_CHART.caps.mover)){ if(!mv) continue;   // same hostile-pack bound as buildChartSky, so luminary glyphs and Listen metadata share one epoch longitude
-    const t=mv.id==='sun'?_lum.sun:(mv.id==='moon'?_lum.moon:null); if(!t) continue;
-    const lon=wrapDeg(mv.lon_j2000, t.lon); t.lon=lon;   // invalid lon → keep the honest boot approximation (buildChartSky then anchors to this same lon)
-    t.glyph.position.copy(eclipticDir(lon,0)).multiplyScalar(SKY_CHART.R); t.glow.position.copy(t.glyph.position);
-    if(mv.id==='sun') _sunLonRad=lon*Math.PI/180;
-  }
-  return true;
-}
-function queueSkyGeometry(pack,rank,onBuilt){
-  if(!pack) return false; rank=(rank==null?skyGeometryRank(pack):rank); if(rank<_chartQueuedRank || rank<_lumPackRank) return false;
-  const selected=_skySel?{kind:_skySel.kind,id:_skySel.id}:null;
-  if(_lsn && _lsn.sel) clearListen(true);   // retune + metadata upsert are one synchronous epoch switch, never a mixed active card
-  const priorLumRank=_lumPackRank;
-  retuneLuminaries(pack,rank);
-  let built=false; try{ built=buildChartSky(pack,rank); }catch(e){}
-  if(!built){ _lumPackRank=priorLumRank; rebindSkySelection(selected); return false; }   // let a later lower source recover if sprite allocation ever fails mid-upgrade
-  _chartQueuedRank=Math.max(_chartQueuedRank,rank);
-  rebindSkySelection(selected);
-  if(onBuilt) onBuilt();
-  return true;
-}
-function skypackValid(p){ return !!p && (p.schema_version===1||p.schema_version===2) && p.type==='skypack'
-  && (p.projection==='ecliptic_dome_v1'||p.projection==='ecliptic_band_v2')   // v2 packs are additive over v1 — projection id remains input compatibility, not a visible rail
-  && [p.sign_band,p.movers,p.natal_ghosts,p.resonances,p.same_body_delta,p.resonance_rank].every(a=>a==null||Array.isArray(a)); }
-function linkRemotePersonalSky(pack){
-  if(SKY_MODE==='decorative') return false;   // explicit legacy art mode stays isolated; a later clocked load will restore this saved pack
-  if(!skypackValid(pack) || pack.privacy!=='user_private' || typeof pack.natal_id!=='string' || !pack.natal_id) return false;
-  const ok=queueSkyGeometry(pack,3); if(ok){ _remotePersonalSky=true; _personalListenExpected=true; if(_lsn&&_lsn.cache) _lsn.cache.clear(); }   // rank 3: authenticated profile wins a late legacy local/drop-in rank-2 pack
-  return ok;
-}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                 
+                                    
+                                                                            
+                                     
+                                                          
+                                                          
+ 
+                                                                                                                                                                                                                                                                                                                                      
+                      
+                                                      
+                                       
+                         
+                       
+                                                                                                                                                                             
+                                                                                                                                                                                                      
+                                                                                                 
+                                                                                                                                  
+                                            
+                                                                                                            
+                                             
+    
+                                                     
+                                        
+                                                                                                                                                                    
+ 
+                                                                                                                                     
+                                                                                                                        
+                                                                                                                                                                                                     
+                                                                                    
+                                                                                                                                                          
+                                                                                                                  
+                                                 
+   
+              
+ 
+                                             
+                                                                                                                                    
+                                                                
+                                                                                                                                   
+                                  
+                              
+                                                                   
+                                                                                                                                                                        
+                                                   
+                               
+                        
+              
+ 
+                                                                                                          
+                                                                                                                                                                              
+                                                                                                                                 
+                                     
+                                                                                                                                           
+                                                                                                                             
+                                                                                                                                                                                                                              
+            
+ 
                                                                                                                                              
                          
                                      

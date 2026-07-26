@@ -1762,14 +1762,43 @@ function roadFillGates(){
 }
 const _roadWake=new Uint8Array(ROAD_WAKE);                                // THE WAKE ring: beat n's verdict at n mod ROAD_WAKE. 0 = never judged · 1 = landed · 2 = missed
 let _roadWakeTo=-1e9, _roadWakeFrom=1e9, _roadHitBeat=-1e9, _roadBeat0=NaN, _roadLastR=-1e9;
-function roadWakeReset(){ _roadWake.fill(0); _roadWakeTo=-1e9; _roadWakeFrom=1e9; _roadHitBeat=-1e9; }
+/* THE PLAYABILITY EPOCH (v1.2 amendment — THE WAKE RECORDS ONLY JUDGED BEATS). The wake used to take its verdict from the state
+   at the moment of WRITING, which conflated "no landed tap" with "MISSED" for beats the lane never judged at all: the trainer's
+   lesson beats came back as post-graduation misses on the graduation frame's catch-up (W1), and the Bow's ceremony beats — input
+   rejected from BOW.LAST while the Transport keeps advancing — scrubbed the run's real wake dark right before the Night Card (W2).
+   The rule now: a beat gets a hit/miss verdict IFF the lane was live and judging when THAT BEAT passed; every other beat renders
+   the NEUTRAL band (0), indistinguishable from road that was never played. ONE predicate + ONE epoch pair carry it: roadJudging()
+   is the instantaneous truth, roadSync stamps its TRANSITIONS into the half-open beat window [_roadEpoch, _roadEpochEnd), and
+   roadWakeWrite asks that window about THE BEAT'S OWN playability instead of the write moment's. */
+const ROAD_JUDGE_IN=0.1, ROAD_JUDGE_OUT=0.9;                              // THE WINDOW BOUNDARIES ARE THE LANE'S OWN, not a guess: beat n's note lives at R = n+0.5 and stays claimable for w = 0.4 note-intervals either side (the block comment above proves 0.4 is the only reachable branch at every rung), so beat n is playable exactly over R ∈ [n+0.1, n+0.9]. A beat whose window either edge cut is NEUTRAL — it was never wholly yours to play
+let _roadJudged=false, _roadEpoch=Infinity, _roadEpochEnd=Infinity;       // the epoch pair, half-open in beats. Both Infinity = nothing is judged, which is exactly the pre-run / freshly-reset state
+function roadJudging(){
+  // IS THE LANE LIVE AND ACCEPTING TAPS, RIGHT NOW? Every state that rejects lane input while state.running is true and the
+  // Transport still advances has to be named here, or its beats become phantom misses. wasdLanePress's own guards, in order:
+  // !state.running / templeActive · _bow.stage>=BOW.LAST (the ceremony owns the field) · bonusActive (a tap becomes a flick
+  // LOCK, not a rhythm claim — shipped off, one boolean read) · !CFG.wasdRhythm. The trainer is added because the road is
+  // post-graduation only (roadLive), and toneReady because roadBandFill's own `lane` read demands it — with it false the
+  // Transport is not running and no beat passes anyway. NOT listed on purpose: BOW.GRACE, which still accepts input, so a
+  // grace-cancel is a NO-OP for the wake rather than a re-open. The Temple's composer and free-mouse are strictly
+  // temple-only states (setTempleFreeMouse hard-returns when !templeActive), and every pause path fails
+  // syncTransport's `state.running && !templeActive` and PAUSES the Transport, so no beat passes to be judged.
+  return !!(CFG.wasdRhythm && state.running && toneReady && !templeActive && !trainMode && !bonusActive && _bow.stage<BOW.LAST);
+}
+function roadJudgeStamp(r){
+  // ONE STAMP PER TRANSITION — the ordinary frame is one boolean compare and a return, and nothing here allocates.
+  const j=roadJudging(); if(j===_roadJudged) return;
+  _roadJudged=j;
+  if(j){ _roadEpoch=Math.ceil(r-ROAD_JUDGE_IN); _roadEpochEnd=Infinity; }   // OPEN: the first beat whose claim window had not yet opened. Catch-up beats before it (a whole trainer, a Temple visit, a pause) fall outside the window and write NEUTRAL
+  else _roadEpochEnd=Math.floor(r-ROAD_JUDGE_OUT)+1;                        // CLOSE: one past the last beat whose claim window had already shut. The beat you were mid-way through when the Bow committed is neutral, and everything before it keeps the verdict it earned
+}
+function roadWakeReset(){ _roadWake.fill(0); _roadWakeTo=-1e9; _roadWakeFrom=1e9; _roadHitBeat=-1e9; _roadJudged=false; _roadEpoch=Infinity; _roadEpochEnd=Infinity; }   // a new run empties the ring AND forgets the epoch, so the very next stamp (same frame — roadSync resets before it stamps) re-opens the window at the new clock's own beat
 function roadWakeAt(n){ return (n<_roadWakeFrom || n>_roadWakeTo) ? 0 : _roadWake[((n%ROAD_WAKE)+ROAD_WAKE)%ROAD_WAKE]; }
 function roadWakeWrite(n){
   // Band n has left the now-line and its verdict is FINAL (the 0.200-beat dead zone above). A beat counts as LANDED when the
   // lane's own _hitNote — set only by a CORRECT key on a claimed note — last pointed at THIS beat's MAIN. Reduced to a beat
   // index rather than kept as a raw note index so a wasdNoteDiv change across the 50 bpm threshold cannot mis-file history,
   // and so a bonus ghost (never a main) can never be read as the beat.
-  const judged=!!(CFG.wasdRhythm && state.running && !templeActive && !trainMode);
+  const judged=(n>=_roadEpoch && n<_roadEpochEnd);                         // v1.2: THE BEAT'S OWN playability, not the write moment's — the epoch window above, stamped when judging actually opened and closed
   _roadWake[((n%ROAD_WAKE)+ROAD_WAKE)%ROAD_WAKE] = judged ? (_roadHitBeat===n ? 1 : 2) : 0;
   if(n>_roadWakeTo) _roadWakeTo=n;
   if(n<_roadWakeFrom || _roadWakeTo-_roadWakeFrom>=ROAD_WAKE) _roadWakeFrom=Math.max(_roadWakeTo-ROAD_WAKE+1, Math.min(_roadWakeFrom,n));
@@ -1920,7 +1949,7 @@ function roadSync(){
   if(!roadMesh) return;                                                   // road.on:false → never built → the frame costs one null read
   const live=roadLive();
   if(live!==_roadVis){ _roadVis=live; roadMesh.visible=live; }
-  if(!live) return;
+  if(!live){ roadJudgeStamp(_roadLastR); return; }   // THE PLAYABILITY EPOCH (v1.2): the trainer and the Temple shut the judging window on the way OUT of the frame, at the last beat the road actually saw — nothing writes the wake on this path, so the clock does not need re-reading, and the next live frame re-opens the window at ITS beat. This is what makes the graduation catch-up (W1) NEUTRAL instead of fourteen phantom misses
   const U=roadMat.uniforms;
   if(!_roadUp){                                                           // tonight's course reaches the shader ONCE (it is a property of the night, not of the beat)
     const c=roadCourse();
@@ -1938,6 +1967,7 @@ function roadSync(){
   roadWakeLatch();                                                        // two integer reads: catch the lane's verdict while the note is still in focus (see roadWakeLatch)
   if(r<_roadLastR-0.5) roadWakeReset();                                   // the clock went BACKWARDS: a new run (teardownTransport puts the Transport back to 0). The wake is this run's history, so it starts empty — and no gameplay reset site had to be touched to say so
   _roadLastR=r;
+  roadJudgeStamp(r);                                                      // THE PLAYABILITY EPOCH (v1.2), stamped BEFORE any write: the Bow's ceremony (input rejected from BOW.LAST, Transport still advancing) closes the window here, so its beats — and only its beats — go NEUTRAL and the run's real wake survives to the Night Card (W2). A grace-cancel never reaches this line at all: GRACE still accepts input, so the predicate never flipped
   const n0=Math.floor(r);
   if(n0!==_roadBeat0){                                                    // ONCE PER BEAT, and only then: 23 texels of band data, into a buffer that already exists
     if(Number.isFinite(_roadBeat0)) for(let n=Math.max(_roadBeat0, n0-ROAD_WAKE); n<n0; n++) roadWakeWrite(n);   // every band that left the now-line since the last upload gets its (already final) verdict — a dropped frame cannot punch a hole in the wake

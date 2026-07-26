@@ -1762,14 +1762,43 @@
  
                                                                                                                                                                            
                                                                                             
-                                                                                                      
+                                                                                                                                
+                                                                                                                                
+                                                                                                                                 
+                                                                                                                                   
+                                                                                                                                 
+                                                                                                                                  
+                                                                                                                              
+                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                      
+                       
+                                                                                                                            
+                                                                                                                             
+                                                                                                                            
+                                                                                                                          
+                                                                                                                         
+                                                                                                                          
+                                                                                                                  
+                                                                                                        
+                                                                                                               
+                                                                                                                                
+ 
+                           
+                                                                                                                   
+                                                    
+                
+                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                           
+ 
+                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                          
                           
                                                                                                                              
                                                                                                                             
                                                                                                                             
                                                                        
-                                                                                  
+                                                                                                                                                                                                                
                                                                                            
                                   
                                                                                                                                          
@@ -1920,7 +1949,7 @@
                                                                                                                                         
                         
                                                               
-                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                               
                            
                                                                                                                                                                       
                          
@@ -1938,6 +1967,7 @@
                                                                                                                                                                              
                                                                                                                                                                                                                                                                               
                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                          
                                                                                                                                                                     
                                                                                                                                                                                                                                                               
@@ -2802,64 +2832,64 @@
    
                                                                                                                                                                                                                              
  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
-                                                                                                 
-                                    
-                                                                            
-                                     
-                                                          
-                                                          
- 
-                                                                                                                                                                                                                                                                                                                                      
-                      
-                                                      
-                                       
-                         
-                       
-                                                                                                                                                                             
-                                                                                                                                                                                                      
-                                                                                                 
-                                                                                                                                  
-                                            
-                                                                                                            
-                                             
-    
-                                                     
-                                        
-                                                                                                                                                                    
- 
-                                                                                                                                     
-                                                                                                                        
-                                                                                                                                                                                                     
-                                                                                    
-                                                                                                                                                          
-                                                                                                                  
-                                                 
-   
-              
- 
-                                             
-                                                                                                                                    
-                                                                
-                                                                                                                                   
-                                  
-                              
-                                                                   
-                                                                                                                                                                        
-                                                   
-                               
-                        
-              
- 
-                                                                                                          
-                                                                                                                                                                              
-                                                                                                                                 
-                                     
-                                                                                                                                           
-                                                                                                                             
-                                                                                                                                                                                                                              
-            
- 
+function approxLuminaryLons(atMs){   // v2.1 §Modes fallback: Meeus low-precision solar (±0.01°) + lunar (±1°) ecliptic longitudes for RIGHT NOW — real astronomy in 6 lines, not Swiss Ephemeris. Equinox-of-date vs the pack's J2000 differs by ~0.4° (precession) — invisible at glyph scale. A loaded pack always overrides (retuneLuminaries). atMs (optional, default now) lets THE BOW ask the same math for tomorrow night — same formula, no network, no second ephemeris.
+  const n=(atMs!=null?atMs:Date.now())/86400000-10957.5, rad=Math.PI/180;   // days since J2000.0
+  const g=(357.528+0.9856003*n)*rad;
+  const sun=(280.460+0.9856474*n+1.915*Math.sin(g)+0.020*Math.sin(2*g))%360;
+  const mp=(134.963+13.064993*n)*rad;
+  const moon=(218.316+13.176396*n+6.289*Math.sin(mp))%360;
+  return {sun:(sun%360+360)%360, moon:(moon%360+360)%360};
+}
+function buildLuminaries(sunLon, moonLon){   // v2.1 G4: ☉ and ☽ live ON the sphere at their epoch longitudes — glyph over a soft under-glow (the retired art discs' own textures) for weight parity. Horizon decides visibility: a daytime moon shows only when its point is genuinely up; never a permanent dual-luminary wallpaper.
+  if(lumGroup) return;
+  lumGroup=new THREE.Group(); skySphere.add(lumGroup);
+  const L=SKY_CHART.lum, R=SKY_CHART.R;
+  const mk=(isSun,lon)=>{
+    lon=wrapDeg(lon,0);
+    const glow=chartSprite(isSun?sunTex:moonTex, 0xffffff, isSun?L.aGlowSun:L.aGlowMoon, isSun?L.glowSun:L.glowMoon, isSun?L.glowSun:L.glowMoon, true, null, isSun?0.15:0.7);
+    const glyph=chartSprite(glyphTex(isSun?'☉':'☽'), isSun?L.colSun:L.colMoon, isSun?L.aGlyphSun:L.aGlyphMoon, isSun?L.glyphSun:L.glyphMoon, isSun?L.glyphSun:L.glyphMoon, true, null, isSun?0.1:0.6);
+    glow.position.copy(eclipticDir(lon,0)).multiplyScalar(R); glyph.position.copy(glow.position);
+    if(!LOW){ glow.layers.enable(1); glyph.layers.enable(1); }   // luminaries gleam in the floor reflection, as the old discs did
+    lumGroup.add(glow); lumGroup.add(glyph);
+    if(!reduceMotion && !LOW) _chartBreath.push({sp:glyph, s0:(isSun?L.glyphSun:L.glyphMoon), ph:lon*0.11});
+    return {glyph:glyph, glow:glow, lon:lon};
+  };
+  _lum={sun:mk(true,sunLon), moon:mk(false,moonLon)};
+  _sunLonRad=(_lum.sun.lon)*Math.PI/180;
+  sun.visible=false; moon.visible=false;   // retire the art discs in clocked*: one ☉, one ☽, no independent second sun path (v2.1 §4.5; decorative never runs this)
+}
+function retuneLuminaries(pack,rank){   // source-ranked epoch update: a late public response can never overwrite a real personal sky
+  rank=(rank==null?skyGeometryRank(pack):rank); if(!_lum || !pack || rank<_lumPackRank) return false; _lumPackRank=rank;
+  for(const mv of (pack.movers||[]).slice(0,SKY_CHART.caps.mover)){ if(!mv) continue;   // same hostile-pack bound as buildChartSky, so luminary glyphs and Listen metadata share one epoch longitude
+    const t=mv.id==='sun'?_lum.sun:(mv.id==='moon'?_lum.moon:null); if(!t) continue;
+    const lon=wrapDeg(mv.lon_j2000, t.lon); t.lon=lon;   // invalid lon → keep the honest boot approximation (buildChartSky then anchors to this same lon)
+    t.glyph.position.copy(eclipticDir(lon,0)).multiplyScalar(SKY_CHART.R); t.glow.position.copy(t.glyph.position);
+    if(mv.id==='sun') _sunLonRad=lon*Math.PI/180;
+  }
+  return true;
+}
+function queueSkyGeometry(pack,rank,onBuilt){
+  if(!pack) return false; rank=(rank==null?skyGeometryRank(pack):rank); if(rank<_chartQueuedRank || rank<_lumPackRank) return false;
+  const selected=_skySel?{kind:_skySel.kind,id:_skySel.id}:null;
+  if(_lsn && _lsn.sel) clearListen(true);   // retune + metadata upsert are one synchronous epoch switch, never a mixed active card
+  const priorLumRank=_lumPackRank;
+  retuneLuminaries(pack,rank);
+  let built=false; try{ built=buildChartSky(pack,rank); }catch(e){}
+  if(!built){ _lumPackRank=priorLumRank; rebindSkySelection(selected); return false; }   // let a later lower source recover if sprite allocation ever fails mid-upgrade
+  _chartQueuedRank=Math.max(_chartQueuedRank,rank);
+  rebindSkySelection(selected);
+  if(onBuilt) onBuilt();
+  return true;
+}
+function skypackValid(p){ return !!p && (p.schema_version===1||p.schema_version===2) && p.type==='skypack'
+  && (p.projection==='ecliptic_dome_v1'||p.projection==='ecliptic_band_v2')   // v2 packs are additive over v1 — projection id remains input compatibility, not a visible rail
+  && [p.sign_band,p.movers,p.natal_ghosts,p.resonances,p.same_body_delta,p.resonance_rank].every(a=>a==null||Array.isArray(a)); }
+function linkRemotePersonalSky(pack){
+  if(SKY_MODE==='decorative') return false;   // explicit legacy art mode stays isolated; a later clocked load will restore this saved pack
+  if(!skypackValid(pack) || pack.privacy!=='user_private' || typeof pack.natal_id!=='string' || !pack.natal_id) return false;
+  const ok=queueSkyGeometry(pack,3); if(ok){ _remotePersonalSky=true; _personalListenExpected=true; if(_lsn&&_lsn.cache) _lsn.cache.clear(); }   // rank 3: authenticated profile wins a late legacy local/drop-in rank-2 pack
+  return ok;
+}
 function downgradePersonalSky(){   // authenticated profile authority: no stale remote OR legacy personal pack after no-chart/DELETE/sign-out
   cancelSkyLinkedToast();
   try{ clearListen(true); }catch(e){}
@@ -5524,39 +5554,39 @@ function dealReset(){
   _deal.moverMul=1; _deal.goldMul=1; _deal.densityMul=1; _deal.mercyMul=1; _deal.pairChance=0; _deal.farMul=1;
   _deal.tickMul=1; _deal.bpmMul=1; _deal.fillMul=1; _deal.tankAny=false; _dealPairK=-1; _dealPairing=false;
 }
-function dealCompute(){
-  // Called ONCE per run, from resetSession, before anything spawns. The phase comes from the Meeus sun/moon the sky
-  // glyphs already ride — no network, no second ephemeris, no observer location needed (elongation is geocentric).
-  dealReset();
-  if(!CFG.deal.on || trainMode) return;   // raw boolean first, and post-graduation only: the trainer's field is a lesson, not a night
-  const ph=moonPhaseBucket();   // THE one phase authority (wave 5a): the same bucket bowSkyLine names and the Temple ring stamps — one expression, so the deal and the line can never disagree about which night it is
-  if(ph<0) return;   // an unreadable sky (a clock the browser cannot read) deals nothing rather than dealing bucket 0 by accident — the same guard the inline try/catch and range test were
-  const D=CFG.deal;
-  _deal.ph=ph;
-  if(ph===0) _deal.spreadMul=+D.spreadMul||1;                                                             // NEW MOON · the dark listens — localization night: the field opens up behind you
-  else if(ph===1) _deal.windMul=+D.windMul||0;                                                            // WAXING CRESCENT · the wind stirs — the shipped wind prototype, dealt gently
-  else if(ph===2){ _deal.quickMul=+D.quickMul||1; _deal.quickLifeMul=+D.quickLifeMul||1; }                // FIRST QUARTER · the quick ones wake
-  else if(ph===3){ _deal.windMul=1; _deal.moverMul=+D.moverMul||1; }                                      // WAXING GIBBOUS · the wind remembers — the full band, and the field wanders with it
-  else if(ph===4){ _deal.densityMul=+D.fullDensityMul||1; _deal.goldMul=+D.fullGoldMul||1; _deal.mercyMul=+D.fullMercyMul||1; _deal.tankAny=true; }   // FULL MOON · the full chorus — the generous night. THE SIXTY CAP (parcel P): tankAny is now INERT — with tank.maxBpm raised to the ceiling itself, the gate it was written to open (`state.bpm<=CFG.tank.maxBpm`) is true at every reachable tempo, so the FULL MOON's tank clause can never open anything a plain night does not already have. It is LEFT SET rather than deleted: it costs one assignment, it is the phase rule's honest record of what this night means, and the read site short-circuits on the base cap before it is ever consulted — so a FULL MOON is now draw-for-draw identical to a plain night on this axis, which strengthens THE STREAM RULE rather than bending it. The other three FULL MOON knobs (density/gold/mercy) are pure weights and are unaffected
-  else if(ph===5) _deal.pairChance=+D.pairChance||0;                                                      // WANING GIBBOUS · the echoes answer in pairs
-  else if(ph===6) _deal.farMul=+D.farMul||1;                                                              // LAST QUARTER · the far ones call — long-lead night
-  else { _deal.densityMul=+D.quietDensityMul||1; _deal.tickMul=+D.quietTickMul||1; _deal.bpmMul=+D.quietBpmMul||1; }   // WANING CRESCENT · the drum rests — the quiet night
-  dealPlanets();
-}
-function dealPackIsToday(pack){
-  // THE DEAL'S OWN FRESHNESS GATE, and deal-only: skydayValid answers "is this a well-formed public day pack", which
-  // a pack cached overnight still is — but a mix tilted by planets that set hours ago is not "what you can point at
-  // from the driveway", it is yesterday's sky wearing today's date. The pack pipeline caches under `tz:cache_date`
-  // where cache_date is the CIVIL DATE IN THE REQUESTED TZ, and loadSkyDay always asks with the device's own tz
-  // (deviceSkyTimezone), so the honest comparison is against the device's local calendar date — the same local clock
-  // dealWind and the chorus salt turn over on. No cache_date, a malformed one, or any mismatch reads exactly like an
-  // absent pack: neutral mix, no planet fragment, and the phase rule still deals. The SKY'S OWN rendering pipeline is
-  // untouched by this — a stale pack still draws the sphere it always drew; only the deal declines to read it.
-  const raw=pack&&typeof pack.cache_date==='string'?pack.cache_date:'';
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
-  const d=new Date(), m=d.getMonth()+1, dd=d.getDate();
-  return raw===(d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd);
-}
+                       
+                                                                                                                    
+                                                                                                                   
+              
+                                                                                                                                      
+                                                                                                                                                                                                                       
+                                                                                                                                                                                            
+                   
+              
+                                                                                                                                                                                            
+                                                                                                                                                                                        
+                                                                                                                                                
+                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                        
+                                                                                                                                                               
+                                                                                                                                                                            
+                
+ 
+                               
+                                                                                                                     
+                                                                                                                    
+                                                                                                                   
+                                                                                                                
+                                                                                                                     
+                                                                                                                     
+                                                                                                                      
+                                                                                                               
+                                                                       
+                                                    
+                                                       
+                                                                           
+ 
                        
                                                                                                                  
                                                                                                                   
