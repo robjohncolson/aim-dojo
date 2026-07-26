@@ -67,11 +67,16 @@ test("held E is a hard gate before celestial selection and Echo combat keeps pri
   indexBefore(select, /_lsnOrbBlocksSky\s*\(/, /pickCelestial\s*\(/, "Echo blocking precedes every sky pick");
   assert.match(select, /selectRequiresHold/);
   assert.match(select, /!\s*_skySelectHeld/);
-  assert.match(select, /if\s*\(\s*_lsnOrbBlocksSky\s*\(\s*\)\s*\)\s*return\s+false/);
+  // 1.4: the block still refuses, and now says so first — the branch speaks, then returns false.
+  assert.match(select, /if\s*\(\s*_lsnOrbBlocksSky\s*\(\s*\)\s*\)\s*\{[^}]*return\s+false;?\s*\}/);
+  assert.match(select, /if\s*\(\s*_lsnOrbBlocksSky\s*\(\s*\)\s*\)\s*\{\s*showGhostToast\(T\('skyBlockedByEcho'/);
+  assert.match(select, /showGhostToast\(T\('skyNoMark'[\s\S]*clearListen\s*\(\s*true\s*\)/, "held-E on bare sky names the refusal before it clears the mark");
 
   const fire = namedFunction("fire");
   indexBefore(fire, /skyListenTry\s*\(/, /spawnProjectile\s*\(/, "selection arbitration precedes projectile launch");
   assert.match(fire, /if\s*\(\s*!\s*state\.running\s*\)\s*return/);
+  // 1.4: the held-E gesture is consumed by a Listen that SUCCEEDED, never by one that was refused.
+  assert.match(fire, /if\s*\(\s*_skySelectHeld\s*&&\s*skyListenTry\s*\(\s*\)\s*\)\s*\{\s*_skySelectUsed\s*=\s*true\s*;\s*return\s*;?\s*\}/);
 
   const selectFeedback = namedFunction("startListen");
   assert.match(selectFeedback, /_skySel\s*=\s*pick/);

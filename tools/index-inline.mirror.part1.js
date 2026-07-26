@@ -761,6 +761,7 @@ window.JA={
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
+  skyBlockedByEcho:'こだまが じゃま', skyNoMark:'そこには なにもない',   // 1.4: held-E gesture refusals. Both ≤14 glyphs — #ghostToast is nowrap (SPEC_MOON_CHORUS_UI §4)
   skyTempleKicker:'空の神殿', skyTempleHint:'発射でしらべる · Shift+E マウス解放（視点固定）· T で質問 · E で出る · ESC で一時停止', skyTempleGuide:'Shift+Eでこのパネル用にマウス解放（視点はそのまま）。Tで質問（チャート保存が必要）。全文はスクロール。', skyTempleEmpty:'空に照準を合わせてしらべる',
   skyTempleApplying:'接近中', skyTempleSeparating:'離反中', skyTempleNatal:'ネイタル', skyTempleRetro:'逆行', skyTempleEntered:'空の神殿', skyTempleExited:'道場にもどった', skyTempleResumed:'神殿にもどった',
   skyTempleFreeMouse:'マウス解放 · 視点ロック · HUD操作', skyTempleAimMouse:'照準にもどった', skyTempleControlsToast:'Shift+E マウス解放 · T 質問 · 発射でしらべる',
@@ -971,7 +972,7 @@ const CFG = {
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
-  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:2.7, orbBlockPx:52, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. orbBlock* = an Echo the aim ray pierces (or whose disc covers the reticle) still wins combat under held-E. combatPx = VESTIGIAL (2026-07-26): the near-miss combat-priority clause died when star-bound spawns put Echoes ON the zodiac band and made held-E selection nearly impossible. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
+  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:1.15, orbBlockPx:0, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. orbBlock* = an Echo the aim ray pierces (or whose disc covers the reticle) still wins combat under held-E. THE BLOCK IS THE ORB'S TRUE SILHOUETTE (SKY SPINE 1.4, 2026-07-26): pad 2.7 plus 52px of screen pad grew every Echo a 22-27° exclusion cone — far wider than the sphere you can see — so a live field shadowed 15.8% of the dome and cancelled 41.2% of the bearings a pick could have come from, silently. 1.15 is a thin skim margin on the real radius and the screen pad is GONE (0): shadow 1.45% of the dome, 8.6% of picks lost. You are refused when an Echo is genuinely in front of the star, never because one happens to be nearby. combatPx = VESTIGIAL (2026-07-26): the near-miss combat-priority clause died when star-bound spawns put Echoes ON the zodiac band and made held-E selection nearly impossible — and even at the old padding it could never fire below ~59.5bpm, because the orb's own padded disc (radius lerps radSlow 1.15 → 0.62 with diffT, so a slow night's orb is the BIGGEST one) already reads wider than 88px at every distance the beat-quantized band can hold down there; the clause only ever had room above that tempo, where the orb has shrunk and moved out. Kept as a named constant so the number that once meant something is not silently reused. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
   skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62, signArtLowMode:'off' },   // TEMPLE ORBS: milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). signArtLowMode (P5 F1): 'off'=glyph-only on LOW (default, sheds 13 additive planes) · 'always'=force belt on LOW. Flat literal — nested {} would break the CFG contract test regex.
@@ -2779,12 +2780,12 @@ function _lsnScreenPx(worldPos){   // px distance from the reticle (screen centr
   _lsnP.copy(worldPos).project(camera);
   return Math.hypot(_lsnP.x*0.5*viewW, _lsnP.y*0.5*viewH);
 }
-function _lsnOrbBlocksSky(){   // true only if the aim ray pierces an Echo or its disc covers the reticle (never Listen "through" a sphere). The old combatPx near-miss clause is GONE (2026-07-26): star-bound spawns put Echoes ON the zodiac band, so near-miss priority made held-E selection nearly impossible — and held-E is already an explicit sky gesture, so only a truly covering orb should win.
-  // 1) ray–sphere  2) projected disc + pad  3) hard combatPx priority — orbs off-center but still "aimed" must block Listen
+function _lsnOrbBlocksSky(){   // true only if the aim ray pierces an Echo or its disc covers the reticle (never Listen "through" a sphere). The old combatPx near-miss clause is GONE (2026-07-26): star-bound spawns put Echoes ON the zodiac band, so near-miss priority made held-E selection nearly impossible — and held-E is already an explicit sky gesture, so only a truly covering orb should win. THE BLOCK IS THE SILHOUETTE (1.4): both pads are now skim margins, not authority — the test answers "is this Echo actually in front of the star", and the ONLY reason it is not a bare ray–sphere test is that an orb one pixel off the reticle should not be shot through.
+  // 1) ray–sphere (pad = a thin skim margin on the true radius)  2) projected disc + pxPad (0 by default, so the disc IS the drawn disc)
   camera.getWorldDirection(_lsnDir2);
   const halfFovY=0.5*(camera.fov||95)*Math.PI/180, tanHalf=Math.tan(halfFovY)||0.5;
-  const pad=CFG.skyListen.orbBlockPad!=null?CFG.skyListen.orbBlockPad:2.7;
-  const pxPad=CFG.skyListen.orbBlockPx!=null?CFG.skyListen.orbBlockPx:52;
+  const pad=CFG.skyListen.orbBlockPad!=null?CFG.skyListen.orbBlockPad:1.15;
+  const pxPad=CFG.skyListen.orbBlockPx!=null?CFG.skyListen.orbBlockPx:0;
   for(const tg of targets){
     if(!tg || tg.dead || !tg.mesh) continue;
     _lsnP.copy(tg.mesh.position).sub(camera.position);
@@ -2824,9 +2825,10 @@ function skyListenTry(){   // true consumes an intentional held-E selection gest
   if(!CFG.skyTemple.enabled) return false;
   if(CFG.skyTemple.selectRequiresHold && !_skySelectHeld) return false;
   if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta) return false;   // natural + theatre; even missing glossary/day assets may fall through to honest stick/Meeus geometry copy
-  if(_lsnOrbBlocksSky()) return false;   // Echo between you and the sky → always launch a projectile, never a zodiac Listen
+  if(_lsnOrbBlocksSky()){ showGhostToast(T('skyBlockedByEcho','AN ECHO IS IN THE WAY')); return false; }   // Echo between you and the sky → always launch a projectile, never a zodiac Listen. THE REFUSAL SPEAKS (1.4): the gesture and the shot look identical from the player's chair, so a silent block reads as a broken key — one line names the thing that took the shot. Gesture feedback in the existing toast channel; the session-boundary text budget is untouched
   const pick=pickCelestial();
   if(!pick){
+    showGhostToast(T('skyNoMark','NOTHING IN THE SKY THERE'));   // held-E on bare sky is a real answer, not a no-op: it says why the mark just went away (1.4)
     clearListen(true); return true;   // held-E empty sky clears the mark and never leaks into combat
   }
   startListen(pick); return true;
@@ -2985,76 +2987,76 @@ function ensureListenCardShell(){
   _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
   return d;
 }
-function showListenCard(pick, data, skeleton){
-  // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
-  // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
-  const card=ensureListenCardShell();
-  const body=_lsn.cardBody||card;
-  if(_lsn.cardBody) body.textContent=''; else card.textContent='';
-  // Re-ensure dismiss button if we wiped card text (legacy path)
-  if(!_lsn.cardBody){ _lsn.card=null; ensureListenCardShell(); return showListenCard(pick,data,skeleton); }
-  card.style.display='block';
-  if(_lsn.dismissBtn){
-    _lsn.dismissBtn.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
-    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','R-CLICK or X to close'):'R-CLICK or X to close';
-  }
-  // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
-  if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
-  const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
-  const signGlyph=signMeta?signMeta.glyph:(SKY_SIGN_GLYPHS[signId]||'');
-  const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
-  const A=data&&data.placement, P=data&&data.personal;
-  // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
-  const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
-  // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
-  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
-  if(skeleton){
-    _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
-    _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
-                                      : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
-    _lsnLine(body, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
-  }
-  // YOUR CHART appears only after the optional personal desk actually returns content; a natal pack alone never displaces or nags over the glossary.
-  if(hasPersonal){
-    _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
-    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
-    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
-    if(P.text) _lsnLine(body, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
-    if(Array.isArray(P.highlights) && P.highlights.length){
-      _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
-      for(const h of P.highlights.slice(0,3)){
-        if(!h) continue;
-        const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
-        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
-        else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
-        if(h.text) _lsnLine(body,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
-        else if(!h.title) _lsnLine(body,seal,'color:var(--bone-dim);');
-      }
-    }
-  }
-  // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
-  _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
-  _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
-                                    : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
-  if(A && (A.title||A.text)){
-    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
-    if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
-  } else if(pick.kind==='body') _lsnLine(body, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
-  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
-    for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
-    for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
-    if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
-    if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
-  }
-  if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
-  _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
-  _lsnLine(body, T('skyListenDismissHint','R-CLICK or X to close · empty sky also works'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
-}
-function paintStudySurface(pick, data, skeleton){
-  // Temple owns investigation chrome; legacy dojo Listen card only when explicitly re-enabled.
-  if(templeActive) fillTempleStudy(pick, data, skeleton);
-  else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
-}
+                                              
+                                                                                                     
+                                                                                                                    
+                                     
+                                 
+                                                                  
+                                                                 
+                                                                                                           
+                             
+                      
+                                                                                                                                  
+                                                                                                                          
+   
+                                                                                                                 
+                                                      
+                                                                                                                                                       
+                                                                        
+                                                                                                                                   
+                                                      
+                                                                                                               
+                                                                                                                                                
+                                                                                                         
+                                                                                                                     
+               
+                                                    
+                                                                                                                                                 
+                                                                                              
+                                                                                     
+   
+                                                                                                                                                     
+                  
+                                                        
+                                                            
+                                                                                                                                                                                                                            
+                                                                                                 
+                                                           
+                                                                              
+                                              
+                        
+                                                                                                                                                                       
+                                                                                                                                                     
+                                                                                    
+                                                                                                  
+                                                                       
+       
+     
+   
+                                                                                                            
+                                                                                     
+                                                                                                                                               
+                                                                                            
+                             
+                                                                                              
+                                                                                                      
+                                                                                                                                                             
+                                                                                                                  
+                                                                                                                
+                                                                                        
+                                                                                       
+                                                                                                                               
+   
+                                                                                                                                                                 
+                                                                                                                                                
+                                                                                                                                                                                     
+ 
+                                                 
+                                                                                               
+                                                         
+                                                                               
+ 
                                                                                                                                             
                                                                                                                                                   
                              
@@ -6127,7 +6129,7 @@ function paintStudySurface(pick, data, skeleton){
                                                                                                          
                                                       
                                                                                                                                                      
-                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                              
  

@@ -761,6 +761,7 @@
                                                                        
                                                                                                                                                                                                         
                                                                        
+                                                                                                                                                          
                                                                                                                                                                                                              
                                                                                                                                                                                  
                                                                                                                                    
@@ -971,7 +972,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                            
                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -2779,12 +2780,12 @@
                                        
                                                           
  
-                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                         
                                      
                                                                                    
-                                                                          
-                                                                         
+                                                                           
+                                                                        
                            
                                             
                                                       
@@ -2824,9 +2825,10 @@
                                           
                                                                        
                                                                                                                                                                                                  
-                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                              
             
+                                                                                                                                                               
                                                                                                      
    
                                  
@@ -2985,76 +2987,76 @@
                                                      
            
  
-                                              
-                                                                                                     
-                                                                                                                    
-                                     
-                                 
-                                                                  
-                                                                 
-                                                                                                           
-                             
-                      
-                                                                                                                                  
-                                                                                                                          
-   
-                                                                                                                 
-                                                      
-                                                                                                                                                       
-                                                                        
-                                                                                                                                   
-                                                      
-                                                                                                               
-                                                                                                                                                
-                                                                                                         
-                                                                                                                     
-               
-                                                    
-                                                                                                                                                 
-                                                                                              
-                                                                                     
-   
-                                                                                                                                                     
-                  
-                                                        
-                                                            
-                                                                                                                                                                                                                            
-                                                                                                 
-                                                           
-                                                                              
-                                              
-                        
-                                                                                                                                                                       
-                                                                                                                                                     
-                                                                                    
-                                                                                                  
-                                                                       
-       
-     
-   
-                                                                                                            
-                                                                                     
-                                                                                                                                               
-                                                                                            
-                             
-                                                                                              
-                                                                                                      
-                                                                                                                                                             
-                                                                                                                  
-                                                                                                                
-                                                                                        
-                                                                                       
-                                                                                                                               
-   
-                                                                                                                                                                 
-                                                                                                                                                
-                                                                                                                                                                                     
- 
-                                                 
-                                                                                               
-                                                         
-                                                                               
- 
+function showListenCard(pick, data, skeleton){
+  // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
+  // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
+  const card=ensureListenCardShell();
+  const body=_lsn.cardBody||card;
+  if(_lsn.cardBody) body.textContent=''; else card.textContent='';
+  // Re-ensure dismiss button if we wiped card text (legacy path)
+  if(!_lsn.cardBody){ _lsn.card=null; ensureListenCardShell(); return showListenCard(pick,data,skeleton); }
+  card.style.display='block';
+  if(_lsn.dismissBtn){
+    _lsn.dismissBtn.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
+    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','R-CLICK or X to close'):'R-CLICK or X to close';
+  }
+  // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
+  if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
+  const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
+  const signGlyph=signMeta?signMeta.glyph:(SKY_SIGN_GLYPHS[signId]||'');
+  const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
+  const A=data&&data.placement, P=data&&data.personal;
+  // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
+  const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
+  // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
+  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
+  if(skeleton){
+    _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
+    _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                      : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+    _lsnLine(body, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
+  }
+  // YOUR CHART appears only after the optional personal desk actually returns content; a natal pack alone never displaces or nags over the glossary.
+  if(hasPersonal){
+    _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
+    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
+    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
+    if(P.text) _lsnLine(body, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
+    if(Array.isArray(P.highlights) && P.highlights.length){
+      _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
+      for(const h of P.highlights.slice(0,3)){
+        if(!h) continue;
+        const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
+        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
+        else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
+        if(h.text) _lsnLine(body,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
+        else if(!h.title) _lsnLine(body,seal,'color:var(--bone-dim);');
+      }
+    }
+  }
+  // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
+  _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
+  _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                    : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+  if(A && (A.title||A.text)){
+    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
+    if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
+  } else if(pick.kind==='body') _lsnLine(body, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
+  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
+    for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
+    for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
+    if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
+    if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
+  }
+  if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
+  _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
+  _lsnLine(body, T('skyListenDismissHint','R-CLICK or X to close · empty sky also works'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
+}
+function paintStudySurface(pick, data, skeleton){
+  // Temple owns investigation chrome; legacy dojo Listen card only when explicitly re-enabled.
+  if(templeActive) fillTempleStudy(pick, data, skeleton);
+  else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
+}
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -5622,203 +5624,203 @@ function cardCopy(){
   const d=gid('nightCardDownload'); if(d) d.addEventListener('click', ()=>{ const cv=cardCanvasEl(); if(cv&&cv.toBlob){ try{ cv.toBlob(bl=>cardDownload(bl),'image/png'); return; }catch(e){} } cardDownload(null); });
   cardOffer();   // a reload during a night that already bowed finds its card again: the offer is a property of the night, not of the page life
 })();
-function onGrid(time){
-  if(!state.running || templeActive){ grid8++; return; }
-  const rhythmEpoch=rhythmGeneration;
-  const i=grid8%8;
-  const ci=Math.floor(grid8/8)%CHORD_ROOT.length;   // HARMONIC MOVEMENT: chord index into the ACTIVE theme's progression (8 grid steps = 1 bar); length varies (dojo/moonlight/icaros=4 bars, canon=8)
-  // TRAINER SOUNDTRACK: spare, didactic — loud "and" ticks so WASD syncs with the floor flash; full Moonlight arrangement only after graduation
-  if(trainMode){
-    try{
-      const andStep=(i%2===1);   // the "and" (WASD pocket) — louder tick so letters lock to the same cue as the floor colour
-      if(tick && andStep) tick.triggerAttackRelease(i===1?1760:1480,'32n',time, trainPhase===0?0.95:0.7);
-      if(tick && i===0) tick.triggerAttackRelease(2093,'32n',time, 0.55);   // soft downbeat (shot pocket) — quieter in phase 0 so the letter pocket owns attention
-      if(kick && i===0) kick.triggerAttackRelease('C1','8n',time, trainPhase===0?0.35:0.55);
-      if(bass && i===0) bass.triggerAttackRelease(CHORD_ROOT[ci], trainPhase===0?'2n':'4n', time, trainPhase===0?0.38:0.55);
-      if(pad && i===0 && trainPhase>=1) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, 0.12);
-      if(hat && trainPhase>=1 && andStep) hat.triggerAttackRelease('32n',time, 0.28);
-      if(arp && trainPhase>=2 && (i===0||i===4)) arp.triggerAttackRelease(CHORD_TRIAD[ci][0]*2,'16n',time, 0.35);
-    }catch(e){}
-    if(i%2===0){ try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){} }
-    // phase 0: no orbs. phase 1+: sparse spawn (CFG.patternConcurrency already gated)
-    if(bonusActive){ grid8++; return; }
-    const active=activeTargetCount(); let spawned=false;
-    if(cd>0) cd--;
-    else if(trainPhase>=1 && active<CFG.patternConcurrency && (i%2===0)){
-      let p=CFG.densityScale*metricWeight(i); if(restSlots>=CFG.maxRestSlots) p=1;
-      if(rnd()<p){
-        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }
-        spawned=true; cd=CFG.minGap;
-      }
-    }
-    restSlots=spawned?0:restSlots+1; grid8++; return;
-  }
-  if(CFG.stars.on && (_starPend.length || _starDebt.length)) starFlyDrain(starBeatNow());   // THE SECOND OPPORTUNITY (1.2): the gap a return is stamped with belongs to the beat clock, so the beat clock gets to pay it too — whichever of this callback and the render frame reaches the due first. It grants nothing that is not due, allocates nothing (pooled records, one buffer repaint), builds no mesh and schedules no sound, and the trainer returned far above so the parcel stays inert there. Raw boolean first, and the length reads keep a quiet run at three numbers per eighth
-  if(_bow.stage>=BOW.RIT){   // THE BOW, closing bars: play has ended, so the arrangement THINS to pad + root and resolves to the TONIC (chord index 0 of the active theme) while the Transport ritards. No drums, no tick, no arp, no hook, no spawns, no groove bookkeeping — and stage HOLD is silent, because the single held pad note was already struck at the resolution.
-    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(CHORD_ROOT[0], '2n', time, 0.42); if(pad && CHORD_TRIAD) pad.triggerAttackRelease(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
-    grid8++; return;
-  }
-  // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
-  // chord walk, so the swell is locked to the arrangement without touching the Transport. Everything downstream READS.
-  let tideBloom=false, fillArm=-1;   // fillArm = the fill bar's downbeat (grid8) when THIS slot may elect the swell's one drum-fill tank, else -1
-  if(CFG.tide && CFG.tide.on){
-    const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);
-    const bar=Math.floor(grid8/8), cb=bar%cyc, f=(grid8%8)/8, down=(grid8%8)===0;   // cb = bar within the swell, f = fraction through that bar
-    tideMercy = cb>=rise+peak;                                     // MERCY: spawn gate shut, field drains, the arrangement breathes
-    tideI = tideMercy ? 0 : (cb<rise ? (cb+f)/rise : 1);           // linear swell across riseBars → hold at the crest → drop to the trough for the mercy bar
-    tideBloom = tideMercy && cb===rise+peak && down;               // mercy DOWNBEAT: the pad blooms once (existing pad voice, velocity only)
-    const cycleIdx=Math.floor(bar/cyc);
-    if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; if(CFG.chorus.on) chorusShut(time); }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet). THE STANDING CHORUS's gate hard-closes on the SAME latch: the mercy chord's release would otherwise bleed 2.5 s of held slack into the swell, and "silent during combat" is meant literally — the rise's first beat sounds into a bus already ramped to nothing. Raw boolean first, and this is the tide's own boundary, not a second clock
-    if(CFG.tank.fillOnly && cb===rise+peak-1 && (grid8%8)<4 && _fillSpent8!==bar*8) fillArm=bar*8;   // THE TANK IS A DRUM FILL: the swell's FINAL PEAK BAR (the bar before mercy) is the only window, and only its first half — an orb elected on beat 1 or 2 still has two full beats of lead before the figure's first note on the "4". _fillSpent8 makes it at most once per swell. Raw kill-switch first, and the bar index is the tide block's own (no second bar clock anywhere)
-  } else { tideI=1; tideMercy=false; }
-  const tideLift=(CFG.tide && CFG.tide.on) ? (CFG.tide.padPeakVel||0)*(tideBloom?1:tideI) : 0;   // velocity lift shaped by the swell; full on the mercy bloom. 0 with the parcel off → every trigger keeps its literal velocity
-  const _acc=windowAccuracy(), accN=_acc==null?0:Math.max(0,Math.min(1,(_acc-CFG.grooveAccLo)/(CFG.grooveAccHi-CFG.grooveAccLo)));   // groove TARGET = composite of streak + click% + total hits (acc + hits persist through a miss, so it doesn't tank)
-  const streakN=Math.min(1,state.streak/CFG.grooveStreakFull), hitsN=Math.min(1,state.hits/CFG.grooveHitsFull), gw=CFG.grooveW;
-  let gt=3*(gw[0]*streakN + gw[1]*accN + gw[2]*hitsN); if(CFG.wasdRhythm) gt=Math.min(3, gt + Math.min(CFG.wasdGrooveMax, _wasdCombo*CFG.wasdGrooveGain));   // 0..3 target tier; the WASD bonus combo (off-beat hits) lifts the groove → music intensifies as you nail the rhythm
-  grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly (no jarring collapse)
-  const tier = grooveI<0.5?0 : grooveI<1.5?1 : grooveI<2.5?2 : 3;
-  try{
-    if(kick && (i===0||i===4)) kick.triggerAttackRelease('C1','8n',time);
-    if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick
-    if(snare && tier>=1 && (i===2||i===6)) snare.triggerAttackRelease('16n',time, tier>=2?0.9:0.65);  // backbeat fades in
-    if(hat && (tier>=2 || i%2===0)) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);   // beat-hats → every-step hats as it builds
-    const _isTori=activeTheme&&activeTheme.name==='TORIYANSE';
-    // TIER-0 HUM: faint root + soft tick before the full groove so the song identity is present from the first bars (very quiet — doesn't fight learning)
-    if(tier===0){
-      if(bass && BASS && i===0) bass.triggerAttackRelease(CHORD_ROOT[ci], '4n', time, 0.28);
-      if(tick && i===0){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(1568,'32n',time, 0.35*tv); }   // QUIET TICK: ×1 unless the parcel is live (a downbeat only ever thins on a mercy-carry beat)
-    }
-    if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(CHORD_ROOT[ci]*bm, BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root
-    // TORIYANSE director's cut: at high groove, answering fifth chirps on the off-beats (the signal "talks back")
-    if(bass && _isTori && tier>=2 && (i===2||i===6)) bass.triggerAttackRelease(CHORD_ROOT[ci]*1.5, '16n', time, 0.42);
-    if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, (tier>=2?0.55:0.42)+tideLift);   // TIDES: the figure leans in as the swell rises (+0 with the parcel off)
-    // HOOK with HOLD: repeated same-index steps do NOT retrigger — one sustained note until pitch changes or rest
-    if(tune && tier>=1){
-      const tn=TUNE[grid8%TUNE.length];
-      if(tn<0){ _tuneHold=-1; }
-      else if(tn!==_tuneHold){
-        _tuneHold=tn;
-        let hold=1; const L=TUNE.length, g0=grid8;
-        while(hold<16 && TUNE[(g0+hold)%L]===tn) hold++;
-        const dur=(hold<=1)?'8n':(hold===2)?'4n':(hold<=4)?'2n':'1n';
-        tune.triggerAttackRelease(PENTA[tn], dur, time, tier>=2?0.85:0.7);
-      }
-    }
-    // PAD: full-bar triad. TORIYANSE gets it from mid-groove (tier≥1 / grooveI≥1) so the crossing always has a warm bed; others wait for the Rez build
-    if(pad && i===0){
-      if(_isTori && grooveI>=1.0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0))+tideLift);
-      else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
-      else if(tideBloom && tideLift>0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
-    }
-    if(CFG.chorus.on && tideBloom) chorusMercy(time);   // THE STANDING CHORUS: the mercy downbeat is one of the parcel's three sanctioned moments — the lit sky swells with the bloom and lets go across the bar. Raw boolean first, so with the parcel off this slot costs one read and no call, and the trainer (which returned far above) never reaches it at all
-    if(tick && (i%2===0)){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, (i===0?0.9:0.75)*tv); }   // QUIET TICK: the metronome thins as tickI climbs — velocity-shaped so beats dissolve over a bar, skipped entirely once they reach 0 (×1 with the parcel off). Pitches/timing untouched
-  }catch(e){}
-  if(i%2===0){
-    try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){}
-    const beatIdx=i/2;                                        // 0..3 across the grid cycle
-    if(beatIdx%2===0 || state.streak>=8){                     // base: a ring every 2 beats; on a streak: every beat
-      try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }
-    }
-  }
-  if(bonusActive){ grid8++; return; }                      // RAIL-FLICK BONUS: the beat/music above keep playing, but freeze NEW orb spawns while the flick mode holds the field
-  // sparse, spaced groove — a cooldown after each orb forbids clustering; density sets the rate
-  const active=activeTargetCount();
-  let spawned=false;
-  if(cd>0){ cd--; }
-  else if(active<CFG.patternConcurrency && !tideMercy && !(CFG.bow.on && bowHolding())){       // THE SKY DEALS THE NIGHT DOES NOT TOUCH THIS GATE (1.2): a risen Jupiter used to lift the concurrency cap here, but this gate is what decides whether the spawn roll below is TAKEN — raising it makes a beat roll where a planet-less night rolls nothing, which is a planet acting as a DRAW rather than a weight. Jupiter's fuller field is now one more multiplier on p, three lines down, on the roll this gate has already let through. THE BOW reuses this same NEW-spawn gate from the moment it commits (step 1 of the ceremony); bowHolding() is always false with bow.on:false. MERCY BAR: the NEW-spawn gate shuts for tideMercyBars. Live orbs, their lifetimes and every grading path are untouched — the field just drains and breathes. restSlots keeps counting through it, so the first eligible beat of the next rise is a forced spawn ("here it comes")
-    const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only
-    if(elig){
-      let p = CFG.densityScale*metricWeight(i)*(CFG.tide.on?tideMul(CFG.tide.densityLo):1)*(CFG.deal.on?_deal.densityMul:1);   // free-play orb density, thinned toward the trough by the swell, then opened out by a FULL MOON (or a risen JUPITER, 1.2) or thinned again by a WANING CRESCENT — one more multiplier on the number this single roll already compares against, so the draw stays exactly one draw. THIS is where a planet is allowed to be felt: the gate above has already decided the roll happens, and rnd() is spent here whatever the sky dealt. The raw kill-switch is read FIRST, so tide.on:false spends nothing at all here (tideMul's own guard stays as defense in depth)
-      if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat
-      if(rnd()<p){
-        if(fillArm>=0){ _fillSpent8=fillArm; _fillPend16=fillArm*2; }   // THE TANK IS A DRUM FILL: elect THIS spawn (the swell is spent either way — a dropped Draw costs the swell its fill, never a stray tank). grid8 counts EIGHTHS, so the same downbeat in sixteenths is ×2
-        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else spawnRhythmOrb(); } }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else spawnRhythmOrb(); } }   // THE ECHOES ANSWER IN PAIRS: on a pairs night dealPairSpawn OWNS this spawn moment — it decides the pair first (both members must be plain Echoes, so the decision cannot come after the primary is built) and then issues one orb or two, riding the SAME Draw either way, so the companion inherits the epoch/running/temple guards verbatim and can never arrive alone. Raw boolean FIRST: with the parcel off, and on all seven other phases, this is spawnRhythmOrb() and nothing else
-        spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb
-      }
-    }
-  }
-  restSlots = spawned ? 0 : restSlots+1;
-  grid8++;
-}
-function ensureRhythm(){
-  if(!toneReady) return;
-  buildDrums();
-  Tone.Transport.bpm.value = state.bpm;
-  if(gridId==null){ gridId = Tone.Transport.scheduleRepeat(onGrid, '8n'); }
-}
-function syncTransport(){
-  if(!toneReady) return;
-  if(state.running && !templeActive){ if(Tone.Transport.state!=='started') Tone.Transport.start(); }
-  else { if(Tone.Transport.state==='started') Tone.Transport.pause(); }
-}
-function teardownTransport(){
-  if(!toneReady) return;
-  try{ if(gridId!=null){ Tone.Transport.clear(gridId); gridId=null; } Tone.Transport.stop(); Tone.Transport.cancel(); Tone.Transport.position=0; }catch(e){}
-  grid8=0; cd=0; restSlots=0;
-}
+                      
+                                                        
+                                     
+                  
+                                                                                                                                                                                                       
+                                                                                                                                                
+                
+        
+                                                                                                                             
+                                                                                                         
+                                                                                                                                                                   
+                                                                                            
+                                                                                                                            
+                                                                                                  
+                                                                                     
+                                                                                                                 
+               
+                                                                                                                                                         
+                                                                                      
+                                       
+                                                        
+                  
+                                                                         
+                                                                                  
+                  
+                                                                                                                                                                                                                                  
+                                    
+       
+     
+                                                     
+   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                               
+                    
+   
+                                                                                                                    
+                                                                                                                       
+                                                                                                                                                  
+                              
+                                                                                                                                
+                                                                                                                                               
+                                                                                                                                    
+                                                                                                                                                             
+                                                                                                                                             
+                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                      
+                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                         
+                                                                                                                               
+                                                                                                                                                                                                                                                                                  
+                                                                                                                                     
+                                                                 
+      
+                                                                         
+                                                                                                                        
+                                                                                                                          
+                                                                                                                                      
+                                                              
+                                                                                                                                                          
+                 
+                                                                                            
+                                                                                                                                                                                                               
+     
+                                                                                                                                                                                                      
+                                                                                                                  
+                                                                                                                      
+                                                                                                                                                                                                                              
+                                                                                                                  
+                        
+                                       
+                               
+                              
+                     
+                                                  
+                                                        
+                                                                     
+                                                                          
+       
+     
+                                                                                                                                                       
+                     
+                                                                                                                                       
+                                                                                                                                
+                                                                                                                                                                                                 
+     
+                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                  
+             
+              
+                                                                                                                                          
+                                                                                           
+                                                                                                                    
+                                                                                                                                                                                                                    
+     
+   
+                                                                                                                                                                                 
+                                                                                                
+                                   
+                    
+                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                       
+             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                      
+                  
+                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                               
+       
+     
+   
+                                        
+          
+ 
+                        
+                        
+               
+                                       
+                                                                           
+ 
+                         
+                        
+                                                                                                    
+                                                                       
+ 
+                             
+                        
+                                                                                                                                                            
+                             
+ 
 
-/* ========================= TARGETS ========================= */
-const targets=[]; const TOXIC=0x74e84a;
-const TARGET_CORE_GEO=new THREE.SphereGeometry(1,LOW?8:16,LOW?6:10);   // LOW: chunky faceted orb (~½ the tris, reads as N64/PS1); normal keeps the smooth 16,10
-const TARGET_SHELL_GEO=new THREE.SphereGeometry(1,LOW?6:10,LOW?4:8);   // LOW: chunkier glow shell
-const TARGET_CORE_MAT=new THREE.MeshBasicMaterial({color:TOXIC});
-const TARGET_SHELL_MAT=new THREE.MeshBasicMaterial({color:TOXIC,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
-// special orbs (variety): kind 0=normal, 1=gold (bonus), 2=decoy (don't-hit). Distinct SHARED materials swapped onto the pooled mesh per spawn (no per-orb allocation).
-const GOLD_COLOR=0xffd24a, DECOY_COLOR=0xff3b6e;
-const GOLD_CORE_MAT=new THREE.MeshBasicMaterial({color:GOLD_COLOR});
-const DECOY_CORE_MAT=new THREE.MeshBasicMaterial({color:DECOY_COLOR});
-const GOLD_SHELL_MAT=new THREE.MeshBasicMaterial({color:GOLD_COLOR,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
-const DECOY_SHELL_MAT=new THREE.MeshBasicMaterial({color:DECOY_COLOR,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
-// kind 3=SPEED (cyan, bonus if hit FAST after spawn) · 4=MOVER (purple, fast/erratic drift, bonus). FREE-PLAY only.
-const SPEED_COLOR=0x3fd0ff, MOVER_COLOR=0xc77dff;
-const SPEED_CORE_MAT=new THREE.MeshBasicMaterial({color:SPEED_COLOR});
-const MOVER_CORE_MAT=new THREE.MeshBasicMaterial({color:MOVER_COLOR});
-const SPEED_SHELL_MAT=new THREE.MeshBasicMaterial({color:SPEED_COLOR,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
-const MOVER_SHELL_MAT=new THREE.MeshBasicMaterial({color:MOVER_COLOR,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
-// MULTI-HIT TANK: a plain orb (kind 0) that rolls 2-3 hp is re-skinned distinct AMBER (bigger too) so it reads as "hit me on several beats"; not a kind, just a modifier — its own shared materials, driven by the same whole-beat glow block as the others.
-const TANK_COLOR=0xff8a2b;
-const TANK_CORE_MAT=new THREE.MeshBasicMaterial({color:TANK_COLOR});
-const TANK_SHELL_MAT=new THREE.MeshBasicMaterial({color:TANK_COLOR,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
-const KIND_CORE_MAT=[TARGET_CORE_MAT, GOLD_CORE_MAT, DECOY_CORE_MAT, SPEED_CORE_MAT, MOVER_CORE_MAT], KIND_SHELL_MAT=[TARGET_SHELL_MAT, GOLD_SHELL_MAT, DECOY_SHELL_MAT, SPEED_SHELL_MAT, MOVER_SHELL_MAT], KIND_COLOR=[TOXIC, GOLD_COLOR, DECOY_COLOR, SPEED_COLOR, MOVER_COLOR];
-const SPAWN_UP=new THREE.Vector3(0,1,0), _spawnDir=new THREE.Vector3(), _spawnFwd=new THREE.Vector3(), _spawnFlat=new THREE.Vector3(), _spawnRight=new THREE.Vector3(), _spawnPos=new THREE.Vector3(), _spawnAim0=new THREE.Vector3(), _spawnQYaw=new THREE.Quaternion(), _spawnQPit=new THREE.Quaternion();
-const targetMeshPool=[];
-function createTargetMesh(){
-  const core=new THREE.Mesh(TARGET_CORE_GEO, TARGET_CORE_MAT);
-  const shell=new THREE.Mesh(TARGET_SHELL_GEO, TARGET_SHELL_MAT);
-  shell.scale.setScalar(1.55); core.add(shell); core.userData.shell=shell;
-  return core;
-}
-function acquireTargetMesh(){ const m=targetMeshPool.pop() || createTargetMesh(); m.visible=true; scene.add(m); return m; }
-function releaseTargetMesh(m){
-  const shell=m.userData.shell;
-  for(let i=m.children.length-1;i>=0;i--) if(m.children[i]!==shell) m.remove(m.children[i]);
-  m.userData.target=null; m.visible=false; scene.remove(m); targetMeshPool.push(m);
-}
-function dollyStrengthMul(){
-  // Half-strength by default; optional skill ramp keeps early free-play calmer without deleting the training value of wander.
-  const base=CFG.dollyStrength!=null?CFG.dollyStrength:0.5;
-  if(!CFG.dollySkillRamp) return base;
-  const t=typeof diffT==='function'?diffT():0;
-  return base*(0.35+0.65*Math.max(0,Math.min(1,t)));
-}
-const targetRecordPool=[];
-const trailPointPool=[];
-function acquireTrailPoint(x,y,z){ const p=trailPointPool.pop() || new THREE.Vector3(); return p.set(x,y,z); }
-function releaseTrailPoints(points){ for(const p of points) trailPointPool.push(p); points.length=0; }
-function acquireTargetRecord(){
-  const tg=targetRecordPool.pop() || {vel:new THREE.Vector3(), aim0:new THREE.Vector3(), lastAim:new THREE.Vector3(), trail:[]};
-  tg.trail.length=0; tg.trailHead=0; return tg;
-}
-function dropTarget(tg){
-  const i=tg.idx;
-  if(i==null || i<0 || i>=targets.length) return;
-  const last=targets.pop();
-  if(last && last!==tg){ targets[i]=last; last.idx=i; }
-  tg.idx=-1;
-}
-function releaseTargetRecord(tg){
-  releaseTrailPoints(tg.trail); tg.mesh=tg.shell=tg.snd=tg.trailMesh=null; tg.idx=-1; targetRecordPool.push(tg);
-}
+                                                                 
+                                       
+                                                                                                                                                                
+                                                                                                  
+                                                                 
+                                                                                                                                                 
+                                                                                                                                                                        
+                                                
+                                                                    
+                                                                      
+                                                                                                                                                    
+                                                                                                                                                      
+                                                                                                                    
+                                                 
+                                                                      
+                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                                                                                                                             
+                          
+                                                                    
+                                                                                                                                                    
+                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                            
+                        
+                            
+                                                              
+                                                                 
+                                                                          
+              
+ 
+                                                                                                                           
+                              
+                               
+                                                                                            
+                                                                                   
+ 
+                            
+                                                                                                                              
+                                                           
+                                      
+                                              
+                                                    
+ 
+                          
+                        
+                                                                                                              
+                                                                                                      
+                               
+                                                                                                                                
+                                               
+ 
+                        
+                 
+                                                 
+                           
+                                                       
+            
+ 
+                                 
+                                                                                                                
+ 
                                                                  
                                                                                                   
                                                                    
@@ -6127,7 +6129,7 @@ function releaseTargetRecord(tg){
                                                                                                          
                                                       
                                                                                                                                                      
-                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                              
  
