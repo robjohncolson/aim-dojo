@@ -30,7 +30,7 @@
 
 - **A â€” decouple:** new `CFG.wasdNoteDivs:[2,4,8]` + `CFG.wasdNoteT:[0.75,1.01]` and one pure helper `wasdNoteDiv()`; the six inline computations all call it. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched; the LANE is one-per-beat across bpm 20â€“50 and reaches at most 2/beat in the 50â€“60 summit, never 4 (240 presses/min is a mash test, not a rhythm game).
 - **D â€” de-coerce the summit:** in the 50â€“60 band the in-between notes render as DIM GHOSTS and are claimable for `_wasdCombo` credit, but only MAINS can break the combo (`animate`'s `_wasdCombo=0` gates on `_curMain`). Pressing once per beat remains fully valid at every tempo; the bonus notes are an invitation, never a demand. (This also revives the combo/FLOCK system honestly â€” under the old cap its food supply only existed above bpm 80.8, so it was effectively unreachable anyway.)
-- The `syncWasdResolutionGrid` / `updatePocketMisses` CRITICAL flags from impact analysis are dead-path (groovePocket permanently false) â€” verify, don't fear them. The crossing math (36.0/50.0, the 38-rung ladder) goes in the helper's comment.
+- The `syncWasdResolutionGrid` / `updatePocketMisses` CRITICAL flags from impact analysis are dead-path (groovePocket permanently false) â€” verify, don't fear them. The crossing math (36.0/50.0, the 33-rung ladder) goes in the helper's comment.
 
 ## 3. Parcel S â€” THE STAR ROAD
 
@@ -74,4 +74,5 @@ R â†’ S sequential (Sonnet verify each, the road verified visually against 
 - Does seeing the mercy bar nine bars out change how a swell feels?
 - Is the road too loud under the sky? (`mercyBoost`, band alpha are the knobs â€” the sky must stay the star.)
 - The hold scaffold: flip `road.holdDemo:true` â€” does a sustained band read instantly as "press and hold through this"?
+
 

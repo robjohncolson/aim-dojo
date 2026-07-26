@@ -1804,7 +1804,7 @@ const _roadBandBuf=new Uint8Array(ROAD_SLOTS*4);
 let roadBandTex=null;
 function roadBandFill(n0){
   // ONE UPLOAD PER BEAT. Slot i carries beat n0+i−ROAD_WAKE, packed into four bytes:
-  //   R = lane(0..3) + 4·wake(0..2) + 12·mercy(0..2)   (max 47)   G = tideI × 255   B = fillMark(0..1) + 2·hold(0..4) (max 9)
+  //   R = lane(0..3) + 4·wake(0..2) + 12·mercy(0..2)   (max 35 = 3+8+24)   G = tideI × 255   B = fillMark(0..1) + 2·hold(0..4) (max 9)
   //   A = 255 when the slot carries information at all — 0 leaves the shader with THE RIVER's plain ribbon, byte for byte.
   // Every field is a pure read of live game state; nothing here writes anything the game will ever look at again.
   const B=_roadBandBuf;
@@ -6779,7 +6779,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
       if(activeTheme&&activeTheme.name==='TORIYANSE'&&!main&&_tapAcc>=100){ const ch=PENTA[Math.min(4,PENTA.length-1)]; tapSynth.triggerAttackRelease(ch,'32n',t0+0.04,0.58); tapSynth.triggerAttackRelease(ch,'32n',t0+0.10,0.48); }
     }catch(e){} }
   }
-  else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample
+  else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample. INVARIANT (parcel R): a well-timed MAIN press can never be claimed against an adjacent ghost because w <= full*0.5 strictly (verified at bpm 50/60: 0.24<0.30, 0.20<0.25) — if wasdWindow/wasdWindowFrac are ever retuned past that bound, gate this _wasdCombo=0 on `main` or ghosts regain the power to break the combo
 }
 function isTypingTarget(t){ return !!(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))); }
 document.addEventListener('keydown', e=>{ const t=e.target; if(isTypingTarget(t)) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane

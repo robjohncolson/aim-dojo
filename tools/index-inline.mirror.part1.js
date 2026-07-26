@@ -1804,7 +1804,7 @@ const _roadBandBuf=new Uint8Array(ROAD_SLOTS*4);
 let roadBandTex=null;
 function roadBandFill(n0){
   // ONE UPLOAD PER BEAT. Slot i carries beat n0+i−ROAD_WAKE, packed into four bytes:
-  //   R = lane(0..3) + 4·wake(0..2) + 12·mercy(0..2)   (max 47)   G = tideI × 255   B = fillMark(0..1) + 2·hold(0..4) (max 9)
+  //   R = lane(0..3) + 4·wake(0..2) + 12·mercy(0..2)   (max 35 = 3+8+24)   G = tideI × 255   B = fillMark(0..1) + 2·hold(0..4) (max 9)
   //   A = 255 when the slot carries information at all — 0 leaves the shader with THE RIVER's plain ribbon, byte for byte.
   // Every field is a pure read of live game state; nothing here writes anything the game will ever look at again.
   const B=_roadBandBuf;
@@ -6779,7 +6779,7 @@ function linkRemotePersonalSky(pack){
                                                                                                                                                                                                                                      
                  
    
-                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
  
                                                                                                                
                                                                                                                                                                                                                                                                                                      
