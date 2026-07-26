@@ -179,6 +179,9 @@ function floorFrame(expected, beats, pocketEnabled = true) {
     pocketExpected: () => expected,
     pocketIdeal: (id) => (id === "push" ? -0.25 : id === "layback" ? 0.25 : 0),
     pocketLive: () => pocketEnabled,
+    // THE STAR ROAD (wave 7, parcel S) gates this cue: the road subsumes the floor-beat flash. false = the kill-switch
+    // state (CFG.road.on:false), which is exactly the shipped floor-beat behaviour these B5/B7 cases pin.
+    roadLive: () => false,
     reduceMotion: false,
     state: { bpm: 120, running: true },
     toneReady: true,
@@ -211,7 +214,9 @@ test("THE FORTY FIX: the lane demands exactly one key per beat across 20-50 bpm 
 test("DE-COERCION: an in-between note is claimable but cannot break the combo (R)", () => {
   // The lane draw ghosts a bonus note (dim ring + dim letter) and animate's combo reset is gated on _curMain.
   assert.match(html, /const lw=main\?4\.5:2\.0, ghost=main\?1:0\.45;/, "bonus ring renders as a ghost");
-  assert.match(html, /showWasdGlyph\(letterKey, spoiled, \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld, ghostNote\)/, "bonus letter renders as a ghost");
+  // laneCue is THE STAR ROAD's note-lane gate (wave 7, parcel S) — !roadLive(), so it is `true` with road.on:false and the
+  // ghost/dim contract below is unchanged. The de-coercion this test guards is the ghostNote argument, still last and still there.
+  assert.match(html, /showWasdGlyph\(letterKey, spoiled, laneCue && \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld, ghostNote\)/, "bonus letter renders as a ghost");
   assert.match(html, /if\(_curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)\{ _baseMul=1; _wasdCombo=0; \}/, "only a MAIN going unresolved zeroes the bonus combo");
   assert.match(html, /else if\(acc>0\) _wasdCombo\+\+;/, "claiming a bonus note still credits the combo");
   assert.equal((html.match(/nd=wasdNoteDiv\(\)/g) || []).length, 6, "all six inline note-density computations call the one helper");

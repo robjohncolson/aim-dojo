@@ -1078,6 +1078,16 @@
                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                
                                                          
+                                                                                                                             
+                                                                                                                          
+                                                                                                                            
+                                                                                                           
+                                                                                                                          
+                                                                                                                       
+                                                                                                                       
+                                                                                                                          
+                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
   
                                                                                    
                                                                                                     
@@ -1536,6 +1546,167 @@
    
      
 
+                                                                                                                                      
+                                                                                                                              
+                                                                                                                               
+                                                                                                                             
+                                                                                                          
+
+                                                                                                               
+                                                                                                                                    
+                                                                                                   
+                                                                                                                                                
+                                                                                             
+                                                                                                                                        
+                                                                           
+
+                                                                                        
+                                                                                                                                
+                                                                                              
+                                                                                                                                    
+                                                                                                               
+                                                                                                                                   
+                                                                                                                                  
+                                                                                                                   
+                                                                                                                               
+                                                                                                              
+
+                                                                                                                                    
+                                                                                                                                 
+                                                                                                                                    
+                                                                                                                                
+                                                                                                                                  
+                                                                                                    
+                                                                                                                                
+                                                                                                                                
+                                                                                                                               
+                                                                        
+
+                                                                                                                                 
+                                                                                                                            
+                                                                                                                         
+                                                                                                                                
+                                                                                                                            
+                                                                                                                               
+                                                                                                                           
+                                                                                             
+
+                                                                                                                                
+                                                                                                                               
+                                                                                                                                 
+                                                                                                                    
+                                                                                                                           
+                                                                                                                                 
+                                                                                                                                 
+                                                                                                                             
+                                                                                                                 
+
+                                                                                                                                
+                                                                                                                               
+                                                                                                                               
+                                                                                                                               
+                                                                                                                               
+                                                                                                                         
+                                                                                                    
+                                                                                                                                
+                                                                                                                                                                                                              
+                                                                 
+                                                                        
+                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                               
+                                                                                                                                                                                          
+                                                                                                                                                                                                                 
+                                                                                                                                                        
+                                                                                                                           
+                      
+                                     
+                                                                                                                                                                                  
+                                                                                                                                                                                                            
+                                                                                                                                                                       
+                                                       
+                               
+                                                                                                               
+            
+                                                                                                                                                                                                                    
+                                                                                           
+   
+                                     
+ 
+                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                  
+                                                                               
+                                                                           
+                      
+                                                                                                                                                                                                                     
+                                                          
+                                                                                                                    
+                                                                                                                                                       
+                                                                         
+                                                                                                                                                   
+                    
+                                                                                                          
+                     
+                                                                                                                                                                                                                   
+                                                                                                                                             
+                                                                                                                                                                                                                           
+                                                                         
+                                                                                                                                                                                                                     
+                                   
+                                                                                                                                                                                                                      
+                                                                                           
+                                                                                                                                                                                                                    
+                                                       
+                                                                                                  
+                                                                                                                                                                                                       
+                                                                                                                                                                                                
+                                                                                                                                                                                                      
+                                                         
+         
+                    
+                                                                                        
+                                                                                                                                                                                
+                                                                                                                                                                                                                           
+                                                                         
+     
+                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                          
+                                                                                                                          
+                                                                                                                                  
+                               
+                                      
+                                        
+                                      
+              
+ 
+                    
+                                                                                                                                        
+                        
+                                                              
+                   
+                           
+                                                                                                                                                                      
+                         
+                                                    
+                                                    
+                                                    
+                            
+                                                                                                                                                                                                                     
+                 
+   
+                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                
+                          
+                                                                                                                                                                                                                                                                                                                                                             
+           
+   
+                                                                                                                                                                             
+                                                                
+ 
+
                                                                                           
                                                                                                                               
                                
@@ -1755,6 +1926,7 @@
                                          
                                                                                                  
    
+                                                                                                                                                                                                                                                                                                             
                                                                                                                          
                                                                         
                                                                                                                                                                                                                                                  
@@ -1768,7 +1940,7 @@
                                                                                                                                             
                                                                                                                                                                                   
                                                                                                                                
-                                                                                                        
+                                                                                                                                                                                                                                                                  
  
                           
                                                                                                                     
@@ -2678,178 +2850,178 @@
                                                           
                                                                            
  
-                                    
-                                                                                                                    
-                                                                                                                             
-                                                                                                                       
-                                                                                                                    
-                                                                                                           
-                    
-                                                                                                                                                      
-                                                   
-                  
-                                                                                                                                                                              
-                                                                             
-                                                                                                                                                                                               
-                                                                                                                              
-                       
-                                                                                                                                                
-                                                                                                                                                           
-                                                                                                                
-                                                                                                                                                                                                       
-                                                            
-   
-                   
-             
-                                                                                                                        
-                                                                                                                                      
-                                                 
-                                                                                                                             
- 
-                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                         
-                       
-                                                                                                                     
-                                                                                                                   
-                                                                                                                    
-                                                                                                                    
-                                                                                                                   
-                                                                                                                   
-                                         
-                          
-                                                                                                                     
-                                                                  
-                                                                                                                                                                                                      
-                 
-                                                                                                  
-                                                                
-                                                                                                                                                                                                      
-                                                                                                                                                                         
- 
-                                                                                                                                                                                                                                           
-                                     
-                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                      
-                                                                                                                                            
-                    
- 
-                                                                                                                                                                                                                                                                                                                                                                                                 
-                                                      
-                                        
- 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                       
-                                                                                                                                                                                                            
-                                      
-                                                                                                                                                                                                     
-          
-                                      
-                                                                                                                                                                                                  
-          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                    
-                                                                                                                                                                                              
-                                                                                                      
-                                                                                                                                                                                                                                          
-                                                          
-                          
-                       
-     
-                                   
-   
-                                             
-                                                                                                                                                                                                     
- 
-                                                                                                                                                                                                                                                                                                      
-                                                                
-                                     
-                                                                                                                 
-                     
-                                                                                                                                                                                                                                                                                               
-                                       
- 
-                         
-                           
-                                                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                         
-                                        
-                        
-                                                                                                                                              
-                                                                                                                                                                                                                                                          
-                                                                                                                                                                      
-                 
-                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                      
-                                     
-                                                                                                                                                                
-                                                                                                                                                                                               
-                                                   
-                                                                                                      
-                                                    
-                                                                                                                     
-   
- 
+function starSpawnAz(a0,minDot,pit){
+  // Returns the azimuth of a risen star that satisfies the SAME spawnMinDeg-from-aim cone the random roll respects,
+  // preferring stars that can still brighten. _starSpawnId is the found-flag: null → the caller keeps the azimuth it rolled.
+  // STREAM PURITY (1.1): not one rnd() call lives in this function. The pick runs on starPickRnd, whose counter is its
+  // own, so calling it cannot shift the spawn stream by a single draw — which is what makes the fallback path below
+  // byte-identical to today's and a bound spawn differ from today's in the azimuth VALUE and nothing else.
+  _starSpawnId=null;
+  if(!_starLitIds || !_stickFig || !_stickFig.pGeo) return 0;   // fixture missing/failed → the decorative sky is up and there is nothing to call from
+  const S=CFG.stars, ids=_starLitIds, n=ids.length;
+  if(!n) return 0;
+  if(!_starPickBuf || _starPickBuf.length<n) _starPickBuf=new Int32Array(n);   // grown once, at the first spawn of the first night; the fixture's size never changes under it
+  const buf=_starPickBuf, cap=S.levels|0, cp=Math.cos(pit), sp=Math.sin(pit);
+  const yMin=SKY_CHART.stick.R*Math.sin(THREE.MathUtils.degToRad(+S.minAltDeg||0));   // altitude test in raw sphere units: y > R·sin(minAlt) IS "risen above minAltDeg", with no trig per star
+  let lo=0, hi=n;   // one pass, one buffer: still-brightening candidates fill from the FRONT, already-full ones from the BACK
+  for(let i=0;i<n;i++){
+    const id=ids[i]; if(!id) continue;                                  // a figure the fixture gave no id: drawn, never lightable, never called
+    const w=starWorldAt(i,_starW); if(w.y<=yMin) continue;              // below the horizon (or too near it) — the sky is not calling from under the floor
+    const h=Math.sqrt(w.x*w.x+w.z*w.z); if(h<1e-6) continue;            // straight overhead: no bearing to take
+    if(cp*((w.x/h)*a0.x+(w.z/h)*a0.z)+sp*a0.y > minDot) continue;       // inside the cone around where the player is ALREADY aiming — the same test, on the same pitch this orb will actually spawn at
+    if((_starLit[id]|0)>=cap) buf[--hi]=i; else buf[lo++]=i;
+  }
+  const nFull=n-hi;
+  let idx=-1;
+  if(S.preferUnlit && lo>0) idx=buf[Math.min(lo-1,(starPickRnd()*lo)|0)];        // the sky fills OUT before it fills up
+  else { const tot=lo+nFull; if(!tot) return 0; const r=Math.min(tot-1,(starPickRnd()*tot)|0); idx = r<lo ? buf[r] : buf[hi+(r-lo)]; }
+  starWorldAt(idx,_starW); _starSpawnId=ids[idx];
+  return Math.atan2(_starW.x,_starW.z);   // the SAME convention the roll uses: dir=(sin az·cos pit, sin pit, cos az·cos pit)
+}
+function starWinOpen(){ return !!(CFG.grooveGroove && CFG.grooveVuln) && state.running && !templeActive && _openAmt>0; }   // "a window is open right now" — the strict inverse of orbOpen()'s escape hatch: with the vuln mechanic itself off there are no windows at all, so there is nothing for a flight to stay out of (and _openAmt is only maintained while a dojo run is live)
+function starBeatNow(){ try{ return Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return 0; } }   // the ONE clock this parcel measures a due against — the same Transport beat position the glow, the strobe and onGrid are all drawn from. It only ever restarts at teardownTransport, and starFlyClear has already granted and dropped every stamp by then, so no due can outlive the timeline it was written on
+function starGapBeat(){
+  // THE NEXT CLOSED-WINDOW MOMENT, in Transport beats (1.2). Not a re-derivation: every value here is read where the
+  // open window itself reads it — Transport position, audioLat()'s heard-timeline shift, CFG.grooveFireEarlyBeat's
+  // ideal — so this function and _openAmt can never disagree about where a beat is. The windows are symmetric about
+  // each ideal, so the mid-point between one closing and the next opening is exactly half a beat past the ideal the
+  // current position rounds to; that mid-point is the most-closed instant the beat has, and it exists at any tempo
+  // and any window width. No transport (sound off, a graph that never started) or no vuln mechanic = no windows at
+  // all, and then the gap is simply NOW.
+  let hb=0, started=false;
+  try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; started=(Tone.Transport.state==='started'); }catch(e){ return 0; }
+  if(!started || !(CFG.grooveGroove && CFG.grooveVuln)) return hb;
+  const lat=audioLat()/(60/Math.max(20,state.bpm));                                                    // the heard-timeline correction, in beats — the same shift the glow subtracts before it rounds
+  const h=hb-lat;
+  const early=Math.max(0,Math.min(0.45, CFG.grooveFireEarlyBeat!=null?CFG.grooveFireEarlyBeat:0));
+  const ideal=early>0?(Math.round(h+early)-early):Math.round(h);
+  let g=ideal+0.5; if(g<=h) g+=1;                                                                      // rounding puts h inside [ideal-0.5, ideal+0.5), so the +1 is float insurance and nothing else
+  return g+lat;                                                                                        // back onto the raw Transport beats every reader measures against
+}
+function starVoiceHome(tg){   // a SCORING arrival on a star-bound Echo: QUEUE it, and do nothing else. No grant, no geometry, no allocation after the pool warms — the tick belongs to the next gap, and the scoring window never sees one
+  const id=tg.starId; if(!id) return;
+  const due=starGapBeat();   // stamped HERE, from the beat clock, because this is the moment the return exists — a frame that never lands in a gap can no longer decide when (or whether) it is paid
+  if(_starPend.length>=_STAR_PEND_MAX){ const old=_starPend.shift(); if(!_starDebt.length) _starDebtDue=old.due; _starDebt.push(old.id); old.id=''; _starPendPool.push(old); }   // ring full: the OLDEST return loses its ceremony (its burst is long gone anyway) and keeps its level AND its due — the displaced stamps are non-decreasing, so the first one in is the whole list's
+  const p=_starPendPool.pop()||{id:'',due:0,from:new THREE.Vector3()};
+  p.id=id; p.due=due; p.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
+  _starPend.push(p);
+}
+function starFlyRetire(f){   // THE CEREMONY ENDS, AND ONLY THE CEREMONY (1.3): a flight record carries ZERO tick responsibility — its level was granted at drain time, before this record existed — so retiring one hands back a mesh and a pooled record and grants nothing. There is no grant flag left to pass, which is what makes double-ticking unrepresentable rather than merely avoided
+  if(f.mesh){ releaseTrailMesh(f.mesh); f.mesh=null; }
+  f.id=''; f.i=-1; _starFlyPool.push(f);
+}
+function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the moment the BEAT CLOCK has passed the gap it was stamped with, with a line if the ceremony has room and without one if it does not. Callable from a frame or from onGrid — whichever reaches the due first — and it costs two number reads when nothing is payable. THE ONE PLACE A LIVE RETURN IS PAID (1.3): every id that leaves either queue here leaves it GRANTED, so nothing downstream of this function owes a level and the freeze below can never delay one
+  if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
+  if(!_starPend.length || _starPend[0].due>hb) return;                    // the ring is stamped in queue order, so the oldest stamp is the earliest: not due at the front = nothing behind it is due either
+  const spb=60/Math.max(20,state.bpm);
+  let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting to leave stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
+  let n=0;
+  for(let k=0;k<_starPend.length;k++){
+    const p=_starPend[k]; if(p.due>hb) break;                             // queued AFTER this gap arrived: its own gap is still ahead of it, and paying it early would put a tick inside a window
+    n=k+1;
+    starLitGain(p.id);                                                    // THE TICK, HERE AND UNCONDITIONALLY (1.3). It used to ride on the flight record and land at starFlyRetire — which sits BELOW the open-window freeze, so a due return that drained into a flight had its level deferred until a gap frame actually arrived, and a pathological render cadence (or a stale-stuck starWinOpen) could hold it off forever even though the drain had run. The drain is the moment the beat clock says the return is owed, so the drain is where it is paid: every payable return ticks exactly once, right here, whether or not a line is ever built for it. Everything below this line is garnish
+    const i=_starLitIdx?_starLitIdx[p.id]:undefined;
+    if(!(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX)){   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony (the level already landed above)
+      const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
+      f.id=p.id; f.i=i; f.age=0; f.wait=(q++)*spb*0.25; f.mesh=null;      // born WITHOUT a mesh: only the (frozen-in-a-window) aging loop ever builds one, which is why a drain that had to fire inside a window still cannot draw a line
+      f.life=Math.max(0.05,(+CFG.stars.lineBeats||0)*spb);
+      f.from.copy(p.from);
+      _starFly.push(f);
+    }
+    p.id=''; _starPendPool.push(p);
+  }
+  if(n>=_starPend.length) _starPend.length=0;
+  else { let w=0; for(let k=n;k<_starPend.length;k++) _starPend[w++]=_starPend[k]; _starPend.length=w; }   // compacted in place: the not-yet-due tail keeps its order and the ring allocates nothing
+}
+function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the accretion does not — the debt, the ring and the air, in that order. Dues are irrelevant here: a teardown pays everything outright, which is also what keeps a stamp from surviving the Transport restart that follows
+  for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]);
+  _starDebt.length=0; _starDebtDue=0;
+  for(let k=0;k<_starPend.length;k++){ const p=_starPend[k]; starLitGain(p.id); p.id=''; _starPendPool.push(p); }
+  _starPend.length=0;
+  for(let k=_starFly.length-1;k>=0;k--) starFlyRetire(_starFly[k]);   // (1.3) NOT granted here: anything airborne was already paid at the drain that launched it, so a teardown that re-granted it would double the level. The unpaid ones are the two lists above, and they are paid outright
+  _starFly.length=0; _starFlyHid=false;
+}
+function starFlyStep(dt){
+  const open=starWinOpen();
+  if(open!==_starFlyHid){ for(let k=0;k<_starFly.length;k++){ const m=_starFly[k].mesh; if(m) m.visible=!open; } _starFlyHid=open; }   // a line already in the air is a scene object the renderer keeps drawing, so visibility is written as a SET, once, at each boundary — and comes back exactly where it froze
+  starFlyDrain(starBeatNow());                                           // THE TICK, ahead of the freeze: the beat clock decides whether a return is payable, so a frame rate slower than the gap can no longer starve one. Nothing here draws — a flight built in a window has no mesh until the loop below (which the window freezes) builds it
+  if(open) return;                                                       // FROZEN: past the tick nothing advances inside a window — no stagger countdown, no aging, no launch, no retire
+  for(let k=_starFly.length-1;k>=0;k--){
+    const f=_starFly[k];
+    if(f.wait>0){ f.wait-=dt; continue; }                                // gap time only — a long window can no longer eat a volley's stagger
+    f.age+=dt;                                                           // no reduceMotion / bad-index arm here any more: starFlyDrain refuses to build a flight for either case, so anything in this array has a line to draw and a vertex to draw it to
+    if(f.age>=f.life){ starFlyRetire(f); swapRemove(_starFly,k); continue; }   // (1.3) the line simply ends: its level landed at the drain, one gap or many beats ago
+    let m=f.mesh;
+    if(!m){ m=f.mesh=newTrailMesh(); m.position.set(0,0,0); m.visible=true;   // the trail pool's own additive, depth-test-free THREE.Line — no new material, no new geometry class. World coords, so the mesh sits at the origin instead of on the player. Born visible because a launch only ever happens in a gap
+      const ca=m.geometry.attributes.color.array; ca[0]=ca[1]=ca[2]=0; ca[3]=ca[4]=ca[5]=1; m.geometry.attributes.color.needsUpdate=true;   // tail dark → head pale, written ONCE: the same vertex-colour ramp buildTrail paints with
+      m.geometry.setDrawRange(0,2); }
+    const p=f.age/f.life, e=1-(1-p)*(1-p)*(1-p);                         // ease-out in world space ≈ steady on screen: it leaves fast and settles into the star
+    const w=starWorldAt(f.i,_starW), pa=m.geometry.attributes.position.array;   // re-read every frame: the sphere turns while the voice is in the air, and the line must end where the star IS
+    pa[0]=f.from.x; pa[1]=f.from.y; pa[2]=f.from.z;
+    pa[3]=f.from.x+(w.x-f.from.x)*e; pa[4]=f.from.y+(w.y-f.from.y)*e; pa[5]=f.from.z+(w.z-f.from.z)*e;
+    m.geometry.attributes.position.needsUpdate=true;
+    m.material.opacity=(+CFG.stars.lineAlpha||0)*Math.min(1,(1-p)*2.5);   // holds, then thins away over the last 40%
+  }
+}
 
-                                                                                                                 
-                                                                                                                  
-                                                                                                               
-                                                                                                             
-                                                                                                
-                      
-                                                            
-                                                                                            
-                                                                                                                                                                                          
-                                                                                                       
- 
-                                
-                        
-                                                                                              
-                                                                                                                                                                                            
-                                                       
-                                                               
-                                                                                    
-                                                                                                                                            
-                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                       
-                                                                                                                                                      
-                                                                  
-                                               
-                                                                                                   
-     
-                                                                                                  
-                                                                                                                                         
-                                                                                                                                    
-                                                                                                                                 
-   
-                           
-                                                                                                                                                                                                                      
-                                                             
-                                                                                                                                                           
-                                                                
-                                                                                                                                                                                                                                                     
-                                                                                      
-                                                                                     
-                
-                   
-                                                         
-                                                        
-                                                                  
-                                                                                                                                                                                                  
-                                                                                              
-                                                                                       
-                                  
-   
-                                                                                                       
-                                                                                                                                                    
-                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-                            
- 
-                                                                                              
-                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                       
+/* D4: zodiac stick figures — the 13 ecliptic constellations (incl. ⛎ Ophiuchus, equal citizen) as faint additive
+   stars + thin connecting lines, from the PUBLIC static fixture fixtures/zodiac_sticks_v1.json (approximate J2000
+   ecliptic lon/lat of the real bright stars — shared astronomy geometry, never natal data). Shown in clocked +
+   clocked_chart, where they REPLACE the random procedural starfield (decorative keeps its fresh random sky).
+   Whole catalog renders as one Points + one LineSegments = 2 draw calls at any quality tier. */
+let _stickPtTexC=null;
+function stickPtTex(){ if(_stickPtTexC) return _stickPtTexC;
+  const c=document.createElement('canvas'); c.width=c.height=32; const g=c.getContext('2d');
+  const grd=g.createRadialGradient(16,16,0,16,16,16); grd.addColorStop(0,'rgba(255,255,255,1)'); grd.addColorStop(0.4,'rgba(255,255,255,0.7)'); grd.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=grd; g.fillRect(0,0,32,32); _stickPtTexC=new THREE.CanvasTexture(c); return _stickPtTexC;
+}
+function buildZodiacSticks(cat){
+  if(stickGroup) return;
+  const S=SKY_CHART.stick, R=S.R, stars=[], edges=[], figMap={}, signMeta=Object.create(null);
+  const SON=!!(CFG.stars&&CFG.stars.on), starIds=SON?[]:null;   // parcel H: the lit-sky catalog is collected in the SAME pass that fills the buffer, so ids and vertices cannot drift apart
+  for(const f of (cat.figures||[]).slice(0,S.maxFigs)){
+    if(!f || !Array.isArray(f.stars) || !Array.isArray(f.edges)
+       || f.stars.some(st=>!Array.isArray(st)||!isFinite(+st[0])||!isFinite(+st[1]))
+       || f.edges.some(e=>!Array.isArray(e))) continue;   // whole-figure validity — dropping single bad stars would shift the edge indexing
+    const base=stars.length, e0=edges.length, take=Math.min(f.stars.length, Math.max(0,S.maxStars-base));   // schema caps re-enforced: a hostile fixture can never balloon the buffers
+    const fk=(SON&&f.id!=null&&STAR_FIG_RE.test(String(f.id)))?String(f.id)+':':'';   // the figure half of "<figureKey>:<starIndex>", MINTED ONLY IN THE GRAMMAR starLitLoad will accept back (1.1) — an id-less figure, or one whose key a reload would reject, gets '' and its stars are simply never lightable rather than lightable-tonight-and-forgotten-tomorrow
+    for(let i=0;i<take;i++){ const st=f.stars[i]; stars.push(eclipticDir(+st[0]||0, +st[1]||0).multiplyScalar(R)); if(SON) starIds.push(fk?fk+i:''); }
+    for(const e of f.edges){ if(edges.length>=S.maxEdges*2) break;
+      const a=base+(+e[0]|0), b=base+(+e[1]|0);
+      if(a>=base && b>=base && a<base+take && b<base+take && a!==b) edges.push(stars[a], stars[b]);
+    }
+    if(f.id!=null){ const fid=String(f.id), sid=canonicalSkySign(fid), center=new THREE.Vector3();
+      for(let i=base;i<stars.length;i++) center.add(stars[i]); if(center.lengthSq()>1e-9) center.normalize().multiplyScalar(SKY_CHART.R);
+      figMap[fid]={p0:base,p1:stars.length,v0:e0,v1:edges.length};   // per-figure vertex ranges — SKY LISTEN paints these gold (K4)
+      if(SKY_SIGN_SET[sid]&&center.lengthSq()>1e-9) signMeta[sid]={glyph:SKY_SIGN_GLYPHS[sid],pos:center,lon:null,sprite:null}; }
+  }
+  if(!stars.length) return;
+  stickGroup=new THREE.Group(); skySphere.add(stickGroup);   // v2.1 G1: ON the sphere — the constellations ARE the sphere's skin; the diurnal spin carries them past the horizon with the planets (no more wallpaper)
+  const pGeo=new THREE.BufferGeometry().setFromPoints(stars);
+  const pCol=new Float32Array(stars.length*3).fill(1);   // vertex colors start WHITE (× material colour = identical render); gold emphasis rewrites ranges
+  pGeo.setAttribute('color', new THREE.BufferAttribute(pCol,3));
+  const pMat=horizonFadeMat(new THREE.PointsMaterial({map:stickPtTex(), color:S.ptCol, size:S.ptSize, sizeAttenuation:false, vertexColors:true, transparent:true, opacity:S.ptAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
+  const pts=new THREE.Points(pGeo,pMat); pts.frustumCulled=false; stickGroup.add(pts);
+  _chartFade.push({mat:pMat, obj:pts, a0:S.ptAlpha, k:S.kPt, pulseP:null, hz:false});
+  let lGeo=null;
+  if(edges.length){
+    lGeo=new THREE.BufferGeometry().setFromPoints(edges);
+    const lCol=new Float32Array(edges.length*3).fill(1);
+    lGeo.setAttribute('color', new THREE.BufferAttribute(lCol,3));
+    const lMat=horizonFadeMat(new THREE.LineBasicMaterial({color:S.lnCol, vertexColors:true, transparent:true, opacity:S.lnAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
+    const lns=new THREE.LineSegments(lGeo,lMat); lns.frustumCulled=false; stickGroup.add(lns);
+    _chartFade.push({mat:lMat, obj:lns, a0:S.lnAlpha, k:S.kLn, pulseP:null, hz:false});
+    if(!LOW) lns.layers.enable(1);
+  }
+  if(!LOW) pts.layers.enable(1);   // constellations shimmer in the floor reflection alongside the dome
+  _stickFig={map:figMap,pGeo:pGeo,lGeo:lGeo,signs:signMeta};   // static centroids make glossary sign Listen possible even when every API is offline
+  if(SON) starLitBind(starIds);   // parcel H: bind + light the save file before the first draw, so a returned voice is already glowing when the sticks appear
+  if(SON && CFG.chorus.on) chorusMenu();   // parcel J (1.2): the catalog has just bound, so the ensemble that was necessarily empty before it — a chorus may not sing an id the sky cannot draw — exists now. This is the ONE re-offer, and every guard still applies: chorusMenu declines a live run, the trainer and a hidden tab, chorusSing declines a silent or Tone-less page, and chorusHeldSame makes it a no-op if the overlay is already singing. On a warm boot the gesture has not happened yet and it is simply a returned 0
+  refreshPublicListenMeta();
+}
+function sticksValid(c){ return !!c && c.type==='zodiac_sticks' && Array.isArray(c.figures); }
+async function loadSticks(){ try{ const r=await fetch('fixtures/zodiac_sticks_v1.json',{cache:'no-store'}); if(!r.ok) return null; const c=await r.json(); return sticksValid(c)?c:null; }catch(e){ return null; } }
+if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.sun, l0.moon); }   // v2.1 G5: both clocked modes get sphere luminaries from frame one (two tiny glyph rasters — no fetch, no boot risk); a personal pack retunes the lons when it lands
 
 /* ========================= SKY LISTEN (Parcels K + N — study, not combat) =========================
    In clocked or clocked_chart, natural or theatre: a clear celestial pick becomes LISTEN — a brief muzzle line,
@@ -3787,6 +3959,7 @@ function exitSkyTemple(options){
   if(dayFloor) dayFloor.visible=true;
   if(nightGrid) nightGrid.visible=true;
   if(glowGrid) glowGrid.visible=true;
+  roadHideOldFloor();   // THE STAR ROAD: the three lines above restore the DOJO floor unconditionally, and updateSky only re-runs at 20 Hz — without this the checker/lattice would flash for up to 50 ms on the way out of the Temple. One boolean read with road.on:false, and the Temple's own floor-dissolve above is untouched
   setHorizonOpen(0);
   if(_skySel){ goldFigure(_skySel.kind==='sign'?_skySel.id:_skySel.meta.sign); emphasizeListenGlyphs(_skySel); }
   else { restoreListenGlyphs(); restoreFigures(); }
@@ -5409,189 +5582,189 @@ function phasesDrawDisc(g,cx,cy,r,b){
   g.closePath();
   g.fillStyle='rgba(198,216,246,.72)'; g.fill();   // the Mandala's moonlight monochrome — one palette for everything this game draws about the moon
 }
-function phasesRingDraw(){
-  // Once, on Temple entry. No labels, no counts, no interaction, no per-frame work — and identical for a player who
-  // stamped over eight days and one who stamped over eight months, because the ring holds no dates, only witnesses.
-  const cv=phasesCanvasEl(); if(!cv) return;
-  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
-  phasesLoad();
-  const W=cv.width, cx=W/2, cy=cv.height/2, ring=W*0.355, r=W*0.105;
-  g.clearRect(0,0,W,cv.height);
-  if(phasesComplete()){ g.beginPath(); g.arc(cx,cy,ring,0,6.2831853); g.strokeStyle='rgba(198,216,246,.32)'; g.lineWidth=1; g.stroke(); }   // THE RING CLOSES: one continuous circle behind the eight, and the only thing about this drawing that ever changes twice
-  for(let b=0;b<8;b++){
-    const th=-Math.PI/2+b*Math.PI/4, dx=cx+Math.cos(th)*ring, dy=cy+Math.sin(th)*ring;   // bucket 0 (new) at the top, waxing clockwise — the order the sky walks
-    g.beginPath(); g.arc(dx,dy,r,0,6.2831853);
-    g.strokeStyle=_phases[b]?'rgba(198,216,246,.46)':'rgba(198,216,246,.15)'; g.lineWidth=1; g.stroke();   // unstamped is a faint outline: a place the sky still has, not a thing you are missing
-    if(_phases[b]) phasesDrawDisc(g,dx,dy,r,b);
-  }
-  cv.hidden=false;
-}
-/* ---- THE SKY REMEMBERS YOU (wave 5a, parcel N) ----
-   ONE date, one greeting. localStorage['aimdojo.lastNight'] holds the local civil date of the last night that was
-   actually PLAYED (the same witness parcel M stamps by: the first scoring arrival of a post-graduation run), and at
-   the threshold of the first run of a later day it buys exactly one warm sentence — how many nights turned, and which
-   of the player's own lit stars kept the seat. That is the entire feature. It counts nothing, compares nothing to
-   anybody, and has no opposite: a long absence is a bigger welcome, never a smaller anything, and the words "missed",
-   "streak", "lost" and "again" are not in this parcel's vocabulary in either language.
-   THE STAR NAME IS A DELIBERATE, SPEC'D EXCEPTION (SPEC_MEMORY_SOLO §3) to wave 3's rule that a star is never NAMED
-   during play: that rule guards the FIELD, where a proper name would turn sky into a HUD label. This is the doorway —
-   the greeting lands in the threshold flash before the first spawn, once, and no name is ever spoken again for the
-   rest of the night. The four zodiac anchors (Aldebaran/Regulus/Spica/Antares) are preferred because a real person
-   can walk outside and find them; any other lit figure is greeted by its own creature-name instead.
-   THE THRESHOLD'S PRIORITY CHAIN, enforced at the one call site in flashTheme: comeback (this parcel) > the deal's
-   line (wave 4) > the song name. Exactly one line, never two — and the deal still DEALS on a greeted night (its rules
-   were resolved at resetSession); the only thing this parcel takes from it is the sentence.
-   STORAGE IS UNTRUSTED (wave-3/4 discipline): a plain non-array object at v===1 whose d is literally YYYY-MM-DD, and
-   nothing else is a date. Corrupt, absent, or dated in the FUTURE (a clock wound back) = a fresh player who is
-   greeted by nothing, silently. Writes are trailing-throttled and can never throw into a run.
-   Kill-switch remember.on:false → the file is never opened from any surface and the threshold is wave 4's exactly. */
-const REMEMBER_KEY='aimdojo.lastNight';
-const REMEMBER_FIGS=['aries','taurus','gemini','cancer','leo','virgo','libra','scorpius','ophiuchus','sagittarius','capricornus','aquarius','pisces'];   // the fixture's OWN figure keys, in the fixture's own order — the greeting picks out of this fixed list rather than out of _starLit's key order, so which star speaks can never depend on the order a save file happened to be written in
-const REMEMBER_ANCHOR_EN={taurus:'ALDEBARAN', leo:'REGULUS', virgo:'SPICA', scorpius:'ANTARES'};   // the four zodiac anchors that carry a proper name in the lore AND in the real sky: the greeting prefers these because they are findable from a driveway
-const REMEMBER_FIG_EN={aries:'THE RAM', taurus:'THE BULL', gemini:'THE TWINS', cancer:'THE CRAB', leo:'THE LION', virgo:'THE MAIDEN', libra:'THE SCALES', scorpius:'THE SCORPION', ophiuchus:'THE SERPENT-BEARER', sagittarius:'THE ARCHER', capricornus:'THE SEA-GOAT', aquarius:'THE WATER-BEARER', pisces:'THE FISHES'};   // all thirteen carry a name so the fallback is TOTAL — the four anchor figures never reach this table while their anchor names exist above it, but the dictionary is complete rather than clever
-let _rememberDay=null;        // "YYYY-MM-DD" of the last night actually played, or null for a player this browser has never witnessed
-let _rememberLoaded=false;    // the file is opened at most once per page life, by whichever surface needs it first (the threshold, or the night's first scoring hit)
-let _rememberSaid=false;      // the greeting has been SPOKEN this page life — a hitless restart must not re-greet, because a welcome twice is not a welcome
-let _rememberStampedDay='';   // the local civil date this page has already taken its "tonight was played" write attempt for ('' = none yet). 1.1 amendment (wave 5a review, M3): a DAY, not a boolean — a tab left open across local midnight kept a page-lifetime latch closed forever, so the new night was never recorded and lastNight could lag a day the player really played (and later fabricate a comeback out of it). Exactly once per played DAY, whatever the tab's lifetime, and every hit after the first costs one string compare
-let _rememberSaveT=0, _rememberDirty=false;
-function rememberLoad(){
-  if(_rememberLoaded) return; _rememberLoaded=true;
-  let raw=null; try{ raw=localStorage.getItem(REMEMBER_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                 // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a player the sky has yet to meet, silently
-  if(realCivilDate(o.d)) _rememberDay=o.d;                                             // …and d is a REAL local civil date in this build's own grammar (realCivilDate — one date authority for the whole memory layer, M5). An epoch number, an ISO timestamp, ' ' padding, a 2026-02-31: not a night, and a night nobody could have played is greeted by nothing
-}
-function rememberFlush(){
-  if(_rememberSaveT){ clearTimeout(_rememberSaveT); _rememberSaveT=0; }
-  if(!_rememberDirty) return; _rememberDirty=false;
-  try{ localStorage.setItem(REMEMBER_KEY, JSON.stringify({v:1, d:_rememberDay})); }catch(e){}   // a full or blocked quota loses the write, never the run — and the worst a lost write can do is greet you once more than it should have
-}
-function rememberSaveSoon(){
-  if(_rememberDirty) return;
-  _rememberDirty=true; _rememberSaveT=setTimeout(rememberFlush, PHASES_SAVE_MS);   // the memory layer's one trailing throttle, shared with the ring: a night writes this file exactly once, and it lands in the same quiet moment the stamp does
-}
-function rememberGap(from,to){
-  // Nights between two local civil dates, as a plain integer. Both sides are built at LOCAL midnight, so a DST
-  // boundary inside the gap shifts the difference by an hour at most and the rounding absorbs it — the same calendar
-  // the deal's freshness gate and the ring's stamps turn over on.
-  const a=from.split('-'), b=to.split('-');
-  const n=Math.round((new Date(+b[0],+b[1]-1,+b[2]) - new Date(+a[0],+a[1]-1,+a[2]))/86400000);
-  return isFinite(n)?n:0;   // a hand-written "2026-99-99" rolls into a real date rather than throwing; a NaN is simply no gap, and no gap is no greeting
-}
-function rememberStar(){
-  // WHOSE seat it was: one of the player's OWN lit stars, preferring the four anchors, chosen deterministically by
-  // the date (the way the Bow picks its phrasing) so one night has one voice — and so two returns a month apart are
-  // greeted by two different stars without a single random draw. Never a level, never a count, never a comparison.
-  if(!CFG.stars.on) return '';   // raw boolean first: with the lit sky off there is no lit set to name, and this parcel falls to its starless variant
-  const lit=Object.create(null);
-  for(const id in _starLit){ const i=id.indexOf(':'); if(i>0) lit[id.slice(0,i)]=true; }   // the figure half of "<figureKey>:<starIndex>" — every key here already passed wave 3's grammar, and a figure this build does not know simply never matches the tables below
-  const anchors=[], others=[];
-  for(const k of REMEMBER_FIGS){ if(!lit[k]) continue; (REMEMBER_ANCHOR_EN[k]?anchors:others).push(k); }
-  const pool=anchors.length?anchors:others;
-  if(!pool.length) return '';
-  const k=pool[Math.abs(Math.floor(Date.now()/86400000))%pool.length];
-  return anchors.length ? T('rememberAnchor'+k, REMEMBER_ANCHOR_EN[k]) : T('rememberFig'+k, REMEMBER_FIG_EN[k]);
-}
-function rememberLine(){
-  // THE TOP OF THE THRESHOLD'S CHAIN, and the whole text budget of this parcel: one sentence, once, on the first run
-  // of a day that follows a real absence. '' every other night — which is what hands the threshold back to the deal.
-  if(_rememberSaid || trainMode) return '';   // post-graduation only (the trainer is a lesson, not a life) — defence in depth: flashTheme is never reached in the trainer anyway
-  rememberLoad();
-  if(!_rememberDay) return '';                // a fresh, corrupt or absent file: the sky has no seat to have kept, and says so by saying nothing
-  const today=phasesToday();                  // ONE calendar for the memory layer (a pure local-civil-date helper — it opens no file, so it belongs to neither parcel's kill-switch)
-  if(_rememberDay===today) return '';         // already played tonight: the second run of a night is not a return
-  const n=rememberGap(_rememberDay, today);
-  if(n < Math.max(1, CFG.remember.gapDays|0)) return '';   // under the threshold — and a FUTURE date (a clock wound back) lands at n<=0 here, so a wrong clock greets nobody instead of greeting everybody
-  _rememberSaid=true;                         // latched at the moment it is SPOKEN, never before: a night that says nothing has spent nothing
-  const star=rememberStar();
-  return star ? TF('rememberLine','✦ {n} NIGHTS TURNED · {star} HELD YOUR SEAT', {n:n, star:star})   // n >= gapDays >= 1 nights, so the plural is always the true one and no singular case can exist
-              : T('rememberAlone','✦ THE DOJO KEPT YOUR PLACE');                                     // nothing lit yet: the room itself does the remembering, and no star is invented to speak
-}
-function rememberWitness(){
-  // "Tonight was played" — the same witness the ring stamps by, taken at the FIRST scoring arrival OF EACH DAY. One
-  // attempt per played DAY (1.1 amendment, M3 — the latch is the stamped date, so the page life is irrelevant and a
-  // tab alive across midnight witnesses the new night too): the call site reads the raw kill-switch, the latched mode
-  // and that same day before it ever reaches here, so a night with the parcel off — or any hit after the first of the
-  // day — costs a compare and no call.
-  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both (the call site's wasTrain latch, H1, is what keeps the GRADUATING hit out)
-  const today=phasesToday();
-  if(_rememberStampedDay===today) return;   // this day's attempt is spent, whatever it decided
-  _rememberStampedDay=today;
-  rememberLoad();
-  if(_rememberDay===today) return;   // a second session tonight writes nothing at all
-  _rememberDay=today; rememberSaveSoon();   // in memory FIRST, so this same page's later thresholds already know the night is spoken for even if the write is refused
-}
-/* ---- NIGHT CARDS (wave 5a, parcel O) ----
-   The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
-   tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON
-   IT. No count, no BPM, no accuracy, no streak, no name, no rank: there is nothing here that could be read as a score,
-   which is the whole reason it is worth sending to a person.
-   NOTHING IS INVENTED, AND NOTHING IS DUPLICATED. The glyph is painted by bowGlyphPaint — the Bow's own drawing law,
-   extracted so the ceremony and the card cannot disagree about what a night looked like. The moon is drawn by
-   phasesDrawDisc — the Temple ring's own shape. The band is the REAL fixture the dome is drawing right now (the same
-   vertex buffer, read back to ecliptic lon/lat and laid out flat), so a star on the card is a star you can walk
-   outside and find. The rule is wave 4's own sentence fragment. This parcel's only new drawing is the composition.
-   CAPTURE is one write per Bow, at the moment the glyph is struck, overwritten every night — the card is ephemeral by
-   design, because the SKY is the permanent record and this is only how tonight leaves the house. A hitless night
-   writes nothing at all (a glyph with no dots is not a card any more than it is a ritual).
-   STORAGE IS UNTRUSTED (wave-3/4/5a discipline): the loader is a validator — a plain non-array object at v===1, a d
-   that is literally YYYY-MM-DD (the memory layer's one date grammar), buckets admitted only in 0..7, hits admitted
-   only as finite pairs and clamped, star ids admitted only under wave 3's own id grammar, everything capped at
-   maxDots. Anything else is a night that left no card, silently.
-   Kill-switch nightCard.on:false → nothing is captured, no listener is wired, the button (display:none in the markup)
-   can never appear, and the file is never opened from any surface. */
-const CARD_KEY='aimdojo.nightcard';
-const CARD_FONT='"Share Tech Mono",ui-monospace,monospace';   // the page's own face, named for the canvas (which cannot read a CSS variable)
-const CARD_MON_EN=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];   // EN ONLY, and deliberately: the JA date is 'cardDate' = '{y}年{m}月{d}日', which reads the NUMBER and never the month name, so there is no Japanese string here to be missing
-const CARD_LAT_DEG=38;   // the band's half-height in ecliptic latitude — the fixture's widest star sits at 32.5°, so this frames the whole zodiac with air above and below and never clips a figure
-let _card=null;          // tonight's summary as VALIDATED memory ({d, phase, rule, hb, hits:[{errMs,k}], stars:[id]}), or null for a browser that has never bowed
-let _cardLoaded=false;   // the file is opened at most once per page life, by whichever surface needs it first (the offer, or a Bow that overwrites it)
-let _cardOpen=false;     // the view is showing — so a second Bow tonight repaints what is already on screen instead of leaving last night's picture up
-const _cardStars=[];     // ids brightened THIS RUN, in the order the sky took them — the halo list, cleared by resetSession exactly like the Mandala's own ledger, and never persisted except inside one night's card
-let _cardCv;
-function cardCanvasEl(){ if(_cardCv===undefined) _cardCv=(typeof document!=='undefined')?document.getElementById('nightCardCv'):null; return _cardCv; }
-function cardStar(id){
-  // Called from starLitGain, the ONE accretion path. First-come and deduped: a star that rises three levels tonight is
-  // one halo, not three, and past maxDots the night simply stops collecting — the halo is a night's work, not a ledger.
-  if(!id || _cardStars.length>=Math.max(1,CFG.nightCard.maxDots|0)) return;
-  if(_cardStars.indexOf(id)<0) _cardStars.push(id);
-}
-function cardInt(v,lo,hi){ return (typeof v==='number' && isFinite(v) && Math.floor(v)===v && v>=lo && v<=hi) ? v : null; }   // 1.1 amendment (M4): the senseiNum discipline for this envelope's integers — a TYPE test before a value test, and a fraction is a REJECTION rather than something to truncate. A null rejects the whole record at the call site, silently
-function cardLoad(){
-  if(_cardLoaded) return; _cardLoaded=true;
-  let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                       // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a night that left no card, silently
-  if(!realCivilDate(o.d)) return;                                                            // …and d is a REAL local civil date in the memory layer's one grammar (M5). A card with no honest date can never be shown to be tonight's, so it is not a card
-  // 1.1 amendment (wave 5a review, M4): STRICT ON THE WHOLE ENVELOPE. This used to be lenient in three ways at once —
-  // a missing or foreign hits/stars array coerced to empty and STILL offered a card, a fractional phase/rule/k was
-  // truncated into range, and a wild errMs or k was clamped. That is half-trust, and a half-trusted record is worse
-  // than none (senseiLoad's law): the picture would be honest about nothing. Now every field is checked and ANY
-  // failure drops the record entirely. Everything cardSave writes passes by construction: rounded errMs inside one
-  // beat, k straight out of the ledger (0 for the unquantized fallback — bowNote's own floor, so the floor here is 0
-  // and not 1), both lists capped at maxDots, -1 for a phase the sky would not name or a rule the deal never dealt.
-  const cap=Math.max(1,CFG.nightCard.maxDots|0);
-  const phase=cardInt(o.phase,-1,7), rule=cardInt(o.rule,-1,7);
-  if(phase==null || rule==null) return;                                                      // a bucket or the sky's own -1, and nothing between: -1 draws the empty outline and leaves the card wordless, which is honest for a night that was never named
-  if(typeof o.hb!=='number' || !isFinite(o.hb) || o.hb<0 || o.hb>10000) return;              // the half-beat the glyph's angles were measured against, in ms — 0 is this build's own "unknown" (the painter falls back to the live tempo), and anything outside a plausible tempo is not this build's write
-  if(!Array.isArray(o.hits) || o.hits.length>cap) return;                                    // the ledger is an ARRAY and it is already capped — an over-long one was not written here, and truncating it would be inventing which arrivals to keep
-  const hits=[];
-  for(const h of o.hits){
-    if(!Array.isArray(h) || h.length!==2) return;                                            // a pair, exactly: a nested object, a bare number, a triple — none of them is an arrival
-    const e=h[0], k=cardInt(h[1],0,999);
-    if(typeof e!=='number' || !isFinite(e) || e<-5000 || e>5000 || k==null) return;          // a null (what a NaN or an Infinity becomes the moment it is written), a numeric string, a fractional k: the whole night goes with any one of them
-    hits.push({errMs:e, k:k});                                                               // handed to bowGlyphPaint in the shape it takes live — validated, never clamped
-  }
-  if(!Array.isArray(o.stars) || o.stars.length>cap) return;
-  const stars=[];
-  for(const s of o.stars){
-    if(typeof s!=='string' || !STAR_ID_RE.test(s)) return;                                   // wave 3's OWN id grammar, reused: an id the lit sky would refuse cannot halo a star here either — and now it takes the record with it rather than being skipped
-    stars.push(s);
-  }
-  _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
-}
+                          
+                                                                                                                    
+                                                                                                                    
+                                            
+                                                                    
+               
+                                                                    
+                               
+                                                                                                                                                                                                                                                                     
+                       
+                                                                                                                                                                 
+                                              
+                                                                                                                                                                                                  
+                                               
+   
+                  
+ 
+                                                      
+                                                                                                                  
+                                                                                                                    
+                                                                                                                      
+                                                                                                                  
+                                                                                                                      
+                                                                                       
+                                                                                                                    
+                                                                                                                      
+                                                                                                                   
+                                                                                                                   
+                                                                                                    
+                                                                                                                   
+                                                                                                                      
+                                                                                            
+                                                                                                                     
+                                                                                                               
+                                                                                              
+                                                                                                                      
+                                       
+                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                      
+                                                                                                                                                                     
+                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                           
+                        
+                                                   
+                                                                                 
+                  
+                                                          
+                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                  
+ 
+                         
+                                                                       
+                                                   
+                                                                                                                                                                                                                                        
+ 
+                            
+                            
+                                                                                                                                                                                                                                                 
+ 
+                              
+                                                                                                               
+                                                                                                                     
+                                                                  
+                                           
+                                                                                               
+                                                                                                                                                         
+ 
+                        
+                                                                                                                   
+                                                                                                                    
+                                                                                                                   
+                                                                                                                                                      
+                                
+                                                                                                                                                                                                                                                                        
+                              
+                                                                                                        
+                                           
+                             
+                                                                      
+                                                                                                                
+ 
+                        
+                                                                                                                     
+                                                                                                                     
+                                                                                                                                                                                 
+                 
+                                                                                                                                                 
+                                                                                                                                                                                     
+                                                                                                                  
+                                           
+                                                                                                                                                                                                           
+                                                                                                                                              
+                            
+                                                                                                                                                                                                     
+                                                                                                                                                                                               
+ 
+                           
+                                                                                                                    
+                                                                                                                    
+                                                                                                                      
+                                                                                                                      
+                                       
+                                                                                                                                                                                                                 
+                            
+                                                                                               
+                            
+                 
+                                                                                      
+                                                                                                                                                                      
+ 
+                                            
+                                                                                                                    
+                                                                                                                      
+                                                                                                                       
+                                                             
+                                                                                                                     
+                                                                                                              
+                                                                                                                     
+                                                                                                                
+                                                                                                                   
+                                                                                                                      
+                                                                                                                 
+                                                                                           
+                                                                                                                    
+                                                                                                                   
+                                                                                                               
+                                                                 
+                                                                                                                      
+                                                                      
+                                   
+                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                    
+                                                                                                                                                                  
+                                                                                                                                                       
+                                                                                                                                                       
+                                                                                                                                                                                                                      
+            
+                                                                                                                                                       
+                      
+                                                                                                                       
+                                                                                                                        
+                                                                           
+                                                   
+ 
+                                                                                                                                                                                                                                                                                                                                                                         
+                    
+                                           
+                                                                             
+                  
+                                                          
+                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                            
+                                                                                                                      
+                                                                                                                   
+                                                                                                                    
+                                                                                                                
+                                                                                                                   
+                                                                                                                     
+                                                                                                                    
+                                                
+                                                               
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                    
+                
+                         
+                                                                                                                                                                                      
+                                        
+                                                                                                                                                                                                                                                
+                                                                                                                                                                             
+   
+                                                           
+                 
+                          
+                                                                                                                                                                                                                                                              
+                  
+   
+                                                                           
+ 
                     
                                                                                                               
                                                                                                   
@@ -6711,7 +6884,8 @@ function cardLoad(){
  
                         
                                                       
-                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                        
                                                                                                                                                     
                                                                                       
@@ -6758,7 +6932,7 @@ function cardLoad(){
             
    
                                                                                                                                                                                
-                                                                                             
+                                                                                                        
                                                                                                                                                                                                                                       
                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -6879,7 +7053,7 @@ function cardLoad(){
                            
             
                                                                                                                                                                  
-                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                  
                                                                                                              
                                                             
@@ -7444,6 +7618,7 @@ function cardLoad(){
                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                          
                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                        
                                                                                                                                                                                                                  
                                                                                                                                                                                                                  

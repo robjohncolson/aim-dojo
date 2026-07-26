@@ -1078,6 +1078,16 @@ const CFG = {
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
+  // THE STAR ROAD (wave 7, parcel S — SPEC_STAR_ROAD §3). The floor becomes the timeline: ONE luminous ribbon that curves in
+  // from the horizon ahead, passes under your feet at the NOW-LINE and recedes behind you to the other horizon, scrolling
+  // exactly one band-length per beat. THE TREADMILL LAW is absolute: PLAYER_POS never moves and not one ballistic / spawn /
+  // spatial-audio / grading quantity is touched — the road is PAINTED MOTION, a river under a still world.
+  // ONE CLOCK: the band edge crossing the now-line IS the audible beat, because roadBeatNow() is literally the expression
+  // wasdLanePress grades against (wasdBeats() − audioLat()/bps) plus grooveFreezePhase — so the lane's tap point lands
+  // EXACTLY mid-band ("the and") and the band edge is "the 1", with a proven residual of 0 at every tempo and latency.
+  // on:false → today's floor, floorBeat flash and note-lane HUD return byte-identically (raw boolean first at every site,
+  // and with it off no mesh, no shader, no uniform and no per-frame call exist at all). Post-graduation only; hidden in the Temple.
+  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs / mercyBoost / fillMark / holdDemo are THE BANDS parcel's information channels (the lane glyph mid-band · the mercy bar as one unmistakable wide bright band · the fill's amber gate marks · the hold-scaffold debug flag). THE RIVER ships the ribbon, the course and the clock and reads none of those four yet — they are stated here so the flat literal is the whole parcel's contract in one place
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
@@ -1536,6 +1546,167 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
   }
 })();
 
+/* ========================= THE STAR ROAD — THE RIVER (wave 7, parcel S · SPEC_STAR_ROAD §3, decisions 1+2) =========================
+   THE TREADMILL LAW (absolute, and this block is where it is stated): PLAYER_POS NEVER MOVES. Nothing below reads or writes a
+   ballistic, spawn, spatial-audio or grading quantity; nothing below is called from onGrid, fire(), spawnTarget, wasdLanePress
+   or any scoring path. The road is PAINTED MOTION — a river flowing under a world that is standing perfectly still — and the
+   whole parcel is a mesh, a shader, three uniform writes per frame and three `visible=false` assignments.
+
+   INFORMATION, NEVER DECORATION (the worldFloor veto of 2026-07-09 is why): every pixel encodes a timing fact.
+     · the ribbon           = the timeline's surface — where the beats live, and (by its two rails) the readable shape of the course
+     · a band boundary line = A BEAT, "the 1"; its centre crossing the now-line IS the audible beat
+     · the band interior    = one beat of time; its MIDPOINT is the lane's tap point, "the and" (grooveFreezePhase — glyph lands with THE BANDS)
+     · the now-line         = the beat happening NOW, at the player's feet, latency-corrected
+     · the bend             = tonight's course (decision 1), readable lookAheadBeats ahead — the shape the tracking drill will lean into
+   Nothing here is drawn for prettiness; the sky above already owns wonder.
+
+   ONE CLOCK — the agreement is by CONSTRUCTION, not by tuning (computed, not asserted):
+     grading  (wasdLanePress, index.html:6513-6515):  G = wasdBeats() − audioLat()/bps   ( = raw − grooveFreezePhase − lat/bps )
+     road     (roadBeatNow below):                    R = wasdBeatsHeard() + grooveFreezePhase
+                                                        = (wasdBeats() − audioLat()/bps) + grooveFreezePhase = G + grooveFreezePhase
+     R − G ≡ grooveFreezePhase, EXACTLY. Swept over the reachable ladder (bpm 20/28/33/40/50/57.5/60) × latency
+     (0 / 5 / 20 / 80 / 250 ms) × transport positions 0…4321.75 beats, max |(R−G) − grooveFreezePhase| = 5.55e-17 (one double ULP).
+     Band n's LEADING EDGE is at R = n, so it reaches the now-line at the heard whole beat; a lane note (integer G) therefore sits
+     at fract(R) = 0.500 — dead centre of its band, at every tempo and every latency, with nothing to keep in sync.
+     uNow is the only clock value crossing into GLSL and it is a float32: at 60 bpm × 3 h (10800 beats) one ULP is 9.77e-4 beat
+     = 0.98 ms — 25× under the ±25 ms TRUE PERFECT plateau, and 0.24 ms in the first hour. No wrapping needed.
+
+   GEOMETRY (decision 2 — the course flows THROUGH you). ROAD_BAND_M metres of road per beat, so scroll speed = ROAD_BAND_M/beatSec:
+   tempo IS flow speed, free — 3.33 m/s at 20 bpm, 10.00 m/s at 60, and the eight-beat look-ahead is 24.0 s of road at 20 bpm and
+   8.0 s at 60 (the climb to the cap doubles the flow of 30: racing feel earned by mastery). ROAD_BAND_M = 10 was chosen against the
+   SHIPPED fog (FogExp2, density 0.012 at night): 8 bands = 80 m, where fog reaches 0.602 — the last band the eye can still read
+   (10 bands = 0.763, 13.2 = 0.919). From EYE 4 m at fov 95 the bands subtend 68.2° / 10.5° / 3.7° / 1.9° / 1.1° / 0.76° / 0.54° /
+   0.41° / 0.32°, i.e. 4 px at 1080p for band 8 — the honest foreshortening of a road, not a defect.
+   THE NOW-LINE IS UNDER THE FEET, per spec, and that has a measured consequence worth stating: at level pitch the bottom of the
+   screen is at u = 4/tan(47.5°) = 3.67 m = 0.367 band, so a player who reads "the edge left the screen" as the beat is early by
+   0.367 beat (1100 ms at 20 bpm, 367 ms at 60). Looking 40° down that error is 0.017 band (52 / 17 ms). The band FLOW, not the
+   screen edge, is the cue — exactly the playtest question SPEC §5 asks.
+
+   THE RIBBON is a centreline curve swept to road.widthM, drawn by ONE plane and ONE shader (the skyDomeMat pattern) instead of a
+   swept mesh: the fragment shader evaluates the course at its own band position, so the ribbon is exact and endless with no
+   geometry to regenerate. The centreline is RE-BASED to second order — Xd(b) = X(b) − X(b0) − X′(b0)(b−b0) — which makes
+   Xd(b0)=0 and Xd′(b0)=0: the river always passes UNDER THE FEET heading straight down the road axis, and only CURVATURE shows.
+   That is the treadmill law expressed in geometry (a first-order re-basing would slide the road out from under a player who
+   cannot move). Xd is a graph-form Frenet frame, exact to second order; over a swept year of courses the worst ribbon slope is
+   0.383 (20.9°), which narrows the perpendicular ribbon width to 13.08 m of 14 (93.4%) at the very worst point of the very
+   worst night — invisible, and the price of one plane instead of a rebuilt mesh every frame.
+
+   NIGHT-SEEDED COURSE (decision 1): the shape is a deterministic function of the LOCAL CALENDAR DATE (the same key dealWind and
+   the chorus salt turn over on) XOR moonPhaseBucket() — THE one phase authority the deal already reads. No new entropy source,
+   no network, and ZERO rnd() draws: the generator is a private mulberry32 instance, so the spawn stream is untouched down to the
+   draw (THE STREAM RULE). An unreadable sky (bucket −1) still seeds from the date alone — fail-open, never a stall.
+   Everyone under tonight's sky rides the same river; tomorrow's is new because the sky moved. Each harmonic's amplitude is
+   normalised so its worst-case re-based deviation over the WHOLE visible ribbon is ROAD_BEND_M/ROAD_HARM, which bounds the river
+   by construction: over 365 days × 8 buckets × 120 now-positions the bend at 8 beats is min 1.95 m / median 9.36 m / max 12.04 m
+   (median 6.7°, max 8.6° off-axis at 80 m) and |Xd| never exceeds ROAD_BEND_M anywhere visible. Seeded ONCE per page load: a
+   session that crosses midnight keeps the river it opened with, the same kindness the chorus salt already chose.
+
+   COST: one plane (76 × 280 m — sized so the bounded ribbon can never leave it, far cheaper in fragments than the 620 m floor),
+   one shader, no textures, no allocations anywhere on the frame path. Uniform writes per frame: uNow, uBase.x, uBase.y — three
+   floats, no per-frame allocation and no per-frame call at all with road.on:false. LOW-REZ compiles the cheap path (ONE course
+   harmonic instead of three, constant-width antialiasing, no rails). reduceMotion is FIRST CLASS, not a degradation, and needs
+   no second code path: uNow is simply pinned to 0, so the road STANDS STILL with its bands anchored at the now-line as a ruler
+   of the next eight beats, and uPulse flashes them in place on each heard beat using the same discrete law the trainer's
+   reduced-motion floor flash uses (|off| < 0.12 beat → on). All information preserved, zero motion.
+   ========================================================================================================================== */
+const ROAD_BAND_M=10;                                                     // metres of road per BEAT-BAND — the one constant the whole conveyor is built from (see the fog / apparent-height arithmetic above)
+const ROAD_HALF_W=Math.max(1,(CFG.road&&+CFG.road.widthM)||14)/2;
+const ROAD_LOOK=Math.max(1,((CFG.road&&+CFG.road.lookAheadBeats)||8)|0);
+const ROAD_FADE0=ROAD_LOOK*ROAD_BAND_M*0.55, ROAD_FADE1=ROAD_LOOK*ROAD_BAND_M*1.65;   // 44 m → 132 m alpha ramp: the road dissolves ALONGSIDE the fog rather than popping out of it (fog transmission at 80 m is 0.398, road alpha 0.635 — luminous enough to still be read eight beats out, which is its whole job)
+const ROAD_BEND_M=26, ROAD_HARM=LOW?1:3;                                  // the bounded lateral swing of the re-based centreline, and the course's harmonic count (LOW: one sin per fragment instead of three)
+const ROAD_PLANE_W=2*(ROAD_BEND_M+ROAD_HALF_W)+10, ROAD_PLANE_L=2*ROAD_FADE1+16;   // 76 × 280 m — the ribbon is bounded by construction, so this is the smallest plane it can never leave
+const ROAD_ALPHA=0.55, ROAD_INK_BASE=0.10, ROAD_INK_EDGE=0.90, ROAD_INK_RAIL=0.40, ROAD_INK_NOW=1.15, ROAD_INK_PULSE=0.85;   // the loudness knobs — the sky must stay the star (SPEC §5's first tuning question)
+const _roadG=n=>(+n).toFixed(5);                                          // GLSL float literal (a bare integer is an int in GLSL and would not compile)
+let _roadCourse=null;                                                     // tonight's river: {a,w,p} — seeded lazily, once
+function roadCourse(){
+  if(_roadCourse) return _roadCourse;
+  const d=new Date(), key=(d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())|0;   // THE LOCAL CALENDAR DATE — the identical key dealWind mixes and chorusSaltRefresh stores
+  const ph=moonPhaseBucket();                                             // THE one phase authority (the deal's own): −1 (unreadable sky) simply contributes nothing, so the date alone still seeds a river
+  const rr=mulberry32((key ^ Math.imul(ph+1,0x9e3779b9))>>>0);            // a PRIVATE stream: not rnd(), not Math.random — the spawn stream is untouched draw for draw
+  const a=[], w=[], p=[], dbMax=ROAD_FADE1/ROAD_BAND_M;
+  for(let i=0;i<ROAD_HARM;i++){
+    const om=6.283185307/(20+rr()*40);                                    // one course wave every 20..60 beats
+    let m=0;
+    for(let db=0;db<=dbMax;db+=0.05){ const x=om*db, n=Math.hypot(Math.cos(x)-1, Math.sin(x)-x); if(n>m) m=n; }   // max |Xd|/A over the visible ribbon (closed form of the re-basing, derived in the block comment)
+    w.push(om); p.push(rr()*6.283185307); a.push((ROAD_BEND_M/ROAD_HARM)/Math.max(1e-6,m));
+  }
+  return (_roadCourse={a:a,w:w,p:p});
+}
+function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*Math.sin(c.w[i]*b+c.p[i]); return s; }   // the centreline, metres (the SAME function the fragment shader evaluates — one course, two readers)
+function roadCourseD(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); return s; }   // its slope, metres per beat — the second half of the re-basing pair (and, next parcel, the tracking drill's bank)
+function roadBeatNow(){ return wasdBeatsHeard() + (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // ONE CLOCK: literally the grading expression (wasdBeats() − audioLat()/bps) plus the groove phase, so the band edge is the heard "1" and the lane note is mid-band. Reads, never writes
+function roadLive(){ return !!(CFG.road && CFG.road.on) && !trainMode && !templeActive; }   // raw kill-switch FIRST; post-graduation only (the trainer keeps its didactic floor) and the Temple's floor-dissolve is never touched
+let roadMesh=null, roadMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
+const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
+(function buildRoad(){
+  if(!(CFG.road && CFG.road.on)) return;                                  // THE KILL-SWITCH, raw boolean first: no geometry, no shader compile, no uniform, nothing to call — the dojo floor is the one that shipped
+  const HW=_roadG(ROAD_HALF_W), INV=_roadG(1/ROAD_BAND_M);
+  roadMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
+    uniforms:{ uNow:{value:0}, uBase:{value:_roadBase}, uA:{value:new THREE.Vector3()}, uW:{value:new THREE.Vector3()}, uP:{value:new THREE.Vector3()},
+               uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0} },
+    vertexShader:'varying vec2 vXZ; void main(){ vec4 wp=modelMatrix*vec4(position,1.0); vXZ=wp.xz; gl_Position=projectionMatrix*viewMatrix*wp; }',
+    fragmentShader:[
+      'uniform float uNow,uAmt,uPulse; uniform vec2 uBase; uniform vec3 uA,uW,uP,uInk; varying vec2 vXZ;',
+      'void main(){',
+      '  float u=-vXZ.y, d=abs(u);',                                                                      // u = metres AHEAD (world −Z); the ribbon runs BOTH ways — turn around and the road is there, going away
+      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',d); if(fade<=0.004) discard;',   // cheapest rejection first
+      '  float b=uNow+u*'+INV+';',                                                                        // THE BEAT this strip of road carries. b−uNow beats from now = (b−uNow)·ROAD_BAND_M metres out: distance IS time
+      (LOW ? '  float cx=uA.x*sin(uW.x*b+uP.x)-uBase.x-uBase.y*(b-uNow);'
+           : '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);'),                    // the RE-BASED centreline: 0 value and 0 slope at the now-line, so the river passes under the still player
+      '  float lat=abs(vXZ.x-cx);',
+      '  float aa='+(LOW?'1.10':'0.30+d*0.020')+';',                                                      // hand-rolled distance-widened antialiasing — no fwidth(), so no derivatives extension is required anywhere
+      '  float ribbon=1.0-smoothstep('+HW+'-aa,'+HW+'+aa,lat); if(ribbon<=0.004) discard;',
+      '  float fb=fract(b), e=min(fb,1.0-fb);',                                                           // distance IN BEATS to the nearest band boundary — the boundary IS the beat, so the line is centred on it
+      '  float ew='+(LOW?'0.060':'0.030+d*0.0016')+';',
+      '  float ink='+_roadG(ROAD_INK_BASE)+'+'+_roadG(ROAD_INK_EDGE)+'*(1.0-smoothstep(0.0,ew,e))'
+        +(LOW?'':'+'+_roadG(ROAD_INK_RAIL)+'*smoothstep('+HW+'-aa*3.0,'+HW+',lat)')                       // the two rails: the ribbon's own boundary, and what makes the bend readable eight beats out
+        +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
+      '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_BAND_M)+'?1.0:0.4);',                    // reduceMotion only: the bands pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
+      '  gl_FragColor=vec4(uInk*ink, ribbon*fade*uAmt);',
+      '}'
+    ].join('\n') });
+  roadMesh=new THREE.Mesh(new THREE.PlaneGeometry(ROAD_PLANE_W, ROAD_PLANE_L), roadMat);
+  roadMesh.rotation.x=-Math.PI/2;                                         // local +Y → world −Z, so the plane's LENGTH is the road axis and "ahead" is −Z (yaw 0 looks down −Z)
+  roadMesh.position.y=0.03;                                               // above every hidden floor layer (base 0 · checker 0.012 · halo 0.016 · lattice 0.02) — no z-fighting with the surfaces the kill-switch restores
+  roadMesh.renderOrder=-900; roadMesh.visible=false; scene.add(roadMesh);
+})();
+function roadHideOldFloor(){
+  // THE ROAD SUBSUMES THE OLD FLOOR: two floors on screen is two clocks. The checker, the night lattice and its halo go
+  // invisible (never deleted — the kill-switch restores them, and updateSky rewrites all three every tick, so this is a
+  // pure override rather than a state the code has to remember). baseFloor STAYS: it is the opaque ground the arena needs
+  // (it was never a cue — the beat flash lived on the checker and the lattice), and dropping it would open the same black
+  // void the Temple's own comment warns about. Returns whether it acted, so callers can read it as "the road owns the floor now".
+  if(!roadLive()) return false;
+  if(dayFloor) dayFloor.visible=false;
+  if(nightGrid) nightGrid.visible=false;
+  if(glowGrid) glowGrid.visible=false;
+  return true;
+}
+function roadSync(){
+  if(!roadMesh) return;                                                   // road.on:false → never built → the frame costs one null read
+  const live=roadLive();
+  if(live!==_roadVis){ _roadVis=live; roadMesh.visible=live; }
+  if(!live) return;
+  const U=roadMat.uniforms;
+  if(!_roadUp){                                                           // tonight's course reaches the shader ONCE (it is a property of the night, not of the beat)
+    const c=roadCourse();
+    U.uA.value.set(c.a[0]||0, c.a[1]||0, c.a[2]||0);
+    U.uW.value.set(c.w[0]||0, c.w[1]||0, c.w[2]||0);
+    U.uP.value.set(c.p[0]||0, c.p[1]||0, c.p[2]||0);
+    U.uAmt.value=ROAD_ALPHA;
+    if(reduceMotion){ U.uNow.value=0; _roadBase.set(roadCourseX(0), roadCourseD(0)); }   // the STILL road's clock and re-basing pair are constants — written once, beside the course they belong to, and never again
+    _roadUp=true;
+  }
+  if(gridColIdx!==_roadInkIdx){ _roadInkIdx=gridColIdx; _roadInk.setHex(GRID_COLS[gridColIdx][0]); }   // the road inherits tonight's grid-colour roll: it REPLACES the lattice, so the nightly roll survives instead of going quiet with it. A read of an index that already exists — zero new draws
+  if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
+    const r=roadBeatNow();
+    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7065). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
+    return;
+  }
+  const r=roadBeatNow();                                                  // the ONLY per-frame writes: three floats, no allocation, no array, no call into any gameplay path
+  U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r));
+}
+
 /* ========================= SKY: stars, sun, moon, day/night ========================= */
 const skyGroup=new THREE.Group(); scene.add(skyGroup);        // the whole celestial sphere — rotates slowly so the sky drifts
 let starPts=null, starGeo=null;
@@ -1755,6 +1926,7 @@ function updateSky(dt){
     const gop=templeActive?0:0.9*(1-day);
     setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=!templeActive && gop>0.01;
   }
+  roadHideOldFloor();   // THE STAR ROAD: the checker, the night lattice and its halo go dark under the road (two floors is two clocks). Deliberately placed AFTER all three visibility writes above, so with road.on:false roadLive() is one boolean read and every one of them stands exactly as it shipped
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
   _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && !templeActive && activeTheme) _amb.lerp(_moodCol, (0.04+0.04*Math.min(1,grooveI/2.5))*tideBreath); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
@@ -1768,7 +1940,7 @@ function updateSky(dt){
   if(templeActive||_templeBlend>0.01) updateSkyTempleVisuals();   // keep aspect/ghost opacities in sync while the full-sphere blend is open
   updateTempleOrbs(dt);                                          // TEMPLE ORBS: milky-shell fade + camera-relative planet globe (near-free no-op outside temple unless dojoShell)
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
-  if(!templeActive && day>0.02) renderReflection();          // no mirror pass in temple (floor is gone)
+  if(!templeActive && day>0.02 && !roadLive()) renderReflection();          // no mirror pass in temple (floor is gone) — nor under the road, whose only consumer (dayFloor) is hidden: the whole second scene render would be drawn into a target nothing samples
 }
 function applyCloudWind(){
   // THE ONE WRITER of the cloud drift vector, and it writes UNCONDITIONALLY — including the wind-less case. A dealt
@@ -3787,6 +3959,7 @@ function exitSkyTemple(options){
   if(dayFloor) dayFloor.visible=true;
   if(nightGrid) nightGrid.visible=true;
   if(glowGrid) glowGrid.visible=true;
+  roadHideOldFloor();   // THE STAR ROAD: the three lines above restore the DOJO floor unconditionally, and updateSky only re-runs at 20 Hz — without this the checker/lattice would flash for up to 50 ms on the way out of the Temple. One boolean read with road.on:false, and the Temple's own floor-dissolve above is untouched
   setHorizonOpen(0);
   if(_skySel){ goldFigure(_skySel.kind==='sign'?_skySel.id:_skySel.meta.sign); emphasizeListenGlyphs(_skySel); }
   else { restoreListenGlyphs(); restoreFigures(); }
@@ -6711,7 +6884,8 @@ function showWasdGlyph(key, spoiled, on, ghost){   // ghost = this note is an in
 }
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
-  const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || CFG.wasdLetter || reduceMotion);   // canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
+  const laneCue=!roadLive();   // THE STAR ROAD subsumes the NOTE LANE: the sequence it drew flat at the crosshair is now sequenced ahead of you in the world, so the centre letter stands down while the road owns the floor. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. roadLive() reads the raw kill-switch first, so road.on:false makes laneCue true and both expressions below are the shipped ones verbatim
+  const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || (CFG.wasdTapText && !laneCue) || ((CFG.wasdLetter || reduceMotion) && laneCue));   // THE STAR ROAD: the letter clause is the only one the road takes over; the tapText clause exists so an explicitly opted-in TAP TIMING READOUT is not collateral damage of the lane standing down (it used to reach the canvas by riding wasdLetter's default). With laneCue true it is `wasdTapText && false` — a dead term in an ||, so the road.on:false expression is character-for-character the shipped one. canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
   const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
   if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
@@ -6758,7 +6932,7 @@ function drawWasdLane(){
     ARC(rt);
   }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
-  showWasdGlyph(letterKey, spoiled, (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote);
+  showWasdGlyph(letterKey, spoiled, laneCue && (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote);
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
@@ -6879,7 +7053,7 @@ const _floorBeatCol=new THREE.Color();
 function updateFloorBeat(){
   let amt=0;
   const floorCueOn=!templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'
-    && (!reduceMotion || trainMode);   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off)
+    && (!reduceMotion || trainMode) && !roadLive();   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
   if(floorCueOn){
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
     const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
@@ -7444,6 +7618,7 @@ function animate(frameNow){
   try{ if(state.running&&!templeActive) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
   try{ updateTanks(dt); }catch(e){ if(!updateTanks._e){ updateTanks._e=1; console.error('updateTanks',e); } }   // MULTI-HIT TANK: the per-chip shell pop
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
+  try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
   try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)

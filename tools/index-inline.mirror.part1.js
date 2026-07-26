@@ -1078,6 +1078,16 @@ const CFG = {
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
+  // THE STAR ROAD (wave 7, parcel S — SPEC_STAR_ROAD §3). The floor becomes the timeline: ONE luminous ribbon that curves in
+  // from the horizon ahead, passes under your feet at the NOW-LINE and recedes behind you to the other horizon, scrolling
+  // exactly one band-length per beat. THE TREADMILL LAW is absolute: PLAYER_POS never moves and not one ballistic / spawn /
+  // spatial-audio / grading quantity is touched — the road is PAINTED MOTION, a river under a still world.
+  // ONE CLOCK: the band edge crossing the now-line IS the audible beat, because roadBeatNow() is literally the expression
+  // wasdLanePress grades against (wasdBeats() − audioLat()/bps) plus grooveFreezePhase — so the lane's tap point lands
+  // EXACTLY mid-band ("the and") and the band edge is "the 1", with a proven residual of 0 at every tempo and latency.
+  // on:false → today's floor, floorBeat flash and note-lane HUD return byte-identically (raw boolean first at every site,
+  // and with it off no mesh, no shader, no uniform and no per-frame call exist at all). Post-graduation only; hidden in the Temple.
+  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs / mercyBoost / fillMark / holdDemo are THE BANDS parcel's information channels (the lane glyph mid-band · the mercy bar as one unmistakable wide bright band · the fill's amber gate marks · the hold-scaffold debug flag). THE RIVER ships the ribbon, the course and the clock and reads none of those four yet — they are stated here so the flat literal is the whole parcel's contract in one place
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
@@ -1536,6 +1546,167 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
   }
 })();
 
+/* ========================= THE STAR ROAD — THE RIVER (wave 7, parcel S · SPEC_STAR_ROAD §3, decisions 1+2) =========================
+   THE TREADMILL LAW (absolute, and this block is where it is stated): PLAYER_POS NEVER MOVES. Nothing below reads or writes a
+   ballistic, spawn, spatial-audio or grading quantity; nothing below is called from onGrid, fire(), spawnTarget, wasdLanePress
+   or any scoring path. The road is PAINTED MOTION — a river flowing under a world that is standing perfectly still — and the
+   whole parcel is a mesh, a shader, three uniform writes per frame and three `visible=false` assignments.
+
+   INFORMATION, NEVER DECORATION (the worldFloor veto of 2026-07-09 is why): every pixel encodes a timing fact.
+     · the ribbon           = the timeline's surface — where the beats live, and (by its two rails) the readable shape of the course
+     · a band boundary line = A BEAT, "the 1"; its centre crossing the now-line IS the audible beat
+     · the band interior    = one beat of time; its MIDPOINT is the lane's tap point, "the and" (grooveFreezePhase — glyph lands with THE BANDS)
+     · the now-line         = the beat happening NOW, at the player's feet, latency-corrected
+     · the bend             = tonight's course (decision 1), readable lookAheadBeats ahead — the shape the tracking drill will lean into
+   Nothing here is drawn for prettiness; the sky above already owns wonder.
+
+   ONE CLOCK — the agreement is by CONSTRUCTION, not by tuning (computed, not asserted):
+     grading  (wasdLanePress, index.html:6513-6515):  G = wasdBeats() − audioLat()/bps   ( = raw − grooveFreezePhase − lat/bps )
+     road     (roadBeatNow below):                    R = wasdBeatsHeard() + grooveFreezePhase
+                                                        = (wasdBeats() − audioLat()/bps) + grooveFreezePhase = G + grooveFreezePhase
+     R − G ≡ grooveFreezePhase, EXACTLY. Swept over the reachable ladder (bpm 20/28/33/40/50/57.5/60) × latency
+     (0 / 5 / 20 / 80 / 250 ms) × transport positions 0…4321.75 beats, max |(R−G) − grooveFreezePhase| = 5.55e-17 (one double ULP).
+     Band n's LEADING EDGE is at R = n, so it reaches the now-line at the heard whole beat; a lane note (integer G) therefore sits
+     at fract(R) = 0.500 — dead centre of its band, at every tempo and every latency, with nothing to keep in sync.
+     uNow is the only clock value crossing into GLSL and it is a float32: at 60 bpm × 3 h (10800 beats) one ULP is 9.77e-4 beat
+     = 0.98 ms — 25× under the ±25 ms TRUE PERFECT plateau, and 0.24 ms in the first hour. No wrapping needed.
+
+   GEOMETRY (decision 2 — the course flows THROUGH you). ROAD_BAND_M metres of road per beat, so scroll speed = ROAD_BAND_M/beatSec:
+   tempo IS flow speed, free — 3.33 m/s at 20 bpm, 10.00 m/s at 60, and the eight-beat look-ahead is 24.0 s of road at 20 bpm and
+   8.0 s at 60 (the climb to the cap doubles the flow of 30: racing feel earned by mastery). ROAD_BAND_M = 10 was chosen against the
+   SHIPPED fog (FogExp2, density 0.012 at night): 8 bands = 80 m, where fog reaches 0.602 — the last band the eye can still read
+   (10 bands = 0.763, 13.2 = 0.919). From EYE 4 m at fov 95 the bands subtend 68.2° / 10.5° / 3.7° / 1.9° / 1.1° / 0.76° / 0.54° /
+   0.41° / 0.32°, i.e. 4 px at 1080p for band 8 — the honest foreshortening of a road, not a defect.
+   THE NOW-LINE IS UNDER THE FEET, per spec, and that has a measured consequence worth stating: at level pitch the bottom of the
+   screen is at u = 4/tan(47.5°) = 3.67 m = 0.367 band, so a player who reads "the edge left the screen" as the beat is early by
+   0.367 beat (1100 ms at 20 bpm, 367 ms at 60). Looking 40° down that error is 0.017 band (52 / 17 ms). The band FLOW, not the
+   screen edge, is the cue — exactly the playtest question SPEC §5 asks.
+
+   THE RIBBON is a centreline curve swept to road.widthM, drawn by ONE plane and ONE shader (the skyDomeMat pattern) instead of a
+   swept mesh: the fragment shader evaluates the course at its own band position, so the ribbon is exact and endless with no
+   geometry to regenerate. The centreline is RE-BASED to second order — Xd(b) = X(b) − X(b0) − X′(b0)(b−b0) — which makes
+   Xd(b0)=0 and Xd′(b0)=0: the river always passes UNDER THE FEET heading straight down the road axis, and only CURVATURE shows.
+   That is the treadmill law expressed in geometry (a first-order re-basing would slide the road out from under a player who
+   cannot move). Xd is a graph-form Frenet frame, exact to second order; over a swept year of courses the worst ribbon slope is
+   0.383 (20.9°), which narrows the perpendicular ribbon width to 13.08 m of 14 (93.4%) at the very worst point of the very
+   worst night — invisible, and the price of one plane instead of a rebuilt mesh every frame.
+
+   NIGHT-SEEDED COURSE (decision 1): the shape is a deterministic function of the LOCAL CALENDAR DATE (the same key dealWind and
+   the chorus salt turn over on) XOR moonPhaseBucket() — THE one phase authority the deal already reads. No new entropy source,
+   no network, and ZERO rnd() draws: the generator is a private mulberry32 instance, so the spawn stream is untouched down to the
+   draw (THE STREAM RULE). An unreadable sky (bucket −1) still seeds from the date alone — fail-open, never a stall.
+   Everyone under tonight's sky rides the same river; tomorrow's is new because the sky moved. Each harmonic's amplitude is
+   normalised so its worst-case re-based deviation over the WHOLE visible ribbon is ROAD_BEND_M/ROAD_HARM, which bounds the river
+   by construction: over 365 days × 8 buckets × 120 now-positions the bend at 8 beats is min 1.95 m / median 9.36 m / max 12.04 m
+   (median 6.7°, max 8.6° off-axis at 80 m) and |Xd| never exceeds ROAD_BEND_M anywhere visible. Seeded ONCE per page load: a
+   session that crosses midnight keeps the river it opened with, the same kindness the chorus salt already chose.
+
+   COST: one plane (76 × 280 m — sized so the bounded ribbon can never leave it, far cheaper in fragments than the 620 m floor),
+   one shader, no textures, no allocations anywhere on the frame path. Uniform writes per frame: uNow, uBase.x, uBase.y — three
+   floats, no per-frame allocation and no per-frame call at all with road.on:false. LOW-REZ compiles the cheap path (ONE course
+   harmonic instead of three, constant-width antialiasing, no rails). reduceMotion is FIRST CLASS, not a degradation, and needs
+   no second code path: uNow is simply pinned to 0, so the road STANDS STILL with its bands anchored at the now-line as a ruler
+   of the next eight beats, and uPulse flashes them in place on each heard beat using the same discrete law the trainer's
+   reduced-motion floor flash uses (|off| < 0.12 beat → on). All information preserved, zero motion.
+   ========================================================================================================================== */
+const ROAD_BAND_M=10;                                                     // metres of road per BEAT-BAND — the one constant the whole conveyor is built from (see the fog / apparent-height arithmetic above)
+const ROAD_HALF_W=Math.max(1,(CFG.road&&+CFG.road.widthM)||14)/2;
+const ROAD_LOOK=Math.max(1,((CFG.road&&+CFG.road.lookAheadBeats)||8)|0);
+const ROAD_FADE0=ROAD_LOOK*ROAD_BAND_M*0.55, ROAD_FADE1=ROAD_LOOK*ROAD_BAND_M*1.65;   // 44 m → 132 m alpha ramp: the road dissolves ALONGSIDE the fog rather than popping out of it (fog transmission at 80 m is 0.398, road alpha 0.635 — luminous enough to still be read eight beats out, which is its whole job)
+const ROAD_BEND_M=26, ROAD_HARM=LOW?1:3;                                  // the bounded lateral swing of the re-based centreline, and the course's harmonic count (LOW: one sin per fragment instead of three)
+const ROAD_PLANE_W=2*(ROAD_BEND_M+ROAD_HALF_W)+10, ROAD_PLANE_L=2*ROAD_FADE1+16;   // 76 × 280 m — the ribbon is bounded by construction, so this is the smallest plane it can never leave
+const ROAD_ALPHA=0.55, ROAD_INK_BASE=0.10, ROAD_INK_EDGE=0.90, ROAD_INK_RAIL=0.40, ROAD_INK_NOW=1.15, ROAD_INK_PULSE=0.85;   // the loudness knobs — the sky must stay the star (SPEC §5's first tuning question)
+const _roadG=n=>(+n).toFixed(5);                                          // GLSL float literal (a bare integer is an int in GLSL and would not compile)
+let _roadCourse=null;                                                     // tonight's river: {a,w,p} — seeded lazily, once
+function roadCourse(){
+  if(_roadCourse) return _roadCourse;
+  const d=new Date(), key=(d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())|0;   // THE LOCAL CALENDAR DATE — the identical key dealWind mixes and chorusSaltRefresh stores
+  const ph=moonPhaseBucket();                                             // THE one phase authority (the deal's own): −1 (unreadable sky) simply contributes nothing, so the date alone still seeds a river
+  const rr=mulberry32((key ^ Math.imul(ph+1,0x9e3779b9))>>>0);            // a PRIVATE stream: not rnd(), not Math.random — the spawn stream is untouched draw for draw
+  const a=[], w=[], p=[], dbMax=ROAD_FADE1/ROAD_BAND_M;
+  for(let i=0;i<ROAD_HARM;i++){
+    const om=6.283185307/(20+rr()*40);                                    // one course wave every 20..60 beats
+    let m=0;
+    for(let db=0;db<=dbMax;db+=0.05){ const x=om*db, n=Math.hypot(Math.cos(x)-1, Math.sin(x)-x); if(n>m) m=n; }   // max |Xd|/A over the visible ribbon (closed form of the re-basing, derived in the block comment)
+    w.push(om); p.push(rr()*6.283185307); a.push((ROAD_BEND_M/ROAD_HARM)/Math.max(1e-6,m));
+  }
+  return (_roadCourse={a:a,w:w,p:p});
+}
+function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*Math.sin(c.w[i]*b+c.p[i]); return s; }   // the centreline, metres (the SAME function the fragment shader evaluates — one course, two readers)
+function roadCourseD(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); return s; }   // its slope, metres per beat — the second half of the re-basing pair (and, next parcel, the tracking drill's bank)
+function roadBeatNow(){ return wasdBeatsHeard() + (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // ONE CLOCK: literally the grading expression (wasdBeats() − audioLat()/bps) plus the groove phase, so the band edge is the heard "1" and the lane note is mid-band. Reads, never writes
+function roadLive(){ return !!(CFG.road && CFG.road.on) && !trainMode && !templeActive; }   // raw kill-switch FIRST; post-graduation only (the trainer keeps its didactic floor) and the Temple's floor-dissolve is never touched
+let roadMesh=null, roadMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
+const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
+(function buildRoad(){
+  if(!(CFG.road && CFG.road.on)) return;                                  // THE KILL-SWITCH, raw boolean first: no geometry, no shader compile, no uniform, nothing to call — the dojo floor is the one that shipped
+  const HW=_roadG(ROAD_HALF_W), INV=_roadG(1/ROAD_BAND_M);
+  roadMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
+    uniforms:{ uNow:{value:0}, uBase:{value:_roadBase}, uA:{value:new THREE.Vector3()}, uW:{value:new THREE.Vector3()}, uP:{value:new THREE.Vector3()},
+               uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0} },
+    vertexShader:'varying vec2 vXZ; void main(){ vec4 wp=modelMatrix*vec4(position,1.0); vXZ=wp.xz; gl_Position=projectionMatrix*viewMatrix*wp; }',
+    fragmentShader:[
+      'uniform float uNow,uAmt,uPulse; uniform vec2 uBase; uniform vec3 uA,uW,uP,uInk; varying vec2 vXZ;',
+      'void main(){',
+      '  float u=-vXZ.y, d=abs(u);',                                                                      // u = metres AHEAD (world −Z); the ribbon runs BOTH ways — turn around and the road is there, going away
+      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',d); if(fade<=0.004) discard;',   // cheapest rejection first
+      '  float b=uNow+u*'+INV+';',                                                                        // THE BEAT this strip of road carries. b−uNow beats from now = (b−uNow)·ROAD_BAND_M metres out: distance IS time
+      (LOW ? '  float cx=uA.x*sin(uW.x*b+uP.x)-uBase.x-uBase.y*(b-uNow);'
+           : '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);'),                    // the RE-BASED centreline: 0 value and 0 slope at the now-line, so the river passes under the still player
+      '  float lat=abs(vXZ.x-cx);',
+      '  float aa='+(LOW?'1.10':'0.30+d*0.020')+';',                                                      // hand-rolled distance-widened antialiasing — no fwidth(), so no derivatives extension is required anywhere
+      '  float ribbon=1.0-smoothstep('+HW+'-aa,'+HW+'+aa,lat); if(ribbon<=0.004) discard;',
+      '  float fb=fract(b), e=min(fb,1.0-fb);',                                                           // distance IN BEATS to the nearest band boundary — the boundary IS the beat, so the line is centred on it
+      '  float ew='+(LOW?'0.060':'0.030+d*0.0016')+';',
+      '  float ink='+_roadG(ROAD_INK_BASE)+'+'+_roadG(ROAD_INK_EDGE)+'*(1.0-smoothstep(0.0,ew,e))'
+        +(LOW?'':'+'+_roadG(ROAD_INK_RAIL)+'*smoothstep('+HW+'-aa*3.0,'+HW+',lat)')                       // the two rails: the ribbon's own boundary, and what makes the bend readable eight beats out
+        +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
+      '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_BAND_M)+'?1.0:0.4);',                    // reduceMotion only: the bands pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
+      '  gl_FragColor=vec4(uInk*ink, ribbon*fade*uAmt);',
+      '}'
+    ].join('\n') });
+  roadMesh=new THREE.Mesh(new THREE.PlaneGeometry(ROAD_PLANE_W, ROAD_PLANE_L), roadMat);
+  roadMesh.rotation.x=-Math.PI/2;                                         // local +Y → world −Z, so the plane's LENGTH is the road axis and "ahead" is −Z (yaw 0 looks down −Z)
+  roadMesh.position.y=0.03;                                               // above every hidden floor layer (base 0 · checker 0.012 · halo 0.016 · lattice 0.02) — no z-fighting with the surfaces the kill-switch restores
+  roadMesh.renderOrder=-900; roadMesh.visible=false; scene.add(roadMesh);
+})();
+function roadHideOldFloor(){
+  // THE ROAD SUBSUMES THE OLD FLOOR: two floors on screen is two clocks. The checker, the night lattice and its halo go
+  // invisible (never deleted — the kill-switch restores them, and updateSky rewrites all three every tick, so this is a
+  // pure override rather than a state the code has to remember). baseFloor STAYS: it is the opaque ground the arena needs
+  // (it was never a cue — the beat flash lived on the checker and the lattice), and dropping it would open the same black
+  // void the Temple's own comment warns about. Returns whether it acted, so callers can read it as "the road owns the floor now".
+  if(!roadLive()) return false;
+  if(dayFloor) dayFloor.visible=false;
+  if(nightGrid) nightGrid.visible=false;
+  if(glowGrid) glowGrid.visible=false;
+  return true;
+}
+function roadSync(){
+  if(!roadMesh) return;                                                   // road.on:false → never built → the frame costs one null read
+  const live=roadLive();
+  if(live!==_roadVis){ _roadVis=live; roadMesh.visible=live; }
+  if(!live) return;
+  const U=roadMat.uniforms;
+  if(!_roadUp){                                                           // tonight's course reaches the shader ONCE (it is a property of the night, not of the beat)
+    const c=roadCourse();
+    U.uA.value.set(c.a[0]||0, c.a[1]||0, c.a[2]||0);
+    U.uW.value.set(c.w[0]||0, c.w[1]||0, c.w[2]||0);
+    U.uP.value.set(c.p[0]||0, c.p[1]||0, c.p[2]||0);
+    U.uAmt.value=ROAD_ALPHA;
+    if(reduceMotion){ U.uNow.value=0; _roadBase.set(roadCourseX(0), roadCourseD(0)); }   // the STILL road's clock and re-basing pair are constants — written once, beside the course they belong to, and never again
+    _roadUp=true;
+  }
+  if(gridColIdx!==_roadInkIdx){ _roadInkIdx=gridColIdx; _roadInk.setHex(GRID_COLS[gridColIdx][0]); }   // the road inherits tonight's grid-colour roll: it REPLACES the lattice, so the nightly roll survives instead of going quiet with it. A read of an index that already exists — zero new draws
+  if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
+    const r=roadBeatNow();
+    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7065). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
+    return;
+  }
+  const r=roadBeatNow();                                                  // the ONLY per-frame writes: three floats, no allocation, no array, no call into any gameplay path
+  U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r));
+}
+
 /* ========================= SKY: stars, sun, moon, day/night ========================= */
 const skyGroup=new THREE.Group(); scene.add(skyGroup);        // the whole celestial sphere — rotates slowly so the sky drifts
 let starPts=null, starGeo=null;
@@ -1755,6 +1926,7 @@ function updateSky(dt){
     const gop=templeActive?0:0.9*(1-day);
     setScalarCached(glowGrid.material,'opacity',gop); glowGrid.visible=!templeActive && gop>0.01;
   }
+  roadHideOldFloor();   // THE STAR ROAD: the checker, the night lattice and its halo go dark under the road (two floors is two clocks). Deliberately placed AFTER all three visibility writes above, so with road.on:false roadLive() is one boolean read and every one of them stands exactly as it shipped
   setScalarCached(sun.material,'opacity',smooth(-0.18,0.06,sunY));              // visible from just below the horizon up
   setScalarCached(moon.material,'opacity',0.9*smooth(-0.18,0.06,-sunY));
   _amb.copy(AMB_NIGHT).lerp(AMB_DAY, day); if(state.running && !templeActive && activeTheme) _amb.lerp(_moodCol, (0.04+0.04*Math.min(1,grooveI/2.5))*tideBreath); ambLight.color.copy(_amb); setScalarCached(ambLight,'intensity',0.55+0.55*day);
@@ -1768,7 +1940,7 @@ function updateSky(dt){
   if(templeActive||_templeBlend>0.01) updateSkyTempleVisuals();   // keep aspect/ghost opacities in sync while the full-sphere blend is open
   updateTempleOrbs(dt);                                          // TEMPLE ORBS: milky-shell fade + camera-relative planet globe (near-free no-op outside temple unless dojoShell)
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
-  if(!templeActive && day>0.02) renderReflection();          // no mirror pass in temple (floor is gone)
+  if(!templeActive && day>0.02 && !roadLive()) renderReflection();          // no mirror pass in temple (floor is gone) — nor under the road, whose only consumer (dayFloor) is hidden: the whole second scene render would be drawn into a target nothing samples
 }
 function applyCloudWind(){
   // THE ONE WRITER of the cloud drift vector, and it writes UNCONDITIONALLY — including the wind-less case. A dealt
@@ -2678,178 +2850,178 @@ function starWorldAt(i,out){             // vertex i of the sticks buffer, in wo
   const p=_stickFig.pGeo.attributes.position.array, j=i*3;
   return out.set(p[j],p[j+1],p[j+2]).applyQuaternion(skySphere.quaternion);
 }
-function starSpawnAz(a0,minDot,pit){
-  // Returns the azimuth of a risen star that satisfies the SAME spawnMinDeg-from-aim cone the random roll respects,
-  // preferring stars that can still brighten. _starSpawnId is the found-flag: null → the caller keeps the azimuth it rolled.
-  // STREAM PURITY (1.1): not one rnd() call lives in this function. The pick runs on starPickRnd, whose counter is its
-  // own, so calling it cannot shift the spawn stream by a single draw — which is what makes the fallback path below
-  // byte-identical to today's and a bound spawn differ from today's in the azimuth VALUE and nothing else.
-  _starSpawnId=null;
-  if(!_starLitIds || !_stickFig || !_stickFig.pGeo) return 0;   // fixture missing/failed → the decorative sky is up and there is nothing to call from
-  const S=CFG.stars, ids=_starLitIds, n=ids.length;
-  if(!n) return 0;
-  if(!_starPickBuf || _starPickBuf.length<n) _starPickBuf=new Int32Array(n);   // grown once, at the first spawn of the first night; the fixture's size never changes under it
-  const buf=_starPickBuf, cap=S.levels|0, cp=Math.cos(pit), sp=Math.sin(pit);
-  const yMin=SKY_CHART.stick.R*Math.sin(THREE.MathUtils.degToRad(+S.minAltDeg||0));   // altitude test in raw sphere units: y > R·sin(minAlt) IS "risen above minAltDeg", with no trig per star
-  let lo=0, hi=n;   // one pass, one buffer: still-brightening candidates fill from the FRONT, already-full ones from the BACK
-  for(let i=0;i<n;i++){
-    const id=ids[i]; if(!id) continue;                                  // a figure the fixture gave no id: drawn, never lightable, never called
-    const w=starWorldAt(i,_starW); if(w.y<=yMin) continue;              // below the horizon (or too near it) — the sky is not calling from under the floor
-    const h=Math.sqrt(w.x*w.x+w.z*w.z); if(h<1e-6) continue;            // straight overhead: no bearing to take
-    if(cp*((w.x/h)*a0.x+(w.z/h)*a0.z)+sp*a0.y > minDot) continue;       // inside the cone around where the player is ALREADY aiming — the same test, on the same pitch this orb will actually spawn at
-    if((_starLit[id]|0)>=cap) buf[--hi]=i; else buf[lo++]=i;
-  }
-  const nFull=n-hi;
-  let idx=-1;
-  if(S.preferUnlit && lo>0) idx=buf[Math.min(lo-1,(starPickRnd()*lo)|0)];        // the sky fills OUT before it fills up
-  else { const tot=lo+nFull; if(!tot) return 0; const r=Math.min(tot-1,(starPickRnd()*tot)|0); idx = r<lo ? buf[r] : buf[hi+(r-lo)]; }
-  starWorldAt(idx,_starW); _starSpawnId=ids[idx];
-  return Math.atan2(_starW.x,_starW.z);   // the SAME convention the roll uses: dir=(sin az·cos pit, sin pit, cos az·cos pit)
-}
-function starWinOpen(){ return !!(CFG.grooveGroove && CFG.grooveVuln) && state.running && !templeActive && _openAmt>0; }   // "a window is open right now" — the strict inverse of orbOpen()'s escape hatch: with the vuln mechanic itself off there are no windows at all, so there is nothing for a flight to stay out of (and _openAmt is only maintained while a dojo run is live)
-function starBeatNow(){ try{ return Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return 0; } }   // the ONE clock this parcel measures a due against — the same Transport beat position the glow, the strobe and onGrid are all drawn from. It only ever restarts at teardownTransport, and starFlyClear has already granted and dropped every stamp by then, so no due can outlive the timeline it was written on
-function starGapBeat(){
-  // THE NEXT CLOSED-WINDOW MOMENT, in Transport beats (1.2). Not a re-derivation: every value here is read where the
-  // open window itself reads it — Transport position, audioLat()'s heard-timeline shift, CFG.grooveFireEarlyBeat's
-  // ideal — so this function and _openAmt can never disagree about where a beat is. The windows are symmetric about
-  // each ideal, so the mid-point between one closing and the next opening is exactly half a beat past the ideal the
-  // current position rounds to; that mid-point is the most-closed instant the beat has, and it exists at any tempo
-  // and any window width. No transport (sound off, a graph that never started) or no vuln mechanic = no windows at
-  // all, and then the gap is simply NOW.
-  let hb=0, started=false;
-  try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; started=(Tone.Transport.state==='started'); }catch(e){ return 0; }
-  if(!started || !(CFG.grooveGroove && CFG.grooveVuln)) return hb;
-  const lat=audioLat()/(60/Math.max(20,state.bpm));                                                    // the heard-timeline correction, in beats — the same shift the glow subtracts before it rounds
-  const h=hb-lat;
-  const early=Math.max(0,Math.min(0.45, CFG.grooveFireEarlyBeat!=null?CFG.grooveFireEarlyBeat:0));
-  const ideal=early>0?(Math.round(h+early)-early):Math.round(h);
-  let g=ideal+0.5; if(g<=h) g+=1;                                                                      // rounding puts h inside [ideal-0.5, ideal+0.5), so the +1 is float insurance and nothing else
-  return g+lat;                                                                                        // back onto the raw Transport beats every reader measures against
-}
-function starVoiceHome(tg){   // a SCORING arrival on a star-bound Echo: QUEUE it, and do nothing else. No grant, no geometry, no allocation after the pool warms — the tick belongs to the next gap, and the scoring window never sees one
-  const id=tg.starId; if(!id) return;
-  const due=starGapBeat();   // stamped HERE, from the beat clock, because this is the moment the return exists — a frame that never lands in a gap can no longer decide when (or whether) it is paid
-  if(_starPend.length>=_STAR_PEND_MAX){ const old=_starPend.shift(); if(!_starDebt.length) _starDebtDue=old.due; _starDebt.push(old.id); old.id=''; _starPendPool.push(old); }   // ring full: the OLDEST return loses its ceremony (its burst is long gone anyway) and keeps its level AND its due — the displaced stamps are non-decreasing, so the first one in is the whole list's
-  const p=_starPendPool.pop()||{id:'',due:0,from:new THREE.Vector3()};
-  p.id=id; p.due=due; p.from.copy(tg.mesh.position);   // the burst: read here because killTarget is about to hand the mesh back to the pool
-  _starPend.push(p);
-}
-function starFlyRetire(f){   // THE CEREMONY ENDS, AND ONLY THE CEREMONY (1.3): a flight record carries ZERO tick responsibility — its level was granted at drain time, before this record existed — so retiring one hands back a mesh and a pooled record and grants nothing. There is no grant flag left to pass, which is what makes double-ticking unrepresentable rather than merely avoided
-  if(f.mesh){ releaseTrailMesh(f.mesh); f.mesh=null; }
-  f.id=''; f.i=-1; _starFlyPool.push(f);
-}
-function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the moment the BEAT CLOCK has passed the gap it was stamped with, with a line if the ceremony has room and without one if it does not. Callable from a frame or from onGrid — whichever reaches the due first — and it costs two number reads when nothing is payable. THE ONE PLACE A LIVE RETURN IS PAID (1.3): every id that leaves either queue here leaves it GRANTED, so nothing downstream of this function owes a level and the freeze below can never delay one
-  if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
-  if(!_starPend.length || _starPend[0].due>hb) return;                    // the ring is stamped in queue order, so the oldest stamp is the earliest: not due at the front = nothing behind it is due either
-  const spb=60/Math.max(20,state.bpm);
-  let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting to leave stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
-  let n=0;
-  for(let k=0;k<_starPend.length;k++){
-    const p=_starPend[k]; if(p.due>hb) break;                             // queued AFTER this gap arrived: its own gap is still ahead of it, and paying it early would put a tick inside a window
-    n=k+1;
-    starLitGain(p.id);                                                    // THE TICK, HERE AND UNCONDITIONALLY (1.3). It used to ride on the flight record and land at starFlyRetire — which sits BELOW the open-window freeze, so a due return that drained into a flight had its level deferred until a gap frame actually arrived, and a pathological render cadence (or a stale-stuck starWinOpen) could hold it off forever even though the drain had run. The drain is the moment the beat clock says the return is owed, so the drain is where it is paid: every payable return ticks exactly once, right here, whether or not a line is ever built for it. Everything below this line is garnish
-    const i=_starLitIdx?_starLitIdx[p.id]:undefined;
-    if(!(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX)){   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony (the level already landed above)
-      const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
-      f.id=p.id; f.i=i; f.age=0; f.wait=(q++)*spb*0.25; f.mesh=null;      // born WITHOUT a mesh: only the (frozen-in-a-window) aging loop ever builds one, which is why a drain that had to fire inside a window still cannot draw a line
-      f.life=Math.max(0.05,(+CFG.stars.lineBeats||0)*spb);
-      f.from.copy(p.from);
-      _starFly.push(f);
-    }
-    p.id=''; _starPendPool.push(p);
-  }
-  if(n>=_starPend.length) _starPend.length=0;
-  else { let w=0; for(let k=n;k<_starPend.length;k++) _starPend[w++]=_starPend[k]; _starPend.length=w; }   // compacted in place: the not-yet-due tail keeps its order and the ring allocates nothing
-}
-function starFlyClear(){   // pause, Temple, a new night: the ceremony ends, the accretion does not — the debt, the ring and the air, in that order. Dues are irrelevant here: a teardown pays everything outright, which is also what keeps a stamp from surviving the Transport restart that follows
-  for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]);
-  _starDebt.length=0; _starDebtDue=0;
-  for(let k=0;k<_starPend.length;k++){ const p=_starPend[k]; starLitGain(p.id); p.id=''; _starPendPool.push(p); }
-  _starPend.length=0;
-  for(let k=_starFly.length-1;k>=0;k--) starFlyRetire(_starFly[k]);   // (1.3) NOT granted here: anything airborne was already paid at the drain that launched it, so a teardown that re-granted it would double the level. The unpaid ones are the two lists above, and they are paid outright
-  _starFly.length=0; _starFlyHid=false;
-}
-function starFlyStep(dt){
-  const open=starWinOpen();
-  if(open!==_starFlyHid){ for(let k=0;k<_starFly.length;k++){ const m=_starFly[k].mesh; if(m) m.visible=!open; } _starFlyHid=open; }   // a line already in the air is a scene object the renderer keeps drawing, so visibility is written as a SET, once, at each boundary — and comes back exactly where it froze
-  starFlyDrain(starBeatNow());                                           // THE TICK, ahead of the freeze: the beat clock decides whether a return is payable, so a frame rate slower than the gap can no longer starve one. Nothing here draws — a flight built in a window has no mesh until the loop below (which the window freezes) builds it
-  if(open) return;                                                       // FROZEN: past the tick nothing advances inside a window — no stagger countdown, no aging, no launch, no retire
-  for(let k=_starFly.length-1;k>=0;k--){
-    const f=_starFly[k];
-    if(f.wait>0){ f.wait-=dt; continue; }                                // gap time only — a long window can no longer eat a volley's stagger
-    f.age+=dt;                                                           // no reduceMotion / bad-index arm here any more: starFlyDrain refuses to build a flight for either case, so anything in this array has a line to draw and a vertex to draw it to
-    if(f.age>=f.life){ starFlyRetire(f); swapRemove(_starFly,k); continue; }   // (1.3) the line simply ends: its level landed at the drain, one gap or many beats ago
-    let m=f.mesh;
-    if(!m){ m=f.mesh=newTrailMesh(); m.position.set(0,0,0); m.visible=true;   // the trail pool's own additive, depth-test-free THREE.Line — no new material, no new geometry class. World coords, so the mesh sits at the origin instead of on the player. Born visible because a launch only ever happens in a gap
-      const ca=m.geometry.attributes.color.array; ca[0]=ca[1]=ca[2]=0; ca[3]=ca[4]=ca[5]=1; m.geometry.attributes.color.needsUpdate=true;   // tail dark → head pale, written ONCE: the same vertex-colour ramp buildTrail paints with
-      m.geometry.setDrawRange(0,2); }
-    const p=f.age/f.life, e=1-(1-p)*(1-p)*(1-p);                         // ease-out in world space ≈ steady on screen: it leaves fast and settles into the star
-    const w=starWorldAt(f.i,_starW), pa=m.geometry.attributes.position.array;   // re-read every frame: the sphere turns while the voice is in the air, and the line must end where the star IS
-    pa[0]=f.from.x; pa[1]=f.from.y; pa[2]=f.from.z;
-    pa[3]=f.from.x+(w.x-f.from.x)*e; pa[4]=f.from.y+(w.y-f.from.y)*e; pa[5]=f.from.z+(w.z-f.from.z)*e;
-    m.geometry.attributes.position.needsUpdate=true;
-    m.material.opacity=(+CFG.stars.lineAlpha||0)*Math.min(1,(1-p)*2.5);   // holds, then thins away over the last 40%
-  }
-}
+                                    
+                                                                                                                    
+                                                                                                                             
+                                                                                                                       
+                                                                                                                    
+                                                                                                           
+                    
+                                                                                                                                                      
+                                                   
+                  
+                                                                                                                                                                              
+                                                                             
+                                                                                                                                                                                               
+                                                                                                                              
+                       
+                                                                                                                                                
+                                                                                                                                                           
+                                                                                                                
+                                                                                                                                                                                                       
+                                                            
+   
+                   
+             
+                                                                                                                        
+                                                                                                                                      
+                                                 
+                                                                                                                             
+ 
+                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                         
+                       
+                                                                                                                     
+                                                                                                                   
+                                                                                                                    
+                                                                                                                    
+                                                                                                                   
+                                                                                                                   
+                                         
+                          
+                                                                                                                     
+                                                                  
+                                                                                                                                                                                                      
+                 
+                                                                                                  
+                                                                
+                                                                                                                                                                                                      
+                                                                                                                                                                         
+ 
+                                                                                                                                                                                                                                           
+                                     
+                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                      
+                                                                                                                                            
+                    
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                      
+                                        
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                       
+                                                                                                                                                                                                            
+                                      
+                                                                                                                                                                                                     
+          
+                                      
+                                                                                                                                                                                                  
+          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                    
+                                                                                                                                                                                              
+                                                                                                      
+                                                                                                                                                                                                                                          
+                                                          
+                          
+                       
+     
+                                   
+   
+                                             
+                                                                                                                                                                                                     
+ 
+                                                                                                                                                                                                                                                                                                      
+                                                                
+                                     
+                                                                                                                 
+                     
+                                                                                                                                                                                                                                                                                               
+                                       
+ 
+                         
+                           
+                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                         
+                                        
+                        
+                                                                                                                                              
+                                                                                                                                                                                                                                                          
+                                                                                                                                                                      
+                 
+                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                      
+                                     
+                                                                                                                                                                
+                                                                                                                                                                                               
+                                                   
+                                                                                                      
+                                                    
+                                                                                                                     
+   
+ 
 
-/* D4: zodiac stick figures — the 13 ecliptic constellations (incl. ⛎ Ophiuchus, equal citizen) as faint additive
-   stars + thin connecting lines, from the PUBLIC static fixture fixtures/zodiac_sticks_v1.json (approximate J2000
-   ecliptic lon/lat of the real bright stars — shared astronomy geometry, never natal data). Shown in clocked +
-   clocked_chart, where they REPLACE the random procedural starfield (decorative keeps its fresh random sky).
-   Whole catalog renders as one Points + one LineSegments = 2 draw calls at any quality tier. */
-let _stickPtTexC=null;
-function stickPtTex(){ if(_stickPtTexC) return _stickPtTexC;
-  const c=document.createElement('canvas'); c.width=c.height=32; const g=c.getContext('2d');
-  const grd=g.createRadialGradient(16,16,0,16,16,16); grd.addColorStop(0,'rgba(255,255,255,1)'); grd.addColorStop(0.4,'rgba(255,255,255,0.7)'); grd.addColorStop(1,'rgba(255,255,255,0)');
-  g.fillStyle=grd; g.fillRect(0,0,32,32); _stickPtTexC=new THREE.CanvasTexture(c); return _stickPtTexC;
-}
-function buildZodiacSticks(cat){
-  if(stickGroup) return;
-  const S=SKY_CHART.stick, R=S.R, stars=[], edges=[], figMap={}, signMeta=Object.create(null);
-  const SON=!!(CFG.stars&&CFG.stars.on), starIds=SON?[]:null;   // parcel H: the lit-sky catalog is collected in the SAME pass that fills the buffer, so ids and vertices cannot drift apart
-  for(const f of (cat.figures||[]).slice(0,S.maxFigs)){
-    if(!f || !Array.isArray(f.stars) || !Array.isArray(f.edges)
-       || f.stars.some(st=>!Array.isArray(st)||!isFinite(+st[0])||!isFinite(+st[1]))
-       || f.edges.some(e=>!Array.isArray(e))) continue;   // whole-figure validity — dropping single bad stars would shift the edge indexing
-    const base=stars.length, e0=edges.length, take=Math.min(f.stars.length, Math.max(0,S.maxStars-base));   // schema caps re-enforced: a hostile fixture can never balloon the buffers
-    const fk=(SON&&f.id!=null&&STAR_FIG_RE.test(String(f.id)))?String(f.id)+':':'';   // the figure half of "<figureKey>:<starIndex>", MINTED ONLY IN THE GRAMMAR starLitLoad will accept back (1.1) — an id-less figure, or one whose key a reload would reject, gets '' and its stars are simply never lightable rather than lightable-tonight-and-forgotten-tomorrow
-    for(let i=0;i<take;i++){ const st=f.stars[i]; stars.push(eclipticDir(+st[0]||0, +st[1]||0).multiplyScalar(R)); if(SON) starIds.push(fk?fk+i:''); }
-    for(const e of f.edges){ if(edges.length>=S.maxEdges*2) break;
-      const a=base+(+e[0]|0), b=base+(+e[1]|0);
-      if(a>=base && b>=base && a<base+take && b<base+take && a!==b) edges.push(stars[a], stars[b]);
-    }
-    if(f.id!=null){ const fid=String(f.id), sid=canonicalSkySign(fid), center=new THREE.Vector3();
-      for(let i=base;i<stars.length;i++) center.add(stars[i]); if(center.lengthSq()>1e-9) center.normalize().multiplyScalar(SKY_CHART.R);
-      figMap[fid]={p0:base,p1:stars.length,v0:e0,v1:edges.length};   // per-figure vertex ranges — SKY LISTEN paints these gold (K4)
-      if(SKY_SIGN_SET[sid]&&center.lengthSq()>1e-9) signMeta[sid]={glyph:SKY_SIGN_GLYPHS[sid],pos:center,lon:null,sprite:null}; }
-  }
-  if(!stars.length) return;
-  stickGroup=new THREE.Group(); skySphere.add(stickGroup);   // v2.1 G1: ON the sphere — the constellations ARE the sphere's skin; the diurnal spin carries them past the horizon with the planets (no more wallpaper)
-  const pGeo=new THREE.BufferGeometry().setFromPoints(stars);
-  const pCol=new Float32Array(stars.length*3).fill(1);   // vertex colors start WHITE (× material colour = identical render); gold emphasis rewrites ranges
-  pGeo.setAttribute('color', new THREE.BufferAttribute(pCol,3));
-  const pMat=horizonFadeMat(new THREE.PointsMaterial({map:stickPtTex(), color:S.ptCol, size:S.ptSize, sizeAttenuation:false, vertexColors:true, transparent:true, opacity:S.ptAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
-  const pts=new THREE.Points(pGeo,pMat); pts.frustumCulled=false; stickGroup.add(pts);
-  _chartFade.push({mat:pMat, obj:pts, a0:S.ptAlpha, k:S.kPt, pulseP:null, hz:false});
-  let lGeo=null;
-  if(edges.length){
-    lGeo=new THREE.BufferGeometry().setFromPoints(edges);
-    const lCol=new Float32Array(edges.length*3).fill(1);
-    lGeo.setAttribute('color', new THREE.BufferAttribute(lCol,3));
-    const lMat=horizonFadeMat(new THREE.LineBasicMaterial({color:S.lnCol, vertexColors:true, transparent:true, opacity:S.lnAlpha, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
-    const lns=new THREE.LineSegments(lGeo,lMat); lns.frustumCulled=false; stickGroup.add(lns);
-    _chartFade.push({mat:lMat, obj:lns, a0:S.lnAlpha, k:S.kLn, pulseP:null, hz:false});
-    if(!LOW) lns.layers.enable(1);
-  }
-  if(!LOW) pts.layers.enable(1);   // constellations shimmer in the floor reflection alongside the dome
-  _stickFig={map:figMap,pGeo:pGeo,lGeo:lGeo,signs:signMeta};   // static centroids make glossary sign Listen possible even when every API is offline
-  if(SON) starLitBind(starIds);   // parcel H: bind + light the save file before the first draw, so a returned voice is already glowing when the sticks appear
-  if(SON && CFG.chorus.on) chorusMenu();   // parcel J (1.2): the catalog has just bound, so the ensemble that was necessarily empty before it — a chorus may not sing an id the sky cannot draw — exists now. This is the ONE re-offer, and every guard still applies: chorusMenu declines a live run, the trainer and a hidden tab, chorusSing declines a silent or Tone-less page, and chorusHeldSame makes it a no-op if the overlay is already singing. On a warm boot the gesture has not happened yet and it is simply a returned 0
-  refreshPublicListenMeta();
-}
-function sticksValid(c){ return !!c && c.type==='zodiac_sticks' && Array.isArray(c.figures); }
-async function loadSticks(){ try{ const r=await fetch('fixtures/zodiac_sticks_v1.json',{cache:'no-store'}); if(!r.ok) return null; const c=await r.json(); return sticksValid(c)?c:null; }catch(e){ return null; } }
-if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.sun, l0.moon); }   // v2.1 G5: both clocked modes get sphere luminaries from frame one (two tiny glyph rasters — no fetch, no boot risk); a personal pack retunes the lons when it lands
+                                                                                                                 
+                                                                                                                  
+                                                                                                               
+                                                                                                             
+                                                                                                
+                      
+                                                            
+                                                                                            
+                                                                                                                                                                                          
+                                                                                                       
+ 
+                                
+                        
+                                                                                              
+                                                                                                                                                                                            
+                                                       
+                                                               
+                                                                                    
+                                                                                                                                            
+                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                      
+                                                                  
+                                               
+                                                                                                   
+     
+                                                                                                  
+                                                                                                                                         
+                                                                                                                                    
+                                                                                                                                 
+   
+                           
+                                                                                                                                                                                                                      
+                                                             
+                                                                                                                                                           
+                                                                
+                                                                                                                                                                                                                                                     
+                                                                                      
+                                                                                     
+                
+                   
+                                                         
+                                                        
+                                                                  
+                                                                                                                                                                                                  
+                                                                                              
+                                                                                       
+                                  
+   
+                                                                                                       
+                                                                                                                                                    
+                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                            
+ 
+                                                                                              
+                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                       
 
                                                                                                      
                                                                                                                 
@@ -3787,6 +3959,7 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
                                      
                                        
                                      
+                                                                                                                                                                                                                                                                                                                                    
                     
                                                                                                                 
                                                    
@@ -6711,7 +6884,8 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
  
                         
                                                       
-                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                        
                                                                                                                                                     
                                                                                       
@@ -6758,7 +6932,7 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
             
    
                                                                                                                                                                                
-                                                                                             
+                                                                                                        
                                                                                                                                                                                                                                       
                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -6879,7 +7053,7 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
                            
             
                                                                                                                                                                  
-                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                  
                                                                                                              
                                                             
@@ -7444,6 +7618,7 @@ if(SKY_MODE!=='decorative'){ const l0=approxLuminaryLons(); buildLuminaries(l0.s
                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                          
                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                        
                                                                                                                                                                                                                  
                                                                                                                                                                                                                  
