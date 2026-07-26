@@ -2482,8 +2482,8 @@ if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars o
        starFlyDrain or in starFlyClear's outright teardown of the two UNPAID lists (debt, ring), and a flight record is
        by construction already-paid. The freeze still gates every piece of mesh/visual work, and nothing else.
    reduceMotion: no line at all — the star simply brightens at that next gap.
-   Nothing here can lose a return: every teardown (pause, Temple, new night) grants the pending ring, the debt AND the
-   airborne flights before it drops them.
+   Nothing here can lose a return: the level is PAID at drain (v1.3 — starFlyDrain/starFlyClear are the only payers),
+   so airborne flights are already-paid garnish; teardown pays only the still-unpaid pending ring and debt, then drops the visuals.
    Kill-switch: CFG.stars.on false → spawnTarget's own roll runs verbatim, no orb carries tg.starId, and not one line
    below is ever reached. Trainer and Temple never bind a bearing, so they never fly one home either. */
 const _STAR_FLY_MAX=6;                   // hard cap on simultaneous LINES: fireQuant allows 4 arrivals a beat and a line is a pooled trail mesh — past this the accretion still lands at the gap, only the ceremony is skipped
@@ -3566,7 +3566,7 @@ function enterSkyTemple(options){
   templeActive=true; _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
   abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
-  clearProjectiles(); clearRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: the lines go with it, the levels they were carrying land first (and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into)
+  clearProjectiles(); clearRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: unpaid pending/debt levels land first, airborne lines (already paid at drain, v1.3) just go with it — and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into
   hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
   if(_lsn.line){ _lsn.line.visible=false; _lsn.lineT=-1; }
   if(_lsn.card) _lsn.card.style.display='none';
@@ -7446,7 +7446,7 @@ function resetSession(){
   else { windX=0; windZ=0; }                                  // wind-off → no wind
   for(const t of targets) removeTarget(t); targets.length=0;
   clearProjectiles();
-  if(CFG.stars.on) starFlyClear();   // a new night never inherits a voice still in the air — and never drops the level it was carrying
+  if(CFG.stars.on) starFlyClear();   // a new night never inherits a voice still in the air — its level was already paid at drain (v1.3); only unpaid pending/debt get paid here before the visuals drop
   for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
