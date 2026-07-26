@@ -939,7 +939,10 @@ const DEFAULT_SKY_SUPABASE_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
 const DEFAULT_SKY_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
 const CFG = {
   // rhythm tempo
-  startBpm:20, minBpm:20, maxBpm:172, bpmUp:2, bpmDown:3,   // START at the floor 20bpm: the groove is heavy multitasking (lead + off-beat tap + read the field) so it must ramp from dead-slow; diffT speeds it up as you improve
+  // THE SIXTY CAP (wave 6, parcel P): difficulty stops escalating through TEMPO and starts escalating through rhythmic COMPLEXITY. maxBpm 172 -> 60. One constant; diffT() does the rest, because every skill-scaled system in the game reads that one ramp — so the whole mountain compresses into 20..60 and its summit becomes a real, reachable, SUSTAINABLE state instead of a number nobody arrives at. 60 is not "the slow end of the old range": it is full mastery, and every expert value (tightest grooveOpenSec, fastest projSpeedNow, deepest beatQuantDivs, full dolly) is now genuinely reached there. NOTHING ELSE MOVED: minBpm/startBpm stay 20 (the sacred dead-slow ramp), the adaptive law (upThreshold/bpmUp/bpmDown + the tide-boundary step) is untouched and simply tops out sooner, and state.maxBpm bookkeeping + the dojo board are unchanged — LEGACY >60 PEAK-BPM ROWS ARE HISTORY AND RENDER UNTOUCHED (there is no clamp anywhere on the read path); new runs simply cap.
+  // MEASURED (solver against the shipped constants, SENSEI_PACK merged): a flawless climb is 7 swells / ~6.2 min from startBpm 28 to 60 at bpmUp 2.5 x tide.bpmUpMul 2.0 (it was 29 swells to 172); dT at the 28bpm start is now 0.200, not 0.053; beatQuantDivs steps up at bpm 36 and bpm 50 (it was 80.8 and 134.0 — i.e. the 1/8-beat strobe was effectively unreachable and is now the expert state it was written to be).
+  // STREAM: P adds, removes and reorders NO rnd() draw — it moves one constant that existing reads consume. Two data-driven consequences, both pre-existing code paths, both restored byte-for-byte by putting 172 back: (1) spawnTarget's direction reroll loop rejects more often because minDeg = lerp(spawnMinDeg, spawnMinHiDeg, diffT) is larger at the same bpm (E[rnd()/spawn] 2.19 -> 2.57 at bpm 60; identical at bpm 20); (2) beatSpawnDist's feasible set is now NEVER empty anywhere in the live (bpm, state.range) domain — plain band, LAST QUARTER band and the tank's maxK=4 set alike — so the cube-root fallback's EXTRA draw (spawnTarget, ~5939) fires strictly LESS than it used to (36/11109 grid cells under the old cap in the shared 20..60 band, 0 now). The beat-quantized law now holds absolutely, at every tempo and every reach.
+  startBpm:20, minBpm:20, maxBpm:60, bpmUp:2, bpmDown:3,   // START at the floor 20bpm: the groove is heavy multitasking (lead + off-beat tap + read the field) so it must ramp from dead-slow; diffT speeds it up as you improve. SENSEI_PACK overrides startBpm 28 / bpmUp 2.5 at load — those are the numbers that actually ship
   // shared adaptive law
   upThreshold:0.80, downThreshold:0, windowSize:25, warmEvents:6,   // FREE-PLAY adaptive thresholds (daily uses a fixed ramp). Defaults: speed-up at 80% acc, slow-down only at 0% (never eases off). windowSize 25.
   // difficulty mapping
@@ -950,7 +953,8 @@ const CFG = {
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is opt-in via pause BEAT CIRCLE (and forced on in early training unless user forced OFF).
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
-  beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Feasible k shifts up with tempo (slow = 1/8..3/8-beat lead; fast = 8..16 sixteenths). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
+  beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
+  // THE SURVIVING EXPERT k-SET UNDER THE SIXTY CAP (parcel P, computed with the real solver in beatSpawnDist against the SHIPPED constants — projSpeed 28/projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28): the LIST DOES NOT CHANGE — infeasible k's have always dropped out by arithmetic, and they still do. AT EXACTLY 60 BPM (dT 1.00, s 72 m/s) against rangeMax the feasible set is {2, 3, 4, 6} at d = {9.00, 13.50, 17.99, 26.98} m; k=8/12/16 need 35.94/53.81/71.55 m and are out of reach. Over the WHOLE new live band 20..60 (far = rangeMax): k=2,3,4 are feasible throughout, k=6 enters at 40.1 bpm, k=8/12/16 never — the expert lead is therefore the SIX-sixteenth (3/8-beat) call, not the old 8..16. On a LAST QUARTER (farMul 1.3, band 10.4..36.4 m) the set at 60 shifts out to {3, 4, 6, 8}, which is the one night k=8 speaks at all. At the CLOSE end (state.range at rangeStart 11) only k=2 is ever feasible, at every tempo — so a night's k vocabulary genuinely opens as the distance shell marches out, which is what the shell was for.
   dayCycleSec:200,                                       // seconds for one full night→day→night cycle (decorative sky)
   skyTheatreSec:300,                                     // THEATRE spin rate (opt-in; natural is default): seconds per full revolution of the celestial SPHERE — orientation only, never longitudes (v2.1 G2)
   chartDottedArcs:false,                                 // legacy v2 key retained inertly; Parcel L removed dome seals/arcs so aspect meaning stays in the Listen HUD
@@ -984,7 +988,7 @@ const CFG = {
   tide:{ on:true, riseBars:6, peakBars:2, mercyBars:1, densityLo:0.45, dollyLo:0.5, brownianLo:0.55, clutchGate:0.75, padPeakVel:0.12, bpmUpMul:2.0, tintExhale:0.35 },   // *Lo = the value at the TROUGH as a fraction of the CFG default (1.0 at the crest) · clutchGate = min tideI that arms the clutch flourish, so a peak reads as a peak · padPeakVel = pad/arp velocity lift at the crest and on the mercy bloom · bpmUpMul scales CFG.bpmUp because one step now covers a whole ~9-bar swell instead of ~half an accuracy window (first guess 2.0 — tune by ear) · tintExhale = mercy theme-aura lift (!reduceMotion, visual only)
   // QUIET TICK (session shape): MASTERY IS MEASURED IN SILENCE. One smoothed signal tickI 0..1 rises SLOW (riseK per scoring arrival) and falls FAST (fallK per miss) — deliberately the inverse easing of grooveI — and THINS the metronome: Tier 0 (tickI<t1) ticks every beat (today), Tier 1 (≥t1) beats 1 & 3, Tier 2 (≥t2) the downbeat alone. Skipped beats FADE OUT by velocity across the run-up to their threshold (no hard gate), and after a miss the tick's own Volume node ducks and ramps home over returnBeats — the tick returns as mercy, not as a klaxon. At Tier≥1 the last mercyCarryBeats beats of a TIDES mercy bar go silent whatever the tier: you carry the count into the next swell yourself.
   // Kill-switch is quietTick.on:false → tickGain() is always 1 and the volume node never moves, so every tick keeps its literal velocity. Hard-off in the trainer (there the loud ticks ARE the lesson) and below minBpm (near the 20 BPM floor the tick is load-bearing). Only the metronome thins — the WASD lane cues and shotCue are untouched — and no tier is ever announced anywhere: the thinning IS the information.
-  quietTick:{ on:true, t1:0.55, t2:0.85, riseK:0.06, fallK:0.6, returnBeats:1, minBpm:40, mercyCarryBeats:2 },   // t1/t2 = tier thresholds on tickI · riseK per scoring kill / fallK per miss (≈10 clean kills earn Tier 1; one miss gives most of it back) · returnBeats = length of the post-miss volume ramp · minBpm = tempo under which the metronome never thins · mercyCarryBeats = silent beats at the END of a tide mercy bar (0 disables the handoff)
+  quietTick:{ on:true, t1:0.55, t2:0.85, riseK:0.06, fallK:0.6, returnBeats:1, minBpm:40, mercyCarryBeats:2 },   // t1/t2 = tier thresholds on tickI · riseK per scoring kill / fallK per miss (≈10 clean kills earn Tier 1; one miss gives most of it back) · returnBeats = length of the post-miss volume ramp · minBpm = tempo under which the metronome never thins · mercyCarryBeats = silent beats at the END of a tide mercy bar (0 disables the handoff). THE SIXTY CAP (parcel P): minBpm 40 is UNCHANGED and is now a much bigger part of the mountain — the tiers live in the 40..60 band, i.e. the top HALF of diffT (dT 0.50 at 40, 1.00 at 60), where before they opened at dT 0.13 and had 132 bpm of headroom above them. Earning silence is now explicitly a late-mastery reward rather than something that happens on the way past. The tick law itself (t1/t2 on tickI, the fade runway, the mercy carry) is tempo-blind and needed no change
   // THE BOW (session shape): you END the night on purpose. HOLSTER — no fire and no WASD tap for max(holsterBeats beats, holsterMinSec) — and the dojo bows back: spawns stop → the surviving Echoes rise to the sky (Last Light) → the arrangement thins to pad+root and the Transport ritards to startBpm on the tonic, ending on ONE held pad note → a zero-numbers Mandala glyph of this run's arrivals → one true line about tomorrow's sky → the ✦ pulses and the pointer unlocks to the pause card. The ritardando is the ONE sanctioned Transport tempo change in the whole game and it happens AFTER play has ended (no spawns, no grading), so nothing rhythm-critical is being scaled; Transport bpm is put back before the exit so a RESUME (or the next resetSession) never inherits it.
   // Kill-switch is bow.on:false → bowLive() is false, the idle clock never accumulates, the spawn gate never closes and holstering does exactly nothing (today's behavior). Never runs in the trainer, in the Sky Temple, while paused, or before this run has landed a scoring hit (an empty Mandala is not a ritual). Any fire/tap zeroes the clock, and inside cancelGraceSec the Bow is a pure no-op to undo — nothing has been destroyed yet, so play resumes losslessly.
   bow:{ on:true, holsterBeats:8, holsterMinSec:12, cancelGraceSec:1.5, riseBeatsPerOrb:1, riseBeats:2, ritBars:2, beatCapSec:0.75, ritMaxSec:8, mandalaSec:4, mandalaMaxDots:60, mandalaArcDeg:90, lineAtMandala:0.6, lineHoldSec:4, senseiSec:1.0 },   // holsterBeats/holsterMinSec = the two-clock trigger (the SLOWER wins, so a 20 BPM night can't bow on a short pause) · cancelGraceSec = the lossless undo window · riseBeatsPerOrb = Last Light stagger, riseBeats = each orb's own flight to the shell · beatCapSec = the SECONDS cap on the Last Light stagger beat (stagger = min(one real beat, beatCapSec)) so the 20 BPM floor doesn't stretch the rise to a minute — it does NOT rewrite any other beat-named timing · ritBars = the closing ritardando in REAL bars, clamped by ritMaxSec so 2 bars at 20 BPM is a long exhale (8s) and not half a minute · mandalaSec = glyph fade-in→drift→dissolve (skipped entirely on a hitless Bow) · mandalaMaxDots = most recent arrivals kept (run-local, never persisted) · mandalaArcDeg = the ± arc a half-beat of arrival error is drawn across · lineAtMandala = fraction into the glyph at which THE line speaks · lineHoldSec/senseiSec = the line's hold and the ✦ bow before the pointer unlocks
@@ -1027,8 +1031,8 @@ const CFG = {
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
-  projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
-  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:1.15, orbBlockPx:0, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. orbBlock* = an Echo the aim ray pierces (or whose disc covers the reticle) still wins combat under held-E. THE BLOCK IS THE ORB'S TRUE SILHOUETTE (SKY SPINE 1.4, 2026-07-26): pad 2.7 plus 52px of screen pad grew every Echo a 22-27° exclusion cone — far wider than the sphere you can see — so a live field shadowed 15.8% of the dome and cancelled 41.2% of the bearings a pick could have come from, silently. 1.15 is a thin skim margin on the real radius and the screen pad is GONE (0): shadow 1.45% of the dome, 8.6% of picks lost. You are refused when an Echo is genuinely in front of the star, never because one happens to be nearby. combatPx = VESTIGIAL (2026-07-26): the near-miss combat-priority clause died when star-bound spawns put Echoes ON the zodiac band and made held-E selection nearly impossible — and even at the old padding it could never fire below ~59.5bpm, because the orb's own padded disc (radius lerps radSlow 1.15 → 0.62 with diffT, so a slow night's orb is the BIGGEST one) already reads wider than 88px at every distance the beat-quantized band can hold down there; the clause only ever had room above that tempo, where the orb has shrunk and moved out. Kept as a named constant so the number that once meant something is not silently reused. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
+  projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. THE SIXTY CAP (parcel P) KEEPS BOTH ENDPOINTS AS SHIPPED, deliberately: projSpeedFast is BY DEFINITION the muzzle speed at full mastery, and 60 is now full mastery, so the arc plays at 72 m/s (SENSEI_PACK's value) at the cap — that is the defined expert state, not an accident of the old range. What DID change is that the endpoint is now actually reached: at bpm 60 the old law gave dT 0.263 -> 39.6 m/s, the new one gives dT 1.00 -> 72.0 m/s. FLAGGED FOR THE TUNING SESSION (SPEC_SIXTY_AND_POLY §5, together with grooveOpenSec[1] and bpmUp) — do NOT pre-tune it here; the cap changes the feel of everything and tuning before the wave lands would be wasted. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
+  skyListen:{ bodyPx:46, signPx:52, orbBlockPad:1.15, orbBlockPx:0, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. orbBlock* = an Echo the aim ray pierces (or whose disc covers the reticle) still wins combat under held-E. THE BLOCK IS THE ORB'S TRUE SILHOUETTE (SKY SPINE 1.4, 2026-07-26): pad 2.7 plus 52px of screen pad grew every Echo a 22-27° exclusion cone — far wider than the sphere you can see — so a live field shadowed 15.8% of the dome and cancelled 41.2% of the bearings a pick could have come from, silently. 1.15 is a thin skim margin on the real radius and the screen pad is GONE (0): shadow 1.45% of the dome, 8.6% of picks lost. You are refused when an Echo is genuinely in front of the star, never because one happens to be nearby. combatPx = VESTIGIAL (2026-07-26): the near-miss combat-priority clause died when star-bound spawns put Echoes ON the zodiac band and made held-E selection nearly impossible — and even at the old padding it could never fire below ~59.5bpm, because the orb's own padded disc (radius lerps radSlow 1.15 → 0.62 with diffT, so a slow night's orb is the BIGGEST one) already reads wider than 88px at every distance the beat-quantized band can hold down there; the clause only ever had room above that tempo, where the orb has shrunk and moved out. Kept as a named constant so the number that once meant something is not silently reused. THE SIXTY CAP (parcel P) does NOT revive it and changes nothing here: the clause's code was deleted (see the disc-covers-reticle test in the pick fn), so 88 is a dead literal whatever the tempo law says — the "~59.5bpm" above is a historical reading of the OLD diffT ramp and is not re-derived, because there is no longer any code for it to be a threshold of. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
   skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62, signArtLowMode:'off' },   // TEMPLE ORBS: milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). signArtLowMode (P5 F1): 'off'=glyph-only on LOW (default, sheds 13 additive planes) · 'always'=force belt on LOW. Flat literal — nested {} would break the CFG contract test regex.
@@ -1049,9 +1053,9 @@ const CFG = {
   specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
   // THE TANK IS A DRUM FILL (music language): the multi-hit tank stops being a random interruption and becomes the phrase's PUNCTUATION. With fillOnly (and TIDES live) the rnd()<multiHitChance roll is gone entirely: AT MOST ONE tank per swell, elected in the first half of the FINAL PEAK BAR (the bar before mercy), and the hits it asks for are a STATED figure of sixteenths counted from that bar's downbeat — fig2 = "and-of-4 → 1", fig3 = "4 → and-of-4 → 1", where the 1 is the MERCY DOWNBEAT. The figure replaces the whole-beat orbOpen gate on that one orb (its notes sit off the beat, where orbOpen never opens) and is judged by the SAME skill-tightened grooveOpenSec seconds every other arrival is judged by, just re-centred on the figure's sixteenth. The walking note per landed hit becomes an ascending run through the theme's own scale that LANDS ON THE TONIC (CHORD_ROOT[0], octave-lifted into the walk's register) exactly on the 1 — so the existing tank finale and wave 1's mercy pad bloom fire on the same downbeat and the fill literally launches the exhale. No new sound, no new voice, no scheduling of its own: alignment does all of the work.
   // Kill-switch is tank.fillOnly:false (or tide.on:false) → the multiHitChance roll and the whole-beat gate run exactly as today, and every orb carries fill16:-1 so no figure code is ever reached. Inert in the trainer (specials are off there, and the tide block returns before the election) and in the Temple (no spawns at all). SCORING IS UNTOUCHED: a fill hit chips and the last one calls gradeRhythmHit exactly as today, so the daily/ghost invariant score===h.length still holds; an incomplete figure is NOT punished AT ALL — at mercy end the tank takes a NEUTRAL expiry branch (no streak reset, no pushEvent, no FADED, no whiff, no groove duck), because a stated figure is an offer and declining it is not a miss. Its trail also ages on its OWN stretched life (lifeBeatsEff), so the white→red→white ink still reads as the honest clock it is on every other orb.
-  tank:{ maxBpm:150, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16, fillOnly:true, fig2:[12,16], fig3:[8,12,16] },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). maxBpm: no tanks above this (3 fast leads on one orb gets brutal) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated hits are manageable, and spec 1.2 (T5a) made that an INVARIANT rather than a wish — see the fill re-draw in spawnTarget · fillOnly = the tank spawns ONLY as the swell's closing fill (see above) · fig2/fig3 = the required hits as SIXTEENTHS from the fill bar's downbeat, 16 = the mercy downbeat (the landing note). The ARRAY LENGTH is the hit count, so a longer figure is a longer tank with no other edit — and the 2-vs-3 pick is the same single rnd() draw today's tank already takes.
-  // THE FIGURE SITS ON WHOLE BEATS (SPEC_MUSIC_LANGUAGE 1.2 amendment T1 — every "spec 1.2" below is that document's parcel-G amendment, T1..T5). It shipped as fig2 [14,16] / fig3 [12,14,16] — gates TWO sixteenths apart, on the "and-of-4". The flight time of a tank's own shot is k sixteenths (k drawn from beatSpawnSixteenths, capped at maxLeadSixteenths=4), so the time between LANDING one gate and having to RELEASE for the next is (spacing-k) sixteenths plus the two window edges you may use: budget = (spacing-k)·(15/bpm)s + 2·win, win = grooveOpenSec (0.26s learning → 0.12s expert). At spacing 2 that budget is NEGATIVE wherever k>2: k=4 needs bpm>15/win to break even (≈58bpm learning, ≈125bpm expert) and k=3 needs bpm>7.5/win (≈29bpm / ≈63bpm) — at the 28bpm start it was −0.55s (k=4, learning) to −0.83s (k=4, expert), i.e. the second note had to be fired BEFORE the first one landed. Nobody can play that.
-  // At spacing 4 ("4 → 1" and "3 → 4 → 1") the worst case is k=maxLeadSixteenths=4, where the tempo term vanishes and the budget is exactly 2·win = +0.52s learning / +0.24s expert AT EVERY TEMPO; k=3 gives +1.06s at 28bpm and +0.34s at 150bpm expert, k=2 gives +1.59s / +0.44s. Positive at every live tempo (28 → 150, or → 172 on a FULL MOON), by construction and not by luck. Every gate now falls where the whole-beat glow already peaks, so the fill's pulse and the field's pulse agree; the last gate is still the MERCY DOWNBEAT, so the finale pop + tideBloom payoff is untouched. The 3-figure's OPENER moved inside the election window's reach (the fill bar's first half elects, leaving 2-8 sixteenths before sixteenth 8, vs 6-12 before sixteenth 12) — a late election can now put that opener inside the flight time, which is exactly the case T2's forward search absorbs: the opener is consumed by the beat-4 landing instead of dead-locking the fill.
+  tank:{ maxBpm:60, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16, fillOnly:true, fig2:[12,16], fig3:[8,12,16] },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). maxBpm: no tanks above this (3 fast leads on one orb gets brutal) — 150 -> 60 UNDER THE SIXTY CAP (parcel P), which makes the constant SELF-DOCUMENTING rather than aspirational: the gate now reads "always, under the cap" and says so, because CFG.maxBpm is 60 and state.bpm can never exceed it. ZERO stream change: the gate `state.bpm<=tank.maxBpm` was already true at every reachable tempo under 150, and it is still true at every reachable tempo under 60 — the same branch is taken on the same beats with the same draws. The one thing that goes quiet is the FULL MOON's tankAny override, which can no longer open anything (see dealCompute) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated hits are manageable, and spec 1.2 (T5a) made that an INVARIANT rather than a wish — see the fill re-draw in spawnTarget · fillOnly = the tank spawns ONLY as the swell's closing fill (see above) · fig2/fig3 = the required hits as SIXTEENTHS from the fill bar's downbeat, 16 = the mercy downbeat (the landing note). The ARRAY LENGTH is the hit count, so a longer figure is a longer tank with no other edit — and the 2-vs-3 pick is the same single rnd() draw today's tank already takes.
+  // THE FIGURE SITS ON WHOLE BEATS (SPEC_MUSIC_LANGUAGE 1.2 amendment T1 — every "spec 1.2" below is that document's parcel-G amendment, T1..T5). It shipped as fig2 [14,16] / fig3 [12,14,16] — gates TWO sixteenths apart, on the "and-of-4". The flight time of a tank's own shot is k sixteenths (k drawn from beatSpawnSixteenths, capped at maxLeadSixteenths=4), so the time between LANDING one gate and having to RELEASE for the next is (spacing-k) sixteenths plus the two window edges you may use: budget = (spacing-k)·(15/bpm)s + 2·win, win = grooveOpenSec (0.26s learning → 0.12s expert). At spacing 2 that budget is NEGATIVE wherever k>2: k=4 needs bpm>15/win to break even (≈58bpm learning, ≈125bpm expert) and k=3 needs bpm>7.5/win (≈29bpm / ≈63bpm) — at the 28bpm start it was −0.55s (k=4, learning) to −0.83s (k=4, expert), i.e. the second note had to be fired BEFORE the first one landed. Nobody can play that. (THE SIXTY CAP, parcel P: those break-even tempos — ≈125bpm and ≈63bpm — now sit ABOVE the ceiling entirely, so the rejected spacing-2 design would be dead-negative for k=4 at every reachable tempo and merely marginal for k=3. The cap does not resurrect it; it buries it. Kept as the stated reasoning for the shipped spacing.)
+  // At spacing 4 ("4 → 1" and "3 → 4 → 1") the worst case is k=maxLeadSixteenths=4, where the tempo term vanishes and the budget is exactly 2·win AT EVERY TEMPO. RE-COMPUTED UNDER THE SIXTY CAP (parcel P, real solver, shipped constants — win = lerp(grooveOpenSec 0.26, 0.12, diffT) with diffT now spanning 20..60): bpm 20 → win 0.260s, k=2 +2.020s / k=3 +1.270s / k=4 +0.520s · bpm 28 (the start) → 0.232s, +1.535 / +1.000 / +0.464 · bpm 40 → 0.190s, +1.130 / +0.755 / +0.380 · bpm 50 → 0.155s, +0.910 / +0.610 / +0.310 · bpm 60 (the cap, full expert) → 0.120s, +0.740 / +0.490 / +0.240. Positive at every live tempo (28 → 60, and the FULL MOON's old "→ 172" clause is moot now that there is nothing above the cap), by construction and not by luck. The tightest case, +0.240s at the cap, is ARITHMETICALLY THE SAME worst case the old law had at expert speed — win's floor did not move, only the tempo you reach it at. Every gate now falls where the whole-beat glow already peaks, so the fill's pulse and the field's pulse agree; the last gate is still the MERCY DOWNBEAT, so the finale pop + tideBloom payoff is untouched. The 3-figure's OPENER moved inside the election window's reach (the fill bar's first half elects, leaving 2-8 sixteenths before sixteenth 8, vs 6-12 before sixteenth 12) — a late election can now put that opener inside the flight time, which is exactly the case T2's forward search absorbs: the opener is consumed by the beat-4 landing instead of dead-locking the fill.
   // openFrac is VESTIGIAL (spec 1.2): the wide whole-beat tank window it fed — tankOpen()/tankGlow()/tankBeatPhase() — was already unreachable (the fill's figure gate is the tank's only window) and those three husks were deleted. blinkWin was dead with them and is REVIVED by T4 as the fill's own blink: the floor on the visual half-width, in BEATS, of the light that tracks the tank's NEXT needed gate (the cue is the judged window, but never narrower than this — at 20-40bpm win alone is a pinprick — and never narrower than the pocket it advertises, because a cue tighter than its own window lies).
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
@@ -2593,8 +2597,12 @@ if(CFG.stars.on) starLitLoad();   // kill-switch read ONCE at boot: with stars o
        one). Consequence, stated because it is a feel choice and not a bug: at a fast tempo the gap is a small slice of
        the beat, so the line takes several beats of wall clock to cross lineBeats of gap time. The level still lands.
    (3) THE GAP IS THE BEAT CLOCK'S, NOT THE FRAME'S (1.2). "Wait for a frame that happens to land in a gap" is not a
-       promise the renderer can keep: at 172 BPM the gap between two open windows is ~49 ms, so a device drawing
+       promise the renderer can keep: at the OLD 172 BPM ceiling the gap between two open windows was ~49 ms, so a device drawing
        slower than that could sample _openAmt inside a window every single frame and starve a queued return forever.
+       [THE SIXTY CAP (parcel P): the ceiling is 60 now, where that same gap measures a 1.000s beat minus 2 x 0.120s of expert
+       window = 760 ms — longer than a frame on anything that can run this at all. The analytic stamp below is KEPT and is NOT
+       relaxed: it is a correctness guarantee, not a performance workaround, and "wait for a frame in the gap" would still be a
+       promise about the renderer that the beat clock has no business making. Nothing in this block changes; the margin got wide.]
        So a return is stamped, at the instant it is queued, with the beat position of the NEXT closed-window moment —
        starGapBeat computes it analytically from the SAME values the window itself is drawn from (the Transport's own
        beat position, audioLat, grooveFireEarlyBeat), and it is simply the mid-point between one window's close and
@@ -2970,79 +2978,79 @@ function restoreFigures(){
 }
 function _lsnCap(s){ s=String(s); return s.charAt(0).toUpperCase()+s.slice(1); }
 function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if(style) d.style.cssText=style; d.textContent=txt; parent.appendChild(d); return d; }
-function _lsnClip(s, max){   // prefer end-of-sentence within max; avoid mid-word chops (Ophiuchus essays were dying mid-clause)
-  s=String(s==null?'':s).replace(/\s+/g,' ').trim(); if(!s) return '';
-  if(s.length<=max) return s;
-  const head=s.slice(0,max);
-  let cut=-1;
-  for(const re of [/[.!?…]["')\]]?\s/g, /;\s/g, /,\s/g]){ let m; while((m=re.exec(head))) cut=m.index+m[0].length; if(cut>Math.floor(max*0.45)) break; }
-  if(cut<Math.floor(max*0.45)){ const sp=head.lastIndexOf(' '); cut=sp>Math.floor(max*0.45)?sp:max; }
-  return s.slice(0,cut).trim()+(cut<s.length?'…':'');
-}
-function _lsnNatalId(){   // pack natal_id for personal transit block — meta first, then live pack fallback
-  if(_lsnMeta && typeof _lsnMeta.natalId==='string' && _lsnMeta.natalId) return _lsnMeta.natalId;
-  if(_skypack && typeof _skypack.natal_id==='string' && _skypack.natal_id) return _skypack.natal_id;
-  return null;
-}
-function _listenPersonalExpected(){ return !!(_personalListenExpected || _lsnNatalId()); }
-function glossaryListenData(pick){
-  const G=_skyGlossary; if(!G||!pick) return null; const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign);
-  const S=SKY_SIGN_SET[signId]?G.signs[signId]:null;
-  if(pick.kind==='sign') return S?{type:'sky_glossary',placement:{status:'ready',title:S.title,text:S.text},personal:{available:false}}:null;
-  const P=G.planets[pick.id], exact=S&&G.planet_in_sign[pick.id+':'+signId]; if(!P&&!S) return null;
-  let title=exact&&exact.title, text=exact&&exact.text;
-  if(!text && P && S){ const pk=Array.isArray(P.keywords)?P.keywords:[], sk=Array.isArray(S.keywords)?S.keywords:[];
-    title=P.title+' in '+S.title;
-    text=(pk.length>=2&&sk.length>=2)?(title+' traditionally joins '+pk[0]+' and '+pk[1]+' with '+sk[0]+' and '+sk[1]+'. It is a symbolic lens for reflection, not a fixed character claim or prediction.'):(P.text+' '+S.text); }
-  else if(!text){ const one=P||S; title=one.title; text=one.text; }
-  return {type:'sky_glossary',placement:{status:'ready',title:title,text:text},personal:{available:false}};
-}
-function templeAspectStudyData(record){
-  // Descriptive chip for a transit→natal chord: geometry + glossary on both ends (no DeepSeek).
-  if(!record||!record.transit||!record.natal) return null;
-  const G=_skyGlossary, t=record.transit, n=record.natal;
-  const tSign=t.sign||null, nSign=n.sign||null;
-  const tPick={kind:'body',id:t.id,meta:{name:t.label||t.id,glyph:t.glyph,sign:tSign,lon:t.lonJ2000}};
-  const nPick={kind:'body',id:n.id,meta:{name:n.label||n.id,glyph:n.glyph,sign:nSign,lon:n.lonJ2000}};
-  const tGloss=glossaryListenData(tPick), nGloss=glossaryListenData(nPick);
-  const aspectLabel=record.aspectLabel||record.aspectId||'aspect';
-  const title='Transit '+(t.label||t.id)+' '+aspectLabel+' natal '+(n.label||n.id);
-  let text='A symbolic contact between moving '+(t.label||t.id)+' and natal '+(n.label||n.id)+' ('+aspectLabel+').';
-  if(record.motionLabel) text+=' The aspect is '+record.motionLabel+'.';
-  if(isFinite(record.orbDeg)) text+=' Orb '+(+record.orbDeg).toFixed(1)+'°.';
-  text+=' Use it as a reflective lens, not a prediction.';
-  const parts=[];
-  if(tGloss&&tGloss.placement&&tGloss.placement.text) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:tGloss.placement.title, text:tGloss.placement.text});
-  else if(G&&G.planets[t.id]) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:G.planets[t.id].title, text:G.planets[t.id].text});
-  if(nGloss&&nGloss.placement&&nGloss.placement.text) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:nGloss.placement.title, text:nGloss.placement.text});
-  else if(G&&G.planets[n.id]) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:G.planets[n.id].title, text:G.planets[n.id].text});
-  return {type:'temple_aspect',placement:{status:'ready',title:title,text:text},personal:{available:false},parts:parts};
-}
-function mergePersonalListen(data,fallback){
-  if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
-}
-function ensureListenCardShell(){
-  // Card body stays pointer-events:none so aim is free; only the × dismiss control is clickable.
-  if(_lsn.card) return _lsn.card;
-  const d=document.createElement('div'); d.id='skyListenCard';
-  d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;padding-right:34px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
-  const x=document.createElement('button'); x.type='button'; x.id='skyListenDismiss';
-  x.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
-  x.textContent='×';
-  x.style.cssText='position:absolute;top:4px;right:4px;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--bone-dim);font:18px/28px var(--mono);cursor:pointer;pointer-events:auto;z-index:1;opacity:.85';
-  x.addEventListener('mouseenter',()=>{ x.style.color='var(--bone)'; x.style.opacity='1'; });
-  x.addEventListener('mouseleave',()=>{ x.style.color='var(--bone-dim)'; x.style.opacity='.85'; });
-  x.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); clearListen(true); });
-  // Don't let mousedown steal pointer-lock / aim
-  x.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); });
-  d.appendChild(x);
-  const body=document.createElement('div'); body.id='skyListenCardBody';
-  body.style.cssText='pointer-events:none;';
-  d.appendChild(body);
-  document.body.appendChild(d);
-  _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
-  return d;
-}
+                                                                                                                                
+                                                                      
+                             
+                            
+             
+                                                                                                                                                        
+                                                                                                     
+                                                     
+ 
+                                                                                                           
+                                                                                                 
+                                                                                                    
+              
+ 
+                                                                                          
+                                  
+                                                                                                                                     
+                                                    
+                                                                                                                                             
+                                                                                                    
+                                                       
+                                                                                                                    
+                                 
+                                                                                                                                                                                                                                  
+                                                                   
+                                                                                                           
+ 
+                                       
+                                                                                                
+                                                          
+                                                         
+                                               
+                                                                                                      
+                                                                                                      
+                                                                           
+                                                                  
+                                                                                   
+                                                                                                                    
+                                                                        
+                                                                             
+                                                          
+                 
+                                                                                                                                                                             
+                                                                                                                                                   
+                                                                                                                                                                           
+                                                                                                                                                 
+                                                                                                                        
+ 
+                                            
+                                                                                                                                                                             
+ 
+                                 
+                                                                                                 
+                                 
+                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                     
+                                                                                                                  
+                    
+                                                                                                                                                                                                                                   
+                                                                                             
+                                                                                                   
+                                                                                                 
+                                                 
+                                                                                  
+                   
+                                                                        
+                                            
+                      
+                               
+                                                     
+           
+ 
                                               
                                                                                                      
                                                                                                                     
@@ -4065,7 +4073,7 @@ function ensureListenCardShell(){
                                                                               
                                                                                    
                                                                     
-                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                 
                            
                               
@@ -4922,7 +4930,7 @@ function ensureListenCardShell(){
                        
                                       
                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                            
                                                                                                                                                                                                                                              
  
@@ -5052,7 +5060,7 @@ function ensureListenCardShell(){
                                                                                                                                                                                         
                                                                                                                                                 
                                                                                                                                                                                                
-                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                         
                                                                                                                                                                
                                                                                                                                                                             
@@ -5878,6 +5886,15 @@ function ensureListenCardShell(){
                                                                                                                 
  
                                                                  
+                                                                                                                              
+                                                                                                                               
+                                                                                                                                
+                                                                                                                         
+                                                                                                                    
+                                                                                                                         
+                                                                                                                               
+                                                                                                                         
+                                                                                                                                
                                                                                                   
                                                                    
                                                       
@@ -5960,7 +5977,7 @@ function ensureListenCardShell(){
                                                                                                                                                                       
                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                         
      
@@ -5976,6 +5993,15 @@ function ensureListenCardShell(){
                                                                                                                           
                                                                                                                         
                                                                                 
+                                                                                                                              
+                                                                                                                             
+                                                                                                                              
+                                                                                                                          
+                                                                                                                          
+                                                                                                                             
+                                                                                                                             
+                                                                                                                               
+                                                                                                                                
                   
                                                                                                                                                                                          
                                                                                                                                                                                                          
@@ -6025,6 +6051,11 @@ function ensureListenCardShell(){
  
                                                                                                                                                                                           
                              
+                                                                                                                                
+                                                                                                                             
+                                                                                                                               
+                                                                                                                            
+                                                                                                                            
                                                                                             
                                                                                             
                                                                              
@@ -6468,7 +6499,7 @@ function ensureListenCardShell(){
                                                                                                                                                                                                                              
                                                                                        
  
-                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                           
                                     
                                                                                  
