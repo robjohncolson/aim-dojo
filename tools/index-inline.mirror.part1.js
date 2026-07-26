@@ -188,6 +188,7 @@
                                          
                                       
                                          
+                                                                                                                                
                                                      
                                                                                                                                                    
                                                                       
@@ -255,9 +256,13 @@
                                                    
                                                                                               
 
-                                                
+                                                                                                                                                                 
                                                                                                                                                                                                                           
                                                          
+                                                                                                                                                                                                                                                                                                                                                    
+                            
+                                         
+                                                                                                                                                                                                                     
 
                                                                    
                                         
@@ -638,7 +643,7 @@
                                                                                                                                                                           
           
                                                                                                                                              
-                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                           
 
                                                                
                                          
@@ -649,6 +654,15 @@
                                                                                                             
                                                                                                             
                                                                                                                                                                                                                                                    
+            
+          
+
+                                                                                                                                                                                          
+                                                                 
+                            
+                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                  
+                                                                                        
             
           
         
@@ -719,6 +733,8 @@ window.JA={
   skyBriefCopy:'データをコピー', skyBriefCopied:'データをコピーした', skyBriefShow:'データを表示', skyBriefHide:'データを隠す',
   skyBriefPrivate:'ネイタルとトランジットの生データ · 空のノートは上のボタン', skyBriefPreviewAria:'ネイタルと今日のトランジット', skyBriefCopyManual:'{keys} でコピーしてね',
   recordsHeader:'合唱のきろく', namePlaceholder:'きみの名前', loading:'読みこみ中…', clearLocal:'じぶんのベストを消す',
+  nightCard:'夜のカード', cardSaveLabel:'絵をほぞん', cardCopied:'カードをコピーした', cardSaved:'カードをほぞんした', cardBlocked:'カードは ここに のこったよ',
+  cardAria:'こんやの 夜のカード', cardDate:'{y}年{m}月{d}日',   // 日本語の日付は数字だけ — {mon}（英語の月の名前）は読まない
   shareEyebrow:'シェア · どのブラウザでも', shareTitleHtml:'夜を<span class="acc">シェア</span>',
   shareLedeHtml:'このリンクを送るだけ — ブラウザですぐ開く。インストール不要。<b>コードを読み取る</b>か、<b>リンクをコピー</b>してね。',
   qrAria:'このページへのQRコード', shareUrlAria:'シェア用リンク', copy:'コピー', back:'もどる',
@@ -794,6 +810,7 @@ window.JA={
       txt('beatCircleLabel','beatCircleLabel');
       txt('modeQ','modeQ'); txt('beginTrainLabel','beginTrain'); txt('beginLabel','resume'); txt('recordsLabel','records'); txt('shareLabel','share');
       txt('resolutionLabel','resolution'); txt('offsetLabel','offset'); txt('calibLabel','calibrate'); txt('recordsHeader','recordsHeader'); attr('nameInput','placeholder','namePlaceholder'); txt('boardLoading','loading'); txt('clearLocalLabel','clearLocal');
+      txt('nightCardLabel','nightCard'); txt('nightCardCopyLabel','copy'); txt('nightCardSaveLabel','cardSaveLabel'); attr('nightCardCv','aria-label','cardAria');   // NIGHT CARDS: the COPY label is the share modal's own word, reused rather than duplicated
       txt('playSettingsSummary','playSettingsSummary'); txt('skySettingsSummary','skySettingsSummary'); txt('chartSettingsSummary','chartSettingsSummary'); txt('helpSettingsSummary','helpSettingsSummary');
       txt('helpDojoTitle','helpDojoTitle'); txt('helpTempleTitle','helpTempleTitle'); txt('helpChartTitle','helpChartTitle');
       txt('observerLocationLabel','observerLocation'); txt('observerGeoLabel','observerGeo'); txt('observerLatLabel','observerLat'); txt('observerLonLabel','observerLon'); txt('observerSaveLabel','observerSave'); txt('observerLocationStatus','observerSetPrompt');
@@ -947,6 +964,9 @@ const CFG = {
   phases:{ on:true },   // on:false → the file is never opened (no read, no write, from any surface), no ring is drawn, and the Bow's line chain is wave 4's exactly. Nothing else to tune: the eight buckets belong to the sky, not to a knob
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
+  // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
+  // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
+  nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -2486,6 +2506,7 @@ function starLitGain(id){   // THE accretion setter — the only writer, and it 
   const cap=CFG.stars.levels|0, cur=_starLit[id]|0;
   if(cur>=cap) return cur;   // a full star is done rising; the sky simply keeps it
   const next=cur+1; _starLit[id]=next; starLitSaveSoon();
+  if(CFG.nightCard.on) cardStar(id);   // NIGHT CARDS: this star was brightened TONIGHT, so tonight's card haloes it. Memory only — one array push on the ONE accretion path, no storage of its own, and nothing at all with the parcel off
   const i=_starLitIdx?_starLitIdx[id]:undefined;
   if(i!==undefined){ starLitMulSet(i,next); starLitRepaint(); }   // the guard survives the bind-time prune only as a pre-fixture safety: every id that can reach here came off _starLitIds, so in practice a gain always has a vertex to brighten
   return next;
@@ -3033,67 +3054,67 @@ function paintStudySurface(pick, data, skeleton){
   if(templeActive) fillTempleStudy(pick, data, skeleton);
   else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
 }
-function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
-  const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
-  if(!authMode&&!nid) return;
-  const core=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
-                                  : 'kind=sign&sign='+encodeURIComponent(pick.id));
-  const userKey=authMode&&_skyAuthSession&&_skyAuthSession.user ? String(_skyAuthSession.user.id||'user') : String(nid||'none');
-  const q=core+(authMode?'':('&natal_id='+encodeURIComponent(nid)));
-  const key=(authMode?'auth:':'desk:')+userKey+'|'+q+'|'+Math.floor(Date.now()/600000);   // identity + 10-min epoch bucket
-  const stillThis=()=>{
-    if(templeActive){
-      if(studySeq!==_templeStudySeq) return false;
-      const fp=_templeFocus&&(_templeFocus.kind==='body'||_templeFocus.kind==='sign')?_templeFocus.pick:null;
-      return !!(fp&&fp.kind===pick.kind&&fp.id===pick.id);
-    }
-    return _lsn.sel===pick;
-  };
-  if(_lsn.cache.has(key)){ if(stillThis()) paintStudySurface(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
-  const failed=()=>{ if(stillThis()) paintStudySurface(pick,Object.assign({},fallback||{},{_deskFailed:true}),false); };
-  let to=null, request;
-  if(authMode){
-    const personal=ensureSkyProfileController();
-    if(!personal||!personal.state.authenticated){ failed(); return; }   // never leak a remote pack's user id into the legacy localhost natal_id channel
-    request=personal.getListen({kind:pick.kind,body:pick.kind==='body'?pick.id:'',sign:pick.kind==='sign'?pick.id:(pick.meta&&pick.meta.sign)||'',tz:tz});
-  }else{
-    const ctl=(typeof AbortController!=='undefined')?new AbortController():null; to=setTimeout(()=>{ if(ctl) ctl.abort(); },CL.apiMs);
-    request=fetch(CL.api.replace(/\/+$/,'')+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz),ctl?{signal:ctl.signal}:{}).then(r=>r.ok?r.json():null);
-  }
-  Promise.resolve(request)
-    .then(j=>{ if(to) clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
-      const personal=ok&&ok.personal&&(ok.personal.available||ok.personal.title||ok.personal.text||(Array.isArray(ok.personal.highlights)&&ok.personal.highlights.length));
-      if(ok&&personal){ _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
-        if(stillThis()) paintStudySurface(pick,mergePersonalListen(ok,fallback),false); }
-      else failed(); })
-    .catch(()=>{ if(to) clearTimeout(to); failed(); });
-}
-function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is fading or a selection is held
-  const CL=CFG.skyListen;
-  if(_lsn.lineT>=0 && _lsn.line){ const k=(state.t-_lsn.lineT)/CL.lineSec;
-    if(k>=1){ _lsn.line.visible=false; _lsn.lineT=-1; }
-    else setScalarCached(_lsn.line.material,'opacity',0.55*(1-k)); }
-  if(CFG.skyTemple.legacyListenCard && _lsn.sel && state.t-_lsn.holdT>=CL.holdSec) clearListen(true);
-}
+                                                                                                                                            
+                                                                                                                                                  
+                             
+                                                                                                                                                             
+                                                                                   
+                                                                                                                                
+                                                                    
+                                                                                                                           
+                       
+                     
+                                                  
+                                                                                                             
+                                                          
+     
+                           
+    
+                                                                                                                                     
+                                                                                                                        
+                       
+               
+                                                
+                                                                                                                                                        
+                                                                                                                                                          
+        
+                                                                                                                                      
+                                                                                                                                                       
+   
+                          
+                                                                                     
+                                                                                                                                                                           
+                                                                                                                         
+                                                                                         
+                       
+                                                       
+ 
+                                                                                                            
+                         
+                                                                          
+                                                       
+                                                                    
+                                                                                                     
+ 
 
-/* ========================= SKY TEMPLE (silent select → investigate with full study HUD) ========================= */
-const _templeUi={
-  panel:document.getElementById('skyTemplePanel'), kicker:document.getElementById('skyTempleKicker'),
-  title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'),
-  body:document.getElementById('skyTempleBody'), hint:document.getElementById('skyTempleHint'),
-  guide:document.getElementById('skyTempleGuide'), controls:document.getElementById('skyTempleControls')
-};
-const _skyChatUi={
-  root:document.getElementById('skyTempleChat'), ask:document.getElementById('skyTempleChatAsk'),
-  dialog:document.getElementById('skyTempleChatDialog'), turns:document.getElementById('skyTempleChatTurns'),
-  status:document.getElementById('skyTempleChatStatus'), form:document.getElementById('skyTempleChatForm'),
-  input:document.getElementById('skyTempleChatInput'), send:document.getElementById('skyTempleChatSend')
-};
-if(_skyChatUi.input) _skyChatUi.input.maxLength=CFG.skyChat.maxMessageChars;
-if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPLE');
-// Controls strip is first in the chip — never bury how-to under study text.
-if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','SHIFT+E free mouse · T ask · FIRE investigate · E leave · ESC pause');
-if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blocks HUD clicks — free the mouse (Shift+E) to scroll this chip, or press T to ask (frees mouse + opens ask).');
+                                                                                                                      
+                 
+                                                                                                     
+                                                                                                 
+                                                                                               
+                                                                                                        
+  
+                  
+                                                                                                 
+                                                                                                             
+                                                                                                           
+                                                                                                        
+  
+                                                                            
+                                                                                    
+                                                                            
+                                                                                                                                       
+                                                                                                                                                                                              
                                                                                               
                                                   
                                          
@@ -4834,6 +4855,7 @@ if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blo
                                                                                      
                                                                                                                                                                                                                                                          
                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                         
  
                        
@@ -4886,14 +4908,23 @@ if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blo
                                                                                                            
                          
                                                                                                                                                            
+                                                                                                                                                                                                                             
+ 
+                                                                     
+                                                                                                                 
+                                                                                                                      
+                                                                                                                 
+                                                                                                                  
+                                                                                                              
+                                     
                                     
-                                                                           
-                                                                                                                                                                   
+                                                                       
+                                                                                 
                                        
                        
-                                                                                                                        
-                                                                                                  
-                                                                          
+                                                                                                                    
+                                                                                                         
+                                                                           
              
    
                                            
@@ -5330,6 +5361,203 @@ if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blo
                                                                                       
                                                                                                                                                                       
  
+                                            
+                                                                                                                    
+                                                                                                                      
+                                                                                                                       
+                                                             
+                                                                                                                     
+                                                                                                              
+                                                                                                                     
+                                                                                                                
+                                                                                                                   
+                                                                                                                      
+                                                                                                                 
+                                                                                           
+                                                                                                                    
+                                                                                                                   
+                                                                                                               
+                                                                 
+                                                                                                                      
+                                                                      
+                                   
+                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                    
+                                                                                                                                                                  
+                                                                                                                                                       
+                                                                                                                                                       
+                                                                                                                                                                                                                      
+            
+                                                                                                                                                       
+                      
+                                                                                                                       
+                                                                                                                        
+                                                                           
+                                                   
+ 
+                    
+                                           
+                                                                             
+                  
+                                                          
+                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                              
+                                                                   
+                                                   
+                               
+                                                                                                                                                                                                                                                                                                                        
+                                     
+                                              
+                                                                                                                                                                                                                                  
+   
+                                                     
+                                
+                                                                                                                                                                                              
+   
+                
+                                                                                                                                                                            
+                                                                                                                                                                                                                        
+                                                                                                                                                                                       
+                             
+ 
+                    
+                                                                                                              
+                                                                                                  
+                                                                                                                                                                       
+                                                                                                                              
+                                                                                           
+                                                                                                                                                                                                                                                          
+                                      
+                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                 
+                   
+                                                                                                                                                                                    
+                                                                                                                                                                                                           
+ 
+                                                                                                                                                                                                                             
+                     
+                                                                                                                     
+                                                                  
+                                             
+                        
+                                
+                                                                                                         
+                                                                                                   
+ 
+                                                                                                                                                    
+                                                                                                             
+                                                                                    
+                         
+                                                                                                                 
+                                                                                                                        
+                                                               
+                                                              
+                                                                                                         
+ 
+                                    
+                                                                                                                   
+                                                                                                                   
+                                                                                                                     
+                                                                                                 
+                                                                                                                                                                                           
+                               
+                                                                                         
+                                                                                                                                
+                                                                                 
+                                                      
+         
+                                                                                                                                 
+                                   
+                                                                                 
+                                                                                                                                                                               
+                    
+                                                                    
+                                                                          
+                 
+     
+   
+                                    
+                                            
+                                                                                                                                                                                                              
+                              
+                                                                                            
+                                                     
+                                                                                                                                                                                                                                   
+                                                                                                        
+                                                                                                                                                                                                                                                                          
+   
+ 
+                                
+                                                                                                                     
+                                                                                                                   
+                                               
+                       
+                                           
+                                                                                              
+                                      
+                                                                                                                                                                
+                                                
+                                                                                                                                              
+                                                                                  
+                                
+                                
+                                                                                                                 
+                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                   
+                                           
+                 
+                                                                                                                                                                                                                                                                                                                         
+                                                                                  
+                                                       
+ 
+                     
+                                         
+                                          
+                                                                      
+                              
+                                
+                                                                    
+                                                                                                                                                                            
+ 
+                                                                                                       
+                            
+                                                                                                                       
+                                                                                                                  
+                                          
+      
+                                                                                                             
+             
+                                                                                           
+                                          
+                                                                                                                                                                                                                       
+                                                                             
+                                               
+                                                                 
+ 
+                    
+                                                                                                                    
+                                                                                                           
+                                          
+               
+                                               
+      
+                  
+                                           
+                                                                                                                                                                                                           
+                                                                                                                                                         
+                                  
+                   
+                                  
+ 
+            
+                                                                                                                                                                                                                 
+                                             
+                                                                         
+                                                                            
+                                                                                                                                                                                                                       
+                                                                                                                                               
+     
                       
                                                         
                                      
@@ -7939,6 +8167,7 @@ if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blo
                                                                                     
                                                                                                  
                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                   
@@ -8236,6 +8465,7 @@ if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blo
                                                                                                                                   
                                                                                                                                      
                                      
+                                                                                                                                                                                                                                                                                                              
                           
                                                                                                                              
                                 
