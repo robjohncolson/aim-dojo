@@ -1,6 +1,6 @@
 # The Moonline — Season 2, Wave 8 (the rebuild: void, ribbon, arches, tethers)
 
-**Version:** 1.1 · 2026-07-27 (§1.1 amendment added after wave-8 first light; §§0-7 are v1.0, unchanged)
+**Version:** 1.2 · 2026-07-27 (§1.2 amendment added after the Moonline playtest; §1.1 added after first light; §§0-7 are v1.0, unchanged)
 **Branch:** `redesign/moon-chorus` (builds on unmerged waves 6-7; supersedes wave 7's road PRESENTATION while keeping its machinery — course seed, clock sync, wake epochs, banking, kill-switch discipline)
 **Files touched:** `index.html` (+ regenerated mirror parts per commit). No new assets (everything is shader/line/particle work; the milky way texture already ships), no server.
 **Origin:** two user brainstorm sessions 2026-07-26/27 after first light on wave 7 ("does not give a sense of a road"). Every decision below is user-locked; the arches are imagery from the user's own dreams. Honor that.
@@ -39,6 +39,39 @@ Post-graduation play no longer happens in a room. The floor is gone; the Temple'
 - **Scope guards:** the trainer's floor keeps its original `floorBeat` untouched (`updateFloorBeat` still asks `!roadLive()` and still reads `wasdBeatGlow()`); `moonline.on:false` leaves every wave-7 surface's hidden/shown state exactly as wave 7 left it, and compiles a fragment shader that has never heard of `uBreath`; **zero gameplay-math changes** — `roadBreath` is a pure read called from one per-frame uniform write.
 
 **Also in 8.1 — THE DUST IS RESOLVABLE.** First light also reported no stardust. It was never missing: the layer was built, added, visible and drawn every frame, and invisible for two pieces of arithmetic. (1) The budget was flat in road distance while screen area falls as 1/u³ — 400 motes of 0.10 m over 324 m put 272 of them at exactly 1×1 px inside a 31-px strip below the horizon (a wash, not a grain), 71 behind the camera, and only 26 at ≥2 px across the entire near road. (2) The fragment emitted premultiplied `vec4(uCol*a, a)` while the material never set `premultipliedAlpha`, so three.js r128 chose `blendFunc(SRC_ALPHA, ONE)` and delivered `uCol·a²` — 42% of a road rail at peak instead of 90%. Fix: the window now ends where the grain dies (`ML_DUST_SPAN` 12→5 beats, `ML_DUST_BEHIND` 2→0.5, so 135 m of road at exactly 5 motes per sixteenth cell), the mote is `ML_DUST_M` 0.10→0.30 m with a 6 px cap, and the material says `premultipliedAlpha:true`. Density in road space stays UNIFORM by necessity — anchors wrap against `uNow`, so a near-field-weighted distribution would be a clump that streams at you and passes, i.e. a comet, not a carrier. Budget: 4,350 px² = 0.210% of a 1920×1080 frame, seven times the 627 px² the old window actually drew and still a third under the 0.31% parcel V paid for. LOW still builds no dust at all.
+
+## 1.2 amendment — THE DUST IS THE SPACE · THE GOLDEN THREAD (wave 8.2)
+
+**Origin:** the Moonline playtest, 2026-07-27. Both clauses below are user-locked and both OVERRIDE a §1.x design decision at the user's own direction. Where this section and §§1–5 disagree, this section is the law.
+
+### Y1 — THE DUST IS THE SPACE (overrides §4's "road-level only")
+
+**What was wrong.** 8.1 made the stardust resolvable and it was still the wrong layer: motes lying ON the ribbon read as a texture applied to a road, not as the feeling of moving through anything. A carrier wave painted on the carrier is a decal.
+
+**The law.**
+
+- The dust leaves the surface and becomes a **volumetric field wrapped around the camera** — an axis-aligned box that RECYCLES: `ML_DUST_RAD` either side of the eye, `ML_DUST_VERT` above and below it, `ML_DUST_SPAN` beats deep along the travel axis of which `ML_DUST_BEHIND` is behind you. Shipped: 40 m · 25 m · 5 beats with 1 beat behind (27 m behind the eye to 108 m ahead), which are the user's own first guesses, kept because the arithmetic agreed with them.
+- Particles stream **opposite the direction of travel at the road's own speed**, tempo-locked to `metersPerBeat`: the wrap is `mod(anchor − uNow, SPAN)` against the ribbon's OWN `uNow` uniform object, so the dust and the ribbon cannot disagree about velocity at any tempo. Motes still never move; the world does.
+- The field does **not** follow the course spline. The ribbon bends because a road bends; the space it flies through does not. `uBase/uA/uW/uP` leave this material entirely.
+- Same pooled budget (≤ 400 motes, `dustCount`, one `THREE.Points`, one draw call), the 8.1 premultiplied-alpha lesson kept (`premultipliedAlpha:true`), sized and alpha'd for the new distances by the 8.1 method — the window still ENDS WHERE THE GRAIN DIES (108 m = 1.37 px at the shipped 0.30 m mote).
+- **§1's "nothing beside the road but space" is amended:** streaming dust IS the space. It is not an object beside the road, and the rule stands for everything else.
+- **reduceMotion: the dust is OFF** — not frozen. It is pure motion; a standing volumetric field is a fog of dots with no meaning left in it. Off at build time, the same silence LOW already gets. **LOW: off, as before.**
+
+**Computed (1920×1080, fov 95, EYE 4, level forward view, 400 motes):** volume 80 × 50 × 135 m = 540,000 m³ → 7.407e−4 motes/m³, mean nearest-neighbour spacing 6.12 m; 276 motes on screen (11 at the 6 px cap, 25 at 4–6 px, 124 at 2–4 px, 116 under 2 px) and 80 behind the camera; **2,266 px² = 0.109% of the frame** — half of 8.1's 0.210% and a third of the 0.31% parcel V budgeted, because the same motes now spread over the whole frame instead of the strip below the horizon. Near-pass rate within 5 m of the eye: 0.52/s at the 20 bpm floor, 1.57/s at the sixty cap.
+
+### Y2 — THE GOLDEN THREAD (overrides §5's window-driven tether brightness)
+
+**What was wrong.** The tether was a thin intermittent white line whose alpha WAS the orb shell's opacity. Two failures, both arithmetic: it swung 0.036 → 0.378 → 0.036 once a beat (invisible → rail-bright → invisible) and read as flicker; and it made the moment that matters look like every other moment, because the loudest thing it ever did was something it did on every beat regardless of whether you hit anything.
+
+**The law.**
+
+- **(a) IDLE — the thread just IS.** A thin **GOLD** line (`ML_GOLD`, the arches' and the impostor's own gold — no new colour), **PERSISTENT at a constant subtle alpha for the orb's whole life**: `alpha = tetherGlow × ML_TETH_IDLE`, with no window term anywhere. The open-window cue lives in the shell glow and in §1.1's breath; the thread's fact is "this Echo belongs to that star", which is true continuously, so it is drawn continuously. Shipped 0.9 × 0.18 = 0.162 — 2.2× the old cue's time-average at 20 bpm, 1.9× at 60, and 43% of what it used to peak at, with the return pulse a further 2.2× above it. The far-end fade (`ML_TETH_FAR`) is unchanged.
+- **(b) ON A LANDED KILL — the return rides the thread.** A bright golden **PULSE packet** travels from the burst point up the tether to the star over the **existing flight duration** (`CFG.stars.lineBeats`), on the wave-3 `starVoiceHome` flight machinery merged with the tether path: **one line geometry, a travelling brightness head** (dim gold tail → full `ML_GOLD` head, `ML_TETH_PULSE` of the path long), at `CFG.stars.lineAlpha` — 2.2× the idle thread beside it. Both endpoints are the tether's own two ends by construction (`f.from` is where the orb was, `starWorldAt` is where the star is), so the packet cannot leave the thread it rides.
+- **The gap law, the epoch machinery and the level tick are UNTOUCHED.** Visual only: `SPEC_STAR_ROAD` §1.3's tick law stays byte-identical, `starFlyDrain` still pays every due return unconditionally before anything draws, and no `starFly` state — queue, debt, stamp, freeze, cap, pool — changed.
+- **reduceMotion: no travelling pulse.** `starFlyDrain` builds no flight record under reduced motion, exactly as it always has, so the level lands at the gap with no line — and the thread beside it is now STATIC GOLD at a constant alpha under every motion setting, because (a) removed the flicker for everybody. Static gold thread, no pulse, level paid: that IS the existing no-line path this clause is asked to match.
+- **§5's "Accepted as built (wave-8 gate, N-round)" note is superseded for the brightness law only.** It settled that the tether may mirror the shell's live opacity rather than read `reduceMotion`; the user has since removed the thing it mirrored. The reasoning that made it right — one number, no second copy of a cue — is exactly what (a) preserves by having no cue-derived number at all.
+
+**Playtest questions (8.2):** does the void read as *travelled through* now, or is the dust noise (`dustGlow` is the dial, and the budget has 0.20% of frame headroom left)? Is `ML_TETH_IDLE` 0.18 subtle or a web of gold at a full field? Does the pulse read as *going home*, and is `ML_TETH_PULSE` 0.18 a packet or a smear at the sixty cap?
 
 **Playtest questions:** does the swell make the release timeable again without reading anything? Is `breathMax` 0.45 mesmerizing or distracting at 20 bpm and at 60? Do the arches breathing with the road read as one world, or should `ML_ARCH_BREATH` go to 0? Is the dust a rush or noise now (`dustGlow` is the dial)?
 

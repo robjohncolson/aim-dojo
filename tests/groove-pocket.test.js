@@ -1076,9 +1076,11 @@ const ROAD_GEOM_SRC = (() => {
   return lines.map((line) => line.trim()).join("\n");
 })();
 
-function loadRoadGeom(moonline, low, widthM) {
+function loadRoadGeom(moonline, low, widthM, rm) {
   const context = vm.createContext({
-    Math, Number, console, EYE: 4, LOW: !!low, camera: { far: 700 },
+    // reduceMotion joined the sandbox in wave 8.2 (Y1): ML_DUST_N reads it, because the volumetric dust is switched OFF
+    // under reduced motion at BUILD time rather than frozen in place. Defaults false = the shipped desktop path.
+    Math, Number, console, EYE: 4, LOW: !!low, reduceMotion: !!rm, camera: { far: 700 },
     CFG: {
       road: { on: true, lookAheadBeats: 8, widthM: widthM == null ? 14 : widthM, bandGlyphs: true, mercyBoost: 1.6, fillMark: true, holdDemo: false },
       moonline: { on: moonline, metersPerBeat: 27, drawBeats: 32, impostorMinStraight: 0.55, impostorInk: 0.9,
@@ -1342,11 +1344,18 @@ test("ARCHES, RINGS, DUST: the knobs are CFG.moonline's, flat, and every switch 
     assert.match(cfg[0], contract);
   // THE KILL-SWITCH: both parcel-V switches read ML_RIBBON (which IS moonlineOn()) before they read anything of their own.
   assert.match(html, /const ML_ARCH=ML_RIBBON && !!\(CFG\.moonline && CFG\.moonline\.archOn\);/, "the arches read the master switch first");
-  assert.match(html, /const ML_DUST_N=ML_RIBBON&&!LOW\?/, "...and so does the dust, which LOW turns off in the same read");
+  assert.match(html, /const ML_DUST_N=ML_RIBBON&&!LOW&&!reduceMotion\?/, "...and so does the dust, which LOW - and, since wave 8.2, reduced motion - turns off in the same read");
   for (const [moonlineOn, low, arch, dust] of [[true, false, true, 400], [true, true, true, 0], [false, false, false, 0], [false, true, false, 0]]) {
     const c = loadRoadGeom(moonlineOn, low);
     assert.equal(c.read("ML_ARCH"), arch, "moonline.on=" + moonlineOn + " LOW=" + low + " -> arches " + arch);
     assert.equal(c.read("ML_DUST_N"), dust, "moonline.on=" + moonlineOn + " LOW=" + low + " -> " + dust + " motes");
+  }
+  // WAVE 8.2 (Y1): reduced motion is a THIRD off-switch on the same read, and it is off-ness, not stillness - the layer
+  // is nothing but motion, so a frozen field would be a fog of dots with no meaning left in it. The arches are untouched
+  // by it: they stand still under reduceMotion (uArchN0) because a ruler of the coming bars still says something.
+  for (const low of [false, true]) {
+    assert.equal(loadRoadGeom(true, low, null, true).read("ML_DUST_N"), 0, "reduceMotion builds no dust (LOW=" + low + ")");
+    assert.equal(loadRoadGeom(true, low, null, true).read("ML_ARCH"), true, "...and the arches are not collateral damage");
   }
   // ...and with the switch off nothing is even CALLED: the two builders sit behind their own raw booleans in buildRoad.
   assert.match(html, /if\(ML_ARCH\) buildRoadArches\(\);/);
@@ -1460,24 +1469,95 @@ test("THE STARDUST: the road's own speed, the sixteenth's own grain, and not one
   assert.equal(sixteenth, 1.6875);
   for (const pair of [[20, "187.5"], [60, "62.5"]])
     assert.equal((sixteenth / (MPB * pair[0] / 60) * 1000).toFixed(1), pair[1], "a sixteenth cell arrives every " + pair[1] + " ms at " + pair[0] + " bpm");
-  // The window and its density are the numbers the comment claims.
+  // The window and its density are the numbers the comment claims. WAVE 8.2 (Y1): the window is now a VOLUME wrapped
+  // around the camera, so BEHIND is a whole beat of space you have flown through rather than a sliver of pavement.
   const span = on.read("ML_DUST_SPAN"), behind = on.read("ML_DUST_BEHIND"), N = on.read("ML_DUST_N");
-  assert.equal(span * MPB, 135, "135 m of road carries dust");
-  assert.equal(behind * MPB, 13.5, "...13.5 m of it behind the feet");
-  assert.equal((span - behind) * MPB, 121.5, "...and 121.5 m ahead");
+  assert.equal(span * MPB, 135, "135 m of travel axis carries dust");
+  assert.equal(behind * MPB, 27, "...27 m of it behind the eye, which is exactly ONE BEAT");
+  assert.equal(behind, 1, "...stated in the unit this road measures everything in");
+  assert.equal((span - behind) * MPB, 108, "...and 108 m ahead");
   assert.equal(span * 16, 80, "the window is a WHOLE number of sixteenth cells - the one invariant the anchor law owes");
   assert.equal(N / (span * 16), 5, "exactly 5 motes per sixteenth cell");
   assert.equal(on.read("ML_DUST_FAR1"), (span - behind) * MPB, "the far ramp ends exactly where the window does");
   assert.ok(on.read("ML_DUST_FAR0") < on.read("ML_DUST_FAR1"), "...and it IS a ramp, so the wrap has no seam");
+  assert.equal(on.read("ML_DUST_BEH_M"), behind * MPB, "...as does the rear one, which is now behind you where you can turn and look at it");
   // THE STREAM RULE: the layer is seeded from a PRIVATE mulberry32 exactly as the course is - never rnd(), never Math.random.
   const build = extractFunction("buildRoadDust"), body = build.replace(/\/\*[\s\S]*?\*\//g, " ");
-  assert.match(build, /const N=ML_DUST_N, pos=new Float32Array\(N\*3\), cells=ML_DUST_SPAN\*16, rr=mulberry32\(0x9e3779b9\);/);
+  assert.match(build, /const N=ML_DUST_N, pos=new Float32Array\(N\*3\), sd=new Float32Array\(N\), cells=ML_DUST_SPAN\*16, rr=mulberry32\(0x9e3779b9\);/);
   assert.doesNotMatch(body, /\brnd\(|Math\.random/, "the spawn stream is untouched, draw for draw");
   assert.match(build, /pos\[i\*3\]=\(c\+\(rr\(\)-0\.5\)\*0\.3\)\/16;/, "every anchor is a SIXTEENTH cell, jittered by under a fifth of one");
-  // The motes never move: uNow does. That is why reduceMotion needs no second path and no time term exists anywhere.
+  // The motes never move: uNow does. No time term exists anywhere, which is why the stream states the road's speed and
+  // cannot state any other - and reduced motion does not have to silence one, it simply never builds the layer.
   const dustVs = html.slice(html.indexOf("uniform float uNow,uAmt,uDustGlow;"), html.indexOf("uniform vec3 uCol; varying float vA;"));
   assert.match(dustVs, /float ba=mod\(position\.x-uNow,/, "the anchor is wrapped against the clock, not integrated over frames");
-  assert.doesNotMatch(dustVs, /uTime|elapsed/, "there is no time term for reduceMotion to have to silence");
+  assert.doesNotMatch(dustVs, /uTime|elapsed/, "there is no time term at all");
+});
+
+test("THE DUST IS THE SPACE: a volumetric field around the camera, streaming at the road's own speed (Y1, 8.2)", () => {
+  // WAVE 8.2, user-locked from the Moonline playtest. The motes leave the road SURFACE and become the void itself.
+  const on = loadRoadGeom(true, false), MPB = on.read("ROAD_MPB"), EYE = 4;
+  const R = on.read("ML_DUST_RAD"), V = on.read("ML_DUST_VERT"), N = on.read("ML_DUST_N");
+  const span = on.read("ML_DUST_SPAN"), behind = on.read("ML_DUST_BEHIND");
+  assert.equal(R, 40, "40 m of dust either side of the eye");
+  assert.equal(V, 25, "...25 m above and below it");
+
+  // (1) THE FIELD IS AROUND THE CAMERA, NOT ON THE ROAD. The vertex shader's world position must read the field's own
+  // extents and the EYE, and must NOT read the road's half-width, its surface height, or the course centreline.
+  const build = extractFunction("buildRoadDust");
+  const code = build.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");   // the EMITTED text only: the prose around it is allowed to name the uniforms it dropped
+  assert.match(build, /vec3 P=vec3\(position\.y\*'\+_roadG\(ML_DUST_RAD\)\+', '\+_roadG\(EYE\)\+'\+position\.z\*'\+_roadG\(ML_DUST_VERT\)\+', -u\);/,
+    "lateral about the eye, vertical about the eye, and -u down the travel axis");
+  for (const gone of [/ROAD_HALF_W/, /ML_DUST_Y/, /ML_DUST_LOFT/, /uBase/, /uA,uW,uP/, /dot\(uA/])
+    assert.doesNotMatch(code, gone, `the surface-bound term ${gone} left with the surface`);
+  // ...and the constants it measured off are no longer DECLARED, not merely unused (the prose above them says why).
+  assert.doesNotMatch(html, /const [^\n]*\bML_DUST_Y=/, "ML_DUST_Y retired with the road plane it offset from");
+  assert.doesNotMatch(html, /const [^\n]*\bML_DUST_LOFT=/, "ML_DUST_LOFT with it");
+  assert.match(html, /const ML_DUST_M=0\.30, ML_DUST_INK=0\.55;/, "what is left is the mote and the ink");
+
+  // (2) THE ONE SHARED UNIFORM IS THE CLOCK, which is what tempo-locks the stream to the ribbon: same uNow object, same
+  // ROAD_MPB, so dust speed IS road speed = ROAD_MPB * bpm/60 at every tempo, and neither can drift from the other.
+  assert.match(build, /uniforms:\{ uNow:U\.uNow, uCol:U\.uInk,/, "the dust borrows the road's clock object, and only that");
+  assert.match(build, /float u=ba\*'\+_roadG\(ROAD_MPB\)\+';/, "one beat of wrap IS one beat of road");
+  for (const [bpm, speed] of [[20, 9], [60, 27]])
+    assert.equal(MPB * bpm / 60, speed, `${speed} m/s of dust at ${bpm} bpm, because that is what the road does`);
+
+  // (3) THE POPULATION, integrated rather than asserted - the 8.1 method, at the new placement. Motes uniform in the box;
+  // a mote is drawn at clamp(ML_DUST_M*ML_FOCAL_PX/d, PX0, PX1) px and is on screen inside the shipped frustum.
+  const focal = on.read("ML_FOCAL_PX"), num = on.read("ML_DUST_M") * focal;
+  const px0 = on.read("ML_DUST_PX0"), px1 = on.read("ML_DUST_PX1");
+  const tanV = Math.tan((95 * Math.PI) / 360), tanH = (1920 / 2) / focal;
+  const A = (span - behind) * MPB, B = behind * MPB;
+  let seed = 0x9e3779b9 | 0;
+  const rr = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const S = 200000;
+  let onScreen = 0, area = 0, behindCam = 0, capped = 0, near20 = 0;
+  for (let i = 0; i < S; i++) {
+    const x = (rr() * 2 - 1) * R, y = (rr() * 2 - 1) * V, u = -B + rr() * (A + B);
+    const d = Math.sqrt(x * x + y * y + u * u);
+    if (d < 20) near20++;
+    if (u <= 0) { behindCam++; continue; }
+    if (Math.abs(x) > u * tanH || Math.abs(y) > u * tanV) continue;
+    onScreen++;
+    const s = Math.min(px1, Math.max(px0, num / d));
+    area += s * s;
+    if (s >= px1 - 1e-9) capped++;
+  }
+  const k = N / S, frame = 1920 * 1080, px2 = area * k;
+  assert.equal(Math.round(onScreen * k), 276, "276 motes are on screen at a level forward view");
+  assert.equal(Math.round(behindCam * k), 81, "...and ~80 are behind the camera, which in a void is space you can turn and look at");
+  assert.equal(Math.round(capped * k), 11, "11 hold the 6 px cap - the near field is the cue");
+  assert.equal(Math.round(near20 * k), 25, "25 motes are within 20 m of the eye at any instant");
+  assert.equal((px2 / frame * 100).toFixed(3), "0.109", "the field costs 0.109% of a 1920x1080 frame");
+  assert.ok(px2 / frame < 0.0031, "...which is inside the 0.31% parcel V budgeted, with room to spare");
+  assert.ok(px2 / frame < 0.0021, "...and UNDER 8.1's own 0.210%: the same motes, spread over the frame instead of the road strip");
+  // The density is what makes it read: one mote per 1350 m^3, mean nearest-neighbour spacing 6.12 m = a 6 px grain.
+  const vol = (2 * R) * (2 * V) * (A + B), n = N / vol;
+  assert.equal(vol, 540000, "80 x 50 x 135 m of space");
+  assert.equal((1 / n).toFixed(0), "1350", "one mote per 1350 m^3");
+  assert.equal((0.554 * Math.pow(1 / n, 1 / 3)).toFixed(2), "6.12", "mean nearest-neighbour spacing 6.12 m");
+  // ...and the pass rate is the flying-through-space cue itself: it triples with the tempo, from one number.
+  for (const [bpm, want] of [[20, "0.52"], [60, "1.57"]])
+    assert.equal((n * Math.PI * 25 * MPB * bpm / 60).toFixed(2), want, `${want} motes/s pass within 5 m at ${bpm} bpm`);
 });
 
 test("THE STARDUST IS RESOLVABLE: the window ends where the grain dies, and the alpha arrives whole (V, 8.1)", () => {
@@ -1495,22 +1575,19 @@ test("THE STARDUST IS RESOLVABLE: the window ends where the grain dies, and the 
   assert.equal((num / 2).toFixed(2), "74.22", "...still 2 px at 74.22 m");
   const far = (span - behind) * MPB;
   assert.ok(sizeAt(far) > px0, "EVERY mote in the window resolves above the floor - the window ends where the grain would die");
-  assert.equal(sizeAt(far).toFixed(2), "1.22", "the farthest mote is 1.22 px, not a sub-pixel wash");
+  assert.equal(far, 108, "the window's far edge (wave 8.2 moved BEHIND from 0.5 beats to 1, so ahead is 108 m, not 121.5)");
+  assert.equal(sizeAt(far).toFixed(2), "1.37", "the farthest mote is 1.37 px, not a sub-pixel wash");
   // ...which is exactly what the shipped pair could not say: 0.10 m gave 49.48 px*m, under a pixel past 49.5 m, for 81%
   // of a 270 m window. That is the whole bug, in one comparison.
   assert.equal((0.1 * focal).toFixed(2), "49.48");
   assert.ok(0.1 * focal < 54, "the OLD mote was sub-pixel over four fifths of the OLD window");
 
-  // (2) THE FRAME BUDGET, integrated rather than asserted. Everything below the frame's bottom edge draws no fragment:
-  // at a level 95-deg view from EYE the ground enters the frame at EYE/tan(47.5 deg).
-  const u0 = EYE / Math.tan((95 * Math.PI) / 360), density = N / (span * MPB);
-  assert.equal(density.toFixed(3), "2.963", "2.963 motes per metre of road");
-  let area = 0;
-  for (let u = u0; u < far; u += 0.005) { const s = sizeAt(u); area += s * s * density * 0.005; }
+  // (2) THE HARD BOUND, which survives every placement: 400 points can never cost more than 400 caps' worth of fragments.
+  // The REAL budget is no longer a road-distance integral - wave 8.2 (Y1) made the layer volumetric - so it is computed
+  // over the box in "THE DUST IS THE SPACE" above, by the same method this test established: 0.109% of the frame.
   const frame = 1920 * 1080;
-  assert.ok(area / frame < 0.0031, `the dust covers ${(area / frame * 100).toFixed(2)}% of the frame, under the 0.31% parcel V budgeted`);
-  assert.ok(area > 6.5 * 627, `...and it is genuinely more dust: ${area.toFixed(0)} px^2 against the 627 the old window actually drew`);
   assert.ok(N * px1 * px1 / frame < 0.007, "even the unreachable hard bound (every mote at the cap) stays under 0.7%");
+  assert.equal(EYE / Math.tan((95 * Math.PI) / 360) > 0, true, "the frame's bottom edge is still where the optics put it");
 
   // (3) THE BLEND. The fragment emits premultiplied vec4(uCol*a, a); three.js r128 defaults premultipliedAlpha=false and
   // would pick blendFunc(SRC_ALPHA, ONE), delivering a^2. Saying so is the fix, and it is one word on the material.
@@ -1555,8 +1632,10 @@ test("PARCEL V PAYS FOR ITSELF: every halved count, old -> new (V)", () => {
 test("ARCHES, RINGS, DUST: no per-frame work at all, because the uniforms are shared objects (V)", () => {
   // The whole parcel rides roadMat's OWN uniform objects for the clock, the re-basing pair, the course and the ink - so the
   // three floats roadSync already wrote in wave 7 drive all three shaders and nothing new is written per frame.
-  for (const build of ["buildRoadArches", "buildRoadDust"])
-    assert.match(extractFunction(build), /uNow:U\.uNow, uBase:U\.uBase, uA:U\.uA, uW:U\.uW, uP:U\.uP/, build + " borrows the road's clock rather than keeping a second copy");
+  assert.match(extractFunction("buildRoadArches"), /uNow:U\.uNow, uBase:U\.uBase, uA:U\.uA, uW:U\.uW, uP:U\.uP/, "buildRoadArches borrows the road's clock rather than keeping a second copy");
+  // The dust borrows the CLOCK and nothing else since wave 8.2 (Y1): it is space, not pavement, so it does not read the
+  // re-based centreline or the course - which is one sin() and one dot() per vertex saved, not merely a law respected.
+  assert.match(extractFunction("buildRoadDust"), /uniforms:\{ uNow:U\.uNow, uCol:U\.uInk,/, "the dust borrows the road's clock object, so it cannot state a speed the road does not have");
   assert.match(extractFunction("buildRoadDust"), /uCol:U\.uInk/, "the dust is drawn in the ROAD's colour, so tonight's grid roll reaches it for free");
   // Everything a beat can change is written in roadSync's existing once-per-beat block, and nothing there allocates.
   const sync = extractFunction("roadSync");
@@ -1801,23 +1880,41 @@ test("TETHERS: a pooled thread per star-bound Echo, bounded by patternConcurrenc
   assert.match(step, /if\(m\.visible!==\(n>0\)\) m\.visible=\(n>0\);/, "visibility is a boundary write, never a per-frame one");
 });
 
-test("TETHERS: the thread reads the shell's OWN open glow, and the sky's own position (W)", () => {
+test("THE GOLDEN THREAD: gold, constant, and it stops re-stating the open window (Y2a, 8.2)", () => {
   const step = extractFunction("updateStarTethers");
-  // ONE LAW, TWO RENDERERS (SPEC section 5). The tether does not recompute the window - it reads the opacity the run loop
-  // already wrote onto this orb's shell, so the two cues cannot disagree about the peak, the skill-tightened width,
-  // grooveFireEarlyBeat, or which clock the elected drum-fill tank is on.
-  assert.match(step, /const a=k\*sh\.material\.opacity;/, "the thread's brightness IS the shell's opacity");
-  for (const forbidden of [/_openAmt/, /_fillAmt/, /grooveOpenSec/, /grooveFireEarlyBeat/, /audioLat/, /Tone\.Transport/])
-    assert.doesNotMatch(step, forbidden, `the tether re-derives nothing (${forbidden})`);
-  // reduceMotion: the shell glow does NOT degrade (the run loop's vuln branch has no reduceMotion gate at all), so the
-  // tether must not either - and the only way to guarantee that is to never read the flag.
-  assert.doesNotMatch(step, /reduceMotion/, "the tether inherits the shell's reduced-motion behaviour by not having one of its own");
-  const animate = extractFunction("animate");
-  const vuln = animate.slice(animate.indexOf("if(CFG.grooveGroove && CFG.grooveVuln)"), animate.indexOf("_fillAmt = CFG.tank.fillOnly"));
-  assert.ok(vuln.length > 0, "the run loop's open-window branch is where it always was");
-  const vulnCode = vuln.split("\n").map((line) => line.replace(/\/\/.*$/, "")).join("\n");
-  assert.ok(!vulnCode.includes("reduceMotion"), "...and the shell glow it inherits from is indeed reduced-motion-blind");
-  assert.match(vuln, /Functional cue, shown under reduceMotion too/, "...which is what that branch has always said about itself");
+  const on = loadRoadGeom(true, false);
+  // (a) THE IDLE THREAD IS PERSISTENT AND CONSTANT. SPEC_MOONLINE section 1.2 overrides section 5's window-driven law:
+  // the alpha depends on nothing inside the loop, so it is hoisted OUT of it, which is the structural proof that no
+  // per-orb, per-beat quantity can reach it.
+  assert.match(step, /const a=Math\.max\(0,\+CFG\.moonline\.tetherGlow\|\|0\)\*ML_TETH_IDLE, f=a\*ML_TETH_FAR;/, "one alpha for the whole field, from the knob and one constant");
+  assert.ok(step.indexOf("ML_TETH_IDLE") < step.indexOf("for(let t=0"), "...computed before the loop, because nothing in the loop can change it");
+  assert.doesNotMatch(step, /material\.opacity/, "the shell's opacity is not read here at all any more");
+  assert.doesNotMatch(step, /userData\.shell/, "...nor is the shell");
+  for (const forbidden of [/_openAmt/, /_fillAmt/, /grooveOpenSec/, /grooveFireEarlyBeat/, /audioLat/, /Tone\.Transport/, /reduceMotion/])
+    assert.doesNotMatch(step, forbidden, `the tether reads no cue quantity at all (${forbidden})`);
+  // (b) THE COLOUR IS ML_GOLD ITSELF, decomposed - not a second copy of a colour this world already has.
+  assert.match(html, /const ML_TETH_RGB=\[\(\(ML_GOLD>>16\)&255\)\/255,\(\(ML_GOLD>>8\)&255\)\/255,\(ML_GOLD&255\)\/255\];/, "the thread is made of the arches' own gold");
+  for (const [i, want] of [[0, "1.000"], [1, "0.925"], [2, "0.800"]])
+    assert.equal(on.read("ML_TETH_RGB[" + i + "]").toFixed(3), want, "ML_GOLD 0xffeccc, channel " + i);
+  assert.equal(on.read("ML_GOLD"), 0xffeccc, "...and it is literally the arches' constant, read not copied");
+  // (c) THE NUMBER. Idle alpha = tetherGlow x ML_TETH_IDLE, against the window-driven cue it replaces, whose swing was
+  // k x shellOpacity over [openShellOpacityFloor 0.04, openShellOpacityPeak 0.42].
+  const cfg = extractCfg(), k = cfg.moonline.tetherGlow, idle = on.read("ML_TETH_IDLE");
+  assert.equal(idle, 0.18);
+  const a = k * idle;
+  assert.equal(a.toFixed(3), "0.162", "the idle thread delivers 0.162 gold at the orb end");
+  assert.equal((k * cfg.openShellOpacityFloor).toFixed(3), "0.036", "the old thread's trough - invisible");
+  assert.equal((k * cfg.openShellOpacityPeak).toFixed(3), "0.378", "...and its peak, as bright as a road rail, once a beat, forever");
+  assert.equal((a / (k * cfg.openShellOpacityPeak)).toFixed(2), "0.43", "the constant is 43% of what the flicker peaked at");
+  // ...and 2.3-2.7x its TIME-AVERAGE: a triangular window of half-width win seconds about each beat, over a floor of 0.04.
+  const mean = (win, bpm) => { const T = 60 / bpm, duty = Math.min(1, 2 * win / T); return k * (duty * (cfg.openShellOpacityFloor + (cfg.openShellOpacityPeak - cfg.openShellOpacityFloor) * 0.5) + (1 - duty) * cfg.openShellOpacityFloor); };
+  assert.equal(mean(0.32, 20).toFixed(4), "0.0725", "the old cue averaged 0.0725 at the 20 bpm floor");
+  assert.equal(mean(0.15, 60).toFixed(4), "0.0873", "...and 0.0873 at the sixty cap");
+  assert.equal((a / mean(0.32, 20)).toFixed(1), "2.2", "the constant thread carries 2.2x that at 20 bpm");
+  assert.equal((a / mean(0.15, 60)).toFixed(1), "1.9", "...and 1.9x at 60");
+  // The far end still fades, so the thread points home without competing with the star it points at.
+  assert.equal(on.read("ML_TETH_FAR"), 0.12);
+  assert.match(step, /ca\[j\+3\]=f0; ca\[j\+4\]=f1; ca\[j\+5\]=f2;/, "star end = orb end x ML_TETH_FAR");
   // SKY HONESTY (SPEC section 1): the TRUE current position, from the one function that knows it.
   assert.match(step, /const w=starWorldAt\(i,_tethW\)/, "the star end is starWorldAt() - the same reader the returning voice uses");
   assert.match(step, /const i=_starLitIdx\[tg\.starId\]; if\(i===undefined\) continue;/, "a bind the fixture cannot draw gets no thread");
@@ -1827,6 +1924,108 @@ test("TETHERS: the thread reads the shell's OWN open glow, and the sky's own pos
   assert.match(extractFunction("starTetherLive"), /return moonlineVoid\(\) && !!\(CFG\.stars && CFG\.stars\.on\) && \(\+CFG\.moonline\.tetherGlow\|\|0\)>0/, "master switch first, then the sky spine's, then the knob");
   assert.match(html, /tetherGlow\s*:\s*0\.9\b/, "tetherGlow is a flat CFG.moonline knob");
   assert.ok(html.indexOf("try{ updateTargetMarks();") < html.indexOf("try{ updateStarTethers();"), "and the thread is stepped after the field it hangs in");
+});
+
+test("THE GOLDEN THREAD: a landed kill sends a pulse UP the thread, and the tick law never hears about it (Y2b, 8.2)", () => {
+  const step = extractFunction("starFlyStep"), on = loadRoadGeom(true, false);
+  // (a) THE PACKET. It travels along the orb->star path with a head at e and a tail ML_TETH_PULSE behind it, instead of
+  // the old line that ran from the burst point to e and grew into the whole path.
+  assert.equal(on.read("ML_TETH_PULSE"), 0.18);
+  assert.equal(on.read("ML_TETH_PULSE_TAIL"), 0.15);
+  assert.match(step, /const e0=Math\.max\(0,e-ML_TETH_PULSE\);/, "the tail is a fixed fraction of the path behind the head");
+  assert.match(step, /pa\[0\]=f\.from\.x\+\(w\.x-f\.from\.x\)\*e0;/, "the packet's TAIL is on the path, not pinned to the burst point");
+  assert.match(step, /pa\[3\]=f\.from\.x\+\(w\.x-f\.from\.x\)\*e;/, "...and its head is where the old line's head was");
+  assert.doesNotMatch(step, /pa\[0\]=f\.from\.x;/, "the old fixed-tail line is gone");
+  // Both ends are the TETHER's own two ends, so the packet cannot leave the thread it rides.
+  assert.match(step, /const w=starWorldAt\(f\.i,_starW\)/, "star end: the same reader the idle thread uses");
+  assert.match(extractFunction("updateStarTethers"), /const w=starWorldAt\(i,_tethW\)/, "...literally the same function");
+  // (b) THE COLOUR RAMP is ML_GOLD, written ONCE at acquire exactly as the pale-white one was - no per-frame colour work.
+  assert.match(step, /ca\[0\]=ML_TETH_RGB\[0\]\*ML_TETH_PULSE_TAIL;/, "dim gold tail");
+  assert.match(step, /ca\[3\]=ML_TETH_RGB\[0\]; ca\[4\]=ML_TETH_RGB\[1\]; ca\[5\]=ML_TETH_RGB\[2\];/, "full ML_GOLD head");
+  assert.doesNotMatch(step, /ca\[0\]=ca\[1\]=ca\[2\]=0; ca\[3\]=ca\[4\]=ca\[5\]=1;/, "the pale-white ramp is retired");
+  assert.ok(step.indexOf("ca[0]=ML_TETH_RGB[0]") < step.indexOf("const p=f.age/f.life"), "...and it is still inside the once-per-acquire block");
+  // (c) THE DURATION IS THE EXISTING ONE. The packet crosses in f.life, which is still lineBeats of gap time, and the
+  // envelope is still the shipped one. The pulse is 2.2x the idle thread beside it: lineAlpha vs tetherGlow x IDLE.
+  assert.match(extractFunction("starFlyDrain"), /f\.life=Math\.max\(0\.05,\(\+CFG\.stars\.lineBeats\|\|0\)\*spb\);/, "the flight duration is untouched");
+  assert.match(step, /m\.material\.opacity=\(\+CFG\.stars\.lineAlpha\|\|0\)\*Math\.min\(1,\(1-p\)\*2\.5\);/, "so is the envelope");
+  const cfg = extractCfg();
+  assert.equal((cfg.stars.lineAlpha / (cfg.moonline.tetherGlow * on.read("ML_TETH_IDLE"))).toFixed(1), "2.2", "the head burns 2.2x the idle thread's alpha - and it is the only thing on the thread that moves");
+  // (d) VISUAL ONLY: DIFF-PROVE that no starFly state machine changed. Nothing but the draw block may name the thread's
+  // constants, and every law of SPEC_STAR_ROAD 1.3 is still where it was, character for character.
+  for (const fn of ["starVoiceHome", "starGapBeat", "starFlyDrain", "starFlyRetire", "starFlyClear"]) {
+    const src = extractFunction(fn);
+    assert.doesNotMatch(src, /ML_TETH_|ML_GOLD|e0/, `${fn} knows nothing about the pulse`);
+  }
+  const drain = extractFunction("starFlyDrain");
+  assert.match(drain, /if\(_starDebt\.length && _starDebtDue<=hb\)\{ for\(let k=0;k<_starDebt\.length;k\+\+\) starLitGain\(_starDebt\[k\]\); _starDebt\.length=0; _starDebtDue=0; \}/, "the debt is still paid first");
+  assert.match(drain, /if\(!_starPend\.length \|\| _starPend\[0\]\.due>hb\) return;/, "the due gate is unchanged");
+  assert.match(drain, /starLitGain\(p\.id\);\s*\/\/ THE TICK, HERE AND UNCONDITIONALLY/, "the level is still PAID at the drain, above and outside any line-building");
+  assert.match(drain, /if\(!\(reduceMotion \|\| i===undefined \|\| _starFly\.length>=_STAR_FLY_MAX\)\)\{/, "...and reduced motion still builds NO flight record - the existing no-line path, unchanged");
+  assert.match(step, /starFlyDrain\(starBeatNow\(\)\);/, "the tick still runs ahead of the open-window freeze");
+  assert.match(step, /if\(open\) return;/, "...and the freeze is still below it");
+  assert.equal(on.read("ML_TETH_N") > 0, true, "the tether pool is untouched by any of this");
+});
+
+test("BEAT CIRCLE: default ON, and a stored preference still wins in BOTH directions (Y3, 8.2)", () => {
+  assert.equal(extractCfg().wasdHud, true, "CFG.wasdHud false -> true: the never-set default");
+  // THE PRECEDENCE, executed rather than read. Two tiny functions, one stubbed localStorage, all three paths.
+  const src = extractFunction("wasdHudPref") + "\n" + extractFunction("applyWasdHudPref");
+  const run = (stored, phaseDefault) => {
+    const ctx = vm.createContext({ CFG: { wasdHud: extractCfg().wasdHud }, localStorage: { getItem: () => stored } });
+    vm.runInContext(src + "\napplyWasdHudPref(" + JSON.stringify(phaseDefault) + ");", ctx);
+    return ctx.CFG.wasdHud;
+  };
+  assert.equal(run(null, true), true, "FRESH PROFILE: nothing stored, the phase default is now true -> the ring is ON");
+  assert.equal(run("0", true), false, "STORED OFF: an explicit opt-out beats the new default, in the direction that matters most");
+  assert.equal(run("1", false), true, "STORED ON: an explicit opt-in beats a false phase default too - both directions");
+  assert.equal(run("0", null), false, "...and a stored value does not need a phase to have an opinion");
+  assert.equal(run(null, null), true, "BOOT: no phase opinion and nothing stored leaves the CFG default standing");
+  // ...which is exactly the boot call, so the pause menu's BEAT CIRCLE row is honest before the first run ever starts.
+  assert.match(html, /^applyWasdHudPref\(null\);/m, "the stored preference is applied at load, not only at resetSession");
+  assert.ok(html.indexOf("applyWasdHudPref(null);") < html.indexOf("const on=!!CFG.wasdHud;"), "...before anything reads the flag");
+  // The phase defaults that used to hand this function `false` are the sites that actually decided it, because
+  // resetSession calls applySenseiFull on every non-trainer start. Flipping the CFG literal alone would be inert.
+  assert.match(extractFunction("applySenseiFull"), /applyWasdHudPref\(true\);/, "the full night defaults ON");
+  const phase = extractFunction("setTrainPhase");
+  assert.equal((phase.match(/applyWasdHudPref\(/g) || []).length, 3, "one default per trainer phase, still");
+  assert.match(phase, /applyWasdHudPref\(true\);\s*\n?\s*showTrainCoach\(T\('coachP0'/, "phase 0 was already true");
+  assert.match(phase, /applyWasdHudPref\(!MOBILE\);/, "phase 1 keeps its touch guard");
+  assert.doesNotMatch(phase, /applyWasdHudPref\(false\)/, "and phase 2's `false` is gone: one law, no blink");
+  assert.doesNotMatch(html, /applyWasdHudPref\(false\)/, "no site anywhere still defaults the ring OFF");
+  // THE CLOUD PREF IS THE SAME STORED PREFERENCE: the row writes localStorage FIRST, so the two arms above decide it.
+  const cloud = extractFunction("applyCloudPrefsRow");
+  const at = cloud.indexOf("row.wasd_hud");
+  assert.match(cloud.slice(at), /localStorage\.setItem\('aimdojo\.wasdHud', row\.wasd_hud\?'1':'0'\);[\s\S]{0,120}applyWasdHudPref\(row\.wasd_hud\);/,
+    "the Supabase value becomes the stored preference before it is applied - so a signed-in OFF survives this wave too");
+  // Nothing writes the key on a player's behalf: the only setItem sites are the toggle and the cloud row's echo of it.
+  assert.equal((html.match(/localStorage\.setItem\('aimdojo\.wasdHud'/g) || []).length, 2, "two writers, both of them the player");
+});
+
+test("THE TRAINER, HALVED: every phase gate cut in half, rounded up, teaching untouched (Y4, 8.2)", () => {
+  const on = vm.createContext({});
+  vm.runInContext(html.split("\n").filter((l) => /^const TRAIN_NEED_/.test(l.trim())).map((l) => l.trim()).join("\n"), on);
+  const got = (name) => vm.runInContext(name, on);
+  // Old -> new, with the rounding rule applied to the OLD number rather than trusted.
+  for (const [name, was] of [["TRAIN_NEED_WASD", 12], ["TRAIN_NEED_ORB1", 5], ["TRAIN_NEED_ORB2", 8]]) {
+    assert.equal(got(name), Math.ceil(was / 2), `${name} ${was} -> ${Math.ceil(was / 2)} (half, rounded UP)`);
+    assert.ok(got(name) >= 1, `${name} can never be 0 - a phase you pass by existing is not a phase`);
+  }
+  assert.equal(got("TRAIN_NEED_TOTAL"), 13, "a whole trainer is 13 qualifying events where it was 25");
+  assert.equal((13 / 25 * 100).toFixed(0), "52", "...52%, the extra 2% being the ceil on ORB1");
+  // PACING ONLY. The phases still advance on these three counts and on nothing else - no timer, no duration gate.
+  const wasdGate = extractFunction("noteTrainWasd"), orbGate = extractFunction("noteTrainOrb");
+  assert.match(wasdGate, /if\(trainWasd>=TRAIN_NEED_WASD\) setTrainPhase\(1\);/, "phase 0 -> 1 on the count, as before");
+  assert.match(orbGate, /if\(trainPhase===1 && trainOrbs>=TRAIN_NEED_ORB1\) setTrainPhase\(2\);/);
+  assert.match(orbGate, /else if\(trainPhase===2 && trainOrbs>=TRAIN_NEED_ORB2\) setTrainPhase\(3\);/);
+  for (const src of [wasdGate, orbGate])
+    assert.doesNotMatch(src, /state\.t|Date\.now|performance\.now|dt\b/, "no phase has a duration gate to halve");
+  // The phase-2 range ramp reads TRAIN_NEED_ORB2 as its own denominator, so it still reaches TRAIN_RANGE_FAR exactly at
+  // graduation - in 4 kills instead of 8, by construction rather than by a second number.
+  assert.match(orbGate, /const t=Math\.min\(1, trainOrbs\/TRAIN_NEED_ORB2\);/, "the ramp is tied to the phase, not to a literal");
+  assert.match(orbGate, /state\.range=TRAIN_RANGE_NEAR \+ t\*\(TRAIN_RANGE_FAR-TRAIN_RANGE_NEAR\);/);
+  // ...and the coach lines still read the constants, so the counter a player sees can never disagree with the gate.
+  for (const src of [wasdGate, orbGate])
+    assert.doesNotMatch(src, /\{n:\s*train\w+,\s*N:\s*\d/, "no hard-coded N in any progress line");
 });
 
 test("TETHERS: the void retires the orb-to-ground drop-line, and the trainer keeps it (W)", () => {

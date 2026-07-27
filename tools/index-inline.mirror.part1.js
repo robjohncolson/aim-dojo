@@ -952,7 +952,7 @@ const CFG = {
   brownian:4, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity (lowered 7→4 so the beat-JUKE reads as a clean cut instead of drowning in random drift), speed cap HIGH→LOW skill (lerp by diffT), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01],   // THE FORTY FIX (wave 7, parcel R): the NOTE LANE now owns its own density ladder instead of borrowing the orb strobe's. It was one ladder on purpose (2026-06-23, "no separate difficulty system") and that was right while the tiers sat at bpm 80.8/134.0 — nobody ever reached them. THE SIXTY CAP moved the same thresholds to 36.0/50.0, so from ~37.5 bpm on the lane silently DOUBLED the required presses (and quadrupled them at 50) onto raw downbeats that collide with shot arrival — one demanded key per beat, the lane's whole contract, quietly stopped being true a third of the way up the mountain. Same SHAPE as beatQuantT (divs/2 = notes per beat), different thresholds: see wasdNoteDiv() for the crossing arithmetic. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched — this is a decoupling, not a retune.
-  wasdRhythm:true, wasdLetter:true, wasdHud:false, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is opt-in via pause BEAT CIRCLE (and forced on in early training unless user forced OFF).
+  wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   // THE SURVIVING EXPERT k-SET UNDER THE SIXTY CAP (parcel P, computed with the real solver in beatSpawnDist against the SHIPPED constants — projSpeed 28/projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28): the LIST DOES NOT CHANGE — infeasible k's have always dropped out by arithmetic, and they still do. AT EXACTLY 60 BPM (dT 1.00, s 72 m/s) against rangeMax the feasible set is {2, 3, 4, 6} at d = {9.00, 13.50, 17.99, 26.98} m; k=8/12/16 need 35.94/53.81/71.55 m and are out of reach. Over the WHOLE new live band 20..60 (far = rangeMax): k=2,3,4 are feasible throughout, k=6 enters at 40.1 bpm, k=8/12/16 never — the expert lead is therefore the SIX-sixteenth (3/8-beat) call, not the old 8..16. On a LAST QUARTER (farMul 1.3, band 10.4..36.4 m) the set at 60 shifts out to {3, 4, 6, 8}, which is the one night k=8 speaks at all. At the CLOSE end (state.range at rangeStart 11) only k=2 is ever feasible, at every tempo — so a night's k vocabulary genuinely opens as the distance shell marches out, which is what the shell was for.
@@ -1027,7 +1027,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the road it rides · cueGlowPx = THE CROSSHAIR'S PULSATING GLOW (parcel W): the blur radius, in CSS px, of the bloom the required LETTER wears at the peak of its beat — the pre-wave-7 floor-beat cue's own envelope, on the one surface a floorless world still has (0 = the letter is the shipped one, with no bloom at all, and the beat is then carried by the road and the audio alone) · tetherGlow = THE STAR-TETHERS' brightness per unit of the orb shell's OWN open glow (0 = no thread is ever built; the thread's alpha IS the shell's opacity times this, so the two cues can never disagree about the window) · breathMax = THE BREATH (wave 8.1, SPEC_MOONLINE §1.1): how much brighter the WHOLE ribbon burns at the peak of a beat than between two — rails, crossbars and cell fills together, on one multiply. 0.45 is not a new number: it is CFG.floorBeatMax, the amplitude the pre-wave-7 FLOOR WASH swelled by, restored on the only surface a floorless world still has (0 = the ribbon rests at its shipped brightness and the beat is carried by the audio, the now-line and the crosshair's letter alone; the arches ride the same swell at ML_ARCH_BREATH of it). Flat literal — nested {} would break the CFG contract test regex
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the void it streams through — THE DIAL for wave 8.2's volumetric field (Y1), which spends only 0.109% of the frame and has room to be pushed · cueGlowPx = THE CROSSHAIR'S PULSATING GLOW (parcel W): the blur radius, in CSS px, of the bloom the required LETTER wears at the peak of its beat — the pre-wave-7 floor-beat cue's own envelope, on the one surface a floorless world still has (0 = the letter is the shipped one, with no bloom at all, and the beat is then carried by the road and the audio alone) · tetherGlow = THE GOLDEN THREAD's master brightness (wave 8.2, Y2 — this used to be "per unit of the orb shell's open glow", and the window-driven law it scaled is gone): the idle thread's alpha is tetherGlow × ML_TETH_IDLE, CONSTANT for the orb's whole life, and the landed kill's golden pulse rides CFG.stars.lineAlpha on the same path. 0 = no thread is ever built · breathMax = THE BREATH (wave 8.1, SPEC_MOONLINE §1.1): how much brighter the WHOLE ribbon burns at the peak of a beat than between two — rails, crossbars and cell fills together, on one multiply. 0.45 is not a new number: it is CFG.floorBeatMax, the amplitude the pre-wave-7 FLOOR WASH swelled by, restored on the only surface a floorless world still has (0 = the ribbon rests at its shipped brightness and the beat is carried by the audio, the now-line and the crosshair's letter alone; the arches ride the same swell at ML_ARCH_BREATH of it). Flat literal — nested {} would break the CFG contract test regex
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1849,14 +1849,17 @@ const ROAD_HOLD_AT=4, ROAD_HOLD_LEN=3;                                    // hol
    roadTideAt's mercy flag is 1 only when cb === rise+peak AND (g mod 8) === 0, i.e. g = 2n ≡ 0 mod 8, i.e. n ≡ 0 mod 4 —
    the very beats ML_ARCH_EVERY selects.
 
-   THE STARDUST IS THE CARRIER WAVE. Motes live at FIXED ROAD COORDINATES, so they stream toward the player at exactly the
+   THE STARDUST IS THE CARRIER WAVE. Motes live at FIXED WORLD COORDINATES, so they stream toward the player at exactly the
    road's own speed and can never state a speed the road does not have: 4 quarter-crossbars per beat = 4 × 6.75 = 27 m =
    ROAD_MPB, which is SPEC §4's own arithmetic. Their GRAIN is the sixteenth: each mote is anchored to a sixteenth cell
    (1.6875 m) with under a fifth of a cell of jitter, so arrivals tick 16 times a beat — every 62.5 ms at the sixty cap,
-   187.5 ms at the floor. 400 motes over a 5-beat window (−13.5 m behind to +121.5 m ahead) is exactly 5 motes per
-   sixteenth cell and 0.2116 motes/m² of road. Both ends of the window are alpha ramps, so a mote never pops into or out
-   of existence. [WAVE 8.1: that window was 12 beats and that mote was 0.10 m, and the layer was invisible for it — see
-   the block above ML_DUST_SPAN for the two pieces of arithmetic that were wrong and the three constants that fix them.]
+   187.5 ms at the floor. 400 motes over a 5-beat window is exactly 5 motes per sixteenth cell. Both ends of the window
+   are alpha ramps, so a mote never pops into or out of existence. [WAVE 8.1: that window was 12 beats and that mote was
+   0.10 m, and the layer was invisible for it — see the block above ML_DUST_SPAN for the two pieces of arithmetic that
+   were wrong and the three constants that fix them. WAVE 8.2, Y1: the window is no longer a strip of pavement at all —
+   it is a VOLUME wrapped around the camera (±40 m lateral, ±25 m vertical, 27 m behind to 108 m ahead), and the dust is
+   the space you are flying through rather than a texture on the thing you are flying over. Same 400, same wrap, same
+   clock, one draw call; reduced motion switches it off entirely, because it is nothing but motion.]
 
    ZERO PER-FRAME COST, BECAUSE THE UNIFORMS ARE SHARED OBJECTS. The arch and dust materials are handed roadMat's OWN
    uniform objects for uNow, uBase, uA/uW/uP and uInk — not copies — so the three floats roadSync already writes every frame
@@ -1874,13 +1877,14 @@ const ROAD_HOLD_AT=4, ROAD_HOLD_LEN=3;                                    // hol
      · FRAGMENTS: the arches cover ~222k px = 10.7% of the frame at the very worst geometry (an arch 6 m from the eye
        fills the screen with a 10 px-wide strand), each fragment two exp() and a mix — no texture fetch anywhere in this
        parcel, and both shaders discard on alpha before doing any of it. The dust was budgeted here at ≤ 400 points ×
-       ≤ 16 px = 0.31% of the frame. WAVE 8.1 RE-SPENDS THAT BUDGET WITHOUT EXCEEDING IT: at ML_DUST_PX1 6 px the hard
+       ≤ 16 px = 0.31% of the frame. WAVE 8.1 RE-SPENT THAT BUDGET WITHOUT EXCEEDING IT: at ML_DUST_PX1 6 px the hard
        bound rises to 400 × 36 = 14,400 px² = 0.70%, but the bound is unreachable (only motes inside 24.7 m hit the cap)
-       and the REAL sum falls out of the window's own geometry — at 2.963 motes/m over 135 m, 62 motes are at the 6 px
-       cap, 37 are 4-6 px, 110 are 2-4 px and 140 are 1-2 px, which integrates (from the frame's bottom edge at
-       u = EYE/tan(47.5°) = 3.665 m) to 4,350 px² = 0.210% of a 2.07 M-px frame: SEVEN TIMES the 627 px² the old window
-       actually drew, and still a third under the 0.31% parcel V paid for. (The remaining 51 motes are the ones behind
-       the frame's bottom edge and cost nothing; the old, deeper behind-window wasted 71 there.)
+       and the REAL sum fell out of the window's own geometry — 4,350 px² = 0.210% of a 2.07 M-px frame, seven times the
+       627 px² the pre-8.1 window actually drew. WAVE 8.2 (Y1) SPENDS LESS AGAIN: the volumetric field puts 276 motes on
+       screen (11 at the 6 px cap, 25 at 4-6 px, 124 at 2-4 px, 116 under 2 px) for 2,266 px² = 0.109%, because the same
+       400 motes are spread over the whole frame instead of packed into the strip below the horizon — and 80 more sit
+       behind the camera, which in a void is not waste but the space you just came through. Full arithmetic in the block
+       above ML_DUST_SPAN.
      · STRAND WIDTH is constant on SCREEN by the same law the crossbars use: half-width = clamp(3.2·d/494.82, 0.06, 2.6) m,
        from the shipped optics (494.82 px = (1080/2)/tan(95°/2)). 4.24 px at 7 m, 3.20 px from 27 m to 108 m, 1.49 px at
        the ribbon's end — a beam near, a thread far, and never a shimmering sub-pixel line.
@@ -1889,8 +1893,10 @@ const ROAD_HOLD_AT=4, ROAD_HOLD_LEN=3;                                    // hol
        leaving one gaussian core — and half the segments (14, so 1232 triangles). The horizon impostor is shown ALWAYS,
        its straightness gate bypassed, because on LOW the painted road is cheaper than the ribbon it stands in for.
      · reduceMotion: identical world, zero motion. uNow is pinned to 0 by roadSync exactly as the ribbon's is, so the
-       arches stand still as a ruler of the coming bars and the dust holds its grain; the mercy table scrolls THROUGH the
-       standing slots the same way uBeat0 scrolls the band table. No second code path.
+       arches stand still as a ruler of the coming bars; the mercy table scrolls THROUGH the standing slots the same way
+       uBeat0 scrolls the band table. No second code path. THE DUST IS THE ONE EXCEPTION (wave 8.2, Y1): a standing
+       volumetric field is not a calmer version of "the space streaming past you", it is a static fog with no meaning in
+       it, so reduced motion does not freeze the layer — it never builds it (ML_DUST_N), the same silence LOW gets.
    THE KILL-SWITCH: every constant below is gated on ML_ARCH / ML_DUST, both of which read ML_RIBBON first — so
    moonline.on:false builds no geometry, compiles no shader and calls nothing, and wave-7 rendering is byte-identical.
    ============================================================================================================== */
@@ -1905,7 +1911,7 @@ const ML_ARCH_PX=3.2, ML_ARCH_WMIN=0.06, ML_ARCH_WMAX=2.6;               // the 
 const ML_ARCH_INK=0.62, ML_ARCH_NODE=2.2, ML_ARCH_CORE=16.0, ML_ARCH_AUR=2.4, ML_ARCH_PRISM_AT=-0.55, ML_ARCH_PRISM_K=22.0;   // the gold's base alpha (against the ribbon's own ROAD_ALPHA 0.55 — the arch is the brightest thing on the road because the bar is the loudest thing in the grid) · the junction node's core boost · the core's gaussian tightness · the aurora tail's · where the prismatic rim sits across the strand (negative = INSIDE the arc) and how thin it is
 const ML_ARCH_BREATH=0.45;                                                // THE BREATH on the GATES (wave 8.1, SPEC_MOONLINE §1.1), as a fraction of the ribbon's own amplitude: the gold swells with the road at 45% of it, so the bar lines breathe WITH the surface they are grown from instead of racing it. It costs the arches ONE uniform — roadMat's own uBreath OBJECT, the sharing this parcel already does for the clock — and one multiply-add in the VERTEX shader, where vAmt is already computed: no new pass, no new per-frame write, and 0 leaves every arch exactly as parcel V shipped it
 const ML_DUST_MAX=400;                                                    // the hard cap SPEC §4 names, enforced on the CFG read below so no console typo can put 40000 motes on the road
-const ML_DUST_N=ML_RIBBON&&!LOW?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform
+const ML_DUST_N=ML_RIBBON&&!LOW&&!reduceMotion?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform. WAVE 8.2 (Y1) ADDS reduceMotion TO THE SAME READ: the dust is now the SPACE STREAMING PAST YOU and nothing else — a standing volumetric field is not a quieter version of that cue, it is a fog of dots with no meaning left in it — so reduced motion switches it off exactly the way LOW does, at build time, and the ribbon, the arches and the crossbar tier carry the sixteenth on their own (SPEC_MOONLINE §1.2)
 /* THE DUST WAS SPENT WHERE THE EYE CANNOT RESOLVE IT (wave 8.1 — user first light: "I do not see any stardust coming").
    The layer was built, added, drawn and visible every frame; it was INVISIBLE for two arithmetic reasons, both fixed here
    and neither of them a render bug. Numbers are at 1920×1080, fov 95 (ML_FOCAL_PX 494.82 px), eye at EYE 4, level pitch.
@@ -1927,11 +1933,40 @@ const ML_DUST_N=ML_RIBBON&&!LOW?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.d
    THE FIX IS THREE CONSTANTS AND ONE WORD, inside the frame budget parcel V already paid for (arithmetic below). Density
    in ROAD space stays UNIFORM on purpose: the anchors wrap against uNow, so a distribution clumped toward the near field
    would not stay near — the clump would stream at you and pass, which is a comet, not a carrier. What moves instead is
-   the WINDOW (it now ends where a mote stops resolving) and the MOTE (big enough to be a grain at the far end of it). */
-const ML_DUST_SPAN=5, ML_DUST_BEHIND=0.5;                                 // the streaming window in beats: 135 m of road carrying dust, from 13.5 m behind the feet to 121.5 m ahead. WAS 12/2 = 324 m — two thirds of which was under a pixel. 121.5 m is where a mote falls to 1.22 px (ML_DUST_M·ML_FOCAL_PX/121.5), so the window now ENDS WHERE THE GRAIN DIES rather than a little past the 216 m look-ahead: beyond it the coloured cells are still there, and the carrier they carry is the crossbar tier that already draws it. SPAN×16 = 80 sixteenth cells, an integer, which is the one invariant this pair owes the anchor law — and 400/80 = exactly 5 motes to a cell
-const ML_DUST_M=0.30, ML_DUST_Y=0.06, ML_DUST_LOFT=0.22, ML_DUST_INK=0.55;   // a mote's world size · its height above the road plane (the ribbon sits at y 0.03) · how far it may loft above that · and the layer's base alpha. 0.10 → 0.30 m: gl_PointSize is now 148.45/d, so a mote is ML_DUST_PX1 px inside 24.7 m, 4 px at 37.1 m, 2 px at 74.2 m and still 1.22 px at the far edge of the window — it is 1/47 of a beat cell and 1/47 of the road's width, which is a grain of dust, not a stone
-const ML_DUST_PX0=1.0, ML_DUST_PX1=6.0;                                   // the mote's floor and ceiling in PIXELS (was an unnamed 1.0,4.0 in the shader). The cap is what the near field spends its new budget on; see the fragment arithmetic in the parcel's frame budget above
-const ML_DUST_FAR0=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB*0.62, ML_DUST_FAR1=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB, ML_DUST_BEH_M=ML_DUST_BEHIND*ROAD_MPB;   // both ends of the window are ramps, so a mote fades in where it wraps and fades out where it leaves — no popping at either seam
+   the WINDOW (it now ends where a mote stops resolving) and the MOTE (big enough to be a grain at the far end of it).
+
+   THE DUST IS THE SPACE (wave 8.2, Y1 — SPEC_MOONLINE §1.2, user-locked from the Moonline playtest). 8.1 made the layer
+   RESOLVABLE and it was still the wrong layer: flecks lying ON the pavement, which is a texture on a road, not the feeling
+   of flying. The motes leave the surface here and become the VOID ITSELF — a volumetric field wrapped around the camera,
+   streaming past it, opposite the direction of travel, at the road's own speed. SPEC §1's "nothing beside the road but
+   space" is not broken by this and is amended to say so: streaming dust IS the space. It is not an object beside the road.
+     · THE FIELD is an axis-aligned box that RECYCLES, centred on the eye: ±ML_DUST_RAD laterally, ±ML_DUST_VERT vertically
+       about EYE, and ML_DUST_SPAN beats deep along the travel axis (world −z), of which ML_DUST_BEHIND is behind you. It
+       does NOT follow the course spline: the ribbon bends because a road bends, and the space it flies through does not.
+       That drops uBase/uA/uW/uP from this material entirely — one sin() and one dot() per vertex gone with them — and
+       leaves exactly ONE shared uniform, uNow, which is the whole point: the dust and the ribbon read the same clock, so
+       they cannot disagree about velocity. Speed is ROAD_MPB × bpm/60 for both, by construction, at every tempo.
+     · THE WRAP IS UNCHANGED, and it is what tempo-locks the stream: mod(anchor − uNow, SPAN). uNow rises, the mote's
+       distance ahead falls, and a mote that passes behind reappears at the far edge one window later. Nothing integrates
+       per frame, nothing is written per frame, and the motes still never move — the world does.
+     · THE POPULATION, computed at 1920×1080, fov 95 (ML_FOCAL_PX 494.82), EYE 4, level forward view, 400 motes:
+       volume = 80 × 50 × 135 m = 540,000 m³, so 7.407e−4 motes/m³ — one mote per 1350 m³, mean nearest-neighbour spacing
+       0.554·n^(−1/3) = 6.12 m, which at 148.45 px·m is a 6 px grain right beside you. 276 motes are on screen at any
+       instant (11 at the ML_DUST_PX1 cap, 25 between 4 and 6 px, 124 between 2 and 4 px, 116 under 2 px) and 80 are
+       BEHIND the camera — not waste, because the void has no walls and turning around is a thing the player does; the
+       old road-level layer put 71 motes below the frame's bottom edge where nothing could ever see them.
+     · WHAT IT COSTS: 2,266 px² = 0.109% of a 2.07 M-px frame. That is HALF of 8.1's 0.210% and a third of the 0.31%
+       parcel V budgeted, because the same 400 motes are now spread over the whole frame instead of packed into the strip
+       below the horizon — and the cue is stronger for it, since a streaming field is read from PARALLAX and not from
+       coverage. dustGlow remains the dial; the budget has 0.20% of headroom left in it if the tuning session wants more.
+     · THE PASS RATE is the flying-through-space cue itself: n·πr²·v motes cross within r = 5 m of the eye per second =
+       0.52/s at the 20 bpm floor and 1.57/s at the sixty cap. The stream literally gets three times busier as you climb,
+       for the same reason the road does, from the same number. */
+const ML_DUST_SPAN=5, ML_DUST_BEHIND=1;                                   // the streaming window in beats: 135 m deep, from 27 m behind the eye to 108 m ahead. 8.1's pair was 5/0.5 (13.5 m behind) and that was a road-surface window, where behind-the-camera was pure waste; in a volumetric field it is the space you have just flown through, so BEHIND is a whole BEAT — the one unit this road measures anything in. Ahead 108 m is where a mote is 1.37 px (ML_DUST_M·ML_FOCAL_PX/108), so 8.1's rule holds unchanged: THE WINDOW ENDS WHERE THE GRAIN DIES. SPAN×16 = 80 sixteenth cells, an integer, which is the one invariant this pair owes the anchor law — and 400/80 = exactly 5 motes to a cell, so the carrier still ticks 16 times a beat as it passes you
+const ML_DUST_RAD=40, ML_DUST_VERT=25;                                    // THE FIELD'S EXTENT (wave 8.2, Y1): metres of dust either side of the eye, and above/below it. 40 × 25 is the user's own first guess and it is a good one — at 1920×1080 the frustum's half-angles are 62.73° across and 47.5° up, so the box's full cross-section is inside the frame from 20.6 m out, and everything nearer is the near field streaking past the edges, which is the cue. Raise them for a wider, thinner field at the same 400 motes (density falls as 1/RAD·VERT); drop them for a denser tunnel. The box is centred on the camera, which never leaves x=0 / y=EYE except for the shake it shares with the road
+const ML_DUST_M=0.30, ML_DUST_INK=0.55;                                   // a mote's world size, and the layer's base alpha. 0.30 m is 8.1's own mote, kept: gl_PointSize is 148.45/d, so a mote is ML_DUST_PX1 px inside 24.7 m, 4 px at 37.1 m, 2 px at 74.2 m and 1.37 px at the window's far edge — a grain at every distance the field is drawn at. (ML_DUST_Y and ML_DUST_LOFT retired with the road surface they measured off: a volumetric mote's height IS a coordinate, not an offset from a plane it no longer sits on.)
+const ML_DUST_PX0=1.0, ML_DUST_PX1=6.0;                                   // the mote's floor and ceiling in PIXELS (was an unnamed 1.0,4.0 in the shader). The cap is what the near field spends its budget on — 11 motes hold it at any instant; see the population arithmetic above
+const ML_DUST_FAR0=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB*0.62, ML_DUST_FAR1=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB, ML_DUST_BEH_M=ML_DUST_BEHIND*ROAD_MPB;   // both ends of the window are ramps, so a mote fades in where it wraps and fades out where it leaves — no popping at either seam. The rear ramp now does real work: it is behind you, and you can turn around and look at it
 let roadMesh=null, roadMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
 let roadArch=null, roadArchMat=null, roadDust=null, roadDustMat=null;
 const _archKind=new Float32Array(ML_ARCH_N);                              // slot k's MERCY flag, rewritten once per BEAT into the very array the uniform points at — no allocation, no upload call of our own
@@ -2220,32 +2255,34 @@ function buildRoadArches(){
 }
 function buildRoadDust(){
   /* THE STARDUST — ONE THREE.Points, ONE draw call, ZERO per-frame CPU. A mote's position attribute is not a position: it
-     is (road-beat anchor, lateral in half-widths, its own seed). The vertex shader wraps the anchor against uNow, so the
-     motes stream at EXACTLY the road's speed — 4 quarter-crossbars per beat = 27 m = ROAD_MPB — and their grain is the
-     SIXTEENTH, because every anchor is a sixteenth cell with under a fifth of a cell of jitter. Nothing here is random at
-     run time and nothing draws from rnd(): the layer is seeded once, from a PRIVATE mulberry32, so THE STREAM RULE holds
-     draw for draw and tonight's spawns are the spawns they would have been. */
-  const N=ML_DUST_N, pos=new Float32Array(N*3), cells=ML_DUST_SPAN*16, rr=mulberry32(0x9e3779b9);
+     is (beat anchor along the travel axis, lateral in ML_DUST_RAD units, vertical in ML_DUST_VERT units about the eye),
+     with its own brightness seed in aSeed. The vertex shader wraps the anchor against uNow, so the motes stream at EXACTLY
+     the road's speed — ROAD_MPB × bpm/60 — and their grain is the SIXTEENTH, because every anchor is a sixteenth cell with
+     under a fifth of a cell of jitter. WAVE 8.2 (Y1) MOVED THE FIELD OFF THE SURFACE AND WRAPPED IT AROUND THE CAMERA (see
+     the constants block above): the same 400 motes, the same wrap, the same clock, now a volume of space instead of a
+     texture on a road. Nothing here is random at run time and nothing draws from rnd(): the layer is seeded once, from a
+     PRIVATE mulberry32, so THE STREAM RULE holds draw for draw and tonight's spawns are the spawns they would have been. */
+  const N=ML_DUST_N, pos=new Float32Array(N*3), sd=new Float32Array(N), cells=ML_DUST_SPAN*16, rr=mulberry32(0x9e3779b9);
   for(let i=0;i<N;i++){ const c=i%cells;
     pos[i*3]=(c+(rr()-0.5)*0.3)/16;                                       // the sixteenth cell this mote rides, jittered by ±0.15 of a cell so the carrier reads as a stream and not a picket fence
-    pos[i*3+1]=(rr()*2-1)*0.94;                                           // lateral, in half-widths — inside the rails, because the dust is ON the road
-    pos[i*3+2]=rr(); }                                                    // its own seed: loft above the surface, and how brightly it burns
-  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    pos[i*3+1]=rr()*2-1;                                                  // lateral, in ML_DUST_RAD units — the FIELD's own half-width now, not the road's: the dust is the space around you, not a fleck on the pavement
+    pos[i*3+2]=rr()*2-1;                                                  // vertical, in ML_DUST_VERT units about the eye — above you and below you, because a void has no floor to lie on
+    sd[i]=rr(); }                                                         // its own seed: how brightly it burns (it used to double as the loft off the road surface, which no longer exists)
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3)); g.setAttribute('aSeed', new THREE.BufferAttribute(sd,1));   // 1.6 KB for the seed the third position slot used to carry; still one buffer upload, still one draw call
   const U=roadMat.uniforms;
   roadDustMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,   // …and THE ONE WORD (wave 8.1): the fragment below has always emitted vec4(uCol*a, a), which IS premultiplied, but three.js r128's Material defaults this flag to false and setBlending then picks gl.blendFunc(SRC_ALPHA, ONE) — delivering uCol·a². Saying so picks (ONE, ONE) and the layer arrives at the alpha it was written for: peak 0.4675 instead of 0.2186, i.e. +83.7/255 green against a road rail's +93.5/255 (90% of a rail at its brightest, 70% on average) instead of 42% and 26%. Nothing else on the road is touched: the ribbon and the arches keep the compositing they shipped with
 
-    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uCol:U.uInk,   // uInk IS the road's own colour object, so tonight's grid-colour roll reaches the dust for free and the carrier is drawn in the colour of the crossbars it counts. THE GOLD IS THE BAR LINE'S ALONE
+    uniforms:{ uNow:U.uNow, uCol:U.uInk,                                  // uInk IS the road's own colour object, so tonight's grid-colour roll reaches the dust for free and the carrier is drawn in the colour of the crossbars it counts. THE GOLD IS THE BAR LINE'S ALONE. uNow is the road's OWN clock object, which is the one uniform this layer must share: it is what makes the dust and the ribbon agree about velocity by construction. uBase/uA/uW/uP are gone with the surface — the SPACE does not bend with the river, only the road does (wave 8.2, Y1)
                uAmt:{value:ML_DUST_INK}, uDustGlow:{value:Math.max(0,+CFG.moonline.dustGlow||0)} },
     vertexShader:[
-      'uniform float uNow,uAmt,uDustGlow; uniform vec2 uBase; uniform vec3 uA,uW,uP; varying float vA;',
+      'uniform float uNow,uAmt,uDustGlow; attribute float aSeed; varying float vA;',
       'void main(){',
-      '  float ba=mod(position.x-uNow,'+_roadG(ML_DUST_SPAN)+')-'+_roadG(ML_DUST_BEHIND)+';',                     // beats from the feet to this mote, wrapped into the streaming window. uNow rises, ba falls: the mote comes at you at the road's own speed because it is not moving at all — the road is
-      '  float b=uNow+ba, u=ba*'+_roadG(ROAD_MPB)+';',
-      '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*ba;',                                          // the same re-based centreline the ribbon and the arches read, at the mote's own beat: the dust bends with the river
-      '  vec3 P=vec3(cx+position.y*'+_roadG(ROAD_HALF_W)+', '+_roadG(ML_DUST_Y)+'+position.z*'+_roadG(ML_DUST_LOFT)+', -u);',
+      '  float ba=mod(position.x-uNow,'+_roadG(ML_DUST_SPAN)+')-'+_roadG(ML_DUST_BEHIND)+';',                     // beats from the eye to this mote, wrapped into the streaming window. uNow rises, ba falls: the mote comes at you at the road's own speed because it is not moving at all — the world is
+      '  float u=ba*'+_roadG(ROAD_MPB)+';',
+      '  vec3 P=vec3(position.y*'+_roadG(ML_DUST_RAD)+', '+_roadG(EYE)+'+position.z*'+_roadG(ML_DUST_VERT)+', -u);',   // THE VOLUMETRIC FIELD (Y1): lateral about the eye, vertical about the eye, and −u down the travel axis. No centreline term: a mote is a piece of space, and space is where it is
       '  vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
-      '  gl_PointSize=clamp('+_roadG(ML_DUST_M*ML_FOCAL_PX)+'/length(mv.xyz),'+_roadG(ML_DUST_PX0)+','+_roadG(ML_DUST_PX1)+');',   // 148.45 px·m / distance: 6 px inside 24.7 m, 4 px at 37.1 m, 2 px at 74.2 m, 1.22 px at the window's far edge — a grain everywhere the layer is drawn at all
-      '  vA=uAmt*uDustGlow*(0.55+0.45*position.z)*smoothstep('+_roadG(-ML_DUST_BEH_M)+','+_roadG(-ML_DUST_BEH_M*0.45)+',u)*(1.0-smoothstep('+_roadG(ML_DUST_FAR0)+','+_roadG(ML_DUST_FAR1)+',u));',   // both ends of the window are ramps, so the wrap has no seam. No time term anywhere: with reduceMotion pinning uNow to 0 the dust simply STANDS STILL, grain and all
+      '  gl_PointSize=clamp('+_roadG(ML_DUST_M*ML_FOCAL_PX)+'/length(mv.xyz),'+_roadG(ML_DUST_PX0)+','+_roadG(ML_DUST_PX1)+');',   // 148.45 px·m / distance: 6 px inside 24.7 m, 4 px at 37.1 m, 2 px at 74.2 m, 1.37 px at the window's far edge — a grain everywhere the layer is drawn at all
+      '  vA=uAmt*uDustGlow*(0.55+0.45*aSeed)*smoothstep('+_roadG(-ML_DUST_BEH_M)+','+_roadG(-ML_DUST_BEH_M*0.45)+',u)*(1.0-smoothstep('+_roadG(ML_DUST_FAR0)+','+_roadG(ML_DUST_FAR1)+',u));',   // both ends of the window are ramps, so the wrap has no seam. No time term anywhere: the clock is uNow and nothing else, and reduced motion does not slow this layer down — it does not build it (ML_DUST_N)
       '}'
     ].join('\n'),
     fragmentShader:[
@@ -3738,6 +3775,10 @@ function buildRoadDust(){
                                                                                                                                     
 
                                                                          
+                                                                                                                     
+                                                                                                                     
+                                                                                                                   
+                                                                                                            
                                                                                                                  
                                                                                                                     
                                                                                                                      
@@ -3909,11 +3950,14 @@ function buildRoadDust(){
                                                                                                                                                                       
                  
                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                      
+                                                 
+                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                       
                                      
                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                
-                                                   
+                                                                                                         
                                                                                                       
                                                     
                                                                                                                      
@@ -5187,7 +5231,8 @@ function buildRoadDust(){
                                                                                      
                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                               
                                                                                                                                   
                                                             
                                                                                                             
@@ -5205,11 +5250,32 @@ function buildRoadDust(){
  
                                                                                                                                                                       
                                         
+                                                                                                                        
+                                                                                                                     
+                                                                                    
+                                                                                                   
+                                                                                                                      
+                                                                                                          
+                                                                                                                         
+                                                                                      
+                                                        
+                                                                                                                       
+                                                                        
+                                                                                                                        
+                                                                                                                    
+                                                                                                                     
+                                                                                       
+                                                                                                                   
+                                                                                                                 
+                                                                                                                       
+                                                                                                                        
+                                                                               
                         
                                
                                      
                                                          
  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                            
                                                                                                                       
                                                                                
@@ -5220,7 +5286,7 @@ function buildRoadDust(){
                                                                                                        
                                                                   
                                                                                            
-                                                                                          
+                                                                                                                                                                                                                                                                                                                                                 
  
                           
                                          
@@ -5252,7 +5318,7 @@ function buildRoadDust(){
                                                  
                            
                                         
-                            
+                                                                                                                                                                                                                                                                                                                       
                          
                                                                             
                                                                                   
@@ -7852,16 +7918,22 @@ function buildRoadDust(){
                                                                                                                          
                                                                                                     
 
+                                                                                                                      
+                                                                                                                          
+                                                                                                                          
+                                                                                                                           
                                                                                                                             
-                                                                                                                          
-                                                                                                                   
                                                                                                                          
-                                                                                        
-                                                                                                                          
-                                                                                                                          
-                                                                                                                        
-                                                                                                                        
-                                                                                                             
+                                                                               
+                                                                                                                         
+                                                                                                                         
+                                                                                                                       
+                                                                                                         
+                                                                                                                      
+                                                                                                                         
+                                                                                                                     
+                                                                                                                         
+                                                                                                                            
 
                                                                                                                             
                                                                                                                           
@@ -7872,7 +7944,9 @@ function buildRoadDust(){
                                                                                                                          
                                                                                                                         
                                                                                       
+                                                                                                                        
                                                                                                                        
+                                                                                           
                                                                                                                          
                                                                                                                        
                                                                                                                         
@@ -7887,8 +7961,10 @@ function buildRoadDust(){
                                                                                                                            
                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                     
                              
@@ -7904,18 +7980,16 @@ function buildRoadDust(){
                              
                                                                                               
                                                                                                              
-                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                              
           
                                                    
                                                                                                                                 
                                                                                                                                                                                              
-                                                                                                                                                  
-                                                                                                                                                                                            
                                                              
                                                                                
-                          
-                                                                               
-                                                                                 
+                                     
+                                       
         
    
                                  
@@ -7950,10 +8024,10 @@ function buildRoadDust(){
  
                         
                                                       
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                        
-                                                                                                                                                    
+                                                                                                                                                                                                                                                                                               
                                                                                       
                                                                            
                                                                                                                                         
