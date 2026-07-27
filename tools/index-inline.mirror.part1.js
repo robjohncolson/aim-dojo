@@ -968,7 +968,7 @@ const CFG = {
   padLookRate:3.0, padDeadzone:0.18, padExpo:1.5, padRumble:true,   // GAMEPAD: stick-aim speed (rad/s at full tilt), stick deadzone, response curve (>1 = finer near center), rumble-on-hit (felt-not-seen; ms/mag inline in gradeRhythmHit)
   // juice
   recoilKick:0.022, recoilMax:0.075, recoilYaw:0.006, recoilReturn:11,
-  hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:18,
+  hitTrauma:0.55, traumaDecay:1.9, shakeAng:0.040, shakeRoll:0.060, shakePos:0.14, shards:9,   // shards 18 → 9: THIS IS WHAT PAYS FOR THE STARDUST (SPEC_MOONLINE §1 — "pay for the dust by halving the hit-flock particle budget"). Behaviour is untouched at every site — explodeAt, acquireShards and SHARD_VELS all read this one number, so the burst is the same burst with half the points in it (and SHARD_VELS drops 432 floats → 216). The dust's 400 motes cost ONE draw call; a single kill burst used to cost 18 points and the flock beside it up to 250 individual additive meshes
   // TRACKING DOLLY: a slow, smooth, non-beat-synced ROTATIONAL wander of the view — the crosshair drifts off your target and you counter it with the mouse/trackball to stay locked on. Pure tracking training, layered on the rhythm. It's a rotation (not translation), so PLAYER_POS never moves → ZERO effect on the ballistic lead / beat-quant timing. Reduced-motion → off. dollyYawDeg/PitchDeg = wander amplitude (°); dollySpeed = base wander rate (rad/s-ish, higher = quicker to chase).
   dolly:true, dollyYawDeg:16, dollyPitchDeg:9, dollySpeed:0.9, dollyHuman:false, openGlowBoost:1.0,   // dollyHuman: SENSEI-style irregular wander (not pure lissajous).
   // DOLLY STRENGTH: global mul on camera wander (0.5 = half). Optional skill ramp so early free-play is calmer and expert still trains snap-aim.
@@ -1027,7 +1027,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question). Flat literal — nested {} would break the CFG contract test regex
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the road it rides. Flat literal — nested {} would break the CFG contract test regex
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1110,7 +1110,7 @@ const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false       
   : /(?:^|[?&#])low\b/.test(location.search+location.hash) ? true                // then ?low (this visit)
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
   : (CFG.lowRez===true || detectWeakGPU());                                     // else auto-detect weak GPUs
-if(LOW){ CFG.shards=8; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (18→8), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
+if(LOW){ CFG.shards=4; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (9→4 — wave 8 parcel V halved both rungs of this ladder, 18→9 and 8→4, to pay for the stardust), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
 /* ========================= SKY MODE (personal planetarium — SPEC_PERSONAL_PLANETARIUM.md, Parcel B) =========================
@@ -1813,7 +1813,94 @@ const ROAD_CELL_INK=0.34, ROAD_RAIL_INK=0.95, ROAD_GRID_INK=0.72;         // THE
 const ROAD_IMP_ANG=6*0.017453293, ROAD_IMP_D=ROAD_DRAW_M+30, ROAD_IMP_SHEAR=50;   // the impostor's straightness scale (a far heading of 6° is straightness 0), the quad's own distance (894 m — just past the ribbon's end, so the handoff has no gap to show a seam through) and how far its apex may shear off the axis before the quad runs out of room (50 m ≥ the 42.2 m the gate's own cutoff allows)
 const ROAD_TURN_LEAD=4, ROAD_TURN_FULL=5.45*0.017453293, ROAD_BANK_DEG=6.5;   // beats of lead the drift steers to (half the look-ahead: the bend you can already read) · the heading that spends the whole dolly budget (the p90 of a swept year — see the block comment) · the bank's peak in degrees before dollyStrengthMul
 const ROAD_HOLD_AT=4, ROAD_HOLD_LEN=3;                                    // holdDemo only: a sustained band opens on beat 4 of every 8 and runs 3 beats, so head / body / tail / release are all exercised by the one flag
+
+/* ================= THE MOONLINE — ARCHES, RINGS, DUST (wave 8, parcel V · SPEC_MOONLINE §4) =================
+   Three things are added to the ribbon and NOTHING is added beside it: the bar line becomes a golden arch GROWN FROM THE
+   RAILS, the mercy bar becomes the road's only COMPLETE CIRCLE, and the sixteenth carrier gets a layer of stardust riding
+   the road surface. Every one of them is a fact the road already states, said in a second channel the eye can read from
+   further away: arches = bar lines, the ring = mercy, the dust rate = the sixteenth grid. The ONE named exception SPEC §1
+   allows — the mirrored pass below the road plane — is compositional grounding, and it is tunable to zero.
+
+   THE RAIL SPLIT (the user's dream imagery — build it with care). At each bar line every edge rail BRANCHES. One strand
+   continues flat and unbroken: that is the rail the ribbon shader already draws, and this parcel does not touch one
+   character of it. The other leaves the rail, sweeps up, arcs over the road, MEETS ITS PARTNER at the crown and comes back
+   down to the rail past the arch. Two strands, one from each rail, crossing at the top — a woven gate, not a hoop dropped
+   on the road. In the strand's own parameter t ∈ [−1,1], with θ = (π/2)·t:
+       lateral  x = ±halfW·sin θ          height  y = archHeightM·cos θ          along  b = barBeat + ML_ARCH_SPREAD·t
+   so (x/halfW)² + (y/archHeightM)² = sin²θ + cos²θ = 1 EXACTLY at every station (verified to 1e−12 across t): the front
+   view is a true ellipse, and a true SEMICIRCLE at the shipped archHeightM 7 = ROAD_HALF_W. The parametrisation is monotone
+   in θ, so the strand never doubles back on itself in screen space and its tangent can never vanish — |dP/dt|² is at least
+   (ML_ARCH_SPREAD_M)², whatever the arch's proportions.
+   WHY THE SPREAD IS A QUARTER BEAT AND NOT A TASTE. The feet stand at ±0.25 beat = ±6.75 m along the road, which is exactly
+   ONE QUARTER-crossbar (four sixteenth crossbars), so the four junction nodes of every arch land ON crossbars the ribbon is
+   already drawing — the branch departs and rejoins on the grid, never between it. It also sets the departure geometry for
+   free: at the foot dP/dt = (0, archHeightM·π/2, −ML_ARCH_SPREAD_M) = (0, 10.996, −6.750), so the strand leaves the rail at
+   58.5° above the road instead of sprouting vertically out of it, and at the crown the two strands cross at 116.9°.
+   The junction NODES are not extra geometry: the strand's own core brightens over the last 14% of its length (ML_ARCH_NODE),
+   which puts the bright gold node exactly where the strand meets the rail, by construction.
+
+   THE MERCY RING IS THE REFLECTION, CLOSING. Every arch already carries a mirrored half below the road plane at
+   moonline.reflectAlpha (0.18) — gold on dark water, implying the circle. On the bar that OPENS the mercy phase that same
+   half comes up to full strength and the implication becomes the fact: one complete golden circle, the only one on the
+   road, burning at mercyRingBoost and fading with √fade instead of fade so it is still legible from the far end of the
+   ribbon. One geometry, one uniform, two meanings — and reflectAlpha:0 silences every reflection WITHOUT touching the ring,
+   because the ring's lower half is not a reflection of anything. The ring lands on a bar line by construction, not by luck:
+   roadTideAt's mercy flag is 1 only when cb === rise+peak AND (g mod 8) === 0, i.e. g = 2n ≡ 0 mod 8, i.e. n ≡ 0 mod 4 —
+   the very beats ML_ARCH_EVERY selects.
+
+   THE STARDUST IS THE CARRIER WAVE. Motes live at FIXED ROAD COORDINATES, so they stream toward the player at exactly the
+   road's own speed and can never state a speed the road does not have: 4 quarter-crossbars per beat = 4 × 6.75 = 27 m =
+   ROAD_MPB, which is SPEC §4's own arithmetic. Their GRAIN is the sixteenth: each mote is anchored to a sixteenth cell
+   (1.6875 m) with under a fifth of a cell of jitter, so arrivals tick 16 times a beat — every 62.5 ms at the sixty cap,
+   187.5 ms at the floor. 400 motes over a 12-beat window (−54 m behind to +270 m ahead) is 2.08 motes per sixteenth cell
+   and 0.0882 motes/m² of road. Both ends of the window are alpha ramps, so a mote never pops into or out of existence.
+
+   ZERO PER-FRAME COST, BECAUSE THE UNIFORMS ARE SHARED OBJECTS. The arch and dust materials are handed roadMat's OWN
+   uniform objects for uNow, uBase, uA/uW/uP and uInk — not copies — so the three floats roadSync already writes every frame
+   drive all three shaders and this parcel adds NOT ONE per-frame write, allocation or course evaluation on the CPU. The
+   arches' own five knobs and the mercy table are written in roadSync's existing ONCE-PER-BEAT block.
+
+   FRAME BUDGET (1920×1080, desktop tier, shipped constants — SPEC §1 demands it stated, and this parcel is the one that
+   has to PAY).
+     · DRAW CALLS: +2 (one indexed mesh for every arch, ring and reflection on screen; one THREE.Points for all the dust).
+       PAID FOR: FLOCK.max 190→95 and ghostMax 60→30 are individual additive Meshes, so the flock's peak drops 250→125
+       draw calls. Net at a hot combo: −123.
+     · TRIANGLES: +2464 constant (11 slots × 2 strands × 2 halves = 44 strips × 28 segments × 2). PAID FOR: the flock's
+       peak 6000 → 3000 (24 tris a bird). Net at peak: −536, and the arches' 2464 are 65.8 KB of buffer built ONCE.
+     · POINTS: +400 dust (4.8 KB, built once). PAID FOR: CFG.shards 18→9 halves every burst and SHARD_VELS 432→216 floats.
+     · FRAGMENTS: the arches cover ~222k px = 10.7% of the frame at the very worst geometry (an arch 6 m from the eye
+       fills the screen with a 10 px-wide strand), each fragment two exp() and a mix — no texture fetch anywhere in this
+       parcel, and both shaders discard on alpha before doing any of it. The dust is ≤ 400 points × ≤ 16 px = 0.31%.
+     · STRAND WIDTH is constant on SCREEN by the same law the crossbars use: half-width = clamp(3.2·d/494.82, 0.06, 2.6) m,
+       from the shipped optics (494.82 px = (1080/2)/tan(95°/2)). 4.24 px at 7 m, 3.20 px from 27 m to 108 m, 1.49 px at
+       the ribbon's end — a beam near, a thread far, and never a shimmering sub-pixel line.
+     · LOW-REZ (SPEC §4): dust OFF ENTIRELY (not built, not compiled, not uploaded), arches SIMPLIFIED TO PLAIN ARCS — the
+       prism and the aurora bleed are not emitted into the fragment text at all (ML_ARCH_RICH, the ROAD_GLYPH_PASS pattern),
+       leaving one gaussian core — and half the segments (14, so 1232 triangles). The horizon impostor is shown ALWAYS,
+       its straightness gate bypassed, because on LOW the painted road is cheaper than the ribbon it stands in for.
+     · reduceMotion: identical world, zero motion. uNow is pinned to 0 by roadSync exactly as the ribbon's is, so the
+       arches stand still as a ruler of the coming bars and the dust holds its grain; the mercy table scrolls THROUGH the
+       standing slots the same way uBeat0 scrolls the band table. No second code path.
+   THE KILL-SWITCH: every constant below is gated on ML_ARCH / ML_DUST, both of which read ML_RIBBON first — so
+   moonline.on:false builds no geometry, compiles no shader and calls nothing, and wave-7 rendering is byte-identical.
+   ============================================================================================================== */
+const ML_GOLD=0xffeccc;                                                   // THE GOLD, declared once: the arches, their nodes and the horizon impostor's painted road are all the same golden-white, because the impostor IS road and the arches are grown from it
+const ML_ARCH=ML_RIBBON && !!(CFG.moonline && CFG.moonline.archOn);       // raw boolean, and the master switch first — archOn:false leaves parcel U exactly as it shipped
+const ML_ARCH_EVERY=4;                                                    // BEATS PER ARCH = the BAR, not a knob: it is the same 4 the ribbon's coarsest crossbar tier (TIER(0.25,3)) already draws as the bar line, and the same 4 roadTideAt counts its swell in. A knob here could make the arches disagree with the grid under them
+const ML_ARCH_BEHIND=8, ML_ARCH_N=11;                                     // 2 arches behind the feet (216 m — turn around and the gates you passed are still there) and 9 ahead, out to 32 beats = 864 m, which is ROAD_DRAW exactly: the last arch dies where the ribbon does. A multiple of ML_ARCH_EVERY, so the slot ring re-anchors on a bar line
+const ML_ARCH_SPREAD=0.25, ML_ARCH_SPREAD_M=ML_ARCH_SPREAD*ROAD_MPB;      // the branch's half-spread along the road: a QUARTER BEAT = 6.75 m = one quarter-crossbar = four sixteenths, so all four junction nodes land on crossbars the grid already draws (see the block comment for the 58.5° departure this buys)
+const ML_ARCH_SEG=LOW?14:28, ML_ARCH_RICH=!LOW;                           // segments per strand, and whether the PRISM and the AURORA are emitted into the fragment text at all. LOW gets plain arcs (SPEC §4) the only way that actually sheds their cost — by not compiling them
+const ML_FOCAL_PX=(1080/2)/Math.tan(95*Math.PI/360);                      // 494.82 px — the shipped optics (fov 95 at 1080p), the same pair ROAD_TIER_D and ROAD_LINE_PX are computed from. There is no second copy of the camera in this file
+const ML_ARCH_PX=3.2, ML_ARCH_WMIN=0.06, ML_ARCH_WMAX=2.6;               // the strand's half-width in PIXELS, and the metres it may never fall below or rise above (a 0.06 m floor keeps a near strand a beam instead of a wire; a 2.6 m cap keeps the far ones ~3 px instead of ballooning with distance)
+const ML_ARCH_INK=0.62, ML_ARCH_NODE=2.2, ML_ARCH_CORE=16.0, ML_ARCH_AUR=2.4, ML_ARCH_PRISM_AT=-0.55, ML_ARCH_PRISM_K=22.0;   // the gold's base alpha (against the ribbon's own ROAD_ALPHA 0.55 — the arch is the brightest thing on the road because the bar is the loudest thing in the grid) · the junction node's core boost · the core's gaussian tightness · the aurora tail's · where the prismatic rim sits across the strand (negative = INSIDE the arc) and how thin it is
+const ML_DUST_MAX=400;                                                    // the hard cap SPEC §4 names, enforced on the CFG read below so no console typo can put 40000 motes on the road
+const ML_DUST_N=ML_RIBBON&&!LOW?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform
+const ML_DUST_SPAN=12, ML_DUST_BEHIND=2;                                  // the streaming window in beats: 324 m of road carrying dust, from 54 m behind the feet to 270 m ahead (a little past the 216 m look-ahead, so the coloured cells are never the leading edge of the dust)
+const ML_DUST_M=0.10, ML_DUST_Y=0.06, ML_DUST_LOFT=0.22, ML_DUST_INK=0.55;   // a mote's world size · its height above the road plane (the ribbon sits at y 0.03) · how far it may loft above that · and the layer's base alpha
+const ML_DUST_FAR0=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB*0.62, ML_DUST_FAR1=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB, ML_DUST_BEH_M=ML_DUST_BEHIND*ROAD_MPB;   // both ends of the window are ramps, so a mote fades in where it wraps and fades out where it leaves — no popping at either seam
 let roadMesh=null, roadMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
+let roadArch=null, roadArchMat=null, roadDust=null, roadDustMat=null;
+const _archKind=new Float32Array(ML_ARCH_N);                              // slot k's MERCY flag, rewritten once per BEAT into the very array the uniform points at — no allocation, no upload call of our own
 const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
 const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], _roadMark=new THREE.Color();   // the LANE's own four colours and the FILL's own amber — filled from WASD_HEX / TANK_COLOR in roadSync's one-time block, because both of those literals are declared further down the file and this parcel refuses to keep a second copy of either
 const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};                         // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate
@@ -1989,7 +2076,7 @@ function buildRoadImpostor(){
      COST: 4 verts, one draw call, ~3 px × ~14 px of fragments, two uniforms and one position write per frame. */
   const QW=2*(ROAD_HALF_W+ROAD_IMP_SHEAR);
   roadImpMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
-    uniforms:{ uAmt:{value:0}, uApex:{value:0}, uCol:{value:new THREE.Color(0xffeccc)} },   // golden-white — the gold parcel V's arches are grown from, stated once here
+    uniforms:{ uAmt:{value:0}, uApex:{value:0}, uCol:{value:new THREE.Color(ML_GOLD)} },   // golden-white — the gold parcel V's arches are grown from, and now literally the same constant (ML_GOLD, index.html:1817): the painted road and the gates over it cannot drift apart
     vertexShader:'varying vec2 vQ; void main(){ vQ=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
     fragmentShader:[
       'uniform float uAmt,uApex; uniform vec3 uCol; varying vec2 vQ;',
@@ -2013,7 +2100,7 @@ function roadImpSync(r){
   const be=r+ROAD_DRAW;
   const x0=roadCourseX(be)-_roadBase.x-_roadBase.y*(be-r);                 // Xd at the end: the shader's own cx, on the CPU, at one b
   const sl=(roadCourseD(be)-_roadBase.y)/ROAD_MPB;                         // …and its slope there, lateral metres per metre ALONG (so it is a tangent, not a per-beat rate)
-  const mn=Math.max(0,Math.min(1,+CFG.moonline.impostorMinStraight||0));
+  const mn=LOW?0:Math.max(0,Math.min(1,+CFG.moonline.impostorMinStraight||0));   // LOW-REZ: THE IMPOSTOR IS ALWAYS SHOWN (SPEC §4). On a tier that already draws two crossbar tiers instead of four and no dust at all, the painted streak is the CHEAPEST honest thing on the far road — one quad against a ribbon it is standing in for — so the straightness gate stands down and only impostorInk can still say no
   const st=1-Math.min(1,Math.abs(Math.atan(sl))/ROAD_IMP_ANG);             // STRAIGHTNESS: 1 = the far end points straight down the axis, 0 = it is 6° off it
   let t=(st-mn)/Math.max(1e-6,(1-mn)*0.5);                                 // …reaching full brightness halfway between the gate and dead straight, so the streak arrives and leaves as a fade, never a pop
   t=t<0?0:(t>1?1:t);
@@ -2024,6 +2111,135 @@ function roadImpSync(r){
   roadImp.position.x=x0+sl*(ROAD_IMP_D-ROAD_DRAW_M);                       // the quad stands where the straight continuation actually is at its own distance…
   roadImpMat.uniforms.uApex.value=sl*ROAD_DRAW_M-x0;                       // …and leans to where that continuation vanishes (xa − xb, which is independent of ROAD_IMP_D — the algebra cancels)
   roadImpMat.uniforms.uAmt.value=amt;
+}
+function buildRoadArches(){
+  /* THE RAIL-SPLIT ARCHES, THE MERCY RING AND THE REFLECTIONS — ONE indexed mesh, ONE draw call, built ONCE (SPEC §4).
+     Every arch on screen, its crossing partner, both junction pairs, the mirrored pass below the road plane and the mercy
+     ring are the same 44 ribbon strips: the VERTEX shader places each station from tonight's course at its OWN beat, so
+     the gates are spline-mapped exactly as the ribbon is — they lean with the bends and their feet land on the rails to
+     the millimetre, with no geometry to rebuild and nothing to evaluate on the CPU. The attributes ARE the parameters:
+     position = (slot, t, side) and aMW = (mirror, ribbon-side). There is no vertex position in this buffer at all. */
+  const HW=_roadG(ROAD_HALF_W), SEG=ML_ARCH_SEG, NS=ML_ARCH_N*4, vc=NS*2*(SEG+1);
+  const pos=new Float32Array(vc*3), amw=new Float32Array(vc*2), idx=new Uint16Array(NS*SEG*6);
+  let v=0, ii=0;
+  for(let k=0;k<ML_ARCH_N;k++) for(let si=0;si<2;si++) for(let mi=0;mi<2;mi++){
+    const side=si?1:-1, mir=mi?-1:1, base=v;                             // side = which rail this strand leaves · mir = +1 the arch, −1 its mirror (a reflection, or the mercy ring's lower half)
+    for(let s=0;s<=SEG;s++){ const t=(s/SEG)*2-1;
+      for(let wi=0;wi<2;wi++){ pos[v*3]=k; pos[v*3+1]=t; pos[v*3+2]=side; amw[v*2]=mir; amw[v*2+1]=wi?1:-1; v++; } }
+    for(let s=0;s<SEG;s++){ const a=base+s*2; idx[ii++]=a; idx[ii++]=a+1; idx[ii++]=a+2; idx[ii++]=a+1; idx[ii++]=a+3; idx[ii++]=a+2; }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('aMW', new THREE.BufferAttribute(amw,2));
+  g.setIndex(new THREE.BufferAttribute(idx,1));
+  const U=roadMat.uniforms, M=CFG.moonline;
+  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
+    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP,   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes
+               uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)},
+               uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))},
+               uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind}, uCol:{value:new THREE.Color(ML_GOLD)} },
+    vertexShader:[
+      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+      'attribute vec2 aMW; varying float vV,vNode,vAmt,vTh;',
+      'void main(){',
+      '  float t=position.y, side=position.z, mir=aMW.x, w=aMW.y;',
+      '  float b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x+'+_roadG(ML_ARCH_SPREAD)+'*t;',                    // THE STATION'S OWN BEAT: the bar line, plus a quarter-beat of branch either side. Distance IS time here too
+      '  float th=1.57079633*t, xl=side*'+HW+'*sin(th), yl=mir*uArchH*cos(th);',                                  // (xl/halfW)² + (yl/archHeightM)² = 1 EXACTLY: a true ellipse in the front view, a true semicircle at archHeightM 7
+      '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);',                                    // the RE-BASED centreline, the identical expression the ribbon's fragment shader evaluates — one course, now four readers
+      '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+';',
+      '  vec3 Pc=vec3(cx+xl, yl, -u);',
+      '  float d=length((viewMatrix*vec4(Pc,1.0)).xyz);',
+      '  float hw=clamp('+_roadG(ML_ARCH_PX)+'*d/'+_roadG(ML_FOCAL_PX)+','+_roadG(ML_ARCH_WMIN)+','+_roadG(ML_ARCH_WMAX)+');',   // constant on SCREEN, by the shipped optics — a beam near, a thread far
+      '  vec2 rad=normalize(vec2(xl,yl)+vec2(0.0,1e-4));',                                                        // the strip widens along the arc's own RADIUS, so "inner" and "outer" are properties of the ARCH and not of where the camera happens to be
+      '  gl_Position=projectionMatrix*viewMatrix*vec4(Pc+vec3(rad*(hw*w),0.0),1.0);',
+      '  float mercy=uK[int(position.x)];',                                                                       // this bar OPENS the mercy phase → the mirror half stops being a reflection and closes the circle
+      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',                       // the arches die exactly where the ribbon does — the same ramp, so there is no gate hanging over a road that has ended
+      '  float hlf=mix(1.0, mix(uReflect,1.0,mercy), step(mir,0.0));',                                            // reflectAlpha:0 silences every reflection and leaves the RING untouched: its lower half is not a reflection of anything
+      '  vV=w; vTh=th; vNode=smoothstep(0.86,1.0,abs(t));',                                                       // THE JUNCTION NODES, for free: the bright gold is the strand's own last 14%, which is exactly where it meets the rail
+      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf;',                            // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon
+      '}'
+    ].join('\n'),
+    // THE PRISM AND THE AURORA ARE NOT EMITTED ON LOW (ML_ARCH_RICH — the ROAD_GLYPH_PASS pattern): SPEC §4 asks for "plain
+    // arcs" there, and a uniform set to zero would still pay for both exp() on every fragment of every arch. What LOW draws
+    // is the gaussian core and its junction nodes, which is the arch's INFORMATION; the rest is its face.
+    fragmentShader:[
+      'uniform vec3 uCol; uniform float uArchPrism; varying float vV,vNode,vAmt,vTh;',
+      'void main(){',
+      '  if(vAmt<=0.003) discard;',                                                                               // cheapest rejection first: a faded slot, a silenced reflection or archGlow:0 never reaches a single exp()
+      '  float core=exp(-vV*vV*'+_roadG(ML_ARCH_CORE)+')*(1.0+'+_roadG(ML_ARCH_NODE)+'*vNode);',
+      '  vec3 col=uCol;'
+    ].concat(ML_ARCH_RICH?[
+      '  float o=max(vV,0.0), q=vV-('+_roadG(ML_ARCH_PRISM_AT)+');',                                              // o = the OUTER half of the strand · q = how far this fragment is from where the prismatic rim sits
+      '  float ie=exp(-q*q*'+_roadG(ML_ARCH_PRISM_K)+');',                                                        // …a thin rim just INSIDE the core. Its own statement on purpose: reading a name from earlier in the SAME declaration list is legal GLSL and is still the first thing a strict mobile compiler argues about
+      '  float aur=exp(-o*o*'+_roadG(ML_ARCH_AUR)+')*step(0.001,o)*0.34;',                                        // AURORA-SOFT OUTER: the bleed lives on the outside only, so the arch's inner edge stays a crisp opening you fly through
+      '  col=mix(col, vec3(0.58)+0.42*cos(vec3(vTh*2.4)+vec3(0.0,2.094,4.189)), clamp(uArchPrism*ie,0.0,1.0));',  // SLIGHTLY PRISMATIC: the rim's hue walks the spectrum along the arc's own angle, so the rainbow bends with the gate instead of sitting on it
+      '  float a=(core+aur+ie*0.30)*vAmt;'
+    ]:[
+      '  float a=core*vAmt;'
+    ]).concat([
+      '  if(a<=0.003) discard;',
+      '  gl_FragColor=vec4(col*a, a);',
+      '}'
+    ]).join('\n') });
+  roadArch=new THREE.Mesh(g, roadArchMat);
+  roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);   // −39: straight after the ribbon (−40) and still before every other transparent thing, with depthTest untouched — an opaque Echo occludes a gate exactly as it occludes the road under it
+}
+function buildRoadDust(){
+  /* THE STARDUST — ONE THREE.Points, ONE draw call, ZERO per-frame CPU. A mote's position attribute is not a position: it
+     is (road-beat anchor, lateral in half-widths, its own seed). The vertex shader wraps the anchor against uNow, so the
+     motes stream at EXACTLY the road's speed — 4 quarter-crossbars per beat = 27 m = ROAD_MPB — and their grain is the
+     SIXTEENTH, because every anchor is a sixteenth cell with under a fifth of a cell of jitter. Nothing here is random at
+     run time and nothing draws from rnd(): the layer is seeded once, from a PRIVATE mulberry32, so THE STREAM RULE holds
+     draw for draw and tonight's spawns are the spawns they would have been. */
+  const N=ML_DUST_N, pos=new Float32Array(N*3), cells=ML_DUST_SPAN*16, rr=mulberry32(0x9e3779b9);
+  for(let i=0;i<N;i++){ const c=i%cells;
+    pos[i*3]=(c+(rr()-0.5)*0.3)/16;                                       // the sixteenth cell this mote rides, jittered by ±0.15 of a cell so the carrier reads as a stream and not a picket fence
+    pos[i*3+1]=(rr()*2-1)*0.94;                                           // lateral, in half-widths — inside the rails, because the dust is ON the road
+    pos[i*3+2]=rr(); }                                                    // its own seed: loft above the surface, and how brightly it burns
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const U=roadMat.uniforms;
+  roadDustMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
+    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uCol:U.uInk,   // uInk IS the road's own colour object, so tonight's grid-colour roll reaches the dust for free and the carrier is drawn in the colour of the crossbars it counts. THE GOLD IS THE BAR LINE'S ALONE
+               uAmt:{value:ML_DUST_INK}, uDustGlow:{value:Math.max(0,+CFG.moonline.dustGlow||0)} },
+    vertexShader:[
+      'uniform float uNow,uAmt,uDustGlow; uniform vec2 uBase; uniform vec3 uA,uW,uP; varying float vA;',
+      'void main(){',
+      '  float ba=mod(position.x-uNow,'+_roadG(ML_DUST_SPAN)+')-'+_roadG(ML_DUST_BEHIND)+';',                     // beats from the feet to this mote, wrapped into the streaming window. uNow rises, ba falls: the mote comes at you at the road's own speed because it is not moving at all — the road is
+      '  float b=uNow+ba, u=ba*'+_roadG(ROAD_MPB)+';',
+      '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*ba;',                                          // the same re-based centreline the ribbon and the arches read, at the mote's own beat: the dust bends with the river
+      '  vec3 P=vec3(cx+position.y*'+_roadG(ROAD_HALF_W)+', '+_roadG(ML_DUST_Y)+'+position.z*'+_roadG(ML_DUST_LOFT)+', -u);',
+      '  vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
+      '  gl_PointSize=clamp('+_roadG(ML_DUST_M*ML_FOCAL_PX)+'/length(mv.xyz),1.0,4.0);',
+      '  vA=uAmt*uDustGlow*(0.55+0.45*position.z)*smoothstep('+_roadG(-ML_DUST_BEH_M)+','+_roadG(-ML_DUST_BEH_M*0.45)+',u)*(1.0-smoothstep('+_roadG(ML_DUST_FAR0)+','+_roadG(ML_DUST_FAR1)+',u));',   // both ends of the window are ramps, so the wrap has no seam. No time term anywhere: with reduceMotion pinning uNow to 0 the dust simply STANDS STILL, grain and all
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      'uniform vec3 uCol; varying float vA;',
+      'void main(){',
+      '  float a=(1.0-smoothstep(0.25,1.0,length(gl_PointCoord-vec2(0.5))*2.0))*vA;',
+      '  if(a<=0.004) discard;',
+      '  gl_FragColor=vec4(uCol*a, a);',
+      '}'
+    ].join('\n') });
+  roadDust=new THREE.Points(g, roadDustMat);
+  roadDust.frustumCulled=false; roadDust.renderOrder=-38; roadDust.visible=false; scene.add(roadDust);
+}
+function roadArchFill(n0){
+  // ONCE PER BEAT, beside the band table's own upload and for the same reason: the only thing that changes on a beat is
+  // WHICH BAR LINES ARE VISIBLE and which of them is the mercy bar. ML_ARCH_N floats into the array the uniform already
+  // points at, five knob reads, and nothing allocates. The slot ring re-anchors on a bar line every fourth beat; both ends
+  // of it are past ROAD_FADE1 or behind the wake, so the shift is invisible by construction.
+  if(!roadArchMat) return;
+  const AU=roadArchMat.uniforms, M=CFG.moonline;
+  const b0=ML_ARCH_EVERY*Math.floor((n0-ML_ARCH_BEHIND)/ML_ARCH_EVERY);
+  for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // …and the RING is roadTideAt's own mercy flag 1 — the bar that OPENS the exhale, which is a multiple of 4 by that function's own arithmetic (g = 2n ≡ 0 mod 8), so it always lands on an arch slot and never between two
+  AU.uArchN0.value=reduceMotion?-ML_ARCH_BEHIND:b0;                       // reduceMotion: the gates STAND STILL as a ruler of the coming bars while the mercy table scrolls through them — exactly how uBeat0 scrolls the band table under a standing ribbon
+  AU.uArchH.value=Math.max(0.5,+M.archHeightM||ROAD_HALF_W);
+  AU.uArchGlow.value=Math.max(0,+M.archGlow||0);
+  AU.uArchPrism.value=Math.max(0,Math.min(1,+M.archPrism||0));
+  AU.uReflect.value=Math.max(0,Math.min(1,+M.reflectAlpha||0));
+  AU.uMercyRB.value=Math.max(1,+M.mercyRingBoost||1);
+  if(roadDustMat) roadDustMat.uniforms.uDustGlow.value=Math.max(0,+M.dustGlow||0);   // the form knobs are LIVE: every one of them is read here, so archHeightM, archGlow, archPrism, reflectAlpha, mercyRingBoost and dustGlow can all be turned in a running session without a reload
 }
 (function buildRoad(){
   if(!(CFG.road && CFG.road.on)) return;                                // THE KILL-SWITCH, raw boolean first: no geometry, no shader compile, no uniform, nothing to call — the dojo floor is the one that shipped
@@ -2166,6 +2382,8 @@ function roadImpSync(r){
   roadMesh.renderOrder=ML_RIBBON?-40:-900;                                // THE VOID'S DEPTH ORDER: wave 7's −900 drew the road before the celestial shell (−50), which in a void with no floor writing depth painted straight over the ribbon. −40 puts it after the shell and before every other transparent thing; depthTest stays TRUE, so the opaque Echoes still occlude it exactly as they did
   roadMesh.visible=false; scene.add(roadMesh);
   if(ML_RIBBON) buildRoadImpostor();                                      // …and the painted horizon it hands off to. Nothing else is built: the wireframe is arithmetic inside the one shader above
+  if(ML_ARCH) buildRoadArches();                                          // ARCHES, RINGS AND REFLECTIONS (parcel V): one more mesh, one more draw call, and it is built AFTER roadMat because it borrows roadMat's own uniform objects rather than keeping a second copy of the clock
+  if(ML_DUST_N>0) buildRoadDust();                                        // …and the sixteenth carrier riding the surface. Not built at all on LOW, with archOn:false-style silence: ML_DUST_N is 0 there and this line never runs
 })();
 function roadHideOldFloor(){
   // THE ROAD SUBSUMES THE OLD FLOOR: two floors on screen is two clocks. The checker, the night lattice and its halo go
@@ -2182,313 +2400,316 @@ function roadHideOldFloor(){
   if(glowGrid) glowGrid.visible=false;
   return true;
 }
-function roadSync(){
-  if(!roadMesh) return;                                                   // road.on:false → never built → the frame costs one null read
-  const live=roadLive();
-  if(live!==_roadVis){                                                    // ONE LATCH, on the road's own visibility — so everything below costs one boolean compare on an ordinary frame
-    _roadVis=live; roadMesh.visible=live;
-    if(roadImp && !live) roadImp.visible=false;                           // the impostor leaves with the ribbon it continues; only roadImpSync's own gate ever brings it back, because the streak has to earn its frame from the course
-    if(ML_RIBBON){ camera.far=live?ROAD_FAR:ROAD_FAR_ROOM; camera.updateProjectionMatrix(); }   // THE VOID needs 894 m of depth for a road the room never had; the trainer and the Temple get the projection matrix that shipped, to the bit. A transition write, never a frame write
-  }
-  if(!live){ roadJudgeStamp(_roadLastR); return; }   // THE PLAYABILITY EPOCH (v1.2): the trainer and the Temple shut the judging window on the way OUT of the frame, at the last beat the road actually saw — nothing writes the wake on this path, so the clock does not need re-reading, and the next live frame re-opens the window at ITS beat. This is what makes the graduation catch-up (W1) NEUTRAL instead of fourteen phantom misses
-  const U=roadMat.uniforms;
-  if(!_roadUp){                                                           // tonight's course reaches the shader ONCE (it is a property of the night, not of the beat)
-    const c=roadCourse();
-    U.uA.value.set(c.a[0]||0, c.a[1]||0, c.a[2]||0);
-    U.uW.value.set(c.w[0]||0, c.w[1]||0, c.w[2]||0);
-    U.uP.value.set(c.p[0]||0, c.p[1]||0, c.p[2]||0);
-    U.uAmt.value=ROAD_ALPHA;
-    for(let i=0;i<4;i++) _roadLaneCol[i].setHex(WASD_HEX[i]);             // THE MEANING: the lane's own four colours and the fill's own amber, read from the ONE declaration of each (WASD_HEX index.html:7121 / TANK_COLOR index.html:6322) at first frame — by then both are long since initialised, and the road never keeps a second copy
-    _roadMark.setHex(TANK_COLOR);
-    if(reduceMotion){ U.uNow.value=0; _roadBase.set(roadCourseX(0), roadCourseD(0)); }   // the STILL road's clock and re-basing pair are constants — written once, beside the course they belong to, and never again
-    _roadUp=true;
-  }
-  if(gridColIdx!==_roadInkIdx){ _roadInkIdx=gridColIdx; _roadInk.setHex(GRID_COLS[gridColIdx][0]); }   // the road inherits tonight's grid-colour roll: it REPLACES the lattice, so the nightly roll survives instead of going quiet with it. A read of an index that already exists — zero new draws
-  const r=roadBeatNow();
-  roadWakeLatch();                                                        // two integer reads: catch the lane's verdict while the note is still in focus (see roadWakeLatch)
-  if(r<_roadLastR-0.5) roadWakeReset();                                   // the clock went BACKWARDS: a new run (teardownTransport puts the Transport back to 0). The wake is this run's history, so it starts empty — and no gameplay reset site had to be touched to say so
-  _roadLastR=r;
-  roadJudgeStamp(r);                                                      // THE PLAYABILITY EPOCH (v1.2), stamped BEFORE any write: the Bow's ceremony (input rejected from BOW.LAST, Transport still advancing) closes the window here, so its beats — and only its beats — go NEUTRAL and the run's real wake survives to the Night Card (W2). A grace-cancel never reaches this line at all: GRACE still accepts input, so the predicate never flipped
-  const n0=Math.floor(r);
-  if(n0!==_roadBeat0){                                                    // ONCE PER BEAT, and only then: 23 texels of band data, into a buffer that already exists
-    if(Number.isFinite(_roadBeat0)) for(let n=Math.max(_roadBeat0, n0-ROAD_WAKE); n<n0; n++) roadWakeWrite(n);   // every band that left the now-line since the last upload gets its (already final) verdict — a dropped frame cannot punch a hole in the wake
-    _roadBeat0=n0; roadBandFill(n0);
-    U.uBeat0.value=reduceMotion?0:n0;                                     // the still road's geometry is pinned to uNow=0, so slot ROAD_WAKE must stay the band at the feet: the table scrolls through the texture instead of the road scrolling under it. Same 23 beats, same order, zero motion
-    if(ROAD_GLYPH_PASS){ const gt=roadGlyphTex(); if(U.uGlyph.value!==gt) U.uGlyph.value=gt; }   // the atlas is rebuilt only when WASD_GLYPH itself changes (navigator.keyboard resolves once, and a physical key can teach it later), which is at most a handful of times in a whole session — otherwise this is one string compare. Skipped entirely where the pass was never compiled, so a LOW device never builds the canvas either: the same build-time boolean, read once per BEAT, never per frame
-    U.uGlyphOn.value=(CFG.road.bandGlyphs?1:0); U.uMercyB.value=Math.max(1,+CFG.road.mercyBoost||1);
-  }
-  if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
-    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7302). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
-    roadImpSync(0);                                                       // the impostor reads the SAME pinned clock the geometry does, so the painted horizon is frozen with the standing ribbon — static, not merely slower
-    return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
-  }
-  U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r));          // the ONLY per-frame writes: three floats, no allocation, no array, no call into any gameplay path
-  roadImpSync(r);                                                         // …and AFTER them, because the impostor continues the very re-basing pair the line above just wrote
-}
+                    
+                                                                                                                                        
+                        
+                                                                                                                                                                                         
+                                         
+                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                         
+                                       
+                                                                                                                                                                                                                                                                                      
+   
+                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                           
+                                                                                                                                                                      
+                         
+                                                    
+                                                    
+                                                    
+                            
+                                                                                                                                                                                                                                                                                                                                              
+                                 
+                                                                                                                                                                                                                     
+                 
+   
+                                                                                                                                                                                                                                                                                                     
+                        
+                                                                                                                                                                             
+                                                                                                                                                                                                                                                                              
+               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                         
+                                                                                                                                                                    
+                                                                                                                                                                                                                                                              
+                                    
+                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                               
+   
+                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                              
+                                                                                                                                                                                                                    
+   
+                                                                                                                                                                             
+                                                                                                                                                                              
+ 
 
-/* ========================= THE MOONLINE — THE VOID (wave 8, parcel T · SPEC_MOONLINE §2) =========================
-   Post-graduation play stops happening in a room. The ground plane goes, the horizon haze goes, the ground fog goes, the
-   Temple's own celestial shell wraps the player ABOVE AND BELOW, and the only structure left in the universe is the
-   Moonline. Nothing is added beside the road: this parcel deletes four surfaces and turns one existing sphere on.
+                                                                                                                    
+                                                                                                                         
+                                                                                                                    
+                                                                                                                  
 
-   THE TRAINER KEEPS TODAY'S ROOM, BYTE FOR BYTE. Every predicate here reads !trainMode, so Sensei's sheltered arc is
-   untouched — the room is RETIRED, never deleted, and the master switch below walks it straight back in.
+                                                                                                                     
+                                                                                                         
 
-   THE KILL-SWITCH CONTRACT (SPEC §1). moonlineOn() is one raw boolean pair (moonline.on × road.on); moonlineVoid() is
-   that AND roadLive(), i.e. exactly `moonline.on && roadLive()`, so every wave-7 road law — the treadmill law, the one
-   clock, the playability epoch, the trainer/Temple hiding — inherits verbatim rather than being restated. With
-   moonline.on:false NOTHING below writes anything: moonlineHideRoom returns on its first compare, _mlBlend rests at 0,
-   the dome's new uHazeAmt keeps its construction value 1.0 (a multiply by exactly 1.0 — bit-identical to the wave-7
-   shader, not merely close), and setHorizonOpen / updateChartSky / updateTempleOrbs each fall through to the very
-   expression they shipped with. road.on:false restores the wave-6 room in full for the same reason.
+                                                                                                                      
+                                                                                                                       
+                                                                                                               
+                                                                                                                       
+                                                                                                                    
+                                                                                                                  
+                                                                                                    
 
-   THE GRADUATION DISSOLVE (SPEC §2) reuses THE TEMPLE'S TECH and adds no second duration: moonlineGraduate arms
-   _mlGrad with CFG.skyTemple.floorDissolveSec at setTrainPhase(3) and moonlineStep ramps _mlBlend 0→1 over it, stepped
-   in updateSky beside the Temple's own blend so the two can never disagree by a frame. What the ramp opens is the SKY
-   BELOW — the dome's nadir (uTemple), the sphere's underfoot half (setHorizonOpen), the shell's opacity — which is
-   precisely what the Temple's misleadingly-named floorDissolveSec has always blended; the Temple hides its floors on
-   frame one and so does this, because baseFloor is opaque MeshBasicMaterial and its own comment (index.html:1524)
-   forbids fading it (transparent:true there broke depth sort and painted the arena black). The eye still reads a
-   dissolve: wave 7's roadHideOldFloor retires the checker, the lattice and its halo at this same instant, the base
-   plane is 0x0c0a14 — within a shade of the night sky it is replaced by — and the stars then bloom in underneath over
-   0.8 s. _mlBlend SNAPS everywhere else: a player who skips the trainer is in the void on frame one, and a Temple visit
-   neither re-dissolves nor closes the world (moonlineOwns is temple-BLIND on purpose — SPEC §2, "the dojo and the
-   Temple now share the shell").
+                                                                                                                
+                                                                                                                       
+                                                                                                                      
+                                                                                                                   
+                                                                                                                     
+                                                                                                                  
+                                                                                                                 
+                                                                                                                   
+                                                                                                                      
+                                                                                                                        
+                                                                                                                  
+                                
 
-   FRAME BUDGET (SPEC §1 — computed at 1920×1080, desktop tier, shipped constants).
-     · DRAW CALLS: baseFloor −1, skyDome −1 (culled while the shell is solid: it is then 100% occluded, R 480 behind
-       R 400, and the dome writes no depth), milkyShell +1 → NET −1 in post-graduation play.
-     · PER FRAGMENT: what leaves is the dome's whole pass — 2 pow + 1 exp of gradient/haze over all 2.07 M fragments
-       plus CLOUD_OCTAVES(3 desktop / 2 mobile / 1 LOW) × vnoise(4 hash) = 12 sin+fract over the sky half — and
-       baseFloor's flat fill over the ~1.04 M ground fragments. What arrives is ONE bilinear texture fetch per fragment
-       over the full screen. Net per-pixel work goes DOWN; the trade is texture bandwidth for arithmetic.
-     · GEOMETRY: +1 sphere at the Temple's own segmentsFor tiers, unchanged — 2145 verts desktop (64×32), 1225 mobile
-       (48×24), 561 LOW (32×16).
-     · VRAM: the map is 3072×1536 (the 8k_ prefix is an upstream label, see assets/sky/README.md) = 18.0 MB RGBA8 +
-       6.0 MB of mips = 24.0 MB, resident during play instead of only inside the Temple. 180 KB on the wire, PRE-WARMED
-       at the first live frame (moonlineWarmShell) so the dissolve has nothing to wait for and graduation cannot hitch
-       on a decode.
-     · PER FRAME CPU: moonlineStep = one predicate (4 boolean reads), one compare, one assign; moonlineHideRoom = one
-       predicate, two latched compares, one visible write, one fog multiply. ZERO new allocations — no vector, no array,
-       no closure, no string, nowhere. The mirror pass was already dead under the road (renderReflection is gated on
-       !roadLive()), so the void neither adds to it nor claims credit for it.
-     · LOW-REZ (mandatory path): the shell is the Temple's LOW shell — reduced segments by segmentsFor({low:true}) and
-       NO reflection layer (ensureMilkyShell skips layers.enable(1) under LOW, matching dome/stars) — and the dome it
-       replaces was the cheapest thing on that tier already (uCloud 0), so the cull's saving there is the gradient only.
+                                                                                   
+                                                                                                                    
+                                                                                            
+                                                                                                                    
+                                                                                                               
+                                                                                                                       
+                                                                                                         
+                                                                                                                     
+                                
+                                                                                                                   
+                                                                                                                       
+                                                                                                                      
+                   
+                                                                                                                     
+                                                                                                                        
+                                                                                                                    
+                                                                             
+                                                                                                                      
+                                                                                                                     
+                                                                                                                        
 
-   SPAWN PITCH — REEVALUATED AND DELIBERATELY UNCHANGED (SPEC §2 asks for the distribution first; here it is).
-   Sampled over the shipped constants (projSpeed 28 → projSpeedFast 72, projGravity 16, rangeNear 8, rangeMax 28) at
-   bpm 28/40/50/60 against both the opening shell (rangeStart 11) and the full one, apparent elevation measured from the
-   eye as atan2(y−EYE, d·cos pit) with spawnTarget's own y≥2.2 clamp applied:
-     · the band is SYMMETRIC and eye-centred already — mean apparent elevation +0.00° … +0.18°, span exactly ±8.00°,
-       and exactly 50.0% of Echoes sit below the horizon line at every rung. There is no upward bias to correct: the
-       "upward bias" in CFG.beatSpawnPitchDeg's note is the NARROWING to 8° (from pitchSpreadDeg), not an asymmetry.
-     · the y≥2.2 clamp lifts 0.0% (opening shell, nothing is far enough — the full −8° drop is only cut past
-       d = 12.93 m) to 11.0% (bpm 50–60, full shell) of spawns, and it never moves one across the horizon line.
-     · so the void changes the BACKDROP for the same half of the field it always did, and it changes it from a near-black
-       plate (baseFloor 0x0c0a14 + fog — wave 7's road already retired the lattice at graduation) to a starfield. Both
-       are dark backdrops for an emissive orb: no legibility cliff a pitch change would fix.
-     · and pitch is a GAMEPLAY quantity. At ±8° the shot solved for dy=0 misses vertically by 1.25 m (k2 @ 9.00 m,
-       60 bpm) to 3.77 m (k6 @ 26.98 m) — the aim correction the band already demands of the beat-quantized model.
-       Widening to ±12° pushes clamped spawns to 20.0% and the k6 miss past 5.6 m, degrading the flight-time = k/16
-       promise the whole spawn law rests on. A RENDER parcel does not pay for a backdrop with the timing model.
-     · if the lower hemisphere ever does hurt, the lever is moonline.shellOpacity, not the spawn geometry: the milky band
-       can sit anywhere on the true sphere (the zenith included), so no pitch bias can dodge it.
+                                                                                                              
+                                                                                                                    
+                                                                                                                        
+                                                                             
+                                                                                                                    
+                                                                                                                    
+                                                                                                                    
+                                                                                                            
+                                                                                                               
+                                                                                                                         
+                                                                                                                      
+                                                                                            
+                                                                                                                  
+                                                                                                                  
+                                                                                                                   
+                                                                                                               
+                                                                                                                         
+                                                                                                
 
-   reduceMotion: IDENTICAL WORLD. The void is not motion — the shell is the same still sphere the Temple shows, the
-   dissolve is the Temple's own blend (which reduceMotion has never gated), and _mlBlend is a function of dt and nothing
-   else. Nothing here reads or writes a ballistic, spawn, spatial-audio or grading quantity: the treadmill law holds.
-   ========================================================================================================================== */
-let _mlBlend=0;      // 0 = the room, 1 = the void. NOT a per-frame follower: it SNAPS to its target and ramps only across the one graduation dissolve
-let _mlGrad=0;       // seconds left in that dissolve, and the ONLY reason _mlBlend is ever strictly between 0 and 1
-let _mlAir=0;        // the openness the AIR (the dome's haze band) was last written for — a BOUNDARY write, not a per-frame one. It starts at the 0 the room means, so with the parcel off the uniform is never touched at all
-let _mlDome=false;   // is the gradient dome currently culled behind a solid shell? one boolean, one write per boundary
-function moonlineOn(){ return !!(CFG.moonline && CFG.moonline.on) && !!(CFG.road && CFG.road.on); }   // the two raw booleans, kill-switch FIRST — and the road's own switch outranks this parcel because the Moonline IS the road
-function moonlineOwns(){ return moonlineOn() && !trainMode; }   // THE WORLD post-graduation is the void. Deliberately temple-BLIND: the Temple is a visit inside the same world, so the shell must not dip on the way in and the world must not re-dissolve on the way out
-function moonlineVoid(){ return moonlineOwns() && !templeActive; }   // …and this is what we are DRAWING right now — identically `moonline.on && roadLive()`, so every wave-7 road law inherits instead of being restated
-function moonlineWarmShell(){ return moonlineOn() && state.running; }   // THE PRE-WARM: the shell is the world the graduate lands in, and its map is 180 KB on the wire / 24.0 MB decoded. Built INVISIBLE at the first live frame — the trainer's included — so graduation cannot hitch on a decode. No draw cost while invisible, and nothing at all before a run starts or with either switch off
-function moonlineDissolveSec(){ return Math.max(0.05, +CFG.skyTemple.floorDissolveSec||0.8); }   // THE TEMPLE'S OWN CONSTANT and its own 0.05 floor (index.html:2479), verbatim: SPEC §2 asks for floorDissolveSec, not for a second duration to keep in sync
-function moonlineGraduate(){
-  // GRADUATION IS THE DISSOLVE. setTrainPhase(3) has already cleared trainMode when this is called, so moonlineOwns()
-  // is true exactly when a graduate is walking into the void — and one read with either switch off, where the phase
-  // change stays byte-identical. One-time per run: nothing re-arms _mlGrad, and it counting to 0 hands the blend back to its snap.
-  if(!moonlineOwns()) return false;
-  _mlGrad=moonlineDissolveSec(); return true;
-}
-function moonlineStep(dt){
-  // THE ONE WRITER of _mlBlend.
-  const target=moonlineOwns()?1:0;
-  if(_mlGrad>0 && target){ _mlGrad=Math.max(0,_mlGrad-dt); _mlBlend=1-_mlGrad/moonlineDissolveSec(); }   // the dissolve, and the only ramp there is
-  else { _mlGrad=0; _mlBlend=target; }                                                                   // everything else SNAPS: skipping the trainer opens the void on frame one, and a Temple visit holds it open rather than closing the world behind you
-}
-function moonlineHideRoom(){
-  // THE FOUR REMOVALS, stated as OVERRIDES on purpose: updateSky rewrites the floor visibilities, the fog density and
-  // the haze colour every tick from the ROOM's own laws, so the void states itself AFTER them and the kill-switch
-  // restores the room by simply not running — exactly the roadHideOldFloor pattern (index.html:2156). Returns whether it acted.
-  const on=moonlineVoid(), t=on?_mlBlend:0;
-  if(t!==_mlAir){ _mlAir=t; setScalarCached(skyDomeMat.uniforms.uHazeAmt,'value',1-t); }   // THE HORIZON HAZE: a bright band at the horizon is a claim that there is a ground under it. Steady in the void, steady in the room, written only when the openness actually changes
-  const cull=on && !!CFG.moonline.domeCull && !!milkyShell && _milkyReady && milkyShell.visible && milkyShell.material.opacity>=0.995;
-  if(cull!==_mlDome){ _mlDome=cull; skyDome.visible=!cull; }   // …and once the shell is SOLID the gradient dome is 100% occluded, so its whole full-screen pass is what pays for the shell. Fails OPEN: no SKY_MAPS, a failed decode or a mid-dissolve opacity all keep the dome exactly where it was
-  if(!on) return false;
-  if(baseFloor) baseFloor.visible=false;   // THE GROUND PLANE, dropped on the dissolve's first frame exactly as enterSkyTemple drops it (it is opaque, and index.html:1524 forbids fading it). What the eye reads as the dissolve is the sphere opening underneath — wave 7 already retired the checker/lattice/halo at this same instant
-  if(scene.fog) setScalarCached(scene.fog,'density', scene.fog.density*(1-t) + (+CFG.moonline.fogDensity||0)*t, 100000);   // THE GROUND FOG, read back from the room's own per-tick write and cleared by the dissolve — idempotent within a frame, and it never invents a density of its own
-  return true;
-}
+                                                                                                                   
+                                                                                                                        
+                                                                                                                     
+                                                                                                                                
+                                                                                                                                                      
+                                                                                                                    
+                                                                                                                                                                                                                               
+                                                                                                                       
+                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                              
+                            
+                                                                                                                      
+                                                                                                                    
+                                                                                                                                   
+                                   
+                                             
+ 
+                          
+                                
+                                  
+                                                                                                                                                    
+                                                                                                                                                                                                                                                              
+ 
+                            
+                                                                                                                      
+                                                                                                                  
+                                                                                                                                
+                                           
+                                                                                                                                                                                                                                                                                
+                                                                                                                                      
+                                                                                                                                                                                                                                                                                                      
+                       
+                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                             
+              
+ 
 
-/* ========================= SKY: stars, sun, moon, day/night ========================= */
-const skyGroup=new THREE.Group(); scene.add(skyGroup);        // the whole celestial sphere — rotates slowly so the sky drifts
-let starPts=null, starGeo=null;
-function buildStars(){
-  if(starPts) return;
-  const N=LOW?200:560, R=340;   // LOW: ~2.7× fewer additive star quads
-  const srnd = SKY_MODE==='decorative' ? Math.random : mulberry32(0x5EED0108);   // CLOCKED sky: seeded → the same heavens return every session and ride the clocked sphere; decorative keeps its fresh random sky
-  const PAL=[[1,1,1],[0.82,0.9,1],[1,0.95,0.82],[1,0.79,0.42],[1,0.5,0.46],[0.55,0.72,1]]; // white, blue-white, warm, yellow, red, blue
-  starGeo=new THREE.BufferGeometry();
-  const pos=new Float32Array(N*3), col=new Float32Array(N*3);
-  const phase=new Float32Array(N), rate=new Float32Array(N);
-  for(let k=0;k<N;k++){
-    const theta=srnd()*Math.PI*2, sy=1-2*srnd(), rr=Math.sqrt(Math.max(0,1-sy*sy));     // full sphere → rotation continually reveals new stars
-    const sx=rr*Math.cos(theta), sz=rr*Math.sin(theta);
-    pos[k*3]=sx*R; pos[k*3+1]=sy*R; pos[k*3+2]=sz*R;
-    const rv=srnd(), ci=rv<0.34?0:(rv<0.56?1:(rv<0.72?2:(rv<0.84?3:(rv<0.92?4:5))));
-    const b=0.45+srnd()*0.55;                                                  // inherent brightness varies (fakes size)
-    col[k*3]=PAL[ci][0]*b; col[k*3+1]=PAL[ci][1]*b; col[k*3+2]=PAL[ci][2]*b;
-    phase[k]=srnd()*6.283; rate[k]=0.6+srnd()*2.4;
-  }
-  starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  starGeo.setAttribute('color', new THREE.BufferAttribute(col,3));
-  starGeo.setAttribute('aPhase', new THREE.BufferAttribute(phase,1));
-  starGeo.setAttribute('aRate', new THREE.BufferAttribute(rate,1));
-  const mat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false,
-    uniforms:{uTime:{value:0},uOpacity:{value:1},uSize:{value:4.4}},
-    vertexShader:[
-      'attribute vec3 color; attribute float aPhase,aRate; uniform float uTime,uSize; varying vec3 vColor;',
-      'void main(){ float tw=0.30+0.35*(1.0+sin(uTime*aRate+aPhase)); vColor=color*tw; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_PointSize=uSize; }'
-    ].join('\n'),
-    fragmentShader:[
-      'uniform float uOpacity; varying vec3 vColor;',
-      'void main(){ float d=length(gl_PointCoord-vec2(0.5)); float a=smoothstep(0.5,0.0,d)*uOpacity; if(a<=0.001) discard; gl_FragColor=vec4(vColor,a); }'
-    ].join('\n')});
-  starPts=new THREE.Points(starGeo, mat); starPts.frustumCulled=false; if(!LOW) starPts.layers.enable(1);
-  (SKY_MODE==='decorative'?skyGroup:skySphere).add(starPts);   // LOW: don't draw stars in the (skipped) reflection layer. clocked* fallback (sticks fixture missing): stars ride the CELESTIAL SPHERE so the sky stays one coherent rotation — never two skies on different axes
-}
-function updateStars(t){ if(starPts && starPts.material.uniforms.uOpacity.value>0.01) starPts.material.uniforms.uTime.value=t; }
-// --- sun & moon: same tilted circular orbit, 180° apart, carried by skyGroup's rotation ---
-function discTex(stops){
-  const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
-  const grd=g.createRadialGradient(64,64,0,64,64,64); for(const s of stops) grd.addColorStop(s[0],s[1]);
-  g.fillStyle=grd; g.fillRect(0,0,128,128); return new THREE.CanvasTexture(c);
-}
-const SUN_R=270, sunU=new THREE.Vector3(1,0,0.25).normalize(), skyV=new THREE.Vector3(0,1,0);
-const orbitAxis=new THREE.Vector3().crossVectors(sunU, skyV).normalize();
-const sunTex=discTex([[0,'rgba(255,250,232,1)'],[0.16,'rgba(255,241,196,1)'],[0.30,'rgba(255,205,120,0.8)'],[0.55,'rgba(255,150,70,0.22)'],[1,'rgba(255,140,60,0)']]);
-const moonTex=discTex(GLOW
-  ? [[0,'rgba(255,255,255,1)'],[0.16,'rgba(242,247,255,1)'],[0.30,'rgba(216,228,250,0.60)'],[0.55,'rgba(192,207,238,0.22)'],[1,'rgba(176,193,228,0)']]   // GLOW: hot white core + wide soft corona (key-art moon)
-  : [[0,'rgba(246,249,255,1)'],[0.40,'rgba(228,234,247,0.97)'],[0.5,'rgba(205,214,235,0.5)'],[0.72,'rgba(180,195,225,0.16)'],[1,'rgba(170,188,222,0)']]);
-const sun=new THREE.Sprite(new THREE.SpriteMaterial({map:sunTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, fog:false}));
-sun.scale.set(54,54,1); sun.position.copy(sunU).multiplyScalar(SUN_R); skyGroup.add(sun);
-const moon=new THREE.Sprite(new THREE.SpriteMaterial({map:moonTex, transparent:true, depthWrite:false, fog:false}));
-const MOON_SCALE=GLOW?50:34;   // GLOW: bigger sprite so the baked corona reads at distance
-moon.scale.set(MOON_SCALE,MOON_SCALE,1); moon.position.copy(sunU).multiplyScalar(-SUN_R); skyGroup.add(moon);
+                                                                                          
+                                                                                                                              
+                               
+                      
+                     
+                                                                       
+                                                                                                                                                                                                                  
+                                                                                                                                        
+                                     
+                                                             
+                                                            
+                       
+                                                                                                                                               
+                                                       
+                                                    
+                                                                                    
+                                                                                                                         
+                                                                            
+                                                  
+   
+                                                                     
+                                                                  
+                                                                     
+                                                                   
+                                                                                                                  
+                                                                    
+                  
+                                                                                                            
+                                                                                                                                                                              
+                 
+                    
+                                                     
+                                                                                                                                                          
+                   
+                                                                                                         
+                                                                                                                                                                                                                                                                                 
+ 
+                                                                                                                                
+                                                                                             
+                        
+                                                                                             
+                                                                                                        
+                                                                              
+ 
+                                                                                             
+                                                                         
+                                                                                                                                                                      
+                          
+                                                                                                                                                                                                                  
+                                                                                                                                                         
+                                                                                                                                                   
+                                                                                         
+                                                                                                                    
+                                                                                           
+                                                                                                             
 
-// clouds are now PROCEDURAL — FBM noise painted in the sky-dome shader (skyDomeMat): they drift, fade in with day, and reflect in the floor for free
+                                                                                                                                                     
 
-// --- day/night driver ---
-/* ---- gradient sky dome: deeper overhead, lighter at the horizon (a paraboloid-ish backdrop) ---- */
-const CLOUD_OCTAVES = LOW ? 1 : (MOBILE ? 2 : 3);   // LOW: 1 octave = ~3× fewer per-pixel sin() over the full-screen sky dome; still reads as drifting cloud banding (very PS1)
-const skyDomeMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, depthTest:false, fog:false,
-  uniforms:{ uHor:{value:new THREE.Color(0x0e1626)}, uZen:{value:new THREE.Color(0x010109)}, uHaze:{value:new THREE.Color(0xbcd8f0)},
-             uCloudCol:{value:new THREE.Color(0xffffff)}, uTime:{value:0}, uCloud:{value:0}, uWind:{value:new THREE.Vector2(0.006,0.004)},
-             uTemple:{value:0}, uHazeAmt:{value:1} },   // uHazeAmt: THE VOID (wave 8, parcel T) fades the horizon HAZE BAND out with the dissolve — a bright band at the horizon claims there is a ground under it. 1 = the room's shipped haze, and the shader multiplies by exactly 1.0 with moonline.on:false, so wave-7 pixels are bit-identical. Sky Temple: open the full sphere — nadir becomes deep sky, not a flat black void under the dissolved floor
-  vertexShader:'varying vec3 vDir; void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-  fragmentShader:[
-    'uniform vec3 uHor,uZen,uHaze,uCloudCol; uniform float uTime,uCloud,uTemple,uHazeAmt; uniform vec2 uWind; varying vec3 vDir;',
-    'float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }',
-    'float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=hash(i),b=hash(i+vec2(1.0,0.0)),c=hash(i+vec2(0.0,1.0)),d=hash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
-    'float fbm(vec2 p){ float v=0.0,a=0.5; for(int k=0;k<'+CLOUD_OCTAVES+';k++){ v+=a*vnoise(p); p=p*2.0+11.3; a*=0.5; } return v; }',
-    'void main(){ float el=vDir.y; float elUp=pow(clamp(el,0.0,1.0),0.30); float elDn=pow(clamp(-el,0.0,1.0),0.30);',
-    '  float elev=mix(elUp, max(elUp,elDn), clamp(uTemple,0.0,1.0));',   // dojo: only sky above; temple: nadir mirrors zenith so looking down is still sky
-    '  vec3 c=mix(uHor,uZen,elev); c=mix(c,uHaze,exp(-abs(el)/'+(GLOW?'0.085':'0.05')+')*'+(GLOW?'0.62':'0.55')+'*uHazeAmt);',   // GLOW: taller/stronger horizon haze band (the milky mist the key art has)
-    '  if(el>0.03 && uCloud>0.001){ vec2 cuv=vDir.xz/el*0.55+uTime*uWind; float n=fbm(cuv); float cov=smoothstep(0.50,0.72,n)*smoothstep(0.05,0.32,el)*uCloud; c=mix(c,uCloudCol,cov); }',
-    '  gl_FragColor=vec4(c,1.0); }'
-  ].join('\n') });
-const skyDome=new THREE.Mesh(new THREE.SphereGeometry(480,32,16), skyDomeMat);
-skyDome.frustumCulled=false; skyDome.renderOrder=-1000; skyDome.layers.enable(1); scene.add(skyDome);
+                           
+                                                                                                      
+                                                                                                                                                                                
+                                                                                                              
+                                                                                                                                     
+                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                              
+                  
+                                                                                                                                  
+                                                                                    
+                                                                                                                                                                                                                 
+                                                                                                                                      
+                                                                                                                     
+                                                                                                                                                           
+                                                                                                                                                                                                            
+                                                                                                                                                                                          
+                                   
+                  
+                                                                              
+                                                                                                     
 
-/* ---- TRUE planar reflection of the sky in the floor (mirror camera → render target, sampled in the floor shader) ---- */
-[starPts, sun, moon].forEach(o=>{ if(o) o.layers.enable(1); });   // sky objects also live on layer 1 = the reflection-only pass
-const reflRT=new THREE.WebGLRenderTarget(2,2,{minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter, depthBuffer:false});
-const mirrorCam=new THREE.PerspectiveCamera(); mirrorCam.matrixAutoUpdate=false;
-const REFL_M=new THREE.Matrix4().makeScale(1,-1,1);          // reflect about the floor plane y=0
-const REFL_SCALE = MOBILE ? 0.22 : 0.28, REFL_INTERVAL = MOBILE ? 1/6 : 1/8, REFL_IDLE_INTERVAL = 1/3;
-let reflResDirty=true, lastReflT=-999;
-function sizeRefl(){
-  const pr=renderer.getPixelRatio();
-  reflRT.setSize(Math.max(2,Math.round(viewW*pr*REFL_SCALE)), Math.max(2,Math.round(viewH*pr*REFL_SCALE)));
-  reflResDirty=true;
-}
-sizeRefl();
-let frameAvg=1/60, perfCooldown=0;
-function setRenderDpr(next){
-  next=Math.max(DPR_MIN, Math.min(DPR_MAX, Math.round(next*100)/100));
-  if(Math.abs(next-renderDpr)<0.01) return false;
-  renderDpr=next; renderer.setPixelRatio(renderDpr); renderer.setSize(viewW, viewH); sizeRefl();
-  return true;
-}
-function updateRenderQuality(dt){
-  if(!state.running) return;
-  frameAvg += (dt-frameAvg)*0.035;
-  if(perfCooldown>0){ perfCooldown-=dt; return; }
-  if(frameAvg>1/45 && renderDpr>DPR_MIN+0.01){ if(setRenderDpr(renderDpr-0.15)) perfCooldown=1.5; }
-  else if(frameAvg<1/58 && renderDpr<DPR_MAX-0.01){ if(setRenderDpr(renderDpr+0.10)) perfCooldown=4.0; }
-}
-function syncReflUniformSize(){
-  const fsh=dayFloor && dayFloor.material.userData.sh;
-  if(!fsh || !reflResDirty || !fsh.uniforms.uRes) return;   // uRes guard: LOW compiles the reflection (and its uniforms) out entirely
-  renderer.getDrawingBufferSize(_dbs); fsh.uniforms.uRes.value.copy(_dbs); reflResDirty=false;
-}
-function renderReflection(){
-  if(LOW) return;   // LOW: skip the entire second scene render (the mirror sky) — the biggest single GPU saving; uMirN=1e6 above makes the floor ignore the (unrendered) reflection RT and just fade to fog
-  if(skyT-lastReflT<(state.running?REFL_INTERVAL:REFL_IDLE_INTERVAL)) return;
-  lastReflT=skyT;
-  camera.updateMatrixWorld();
-  mirrorCam.projectionMatrix.copy(camera.projectionMatrix);
-  mirrorCam.matrixWorld.multiplyMatrices(REFL_M, camera.matrixWorld); mirrorCam.matrixWorldNeedsUpdate=false;
-  mirrorCam.matrixWorldInverse.copy(mirrorCam.matrixWorld).invert();
-  mirrorCam.layers.set(1);
-  const prev=renderer.getRenderTarget();
-  renderer.setRenderTarget(reflRT); renderer.render(scene, mirrorCam); renderer.setRenderTarget(prev);
-}
-let dayPhase=0.82, skyFrozen=false;                          // dayPhase: theatre/fallback 0=sunrise, .25=noon, .5=sunset, .75=midnight. skyFrozen: theatre/decorative only
-/* CELESTIAL SPHERE ATTITUDE (SKY_MODE clocked/clocked_chart): longitudes stay epoch-true ON one sphere (sticks,
-   chart, ☉/☽). NATURAL + observer replaces the old noon anchor with a true UTC/local-horizon attitude; lighting
-   still reads the transformed ☉. THEATRE and location-unset NATURAL retain the original dayPhase spin below.
-   FREEZE: theatre only (pretty sunsets). Natural has no freeze — live wall clock only (R-CLICK still dismisses Listen).
-   Civil fallback mapping: 06:00→0 · 12:00→.25 · 18:00→.5 · 00:00→.75. */
-function clockedDayPhase(ms){ const d=new Date(ms); return ((d.getHours()+d.getMinutes()/60+d.getSeconds()/3600)/24 + 0.75) % 1; }
-if(SKY_MODE!=='decorative') dayPhase=clockedDayPhase(Date.now());   // theatre: the one-time civil seed; natural: redundant (re-read each tick) but keeps frame one honest
-const DAY_SLOW=0.32, DAY_FAST=4.2;                           // ease time: ~half the cycle in dawn/dusk, hurry through deep day/night (period preserved)
-const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  // night grid: green, amber, red ([line,cell])
-let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
-function setNightGrid(lineCol, cellCol){                      // recreate the grid lines in a new colour
-  if(nightGrid){ scene.remove(nightGrid); nightGrid.geometry.dispose(); nightGrid.material.dispose(); }
-  nightGrid=new THREE.GridHelper(620, LOW?80:310, lineCol, cellCol); nightGrid.position.y=0.02;   // LOW: coarser grid (80 vs 310); normal unchanged
-  nightGrid.material.transparent=true; nightGrid.material.depthWrite=false; nightGrid.material.opacity=0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
-  if(glowGrid) glowGrid.material.color.setHex(lineCol);   // GLOW halo follows each night's grid colour roll
-}
-const SKY_NIGHT=new THREE.Color(0x05060e), SKY_DAY=new THREE.Color(0x5e93cf), SKY_DUSK=new THREE.Color(0xd0743a);
-const HOR_NIGHT=new THREE.Color(GLOW?0x16203a:0x0e1626), HOR_DAY=new THREE.Color(0x9ec9ee), HOR_DUSK=new THREE.Color(0xef8a3c);  // horizon: lighter / warmer (haze). GLOW: night horizon lifted to a milkier indigo (sky+fog+background all follow _hor)
-const ZEN_NIGHT=new THREE.Color(0x010109), ZEN_DAY=new THREE.Color(0x0f4a92), ZEN_DUSK=new THREE.Color(0x3a2c70);  // zenith: deep, saturated overhead
-const WHITE=new THREE.Color(0xffffff);
-const LITE_NIGHT=new THREE.Color(0x44557f), LITE_DAY=new THREE.Color(0xfff1d6);
-const AMB_NIGHT=new THREE.Color(0x0e1220), AMB_DAY=new THREE.Color(0x9fb1cc);
-const CLOUD_WHITE=new THREE.Color(0xeef3fb);
-const _sky=new THREE.Color(), _amb=new THREE.Color(), _lite=new THREE.Color(), _cloud=new THREE.Color(), sunDir=new THREE.Vector3(), _liteDir=new THREE.Vector3(), _dbs=new THREE.Vector2(), _hor=new THREE.Color(), _zen=new THREE.Color(), _haze=new THREE.Color();
-function smooth(a,b,x){ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); }
-function setScalarCached(obj, prop, value, scale){
-  scale=scale||1000; const q=Math.round(value*scale), k='_q_'+prop;
-  if(obj[k]!==q){ obj[k]=q; obj[prop]=q/scale; }
-}
+                                                                                                                           
+                                                                                                                                
+                                                                                                                              
+                                                                                
+                                                                                                 
+                                                                                                      
+                                      
+                    
+                                    
+                                                                                                           
+                    
+ 
+           
+                                  
+                            
+                                                                      
+                                                 
+                                                                                                
+              
+ 
+                                 
+                            
+                                  
+                                                 
+                                                                                                   
+                                                                                                        
+ 
+                               
+                                                      
+                                                                                                                                      
+                                                                                              
+ 
+                            
+                                                                                                                                                                                                            
+                                                                             
+                 
+                             
+                                                           
+                                                                                                             
+                                                                    
+                          
+                                        
+                                                                                                      
+ 
+                                                                                                                                                                           
+                                                                                                                
+                                                                                                                
+                                                                                                             
+                                                                                                                        
+                                                                         
+                                                                                                                                  
+                                                                                                                                                                          
+                                                                                                                                                        
+                                                                                                                              
+                                                                                                            
+                                                                                                        
+                                                                                                       
+                                                                                                                                                    
+                                                                                                                                                            
+                                                                                                            
+ 
+                                                                                                                 
+                                                                                                                                                                                                                                                         
+                                                                                                                                                      
+                                      
+                                                                               
+                                                                             
+                                            
+                                                                                                                                                                                                                                                                     
+                                                                                          
+                                                  
+                                                                   
+                                                
+ 
                        
                                                                                                         
                                                                                             
@@ -7582,7 +7803,8 @@ function setScalarCached(obj, prop, value, scale){
                        
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                       
                                                                                                                                                                                                                                                                                            
@@ -7591,7 +7813,7 @@ function setScalarCached(obj, prop, value, scale){
                                                                                                                                                                            
                                                                                                                                                                                                    
                                                                              
-                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                          
                                                                                                            
                                                                                         

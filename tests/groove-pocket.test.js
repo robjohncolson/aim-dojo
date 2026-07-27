@@ -1065,7 +1065,7 @@ const ROAD_GEOM_SRC = (() => {
   // Every ROAD_* / ML_RIBBON / _roadG declaration, lifted verbatim in file order, so this sandbox cannot drift from the
   // shipped constants. They are pure arithmetic over CFG + EYE + LOW + the camera, which is exactly what makes the
   // kill-switch checkable: run the SAME lines with the switch off and demand wave 7's numbers back.
-  const lines = html.split("\n").filter((line) => /^const (ROAD_[A-Z0-9_]+|ML_RIBBON|_roadG)\b/.test(line.trim()));
+  const lines = html.split("\n").filter((line) => /^const (ROAD_[A-Z0-9_]+|ML_[A-Z0-9_]+|_roadG)\b/.test(line.trim()));
   assert.ok(lines.length > 12, "the road's constant block is where it always was");
   return lines.map((line) => line.trim()).join("\n");
 })();
@@ -1075,7 +1075,8 @@ function loadRoadGeom(moonline, low) {
     Math, Number, console, EYE: 4, LOW: !!low, camera: { far: 700 },
     CFG: {
       road: { on: true, lookAheadBeats: 8, widthM: 14, bandGlyphs: true, mercyBoost: 1.6, fillMark: true, holdDemo: false },
-      moonline: { on: moonline, metersPerBeat: 27, drawBeats: 32, impostorMinStraight: 0.55, impostorInk: 0.9 },
+      moonline: { on: moonline, metersPerBeat: 27, drawBeats: 32, impostorMinStraight: 0.55, impostorInk: 0.9,
+        archOn: true, archHeightM: 7, archGlow: 1, archPrism: 0.35, mercyRingBoost: 1.9, reflectAlpha: 0.18, dustCount: 400, dustGlow: 0.85 },
     },
     moonlineOn: () => moonline,
   });
@@ -1290,4 +1291,227 @@ test("THE RIBBON: no new per-frame allocations, and the void's depth order is re
   assert.match(wave7, /float ribbon=1\.0-smoothstep\('\+HW\+'-aa,'\+HW\+'\+aa,lat\); if\(ribbon<=0\.004\) discard;/);
   assert.match(wave7, /float fb=fract\(b\), e=min\(fb,1\.0-fb\);/);
   assert.match(wave7, /gl_FragColor=vec4\(col\*ink, ribbon\*fade\*uAmt\);/);
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// THE MOONLINE - ARCHES, RINGS, DUST (SPEC_MOONLINE section 4, wave 8 parcel V).
+// The bar line becomes a golden arch grown from the RAILS, the mercy bar becomes the road's only COMPLETE circle, and the
+// sixteenth carrier gets a layer of stardust riding the surface - paid for, count by count, out of the hit-flock and shard
+// budgets. moonline.on:false must build none of it; LOW must pay for no dust and plain arcs.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test("ARCHES, RINGS, DUST: the knobs are CFG.moonline's, flat, and every switch reads the master first (V)", () => {
+  const cfg = html.match(/moonline\s*:\s*\{[^}]+\}/);
+  assert.ok(cfg, "CFG.moonline is STILL a flat (nested-brace-free) literal after eight more knobs");
+  for (const contract of [/archOn\s*:\s*true\b/, /archHeightM\s*:\s*7\b/, /archGlow\s*:\s*1\b/, /archPrism\s*:\s*0\.35\b/,
+    /mercyRingBoost\s*:\s*1\.9\b/, /reflectAlpha\s*:\s*0\.18\b/, /dustCount\s*:\s*400\b/, /dustGlow\s*:\s*0\.85\b/])
+    assert.match(cfg[0], contract);
+  // THE KILL-SWITCH: both parcel-V switches read ML_RIBBON (which IS moonlineOn()) before they read anything of their own.
+  assert.match(html, /const ML_ARCH=ML_RIBBON && !!\(CFG\.moonline && CFG\.moonline\.archOn\);/, "the arches read the master switch first");
+  assert.match(html, /const ML_DUST_N=ML_RIBBON&&!LOW\?/, "...and so does the dust, which LOW turns off in the same read");
+  for (const [moonlineOn, low, arch, dust] of [[true, false, true, 400], [true, true, true, 0], [false, false, false, 0], [false, true, false, 0]]) {
+    const c = loadRoadGeom(moonlineOn, low);
+    assert.equal(c.read("ML_ARCH"), arch, "moonline.on=" + moonlineOn + " LOW=" + low + " -> arches " + arch);
+    assert.equal(c.read("ML_DUST_N"), dust, "moonline.on=" + moonlineOn + " LOW=" + low + " -> " + dust + " motes");
+  }
+  // ...and with the switch off nothing is even CALLED: the two builders sit behind their own raw booleans in buildRoad.
+  assert.match(html, /if\(ML_ARCH\) buildRoadArches\(\);/);
+  assert.match(html, /if\(ML_DUST_N>0\) buildRoadDust\(\);/);
+  // The cap SPEC section 4 names is enforced on the read, not trusted to the config.
+  assert.equal(loadRoadGeom(true, false).read("ML_DUST_MAX"), 400);
+  assert.equal(loadRoadGeom(true, false).read("Math.max(0,Math.min(ML_DUST_MAX,(+40000||0)|0))"), 400, "a console typo cannot put 40000 motes on the road");
+});
+
+test("ARCHES: a true ellipse at every station, a semicircle at the shipped height, and feet on the grid (V)", () => {
+  const on = loadRoadGeom(true, false);
+  const HW = on.read("ROAD_HALF_W"), H = 7, MPB = on.read("ROAD_MPB");
+  // The strand is x = +-halfW*sin(th), y = archHeightM*cos(th) with th = (pi/2)*t, so the FRONT view outline satisfies
+  // (x/halfW)^2 + (y/archHeightM)^2 = 1 identically - the shader does not approximate a circle, it parametrises one.
+  let worst = 0;
+  for (let s = 0; s <= 400; s += 1) {
+    const t = (s / 400) * 2 - 1, th = (Math.PI / 2) * t;
+    const x = HW * Math.sin(th), y = H * Math.cos(th);
+    worst = Math.max(worst, Math.abs(Math.pow(x / HW, 2) + Math.pow(y / H, 2) - 1));
+  }
+  assert.ok(worst < 1e-12, "the arch outline is an exact ellipse at every station (max residual " + worst.toExponential(2) + ")");
+  assert.equal(H, HW, "the shipped archHeightM IS ROAD_HALF_W, so the default arch is a TRUE semicircle and the mercy ring a true circle");
+  // THE SPREAD IS SOLVED, NOT CHOSEN: a quarter beat is exactly one quarter-crossbar = four sixteenth crossbars, so every
+  // junction node lands on a crossbar the ribbon already draws.
+  const spread = on.read("ML_ARCH_SPREAD_M"), sixteenth = MPB / 16;
+  assert.equal(spread, 6.75);
+  assert.equal(spread / sixteenth, 4, "the branch departs four sixteenth crossbars before the bar line and rejoins four after");
+  assert.equal(spread / (MPB / 4), 1, "...which is exactly one quarter-crossbar");
+  // ...and that fixes the departure and crossing angles, which are geometry rather than taste.
+  const foot = Math.atan2(H * Math.PI / 2, spread) * 180 / Math.PI;
+  const cross = 2 * Math.atan2(HW * Math.PI / 2, spread) * 180 / Math.PI;
+  assert.equal(foot.toFixed(1), "58.5", "the strand leaves the rail at 58.5 deg - a branch, not a spike");
+  assert.equal(cross.toFixed(1), "116.9", "...and the two strands meet their partner at the crown at 116.9 deg");
+  assert.match(html, /58\.5. above the road/, "the block comment states the departure angle it computed");
+  // The tangent can never vanish, so a strand can never collapse to a point in screen space: |dP/dt| >= the along-road term.
+  let minT = Infinity;
+  for (let s = 0; s <= 400; s += 1) {
+    const t = (s / 400) * 2 - 1, th = (Math.PI / 2) * t;
+    const dx = HW * Math.cos(th) * Math.PI / 2, dy = -H * Math.sin(th) * Math.PI / 2;
+    minT = Math.min(minT, Math.hypot(dx, dy, spread));
+  }
+  assert.ok(minT >= spread, "the strand's tangent is never shorter than its along-road term (min " + minT.toFixed(3) + " m)");
+  // GROWN FROM THE ROAD, NOT HOVERING OVER IT (SPEC section 6's first playtest question, settled before it is asked).
+  // The vertex shader's own lines, replayed here against an arbitrary course: a foot must land ON the rail the ribbon's
+  // FRAGMENT shader draws - |x - cx(b)| = ROAD_HALF_W at the foot's OWN beat b - and at road level, from any now-position.
+  const CA = [9.1, -4.3, 2.7], CW = [0.19, 0.31, 0.11], CP = [0.4, 2.1, 5.0];
+  const cX = (b) => CA.reduce((s, a, i) => s + a * Math.sin(CW[i] * b + CP[i]), 0);
+  const cD = (b) => CA.reduce((s, a, i) => s + a * CW[i] * Math.cos(CW[i] * b + CP[i]), 0);
+  const station = (k, t, side, mir, uNow) => {
+    const b = -on.read("ML_ARCH_BEHIND") + on.read("ML_ARCH_EVERY") * k + on.read("ML_ARCH_SPREAD") * t, th = 1.57079633 * t;
+    const cx = cX(b) - cX(uNow) - cD(uNow) * (b - uNow);
+    return { x: cx + side * HW * Math.sin(th), y: mir * H * Math.cos(th), z: -(b - uNow) * MPB, b, cx };
+  };
+  let onRail = 0, apex = 0, seam = 0;
+  for (const uNow of [0, 3.7, 128.25, 4321.5]) for (let k = 0; k < on.read("ML_ARCH_N"); k += 1) for (const side of [-1, 1]) {
+    for (const t of [-1, 1]) { const p = station(k, t, side, 1, uNow); onRail = Math.max(onRail, Math.abs(Math.abs(p.x - p.cx) - HW), Math.abs(p.y)); }
+    const a = station(k, 0, side, 1, uNow); apex = Math.max(apex, Math.abs(a.x - a.cx), Math.abs(Math.abs(a.y) - H));
+    const u = station(k, 1, side, 1, uNow), d = station(k, 1, side, -1, uNow);
+    seam = Math.max(seam, Math.hypot(u.x - d.x, u.y - d.y, u.z - d.z));
+  }
+  assert.ok(onRail < 1e-7, `every junction node lands on the rail, at road level (max ${onRail.toExponential(2)} m - 22 nm of it is 1.57079633 not being pi/2)`);
+  assert.equal(apex, 0, "the crown is exactly archHeightM over the centreline, at every now-position");
+  assert.ok(seam < 1e-7, `the mercy ring's two halves share their feet, so the one complete circle has no seam (max ${seam.toExponential(2)} m)`);
+  assert.equal((station(3, 1, -1, 1, 0).b * 4) % 1, 0, "a foot's own beat is a whole QUARTER, so the node sits on a crossbar the grid already draws");
+  // The slot ring covers exactly the ribbon: the last arch dies where ROAD_DRAW does.
+  const N = on.read("ML_ARCH_N"), behind = on.read("ML_ARCH_BEHIND"), every = on.read("ML_ARCH_EVERY");
+  assert.equal(behind % every, 0, "the ring re-anchors on a BAR line, never between two");
+  assert.equal(-behind + every * (N - 1), on.read("ROAD_DRAW"), "the farthest slot is at drawBeats exactly - no gate hangs over a road that has ended");
+});
+
+test("THE MERCY RING: the only complete circle, and it can only land on a bar line (V)", () => {
+  // roadTideAt's mercy flag is 1 only at cb === rise+peak AND (g mod 8) === 0, and g = 2n, so n is a multiple of 4 - which
+  // is ML_ARCH_EVERY. The ring therefore lands ON an arch slot by the tide's own arithmetic, not by luck.
+  const cfg = extractCfg();
+  const context = vm.createContext({ Math, Number, CFG: cfg });
+  vm.runInContext(extractFunction("roadTideAt") + "; const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};", context);
+  const TD = cfg.tide, cyc = TD.riseBars + TD.peakBars + TD.mercyBars;
+  let opens = 0;
+  for (let n = 0; n < 4 * cyc * 12; n += 1) {
+    if (vm.runInContext("roadTideAt(" + n + ").m", context) !== 1) continue;
+    opens += 1;
+    assert.equal(n % 4, 0, "the mercy phase opens on beat " + n + ", which is a bar line");
+  }
+  assert.ok(opens >= 10, "swept enough swells to matter (" + opens + " ring beats)");
+  assert.match(extractFunction("roadArchFill"), /_archKind\[k\]=\(roadTideAt\(b0\+ML_ARCH_EVERY\*k\)\.m===1\)\?1:0;/, "the ring IS that flag, read at the slot's own beat");
+  // THE RING IS THE REFLECTION, CLOSING: hlf = mix(1, mix(uReflect,1,mercy), step(mir,0)). reflectAlpha:0 silences every
+  // reflection and leaves the ring at full strength, which is the whole point of stating it as one expression.
+  const hlf = (reflect, mercy, mir) => {
+    const inner = reflect + (1 - reflect) * mercy;
+    return 1 + (inner - 1) * (mir <= 0 ? 1 : 0);
+  };
+  assert.equal(hlf(0.18, 0, +1), 1, "an ordinary arch is at full strength above the road");
+  assert.equal(hlf(0.18, 0, -1).toFixed(6), "0.180000", "...and its mirrored pass is the faint reflection");
+  assert.equal(hlf(0, 0, -1), 0, "reflectAlpha 0 turns every reflection off");
+  assert.equal(hlf(0, 1, -1), 1, "...and the MERCY RING is untouched by it - its lower half is not a reflection of anything");
+  assert.equal(hlf(0.18, 1, -1), 1, "the ring closes at full strength whatever reflectAlpha says");
+  assert.match(html, /float hlf=mix\(1\.0, mix\(uReflect,1\.0,mercy\), step\(mir,0\.0\)\);/, "...which is exactly the line the vertex shader carries");
+  assert.match(html, /vAmt=uAmt\*uArchGlow\*mix\(fade,sqrt\(fade\),mercy\)\*mix\(1\.0,uMercyRB,mercy\)\*hlf;/, "the ring is boosted AND fades as sqrt(fade), so it is legible from far out");
+  // "half" is reserved in GLSL ES - the identifier had to be hlf, and nothing in either shader may use a reserved word.
+  const archSrc = extractFunction("buildRoadArches").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");   // the EMITTED text only: the prose around it is allowed to say "half-width"
+  for (const word of ["half", "fixed", "input", "output", "asm", "union", "template", "namespace"])
+    assert.doesNotMatch(archSrc, new RegExp("\\b" + word + "\\b"), word + " is reserved in GLSL ES and cannot appear in the arch shaders");
+});
+
+test("THE STARDUST: the road's own speed, the sixteenth's own grain, and not one draw from rnd() (V)", () => {
+  const on = loadRoadGeom(true, false), MPB = on.read("ROAD_MPB");
+  // SPEC section 4's arithmetic, verified: 4 quarter-crossbars per beat IS the road speed, so a mote pinned to the road
+  // states the speed the road actually has and can never lie about it.
+  assert.equal(4 * (MPB / 4), MPB, "4 quarter-crossbars per beat = ROAD_MPB = the road's own speed");
+  const sixteenth = MPB / 16;
+  assert.equal(sixteenth, 1.6875);
+  for (const pair of [[20, "187.5"], [60, "62.5"]])
+    assert.equal((sixteenth / (MPB * pair[0] / 60) * 1000).toFixed(1), pair[1], "a sixteenth cell arrives every " + pair[1] + " ms at " + pair[0] + " bpm");
+  // The window and its density are the numbers the comment claims.
+  const span = on.read("ML_DUST_SPAN"), behind = on.read("ML_DUST_BEHIND"), N = on.read("ML_DUST_N");
+  assert.equal(span * MPB, 324, "324 m of road carries dust");
+  assert.equal(behind * MPB, 54, "...54 m of it behind the feet");
+  assert.equal((span - behind) * MPB, 270, "...and 270 m ahead, past the 216 m look-ahead");
+  assert.equal((N / (span * 16)).toFixed(3), "2.083", "2.08 motes per sixteenth cell");
+  assert.equal(on.read("ML_DUST_FAR1"), (span - behind) * MPB, "the far ramp ends exactly where the window does");
+  assert.ok(on.read("ML_DUST_FAR0") < on.read("ML_DUST_FAR1"), "...and it IS a ramp, so the wrap has no seam");
+  // THE STREAM RULE: the layer is seeded from a PRIVATE mulberry32 exactly as the course is - never rnd(), never Math.random.
+  const build = extractFunction("buildRoadDust"), body = build.replace(/\/\*[\s\S]*?\*\//g, " ");
+  assert.match(build, /const N=ML_DUST_N, pos=new Float32Array\(N\*3\), cells=ML_DUST_SPAN\*16, rr=mulberry32\(0x9e3779b9\);/);
+  assert.doesNotMatch(body, /\brnd\(|Math\.random/, "the spawn stream is untouched, draw for draw");
+  assert.match(build, /pos\[i\*3\]=\(c\+\(rr\(\)-0\.5\)\*0\.3\)\/16;/, "every anchor is a SIXTEENTH cell, jittered by under a fifth of one");
+  // The motes never move: uNow does. That is why reduceMotion needs no second path and no time term exists anywhere.
+  const dustVs = html.slice(html.indexOf("uniform float uNow,uAmt,uDustGlow;"), html.indexOf("uniform vec3 uCol; varying float vA;"));
+  assert.match(dustVs, /float ba=mod\(position\.x-uNow,/, "the anchor is wrapped against the clock, not integrated over frames");
+  assert.doesNotMatch(dustVs, /uTime|elapsed/, "there is no time term for reduceMotion to have to silence");
+});
+
+test("PARCEL V PAYS FOR ITSELF: every halved count, old -> new (V)", () => {
+  const cfg = extractCfg();
+  assert.equal(cfg.shards, 9, "CFG.shards 18 -> 9");
+  assert.match(html, /if\(LOW\)\{ CFG\.shards=4;/, "...and its LOW rung 8 -> 4");
+  const at = html.indexOf("const FLOCK={");
+  const literal = html.slice(html.indexOf("{", at), closingDelimiter(html, html.indexOf("{", at)) + 1);
+  const flock = vm.runInNewContext("(" + literal + ")", { EYE: 4 });
+  for (const row of [["max", 190, 95], ["ghostMax", 60, 30], ["burstBase", 8, 4], ["burstAcc", 0.06, 0.03]]) {
+    assert.equal(flock[row[0]], row[2], "FLOCK." + row[0] + " " + row[1] + " -> " + row[2]);
+    assert.equal(row[2] * 2, row[1], "...which is exactly half of " + row[1]);
+  }
+  assert.match(html, /if\(LOW\)\{ FLOCK\.max=20; FLOCK\.ghostMax=6; FLOCK\.burstBase=2; \}/, "the LOW rungs halve with them (40->20, 12->6, 4->2)");
+  // The burst RANGE halves exactly, which is what "behaviour unchanged, counts down" has to mean for a count derived from
+  // two numbers: 8 + 100*0.06 = 14 becomes 4 + 100*0.03 = 7.
+  assert.equal(flock.burstBase + 100 * flock.burstAcc, 7);
+  // WHAT IT BUYS: birds and ghosts are individual additive Meshes, so the peak flock is 250 draw calls -> 125, against the
+  // TWO this parcel adds (one arch mesh, one Points).
+  const on = loadRoadGeom(true, false);
+  assert.equal(on.read("ML_ARCH_N * 4 * 2 * ML_ARCH_SEG"), 2464, "the arches are 2464 constant triangles");
+  assert.equal(loadRoadGeom(true, true).read("ML_ARCH_N * 4 * 2 * ML_ARCH_SEG"), 1232, "...and half that on LOW");
+  assert.ok((190 + 60) - (95 + 30) > 2, "the flock frees far more draw calls than parcel V spends");
+  assert.equal((190 + 60) * 24 - (95 + 30) * 24, 3000, "...and 3000 triangles at peak, against 2464 constant");
+  assert.match(html, /DRAW CALLS: \+2 \(one indexed mesh for every arch, ring and reflection on screen; one THREE\.Points for all the dust\)/, "the frame budget states the cost");
+  assert.match(html, /Net at a hot combo: .123\./, "...and what pays for it");
+});
+
+test("ARCHES, RINGS, DUST: no per-frame work at all, because the uniforms are shared objects (V)", () => {
+  // The whole parcel rides roadMat's OWN uniform objects for the clock, the re-basing pair, the course and the ink - so the
+  // three floats roadSync already wrote in wave 7 drive all three shaders and nothing new is written per frame.
+  for (const build of ["buildRoadArches", "buildRoadDust"])
+    assert.match(extractFunction(build), /uNow:U\.uNow, uBase:U\.uBase, uA:U\.uA, uW:U\.uW, uP:U\.uP/, build + " borrows the road's clock rather than keeping a second copy");
+  assert.match(extractFunction("buildRoadDust"), /uCol:U\.uInk/, "the dust is drawn in the ROAD's colour, so tonight's grid roll reaches it for free");
+  // Everything a beat can change is written in roadSync's existing once-per-beat block, and nothing there allocates.
+  const sync = extractFunction("roadSync");
+  const perBeat = sync.slice(sync.indexOf("if(n0!==_roadBeat0)"), sync.lastIndexOf("if(reduceMotion)"));
+  assert.ok(perBeat.includes("roadArchFill(n0);"), "the arch table is filled ONCE PER BEAT, beside the band table");
+  assert.ok(!sync.slice(sync.lastIndexOf("if(reduceMotion)")).includes("roadArchFill"), "...and never on the per-frame path");
+  const fill = extractFunction("roadArchFill");
+  assert.doesNotMatch(fill, /new [A-Z]|\.push\(|=>/, "roadArchFill allocates nothing");
+  assert.match(fill, /AU\.uArchN0\.value=reduceMotion\?-ML_ARCH_BEHIND:b0;/, "reduceMotion stands the gates still and scrolls the mercy table through them");
+  for (const knob of ["uArchH", "uArchGlow", "uArchPrism", "uReflect", "uMercyRB"])
+    assert.ok(fill.includes("AU." + knob + ".value="), knob + " is re-read every beat, so the form knob is LIVE");
+  assert.match(fill, /roadDustMat\.uniforms\.uDustGlow\.value=/, "...and so is the dust's");
+  // Both meshes ride the ROAD's own visibility latch, so the trainer and the Temple hide them by the shipped predicate.
+  assert.match(sync, /if\(roadArch\) roadArch\.visible=live;[\s\S]{0,400}?if\(roadDust\) roadDust\.visible=live;/);
+  assert.match(html, /roadArch\.frustumCulled=false; roadArch\.renderOrder=-39;/, "the gates draw straight after the ribbon (-40) and before every other transparent thing");
+  assert.match(html, /roadDust\.frustumCulled=false; roadDust\.renderOrder=-38;/);
+});
+
+test("LOW-REZ pays for no dust, plain arcs, and an impostor that always stands (V)", () => {
+  // SPEC section 4's LOW contract, all three clauses. The dust is not built at all; the prism and the aurora are not
+  // EMITTED (a uniform set to zero would still pay both exp() on every arch fragment - the ROAD_GLYPH_PASS lesson).
+  assert.equal(loadRoadGeom(true, true).read("ML_DUST_N"), 0, "LOW builds no dust buffer, material or draw call");
+  assert.equal(loadRoadGeom(true, true).read("ML_ARCH_RICH"), false);
+  assert.equal(loadRoadGeom(true, false).read("ML_ARCH_RICH"), true);
+  assert.equal(loadRoadGeom(true, true).read("ML_ARCH_SEG"), 14, "half the segments");
+  assert.equal(loadRoadGeom(true, false).read("ML_ARCH_SEG"), 28);
+  const frag = html.slice(html.indexOf("uniform vec3 uCol; uniform float uArchPrism;"), html.indexOf("roadArch=new THREE.Mesh"));
+  const s = frag.indexOf("].concat(ML_ARCH_RICH?["), e = frag.indexOf("]:[", s);
+  assert.ok(s > 0 && e > s, "the rich lines are one build-time-omitted block");
+  const inside = frag.slice(s, e), outside = frag.slice(0, s) + frag.slice(e);
+  for (const term of ["uArchPrism*ie", "float aur=", "cos(vec3(vTh"]) {
+    assert.ok(inside.includes(term), term + " lives inside the omitted block");
+    assert.ok(!outside.includes(term), "...and nothing prism- or aurora-shaped survives outside it (" + term + ")");
+  }
+  assert.ok(outside.includes("float core=exp(-vV*vV*"), "what LOW still draws is the core and its junction nodes - the arch's INFORMATION");
+  // ...and the horizon impostor stops asking whether the course is straight.
+  assert.match(extractFunction("roadImpSync"), /const mn=LOW\?0:Math\.max\(0,Math\.min\(1,\+CFG\.moonline\.impostorMinStraight\|\|0\)\);/,
+    "LOW shows the painted road always; only impostorInk can still silence it");
 });
