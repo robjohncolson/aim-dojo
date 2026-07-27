@@ -1091,7 +1091,7 @@ const CFG = {
   // THE MEANING (parcel S2) fills the ribbon in: every band now carries its beat's required lane colour + glyph, the swell's
   // position as luminance, the mercy bar as one wide bright band, the fill's gates as amber edge-marks, and — behind the
   // now-line — THE WAKE, the run you just played. The bend at your feet drives the camera instead of the old noise lissajous.
-  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1740) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
+  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1747) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
@@ -1700,7 +1700,14 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
      · PER FRAME CPU: the road's uniform writes are the same THREE floats wave 7 wrote (uNow, uBase.x, uBase.y); the impostor
        adds two course evaluations and three number writes into objects that already exist. ZERO new allocations anywhere.
      · LOW-REZ: one course harmonic instead of three (inherited), constant-width antialiasing, TWO crossbar tiers instead of
-       four (the beat and the bar — the sixteenth carrier is the first thing foreshortening takes anyway), and no glyph pass.
+       four (the beat and the bar — the sixteenth carrier is the first thing foreshortening takes anyway), and NO GLYPH PASS:
+       the mid-cell letter is not emitted into the shader text at all (ROAD_GLYPH_PASS, index.html:1746), which is the only
+       way to shed it — a uniform gate would still pay the footprint test on every fragment. MEASURED by emitting the text
+       at both tiers and differencing: the pass is 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch
+       and ONE DEPENDENT texture2D. At 1920×1080 / EYE 4 / fov 95 the ribbon covers 511k px (24.65% of the frame) and each
+       ran the footprint test; the fetch ran on the 53.3% inside a letter's box (272k px = 13.13% of the frame, averaged
+       over cell phase). LOW now runs none of it and builds no 64 KB atlas, and the required letter goes back to the
+       CROSSHAIR in the same read — SPEC §1's cue contract, early, for the tier that cannot afford the world's copy.
      · reduceMotion is FIRST CLASS exactly as it was: uNow pinned to 0, the ribbon STANDS STILL as a ruler of the next eight
        beats, the cells pulse in place on the heard beat, and the impostor is frozen with them (it reads the same pinned clock).
    ========================================================================================================================== */
@@ -1737,7 +1744,8 @@ function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0
 function roadCourseD(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); return s; }   // its slope, metres per beat — the second half of the re-basing pair (and, next parcel, the tracking drill's bank)
 function roadBeatNow(){ return wasdBeatsHeard() + (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // ONE CLOCK: literally the grading expression (wasdBeats() − audioLat()/bps) plus the groove phase, so the band edge is the heard "1" and the lane note is mid-band. Reads, never writes
 function roadLive(){ return !!(CFG.road && CFG.road.on) && !trainMode && !templeActive; }   // raw kill-switch FIRST; post-graduation only (the trainer keeps its didactic floor) and the Temple's floor-dissolve is never touched
-const ROAD_LANE_READY=!!(CFG.road && CFG.road.bandGlyphs);                 // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL? THE MEANING draws it — the band is tinted by its beat's required lane and the lane's own glyph is rendered mid-band — so the crosshair letter may finally stand down: the cue is MOVED into the world, not deleted from it. Bound to the very flag that draws the glyph, so the two can never disagree; bandGlyphs:false (or road.on:false, which roadLive() reads first) restores the centre letter in the same read
+const ROAD_GLYPH_PASS=!(ML_RIBBON&&LOW);                                  // IS THE MID-CELL LETTER COMPILED AT ALL? LOW-REZ sheds it — the glyph is the single most expensive thing in the ribbon's fragment, and it is the ONE cost the frame budget above claims LOW does not pay. MEASURED by emitting the shader text both ways and differencing it: the pass is 428 chars carrying 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch and ONE DEPENDENT texture2D. The footprint test runs on EVERY surviving road fragment — 511k px, 24.65% of a 1920×1080 frame at EYE 4 / fov 95 / 27 m to the beat — and the fetch on the 53.3% of those inside a letter's box (272k px = 13.13% of the frame, averaged over cell phase). A uniform gate would have shed NONE of it: uGlyphOn:0 still pays the test. Under the RIBBON only: moonline.on:false hands wave 7 back the glyph its own LOW path always drew, so the kill-switch is still exact. The cue is MOVED, never deleted — ROAD_LANE_READY reads this in the same breath and puts the required letter back at the CROSSHAIR, which is where SPEC_MOONLINE §1's cue contract wants it anyway (parcel W does it for every tier)
+const ROAD_LANE_READY=!!(CFG.road && CFG.road.bandGlyphs) && ROAD_GLYPH_PASS;   // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL? THE MEANING draws it — the band is tinted by its beat's required lane and the lane's own glyph is rendered mid-band — so the crosshair letter may finally stand down: the cue is MOVED into the world, not deleted from it. Bound to the very flags that draw the glyph, so the two can never disagree; bandGlyphs:false, road.on:false (which roadLive() reads first) and now LOW-under-the-ribbon (which does not compile the pass) each restore the centre letter in the same read. With moonline.on:false ROAD_GLYPH_PASS is true on every tier, so this is character-for-character the boolean wave 7 shipped
 
 /* ========================= THE STAR ROAD — THE MEANING (wave 7, parcel S · SPEC_STAR_ROAD §3, decisions 3+4 + the band encodings) =========================
    THE RIVER built the conveyor; THE MEANING is what it carries. Still zero gameplay math: everything below is a PURE READ of
@@ -2028,7 +2036,7 @@ function roadImpSync(r){
   roadMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
     uniforms:{ uNow:{value:0}, uBase:{value:_roadBase}, uA:{value:new THREE.Vector3()}, uW:{value:new THREE.Vector3()}, uP:{value:new THREE.Vector3()},
                uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0}, uBeat0:{value:0},
-               uBands:{value:roadBandTex}, uGlyph:{value:roadGlyphTex()}, uGlyphOn:{value:(CFG.road.bandGlyphs?1:0)}, uMercyB:{value:Math.max(1,+CFG.road.mercyBoost||1)},
+               uBands:{value:roadBandTex}, uGlyph:{value:ROAD_GLYPH_PASS?roadGlyphTex():null}, uGlyphOn:{value:(CFG.road.bandGlyphs?1:0)}, uMercyB:{value:Math.max(1,+CFG.road.mercyBoost||1)},   // the atlas is BUILT only where it is sampled: with no glyph pass compiled the sampler is not an active uniform, so three never uploads it and a LOW device is spared the 64 KB it would never read (uGlyphOn stays exactly as it shipped — an inert uniform costs nothing, and it is still the one flag the wave-7 branch gates on)
                uL0:{value:_roadLaneCol[0]}, uL1:{value:_roadLaneCol[1]}, uL2:{value:_roadLaneCol[2]}, uL3:{value:_roadLaneCol[3]}, uMark:{value:_roadMark} },
     vertexShader:'varying vec2 vXZ; void main(){ vec4 wp=modelMatrix*vec4(position,1.0); vXZ=wp.xz; gl_Position=projectionMatrix*viewMatrix*wp; }',
     // THE KILL-SWITCH IS A COMPILE-TIME FORK, not a uniform: moonline.on:false compiles wave 7's fragment shader with wave 7's
@@ -2049,7 +2057,6 @@ function roadImpSync(r){
       '  float outer=1.0-smoothstep('+HW+'+rw*0.5,'+HW+'+rw*1.6,al); if(outer<=0.004) discard;',          // the RAILS live ON the edge, so the clip has to reach past it — everything else stops at `inner`
       '  float inner=1.0-smoothstep('+HW+'-rw,'+HW+',al);',
       '  float rail=1.0-smoothstep(0.0,rw,abs(al-'+HW+'));',                                              // TWO LUMINOUS EDGE RAILS: the ribbon's own boundary, the shape of tonight's course, and the only element that survives to the horizon
-      '  float fb=fract(b);',
       // ---- THE MEANING, unchanged from wave 7: two texel reads. sI = the cell this fragment lies IN (its colour, glyph, swell,
       //      wake); sE = the cell that OWNS the nearest beat boundary (round(b)) — a wide cell has to be able to SWALLOW its own
       //      leading "1". uBeat0 is the beat slot 0 was filled for, so the index is exact by construction.
@@ -2061,7 +2068,7 @@ function roadImpSync(r){
       '  float f1=floor(tI.r*255.0+0.5);',
       '  float mercy=floor(f1/12.0); f1-=mercy*12.0;',
       '  float wake=floor(f1/4.0); f1-=wake*4.0;',
-      '  float lane=f1, tide=tI.g, hold=floor(floor(tI.b*255.0+0.5)/2.0);',
+      '  float lane=f1, tide=tI.g'+(ROAD_GLYPH_PASS?', hold=floor(floor(tI.b*255.0+0.5)/2.0)':'')+';',      // hold is the GLYPH's alone on this presentation (a held cell carries ONE letter, at its head), so it leaves with the pass rather than leaning on the compiler to strip it. The boundary's own holdE is unpacked from tE below and is untouched. With ROAD_GLYPH_PASS true - which is EVERY wave-7 configuration - this emits the shipped line character for character
       '  float e1=floor(tE.r*255.0+0.5), b2=floor(tE.b*255.0+0.5);',
       '  float holdE=floor(b2/2.0), markE=(b2-holdE*2.0)*tE.a*vE, mercyE=floor(e1/12.0);',
       '  float cont=min(1.0, step(1.5,mercyE)+step(1.5,holdE)*step(holdE,3.5))*tE.a*vE;',                 // this boundary lies INSIDE a wide cell (a mercy continuation, or a hold's body/tail) → no "1" and no bar line, which is what makes the mercy bar read as ONE unbroken 108 m slab. The sixteenth CARRIER keeps running through it: the exhale is not a hole in the road
@@ -2084,12 +2091,19 @@ function roadImpSync(r){
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
       '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner;',                 // reduceMotion only: the cells pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
       '  col=mix(col, uMark, min(1.0, gb*markE));',                                                       // THE FILL'S GATES: the tank's own amber on the beats its figure still owes — "3, 4, 1" rolling in, riding the "1" crossbar
-      // ---- the lane's GLYPH, mid-cell (PROVISIONAL — parcel W moves it back to the crosshair; see ROAD_GLYPH_S)
+      // ---- the lane's GLYPH, mid-cell (PROVISIONAL — parcel W moves it back to the crosshair; see ROAD_GLYPH_S).
+      //      NOT EMITTED AT ALL under LOW (ROAD_GLYPH_PASS, index.html:1746): the LOW-REZ budget below claims "no glyph
+      //      pass", and a uniform gate would not have been one — uGlyphOn:0 still pays the footprint test on every road
+      //      fragment. Dropping the TEXT is the only way to shed a dependent texture fetch, so the text is what drops,
+      //      and ROAD_LANE_READY hands the letter back to the crosshair in the same read.
+      ...(ROAD_GLYPH_PASS ? [
+      '  float fb=fract(b);',                                                                          // the position WITHIN the cell — the glyph is its ONLY reader on this presentation, so it is declared here and vanishes with the pass
       '  float gv=(fb-0.5)*'+_roadG(ROAD_MPB/ROAD_GLYPH_L)+'+0.5, gu=(vXZ.x-cx)*'+_roadG(1/ROAD_GLYPH_W)+'+0.5;',
       '  float ing=step(0.0,gu)*step(gu,1.0)*step(0.0,gv)*step(gv,1.0)*has*uGlyphOn*ahead;',
       '  ing*=(1.0-smoothstep('+_roadG(ROAD_GLYPH_F0)+','+_roadG(ROAD_GLYPH_F1)+',d))*(1.0-step(1.5,hold)*step(hold,3.5));',   // a HELD cell carries one letter at its HEAD, not one per beat
       '  if(ing>0.004){ float ga=texture2D(uGlyph, vec2((lane+gu)*0.25, gv)).a*ing;',
-      '    ink+='+_roadG(ROAD_INK_GLYPH)+'*ga*lum; col=mix(col, lc, min(1.0, ga*0.85)); }',
+      '    ink+='+_roadG(ROAD_INK_GLYPH)+'*ga*lum; col=mix(col, lc, min(1.0, ga*0.85)); }'
+      ] : []),
       '  gl_FragColor=vec4(col*ink, outer*fade*uAmt);',
       '}'
     ]:[
@@ -2200,7 +2214,7 @@ function roadSync(){
     if(Number.isFinite(_roadBeat0)) for(let n=Math.max(_roadBeat0, n0-ROAD_WAKE); n<n0; n++) roadWakeWrite(n);   // every band that left the now-line since the last upload gets its (already final) verdict — a dropped frame cannot punch a hole in the wake
     _roadBeat0=n0; roadBandFill(n0);
     U.uBeat0.value=reduceMotion?0:n0;                                     // the still road's geometry is pinned to uNow=0, so slot ROAD_WAKE must stay the band at the feet: the table scrolls through the texture instead of the road scrolling under it. Same 23 beats, same order, zero motion
-    const gt=roadGlyphTex(); if(U.uGlyph.value!==gt) U.uGlyph.value=gt;   // the atlas is rebuilt only when WASD_GLYPH itself changes (navigator.keyboard resolves once, and a physical key can teach it later), which is at most a handful of times in a whole session — otherwise this is one string compare
+    if(ROAD_GLYPH_PASS){ const gt=roadGlyphTex(); if(U.uGlyph.value!==gt) U.uGlyph.value=gt; }   // the atlas is rebuilt only when WASD_GLYPH itself changes (navigator.keyboard resolves once, and a physical key can teach it later), which is at most a handful of times in a whole session — otherwise this is one string compare. Skipped entirely where the pass was never compiled, so a LOW device never builds the canvas either: the same build-time boolean, read once per BEAT, never per frame
     U.uGlyphOn.value=(CFG.road.bandGlyphs?1:0); U.uMercyB.value=Math.max(1,+CFG.road.mercyBoost||1);
   }
   if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
@@ -7512,7 +7526,7 @@ function showWasdGlyph(key, spoiled, on, ghost){   // ghost = this note is an in
 }
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
-  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD subsumes the NOTE LANE — but only when it CARRIES it, and with THE MEANING it finally does: every band is tinted by its beat's required lane and the lane's own glyph rides mid-band, arriving at the feet exactly when the key is due (ROAD_LANE_READY is bound to the very flag that draws it, index.html:1740). The sequence is MOVED into the world, not deleted from the crosshair. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. Whenever laneCue is true — the trainer, the Temple, bandGlyphs:false, and every configuration at all under the raw kill-switch road.on:false — both gates below fall back to the shipped expressions verbatim
+  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD subsumes the NOTE LANE — but only when it CARRIES it, and with THE MEANING it finally does: every band is tinted by its beat's required lane and the lane's own glyph rides mid-band, arriving at the feet exactly when the key is due (ROAD_LANE_READY is bound to the very flags that draw it, index.html:1747). The sequence is MOVED into the world, not deleted from the crosshair. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. Whenever laneCue is true — the trainer, the Temple, bandGlyphs:false, LOW-REZ under the ribbon (which compiles no glyph pass to carry it), and every configuration at all under the raw kill-switch road.on:false — both gates below fall back to the shipped expressions verbatim
   const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || (CFG.wasdTapText && !laneCue) || ((CFG.wasdLetter || reduceMotion) && laneCue));   // THE STAR ROAD: the letter clause is the only one the road takes over; the tapText clause exists so an explicitly opted-in TAP TIMING READOUT is not collateral damage of the day the lane stands down (it reached the canvas by riding wasdLetter's default). With laneCue true it is `wasdTapText && false`, a dead term in an ||, so this reduces character-for-character to the shipped expression; with laneCue false it is the shipped expression with the LETTER term removed and the readout kept, which is exactly the trade the road earns. canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
   const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel

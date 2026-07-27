@@ -232,8 +232,12 @@ test("THE MEANING: the note lane stands down on the flag that DRAWS the lane, an
   // because it carried no required-lane channel; THE MEANING draws the band tint AND the mid-band glyph, so the switch is
   // now bound to the very CFG flag that draws them. Bound, not merely flipped: bandGlyphs:false must put the centre letter
   // straight back, in the same read, with no second place to forget.
-  assert.match(html, /const ROAD_LANE_READY=!!\(CFG\.road && CFG\.road\.bandGlyphs\);/, "the switch IS the draw flag");
+  assert.match(html, /const ROAD_LANE_READY=!!\(CFG\.road && CFG\.road\.bandGlyphs\) && ROAD_GLYPH_PASS;/, "the switch IS the draw flags — both of them");
   assert.match(html, /uGlyphOn:\{value:\(CFG\.road\.bandGlyphs\?1:0\)\}/, "…and that same flag is what the shader gates the glyph on");
+  // Parcel U's fix: LOW does not COMPILE the glyph pass, so on LOW the road cannot carry the letter and the crosshair must
+  // take it back. Bound, not merely flipped — the second term is the very boolean the shader emitter reads.
+  assert.match(html, /const ROAD_GLYPH_PASS=!\(ML_RIBBON&&LOW\);/, "the pass is dropped only where the ribbon meets LOW");
+  assert.match(html, /\.\.\.\(ROAD_GLYPH_PASS \? \[/, "…and dropped by not EMITTING the text, which is the only way to shed a dependent texture fetch");
   assert.match(html, /const laneCue=!\(roadLive\(\) && ROAD_LANE_READY\);/, "the lane stands down on the road CARRYING it, not merely on the road existing");
   // The centre-cue gate's three clauses, verbatim — the truth table below is a transcription of exactly this text.
   assert.match(html, /&& \(CFG\.wasdHud \|\| \(CFG\.wasdTapText && !laneCue\) \|\| \(\(CFG\.wasdLetter \|\| reduceMotion\) && laneCue\)\);/, "the centre-cue gate is the three-clause one");
@@ -1179,6 +1183,47 @@ test("THE RIBBON: rails plus four tiers of ONE crossbar set, and cells only wher
   assert.match(ribbon, /float ahead=step\(/, "the current cell and forward are 'ahead'");
   assert.match(ribbon, /float ink='\+_roadG\(ROAD_CELL_INK\)\+'\*fillA\*lum\*inner\+'\+_roadG\(ROAD_GRID_INK\)\+'\*g\+'\+_roadG\(ROAD_RAIL_INK\)\+'\*rail/, "cell fill, grid and rails are three separate loudness knobs");
   assert.match(ribbon, /gl_FragColor=vec4\(col\*ink, outer\*fade\*uAmt\);/, "...and the clip reaches past the rail it has to contain");
+});
+
+test("THE RIBBON: LOW pays for NO glyph pass, and the crosshair takes the letter back (U)", () => {
+  // The FRAME BUDGET comment claims LOW runs "no glyph pass". A uniform gate would NOT have been one: uGlyphOn:0 still
+  // pays the footprint test on every road fragment. So the claim is only true if the TEXT is never emitted - which is
+  // what this pins, both directions.
+  const ribbon = (() => { const a = html.indexOf("fragmentShader:(ML_RIBBON?["); return html.slice(a, html.indexOf("]:[", a)); })();
+  const s = ribbon.indexOf("...(ROAD_GLYPH_PASS ? ["), e = ribbon.indexOf("] : []),", s);
+  assert.ok(s > 0 && e > s, "the glyph lines are one build-time-omitted block");
+  const inside = ribbon.slice(s, e), outside = ribbon.slice(0, s) + ribbon.slice(e);
+  for (const frag of ["texture2D(uGlyph", "float gv=", "float ing=", "float fb="]) {
+    assert.ok(inside.includes(frag), `the ribbon's ${frag} lives inside the omitted block`);
+    assert.ok(!outside.includes(frag), `...and NOTHING glyph-shaped survives outside it (${frag})`);
+  }
+  // What DOES survive outside is the uniform DECLARATION line, and only it: an unused uniform is not an active uniform,
+  // so it costs no upload and no fragment op - and keeping it makes the two branches' first line identical, which is
+  // exactly what the kill-switch wants to be readable.
+  assert.ok(!/\*uGlyphOn/.test(outside), "uGlyphOn is never multiplied into anything outside the block - it is a declaration, not a gate");
+  assert.match(outside, /uniform float uNow,uAmt,uPulse,uBeat0,uGlyphOn,uMercyB;/, "the declaration line is the shipped one");
+  assert.match(outside, /uniform sampler2D uBands,uGlyph;/, "...and so does the sampler it never binds on LOW");
+  // The one dependent texture fetch in the whole ribbon shader is the glyph's; the band table's two reads are not.
+  assert.equal((ribbon.match(/texture2D\(/g) || []).length, 3, "two band texels plus the one glyph fetch, and no more");
+  // The budget comment states this in the same words the code now honours.
+  assert.match(html, /and NO GLYPH PASS:\s*\n\s*the mid-cell letter is not emitted into the shader text at all \(ROAD_GLYPH_PASS/, "the LOW-REZ budget line says it plainly, and says HOW");
+  // THE CUE IS MOVED, NEVER DELETED: wherever the road stops carrying the letter, laneCue puts it back at the crosshair.
+  // ROAD_LANE_READY is the one read both sides share, so the four (moonline x LOW) corners settle it.
+  assert.equal(loadRoadGeom(true, false).read("ROAD_LANE_READY"), true, "the ribbon at full rez carries the letter");
+  assert.equal(loadRoadGeom(true, true).read("ROAD_LANE_READY"), false, "the ribbon on LOW does NOT, so the crosshair does");
+  assert.equal(loadRoadGeom(false, false).read("ROAD_LANE_READY"), true, "wave 7 is untouched");
+  assert.equal(loadRoadGeom(false, true).read("ROAD_LANE_READY"), true, "...on LOW too - the kill-switch owes wave 7 the glyph its own LOW path drew");
+  assert.equal(loadRoadGeom(false, true).read("ROAD_GLYPH_PASS"), true, "moonline.on:false compiles the pass on every tier");
+  assert.equal(loadRoadGeom(true, true).read("ROAD_GLYPH_PASS"), false, "and only the ribbon on LOW omits it");
+  // Wave 7's own branch never learned about any of this: its glyph is unconditional, exactly as it shipped.
+  const w0 = html.indexOf("]:[", html.indexOf("fragmentShader:(ML_RIBBON?["));
+  const wave7 = html.slice(w0, html.indexOf("]).join('\\n') });", w0));
+  assert.ok(wave7.includes("texture2D(uGlyph"), "wave 7 still samples the atlas");
+  assert.ok(!wave7.includes("ROAD_GLYPH_PASS"), "...with no LOW gate anywhere in its text");
+  assert.ok(!/LOW\s*\?[^']*uGlyph/.test(wave7), "...and no LOW ternary reaches its glyph at all");
+  // Nothing builds an atlas nobody samples, and nothing refreshes one.
+  assert.match(html, /uGlyph:\{value:ROAD_GLYPH_PASS\?roadGlyphTex\(\):null\}/, "the atlas is built only where it is sampled");
+  assert.match(html, /if\(ROAD_GLYPH_PASS\)\{ const gt=roadGlyphTex\(\);/, "...and the per-beat refresh is skipped with it");
 });
 
 test("THE RIBBON: the horizon impostor is the EXACT projection of a straight continuation (U)", () => {

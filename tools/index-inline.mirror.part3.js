@@ -1701,6 +1701,13 @@
                                                                                                                           
                                                                                                                             
                                                                                                                              
+                                                                                                                           
+                                                                                                                          
+                                                                                                                         
+                                                                                                                          
+                                                                                                                        
+                                                                                                                    
+                                                                                                                    
                                                                                                                             
                                                                                                                                 
                                                                                                                                 
@@ -1737,7 +1744,8 @@
                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
 
                                                                                                                                                              
                                                                                                                              
@@ -2028,7 +2036,7 @@
                                                                                                                     
                                                                                                                                                        
                                                                                          
-                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                              
                                                                                                                                                    
                                                                                                                                
@@ -2049,7 +2057,6 @@
                                                                                                                                                                                                             
                                                            
                                                                                                                                                                                                                                                  
-                             
                                                                                                                                  
                                                                                                                                  
                                                                                                            
@@ -2061,7 +2068,7 @@
                                           
                                                       
                                                   
-                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                     
                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                   
@@ -2084,12 +2091,19 @@
                                                                                                                                                                                                 
                                                                                                                                                                                                       
                                                                                                                                                                                                                                       
-                                                                                                                  
+                                                                                                                   
+                                                                                                                        
+                                                                                                                        
+                                                                                                                       
+                                                                                          
+                             
+                                                                                                                                                                                                                                             
                                                                                                                  
                                                                                             
                                                                                                                                                                                               
                                                                                      
-                                                                                           
+                                                                                          
+              
                                                        
          
        
@@ -2200,7 +2214,7 @@
                                                                                                                                                                                                                                                               
                                     
                                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                     
    
                                                                                                                                                                                                                 
@@ -7512,7 +7526,7 @@ function showWasdGlyph(key, spoiled, on, ghost){   // ghost = this note is an in
 }
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
-  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD subsumes the NOTE LANE — but only when it CARRIES it, and with THE MEANING it finally does: every band is tinted by its beat's required lane and the lane's own glyph rides mid-band, arriving at the feet exactly when the key is due (ROAD_LANE_READY is bound to the very flag that draws it, index.html:1740). The sequence is MOVED into the world, not deleted from the crosshair. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. Whenever laneCue is true — the trainer, the Temple, bandGlyphs:false, and every configuration at all under the raw kill-switch road.on:false — both gates below fall back to the shipped expressions verbatim
+  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD subsumes the NOTE LANE — but only when it CARRIES it, and with THE MEANING it finally does: every band is tinted by its beat's required lane and the lane's own glyph rides mid-band, arriving at the feet exactly when the key is due (ROAD_LANE_READY is bound to the very flags that draw it, index.html:1747). The sequence is MOVED into the world, not deleted from the crosshair. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. Whenever laneCue is true — the trainer, the Temple, bandGlyphs:false, LOW-REZ under the ribbon (which compiles no glyph pass to carry it), and every configuration at all under the raw kill-switch road.on:false — both gates below fall back to the shipped expressions verbatim
   const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || (CFG.wasdTapText && !laneCue) || ((CFG.wasdLetter || reduceMotion) && laneCue));   // THE STAR ROAD: the letter clause is the only one the road takes over; the tapText clause exists so an explicitly opted-in TAP TIMING READOUT is not collateral damage of the day the lane stands down (it reached the canvas by riding wasdLetter's default). With laneCue true it is `wasdTapText && false`, a dead term in an ||, so this reduces character-for-character to the shipped expression; with laneCue false it is the shipped expression with the LETTER term removed and the readout kept, which is exactly the trade the road earns. canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
   const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
@@ -7593,8 +7607,8 @@ function _flockDens(){ return Math.max(FLOCK.densMin, 1 - (_flock.length/Math.ma
 function _acquireBird(){ const b=_flockPool.pop(); if(b){ b.mesh.visible=true; b.mesh.material.fog=true; return b; }
   const m=new THREE.Mesh(_flockGeo,_flockMat()); m.renderOrder=2; scene.add(m); return {mesh:m, vel:new THREE.Vector3(), age:0, life:1, swirl:0, twk:0, spin:0, base:0.4, col:0xffffff, tt:0, depth:0, branched:false, burst:0.5, orbR:2}; }
 function _recycleBird(b){ b.mesh.visible=false; _flockPool.push(b); }
-function _acquireGhost(){ const g=_flockGhostPool.pop(); if(g){ g.mesh.visible=true; g.mesh.material.fog=true; return g; }
-  const m=new THREE.Mesh(_flockGeo,_flockMat()); m.renderOrder=1; scene.add(m); return {mesh:m, age:0, life:0.5, spin:0}; }
+                                                                                                                          
+                                                                                                                           
                                                         
                                                                                                                                                                              
                                                                                  
