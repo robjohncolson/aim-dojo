@@ -1076,11 +1076,11 @@ const ROAD_GEOM_SRC = (() => {
   return lines.map((line) => line.trim()).join("\n");
 })();
 
-function loadRoadGeom(moonline, low) {
+function loadRoadGeom(moonline, low, widthM) {
   const context = vm.createContext({
     Math, Number, console, EYE: 4, LOW: !!low, camera: { far: 700 },
     CFG: {
-      road: { on: true, lookAheadBeats: 8, widthM: 14, bandGlyphs: true, mercyBoost: 1.6, fillMark: true, holdDemo: false },
+      road: { on: true, lookAheadBeats: 8, widthM: widthM == null ? 14 : widthM, bandGlyphs: true, mercyBoost: 1.6, fillMark: true, holdDemo: false },
       moonline: { on: moonline, metersPerBeat: 27, drawBeats: 32, impostorMinStraight: 0.55, impostorInk: 0.9,
         archOn: true, archHeightM: 7, archGlow: 1, archPrism: 0.35, mercyRingBoost: 1.9, reflectAlpha: 0.18, dustCount: 400, dustGlow: 0.85 },
     },
@@ -1112,6 +1112,19 @@ test("THE RIBBON: every geometry constant collapses to its wave-7 value with the
     assert.equal(off.read(name), want, `${name} is wave 7's with moonline.on:false`);
   assert.equal(off.read("ROAD_DRAW"), off.read("ROAD_FADE1 / ROAD_BAND_M"), "...and dbMax is still the fade's own end, to the last bit");
   assert.equal(off.read("ROAD_MPB === ROAD_BAND_M"), true, "metres-per-beat IS the band length when the parcel is off, so every literal below it is wave 7's");
+  // THE GLYPH WIDTH'S RAIL CAP IS STRUCTURAL, NOT CONTINGENT. The cap belongs to the ribbon (a 2.7x letter must not climb
+  // its own rails); the off path is wave 7's literal expression, unconditionally. Before the gate the cap read on BOTH
+  // paths and was inert only because 5.2 < ROAD_HALF_W*1.24 at the shipped widthM 14 - so the kill-switch's exactness
+  // depended on a CFG value it does not own. Pin it at a width where the cap would have bitten.
+  assert.match(html, /const ROAD_GLYPH_W=ML_RIBBON\?Math\.min\(5\.2\*ROAD_GLYPH_S, ROAD_HALF_W\*1\.24\):5\.2\*ROAD_GLYPH_S,/,
+    "the rail cap is ML_RIBBON-gated like every other ROAD_* constant");
+  for (const widthM of [8, 14]) {
+    assert.equal(loadRoadGeom(false, false, widthM).read("ROAD_GLYPH_W"), 5.2,
+      `ROAD_GLYPH_W is wave 7's 5.2 with moonline.on:false at road.widthM ${widthM}`);
+    assert.equal(loadRoadGeom(false, true, widthM).read("ROAD_GLYPH_W"), 5.2, `...on LOW too, at road.widthM ${widthM}`);
+  }
+  assert.equal(loadRoadGeom(true, false, 8).read("ROAD_GLYPH_W"), 4.96, "...and under the ribbon the cap DOES bite at widthM 8: 62% of the road, not 5.2x2.7");
+  assert.equal(loadRoadGeom(true, false, 14).read("ROAD_GLYPH_W"), 8.68, "...and 8.68 m of 14 at the shipped width");
   // ...and the ribbon's own geometry, computed rather than chosen.
   assert.equal(on.read("ROAD_MPB"), 27);
   assert.equal(on.read("ROAD_DRAW_M"), 864, "32 beats x 27 m of grid each way");
@@ -1270,7 +1283,8 @@ test("THE RIBBON: the impostor may only stand in for a road that is actually str
   // reaches full brightness halfway to dead straight, so the streak arrives and leaves as a fade rather than a pop.
   const sync = extractFunction("roadImpSync");
   assert.match(sync, /const st=1-Math\.min\(1,Math\.abs\(Math\.atan\(sl\)\)\/ROAD_IMP_ANG\);/);
-  assert.match(sync, /let t=\(st-mn\)\/Math\.max\(1e-6,\(1-mn\)\*0\.5\);/);
+  assert.match(sync, /let t=LOW\?1:\(st-mn\)\/Math\.max\(1e-6,\(1-mn\)\*0\.5\);/);
+  assert.match(sync, /const mn=Math\.max\(0,Math\.min\(1,\+CFG\.moonline\.impostorMinStraight\|\|0\)\);/, "the gate itself is the knob, unconditionally - LOW steps around it rather than rewriting it");
   assert.match(sync, /const amt=t\*t\*\(3-2\*t\)\*Math\.max\(0,\+CFG\.moonline\.impostorInk\|\|0\);/, "...and the ramp is a smoothstep, not a step");
   assert.doesNotMatch(sync, /new |\.push\(|=>/, "roadImpSync allocates nothing on the frame path");
   // The gate has to be able to say NO: impostorInk 0 and impostorMinStraight 1 both silence it entirely.
@@ -1292,7 +1306,18 @@ test("THE RIBBON: no new per-frame allocations, and the void's depth order is re
   assert.match(sync, /roadImpSync\(0\);/, "reduceMotion freezes the painted horizon with the standing ribbon - the same pinned clock");
   // THE VOID'S DEPTH ORDER: the shell is a backdrop standing for infinity, not a wall at 400 m in front of an 864 m road.
   assert.match(html, /roadMesh\.renderOrder=ML_RIBBON\?-40:-900;/, "the ribbon draws AFTER the celestial shell, and wave 7 keeps -900");
-  assert.match(html, /depthWrite:!moonlineOn\(\), depthTest:true/, "...because the shell stops WRITING depth, and never stops testing it");
+  // THE TWO-STATE DEPTH LAW: one predicate, stated at the build site and at the per-frame authority that has re-written
+  // the flag every frame since d66a003 (which is why the build-time value ALONE could never have delivered parcel U's
+  // intent). moonlineVoid() is false in the Temple, so the Temple keeps wave 7's write - the flag that keeps the milky
+  // way off the planet globes at R~315 - and false under either kill-switch, so wave 7 is restored flag for flag.
+  assert.match(html, /depthWrite:!moonlineVoid\(\), depthTest:true/, "...because the shell stops WRITING depth in the VOID, and never stops testing it");
+  assert.match(html, /milkyShell\.material\.depthWrite=!moonlineVoid\(\);/, "...and the per-frame write states the same law, so the two can never disagree");
+  assert.doesNotMatch(html, /milkyShell\.material\.depthWrite=true;/, "no unconditional per-frame write survives to stomp it");
+  for (const [temple, train, on, want] of [[false, false, true, false], [true, false, true, true], [false, true, true, true], [false, false, false, true]]) {
+    const probe = loadVoidSandbox(`CFG.moonline.on=${on}; templeActive=${temple}; trainMode=${train};`);
+    assert.equal(probe.read("!moonlineVoid()"), want,
+      `depthWrite is ${want} with temple=${temple} train=${train} moonline.on=${on}`);
+  }
   // The kill-switch is a compile-time fork: wave 7's shader text is still there, unedited, including the terms the
   // wireframe does not have (its own antialiasing law, its band edge, its solid-band ink).
   const wave7 = html.slice(html.indexOf("]:[", html.indexOf("fragmentShader:(ML_RIBBON?[")));
@@ -1520,9 +1545,17 @@ test("LOW-REZ pays for no dust, plain arcs, and an impostor that always stands (
     assert.ok(!outside.includes(term), "...and nothing prism- or aurora-shaped survives outside it (" + term + ")");
   }
   assert.ok(outside.includes("float core=exp(-vV*vV*"), "what LOW still draws is the core and its junction nodes - the arch's INFORMATION");
-  // ...and the horizon impostor stops asking whether the course is straight.
-  assert.match(extractFunction("roadImpSync"), /const mn=LOW\?0:Math\.max\(0,Math\.min\(1,\+CFG\.moonline\.impostorMinStraight\|\|0\)\);/,
+  // ...and the horizon impostor stops asking whether the course is straight. SPEC section 1's hard constraint is
+  // "impostor always", so LOW SKIPS the straightness gate - it does not merely open it to zero. mn:0 was not the same
+  // thing: t=2*st still faded the streak out as the far heading swung and reached exactly nothing at ROAD_IMP_ANG, so a
+  // curvy course took the painted far road away from the one tier that most needs it.
+  assert.match(extractFunction("roadImpSync"), /let t=LOW\?1:\(st-mn\)\/Math\.max\(1e-6,\(1-mn\)\*0\.5\);/,
     "LOW shows the painted road always; only impostorInk can still silence it");
+  const lowAmt = (st, mn, ink) => { let t = 1; t = t < 0 ? 0 : (t > 1 ? 1 : t); return t * t * (3 - 2 * t) * ink; };
+  const deskAmt = (st, mn, ink) => { let t = (st - mn) / Math.max(1e-6, (1 - mn) * 0.5); t = t < 0 ? 0 : (t > 1 ? 1 : t); return t * t * (3 - 2 * t) * ink; };
+  assert.equal(deskAmt(0, 0, 0.9), 0, "at mn 0 a 6-degrees-off course still killed the streak on the old LOW path");
+  assert.equal(lowAmt(0, 0.55, 0.9).toFixed(4), "0.9000", "...and it now stands at full ink on the curviest course LOW can draw");
+  assert.equal(lowAmt(0, 0.55, 0), 0, "...while impostorInk 0 still silences it, which is the one veto SPEC leaves standing");
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

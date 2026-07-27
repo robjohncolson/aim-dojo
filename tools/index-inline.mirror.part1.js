@@ -1806,7 +1806,7 @@ const ROAD_SLOTS=ROAD_WAKE+1+ROAD_LOOK;                                   // 23 
 const ROAD_TIDE_LO=0.45, ROAD_LANE_MIX=0.80, ROAD_WAKE_DARK=0.16, ROAD_WAKE_BLANK=0.55;   // band body luminance at the swell's trough (crest = 1.0) · how far the base ink is pulled to the lane colour · a MISSED beat's band behind you · a beat that was never judged (pre-run, lane off)
 const ROAD_INK_BODY=0.16, ROAD_INK_GLYPH=1.30;                            // the band interior once it carries information (plain ribbon keeps ROAD_INK_BASE 0.10) · the glyph's own ink
 const ROAD_GLYPH_S=ROAD_MPB/ROAD_BAND_M;                                  // THE RIBBON's cells are 2.7× longer and 2.7× further away, so the letter and its fade travel with them (1.000 exactly with moonline.on:false — every glyph constant below is then the shipped one, multiplied by one). PARCEL W SETTLED THE "PROVISIONAL" NOTE THAT STOOD HERE: SPEC §1's cue contract took the letter off the road and put it back at the CROSSHAIR, in the same commit that restored the crosshair cue, so under the ribbon nothing reads these four constants at all (the glyph pass is not emitted — ROAD_GLYPH_PASS). They stay because the kill-switch does: with moonline.on:false this scale is 1.000 and wave 7's pavement letter is the one that ships
-const ROAD_GLYPH_W=Math.min(5.2*ROAD_GLYPH_S, ROAD_HALF_W*1.24), ROAD_GLYPH_L=8.6*ROAD_GLYPH_S, ROAD_GLYPH_F0=25*ROAD_GLYPH_S, ROAD_GLYPH_F1=45*ROAD_GLYPH_S;   // the width is capped at 62% of the ribbon so a 2.7× letter cannot climb its own rails (8.68 m of 14; the cap is inert at wave-7 scale, where 5.2 < 8.68). On a 27 m cell the mid-cell footprint is 186×37 px one cell out and 112×13 px at two, so it still fades between cells +2 and +4 and the CELL COLOUR carries the lane for all eight. Wave 7 verbatim: the letter is STRETCHED down the road like real pavement text (1.65:1) to survive foreshortening: at EYE 4 m / fov 95 / 1080p its mid-band footprint is 289×147 px one band out, 178×55 at two, 128×28 at three — so it fades between bands +2 and +4 and the band COLOUR carries the lane for all eight. Drawing it out to band 8 would be 53×2 px of noise
+const ROAD_GLYPH_W=ML_RIBBON?Math.min(5.2*ROAD_GLYPH_S, ROAD_HALF_W*1.24):5.2*ROAD_GLYPH_S, ROAD_GLYPH_L=8.6*ROAD_GLYPH_S, ROAD_GLYPH_F0=25*ROAD_GLYPH_S, ROAD_GLYPH_F1=45*ROAD_GLYPH_S;   // the rail cap is ML_RIBBON-GATED like every other ROAD_* constant, and that gate is STRUCTURAL, not arithmetic: the off path is wave 7's literal expression, unconditionally, at EVERY road.widthM. Before the gate the cap read on both paths and happened to be inert only because 5.2 < 8.68 at the shipped widthM 14 — at widthM 8 (ROAD_HALF_W 4, cap 4.96) the kill-switch would have silently NARROWED wave 7's letter, which is exactly the class of contingency the switch exists to forbid. The width is capped at 62% of the ribbon so a 2.7× letter cannot climb its own rails (8.68 m of 14). On a 27 m cell the mid-cell footprint is 186×37 px one cell out and 112×13 px at two, so it still fades between cells +2 and +4 and the CELL COLOUR carries the lane for all eight. Wave 7 verbatim: the letter is STRETCHED down the road like real pavement text (1.65:1) to survive foreshortening: at EYE 4 m / fov 95 / 1080p its mid-band footprint is 289×147 px one band out, 178×55 at two, 128×28 at three — so it fades between bands +2 and +4 and the band COLOUR carries the lane for all eight. Drawing it out to band 8 would be 53×2 px of noise
 const ROAD_TIER_D=Math.sqrt(EYE*(ROAD_MPB/16)*(180/Math.PI)*(1080/95)/4);   // THE RIBBON's LOD ladder, computed from the SHIPPED optics and nothing else: a segment of length s on the ground at distance d subtends h·s/d² rad, so this is where a SIXTEENTH crossbar (1.6875 m) is still 4 px tall at 1080p with EYE 4 m and fov 95 — 33.16 m. Every coarser tier's spacing is 4× the last, and distance goes as √s, so each tier lives over [D·2^k, D·2^(k+1)] and dies exactly where the next is still four pixels wide. A mip pyramid the geometry dictated
 const ROAD_TIER_W=[0.42,0.58,1.00,1.24];                                  // and how loudly each tier speaks: the sixteenth carrier is the quietest, the "1" is unit, the bar line is the loudest — so the beat reads OUT of the carrier up close instead of drowning in it. Read once at build time into the shader's literals; never touched again
 const ROAD_LINE_PX=1.5, ROAD_LINE_MAX=0.22;                               // crossbar thickness: constant on SCREEN (lw = px·d²/(EYE·651.4) metres — 0.06 m at 10 m, 0.42 m at one beat out) and capped at 22% of its own cell so a tier stays a grid instead of closing into a slab as it dies
@@ -2101,9 +2101,9 @@ function roadImpSync(r){
   const be=r+ROAD_DRAW;
   const x0=roadCourseX(be)-_roadBase.x-_roadBase.y*(be-r);                 // Xd at the end: the shader's own cx, on the CPU, at one b
   const sl=(roadCourseD(be)-_roadBase.y)/ROAD_MPB;                         // …and its slope there, lateral metres per metre ALONG (so it is a tangent, not a per-beat rate)
-  const mn=LOW?0:Math.max(0,Math.min(1,+CFG.moonline.impostorMinStraight||0));   // LOW-REZ: THE IMPOSTOR IS ALWAYS SHOWN (SPEC §4). On a tier that already draws two crossbar tiers instead of four and no dust at all, the painted streak is the CHEAPEST honest thing on the far road — one quad against a ribbon it is standing in for — so the straightness gate stands down and only impostorInk can still say no
+  const mn=Math.max(0,Math.min(1,+CFG.moonline.impostorMinStraight||0));   // the desktop gate — how straight the far end must be before the painted streak may stand in for the road past it
   const st=1-Math.min(1,Math.abs(Math.atan(sl))/ROAD_IMP_ANG);             // STRAIGHTNESS: 1 = the far end points straight down the axis, 0 = it is 6° off it
-  let t=(st-mn)/Math.max(1e-6,(1-mn)*0.5);                                 // …reaching full brightness halfway between the gate and dead straight, so the streak arrives and leaves as a fade, never a pop
+  let t=LOW?1:(st-mn)/Math.max(1e-6,(1-mn)*0.5);                           // …reaching full brightness halfway between the gate and dead straight, so the streak arrives and leaves as a fade, never a pop. LOW-REZ: THE IMPOSTOR IS ALWAYS SHOWN — SPEC §1's hard constraint reads "impostor always", so on LOW the straightness gate is SKIPPED, not merely opened to zero. mn:0 was not the same thing: it still faded the streak out as the far heading swung, and reached exactly nothing at ROAD_IMP_ANG (6°), so on a curvy course the tier that leans hardest on the painted far road was the one that lost it. A LOW tier draws two crossbar tiers instead of four and no dust at all; one quad standing in for the ribbon it continues is the cheapest honest thing in that frame at EVERY heading, and only impostorInk can still say no
   t=t<0?0:(t>1?1:t);
   const amt=t*t*(3-2*t)*Math.max(0,+CFG.moonline.impostorInk||0);
   const on=amt>0.004;
@@ -2919,13 +2919,23 @@ function roadHideOldFloor(){
                                                                                                           
                                                                                                               
                                                                                                           
-                                                                                                                             
+                                                                                                                         
+                                                                                                                           
+                                                                                 
+                                                                                                                 
+                                                                                                                         
+                                                                                                                            
+                                                                                                                       
                                                                                                                           
+                                                                                                                              
+                                                                                                                          
+                                                                                                                            
+                                                                                                                             
                                                                                                                            
                                                                                                                            
-                                                                                                                           
-                                                                                                
-                                                                                                                                                   
+                                                                                                                            
+                                                                                                                                    
+                                                                                                                                                     
                                                                                                      
                                                                                                                                  
                                                                                                                                 
@@ -3262,7 +3272,7 @@ function roadHideOldFloor(){
                                                                                                        
                               
                                            
-                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                        
                                                    
    
@@ -7779,8 +7789,14 @@ function roadHideOldFloor(){
                                                                                                                          
                                                                                                                         
                                                                                       
+                                                                                                                       
                                                                                                                          
-                                                                                                                         
+                                                                                                                       
+                                                                                                                        
+                                                                                                                           
+                                                                                                                       
+                                                                                                                     
+                                                                                                                                           
                                                                                                                       
                                                                                                                             
                                                                                                                        

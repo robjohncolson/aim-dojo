@@ -1806,7 +1806,7 @@
                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                
@@ -2101,9 +2101,9 @@
                        
                                                                                                                                       
                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                             
                                                                                                                                                               
-                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                     
                                                                  
                      
@@ -2512,7 +2512,7 @@ function roadSync(){
        plate (baseFloor 0x0c0a14 + fog — wave 7's road already retired the lattice at graduation) to a starfield. Both
        are dark backdrops for an emissive orb: no legibility cliff a pitch change would fix.
      · and pitch is a GAMEPLAY quantity. At ±8° the shot solved for dy=0 misses vertically by 1.25 m (k2 @ 9.00 m,
-       60 bpm) to 3.77 m (k6 @ 26.98 m) — the aim correction the band already demands of the beat-quantized model.
+       60 bpm) to 3.75 m (k6 @ 26.98 m) — the aim correction the band already demands of the beat-quantized model.
        Widening to ±12° pushes clamped spawns to 20.0% and the k6 miss past 5.6 m, degrading the flight-time = k/16
        promise the whole spawn law rests on. A RENDER parcel does not pay for a backdrop with the timing model.
      · if the lower hemisphere ever does hurt, the lever is moonline.shellOpacity, not the spawn geometry: the milky band
@@ -2919,13 +2919,23 @@ function ensureMilkyShell(){
   const R=(CFG.skyMaps.shellRadius)||400;   // outside stars(340)/sticks(330), inside dome(480) + far(700)
   // depthTest/Write TRUE: nearer sky objects (glyphs, temple globes at R≈315) must occlude the shell (R≈400).
   // Transparent + depthTest:false was painting the milky way OVER the planet balls after the opaque pass.
-  // [WAVE 8, PARCEL U] …but the WRITE goes under the Moonline, because the shell is a backdrop standing for infinity and was
-  // never a wall at 400 m: the ribbon runs to 864 m, and a sphere claiming depth 400 would have cut it off at 14.8 beats.
+  // [WAVE 8, PARCEL U + THE TWO-STATE DEPTH LAW] …but the WRITE goes under the Moonline, because the shell is a backdrop
+  // standing for infinity and was never a wall at 400 m: the ribbon runs to 864 m, and a sphere claiming depth 400 cuts it
+  // off at 14.8 beats. THE LAW HAS TWO STATES AND ONE PREDICATE, moonlineVoid():
+  //   · the VOID (post-graduation play) → NO WRITE. The ribbon, the arches and the impostor all live past 400 m.
+  //   · everywhere else — the TEMPLE, the trainer, and either kill-switch off → WRITE, exactly as wave 7 did. Inside the
+  //     Temple the write is load-bearing, not incidental: it is what stops the milky way painting over the planet globes at
+  //     R≈315 (commit d66a003, "Fix milky shell depth so temple planet globes are not covered"), and the Temple has no
+  //     ribbon to cut. moonlineVoid() is `moonlineOn() && !trainMode && !templeActive`, so it turns the write back on the
+  //     instant the Temple opens and off again when it closes — no second copy of the booleans, no enter/exit hook to forget.
+  // Parcel U wrote `!moonlineOn()` here, which was both too broad (it dropped the write in the Temple and in the trainer)
+  // and, on its own, INERT: updateTempleOrbs re-writes this flag every frame (index.html:3275), so the build-time value was
+  // never the one that rendered. That per-frame write is the authority and now states the same law; this is its first frame.
   // depthTest is untouched, so the Echoes still occlude the shell exactly as they always did; nothing in the scene is both
   // farther than the shell and drawn after it (the gradient dome at R 480 is opaque at renderOrder −1000 and draws first);
-  // and the mirror pass renders into a target with no depth buffer at all (reflRT, index.html:2406). moonlineOn() is a raw
-  // boolean pair, so with the kill-switch off this is the material that shipped, flag for flag.
-  const mat=new THREE.MeshBasicMaterial({ side:THREE.BackSide, depthWrite:!moonlineOn(), depthTest:true, fog:false, transparent:true, opacity:0 });
+  // and the mirror pass renders into a target with no depth buffer at all (reflRT, index.html:2406). moonlineVoid() reads a
+  // raw boolean pair first, so with the kill-switch off this is `true` at every instant — the material that shipped, flag for flag.
+  const mat=new THREE.MeshBasicMaterial({ side:THREE.BackSide, depthWrite:!moonlineVoid(), depthTest:true, fog:false, transparent:true, opacity:0 });
   milkyShell=new THREE.Mesh(new THREE.SphereGeometry(R, seg.widthSegments, seg.heightSegments), mat);
   milkyShell.frustumCulled=false; milkyShell.renderOrder=-50;   // with real depth, order is secondary; still after gradient dome
   milkyShell.visible=false; if(!LOW) milkyShell.layers.enable(1);   // reflection layer (skipped under LOW, matching dome/stars)
@@ -3262,7 +3272,7 @@ function updateTempleOrbs(dt){
     // At full opacity, treat as opaque for better depth vs planet globes; soft-fade stays transparent.
     const solid=target>=0.995;
     milkyShell.material.transparent=!solid;
-    milkyShell.material.depthWrite=true;
+    milkyShell.material.depthWrite=!moonlineVoid();   // THE TWO-STATE DEPTH LAW (see ensureMilkyShell, index.html:2938): the shell WRITES depth in the Temple, in the trainer and under either kill-switch — wave 7 to the flag, and inside the Temple the write is what keeps the milky way off the planet globes at R≈315 — and writes NONE in the void, where a sphere claiming depth 400 would cut the 864 m ribbon off at 14.8 beats. THIS LINE IS THE AUTHORITY: it has re-written the flag every frame since d66a003, so the build-time value alone could never have delivered parcel U's intent. One predicate, read fresh each frame, so Temple enter/exit needs no hook of its own
     milkyShell.material.depthTest=true;
     milkyShell.visible=_milkyReady && target>0.003;
   }
@@ -5321,26 +5331,26 @@ function initAudio(){
   applyAudioState();
   if(CFG.chorus.on){ chorusSaltRefresh(); chorusEnsure(); }   // THE STANDING CHORUS is built WITH the graph, never on demand: its first moment used to be a mercy downbeat, so a PolySynth, a filter and a Volume were being constructed inside the Transport callback that had just asked it to sing. Built here it is born muted and costs nothing but memory until a moment opens the gate, and the salt is warm before any pick. Raw boolean first — parcel off builds no node
 }
-function sfx(kind){
-  if(!soundOn || !toneReady) return;
-  try{
-    const now=Tone.now();
-    if(kind==='hit'){ synthHit.triggerAttackRelease(880*Math.pow(2,Math.min(state.streak,12)/24),0.06,now); }
-    else if(kind==='whiff'){ noiseFire.triggerAttackRelease(0.04,now); }
-    else if(kind==='offbeat'){ synthLow.triggerAttackRelease(220,0.08,now); }   // late hit → in-key (A3), plain (not a buzz)
-    else if(kind==='expire'){ synthLow.triggerAttackRelease(110,0.14,now); }     // missed entirely → low in-key (A2) drop
-    else if(kind==='levelUp'){ synthLvl.triggerAttackRelease(523,0.08,now); synthLvl.triggerAttackRelease(784,0.10,now+0.09); }
-    else if(kind==='levelDown'){ synthLvl.triggerAttackRelease(392,0.08,now); synthLvl.triggerAttackRelease(262,0.12,now+0.09); }
-  }catch(e){}
-}
-/* THE LEAD INSTRUMENT: how tight the arrival landed becomes the kill note's timbre. Two module scalars and four tiny
-   readers — no state machine, no allocation per hit, no scheduling of its own. voiceQ reads the SAME heard timeline
-   as bowNote (so the note you hear and the dot the Mandala draws agree about the same arrival), voiceBreak/voiceClank
-   are the only writers, and every one of them is reached only through a raw CFG.voice.on read at the call site. */
-let _voiceStack=0;        // consecutive FLAWLESS arrivals; any other arrival puts it straight back to 0
-let _voiceMuteBeat=-1;    // Transport beat position through which the kill-voice stays silent after a clank (<0 = not muted)
-function voiceLive(){ return !!(CFG.voice && CFG.voice.on) && !trainMode && !templeActive; }   // the trainer's didactic kill tone and the Temple keep today's fixed note exactly
-function voiceBeats(){ try{ return Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return -1; } }   // raw Transport beats: the mute is a DURATION, so the heard-timeline correction cancels out of the comparison
+                   
+                                    
+      
+                         
+                                                                                                             
+                                                                        
+                                                                                                                             
+                                                                                                                          
+                                                                                                                               
+                                                                                                                                 
+             
+ 
+                                                                                                                     
+                                                                                                                    
+                                                                                                                      
+                                                                                                                   
+                                                                                                        
+                                                                                                                             
+                                                                                                                                                                                 
+                                                                                                                                                                                                                      
                                                                                                                                                    
                                          
                                                                                                                                      
@@ -7779,8 +7789,14 @@ function voiceBeats(){ try{ return Tone.Transport.ticks/Tone.Transport.PPQ; }cat
                                                                                                                          
                                                                                                                         
                                                                                       
+                                                                                                                       
                                                                                                                          
-                                                                                                                         
+                                                                                                                       
+                                                                                                                        
+                                                                                                                           
+                                                                                                                       
+                                                                                                                     
+                                                                                                                                           
                                                                                                                       
                                                                                                                             
                                                                                                                        

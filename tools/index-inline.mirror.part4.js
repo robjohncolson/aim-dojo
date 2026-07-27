@@ -1806,7 +1806,7 @@
                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                
@@ -2101,9 +2101,9 @@
                        
                                                                                                                                       
                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                             
                                                                                                                                                               
-                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                     
                                                                  
                      
@@ -2919,13 +2919,23 @@
                                                                                                           
                                                                                                               
                                                                                                           
-                                                                                                                             
+                                                                                                                         
+                                                                                                                           
+                                                                                 
+                                                                                                                 
+                                                                                                                         
+                                                                                                                            
+                                                                                                                       
                                                                                                                           
+                                                                                                                              
+                                                                                                                          
+                                                                                                                            
+                                                                                                                             
                                                                                                                            
                                                                                                                            
-                                                                                                                           
-                                                                                                
-                                                                                                                                                   
+                                                                                                                            
+                                                                                                                                    
+                                                                                                                                                     
                                                                                                      
                                                                                                                                  
                                                                                                                                 
@@ -3262,7 +3272,7 @@
                                                                                                        
                               
                                            
-                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                        
                                                    
    
@@ -7564,27 +7574,27 @@
                            
  
                                 
-                               
-                                           
-                            
-                                                                                                                                                                                                                            
-                 
-                                                                                            
-                                                                                 
-            
-                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                    
-                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                      
-                                              
-   
- 
-                                                                                                                                                                                                                                                                                                                                                                                                       
-                                                                                                                                                      
-                                                                                                                                             
-                                                                                                                                                                        
-                                                                                   
+function updateProjectiles(dt){
+  for(let i=projectiles.length-1;i>=0;i--){
+    const pr=projectiles[i];
+    pr.vel.x+=windX*dt; pr.vel.y-=CFG.projGravity*dt; pr.vel.z+=windZ*dt; _prev.copy(pr.pos); pr.pos.x+=pr.vel.x*dt; pr.pos.y+=pr.vel.y*dt; pr.pos.z+=pr.vel.z*dt; pr.life+=dt;   // wind: horizontal accel (0 in the daily)
+    let hit=null;
+    for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
+      if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
+    if(hit){
+      if(hit.hpMax>1){ handleTankHit(hit, pr.pos); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
+      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
+      gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
+    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring. GROUND/wall are the real ends — projLife is only the NaN/runaway safety (K1: high lofts fly their full arc to the floor)
+    if(pr.mesh) pr.mesh.position.copy(pr.pos);
+  }
+}
+const ARC_UPDATE_STEP=1/20, ARC_MAX=430, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=GLOW?0.105:0.065;   // ribbon half-width (a hair wider so ROYGBIV bands read; GLOW: bolder key-art ribbon). ARC_MAX 430×(1/30s) ≈ 14.3s of plan integration — covers projLife so the PLAN reaches the ground exactly like the bullet (K1); flat shots still break out of the loop in <80 steps
+const RIB_OP_BASE=GLOW?0.62:0.48, RIB_OP_DAY=GLOW?0.28:0.35;   // ribbon opacity = base + day*bonus (GLOW: more present at night, same ceiling by day)
+let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
+let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
+let _arcScroll=0;   // rainbow band scroll (muzzle → impact), advanced by projSpeed
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
 const _arcPts=new Float32Array(ARC_SAMP*3), _ribTan=new THREE.Vector3(), _ribOff=new THREE.Vector3(), _ribToCam=new THREE.Vector3();
@@ -7765,7 +7775,7 @@ function updateTargetMarks(){                                                 //
    construction — not about the peak, not about the skill-tightened width, not about grooveFireEarlyBeat, not about which
    clock a tank is on — because there is exactly one number and the shell is holding it.
    reduceMotion: IDENTICAL, and that is the match SPEC §5 asks for. The shell glow does not degrade under reduced motion —
-   it is a functional cue and the run loop's vuln branch has no reduceMotion gate at all (index.html:8474) — so the tether
+   it is a functional cue and the run loop's vuln branch has no reduceMotion gate at all (index.html:8490) — so the tether
    does not either. Where the shell DOES fall back (the vuln mechanic off, where the run loop's `else if(!reduceMotion)`
    idle shimmer is the reduced-motion casualty), the tether inherits that too, to the frame: a still shell holds a still
    thread. Nothing here reads reduceMotion, which is exactly why it can never drift from what the shell does.
@@ -7779,8 +7789,14 @@ function updateTargetMarks(){                                                 //
        retired above: at a full field that is 8 draw calls → 1, a NET −7, plus 4 .tgtDist DOM elements no longer written.
      · GEOMETRY: 2 vertices per thread × ML_TETH_N — 8 verts, 24 position floats + 24 colour floats = 192 bytes of VRAM,
        allocated ONCE and never grown. The retired rings alone were 4 × 17 = 68 verts.
-     · PER FRAME: per thread one starWorldAt (3 array reads + one quaternion apply = 16 mul, 12 add) and 12 float writes;
-       at the full field 64 mul, 48 add, 48 writes, and two 96-byte attribute uploads. ZERO allocations: one module-scope
+     · PER FRAME: per thread one starWorldAt (3 array reads + one quaternion apply) and 12 float writes. THE QUATERNION
+       COST IS THE SHIPPED r128 IMPLEMENTATION'S, counted off the source and not estimated: Vector3.applyQuaternion there
+       is the quat×vector×quat⁻¹ pair (ix,iy,iz = 3 mul + 2 add each, iw = 3 mul + 2 add, then three results at 4 mul +
+       3 add each) = 24 mul, 17 add. At the full field of 4 that is 96 mul, 68 add, 48 writes, and two 96-byte attribute
+       uploads. (An earlier draft of this note said 16 mul / 12 add per call — that is the LATER three.js form, the 2·cross
+       identity r14x replaced this one with; r128 does not have it. index.html:900 pins the version.) THE CONCLUSION IS
+       UNCHANGED AND THE MARGIN IS STILL ENORMOUS: 96 multiplies once per frame is under a microsecond of the 16.7 ms
+       budget, and the parcel's real cost was never arithmetic — it was the SEVEN draw calls it removed. ZERO allocations: one module-scope
        scratch Vector3, one geometry, one material, and an early return that costs one boolean when the parcel is off.
      · LOW-REZ: nothing to shed. One additive line pair per orb is already the cheapest honest thing in the frame, and it is
        what makes the void READABLE — the tier that most needs a depth cue is the one that can least afford to lose it.

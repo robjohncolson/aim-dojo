@@ -1806,7 +1806,7 @@ const ROAD_SLOTS=ROAD_WAKE+1+ROAD_LOOK;                                   // 23 
 const ROAD_TIDE_LO=0.45, ROAD_LANE_MIX=0.80, ROAD_WAKE_DARK=0.16, ROAD_WAKE_BLANK=0.55;   // band body luminance at the swell's trough (crest = 1.0) · how far the base ink is pulled to the lane colour · a MISSED beat's band behind you · a beat that was never judged (pre-run, lane off)
 const ROAD_INK_BODY=0.16, ROAD_INK_GLYPH=1.30;                            // the band interior once it carries information (plain ribbon keeps ROAD_INK_BASE 0.10) · the glyph's own ink
 const ROAD_GLYPH_S=ROAD_MPB/ROAD_BAND_M;                                  // THE RIBBON's cells are 2.7× longer and 2.7× further away, so the letter and its fade travel with them (1.000 exactly with moonline.on:false — every glyph constant below is then the shipped one, multiplied by one). PARCEL W SETTLED THE "PROVISIONAL" NOTE THAT STOOD HERE: SPEC §1's cue contract took the letter off the road and put it back at the CROSSHAIR, in the same commit that restored the crosshair cue, so under the ribbon nothing reads these four constants at all (the glyph pass is not emitted — ROAD_GLYPH_PASS). They stay because the kill-switch does: with moonline.on:false this scale is 1.000 and wave 7's pavement letter is the one that ships
-const ROAD_GLYPH_W=Math.min(5.2*ROAD_GLYPH_S, ROAD_HALF_W*1.24), ROAD_GLYPH_L=8.6*ROAD_GLYPH_S, ROAD_GLYPH_F0=25*ROAD_GLYPH_S, ROAD_GLYPH_F1=45*ROAD_GLYPH_S;   // the width is capped at 62% of the ribbon so a 2.7× letter cannot climb its own rails (8.68 m of 14; the cap is inert at wave-7 scale, where 5.2 < 8.68). On a 27 m cell the mid-cell footprint is 186×37 px one cell out and 112×13 px at two, so it still fades between cells +2 and +4 and the CELL COLOUR carries the lane for all eight. Wave 7 verbatim: the letter is STRETCHED down the road like real pavement text (1.65:1) to survive foreshortening: at EYE 4 m / fov 95 / 1080p its mid-band footprint is 289×147 px one band out, 178×55 at two, 128×28 at three — so it fades between bands +2 and +4 and the band COLOUR carries the lane for all eight. Drawing it out to band 8 would be 53×2 px of noise
+const ROAD_GLYPH_W=ML_RIBBON?Math.min(5.2*ROAD_GLYPH_S, ROAD_HALF_W*1.24):5.2*ROAD_GLYPH_S, ROAD_GLYPH_L=8.6*ROAD_GLYPH_S, ROAD_GLYPH_F0=25*ROAD_GLYPH_S, ROAD_GLYPH_F1=45*ROAD_GLYPH_S;   // the rail cap is ML_RIBBON-GATED like every other ROAD_* constant, and that gate is STRUCTURAL, not arithmetic: the off path is wave 7's literal expression, unconditionally, at EVERY road.widthM. Before the gate the cap read on both paths and happened to be inert only because 5.2 < 8.68 at the shipped widthM 14 — at widthM 8 (ROAD_HALF_W 4, cap 4.96) the kill-switch would have silently NARROWED wave 7's letter, which is exactly the class of contingency the switch exists to forbid. The width is capped at 62% of the ribbon so a 2.7× letter cannot climb its own rails (8.68 m of 14). On a 27 m cell the mid-cell footprint is 186×37 px one cell out and 112×13 px at two, so it still fades between cells +2 and +4 and the CELL COLOUR carries the lane for all eight. Wave 7 verbatim: the letter is STRETCHED down the road like real pavement text (1.65:1) to survive foreshortening: at EYE 4 m / fov 95 / 1080p its mid-band footprint is 289×147 px one band out, 178×55 at two, 128×28 at three — so it fades between bands +2 and +4 and the band COLOUR carries the lane for all eight. Drawing it out to band 8 would be 53×2 px of noise
 const ROAD_TIER_D=Math.sqrt(EYE*(ROAD_MPB/16)*(180/Math.PI)*(1080/95)/4);   // THE RIBBON's LOD ladder, computed from the SHIPPED optics and nothing else: a segment of length s on the ground at distance d subtends h·s/d² rad, so this is where a SIXTEENTH crossbar (1.6875 m) is still 4 px tall at 1080p with EYE 4 m and fov 95 — 33.16 m. Every coarser tier's spacing is 4× the last, and distance goes as √s, so each tier lives over [D·2^k, D·2^(k+1)] and dies exactly where the next is still four pixels wide. A mip pyramid the geometry dictated
 const ROAD_TIER_W=[0.42,0.58,1.00,1.24];                                  // and how loudly each tier speaks: the sixteenth carrier is the quietest, the "1" is unit, the bar line is the loudest — so the beat reads OUT of the carrier up close instead of drowning in it. Read once at build time into the shader's literals; never touched again
 const ROAD_LINE_PX=1.5, ROAD_LINE_MAX=0.22;                               // crossbar thickness: constant on SCREEN (lw = px·d²/(EYE·651.4) metres — 0.06 m at 10 m, 0.42 m at one beat out) and capped at 22% of its own cell so a tier stays a grid instead of closing into a slab as it dies
@@ -2101,9 +2101,9 @@ function roadImpSync(r){
   const be=r+ROAD_DRAW;
   const x0=roadCourseX(be)-_roadBase.x-_roadBase.y*(be-r);                 // Xd at the end: the shader's own cx, on the CPU, at one b
   const sl=(roadCourseD(be)-_roadBase.y)/ROAD_MPB;                         // …and its slope there, lateral metres per metre ALONG (so it is a tangent, not a per-beat rate)
-  const mn=LOW?0:Math.max(0,Math.min(1,+CFG.moonline.impostorMinStraight||0));   // LOW-REZ: THE IMPOSTOR IS ALWAYS SHOWN (SPEC §4). On a tier that already draws two crossbar tiers instead of four and no dust at all, the painted streak is the CHEAPEST honest thing on the far road — one quad against a ribbon it is standing in for — so the straightness gate stands down and only impostorInk can still say no
+  const mn=Math.max(0,Math.min(1,+CFG.moonline.impostorMinStraight||0));   // the desktop gate — how straight the far end must be before the painted streak may stand in for the road past it
   const st=1-Math.min(1,Math.abs(Math.atan(sl))/ROAD_IMP_ANG);             // STRAIGHTNESS: 1 = the far end points straight down the axis, 0 = it is 6° off it
-  let t=(st-mn)/Math.max(1e-6,(1-mn)*0.5);                                 // …reaching full brightness halfway between the gate and dead straight, so the streak arrives and leaves as a fade, never a pop
+  let t=LOW?1:(st-mn)/Math.max(1e-6,(1-mn)*0.5);                           // …reaching full brightness halfway between the gate and dead straight, so the streak arrives and leaves as a fade, never a pop. LOW-REZ: THE IMPOSTOR IS ALWAYS SHOWN — SPEC §1's hard constraint reads "impostor always", so on LOW the straightness gate is SKIPPED, not merely opened to zero. mn:0 was not the same thing: it still faded the streak out as the far heading swung, and reached exactly nothing at ROAD_IMP_ANG (6°), so on a curvy course the tier that leans hardest on the painted far road was the one that lost it. A LOW tier draws two crossbar tiers instead of four and no dust at all; one quad standing in for the ribbon it continues is the cheapest honest thing in that frame at EVERY heading, and only impostorInk can still say no
   t=t<0?0:(t>1?1:t);
   const amt=t*t*(3-2*t)*Math.max(0,+CFG.moonline.impostorInk||0);
   const on=amt>0.004;
@@ -2512,7 +2512,7 @@ function roadSync(){
        plate (baseFloor 0x0c0a14 + fog — wave 7's road already retired the lattice at graduation) to a starfield. Both
        are dark backdrops for an emissive orb: no legibility cliff a pitch change would fix.
      · and pitch is a GAMEPLAY quantity. At ±8° the shot solved for dy=0 misses vertically by 1.25 m (k2 @ 9.00 m,
-       60 bpm) to 3.77 m (k6 @ 26.98 m) — the aim correction the band already demands of the beat-quantized model.
+       60 bpm) to 3.75 m (k6 @ 26.98 m) — the aim correction the band already demands of the beat-quantized model.
        Widening to ±12° pushes clamped spawns to 20.0% and the k6 miss past 5.6 m, degrading the flight-time = k/16
        promise the whole spawn law rests on. A RENDER parcel does not pay for a backdrop with the timing model.
      · if the lower hemisphere ever does hurt, the lever is moonline.shellOpacity, not the spawn geometry: the milky band
@@ -2919,13 +2919,23 @@ function ensureMilkyShell(){
   const R=(CFG.skyMaps.shellRadius)||400;   // outside stars(340)/sticks(330), inside dome(480) + far(700)
   // depthTest/Write TRUE: nearer sky objects (glyphs, temple globes at R≈315) must occlude the shell (R≈400).
   // Transparent + depthTest:false was painting the milky way OVER the planet balls after the opaque pass.
-  // [WAVE 8, PARCEL U] …but the WRITE goes under the Moonline, because the shell is a backdrop standing for infinity and was
-  // never a wall at 400 m: the ribbon runs to 864 m, and a sphere claiming depth 400 would have cut it off at 14.8 beats.
+  // [WAVE 8, PARCEL U + THE TWO-STATE DEPTH LAW] …but the WRITE goes under the Moonline, because the shell is a backdrop
+  // standing for infinity and was never a wall at 400 m: the ribbon runs to 864 m, and a sphere claiming depth 400 cuts it
+  // off at 14.8 beats. THE LAW HAS TWO STATES AND ONE PREDICATE, moonlineVoid():
+  //   · the VOID (post-graduation play) → NO WRITE. The ribbon, the arches and the impostor all live past 400 m.
+  //   · everywhere else — the TEMPLE, the trainer, and either kill-switch off → WRITE, exactly as wave 7 did. Inside the
+  //     Temple the write is load-bearing, not incidental: it is what stops the milky way painting over the planet globes at
+  //     R≈315 (commit d66a003, "Fix milky shell depth so temple planet globes are not covered"), and the Temple has no
+  //     ribbon to cut. moonlineVoid() is `moonlineOn() && !trainMode && !templeActive`, so it turns the write back on the
+  //     instant the Temple opens and off again when it closes — no second copy of the booleans, no enter/exit hook to forget.
+  // Parcel U wrote `!moonlineOn()` here, which was both too broad (it dropped the write in the Temple and in the trainer)
+  // and, on its own, INERT: updateTempleOrbs re-writes this flag every frame (index.html:3275), so the build-time value was
+  // never the one that rendered. That per-frame write is the authority and now states the same law; this is its first frame.
   // depthTest is untouched, so the Echoes still occlude the shell exactly as they always did; nothing in the scene is both
   // farther than the shell and drawn after it (the gradient dome at R 480 is opaque at renderOrder −1000 and draws first);
-  // and the mirror pass renders into a target with no depth buffer at all (reflRT, index.html:2406). moonlineOn() is a raw
-  // boolean pair, so with the kill-switch off this is the material that shipped, flag for flag.
-  const mat=new THREE.MeshBasicMaterial({ side:THREE.BackSide, depthWrite:!moonlineOn(), depthTest:true, fog:false, transparent:true, opacity:0 });
+  // and the mirror pass renders into a target with no depth buffer at all (reflRT, index.html:2406). moonlineVoid() reads a
+  // raw boolean pair first, so with the kill-switch off this is `true` at every instant — the material that shipped, flag for flag.
+  const mat=new THREE.MeshBasicMaterial({ side:THREE.BackSide, depthWrite:!moonlineVoid(), depthTest:true, fog:false, transparent:true, opacity:0 });
   milkyShell=new THREE.Mesh(new THREE.SphereGeometry(R, seg.widthSegments, seg.heightSegments), mat);
   milkyShell.frustumCulled=false; milkyShell.renderOrder=-50;   // with real depth, order is secondary; still after gradient dome
   milkyShell.visible=false; if(!LOW) milkyShell.layers.enable(1);   // reflection layer (skipped under LOW, matching dome/stars)
@@ -3262,7 +3272,7 @@ function updateTempleOrbs(dt){
     // At full opacity, treat as opaque for better depth vs planet globes; soft-fade stays transparent.
     const solid=target>=0.995;
     milkyShell.material.transparent=!solid;
-    milkyShell.material.depthWrite=true;
+    milkyShell.material.depthWrite=!moonlineVoid();   // THE TWO-STATE DEPTH LAW (see ensureMilkyShell, index.html:2938): the shell WRITES depth in the Temple, in the trainer and under either kill-switch — wave 7 to the flag, and inside the Temple the write is what keeps the milky way off the planet globes at R≈315 — and writes NONE in the void, where a sphere claiming depth 400 would cut the 864 m ribbon off at 14.8 beats. THIS LINE IS THE AUTHORITY: it has re-written the flag every frame since d66a003, so the build-time value alone could never have delivered parcel U's intent. One predicate, read fresh each frame, so Temple enter/exit needs no hook of its own
     milkyShell.material.depthTest=true;
     milkyShell.visible=_milkyReady && target>0.003;
   }
@@ -7765,7 +7775,7 @@ function updateTargetMarks(){                                                 //
    construction — not about the peak, not about the skill-tightened width, not about grooveFireEarlyBeat, not about which
    clock a tank is on — because there is exactly one number and the shell is holding it.
    reduceMotion: IDENTICAL, and that is the match SPEC §5 asks for. The shell glow does not degrade under reduced motion —
-   it is a functional cue and the run loop's vuln branch has no reduceMotion gate at all (index.html:8474) — so the tether
+   it is a functional cue and the run loop's vuln branch has no reduceMotion gate at all (index.html:8490) — so the tether
    does not either. Where the shell DOES fall back (the vuln mechanic off, where the run loop's `else if(!reduceMotion)`
    idle shimmer is the reduced-motion casualty), the tether inherits that too, to the frame: a still shell holds a still
    thread. Nothing here reads reduceMotion, which is exactly why it can never drift from what the shell does.
@@ -7779,8 +7789,14 @@ function updateTargetMarks(){                                                 //
        retired above: at a full field that is 8 draw calls → 1, a NET −7, plus 4 .tgtDist DOM elements no longer written.
      · GEOMETRY: 2 vertices per thread × ML_TETH_N — 8 verts, 24 position floats + 24 colour floats = 192 bytes of VRAM,
        allocated ONCE and never grown. The retired rings alone were 4 × 17 = 68 verts.
-     · PER FRAME: per thread one starWorldAt (3 array reads + one quaternion apply = 16 mul, 12 add) and 12 float writes;
-       at the full field 64 mul, 48 add, 48 writes, and two 96-byte attribute uploads. ZERO allocations: one module-scope
+     · PER FRAME: per thread one starWorldAt (3 array reads + one quaternion apply) and 12 float writes. THE QUATERNION
+       COST IS THE SHIPPED r128 IMPLEMENTATION'S, counted off the source and not estimated: Vector3.applyQuaternion there
+       is the quat×vector×quat⁻¹ pair (ix,iy,iz = 3 mul + 2 add each, iw = 3 mul + 2 add, then three results at 4 mul +
+       3 add each) = 24 mul, 17 add. At the full field of 4 that is 96 mul, 68 add, 48 writes, and two 96-byte attribute
+       uploads. (An earlier draft of this note said 16 mul / 12 add per call — that is the LATER three.js form, the 2·cross
+       identity r14x replaced this one with; r128 does not have it. index.html:900 pins the version.) THE CONCLUSION IS
+       UNCHANGED AND THE MARGIN IS STILL ENORMOUS: 96 multiplies once per frame is under a microsecond of the 16.7 ms
+       budget, and the parcel's real cost was never arithmetic — it was the SEVEN draw calls it removed. ZERO allocations: one module-scope
        scratch Vector3, one geometry, one material, and an early return that costs one boolean when the parcel is off.
      · LOW-REZ: nothing to shed. One additive line pair per orb is already the cheapest honest thing in the frame, and it is
        what makes the void READABLE — the tier that most needs a depth cue is the one that can least afford to lose it.

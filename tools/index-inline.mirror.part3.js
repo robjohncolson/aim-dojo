@@ -1806,7 +1806,7 @@
                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                
@@ -2101,9 +2101,9 @@
                        
                                                                                                                                       
                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                             
                                                                                                                                                               
-                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                     
                                                                  
                      
@@ -2919,13 +2919,23 @@
                                                                                                           
                                                                                                               
                                                                                                           
-                                                                                                                             
+                                                                                                                         
+                                                                                                                           
+                                                                                 
+                                                                                                                 
+                                                                                                                         
+                                                                                                                            
+                                                                                                                       
                                                                                                                           
+                                                                                                                              
+                                                                                                                          
+                                                                                                                            
+                                                                                                                             
                                                                                                                            
                                                                                                                            
-                                                                                                                           
-                                                                                                
-                                                                                                                                                   
+                                                                                                                            
+                                                                                                                                    
+                                                                                                                                                     
                                                                                                      
                                                                                                                                  
                                                                                                                                 
@@ -3262,7 +3272,7 @@
                                                                                                        
                               
                                            
-                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                        
                                                    
    
@@ -5321,26 +5331,26 @@
                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
  
-                   
-                                    
-      
-                         
-                                                                                                             
-                                                                        
-                                                                                                                             
-                                                                                                                          
-                                                                                                                               
-                                                                                                                                 
-             
- 
-                                                                                                                     
-                                                                                                                    
-                                                                                                                      
-                                                                                                                   
-                                                                                                        
-                                                                                                                             
-                                                                                                                                                                                 
-                                                                                                                                                                                                                      
+function sfx(kind){
+  if(!soundOn || !toneReady) return;
+  try{
+    const now=Tone.now();
+    if(kind==='hit'){ synthHit.triggerAttackRelease(880*Math.pow(2,Math.min(state.streak,12)/24),0.06,now); }
+    else if(kind==='whiff'){ noiseFire.triggerAttackRelease(0.04,now); }
+    else if(kind==='offbeat'){ synthLow.triggerAttackRelease(220,0.08,now); }   // late hit → in-key (A3), plain (not a buzz)
+    else if(kind==='expire'){ synthLow.triggerAttackRelease(110,0.14,now); }     // missed entirely → low in-key (A2) drop
+    else if(kind==='levelUp'){ synthLvl.triggerAttackRelease(523,0.08,now); synthLvl.triggerAttackRelease(784,0.10,now+0.09); }
+    else if(kind==='levelDown'){ synthLvl.triggerAttackRelease(392,0.08,now); synthLvl.triggerAttackRelease(262,0.12,now+0.09); }
+  }catch(e){}
+}
+/* THE LEAD INSTRUMENT: how tight the arrival landed becomes the kill note's timbre. Two module scalars and four tiny
+   readers — no state machine, no allocation per hit, no scheduling of its own. voiceQ reads the SAME heard timeline
+   as bowNote (so the note you hear and the dot the Mandala draws agree about the same arrival), voiceBreak/voiceClank
+   are the only writers, and every one of them is reached only through a raw CFG.voice.on read at the call site. */
+let _voiceStack=0;        // consecutive FLAWLESS arrivals; any other arrival puts it straight back to 0
+let _voiceMuteBeat=-1;    // Transport beat position through which the kill-voice stays silent after a clank (<0 = not muted)
+function voiceLive(){ return !!(CFG.voice && CFG.voice.on) && !trainMode && !templeActive; }   // the trainer's didactic kill tone and the Temple keep today's fixed note exactly
+function voiceBeats(){ try{ return Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){ return -1; } }   // raw Transport beats: the mute is a DURATION, so the heard-timeline correction cancels out of the comparison
 function voiceQ(){                                        // arrival tightness 0..1 — dead-centre on the beat = 1, a full goodMs off (or worse) = 0
   const b=voiceBeats(); if(b<0) return 1;
   const bps=60/Math.max(20,state.bpm), hb=b-audioLat()/bps;   // the HEARD timeline, same correction bowNote and every tap grade take
@@ -7564,27 +7574,27 @@ function segDistSq(a,b,c){                                                      
   return dx*dx+dy*dy+dz*dz;
 }
 const _prev=new THREE.Vector3();
-function updateProjectiles(dt){
-  for(let i=projectiles.length-1;i>=0;i--){
-    const pr=projectiles[i];
-    pr.vel.x+=windX*dt; pr.vel.y-=CFG.projGravity*dt; pr.vel.z+=windZ*dt; _prev.copy(pr.pos); pr.pos.x+=pr.vel.x*dt; pr.pos.y+=pr.vel.y*dt; pr.pos.z+=pr.vel.z*dt; pr.life+=dt;   // wind: horizontal accel (0 in the daily)
-    let hit=null;
-    for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
-      if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
-    if(hit){
-      if(hit.hpMax>1){ handleTankHit(hit, pr.pos); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
-      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
-      if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
-      gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
-    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring. GROUND/wall are the real ends — projLife is only the NaN/runaway safety (K1: high lofts fly their full arc to the floor)
-    if(pr.mesh) pr.mesh.position.copy(pr.pos);
-  }
-}
-const ARC_UPDATE_STEP=1/20, ARC_MAX=430, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=GLOW?0.105:0.065;   // ribbon half-width (a hair wider so ROYGBIV bands read; GLOW: bolder key-art ribbon). ARC_MAX 430×(1/30s) ≈ 14.3s of plan integration — covers projLife so the PLAN reaches the ground exactly like the bullet (K1); flat shots still break out of the loop in <80 steps
-const RIB_OP_BASE=GLOW?0.62:0.48, RIB_OP_DAY=GLOW?0.28:0.35;   // ribbon opacity = base + day*bonus (GLOW: more present at night, same ceiling by day)
-let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
-let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
-let _arcScroll=0;   // rainbow band scroll (muzzle → impact), advanced by projSpeed
+                               
+                                           
+                            
+                                                                                                                                                                                                                            
+                 
+                                                                                            
+                                                                                 
+            
+                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                    
+                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                      
+                                              
+   
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                      
+                                                                                                                                             
+                                                                                                                                                                        
+                                                                                   
                                                                                                                              
                                                                                                                                                              
                                                                                                                                     
@@ -7779,8 +7789,14 @@ let _arcScroll=0;   // rainbow band scroll (muzzle → impact), advanced by proj
                                                                                                                          
                                                                                                                         
                                                                                       
+                                                                                                                       
                                                                                                                          
-                                                                                                                         
+                                                                                                                       
+                                                                                                                        
+                                                                                                                           
+                                                                                                                       
+                                                                                                                     
+                                                                                                                                           
                                                                                                                       
                                                                                                                             
                                                                                                                        
