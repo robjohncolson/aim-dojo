@@ -4783,7 +4783,7 @@
                                                                                                  
                                                                                   
                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                
                                                           
                                                
@@ -6888,8 +6888,8 @@
               
                                                                                                                                           
                                                                                            
-                                                                                                                    
-                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                      
      
    
                                                                                                                                                                                  
@@ -7535,45 +7535,45 @@
                                                
                                                                                                                                                    
                                                                                                                  
-                                                                                                                                         
-                                    
-      
-                         
-                                                                                                     
-                                                                         
-                                                                               
-                                                                                
-                                                                                                                                                    
-                  
-                                                           
-                                
-                                                                   
-                                                     
-                                                 
-                                                                  
-     
-             
- 
-                           
-                                                                                                                                            
-                                                                                                                                                   
-                     
-                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                 
-                       
-                                                                                                                                                                                                                                                                                                      
- 
-                                                                                                                                          
-                                                                                                                                                                                   
-                                                                                                                                                                                                     
-                                                                 
-                                                                 
-                        
-                                                                
-                           
- 
-                                
+function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter in-key whoosh (sits with the theme, doesn't fight the bed)
+  if(!soundOn || !toneReady) return;
+  try{
+    const now=Tone.now();
+    const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)
+    const hi=(PENTA&&PENTA.length)?PENTA[Math.min(4,PENTA.length-1)]:440;
+    const sensei=true;   // SENSEI-only dojo (difficulty picker cut 2026-07-09)
+    if(fireMuzzle) fireMuzzle.triggerAttackRelease(0.032, now, sensei?0.62:0.5);
+    if(firePluck) firePluck.triggerAttackRelease(lo*2, '32n', now, sensei?0.78:0.65);   // octave up = clear “shot” without stealing the lead melody
+    if(arcWhoosh){
+      const ft=Math.max(0.18, Math.min(2.2, flightT||0.6));
+      const a=lo*0.9, b=hi*1.05;
+      arcWhoosh.triggerAttackRelease(a, ft, now, sensei?0.38:0.32);
+      arcWhoosh.frequency.cancelScheduledValues(now);
+      arcWhoosh.frequency.setValueAtTime(a, now);
+      arcWhoosh.frequency.linearRampToValueAtTime(b, now+ft*0.85);
+    }
+  }catch(e){}
+}
+function spawnProjectile(){
+  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
+  const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
+  playFireLaunch(_T);
+  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
+  // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
+  pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
+  projectiles.push(pr);
+  if(projectiles.length>64){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest (raised 40→64 with K1's full-length lofts: fire-quant × a 7.5s max arc can hold ~45 live shots legitimately)
+}
+function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
+function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
+function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
+  const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
+  let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
+  t = t<0?0 : t>1?1 : t;
+  const dx=c.x-(a.x+sx*t), dy=c.y-(a.y+sy*t), dz=c.z-(a.z+sz*t);
+  return dx*dx+dy*dy+dz*dz;
+}
+const _prev=new THREE.Vector3();
 function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const pr=projectiles[i];
@@ -8089,6 +8089,7 @@ function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens o
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
 function spawnLandRing(x,z){
+  if(moonlineVoid()) return;   // NOTHING BESIDE THE ROAD BUT SPACE (wave 8, G2a · SPEC §1). This ring is a y=0.03 disc on the RETIRED plane — in the void it is a blue circle hanging in mid-air over the celestial shell's lower half, marking a floor that is not there. The gate is HERE, on the visual, and NOT at the call site: updateProjectiles' `pr.pos.y<=0.04` termination, its onWhiff and its retire are ballistics and stay byte-identical, so in the void a missed shot simply falls out of the world and is graded exactly as it always was (THE TREADMILL LAW). The trainer keeps its land rings (moonlineVoid() reads !trainMode), the Temple never reaches here (templeActive gates updateProjectiles), and moonline.on:false keeps them everywhere
   let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
   if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
   lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
@@ -8097,6 +8098,9 @@ function updateLandRings(dt){
   for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
     if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
     const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
+}
+function clearLandRings(){   // the twin of clearRings for the OTHER floor-plane pool, and the only way to retire one EARLY: updateLandRings above is unconditional in animate (no state.running, no !templeActive), so a live ring otherwise runs its full 0.55 s wherever the player has been taken in the meantime
+  for(const lr of landRingPool){ if(lr.active){ lr.active=false; lr.mesh.visible=false; } }
 }
 
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
@@ -8614,13 +8618,24 @@ function animate(frameNow){
   if(skyAccum>=SKY_UPDATE_STEP){ updateSky(skyAccum); skyAccum=0; }
   if(state.running && !templeActive && activeRingCount>0){
     const spb=60/state.bpm;
-    for(const r of RING_POOL){
+    // THE ROOM'S FURNITURE EXITS WITH THE ROOM (wave 8, G1b). Gating emitRing above stops NEW rings, but a ring lives
+    // RING_LIFE=7 beats, so the ones the TRAINER lit are still expanding when setTrainPhase(3) pulls the floor out from
+    // under them. This retires them on the FLOOR'S OWN TIMELINE: _mlBlend is the graduation dissolve and nothing else —
+    // it SNAPS everywhere else — so a player who skipped the trainer finds mlFade already 0 on frame one (nothing to
+    // fade, since nothing was ever emitted), a Temple visit cannot re-fade anything, and the ONE ramp there is is the
+    // one the floor leaves on. No second duration: this is floorDissolveSec through the blend that already reads it,
+    // stepped in the same updateSky call two lines above so the rings and the sky can never disagree by a frame.
+    // Outside the void mlFade is exactly 1, and `x*1` is a bit-identical double, so the trainer's rings and every
+    // moonline.on:false ring keep the shipped opacity to the last bit. VISUAL ONLY — no gameplay quantity is read here.
+    const mlFade=moonlineVoid()?Math.max(0,1-_mlBlend):1;
+    if(mlFade<=0) clearRings();
+    else for(const r of RING_POOL){
       if(!r.active) continue;
       const ageB=(state.t-r.t0)/spb;
       if(ageB>=RING_LIFE){ r.active=false; r.mesh.visible=false; r.rq=0; r.op=-1; activeRingCount=Math.max(0,activeRingCount-1); continue; }
       const Rq=Math.max(RING_CELL, Math.round((ageB*RING_SPEED)/RING_CELL)*RING_CELL);  // quantize: snap out to the next grid line
       if(r.rq!==Rq){ r.rq=Rq; r.mesh.scale.set(Rq,1,Rq); }
-      const op=Math.max(0, Math.round(r.intensity*(1-ageB/RING_LIFE)*RING_OP_SCALE));
+      const op=Math.max(0, Math.round(r.intensity*(1-ageB/RING_LIFE)*mlFade*RING_OP_SCALE));
       if(r.op!==op){ r.op=op; r.mesh.material.opacity=op/RING_OP_SCALE; }
     }
   } else clearRings();

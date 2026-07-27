@@ -4783,7 +4783,7 @@ function enterSkyTemple(options){
   templeActive=true; _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
   abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
-  clearProjectiles(); clearRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: unpaid pending/debt levels land first, airborne lines (already paid at drain, v1.3) just go with it — and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into
+  clearProjectiles(); clearRings(); clearLandRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: unpaid pending/debt levels land first, airborne lines (already paid at drain, v1.3) just go with it — and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into. clearLandRings (wave 8, G2b) closes a POOL-CLEAR ASYMMETRY that predates the void and is a bug on ANY build: RING_POOL was swept here and landRingPool was not, so a shot that hit the ground inside the last 0.55 s carried a blue floor ring INTO the Temple and kept animating it there — updateLandRings is unconditional in animate, so the ring expands and fades for its full 0.55 s over the Temple's own shell, on the plane the Temple hard-hides four lines below. Unconditional by design: no moonline read, because the Temple owes this sweep with the parcel off too
   hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
   if(_lsn.line){ _lsn.line.visible=false; _lsn.lineT=-1; }
   if(_lsn.card) _lsn.card.style.display='none';
@@ -6888,8 +6888,8 @@ function onGrid(time){
   if(i%2===0){
     try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){}
     const beatIdx=i/2;                                        // 0..3 across the grid cycle
-    if(beatIdx%2===0 || state.streak>=8){                     // base: a ring every 2 beats; on a streak: every beat
-      try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }
+    if((beatIdx%2===0 || state.streak>=8) && !moonlineVoid()){   // base: a ring every 2 beats; on a streak: every beat — but THE RINGS BELONG TO THE ROOM (wave 8, G1a · SPEC §1 "nothing beside the road but space"). Every beat ring is a floor-plane LineLoop at y=0.04 expanding across the grid the void DELETED, and at 60 bpm a mercy bar can hold seven of them at once, drawn across nothing. Gated at the SCHEDULE so a void beat never even allocates the Draw closure (the frame budget's "zero new allocations"), and the identical read inside the callback below is what covers THE GRADUATION FLIP — a ring scheduled one audio-lookahead before setTrainPhase(3) would otherwise light its first frame after the floor was already gone. The trainer keeps every ring byte for byte (moonlineVoid() reads !trainMode), and moonline.on:false keeps them everywhere. VISUAL ONLY: emitRing writes no ballistic, spawn or grading quantity, so the treadmill law is untouched
+      try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive&&!moonlineVoid()) emitRing(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive&&!moonlineVoid()) emitRing(); }
     }
   }
   if(bonusActive){ grid8++; return; }                      // RAIL-FLICK BONUS: the beat/music above keep playing, but freeze NEW orb spawns while the flick mode holds the field
@@ -8089,6 +8089,7 @@ function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens o
 /* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
 const landRingPool=[];
 function spawnLandRing(x,z){
+  if(moonlineVoid()) return;   // NOTHING BESIDE THE ROAD BUT SPACE (wave 8, G2a · SPEC §1). This ring is a y=0.03 disc on the RETIRED plane — in the void it is a blue circle hanging in mid-air over the celestial shell's lower half, marking a floor that is not there. The gate is HERE, on the visual, and NOT at the call site: updateProjectiles' `pr.pos.y<=0.04` termination, its onWhiff and its retire are ballistics and stay byte-identical, so in the void a missed shot simply falls out of the world and is graded exactly as it always was (THE TREADMILL LAW). The trainer keeps its land rings (moonlineVoid() reads !trainMode), the Temple never reaches here (templeActive gates updateProjectiles), and moonline.on:false keeps them everywhere
   let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
   if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
   lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
@@ -8097,6 +8098,9 @@ function updateLandRings(dt){
   for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
     if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
     const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
+}
+function clearLandRings(){   // the twin of clearRings for the OTHER floor-plane pool, and the only way to retire one EARLY: updateLandRings above is unconditional in animate (no state.running, no !templeActive), so a live ring otherwise runs its full 0.55 s wherever the player has been taken in the meantime
+  for(const lr of landRingPool){ if(lr.active){ lr.active=false; lr.mesh.visible=false; } }
 }
 
 /* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
@@ -8614,13 +8618,24 @@ function animate(frameNow){
   if(skyAccum>=SKY_UPDATE_STEP){ updateSky(skyAccum); skyAccum=0; }
   if(state.running && !templeActive && activeRingCount>0){
     const spb=60/state.bpm;
-    for(const r of RING_POOL){
+    // THE ROOM'S FURNITURE EXITS WITH THE ROOM (wave 8, G1b). Gating emitRing above stops NEW rings, but a ring lives
+    // RING_LIFE=7 beats, so the ones the TRAINER lit are still expanding when setTrainPhase(3) pulls the floor out from
+    // under them. This retires them on the FLOOR'S OWN TIMELINE: _mlBlend is the graduation dissolve and nothing else —
+    // it SNAPS everywhere else — so a player who skipped the trainer finds mlFade already 0 on frame one (nothing to
+    // fade, since nothing was ever emitted), a Temple visit cannot re-fade anything, and the ONE ramp there is is the
+    // one the floor leaves on. No second duration: this is floorDissolveSec through the blend that already reads it,
+    // stepped in the same updateSky call two lines above so the rings and the sky can never disagree by a frame.
+    // Outside the void mlFade is exactly 1, and `x*1` is a bit-identical double, so the trainer's rings and every
+    // moonline.on:false ring keep the shipped opacity to the last bit. VISUAL ONLY — no gameplay quantity is read here.
+    const mlFade=moonlineVoid()?Math.max(0,1-_mlBlend):1;
+    if(mlFade<=0) clearRings();
+    else for(const r of RING_POOL){
       if(!r.active) continue;
       const ageB=(state.t-r.t0)/spb;
       if(ageB>=RING_LIFE){ r.active=false; r.mesh.visible=false; r.rq=0; r.op=-1; activeRingCount=Math.max(0,activeRingCount-1); continue; }
       const Rq=Math.max(RING_CELL, Math.round((ageB*RING_SPEED)/RING_CELL)*RING_CELL);  // quantize: snap out to the next grid line
       if(r.rq!==Rq){ r.rq=Rq; r.mesh.scale.set(Rq,1,Rq); }
-      const op=Math.max(0, Math.round(r.intensity*(1-ageB/RING_LIFE)*RING_OP_SCALE));
+      const op=Math.max(0, Math.round(r.intensity*(1-ageB/RING_LIFE)*mlFade*RING_OP_SCALE));
       if(r.op!==op){ r.op=op; r.mesh.material.opacity=op/RING_OP_SCALE; }
     }
   } else clearRings();

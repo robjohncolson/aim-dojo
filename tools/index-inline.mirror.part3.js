@@ -4783,7 +4783,7 @@
                                                                                                  
                                                                                   
                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                
                                                           
                                                
@@ -5308,29 +5308,29 @@
                                                                                                                                   
                              
  
-                     
-                   
-                        
-                                                                                                                                                                                                                                                                                                                 
-                                                                                               
-                 
-      
-                 
-                                                                                                     
-                                                  
-                                                                                                                                   
-                                                                                                                                                                  
-                                                                                                                                   
-                                                                                                                                                     
-                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                      
-                   
-                                                
-                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
- 
+function initAudio(){
+  ensureListener();
+  scheduleReverbBuild();
+  if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
+  if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
+  audioInit=true;
+  try{
+    Tone.start();
+    rawCtx = (Tone.getContext && Tone.getContext().rawContext) ? Tone.getContext().rawContext : null;
+    const out=new Tone.Volume(-6).toDestination();
+    synthHit=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.09,sustain:0,release:0.02}}).connect(out);
+    synthLow=new Tone.Synth({oscillator:{type:'square'},envelope:{attack:0.001,decay:0.14,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination());
+    synthLvl=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.002,decay:0.12,sustain:0,release:0.05}}).connect(out);
+    noiseFire=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.05,sustain:0}}).connect(new Tone.Volume(-16).toDestination());
+    try{ chordSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.3,sustain:0.05,release:0.5}}).connect(new Tone.Volume(-13).toDestination()); }catch(e){ chordSynth=null; }
+    try{ arcWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.012,decay:0.12,sustain:0.35,release:0.14}}).connect(new Tone.Volume(-22).toDestination()); }catch(e){ arcWhoosh=null; }   // ARC flight whoosh (quieter bed under the new muzzle; pitch from theme scale)
+    try{ fireMuzzle=new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.001,decay:0.04,sustain:0,release:0.02}}).connect(new Tone.Filter(1600,'lowpass').connect(new Tone.Volume(-13).toDestination())); }catch(e){ fireMuzzle=null; }   // soft muzzle thump (brown noise — not a harsh white crack)
+    try{ firePluck=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.07,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination()); }catch(e){ firePluck=null; }   // in-key pluck so the launch sits with the song
+    toneReady=true;
+  }catch(e){ toneReady=false; audioInit=false; }
+  applyAudioState();
+  if(CFG.chorus.on){ chorusSaltRefresh(); chorusEnsure(); }   // THE STANDING CHORUS is built WITH the graph, never on demand: its first moment used to be a mercy downbeat, so a PolySynth, a filter and a Volume were being constructed inside the Transport callback that had just asked it to sing. Built here it is born muted and costs nothing but memory until a moment opens the gate, and the salt is warm before any pick. Raw boolean first — parcel off builds no node
+}
 function sfx(kind){
   if(!soundOn || !toneReady) return;
   try{
@@ -6888,8 +6888,8 @@ function onGrid(time){
   if(i%2===0){
     try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){}
     const beatIdx=i/2;                                        // 0..3 across the grid cycle
-    if(beatIdx%2===0 || state.streak>=8){                     // base: a ring every 2 beats; on a streak: every beat
-      try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) emitRing(); }
+    if((beatIdx%2===0 || state.streak>=8) && !moonlineVoid()){   // base: a ring every 2 beats; on a streak: every beat — but THE RINGS BELONG TO THE ROOM (wave 8, G1a · SPEC §1 "nothing beside the road but space"). Every beat ring is a floor-plane LineLoop at y=0.04 expanding across the grid the void DELETED, and at 60 bpm a mercy bar can hold seven of them at once, drawn across nothing. Gated at the SCHEDULE so a void beat never even allocates the Draw closure (the frame budget's "zero new allocations"), and the identical read inside the callback below is what covers THE GRADUATION FLIP — a ring scheduled one audio-lookahead before setTrainPhase(3) would otherwise light its first frame after the floor was already gone. The trainer keeps every ring byte for byte (moonlineVoid() reads !trainMode), and moonline.on:false keeps them everywhere. VISUAL ONLY: emitRing writes no ballistic, spawn or grading quantity, so the treadmill law is untouched
+      try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive&&!moonlineVoid()) emitRing(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive&&!moonlineVoid()) emitRing(); }
     }
   }
   if(bonusActive){ grid8++; return; }                      // RAIL-FLICK BONUS: the beat/music above keep playing, but freeze NEW orb spawns while the flick mode holds the field
@@ -7535,45 +7535,45 @@ const PROJ_MAT=new THREE.MeshBasicMaterial({color:0x9fe8ff});
 const projectileMeshPool=[], projectilePool=[];
 function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.Mesh(PROJ_GEO, PROJ_MAT); m.visible=true; scene.add(m); return m; }
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
-function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter in-key whoosh (sits with the theme, doesn't fight the bed)
-  if(!soundOn || !toneReady) return;
-  try{
-    const now=Tone.now();
-    const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)
-    const hi=(PENTA&&PENTA.length)?PENTA[Math.min(4,PENTA.length-1)]:440;
-    const sensei=true;   // SENSEI-only dojo (difficulty picker cut 2026-07-09)
-    if(fireMuzzle) fireMuzzle.triggerAttackRelease(0.032, now, sensei?0.62:0.5);
-    if(firePluck) firePluck.triggerAttackRelease(lo*2, '32n', now, sensei?0.78:0.65);   // octave up = clear “shot” without stealing the lead melody
-    if(arcWhoosh){
-      const ft=Math.max(0.18, Math.min(2.2, flightT||0.6));
-      const a=lo*0.9, b=hi*1.05;
-      arcWhoosh.triggerAttackRelease(a, ft, now, sensei?0.38:0.32);
-      arcWhoosh.frequency.cancelScheduledValues(now);
-      arcWhoosh.frequency.setValueAtTime(a, now);
-      arcWhoosh.frequency.linearRampToValueAtTime(b, now+ft*0.85);
-    }
-  }catch(e){}
-}
-function spawnProjectile(){
-  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
-  const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
-  playFireLaunch(_T);
-  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
-  // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
-  pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
-  projectiles.push(pr);
-  if(projectiles.length>64){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest (raised 40→64 with K1's full-length lofts: fire-quant × a 7.5s max arc can hold ~45 live shots legitimately)
-}
-function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
-function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
-function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
-  const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
-  let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
-  t = t<0?0 : t>1?1 : t;
-  const dx=c.x-(a.x+sx*t), dy=c.y-(a.y+sy*t), dz=c.z-(a.z+sz*t);
-  return dx*dx+dy*dy+dz*dz;
-}
-const _prev=new THREE.Vector3();
+                                                                                                                                         
+                                    
+      
+                         
+                                                                                                     
+                                                                         
+                                                                               
+                                                                                
+                                                                                                                                                    
+                  
+                                                           
+                                
+                                                                   
+                                                     
+                                                 
+                                                                  
+     
+             
+ 
+                           
+                                                                                                                                            
+                                                                                                                                                   
+                     
+                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                 
+                       
+                                                                                                                                                                                                                                                                                                      
+ 
+                                                                                                                                          
+                                                                                                                                                                                   
+                                                                                                                                                                                                     
+                                                                 
+                                                                 
+                        
+                                                                
+                           
+ 
+                                
                                
                                            
                             
@@ -8089,6 +8089,7 @@ const _prev=new THREE.Vector3();
                                                                                              
                       
                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                             
                                                                                                                                                                                                                                                                      
                                                                                  
@@ -8097,6 +8098,9 @@ const _prev=new THREE.Vector3();
                                                                                           
                                                                  
                                                                                        
+ 
+                                                                                                                                                                                                                                                                                                                     
+                                                                                           
  
 
                                                                                                                                                      
@@ -8614,13 +8618,24 @@ const _prev=new THREE.Vector3();
                                                                    
                                                           
                            
-                              
+                                                                                                                      
+                                                                                                                        
+                                                                                                                        
+                                                                                                                     
+                                                                                                                      
+                                                                                                                     
+                                                                                                                 
+                                                                                                                  
+                                                                                                                        
+                                                         
+                               
+                                   
                              
                                     
                                                                                                                                             
                                                                                                                                    
                                                           
-                                                                                     
+                                                                                            
                                                                          
      
                       

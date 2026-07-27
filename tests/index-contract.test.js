@@ -571,3 +571,42 @@ test("ordinary focused settings buttons do not strand gamepad resume", () => {
   assert.match(fn[0], /chartSettingsPanel|saveSkyDetails/);
   assert.match(fn[0], /transitEssayReader/);
 });
+
+test("the void never schedules and never emits a floor beat ring", () => {
+  const scheduler = html.match(/const beatIdx=i\/2;[\s\S]*?emitRing\(\); \}, time\); \}catch\(e\)\{[^\n]*\n/);
+  assert.ok(scheduler, "the onGrid beat-ring scheduler is present");
+  // Gated at the SCHEDULE (no Draw closure allocated on a void beat) AND inside the callback + its catch
+  // fallback (the graduation flip: a ring scheduled one audio-lookahead before setTrainPhase(3)).
+  assert.match(scheduler[0], /if\(\(beatIdx%2===0 \|\| state\.streak>=8\) && !moonlineVoid\(\)\)/);
+  assert.equal((scheduler[0].match(/!templeActive&&!moonlineVoid\(\)\) emitRing\(\)/g) || []).length, 2);
+});
+
+test("beat rings alive at graduation fade on the floor dissolve's own blend", () => {
+  const loop = html.match(/if\(state\.running && !templeActive && activeRingCount>0\)\{[\s\S]*?\n  \} else clearRings\(\);/);
+  assert.ok(loop, "the animate beat-ring pass is present");
+  // One timeline, no second duration: _mlBlend IS floorDissolveSec's ramp, and 0 opacity retires the pool.
+  assert.match(loop[0], /const mlFade=moonlineVoid\(\)\?Math\.max\(0,1-_mlBlend\):1;/);
+  assert.match(loop[0], /if\(mlFade<=0\) clearRings\(\);/);
+  assert.match(loop[0], /r\.intensity\*\(1-ageB\/RING_LIFE\)\*mlFade\*RING_OP_SCALE/);
+});
+
+test("a void miss loses its floor ring and keeps its ballistic termination", () => {
+  const spawn = html.match(/function spawnLandRing\(x,z\)\{\n[^\n]*\n/);
+  assert.ok(spawn, "spawnLandRing is present");
+  assert.match(spawn[0], /^function spawnLandRing\(x,z\)\{\n  if\(moonlineVoid\(\)\) return;/);
+
+  // THE TREADMILL LAW: the gate is on the VISUAL, never on the y=0 termination that grades the miss.
+  const terminate = html.match(/if\(pr\.life>=CFG\.projLife \|\| pr\.pos\.y<=0\.04[^\n]*\n/);
+  assert.ok(terminate, "the projectile termination line is present");
+  assert.match(terminate[0], /if\(pr\.pos\.y<=0\.04\) spawnLandRing\(pr\.pos\.x, pr\.pos\.z\); onWhiff\(true\); retireProjectile\(i\); continue;/);
+  assert.doesNotMatch(terminate[0], /moonline|_mlBlend|roadLive/i);
+});
+
+test("the Temple sweeps both floor-ring pools, on every build", () => {
+  const enter = html.match(/function enterSkyTemple\(options\)\{[\s\S]*?\n  hideArc\(\);/);
+  assert.ok(enter, "enterSkyTemple's field teardown is present");
+  assert.match(enter[0], /clearProjectiles\(\); clearRings\(\); clearLandRings\(\);/);
+  const sweep = enter[0].match(/[^\n]*clearLandRings\(\)[^\n]*/)[0].split("//")[0];
+  assert.doesNotMatch(sweep, /moonline|CFG\.moonline/i);   // a latent temple bug on any build — never gated
+  assert.match(html, /function clearLandRings\(\)\{[^]*?for\(const lr of landRingPool\)\{ if\(lr\.active\)\{ lr\.active=false; lr\.mesh\.visible=false; \} \}/);
+});

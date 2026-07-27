@@ -4783,7 +4783,7 @@ function enterSkyTemple(options){
   templeActive=true; _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
   abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
-  clearProjectiles(); clearRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: unpaid pending/debt levels land first, airborne lines (already paid at drain, v1.3) just go with it — and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into
+  clearProjectiles(); clearRings(); clearLandRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: unpaid pending/debt levels land first, airborne lines (already paid at drain, v1.3) just go with it — and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into. clearLandRings (wave 8, G2b) closes a POOL-CLEAR ASYMMETRY that predates the void and is a bug on ANY build: RING_POOL was swept here and landRingPool was not, so a shot that hit the ground inside the last 0.55 s carried a blue floor ring INTO the Temple and kept animating it there — updateLandRings is unconditional in animate, so the ring expands and fades for its full 0.55 s over the Temple's own shell, on the plane the Temple hard-hides four lines below. Unconditional by design: no moonline read, because the Temple owes this sweep with the parcel off too
   hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
   if(_lsn.line){ _lsn.line.visible=false; _lsn.lineT=-1; }
   if(_lsn.card) _lsn.card.style.display='none';
@@ -5308,29 +5308,29 @@ function ensureListener(){
     if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{});
   }catch(e){ listener=null; }
 }
-function initAudio(){
-  ensureListener();
-  scheduleReverbBuild();
-  if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
-  if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
-  audioInit=true;
-  try{
-    Tone.start();
-    rawCtx = (Tone.getContext && Tone.getContext().rawContext) ? Tone.getContext().rawContext : null;
-    const out=new Tone.Volume(-6).toDestination();
-    synthHit=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.09,sustain:0,release:0.02}}).connect(out);
-    synthLow=new Tone.Synth({oscillator:{type:'square'},envelope:{attack:0.001,decay:0.14,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination());
-    synthLvl=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.002,decay:0.12,sustain:0,release:0.05}}).connect(out);
-    noiseFire=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.05,sustain:0}}).connect(new Tone.Volume(-16).toDestination());
-    try{ chordSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.3,sustain:0.05,release:0.5}}).connect(new Tone.Volume(-13).toDestination()); }catch(e){ chordSynth=null; }
-    try{ arcWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.012,decay:0.12,sustain:0.35,release:0.14}}).connect(new Tone.Volume(-22).toDestination()); }catch(e){ arcWhoosh=null; }   // ARC flight whoosh (quieter bed under the new muzzle; pitch from theme scale)
-    try{ fireMuzzle=new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.001,decay:0.04,sustain:0,release:0.02}}).connect(new Tone.Filter(1600,'lowpass').connect(new Tone.Volume(-13).toDestination())); }catch(e){ fireMuzzle=null; }   // soft muzzle thump (brown noise — not a harsh white crack)
-    try{ firePluck=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.07,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination()); }catch(e){ firePluck=null; }   // in-key pluck so the launch sits with the song
-    toneReady=true;
-  }catch(e){ toneReady=false; audioInit=false; }
-  applyAudioState();
-  if(CFG.chorus.on){ chorusSaltRefresh(); chorusEnsure(); }   // THE STANDING CHORUS is built WITH the graph, never on demand: its first moment used to be a mercy downbeat, so a PolySynth, a filter and a Volume were being constructed inside the Transport callback that had just asked it to sing. Built here it is born muted and costs nothing but memory until a moment opens the gate, and the salt is warm before any pick. Raw boolean first — parcel off builds no node
-}
+                     
+                   
+                        
+                                                                                                                                                                                                                                                                                                                 
+                                                                                               
+                 
+      
+                 
+                                                                                                     
+                                                  
+                                                                                                                                   
+                                                                                                                                                                  
+                                                                                                                                   
+                                                                                                                                                     
+                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                      
+                   
+                                                
+                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+ 
                    
                                     
       
@@ -6888,8 +6888,8 @@ function initAudio(){
               
                                                                                                                                           
                                                                                            
-                                                                                                                    
-                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                      
      
    
                                                                                                                                                                                  
@@ -8089,6 +8089,7 @@ function initAudio(){
                                                                                              
                       
                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                             
                                                                                                                                                                                                                                                                      
                                                                                  
@@ -8097,6 +8098,9 @@ function initAudio(){
                                                                                           
                                                                  
                                                                                        
+ 
+                                                                                                                                                                                                                                                                                                                     
+                                                                                           
  
 
                                                                                                                                                      
@@ -8614,13 +8618,24 @@ function initAudio(){
                                                                    
                                                           
                            
-                              
+                                                                                                                      
+                                                                                                                        
+                                                                                                                        
+                                                                                                                     
+                                                                                                                      
+                                                                                                                     
+                                                                                                                 
+                                                                                                                  
+                                                                                                                        
+                                                         
+                               
+                                   
                              
                                     
                                                                                                                                             
                                                                                                                                    
                                                           
-                                                                                     
+                                                                                            
                                                                          
      
                       
