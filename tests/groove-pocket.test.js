@@ -876,3 +876,176 @@ test("silent-miss sweep is fed outside the target-presence branch and pauses for
   inFlight.pocketSweepMisses(6.6, 1, 1, 0.25);
   assert.equal(inFlight.read("_pocketBuffer.length"), 0, "the bonus-owned main is not later back-filled as a miss");
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// THE MOONLINE — THE VOID (SPEC_MOONLINE §2, wave 8 parcel T).
+// Post-graduation play has no room: the ground plane, the ground fog and the horizon haze go, the Temple's celestial
+// shell wraps the player above AND below, and graduation dissolves the floor over the Temple's own floorDissolveSec.
+// The master kill-switch (moonline.on:false) must restore wave-7 rendering EXACTLY, and the trainer keeps today's room.
+// ---------------------------------------------------------------------------------------------------------------------
+
+function loadVoidSandbox(overrides) {
+  // The parcel's whole state and every function that touches it, lifted verbatim out of index.html so this sandbox can
+  // never drift from the shipped code. The scene objects are the smallest stand-ins the writes actually need.
+  const context = vm.createContext({ Math, Number, console });
+  const prelude = `
+    var CFG = { moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true }, road:{ on:true }, skyTemple:{ floorDissolveSec:0.8 } };
+    var trainMode = false, templeActive = false, state = { running:true };
+    var _mlBlend = 0, _mlGrad = 0, _mlAir = 0, _mlDome = false;
+    var _milkyReady = true;
+    var milkyShell = { visible:true, material:{ opacity:1 } };
+    var skyDome = { visible:true }, baseFloor = { visible:true };
+    var scene = { fog:{ density:0.012 } };
+    var skyDomeMat = { uniforms:{ uHazeAmt:{ value:1 } } };
+    ${overrides || ""}
+  `;
+  const source = ["setScalarCached", "moonlineOn", "moonlineOwns", "moonlineVoid", "moonlineWarmShell",
+    "moonlineDissolveSec", "moonlineGraduate", "moonlineStep", "moonlineHideRoom"]
+    .map((name) => extractFunction(name))
+    .join("\n");
+  vm.runInContext(prelude + source, context);
+  context.read = (expression) => vm.runInContext(expression, context);
+  context.write = (statement) => vm.runInContext(statement, context);
+  return context;
+}
+
+test("THE VOID: CFG.moonline is a flat literal whose master switch is read first", () => {
+  const cfg = html.match(/moonline\s*:\s*\{[^}]+\}/);
+  assert.ok(cfg, "CFG.moonline exists as a flat (nested-brace-free) literal");
+  for (const contract of [/on\s*:\s*true/, /shellOpacity\s*:\s*1\b/, /fogDensity\s*:\s*0\b/, /domeCull\s*:\s*true/])
+    assert.match(cfg[0], contract);
+  // Raw-boolean-first, and the ROAD's own switch outranks this parcel: the Moonline is the road.
+  assert.match(html, /function moonlineOn\(\)\{ return !!\(CFG\.moonline && CFG\.moonline\.on\) && !!\(CFG\.road && CFG\.road\.on\); \}/);
+  assert.match(html, /function moonlineOwns\(\)\{ return moonlineOn\(\) && !trainMode; \}/);
+  assert.match(html, /function moonlineVoid\(\)\{ return moonlineOwns\(\) && !templeActive; \}/);
+});
+
+test("THE VOID: the predicate ladder over every switch x state", () => {
+  for (const moonline of [true, false]) for (const road of [true, false])
+    for (const train of [true, false]) for (const temple of [true, false]) {
+      const probe = loadVoidSandbox(`CFG.moonline.on=${moonline}; CFG.road.on=${road}; trainMode=${train}; templeActive=${temple};`);
+      assert.equal(probe.read("moonlineOn()"), moonline && road, "both raw switches, and only them");
+      assert.equal(probe.read("moonlineOwns()"), moonline && road && !train,
+        "the WORLD is the void post-graduation - and the predicate is temple-BLIND, so a visit never closes it");
+      assert.equal(probe.read("moonlineVoid()"), moonline && road && !train && !temple,
+        "...and what we DRAW is that, minus the Temple: identically moonline.on && roadLive()");
+    }
+});
+
+test("THE VOID: the blend snaps everywhere and ramps only across the graduation dissolve", () => {
+  // A player who skips the trainer is in the void on frame one - no dissolve, no fade-in of a world they never left.
+  const straight = loadVoidSandbox();
+  straight.write("moonlineStep(1/60);");
+  assert.equal(straight.read("_mlBlend"), 1, "post-graduation play opens the void immediately");
+  assert.equal(straight.read("_mlGrad"), 0, "and arms nothing");
+
+  // The trainer keeps the room, and graduation is the ONE ramp there is - over the Temple's own constant, exactly.
+  const grad = loadVoidSandbox("trainMode = true;");
+  grad.write("moonlineStep(1/60);");
+  assert.equal(grad.read("_mlBlend"), 0, "the trainer is the room");
+  assert.equal(grad.read("moonlineGraduate()"), false, "...and cannot arm the dissolve while it is still the trainer");
+  grad.write("trainMode = false;");                      // setTrainPhase(3)'s own order: the flag first, the dissolve after
+  assert.equal(grad.read("moonlineGraduate()"), true);
+  assert.equal(grad.read("_mlGrad"), 0.8, "armed with CFG.skyTemple.floorDissolveSec - no second duration exists");
+  const seen = [];
+  for (let i = 0; i < 60; i++) { grad.write("moonlineStep(0.02);"); seen.push(grad.read("_mlBlend")); }
+  assert.ok(seen[0] > 0 && seen[0] < 0.1, `the ramp starts at 0 (${seen[0].toFixed(3)})`);
+  for (let i = 1; i < seen.length; i++) assert.ok(seen[i] >= seen[i - 1] - 1e-12, "and never goes backwards");
+  assert.equal(seen[39].toFixed(6), "1.000000", "...reaching the void after exactly 0.8 s (40 x 0.02)");
+  assert.equal(grad.read("_mlGrad"), 0, "...after which the blend is back on its snap");
+
+  // A Temple visit mid-void holds the world open: no dip on the way in, no second dissolve on the way out.
+  const visit = loadVoidSandbox();
+  visit.write("moonlineStep(0.02); templeActive = true; moonlineStep(0.02);");
+  assert.equal(visit.read("_mlBlend"), 1, "the Temple is a visit inside the same world");
+  visit.write("templeActive = false; moonlineStep(0.02);");
+  assert.equal(visit.read("_mlBlend"), 1, "...and leaving it re-enters the void whole");
+
+  // The kill-switch never leaves 0, whatever happens to it.
+  const off = loadVoidSandbox("CFG.moonline.on = false;");
+  off.write("moonlineGraduate(); for(var i=0;i<200;i++) moonlineStep(0.02);");
+  assert.equal(off.read("_mlBlend"), 0);
+  assert.equal(off.read("_mlGrad"), 0);
+});
+
+test("THE VOID: moonlineHideRoom removes the room, and the kill-switch never touches it", () => {
+  // moonline.on:false -> wave-7 rendering EXACTLY: not one write, not even the haze uniform (_mlAir starts at the 0 the room means).
+  for (const off of ["CFG.moonline.on = false;", "CFG.road.on = false;", "trainMode = true;", "templeActive = true;"]) {
+    const probe = loadVoidSandbox(off);
+    assert.equal(probe.read("moonlineHideRoom()"), false, `${off} keeps the room`);
+    assert.equal(probe.read("baseFloor.visible"), true, "the ground plane stands");
+    assert.equal(probe.read("scene.fog.density"), 0.012, "the ground fog stands");
+    assert.equal(probe.read("skyDomeMat.uniforms.uHazeAmt.value"), 1, "the horizon haze stands - a multiply by exactly 1.0");
+    assert.equal(probe.read("skyDome.visible"), true, "and the gradient dome is never culled outside the void");
+  }
+  // In the void, all four go - and the fog CLEARS across the dissolve rather than snapping.
+  const live = loadVoidSandbox("trainMode = true;");
+  live.write("trainMode = false; moonlineGraduate(); moonlineStep(0.4);");   // half the dissolve
+  assert.equal(live.read("moonlineHideRoom()"), true);
+  assert.equal(live.read("baseFloor.visible"), false, "the ground plane goes on the dissolve's first frame");
+  assert.equal(live.read("scene.fog.density").toFixed(5), (0.012 * 0.5).toFixed(5), "the ground fog clears WITH the blend");
+  assert.equal(live.read("skyDomeMat.uniforms.uHazeAmt.value"), 0.5, "so does the horizon haze band");
+  live.write("scene.fog.density = 0.012; moonlineStep(0.4); moonlineHideRoom();");
+  assert.equal(live.read("_mlBlend"), 1);
+  assert.equal(live.read("scene.fog.density"), 0, "...and reaches CFG.moonline.fogDensity at the end of it");
+  assert.equal(live.read("skyDomeMat.uniforms.uHazeAmt.value"), 0);
+  assert.equal(live.read("skyDome.visible"), false, "the dome is culled once the shell is solid - this is what pays for the shell");
+
+  // The cull FAILS OPEN: a missing map, a failed decode or a mid-fade shell all keep the dome exactly where it was.
+  for (const broken of ["_milkyReady = false;", "milkyShell = null;", "milkyShell.material.opacity = 0.6;", "CFG.moonline.domeCull = false;"]) {
+    const probe = loadVoidSandbox(broken);
+    probe.write("moonlineStep(0.02); moonlineHideRoom();");
+    assert.equal(probe.read("skyDome.visible"), true, `${broken} keeps the gradient dome`);
+    assert.equal(probe.read("baseFloor.visible"), false, "...while the void itself still holds");
+  }
+});
+
+test("THE VOID: zero per-frame allocations, and no reduceMotion path at all", () => {
+  for (const name of ["moonlineOn", "moonlineOwns", "moonlineVoid", "moonlineWarmShell", "moonlineStep", "moonlineHideRoom", "moonlineGraduate"]) {
+    const src = extractFunction(name);
+    assert.doesNotMatch(src, /new |\.push\(|=\s*\[|=>|function\s*\(/, `${name} allocates nothing on the frame path`);
+    assert.doesNotMatch(src, /reduceMotion/, `${name} has no reduced-motion variant - the void is not motion (SPEC 2)`);
+  }
+  // The haze is a BOUNDARY write, not a per-frame one.
+  assert.match(extractFunction("moonlineHideRoom"), /if\(t!==_mlAir\)\{ _mlAir=t;/);
+});
+
+test("THE VOID: every call site keeps its wave-7 expression and only RAISES it", () => {
+  // updateSky: the blend is stepped beside the Temple's own, and the removals are stated after every room write.
+  const update = extractFunction("updateSky");
+  assert.ok(update.indexOf("moonlineStep(dt)") < update.indexOf("setHorizonOpen(skyOpen)"), "the blend is stepped before the sphere is opened");
+  assert.ok(update.indexOf("updateTempleOrbs(dt)") < update.indexOf("moonlineHideRoom()"), "...and the room is removed after the shell's own opacity write, so the dome-cull reads this frame");
+  assert.match(update, /baseFloor\.visible=!templeActive;/, "the ROOM's own law is untouched - the void is a pure override of it");
+
+  // setHorizonOpen: one writer, so exitSkyTemple's setHorizonOpen(0) re-opens for the void in the same breath.
+  const horizon = extractFunction("setHorizonOpen");
+  assert.match(horizon, /const vd=moonlineVoid\(\);/);
+  assert.match(horizon, /Math\.max\(0,Math\.min\(1, vd\?Math\.max\(amount,_mlBlend\):amount\)\)/);
+  assert.match(horizon, /const open=t>=0\.5 && !vd;/, "the void opens the sphere with the DEPTH law untouched - it has no leftover floor depth, and Echoes still stand in front of the sky");
+
+  // updateChartSky: the Temple's expression stands; the void raises it.
+  const chart = extractFunction("updateChartSky");
+  assert.match(chart, /hzOpen=templeActive\?1:_templeBlend;/);
+  assert.match(chart, /if\(moonlineVoid\(\) && _mlBlend>hzOpen\) hzOpen=_mlBlend;/);
+
+  // updateTempleOrbs: the shell is the Temple's own, pre-warmed, and temple-blind so a visit cannot make it dip.
+  const orbs = extractFunction("updateTempleOrbs");
+  assert.match(orbs, /const inVoid=moonlineOwns\(\) && _mlBlend>0\.001;/);
+  assert.match(orbs, /if\(inTemple \|\| inVoid \|\| moonlineWarmShell\(\) \|\| CFG\.skyMaps\.dojoShell\) ensureMilkyShell\(\);/);
+  assert.match(orbs, /if\(inVoid\) target=Math\.max\(target, _mlBlend\*\(CFG\.moonline\.shellOpacity!=null\?\+CFG\.moonline\.shellOpacity:1\)\);/);
+  assert.match(orbs, /if\(inTemple\) target=_templeBlend\*\(CFG\.skyMaps\.templeShellOpacity/, "the Temple's own fade is untouched");
+
+  // Graduation dissolves the floor, and it happens AFTER trainMode is cleared (the flag moonlineOwns reads).
+  const phase = extractFunction("setTrainPhase");
+  assert.ok(phase.indexOf("trainMode=false") < phase.indexOf("moonlineGraduate()"), "the dissolve arms after graduation clears the trainer");
+
+  // Temple exit restores the room unconditionally, so the void re-takes it in the same breath (the roadHideOldFloor pattern).
+  const exit = extractFunction("exitSkyTemple");
+  assert.ok(exit.indexOf("baseFloor.visible=true") < exit.indexOf("moonlineHideRoom()"), "the base plane never flashes on the way out of the Temple");
+  assert.match(exit, /moonlineHideRoom\(\);[\s\S]*roadHideOldFloor\(\);/);
+
+  // The dome shader's new term is a multiply by exactly 1.0 with the parcel off.
+  assert.match(html, /uTemple:\{value:0\}, uHazeAmt:\{value:1\} \}/);
+  assert.match(html, /uniform float uTime,uCloud,uTemple,uHazeAmt;/);
+  assert.match(html, /\*'\+\(GLOW\?'0\.62':'0\.55'\)\+'\*uHazeAmt\)/);
+});

@@ -1027,6 +1027,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment). Flat literal — nested {} would break the CFG contract test regex
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1938,7 +1939,10 @@ function roadHideOldFloor(){
   // invisible (never deleted — the kill-switch restores them, and updateSky rewrites all three every tick, so this is a
   // pure override rather than a state the code has to remember). baseFloor STAYS: it is the opaque ground the arena needs
   // (it was never a cue — the beat flash lived on the checker and the lattice), and dropping it would open the same black
-  // void the Temple's own comment warns about. Returns whether it acted, so callers can read it as "the road owns the floor now".
+  // void the Temple's own comment warns about. [WAVE 8, PARCEL T: that black void is exactly what THE VOID now opens — and
+  // it is not black, because the celestial shell fills it. moonlineHideRoom (index.html:2085) drops baseFloor immediately
+  // after this call and NEVER before the shell is on its way, so the caveat above still holds wherever moonline.on is false.]
+  // Returns whether it acted, so callers can read it as "the road owns the floor now".
   if(!roadLive()) return false;
   if(dayFloor) dayFloor.visible=false;
   if(nightGrid) nightGrid.visible=false;
@@ -1981,6 +1985,115 @@ function roadSync(){
     return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
   }
   U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r));          // the ONLY per-frame writes: three floats, no allocation, no array, no call into any gameplay path
+}
+
+/* ========================= THE MOONLINE — THE VOID (wave 8, parcel T · SPEC_MOONLINE §2) =========================
+   Post-graduation play stops happening in a room. The ground plane goes, the horizon haze goes, the ground fog goes, the
+   Temple's own celestial shell wraps the player ABOVE AND BELOW, and the only structure left in the universe is the
+   Moonline. Nothing is added beside the road: this parcel deletes four surfaces and turns one existing sphere on.
+
+   THE TRAINER KEEPS TODAY'S ROOM, BYTE FOR BYTE. Every predicate here reads !trainMode, so Sensei's sheltered arc is
+   untouched — the room is RETIRED, never deleted, and the master switch below walks it straight back in.
+
+   THE KILL-SWITCH CONTRACT (SPEC §1). moonlineOn() is one raw boolean pair (moonline.on × road.on); moonlineVoid() is
+   that AND roadLive(), i.e. exactly `moonline.on && roadLive()`, so every wave-7 road law — the treadmill law, the one
+   clock, the playability epoch, the trainer/Temple hiding — inherits verbatim rather than being restated. With
+   moonline.on:false NOTHING below writes anything: moonlineHideRoom returns on its first compare, _mlBlend rests at 0,
+   the dome's new uHazeAmt keeps its construction value 1.0 (a multiply by exactly 1.0 — bit-identical to the wave-7
+   shader, not merely close), and setHorizonOpen / updateChartSky / updateTempleOrbs each fall through to the very
+   expression they shipped with. road.on:false restores the wave-6 room in full for the same reason.
+
+   THE GRADUATION DISSOLVE (SPEC §2) reuses THE TEMPLE'S TECH and adds no second duration: moonlineGraduate arms
+   _mlGrad with CFG.skyTemple.floorDissolveSec at setTrainPhase(3) and moonlineStep ramps _mlBlend 0→1 over it, stepped
+   in updateSky beside the Temple's own blend so the two can never disagree by a frame. What the ramp opens is the SKY
+   BELOW — the dome's nadir (uTemple), the sphere's underfoot half (setHorizonOpen), the shell's opacity — which is
+   precisely what the Temple's misleadingly-named floorDissolveSec has always blended; the Temple hides its floors on
+   frame one and so does this, because baseFloor is opaque MeshBasicMaterial and its own comment (index.html:1524)
+   forbids fading it (transparent:true there broke depth sort and painted the arena black). The eye still reads a
+   dissolve: wave 7's roadHideOldFloor retires the checker, the lattice and its halo at this same instant, the base
+   plane is 0x0c0a14 — within a shade of the night sky it is replaced by — and the stars then bloom in underneath over
+   0.8 s. _mlBlend SNAPS everywhere else: a player who skips the trainer is in the void on frame one, and a Temple visit
+   neither re-dissolves nor closes the world (moonlineOwns is temple-BLIND on purpose — SPEC §2, "the dojo and the
+   Temple now share the shell").
+
+   FRAME BUDGET (SPEC §1 — computed at 1920×1080, desktop tier, shipped constants).
+     · DRAW CALLS: baseFloor −1, skyDome −1 (culled while the shell is solid: it is then 100% occluded, R 480 behind
+       R 400, and the dome writes no depth), milkyShell +1 → NET −1 in post-graduation play.
+     · PER FRAGMENT: what leaves is the dome's whole pass — 2 pow + 1 exp of gradient/haze over all 2.07 M fragments
+       plus CLOUD_OCTAVES(3 desktop / 2 mobile / 1 LOW) × vnoise(4 hash) = 12 sin+fract over the sky half — and
+       baseFloor's flat fill over the ~1.04 M ground fragments. What arrives is ONE bilinear texture fetch per fragment
+       over the full screen. Net per-pixel work goes DOWN; the trade is texture bandwidth for arithmetic.
+     · GEOMETRY: +1 sphere at the Temple's own segmentsFor tiers, unchanged — 2145 verts desktop (64×32), 1225 mobile
+       (48×24), 561 LOW (32×16).
+     · VRAM: the map is 3072×1536 (the 8k_ prefix is an upstream label, see assets/sky/README.md) = 18.0 MB RGBA8 +
+       6.0 MB of mips = 24.0 MB, resident during play instead of only inside the Temple. 180 KB on the wire, PRE-WARMED
+       at the first live frame (moonlineWarmShell) so the dissolve has nothing to wait for and graduation cannot hitch
+       on a decode.
+     · PER FRAME CPU: moonlineStep = one predicate (4 boolean reads), one compare, one assign; moonlineHideRoom = one
+       predicate, two latched compares, one visible write, one fog multiply. ZERO new allocations — no vector, no array,
+       no closure, no string, nowhere. The mirror pass was already dead under the road (renderReflection is gated on
+       !roadLive()), so the void neither adds to it nor claims credit for it.
+     · LOW-REZ (mandatory path): the shell is the Temple's LOW shell — reduced segments by segmentsFor({low:true}) and
+       NO reflection layer (ensureMilkyShell skips layers.enable(1) under LOW, matching dome/stars) — and the dome it
+       replaces was the cheapest thing on that tier already (uCloud 0), so the cull's saving there is the gradient only.
+
+   SPAWN PITCH — REEVALUATED AND DELIBERATELY UNCHANGED (SPEC §2 asks for the distribution first; here it is).
+   Sampled over the shipped constants (projSpeed 28 → projSpeedFast 72, projGravity 16, rangeNear 8, rangeMax 28) at
+   bpm 28/40/50/60 against both the opening shell (rangeStart 11) and the full one, apparent elevation measured from the
+   eye as atan2(y−EYE, d·cos pit) with spawnTarget's own y≥2.2 clamp applied:
+     · the band is SYMMETRIC and eye-centred already — mean apparent elevation +0.00° … +0.18°, span exactly ±8.00°,
+       and exactly 50.0% of Echoes sit below the horizon line at every rung. There is no upward bias to correct: the
+       "upward bias" in CFG.beatSpawnPitchDeg's note is the NARROWING to 8° (from pitchSpreadDeg), not an asymmetry.
+     · the y≥2.2 clamp lifts 0.0% (opening shell, nothing is far enough — the full −8° drop is only cut past
+       d = 12.93 m) to 11.0% (bpm 50–60, full shell) of spawns, and it never moves one across the horizon line.
+     · so the void changes the BACKDROP for the same half of the field it always did, and it changes it from a near-black
+       plate (baseFloor 0x0c0a14 + fog — wave 7's road already retired the lattice at graduation) to a starfield. Both
+       are dark backdrops for an emissive orb: no legibility cliff a pitch change would fix.
+     · and pitch is a GAMEPLAY quantity. At ±8° the shot solved for dy=0 misses vertically by 1.25 m (k2 @ 9.00 m,
+       60 bpm) to 3.77 m (k6 @ 26.98 m) — the aim correction the band already demands of the beat-quantized model.
+       Widening to ±12° pushes clamped spawns to 20.0% and the k6 miss past 5.6 m, degrading the flight-time = k/16
+       promise the whole spawn law rests on. A RENDER parcel does not pay for a backdrop with the timing model.
+     · if the lower hemisphere ever does hurt, the lever is moonline.shellOpacity, not the spawn geometry: the milky band
+       can sit anywhere on the true sphere (the zenith included), so no pitch bias can dodge it.
+
+   reduceMotion: IDENTICAL WORLD. The void is not motion — the shell is the same still sphere the Temple shows, the
+   dissolve is the Temple's own blend (which reduceMotion has never gated), and _mlBlend is a function of dt and nothing
+   else. Nothing here reads or writes a ballistic, spawn, spatial-audio or grading quantity: the treadmill law holds.
+   ========================================================================================================================== */
+let _mlBlend=0;      // 0 = the room, 1 = the void. NOT a per-frame follower: it SNAPS to its target and ramps only across the one graduation dissolve
+let _mlGrad=0;       // seconds left in that dissolve, and the ONLY reason _mlBlend is ever strictly between 0 and 1
+let _mlAir=0;        // the openness the AIR (the dome's haze band) was last written for — a BOUNDARY write, not a per-frame one. It starts at the 0 the room means, so with the parcel off the uniform is never touched at all
+let _mlDome=false;   // is the gradient dome currently culled behind a solid shell? one boolean, one write per boundary
+function moonlineOn(){ return !!(CFG.moonline && CFG.moonline.on) && !!(CFG.road && CFG.road.on); }   // the two raw booleans, kill-switch FIRST — and the road's own switch outranks this parcel because the Moonline IS the road
+function moonlineOwns(){ return moonlineOn() && !trainMode; }   // THE WORLD post-graduation is the void. Deliberately temple-BLIND: the Temple is a visit inside the same world, so the shell must not dip on the way in and the world must not re-dissolve on the way out
+function moonlineVoid(){ return moonlineOwns() && !templeActive; }   // …and this is what we are DRAWING right now — identically `moonline.on && roadLive()`, so every wave-7 road law inherits instead of being restated
+function moonlineWarmShell(){ return moonlineOn() && state.running; }   // THE PRE-WARM: the shell is the world the graduate lands in, and its map is 180 KB on the wire / 24.0 MB decoded. Built INVISIBLE at the first live frame — the trainer's included — so graduation cannot hitch on a decode. No draw cost while invisible, and nothing at all before a run starts or with either switch off
+function moonlineDissolveSec(){ return Math.max(0.05, +CFG.skyTemple.floorDissolveSec||0.8); }   // THE TEMPLE'S OWN CONSTANT and its own 0.05 floor (index.html:2254), verbatim: SPEC §2 asks for floorDissolveSec, not for a second duration to keep in sync
+function moonlineGraduate(){
+  // GRADUATION IS THE DISSOLVE. setTrainPhase(3) has already cleared trainMode when this is called, so moonlineOwns()
+  // is true exactly when a graduate is walking into the void — and one read with either switch off, where the phase
+  // change stays byte-identical. One-time per run: nothing re-arms _mlGrad, and it counting to 0 hands the blend back to its snap.
+  if(!moonlineOwns()) return false;
+  _mlGrad=moonlineDissolveSec(); return true;
+}
+function moonlineStep(dt){
+  // THE ONE WRITER of _mlBlend.
+  const target=moonlineOwns()?1:0;
+  if(_mlGrad>0 && target){ _mlGrad=Math.max(0,_mlGrad-dt); _mlBlend=1-_mlGrad/moonlineDissolveSec(); }   // the dissolve, and the only ramp there is
+  else { _mlGrad=0; _mlBlend=target; }                                                                   // everything else SNAPS: skipping the trainer opens the void on frame one, and a Temple visit holds it open rather than closing the world behind you
+}
+function moonlineHideRoom(){
+  // THE FOUR REMOVALS, stated as OVERRIDES on purpose: updateSky rewrites the floor visibilities, the fog density and
+  // the haze colour every tick from the ROOM's own laws, so the void states itself AFTER them and the kill-switch
+  // restores the room by simply not running — exactly the roadHideOldFloor pattern (index.html:1937). Returns whether it acted.
+  const on=moonlineVoid(), t=on?_mlBlend:0;
+  if(t!==_mlAir){ _mlAir=t; setScalarCached(skyDomeMat.uniforms.uHazeAmt,'value',1-t); }   // THE HORIZON HAZE: a bright band at the horizon is a claim that there is a ground under it. Steady in the void, steady in the room, written only when the openness actually changes
+  const cull=on && !!CFG.moonline.domeCull && !!milkyShell && _milkyReady && milkyShell.visible && milkyShell.material.opacity>=0.995;
+  if(cull!==_mlDome){ _mlDome=cull; skyDome.visible=!cull; }   // …and once the shell is SOLID the gradient dome is 100% occluded, so its whole full-screen pass is what pays for the shell. Fails OPEN: no SKY_MAPS, a failed decode or a mid-dissolve opacity all keep the dome exactly where it was
+  if(!on) return false;
+  if(baseFloor) baseFloor.visible=false;   // THE GROUND PLANE, dropped on the dissolve's first frame exactly as enterSkyTemple drops it (it is opaque, and index.html:1524 forbids fading it). What the eye reads as the dissolve is the sphere opening underneath — wave 7 already retired the checker/lattice/halo at this same instant
+  if(scene.fog) setScalarCached(scene.fog,'density', scene.fog.density*(1-t) + (+CFG.moonline.fogDensity||0)*t, 100000);   // THE GROUND FOG, read back from the room's own per-tick write and cleared by the dissolve — idempotent within a frame, and it never invents a density of its own
+  return true;
 }
 
 /* ========================= SKY: stars, sun, moon, day/night ========================= */
@@ -2047,16 +2160,16 @@ const CLOUD_OCTAVES = LOW ? 1 : (MOBILE ? 2 : 3);   // LOW: 1 octave = ~3× fewe
 const skyDomeMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, depthTest:false, fog:false,
   uniforms:{ uHor:{value:new THREE.Color(0x0e1626)}, uZen:{value:new THREE.Color(0x010109)}, uHaze:{value:new THREE.Color(0xbcd8f0)},
              uCloudCol:{value:new THREE.Color(0xffffff)}, uTime:{value:0}, uCloud:{value:0}, uWind:{value:new THREE.Vector2(0.006,0.004)},
-             uTemple:{value:0} },   // Sky Temple: open the full sphere — nadir becomes deep sky, not a flat black void under the dissolved floor
+             uTemple:{value:0}, uHazeAmt:{value:1} },   // uHazeAmt: THE VOID (wave 8, parcel T) fades the horizon HAZE BAND out with the dissolve — a bright band at the horizon claims there is a ground under it. 1 = the room's shipped haze, and the shader multiplies by exactly 1.0 with moonline.on:false, so wave-7 pixels are bit-identical. Sky Temple: open the full sphere — nadir becomes deep sky, not a flat black void under the dissolved floor
   vertexShader:'varying vec3 vDir; void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
   fragmentShader:[
-    'uniform vec3 uHor,uZen,uHaze,uCloudCol; uniform float uTime,uCloud,uTemple; uniform vec2 uWind; varying vec3 vDir;',
+    'uniform vec3 uHor,uZen,uHaze,uCloudCol; uniform float uTime,uCloud,uTemple,uHazeAmt; uniform vec2 uWind; varying vec3 vDir;',
     'float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }',
     'float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=hash(i),b=hash(i+vec2(1.0,0.0)),c=hash(i+vec2(0.0,1.0)),d=hash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
     'float fbm(vec2 p){ float v=0.0,a=0.5; for(int k=0;k<'+CLOUD_OCTAVES+';k++){ v+=a*vnoise(p); p=p*2.0+11.3; a*=0.5; } return v; }',
     'void main(){ float el=vDir.y; float elUp=pow(clamp(el,0.0,1.0),0.30); float elDn=pow(clamp(-el,0.0,1.0),0.30);',
     '  float elev=mix(elUp, max(elUp,elDn), clamp(uTemple,0.0,1.0));',   // dojo: only sky above; temple: nadir mirrors zenith so looking down is still sky
-    '  vec3 c=mix(uHor,uZen,elev); c=mix(c,uHaze,exp(-abs(el)/'+(GLOW?'0.085':'0.05')+')*'+(GLOW?'0.62':'0.55')+');',   // GLOW: taller/stronger horizon haze band (the milky mist the key art has)
+    '  vec3 c=mix(uHor,uZen,elev); c=mix(c,uHaze,exp(-abs(el)/'+(GLOW?'0.085':'0.05')+')*'+(GLOW?'0.62':'0.55')+'*uHazeAmt);',   // GLOW: taller/stronger horizon haze band (the milky mist the key art has)
     '  if(el>0.03 && uCloud>0.001){ vec2 cuv=vDir.xz/el*0.55+uTime*uWind; float n=fbm(cuv); float cov=smoothstep(0.50,0.72,n)*smoothstep(0.05,0.32,el)*uCloud; c=mix(c,uCloudCol,cov); }',
     '  gl_FragColor=vec4(c,1.0); }'
   ].join('\n') });
@@ -2141,6 +2254,7 @@ function updateSky(dt){
   const templeTarget=templeActive?1:0, templeStep=dt/Math.max(0.05,CFG.skyTemple.floorDissolveSec||0.8);
   if(_templeBlend<templeTarget) _templeBlend=Math.min(templeTarget,_templeBlend+templeStep);
   else if(_templeBlend>templeTarget) _templeBlend=Math.max(templeTarget,_templeBlend-templeStep);
+  moonlineStep(dt);   // THE VOID (wave 8, parcel T): the graduation dissolve's blend, stepped HERE — beside the Temple's own, on the same dt, before the setHorizonOpen below reads it — so the two openings can never disagree by a frame
   // Sky sphere opens the moment Temple is active; floors are hard-hidden (never semi-transparent).
   const skyOpen=templeActive?1:_templeBlend;
   setHorizonOpen(skyOpen);
@@ -2215,6 +2329,7 @@ function updateSky(dt){
   if(chartSkyGroup||stickGroup||lumGroup) updateChartSky();  // sphere layers (clocked* only): day-fade + horizon cull (opens with temple) + soft glyph breath — zero cost while absent
   if(templeActive||_templeBlend>0.01) updateSkyTempleVisuals();   // keep aspect/ghost opacities in sync while the full-sphere blend is open
   updateTempleOrbs(dt);                                          // TEMPLE ORBS: milky-shell fade + camera-relative planet globe (near-free no-op outside temple unless dojoShell)
+  moonlineHideRoom();   // THE VOID (wave 8, parcel T): the ground plane, the ground fog and the horizon haze are removed from post-graduation play. Deliberately placed AFTER every floor/fog write above AND after the shell's own opacity write on the line above — so it is a pure override of the room's laws (moonline.on:false leaves all of them exactly as they shipped) and the dome-cull reads the shell's solidity from this very frame instead of the last one
   if(_lsn.sel||_lsn.lineT>=0) updateSkyListen();             // SKY LISTEN line fade + selection timeout — zero cost while idle
   if(!templeActive && day>0.02 && !roadLive()) renderReflection();          // no mirror pass in temple (floor is gone) — nor under the road, whose only consumer (dayFloor) is hidden: the whole second scene render would be drawn into a target nothing samples
 }
@@ -2632,206 +2747,210 @@ function hideTempleSignArt(){
     if(signArtGroup) signArtGroup.visible=false;
   }
 }
-function placeSignArtSlot(slot){
-  if(!slot||!slot.ready||!slot.mesh) return;
-  const local=signArtAnchorLocal(slot.id);
-  if(!local){ slot.mesh.visible=false; return; }
-  const stickR=(SKY_CHART.stick&&SKY_CHART.stick.R)||330;
-  const pull=CFG.skyMaps.signArtRadiusPull!=null?CFG.skyMaps.signArtRadiusPull:1.06;
-  const R=stickR*pull;
-  const len=local.length()||R;
-  _saLocal.copy(local).multiplyScalar(R/len);
-  slot.mesh.position.copy(_saLocal);
-  _saWorld.copy(_saLocal).applyQuaternion(skySphere.quaternion);
-  const dist=Math.max(8, camera.position.distanceTo(_saWorld));
-  const angDeg=slot.angDeg!=null?slot.angDeg:signArtAngularDeg(slot.id);
-  const side=Math.max(6, 2*dist*Math.tan(angDeg*Math.PI/360));
-  slot.mesh.scale.set(side, side, 1);
-  // Flat billboard facing sphere center (not sphere-mapped).
-  slot.mesh.quaternion.identity();
-  slot.mesh.lookAt(0,0,0);
-  slot.mesh.rotateY(Math.PI);
-  slot.mesh.visible=true;
-}
-function placeAllSignArt(){
-  if(!signArtGroup||!signArtGroup.visible) return;
-  // PERF P5 (SPEC §P5 F2): the belt is sky-pinned — skip the per-plane re-place while neither the
-  // sky attitude nor the camera has moved since last placement (new-slot arrival places itself directly).
-  const q=skySphere.quaternion, p=camera.position;
-  if(_saPlaced && _saLastQ.equals(q) && _saLastP.equals(p)) return;
-  _saLastQ.copy(q); _saLastP.copy(p); _saPlaced=true;
-  for(const id in _signArtSlots) placeSignArtSlot(_signArtSlots[id]);
-}
-// Legacy single-plane place (tests may still name placeTempleSignArt).
-function placeTempleSignArt(){ placeAllSignArt(); }
-/* per-frame driver (called from updateSky): build/fade the shell, keep the globe on its sky pin + spinning */
-function updateTempleOrbs(dt){
-  if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
-  const inTemple=templeActive || _templeBlend>0.001;
-  if(inTemple || CFG.skyMaps.dojoShell) ensureMilkyShell();
-  if(milkyShell){
-    let target=0;
-    if(inTemple) target=_templeBlend*(CFG.skyMaps.templeShellOpacity!=null?CFG.skyMaps.templeShellOpacity:1);
-    if(CFG.skyMaps.dojoShell && !templeActive) target=Math.max(target, CFG.skyMaps.dojoShellOpacity!=null?CFG.skyMaps.dojoShellOpacity:0.35);
-    milkyShell.material.opacity=target;
-    // At full opacity, treat as opaque for better depth vs planet globes; soft-fade stays transparent.
-    const solid=target>=0.995;
-    milkyShell.material.transparent=!solid;
-    milkyShell.material.depthWrite=true;
-    milkyShell.material.depthTest=true;
-    milkyShell.visible=_milkyReady && target>0.003;
-  }
-  if(globeRoot && globeRoot.visible && templeActive){
-    placeTempleGlobe();
-    if(!reduceMotion && planetMesh) planetMesh.rotation.y += dt*(CFG.skyMaps.spinRadPerSec||0.08);
-  }else if(globeRoot && !templeActive){
-    globeRoot.visible=false;
-  }
-  // Always-on zodiac belt: keep placed while clocked sky is up (dojo + temple).
-  if(CFG.skyMaps&&CFG.skyMaps.signArtEnabled!==false&&CFG.skyMaps.signArtAlways!==false&&SKY_MODE!=='decorative'){
-    if(!LOW && !signArtGroup) ensureAllSignArt();          // LOW: belt is temple-only (SPEC §P3 L5) — don't pay 13 planes at dojo idle
-    else if(signArtGroup && signArtGroup.visible) placeAllSignArt();
-  }else if(signArtGroup){
-    signArtGroup.visible=false;
-  }
-}
-const HZ_LO=-14, HZ_HI=8;   // horizon feather in world-Y units (~2.5° below → 1.5° above at R≈315): a soft set, effectively a hide (v2.1 §4.3)
-const _chartFade=[];    // {mat,a0[,pulseP]} every chart material — the clean glyph/stick layer melts toward a whisper in daylight
-const _chartBreath=[];  // {sp,s0,ph} mover/luminary sprites — slow glyph breath (never populated under reduceMotion / LOW)
-const _hzFadeMats=[];   // materials with GPU horizon feather — temple sets uHzOpen so the lower sphere is visible
-const _glyphTexCache={};
-function glyphTex(ch){
-  ch=String(ch).slice(0,4);   // bound degenerate/hostile glyph strings — caps both raster cost and cache-key space
-  if(_glyphTexCache[ch]) return _glyphTexCache[ch];
-  const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
-  const FONT='"Segoe UI Symbol","Noto Sans Symbols 2","Noto Sans Symbols",serif';
-  g.font='92px '+FONT; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle='#fff';
-  const s=(ch.length<=2 ? ch+'\uFE0E' : ch);   // U+FE0E text-presentation selector: keeps ⛎ and friends monochrome where the font would serve color emoji
-  const w=g.measureText(s).width; if(w>112) g.font=Math.max(28,Math.floor(92*112/w))+'px '+FONT;   // multi-char fallbacks ('OPH') shrink to fit instead of clipping off the canvas
-  g.shadowColor='rgba(214,230,255,0.9)'; g.shadowBlur=14;
-  g.fillText(s,64,70); g.fillText(s,64,70);    // twice: crisp core inside the soft halo
-  const t=new THREE.CanvasTexture(c); _glyphTexCache[ch]=t; return t;
-}
-let _ringTexC=null;
-function ringTex(){   // selected-body natal marker: a thin soft ring — memory dust, never an idle second sun
-  if(_ringTexC) return _ringTexC;
-  const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
-  g.strokeStyle='rgba(255,255,255,0.95)'; g.lineWidth=5; g.shadowColor='rgba(214,230,255,0.9)'; g.shadowBlur=6;
-  g.beginPath(); g.arc(32,32,21,0,Math.PI*2); g.stroke();
-  _ringTexC=new THREE.CanvasTexture(c); return _ringTexC;
-}
-function eclipticDir(lon,lat){   // v2.1 sphere-LOCAL placement: the ecliptic is skySphere's equator; world orientation comes from the sphere quaternion each sky tick, not from here
-  lon=isFinite(lon=+lon)?(((lon%360)+360)%360):0; lat=isFinite(lat=+lat)?lat:0;   // one choke point: NaN/Infinity/huge from a hostile pack (JSON 1e999!) can never mint a NaN-position sprite
-  lat=Math.max(-SKY_CHART.ecl.latMax,Math.min(SKY_CHART.ecl.latMax,lat));
-  const az=lon*Math.PI/180, el=lat*Math.PI/180, ce=Math.cos(el);
-  return new THREE.Vector3(Math.cos(az)*ce, Math.sin(el), -Math.sin(az)*ce);
-}
-function horizonFadeMat(m){   // v2.1 G3 (GPU side): line/point geometry fades out crossing the horizon — per-vertex, so a stick figure can straddle it; follows the sphere spin for free via modelMatrix
-  // uHzOpen (0..1): Sky Temple opens the full celestial sphere — nocturnal half is under the floor in dojo, revealed when the floor dissolves.
-  m.userData.hzOpen=0;
-  m.onBeforeCompile=(sh)=>{
-    sh.uniforms.uHzOpen={value:m.userData.hzOpen||0};
-    m.userData.uHzOpen=sh.uniforms.uHzOpen;
-    sh.vertexShader='varying float vWy;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n vWy=(modelMatrix*vec4(transformed,1.0)).y;');
-    sh.fragmentShader='varying float vWy;\nuniform float uHzOpen;\n'+sh.fragmentShader.replace(
-      'vec4( diffuse, opacity )',
-      'vec4( diffuse, opacity*mix(smoothstep('+HZ_LO.toFixed(1)+','+HZ_HI.toFixed(1)+',vWy),1.0,clamp(uHzOpen,0.0,1.0)) )'
-    );
-  };
-  const prevKey=m.customProgramCacheKey?m.customProgramCacheKey.bind(m):null;
-  m.customProgramCacheKey=()=>(prevKey?prevKey():'')+'|hzOpen1';
-  _hzFadeMats.push(m);
-  return m;
-}
-function setHorizonOpen(amount){   // 0 = dojo horizon hide, 1 = full sphere (temple)
-  const t=Math.max(0,Math.min(1,amount));
-  const open=t>=0.5;
-  for(let i=0;i<_hzFadeMats.length;i++){
-    const m=_hzFadeMats[i]; m.userData.hzOpen=t;
-    if(m.userData.uHzOpen) m.userData.uHzOpen.value=t;
-    // Sticks/aspects: when the sphere is open, never lose underfoot lines to leftover floor depth.
-    if(typeof m.depthTest==='boolean') m.depthTest=!open;
-  }
-  if(skyDomeMat&&skyDomeMat.uniforms&&skyDomeMat.uniforms.uTemple) skyDomeMat.uniforms.uTemple.value=t;
-}
-function shortestArcDeg(a,b){ let d=Math.abs(((a-b)%360+360)%360); return d>180?360-d:d; }   // Δ ∈ [0,180] — same math skypack v2 ships as same_body_delta
-function wrapDeg(x,fb){ x=+x; return isFinite(x)?(((x%360)+360)%360):fb; }   // longitude intake: [0,360) or the caller's fallback. Wrapping matters — a finite-but-huge lon (−5e300) would swallow the per-frame spin term in sunA−_sunLonRad and freeze the whole sphere
-function chartSprite(tex,colHex,alpha,sx,sy,additive,pulseP,k){   // k = day-melt coefficient: opacity = a0·max(0, 1 − atmosAmt·k). hz:true → CPU horizon cull in updateChartSky (v2.1 G3)
-  const m=new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false, fog:false, color:colHex, opacity:alpha,
-    blending:additive?THREE.AdditiveBlending:THREE.NormalBlending});
-  const sp=new THREE.Sprite(m); sp.scale.set(sx,sy,1);
-  const fade={mat:m, obj:sp, a0:alpha, k:(k==null?1.5:k), pulseP:(pulseP==null?null:pulseP), hz:true, enabled:true};
-  sp.userData.chartFadeIndex=_chartFade.length; _chartFade.push(fade);
-  return sp;
-}
-function buildChartSky(pack,rank){
-  rank=(rank==null?skyGeometryRank(pack):rank); if(!pack || rank<_chartPackRank || rank<_chartQueuedRank) return false;
-  if(_lsn && _lsn.sel) clearListen(true);   // metadata is replaced atomically below; never leave a selection pointing at the previous epoch
-  if(!chartSkyGroup){ chartSkyGroup=new THREE.Group(); skySphere.add(chartSkyGroup); }   // persistent group: public day sprites are updated in place when a real personal pack wins later
-  chartSkyGroup.visible=true;
-  const C=SKY_CHART, R=C.R, personal=rank>=2, packSigns=[];
-  for(const raw of (pack.sign_band||[]).slice(0,C.caps.sign)){   // 13 readable sign glyphs (incl. ⛎); cheap enough to retain in LOW
-    if(!raw || raw.id==null) continue;
-    const id=canonicalSkySign(raw.id); if(!SKY_SIGN_SET[id]) continue;
-    const a=wrapDeg(raw.lon_start_j2000,0), span=(((wrapDeg(raw.lon_end_j2000,a)-a)+360)%360)||(360/13), mid=(a+span/2)%360;
-    const glyph=(typeof raw.glyph==='string'&&raw.glyph)?raw.glyph:SKY_SIGN_GLYPHS[id]; let sp=_chartSignSprite[id];
-    if(!sp){ sp=chartSprite(glyphTex(glyph),C.sign.col,C.sign.alpha,C.sign.scale,C.sign.scale,true,null,C.sign.k); sp.userData.skyGlyph=glyph; _chartSignSprite[id]=sp; chartSkyGroup.add(sp); }
-    else if(sp.userData.skyGlyph!==glyph){ sp.material.map=glyphTex(glyph); sp.material.needsUpdate=true; sp.userData.skyGlyph=glyph; }
-    sp.position.copy(eclipticDir(mid,C.sign.latOff)).multiplyScalar(R); packSigns.push({id:id,glyph:glyph,a:a,span:span,mid:mid,sprite:sp});
-  }
-  const at=Object.create(null), moverSprite=Object.create(null), moverLon=Object.create(null), moverRecord=Object.create(null), ghostLon=Object.create(null), templeGhosts=Object.create(null);
-  for(const mv of (pack.movers||[]).slice(0,C.caps.mover)){
-    if(!mv || mv.id==null) continue; const id=String(mv.id); if(!SKY_BODY_SET[id]) continue;
-    const lon=wrapDeg(mv.lon_j2000,0), glyph=(typeof mv.glyph==='string'&&mv.glyph)?mv.glyph:'?', sign=canonicalSkySign(mv.sign);
-    moverRecord[id]=(SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord)?SKY_TEMPLE_DATA.normalizeBodyRecord(mv,'transit'):null;
-    _lsnBody[id]={name:(typeof mv.name==='string'&&mv.name)?mv.name:id, glyph:glyph, sign:SKY_SIGN_SET[sign]?sign:null};
-    if((id==='sun'||id==='moon') && _lum && _lum[id]){   // ☉/☽ reuse the existing fallback glyphs; no duplicate luminary is ever created
-      at['m:'+id]=_lum[id].glyph.position; moverSprite[id]=_lum[id].glyph; moverLon[id]=lon;
-    }else{
-      let sp=_chartMoverSprite[id];
-      if(!sp){ sp=chartSprite(glyphTex(glyph),C.mover.col,C.mover.alpha,C.mover.scale,C.mover.scale,true,null,C.mover.k); sp.userData.skyGlyph=glyph; _chartMoverSprite[id]=sp; chartSkyGroup.add(sp); if(!reduceMotion&&!LOW) _chartBreath.push({sp:sp,s0:C.mover.scale,ph:lon*0.11}); }
-      else if(sp.userData.skyGlyph!==glyph){ sp.material.map=glyphTex(glyph); sp.material.needsUpdate=true; sp.userData.skyGlyph=glyph; }
-      sp.position.copy(eclipticDir(lon,0)).multiplyScalar(R); at['m:'+id]=sp.position; moverSprite[id]=sp; moverLon[id]=lon;
-    }
-  }
-  if(personal) for(const ng of (pack.natal_ghosts||[]).slice(0,C.caps.ghost)){
-    if(!ng || ng.id==null || !SKY_BODY_SET[String(ng.id)]) continue;
-    const id=String(ng.id); ghostLon[id]=wrapDeg(ng.lon_j2000,0);
-    const body=(SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeBodyRecord)?SKY_TEMPLE_DATA.normalizeBodyRecord(ng,'natal'):null;
-    if(body) templeGhosts[id]=body;
-  }
-  const signs=Object.create(null), signArcs=[];
-  for(const s of packSigns){ signs[s.id]={glyph:s.glyph,lon:s.mid,pos:s.sprite.position,sprite:s.sprite}; signArcs.push({id:s.id,a:s.a,span:s.span}); }
-  const signOf=lon=>{ for(const sa of signArcs){ if(((lon-sa.a+360)%360)<sa.span) return sa.id; } return null; };
-  const bodies=Object.create(null);
-  for(const id in moverLon){ const inf=_lsnBody[id]||{};
-    bodies[id]={name:inf.name||id,glyph:inf.glyph||'?',sign:inf.sign||signOf(moverLon[id]),lon:moverLon[id],pos:at['m:'+id],sprite:moverSprite[id]||null,delta:(id in ghostLon)?shortestArcDeg(moverLon[id],ghostLon[id]):null,temple:moverRecord[id]||null};
-  }
-  const aspects=(personal&&SKY_TEMPLE_DATA&&SKY_TEMPLE_DATA.normalizeAspectRecords)?SKY_TEMPLE_DATA.normalizeAspectRecords(pack,{maxLines:CFG.skyTemple.maxAspectLines}):[];
-  _chartPackRank=rank;
-  _lsnMeta={source:personal?'personal':(rank===1?'day':'sample'),bodies:bodies,signs:signs,ghostLon:ghostLon,templeGhosts:templeGhosts,aspects:aspects,signOf:signOf,natalId:(personal&&typeof pack.natal_id==='string'?pack.natal_id:null)};
-  if(personal) _skypack=pack;
-  if(templeActive) rebuildSkyTempleGeometry();
-  return true;
-}
-function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere layer exists
-  const hzOpen=templeActive?1:_templeBlend;   // temple: full sphere immediately (nocturnal half under the former floor)
-  const atmosScale=templeActive?0.35:1;   // temple softens daytime melt so the whole sphere stays readable
-  for(let i=0;i<_chartFade.length;i++){ const f=_chartFade[i];
-    if(f.enabled===false){ f.obj.visible=false; continue; }
-    let a=f.a0*Math.max(0,1-atmosAmt*f.k*atmosScale);   // D7: per-family day-melt against the ATMOSPHERE weight — at theatre noon (atmos≈0.30) the layer dims but never vanishes; ☉ (k=0.1) barely blinks
-    if(f.hz){   // v2.1 G3 (CPU side): sprites set below the horizon in dojo; temple opens the hide so looking down is still sky
-      _hzV.copy(f.obj.position).applyQuaternion(skySphere.quaternion);
-      const hz=smooth(HZ_LO,HZ_HI,_hzV.y);
-      a*=hz+(1-hz)*hzOpen;
-    }
-    if(f.pulseP!=null) a*=0.82+0.18*Math.sin(skyT*1.3+f.pulseP);
-    // Sky-shell sprites must not depth-test against a vanished floor plane (otherwise underfoot = black).
-    if(f.mat && f.mat.isSpriteMaterial) f.mat.depthTest=!templeActive;
-    setScalarCached(f.mat,'opacity',a); f.obj.visible=a>0.004;
-  }
-  for(let i=0;i<_chartBreath.length;i++){ const b=_chartBreath[i]; if(!b.sp.visible || b.sp.userData.listenSelected) continue; const s=b.s0*(1+0.05*Math.sin(skyT*0.55+b.ph))*(templeActive?1.15:1); b.sp.scale.set(s,s,1); }
-}
+                                
+                                            
+                                          
+                                                
+                                                         
+                                                                                    
+                      
+                              
+                                             
+                                    
+                                                                
+                                                               
+                                                                        
+                                                              
+                                     
+                                                             
+                                  
+                          
+                             
+                         
+ 
+                           
+                                                  
+                                                                                                  
+                                                                                                          
+                                                  
+                                                                   
+                                                     
+                                                                     
+ 
+                                                                       
+                                                   
+                                                                                                              
+                              
+                                                                      
+                                                    
+                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                           
+                 
+                 
+                                                                                                             
+                                                                                                                                                                                    
+                                                                                                                                             
+                                       
+                                                                                                       
+                              
+                                           
+                                        
+                                       
+                                                   
+   
+                                                     
+                       
+                                                                                                  
+                                       
+                            
+   
+                                                                                
+                                                                                                                  
+                                                                                                                                       
+                                                                    
+                         
+                               
+   
+ 
+                                                                                                                                               
+                                                                                                                                  
+                                                                                                                           
+                                                                                                                  
+                        
+                      
+                                                                                                                   
+                                                   
+                                                                                             
+                                                                                 
+                                                                                         
+                                                                                                                                                          
+                                                                                                                                                                                   
+                                                         
+                                                                                        
+                                                                     
+ 
+                   
+                                                                                                             
+                                 
+                                                                                            
+                                                                                                               
+                                                         
+                                                         
+ 
+                                                                                                                                                                                     
+                                                                                                                                                                                              
+                                                                         
+                                                                
+                                                                            
+ 
+                                                                                                                                                                                                         
+                                                                                                                                               
+                      
+                           
+                                                     
+                                           
+                                                                                                                                                                         
+                                                                                               
+                                 
+                                                                                                                          
+      
+    
+                                                                             
+                                                                
+                      
+           
+ 
+                                                                                     
+                                                                                                                                                                                                                                                                                            
+                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                        
+                                                
+                                                      
+                                                                                                   
+                                                         
+   
+                                                                                                       
+ 
+                                                                                                                                                           
+                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                          
+                                                                                                                        
+                                                                    
+                                                      
+                                                                                                                    
+                                                                      
+            
+ 
+                                  
+                                                                                                                       
+                                                                                                                                            
+                                                                                                                                                                                          
+                             
+                                                           
+                                                                                                                                    
+                                      
+                                                                      
+                                                                                                                            
+                                                                                                                    
+                                                                                                                                                                                                
+                                                                                                                                       
+                                                                                                                                            
+   
+                                                                                                                                                                                               
+                                                           
+                                                                                            
+                                                                                                                                 
+                                                                                                                                  
+                                                                                                                        
+                                                                                                                                         
+                                                                                            
+          
+                                   
+                                                                                                                                                                                                                                                                                         
+                                                                                                                                         
+                                                                                                                            
+     
+   
+                                                                              
+                                                                    
+                                                                 
+                                                                                                                           
+                                   
+   
+                                               
+                                                                                                                                                       
+                                                                                                                 
+                                   
+                                                        
+                                                                                                                                                                                                                                                             
+   
+                                                                                                                                                                            
+                      
+                                                                                                                                                                                                                                             
+                             
+                                              
+              
+ 
+                                                                                            
+                                                                                                                      
+                                                                                                                                                                                                                                                                      
+                                                                                                           
+                                                              
+                                                           
+                                                                                                                                                                                                          
+                                                                                                                                
+                                                                      
+                                          
+                          
+     
+                                                                
+                                                                                                          
+                                                                      
+                                                              
+   
+                                                                                                                                                                                                                             
+ 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                  
                                     
@@ -4235,6 +4354,7 @@ function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere 
                                      
                                        
                                      
+                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                     
                     
                                                                                                                 
@@ -4582,6 +4702,7 @@ function updateChartSky(){   // called from updateSky (~20 Hz) while any sphere 
                                                                                                                            
                                                                                                             
                                                       
+                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                            
                                                                           
                                                                                                                                                                                                                                                          
