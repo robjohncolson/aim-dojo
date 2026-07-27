@@ -1027,7 +1027,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -1091,7 +1091,7 @@
                                                                                                                              
                                                                                                                          
                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
   
                                                                                    
                                                                                                     
@@ -1699,15 +1699,16 @@
                                                                                                                     
                                                                                                                              
                                                                                                                           
-                                                                                                                            
-                                                                                                                             
-                                                                                                                           
-                                                                                                                          
+                                                                                                                  
+                                                                                                                      
+                                                                                                                     
+                                                                                                                    
                                                                                                                          
-                                                                                                                          
-                                                                                                                        
                                                                                                                     
-                                                                                                                    
+                                                                                                                       
+                                                                                                   
+                                                                                                                     
+                                                                                                                     
                                                                                                                             
                                                                                                                                 
                                                                                                                                 
@@ -1744,8 +1745,8 @@
                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
 
                                                                                                                                                              
                                                                                                                              
@@ -1804,7 +1805,7 @@
                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                     
@@ -2307,11 +2308,12 @@
                                                                                                                                                                                                 
                                                                                                                                                                                                       
                                                                                                                                                                                                                                       
-                                                                                                                   
-                                                                                                                        
-                                                                                                                        
                                                                                                                        
-                                                                                          
+                                                                                                                      
+                                                                                                                         
+                                                                                                                          
+                                                                                                                          
+                                                                                                                       
                              
                                                                                                                                                                                                                                              
                                                                                                                  
@@ -7718,20 +7720,108 @@ function ensureTargetMark(i){
   return targetMarks[i]={ring,drop,label,hlabel};
 }
 function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
+  // THE FLOOR HUD IS RETIRED IN THE VOID (wave 8, parcel W — SPEC_MOONLINE §5's "the old orb-to-ground drop-line is fully
+  // retired", read together with §1's "nothing beside the road but space"). All three of these marks are ONE apparatus and
+  // all three are anchored to y=0.02 — the ground plane parcel T deleted. A drop-line to nothing, a pulsing ring lying on
+  // nothing and a distance label pinned to nothing are not three decisions: they are one lie about a floor. What replaces
+  // the depth read they gave is the STAR-TETHER below (SPEC §5: "can you read an orb's height/depth against the void by its
+  // thread?"), which hangs from a real place in a real sky instead of from a plane that is gone.
+  // WHAT STAYS: the .tgtKey label (LOCK / remaining tank hits), because it floats AT THE ORB — orb-anchored information was
+  // never part of the floor. And the trainer keeps every one of them, byte for byte, because moonlineVoid() reads !trainMode.
+  const vd=moonlineVoid();   // one predicate, hoisted out of the loop; false on every frame with moonline.on:false, road.on:false, in the trainer and in the Temple, where the three lines below are the ones that shipped
   if(!state.running || templeActive){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on','held'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
   const bl=60/Math.max(20,state.bpm), beat=reduceMotion?0:Math.pow(1-(state.t%bl)/bl, 1.6);   // reduced-motion -> beat=0 -> a static ring (no pulse)
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
+    if(vd){ if(m.ring.visible) m.ring.visible=false; if(m.drop.visible) m.drop.visible=false; if(m.label.classList.contains('on')) m.label.classList.remove('on'); }   // THE VOID: latched writes, so a void run costs three compares per orb per frame and no scene-graph churn at all
+    else {
     const r=0.5+beat*0.38; m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.4+beat*0.5; m.ring.visible=true;
     const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;
     m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true;
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
+    }
     if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, T('lock','LOCK')); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
     else if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); m.hlabel.classList.remove('held'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
     else m.hlabel.classList.remove('on','held'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
+}
+/* =========================================================================================================================
+   STAR-TETHERS (wave 8, parcel W — SPEC_MOONLINE §5). Every star-bound Echo hangs from its origin star by a thread of light.
+
+   WHAT IT SAYS. The sky spine already binds each Echo to a REAL risen star: spawnTarget takes the orb's azimuth from that
+   star's bearing and stamps tg.starId, and a landed arrival flies a line home to it. The tether is the other half of that
+   sentence, drawn while the Echo is still alive: a faint line from the orb to the star's TRUE CURRENT sky position — read
+   from the same vertex buffer, through the same rotating sphere, by the same starWorldAt() the ceremony uses, so the sphere
+   turning under a long-lived orb drags the thread with it. SKY HONESTY (SPEC §1): there is no second copy of where a star is.
+   It is also the void's depth cue. With the floor gone, an Echo against a starfield has no ground line to sit on; the thread
+   gives it a fixed far anchor, and how the thread rakes across the sky IS the orb's height and depth (SPEC §5's playtest
+   question). That is the whole reason the floor HUD above could be retired instead of merely moved.
+
+   ONE LAW, TWO RENDERERS. The tether BRIGHTENS with the open window, and it does not compute the window: it reads the orb's
+   OWN shell material opacity, which the run loop wrote this frame from _openAmt (or, for the elected drum-fill tank, from
+   _fillAmt on the fill's own figure). alpha = tetherGlow × shellOpacity. The two cues therefore cannot disagree by
+   construction — not about the peak, not about the skill-tightened width, not about grooveFireEarlyBeat, not about which
+   clock a tank is on — because there is exactly one number and the shell is holding it.
+   reduceMotion: IDENTICAL, and that is the match SPEC §5 asks for. The shell glow does not degrade under reduced motion —
+   it is a functional cue and the run loop's vuln branch has no reduceMotion gate at all (index.html:8474) — so the tether
+   does not either. Where the shell DOES fall back (the vuln mechanic off, where the run loop's `else if(!reduceMotion)`
+   idle shimmer is the reduced-motion casualty), the tether inherits that too, to the frame: a still shell holds a still
+   thread. Nothing here reads reduceMotion, which is exactly why it can never drift from what the shell does.
+
+   FALLBACK ORBS GET NO THREAD (SPEC §5). No tg.starId — every trainer orb, every orb with CFG.stars.on false, every orb the
+   sky had no risen bearing for — means no line, silently: a thread to a star that did not call would be a decoration, and
+   this parcel's whole argument is that a line must be a fact.
+
+   BUDGET (1920×1080, shipped constants; computed, not asserted).
+     · DRAW CALLS: ONE LineSegments for the whole field, against the TWO per orb (a LineLoop ring + a Line drop) the void
+       retired above: at a full field that is 8 draw calls → 1, a NET −7, plus 4 .tgtDist DOM elements no longer written.
+     · GEOMETRY: 2 vertices per thread × ML_TETH_N — 8 verts, 24 position floats + 24 colour floats = 192 bytes of VRAM,
+       allocated ONCE and never grown. The retired rings alone were 4 × 17 = 68 verts.
+     · PER FRAME: per thread one starWorldAt (3 array reads + one quaternion apply = 16 mul, 12 add) and 12 float writes;
+       at the full field 64 mul, 48 add, 48 writes, and two 96-byte attribute uploads. ZERO allocations: one module-scope
+       scratch Vector3, one geometry, one material, and an early return that costs one boolean when the parcel is off.
+     · LOW-REZ: nothing to shed. One additive line pair per orb is already the cheapest honest thing in the frame, and it is
+       what makes the void READABLE — the tier that most needs a depth cue is the one that can least afford to lose it.
+     · KILL-SWITCH: moonline.on:false (or road.on:false, the trainer, the Temple) → starTetherLive() is false on its first
+       reads, no geometry is ever built, no material exists, and the orb-to-ground drop-line above is the one that shipped.
+   ========================================================================================================================= */
+const ML_TETH_N=Math.max(1,(+CFG.patternConcurrency||3)|0)+1;             // THE POOL, BOUNDED BY patternConcurrency (SPEC §5). The spawn gate is `active < CFG.patternConcurrency`, so at most C−1 Echoes are live when it opens and a POLY/DEALT PAIR issues two orbs on that one Draw — C+1 is the true ceiling of the field, and it is 4 with the shipped 3 (SENSEI_PACK's value too; the trainer phases only ever lower it). Sized once at build; an overflow past it drops the THREAD, never the orb, exactly as _STAR_FLY_MAX drops a ceremony
+const ML_TETH_RGB=[0.682,0.776,0.910];                                    // the zodiac sticks' own line colour (0xaec6e8, index.html:2831) — the thread is made of the same light as the constellation it ends on, so it reads as one object crossing the void and not as a new kind of thing
+const ML_TETH_FAR=0.12;                                                   // and it FADES toward the star: full at the orb (the end you are playing), a twelfth of that at the sky end, so the tether points home without ever competing with the star it points at
+let _tethMesh=null; const _tethW=new THREE.Vector3();                     // the one mesh (built lazily, on the first void frame that has something to say) and the one scratch vector every thread reuses
+function starTetherLive(){ return moonlineVoid() && !!(CFG.stars && CFG.stars.on) && (+CFG.moonline.tetherGlow||0)>0 && !!_starLitIdx && !!_stickFig && !!_stickFig.pGeo; }   // the void FIRST (which reads the master kill-switch first in turn), then the sky spine's own switch, then the knob, then the fixture — so an off parcel costs one call and a missing fixture is silence, not a throw
+function ensureStarTethers(){
+  if(_tethMesh) return _tethMesh;
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ML_TETH_N*6),3).setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(ML_TETH_N*6),3).setUsage(THREE.DynamicDrawUsage));
+  _tethMesh=new THREE.LineSegments(g, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false}));
+  _tethMesh.frustumCulled=false; _tethMesh.renderOrder=998;              // just under the returning-voice lines (999) and above everything else: the thread ends on a star 330 m out, so depth-testing it against a shell that stands for infinity would only ever be wrong. The same material law the voice's own line already uses
+  _tethMesh.visible=false; scene.add(_tethMesh);
+  return _tethMesh;
+}
+function updateStarTethers(){
+  if(!starTetherLive()){ if(_tethMesh && _tethMesh.visible) _tethMesh.visible=false; return; }
+  const m=ensureStarTethers(), pa=m.geometry.attributes.position.array, ca=m.geometry.attributes.color.array;
+  const k=Math.max(0,+CFG.moonline.tetherGlow||0);
+  let n=0;
+  for(let t=0;t<targets.length && n<ML_TETH_N;t++){
+    const tg=targets[t]; if(tg.dead || !tg.starId) continue;              // FALLBACK ORBS GET NO TETHER — no bearing, no thread
+    const i=_starLitIdx[tg.starId]; if(i===undefined) continue;           // a bind the fixture cannot draw: the ceremony refuses one of these too (index.html:3786), and for the same reason
+    const sh=tg.mesh.userData.shell; if(!sh) continue;                    // no shell = no open glow to read = nothing this cue could honestly say
+    const a=k*sh.material.opacity;                                        // THE ONE LAW: the thread's brightness IS the shell's, times the knob. Never recomputed, so never in disagreement
+    const w=starWorldAt(i,_tethW), p=tg.mesh.position, j=n*6;
+    pa[j]=p.x; pa[j+1]=p.y; pa[j+2]=p.z; pa[j+3]=w.x; pa[j+4]=w.y; pa[j+5]=w.z;
+    const f=a*ML_TETH_FAR;
+    ca[j]=a*ML_TETH_RGB[0]; ca[j+1]=a*ML_TETH_RGB[1]; ca[j+2]=a*ML_TETH_RGB[2];
+    ca[j+3]=f*ML_TETH_RGB[0]; ca[j+4]=f*ML_TETH_RGB[1]; ca[j+5]=f*ML_TETH_RGB[2];
+    n++;
+  }
+  m.geometry.setDrawRange(0,n*2);
+  if(n){ m.geometry.attributes.position.needsUpdate=true; m.geometry.attributes.color.needsUpdate=true; }
+  if(m.visible!==(n>0)) m.visible=(n>0);                                  // one boundary write, never a per-frame one
 }
 /* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride the LANE's own ladder (wasdNoteDiv — one per beat from 20 to 50 bpm, an optional in-between one from 50 to 60; it used to be half the orb-jump rate, which THE SIXTY CAP turned into a doubled press demand from ~37.5 bpm up). On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); in-between (BONUS) notes draw as dim ghosts and stack a combo that calms the field further + intensifies the groove — claiming one credits it, skipping one costs nothing, and only a MAIN going unresolved resets it. Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
@@ -7739,15 +7829,29 @@ const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x7
 const WASD_COL_GHOST=WASD_COL.map(c=>c+'73');   // DE-COERCION (parcel R): the same four colors at alpha 0x73 (0.45) — an in-between (bonus) note is drawn as a GHOST of its key, so the eye reads "optional" with no new text and no new glyph. Precomputed once (setStyle caches, so the letter costs nothing per frame).
 const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
-function showWasdGlyph(key, spoiled, on, ghost){   // ghost = this note is an in-between (bonus) one: same letter, dimmed, because it is claimable but never demanded
+const GLYPH_GLOW_STEPS=12;   // THE CROSSHAIR'S PULSATING GLOW (parcel W), quantised so the hot path can never allocate: the envelope sweeps 0→1→0 once per beat, so 24 step changes a beat = 8.0 style writes/s at the 20 bpm floor and 24.0 at the sixty cap, each one a cached setStyle that no-ops when the string has not changed. 12 steps puts the quantisation at 0.0375 of the envelope — under a twelfth of the pulse, which is well below what an eye reads on a bloom
+const GLYPH_GLOW=(()=>{
+  // THE THIRTEEN STRINGS, built ONCE at module scope. Step 0 is the stylesheet's own shadow stack character-for-character
+  // (index.html:74), so a letter at rest is the letter that shipped; every step above it adds a `currentColor` bloom, which
+  // means the glow is ALREADY the required key's colour — showWasdGlyph sets `color` from WASD_COL and the bloom follows it,
+  // so the pre-wave-7 cue's HUE law ("the wash names the key that is due") is inherited rather than copied.
+  const base='0 0 4px #000,0 0 10px rgba(0,0,0,.95),0 2px 2px #000', px=Math.max(0,+((CFG.moonline&&CFG.moonline.cueGlowPx))||0), a=[];
+  for(let k=0;k<=GLYPH_GLOW_STEPS;k++){ const r=px*k/GLYPH_GLOW_STEPS;
+    a.push(k&&r>0 ? base+',0 0 '+r.toFixed(1)+'px currentColor,0 0 '+(r*0.42).toFixed(1)+'px currentColor' : base); }
+  return a;
+})();
+let _glyphGlowOwned=false;   // has the glow ever written an inline text-shadow? one boundary flag, so the trainer and every kill-switch path leave the element's inline style untouched — and a single write puts it back if the world changes underfoot
+function showWasdGlyph(key, spoiled, on, ghost, glow){   // ghost = this note is an in-between (bonus) one: same letter, dimmed, because it is claimable but never demanded · glow = 0..1 of the beat envelope, or <0 for "this cue does not own the letter right now"
   if(!wasdGlyphEl) return;
   if(!on){ if(wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.remove('on'); return; }
   setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':(ghost?WASD_COL_GHOST[key]:WASD_COL[key]));
+  if(glow>=0){ _glyphGlowOwned=true; setStyle(wasdGlyphEl,'textShadow', GLYPH_GLOW[glow>=1?GLYPH_GLOW_STEPS:Math.round(glow*GLYPH_GLOW_STEPS)]); }   // the ONE per-frame write, and it is an index into the table above — no string is built here, ever
+  else if(_glyphGlowOwned){ _glyphGlowOwned=false; setStyle(wasdGlyphEl,'textShadow',''); }   // handed back to the stylesheet, once, on the boundary
   if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
 }
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
-  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD subsumes the NOTE LANE — but only when it CARRIES it, and with THE MEANING it finally does: every band is tinted by its beat's required lane and the lane's own glyph rides mid-band, arriving at the feet exactly when the key is due (ROAD_LANE_READY is bound to the very flags that draw it, index.html:1747). The sequence is MOVED into the world, not deleted from the crosshair. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. Whenever laneCue is true — the trainer, the Temple, bandGlyphs:false, LOW-REZ under the ribbon (which compiles no glyph pass to carry it), and every configuration at all under the raw kill-switch road.on:false — both gates below fall back to the shipped expressions verbatim
+  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD may subsume the NOTE LANE — but only when it CARRIES it (ROAD_LANE_READY is bound to the very flags that draw the glyph, index.html:1749) — and UNDER THE MOONLINE IT NEVER DOES: SPEC_MOONLINE §1's cue contract, from the user's own regression report, leaves the road COLOUR-ONLY and puts the required LETTER back at the CROSSHAIR, where the pre-wave-7 pulsating beat glow is now waiting for it (parcel W). So laneCue is TRUE on every shipped Moonline configuration and on every tier, and true again in the trainer, in the Temple, with bandGlyphs:false and under the raw kill-switch road.on:false — which means both gates below are the pre-road expressions, verbatim, in every world this build can reach. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. The false branch survives for moonline.on:false, the one world where the pavement letter still exists
   const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || (CFG.wasdTapText && !laneCue) || ((CFG.wasdLetter || reduceMotion) && laneCue));   // THE STAR ROAD: the letter clause is the only one the road takes over; the tapText clause exists so an explicitly opted-in TAP TIMING READOUT is not collateral damage of the day the lane stands down (it reached the canvas by riding wasdLetter's default). With laneCue true it is `wasdTapText && false`, a dead term in an ||, so this reduces character-for-character to the shipped expression; with laneCue false it is the shipped expression with the LETTER term removed and the readout kept, which is exactly the trade the road earns. canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
   const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
@@ -7795,7 +7899,14 @@ function drawWasdLane(){
     ARC(rt);
   }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
-  showWasdGlyph(letterKey, spoiled, laneCue && (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote);
+  // THE PULSATING GLOW COMES WITH IT (parcel W): in THE VOID the floor that carried the beat wash is gone, so the same
+  // envelope lights the letter itself. wasdBeatCueOn() is the shipped floor-beat gate minus its surface test and
+  // moonlineVoid() is that surface — disjoint from updateFloorBeat's !roadLive(), so exactly one renderer ever runs the
+  // law, and with moonline.on:false (or in the trainer, or in the Temple) this is a single boolean read that yields −1
+  // and the letter is byte-identically the one wave 7 shipped.
+  const _cueMax=+CFG.floorBeatMax||0;
+  const cueGlow=(_cueMax>0 && wasdBeatCueOn() && moonlineVoid()) ? wasdBeatGlow()/_cueMax : -1;
+  showWasdGlyph(letterKey, spoiled, laneCue && (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote, cueGlow);
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
@@ -7912,24 +8023,42 @@ function updateFlock(dt){
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt)*dens);
   }
 }
-/* ---- WASD floor beat-tint: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer. ---- */
+/* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
+   THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
+   report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
+   the key that was due, and the road subsumed it because two beat clocks on screen is clutter. THE VOID has no floor left to
+   wash — and it is also where the required LETTER came home to the crosshair — so the identical envelope now lights the
+   LETTER instead, and the cue is MOVED rather than deleted for the second time in two waves.
+   RESTORED, NOT REINVENTED: the timing law below is the shipped one, lifted whole into wasdBeatGlow() and called by both
+   renderers, so there is no second copy of it to drift. The floor path's arithmetic is character-for-character what it was
+   (maxAmt*env*env, in that order, with the trainer's discrete reduced-motion flash intact); the crosshair reads the SAME
+   return and normalises it to 0..1 for its bloom. The two can never both run: the floor asks for !roadLive(), the crosshair
+   for moonlineVoid() ≡ moonline.on && roadLive(), which are disjoint by construction.
+   reduceMotion is inherited verbatim, and that is the honest restoration: the pre-wave-7 cue was OFF in free play under
+   reduced motion (only the trainer kept a discrete flash), so the void's crosshair bloom is off there too — a reduced-motion
+   player loses nothing they ever had, and the letter itself is still shown (CFG.wasdLetter || reduceMotion). ---- */
 const _floorBeatCol=new THREE.Color();
+let _beatGlowKey=0;   // the lane the last wasdBeatGlow() call was about — an int, written where the hue is already computed, so neither renderer needs a second pass over the combo
+function wasdBeatCueOn(){ return !templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started' && (!reduceMotion || trainMode); }   // EVERY condition of the shipped floor-beat gate except which SURFACE is asking: trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). Both callers append their own surface test, and updateFloorBeat's is still `&& !roadLive()`, so its gate reduces character-for-character to the one that shipped
+function wasdBeatGlow(){   // THE ENVELOPE, verbatim: |beats − round(beats)| against a linear ramp, squared. Returns floor-beat units (0..CFG.floorBeatMax) so the floor path's product is bit-for-bit unchanged; the crosshair divides by the same max
+  let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
+  const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
+  beats-=cueI;
+  const nd=wasdNoteDiv();
+  // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
+  const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length;
+  _beatGlowKey=_combo[(((biKey*nd)%len)+len)%len];
+  const bi=Math.round(beats), off=Math.abs(beats-bi);
+  const maxAmt=CFG.floorBeatMax;
+  if(trainMode && reduceMotion) return off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
+  const env=Math.max(0,1-off*2); return maxAmt*env*env;
+}
 function updateFloorBeat(){
   let amt=0;
-  const floorCueOn=!templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'
-    && (!reduceMotion || trainMode) && !roadLive();   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
+  const floorCueOn=wasdBeatCueOn() && !roadLive();   // THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
   if(floorCueOn){
-    let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
-    const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
-    beats-=cueI;
-    const nd=wasdNoteDiv();
-    // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
-    const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length, ckey=_combo[(((biKey*nd)%len)+len)%len];
-    const bi=Math.round(beats), off=Math.abs(beats-bi);
-    const maxAmt=CFG.floorBeatMax;
-    if(trainMode && reduceMotion) amt=off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
-    else { const env=Math.max(0,1-off*2); amt=maxAmt*env*env; }
-    _floorBeatCol.setHex(WASD_HEX[ckey]);
+    amt=wasdBeatGlow();
+    _floorBeatCol.setHex(WASD_HEX[_beatGlowKey]);
   }
   const fsh=dayFloor&&dayFloor.material.userData.sh;
   if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
@@ -8486,6 +8615,7 @@ function animate(frameNow){
   try{ if(state.running&&!templeActive) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
   try{ updateTanks(dt); }catch(e){ if(!updateTanks._e){ updateTanks._e=1; console.error('updateTanks',e); } }   // MULTI-HIT TANK: the per-chip shell pop
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
+  try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
   try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)

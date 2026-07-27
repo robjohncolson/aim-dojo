@@ -1027,7 +1027,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the road it rides. Flat literal — nested {} would break the CFG contract test regex
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the road it rides · cueGlowPx = THE CROSSHAIR'S PULSATING GLOW (parcel W): the blur radius, in CSS px, of the bloom the required LETTER wears at the peak of its beat — the pre-wave-7 floor-beat cue's own envelope, on the one surface a floorless world still has (0 = the letter is the shipped one, with no bloom at all, and the beat is then carried by the road and the audio alone) · tetherGlow = THE STAR-TETHERS' brightness per unit of the orb shell's OWN open glow (0 = no thread is ever built; the thread's alpha IS the shell's opacity times this, so the two cues can never disagree about the window). Flat literal — nested {} would break the CFG contract test regex
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1091,7 +1091,7 @@ const CFG = {
   // THE MEANING (parcel S2) fills the ribbon in: every band now carries its beat's required lane colour + glyph, the swell's
   // position as luminance, the mercy bar as one wide bright band, the fill's gates as amber edge-marks, and — behind the
   // now-line — THE WAKE, the run you just played. The bend at your feet drives the camera instead of the old noise lissajous.
-  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1747) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
+  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1749; WAVE 8, PARCEL W: the Moonline's road is COLOUR-ONLY and emits no glyph pass at all, so under the ribbon this flag reaches nothing and the letter is at the crosshair whatever it says — it still governs wave 7's road under moonline.on:false) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
@@ -1699,15 +1699,16 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
        early discards are unchanged and still first. The impostor is ~3 px tall by ~14 px wide: under 100 fragments.
      · PER FRAME CPU: the road's uniform writes are the same THREE floats wave 7 wrote (uNow, uBase.x, uBase.y); the impostor
        adds two course evaluations and three number writes into objects that already exist. ZERO new allocations anywhere.
-     · LOW-REZ: one course harmonic instead of three (inherited), constant-width antialiasing, TWO crossbar tiers instead of
-       four (the beat and the bar — the sixteenth carrier is the first thing foreshortening takes anyway), and NO GLYPH PASS:
-       the mid-cell letter is not emitted into the shader text at all (ROAD_GLYPH_PASS, index.html:1746), which is the only
-       way to shed it — a uniform gate would still pay the footprint test on every fragment. MEASURED by emitting the text
-       at both tiers and differencing: the pass is 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch
-       and ONE DEPENDENT texture2D. At 1920×1080 / EYE 4 / fov 95 the ribbon covers 511k px (24.65% of the frame) and each
-       ran the footprint test; the fetch ran on the 53.3% inside a letter's box (272k px = 13.13% of the frame, averaged
-       over cell phase). LOW now runs none of it and builds no 64 KB atlas, and the required letter goes back to the
-       CROSSHAIR in the same read — SPEC §1's cue contract, early, for the tier that cannot afford the world's copy.
+     · EVERY TIER: NO GLYPH PASS. The mid-cell letter is not emitted into the shader text at all (ROAD_GLYPH_PASS,
+       index.html:1748), which is the only way to shed it — a uniform gate would still pay the footprint test on every
+       fragment. MEASURED by emitting the text both ways and differencing: the pass is 6 step, 1 smoothstep, 1 fract,
+       2 floor, 17 mul, 9 add, 1 mix, 1 branch and ONE DEPENDENT texture2D. At 1920×1080 / EYE 4 / fov 95 the ribbon
+       covers 511k px (24.65% of the frame) and each ran the footprint test; the fetch ran on the 53.3% inside a letter's
+       box (272k px = 13.13% of the frame, averaged over cell phase). The ribbon runs none of it and builds no 64 KB
+       atlas, and the required letter is back at the CROSSHAIR — SPEC §1's cue contract. [PARCEL U shipped this for LOW
+       only; PARCEL W made it universal, because the contract is about the ROAD, not about a tier.]
+     · LOW-REZ: one course harmonic instead of three (inherited), constant-width antialiasing, and TWO crossbar tiers
+       instead of four (the beat and the bar — the sixteenth carrier is the first thing foreshortening takes anyway).
      · reduceMotion is FIRST CLASS exactly as it was: uNow pinned to 0, the ribbon STANDS STILL as a ruler of the next eight
        beats, the cells pulse in place on the heard beat, and the impostor is frozen with them (it reads the same pinned clock).
    ========================================================================================================================== */
@@ -1744,8 +1745,8 @@ function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0
 function roadCourseD(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); return s; }   // its slope, metres per beat — the second half of the re-basing pair (and, next parcel, the tracking drill's bank)
 function roadBeatNow(){ return wasdBeatsHeard() + (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // ONE CLOCK: literally the grading expression (wasdBeats() − audioLat()/bps) plus the groove phase, so the band edge is the heard "1" and the lane note is mid-band. Reads, never writes
 function roadLive(){ return !!(CFG.road && CFG.road.on) && !trainMode && !templeActive; }   // raw kill-switch FIRST; post-graduation only (the trainer keeps its didactic floor) and the Temple's floor-dissolve is never touched
-const ROAD_GLYPH_PASS=!(ML_RIBBON&&LOW);                                  // IS THE MID-CELL LETTER COMPILED AT ALL? LOW-REZ sheds it — the glyph is the single most expensive thing in the ribbon's fragment, and it is the ONE cost the frame budget above claims LOW does not pay. MEASURED by emitting the shader text both ways and differencing it: the pass is 428 chars carrying 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch and ONE DEPENDENT texture2D. The footprint test runs on EVERY surviving road fragment — 511k px, 24.65% of a 1920×1080 frame at EYE 4 / fov 95 / 27 m to the beat — and the fetch on the 53.3% of those inside a letter's box (272k px = 13.13% of the frame, averaged over cell phase). A uniform gate would have shed NONE of it: uGlyphOn:0 still pays the test. Under the RIBBON only: moonline.on:false hands wave 7 back the glyph its own LOW path always drew, so the kill-switch is still exact. The cue is MOVED, never deleted — ROAD_LANE_READY reads this in the same breath and puts the required letter back at the CROSSHAIR, which is where SPEC_MOONLINE §1's cue contract wants it anyway (parcel W does it for every tier)
-const ROAD_LANE_READY=!!(CFG.road && CFG.road.bandGlyphs) && ROAD_GLYPH_PASS;   // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL? THE MEANING draws it — the band is tinted by its beat's required lane and the lane's own glyph is rendered mid-band — so the crosshair letter may finally stand down: the cue is MOVED into the world, not deleted from it. Bound to the very flags that draw the glyph, so the two can never disagree; bandGlyphs:false, road.on:false (which roadLive() reads first) and now LOW-under-the-ribbon (which does not compile the pass) each restore the centre letter in the same read. With moonline.on:false ROAD_GLYPH_PASS is true on every tier, so this is character-for-character the boolean wave 7 shipped
+const ROAD_GLYPH_PASS=!ML_RIBBON;                                         // IS THE MID-CELL LETTER COMPILED AT ALL? THE MOONLINE'S ROAD IS COLOUR-ONLY (SPEC §1's cue contract, user regression report: the required LETTER belongs at the CROSSHAIR and the road's cells say which key by their COLOUR). Parcel U had already dropped this on LOW; parcel W drops it on EVERY tier under the ribbon, which is the whole of the contract in one const — the shader stops emitting the letter and ROAD_LANE_READY, reading this in the same breath, hands the letter back to the crosshair. MEASURED by emitting the shader text both ways and differencing it: the pass is 428 chars carrying 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch and ONE DEPENDENT texture2D. The footprint test ran on EVERY surviving road fragment — 511k px, 24.65% of a 1920×1080 frame at EYE 4 / fov 95 / 27 m to the beat (recomputed for this parcel by integrating the ribbon over screen rows 3…540 below the horizon at focal 494.82 px: 511,234 px = 24.65%, the same integral the parcel-U comment reports) — and the fetch on the 53.3% of those inside a letter's box (272k px = 13.13% of the frame, averaged over cell phase). A uniform gate would have shed NONE of it: uGlyphOn:0 still pays the test. Dropping the TEXT is the only way, so the text is what drops, on desktop as well as LOW, and the 64 KB atlas is never built either. THE KILL-SWITCH IS EXACT AND NOW SIMPLER: moonline.on:false makes this true on every tier, which is the unconditional glyph wave 7 shipped
+const ROAD_LANE_READY=!!(CFG.road && CFG.road.bandGlyphs) && ROAD_GLYPH_PASS;   // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL? UNCHANGED SINCE THE MEANING, deliberately: the switch is BOUND to the very flags that draw the glyph, so parcel W turning the ribbon's glyph pass off is all it takes for the centre letter to come home — there is no second place to remember. Under the Moonline this is now false on every tier (the road says WHICH KEY by cell colour and nothing else); with bandGlyphs:false, or road.on:false (which roadLive() reads first), or moonline.on:false-plus-bandGlyphs:false it is false for the reasons it always was; and with moonline.on:false it is character-for-character the boolean wave 7 shipped
 
 /* ========================= THE STAR ROAD — THE MEANING (wave 7, parcel S · SPEC_STAR_ROAD §3, decisions 3+4 + the band encodings) =========================
    THE RIVER built the conveyor; THE MEANING is what it carries. Still zero gameplay math: everything below is a PURE READ of
@@ -1804,7 +1805,7 @@ const ROAD_WAKE=Math.max(1,Math.ceil(ROAD_FADE1_7/ROAD_BAND_M)|0);        // 14 
 const ROAD_SLOTS=ROAD_WAKE+1+ROAD_LOOK;                                   // 23 = 14 behind · the band at your feet · lookAheadBeats ahead. Slot i is beat (n0 + i − ROAD_WAKE); beyond the ends the ribbon is plain (the road states 8 beats, not 13)
 const ROAD_TIDE_LO=0.45, ROAD_LANE_MIX=0.80, ROAD_WAKE_DARK=0.16, ROAD_WAKE_BLANK=0.55;   // band body luminance at the swell's trough (crest = 1.0) · how far the base ink is pulled to the lane colour · a MISSED beat's band behind you · a beat that was never judged (pre-run, lane off)
 const ROAD_INK_BODY=0.16, ROAD_INK_GLYPH=1.30;                            // the band interior once it carries information (plain ribbon keeps ROAD_INK_BASE 0.10) · the glyph's own ink
-const ROAD_GLYPH_S=ROAD_MPB/ROAD_BAND_M;                                  // THE RIBBON's cells are 2.7× longer and 2.7× further away, so the letter and its fade travel with them (1.000 exactly with moonline.on:false — every glyph constant below is then the shipped one, multiplied by one). PROVISIONAL BY DESIGN: SPEC §1's cue contract puts the required letter back at the CROSSHAIR and leaves the road colour-only, and parcel W does that — moving it in the SAME commit that restores the crosshair cue, because a commit that deleted it here and restored it there would be a commit with no letter cue at all
+const ROAD_GLYPH_S=ROAD_MPB/ROAD_BAND_M;                                  // THE RIBBON's cells are 2.7× longer and 2.7× further away, so the letter and its fade travel with them (1.000 exactly with moonline.on:false — every glyph constant below is then the shipped one, multiplied by one). PARCEL W SETTLED THE "PROVISIONAL" NOTE THAT STOOD HERE: SPEC §1's cue contract took the letter off the road and put it back at the CROSSHAIR, in the same commit that restored the crosshair cue, so under the ribbon nothing reads these four constants at all (the glyph pass is not emitted — ROAD_GLYPH_PASS). They stay because the kill-switch does: with moonline.on:false this scale is 1.000 and wave 7's pavement letter is the one that ships
 const ROAD_GLYPH_W=Math.min(5.2*ROAD_GLYPH_S, ROAD_HALF_W*1.24), ROAD_GLYPH_L=8.6*ROAD_GLYPH_S, ROAD_GLYPH_F0=25*ROAD_GLYPH_S, ROAD_GLYPH_F1=45*ROAD_GLYPH_S;   // the width is capped at 62% of the ribbon so a 2.7× letter cannot climb its own rails (8.68 m of 14; the cap is inert at wave-7 scale, where 5.2 < 8.68). On a 27 m cell the mid-cell footprint is 186×37 px one cell out and 112×13 px at two, so it still fades between cells +2 and +4 and the CELL COLOUR carries the lane for all eight. Wave 7 verbatim: the letter is STRETCHED down the road like real pavement text (1.65:1) to survive foreshortening: at EYE 4 m / fov 95 / 1080p its mid-band footprint is 289×147 px one band out, 178×55 at two, 128×28 at three — so it fades between bands +2 and +4 and the band COLOUR carries the lane for all eight. Drawing it out to band 8 would be 53×2 px of noise
 const ROAD_TIER_D=Math.sqrt(EYE*(ROAD_MPB/16)*(180/Math.PI)*(1080/95)/4);   // THE RIBBON's LOD ladder, computed from the SHIPPED optics and nothing else: a segment of length s on the ground at distance d subtends h·s/d² rad, so this is where a SIXTEENTH crossbar (1.6875 m) is still 4 px tall at 1080p with EYE 4 m and fov 95 — 33.16 m. Every coarser tier's spacing is 4× the last, and distance goes as √s, so each tier lives over [D·2^k, D·2^(k+1)] and dies exactly where the next is still four pixels wide. A mip pyramid the geometry dictated
 const ROAD_TIER_W=[0.42,0.58,1.00,1.24];                                  // and how loudly each tier speaks: the sixteenth carrier is the quietest, the "1" is unit, the bar line is the loudest — so the beat reads OUT of the carrier up close instead of drowning in it. Read once at build time into the shader's literals; never touched again
@@ -2307,11 +2308,12 @@ function roadArchFill(n0){
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
       '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner;',                 // reduceMotion only: the cells pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
       '  col=mix(col, uMark, min(1.0, gb*markE));',                                                       // THE FILL'S GATES: the tank's own amber on the beats its figure still owes — "3, 4, 1" rolling in, riding the "1" crossbar
-      // ---- the lane's GLYPH, mid-cell (PROVISIONAL — parcel W moves it back to the crosshair; see ROAD_GLYPH_S).
-      //      NOT EMITTED AT ALL under LOW (ROAD_GLYPH_PASS, index.html:1746): the LOW-REZ budget below claims "no glyph
-      //      pass", and a uniform gate would not have been one — uGlyphOn:0 still pays the footprint test on every road
-      //      fragment. Dropping the TEXT is the only way to shed a dependent texture fetch, so the text is what drops,
-      //      and ROAD_LANE_READY hands the letter back to the crosshair in the same read.
+      // ---- the lane's GLYPH, mid-cell — NOT EMITTED ON ANY TIER UNDER THE RIBBON (ROAD_GLYPH_PASS, index.html:1748).
+      //      SPEC_MOONLINE §1's cue contract: the Moonline's road is COLOUR-ONLY and the required LETTER lives at the
+      //      CROSSHAIR. A uniform gate would not have shed this — uGlyphOn:0 still pays the footprint test on every road
+      //      fragment — so the TEXT is what drops, and ROAD_LANE_READY hands the letter back to the crosshair in the same
+      //      read. The block below is therefore dead under the Moonline and alive verbatim under moonline.on:false, which
+      //      is exactly what the kill-switch owes wave 7. (Kept as a conditional rather than deleted for that reason.)
       ...(ROAD_GLYPH_PASS ? [
       '  float fb=fract(b);',                                                                          // the position WITHIN the cell — the glyph is its ONLY reader on this presentation, so it is declared here and vanishes with the pass
       '  float gv=(fb-0.5)*'+_roadG(ROAD_MPB/ROAD_GLYPH_L)+'+0.5, gu=(vXZ.x-cx)*'+_roadG(1/ROAD_GLYPH_W)+'+0.5;',
@@ -7718,20 +7720,108 @@ function roadHideOldFloor(){
                                                  
  
                                                                                                                                                                        
+                                                                                                                          
+                                                                                                                           
+                                                                                                                          
+                                                                                                                          
+                                                                                                                            
+                                                                                                 
+                                                                                                                            
+                                                                                                                              
+                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                      
           
                                                                                                     
+                                                                                                                                                                                                                                                                                        
+          
                                                                                                                                                  
                                                                                                                       
                                                                               
                                                                                                                              
                                                                                                                                                                                               
                                         
+     
                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                             
                                                   
                                                                                                                                                                                                              
+ 
+                                                                                                                            
+                                                                                                                             
+
+                                                                                                                          
+                                                                                                                          
+                                                                                                                          
+                                                                                                                            
+                                                                                                                              
+                                                                                                                             
+                                                                                                                         
+                                                                                                    
+
+                                                                                                                            
+                                                                                                                          
+                                                                                                                   
+                                                                                                                         
+                                                                                        
+                                                                                                                          
+                                                                                                                          
+                                                                                                                        
+                                                                                                                        
+                                                                                                             
+
+                                                                                                                            
+                                                                                                                          
+                                                              
+
+                                                                 
+                                                                                                                         
+                                                                                                                         
+                                                                                                                        
+                                                                                      
+                                                                                                                         
+                                                                                                                         
+                                                                                                                      
+                                                                                                                            
+                                                                                                                       
+                                                                                                                          
+                                                                                                                           
+                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                    
+                             
+                                 
+                                     
+                                                                                                                          
+                                                                                                                       
+                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                     
+                                                
+                   
+ 
+                             
+                                                                                              
+                                                                                                             
+                                                  
+          
+                                                   
+                                                                                                                                
+                                                                                                                                                                                             
+                                                                                                                                                  
+                                                                                                                                                                                            
+                                                             
+                                                                               
+                          
+                                                                               
+                                                                                 
+        
+   
+                                 
+                                                                                                         
+                                                                                                                      
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                            
@@ -7739,15 +7829,29 @@ function roadHideOldFloor(){
                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                         
                                                                                    
-                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                       
+                                                                                                                          
+                                                                                                                            
+                                                                                                                             
+                                                                                                            
+                                                                                                                                       
+                                                                      
+                                                                                                                     
+           
+     
+                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                      
                           
                                                                                                  
                                                                                                                                                  
+                                                                                                                                                                                                                                                        
+                                                                                                                                                     
                                                                             
  
                         
                                                       
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                        
                                                                                                                                                     
@@ -7795,7 +7899,14 @@ function roadHideOldFloor(){
             
    
                                                                                                                                                                                
-                                                                                                        
+                                                                                                                       
+                                                                                                                 
+                                                                                                                        
+                                                                                                                       
+                                                               
+                                     
+                                                                                               
+                                                                                                                 
                                                                                                                                                                                                                                       
                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -7912,24 +8023,42 @@ function roadHideOldFloor(){
                                                          
    
  
-                                                                                                                                                                             
+                                                                                                                                                               
+                                                                                                                            
+                                                                                                                              
+                                                                                                                             
+                                                                                                                        
+                                                                                             
+                                                                                                                         
+                                                                                                                           
+                                                                                                                         
+                                                                                                                            
+                                                                                      
+                                                                                                                        
+                                                                                                                             
+                                                                                                                     
                                       
+                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                       
+                                                                                                           
+                                                          
+              
+                         
+                                                                                                        
+                                                                           
+                                                  
+                                                     
+                                
+                                                                                                
+                                                       
+ 
                            
             
-                                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                   
                  
-                                                                                                             
-                                                            
-                
-                           
-                                                                                                          
-                                                                                                                      
-                                                       
-                                  
-                                                                                               
-                                                               
-                                         
+                       
+                                                 
    
                                                     
                                                                                                                                                                                                                                                               
@@ -8486,6 +8615,7 @@ function roadHideOldFloor(){
                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                          
                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                        
                                                                                                                                                                                                                  

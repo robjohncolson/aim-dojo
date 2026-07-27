@@ -189,7 +189,10 @@ function floorFrame(expected, beats, pocketEnabled = true) {
     wasdBeats: () => beats,
     wasdBeatsHeard: () => beats,
   });
-  vm.runInContext(`${extractFunction("wasdNoteDiv")}; ${extractFunction("updateFloorBeat")}; updateFloorBeat();`, context);
+  // PARCEL W lifted the envelope out of updateFloorBeat into wasdBeatGlow() so the CROSSHAIR can read the same law
+  // (SPEC_MOONLINE §1's cue contract) — the floor path is the same arithmetic, one call deeper, so this sandbox lifts
+  // both halves and every B5/B7 expectation below is the one that shipped.
+  vm.runInContext(`var _beatGlowKey=0; ${extractFunction("wasdNoteDiv")}; ${extractFunction("wasdBeatCueOn")}; ${extractFunction("wasdBeatGlow")}; ${extractFunction("updateFloorBeat")}; updateFloorBeat();`, context);
   return { amount: amount.value, color: seen.color };
 }
 
@@ -216,7 +219,9 @@ test("DE-COERCION: an in-between note is claimable but cannot break the combo (R
   assert.match(html, /const lw=main\?4\.5:2\.0, ghost=main\?1:0\.45;/, "bonus ring renders as a ghost");
   // laneCue is THE STAR ROAD's note-lane gate (wave 7, parcel S) — !roadLive(), so it is `true` with road.on:false and the
   // ghost/dim contract below is unchanged. The de-coercion this test guards is the ghostNote argument, still last and still there.
-  assert.match(html, /showWasdGlyph\(letterKey, spoiled, laneCue && \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld, ghostNote\)/, "bonus letter renders as a ghost");
+  // PARCEL W appends the beat-glow amount as a FIFTH argument; ghostNote is still fourth and still there, which is the
+  // de-coercion this test guards.
+  assert.match(html, /showWasdGlyph\(letterKey, spoiled, laneCue && \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld, ghostNote, cueGlow\)/, "bonus letter renders as a ghost");
   assert.match(html, /if\(_curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)\{ _baseMul=1; _wasdCombo=0; \}/, "only a MAIN going unresolved zeroes the bonus combo");
   assert.match(html, /else if\(acc>0\) _wasdCombo\+\+;/, "claiming a bonus note still credits the combo");
   // 6 -> 8: THE MEANING (wave 7, parcel S2) added two READERS of the lane's density — roadLaneAt (which beat-band shows
@@ -234,9 +239,10 @@ test("THE MEANING: the note lane stands down on the flag that DRAWS the lane, an
   // straight back, in the same read, with no second place to forget.
   assert.match(html, /const ROAD_LANE_READY=!!\(CFG\.road && CFG\.road\.bandGlyphs\) && ROAD_GLYPH_PASS;/, "the switch IS the draw flags — both of them");
   assert.match(html, /uGlyphOn:\{value:\(CFG\.road\.bandGlyphs\?1:0\)\}/, "…and that same flag is what the shader gates the glyph on");
-  // Parcel U's fix: LOW does not COMPILE the glyph pass, so on LOW the road cannot carry the letter and the crosshair must
-  // take it back. Bound, not merely flipped — the second term is the very boolean the shader emitter reads.
-  assert.match(html, /const ROAD_GLYPH_PASS=!\(ML_RIBBON&&LOW\);/, "the pass is dropped only where the ribbon meets LOW");
+  // PARCEL W (SPEC_MOONLINE §1's cue contract): the Moonline's road is COLOUR-ONLY, so the ribbon compiles no glyph pass on
+  // ANY tier — and because ROAD_LANE_READY is BOUND to the emitter's own boolean rather than flipped by hand, that one const
+  // is the whole of "the letter comes back to the crosshair". There is no second place to remember.
+  assert.match(html, /const ROAD_GLYPH_PASS=!ML_RIBBON;/, "the ribbon never carries the letter; wave 7 always does");
   assert.match(html, /\.\.\.\(ROAD_GLYPH_PASS \? \[/, "…and dropped by not EMITTING the text, which is the only way to shed a dependent texture fetch");
   assert.match(html, /const laneCue=!\(roadLive\(\) && ROAD_LANE_READY\);/, "the lane stands down on the road CARRYING it, not merely on the road existing");
   // The centre-cue gate's three clauses, verbatim — the truth table below is a transcription of exactly this text.
@@ -1186,10 +1192,11 @@ test("THE RIBBON: rails plus four tiers of ONE crossbar set, and cells only wher
   assert.match(ribbon, /gl_FragColor=vec4\(col\*ink, outer\*fade\*uAmt\);/, "...and the clip reaches past the rail it has to contain");
 });
 
-test("THE RIBBON: LOW pays for NO glyph pass, and the crosshair takes the letter back (U)", () => {
-  // The FRAME BUDGET comment claims LOW runs "no glyph pass". A uniform gate would NOT have been one: uGlyphOn:0 still
-  // pays the footprint test on every road fragment. So the claim is only true if the TEXT is never emitted - which is
-  // what this pins, both directions.
+test("THE MOONLINE: the ribbon pays for NO glyph pass on any tier, and the crosshair takes the letter back (U, W)", () => {
+  // The FRAME BUDGET comment claims the ribbon runs "no glyph pass". A uniform gate would NOT have been one: uGlyphOn:0
+  // still pays the footprint test on every road fragment. So the claim is only true if the TEXT is never emitted - which
+  // is what this pins, both directions. PARCEL U shipped it for LOW; PARCEL W made it universal, because SPEC_MOONLINE §1's
+  // cue contract is about the ROAD (colour-only) and not about a tier.
   const ribbon = (() => { const a = html.indexOf("fragmentShader:(ML_RIBBON?["); return html.slice(a, html.indexOf("]:[", a)); })();
   const s = ribbon.indexOf("...(ROAD_GLYPH_PASS ? ["), e = ribbon.indexOf("] : []),", s);
   assert.ok(s > 0 && e > s, "the glyph lines are one build-time-omitted block");
@@ -1207,15 +1214,17 @@ test("THE RIBBON: LOW pays for NO glyph pass, and the crosshair takes the letter
   // The one dependent texture fetch in the whole ribbon shader is the glyph's; the band table's two reads are not.
   assert.equal((ribbon.match(/texture2D\(/g) || []).length, 3, "two band texels plus the one glyph fetch, and no more");
   // The budget comment states this in the same words the code now honours.
-  assert.match(html, /and NO GLYPH PASS:\s*\n\s*the mid-cell letter is not emitted into the shader text at all \(ROAD_GLYPH_PASS/, "the LOW-REZ budget line says it plainly, and says HOW");
+  assert.match(html, /EVERY TIER: NO GLYPH PASS\. The mid-cell letter is not emitted into the shader text at all \(ROAD_GLYPH_PASS/, "the budget line says it plainly, and says HOW");
   // THE CUE IS MOVED, NEVER DELETED: wherever the road stops carrying the letter, laneCue puts it back at the crosshair.
   // ROAD_LANE_READY is the one read both sides share, so the four (moonline x LOW) corners settle it.
-  assert.equal(loadRoadGeom(true, false).read("ROAD_LANE_READY"), true, "the ribbon at full rez carries the letter");
-  assert.equal(loadRoadGeom(true, true).read("ROAD_LANE_READY"), false, "the ribbon on LOW does NOT, so the crosshair does");
+  assert.equal(loadRoadGeom(true, false).read("ROAD_LANE_READY"), false, "the ribbon is COLOUR-ONLY, so the crosshair carries the letter");
+  assert.equal(loadRoadGeom(true, true).read("ROAD_LANE_READY"), false, "...on LOW too - the same const, the same read");
   assert.equal(loadRoadGeom(false, false).read("ROAD_LANE_READY"), true, "wave 7 is untouched");
   assert.equal(loadRoadGeom(false, true).read("ROAD_LANE_READY"), true, "...on LOW too - the kill-switch owes wave 7 the glyph its own LOW path drew");
   assert.equal(loadRoadGeom(false, true).read("ROAD_GLYPH_PASS"), true, "moonline.on:false compiles the pass on every tier");
-  assert.equal(loadRoadGeom(true, true).read("ROAD_GLYPH_PASS"), false, "and only the ribbon on LOW omits it");
+  assert.equal(loadRoadGeom(false, false).read("ROAD_GLYPH_PASS"), true, "...at full rez as well: wave 7 never had a tier gate");
+  assert.equal(loadRoadGeom(true, false).read("ROAD_GLYPH_PASS"), false, "and the ribbon omits it at every rez");
+  assert.equal(loadRoadGeom(true, true).read("ROAD_GLYPH_PASS"), false, "...LOW included");
   // Wave 7's own branch never learned about any of this: its glyph is unconditional, exactly as it shipped.
   const w0 = html.indexOf("]:[", html.indexOf("fragmentShader:(ML_RIBBON?["));
   const wave7 = html.slice(w0, html.indexOf("]).join('\\n') });", w0));
@@ -1514,4 +1523,155 @@ test("LOW-REZ pays for no dust, plain arcs, and an impostor that always stands (
   // ...and the horizon impostor stops asking whether the course is straight.
   assert.match(extractFunction("roadImpSync"), /const mn=LOW\?0:Math\.max\(0,Math\.min\(1,\+CFG\.moonline\.impostorMinStraight\|\|0\)\);/,
     "LOW shows the painted road always; only impostorInk can still silence it");
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// WAVE 8, PARCEL W - CURSOR & TETHERS (SPEC_MOONLINE section 5).
+// ---------------------------------------------------------------------------------------------------------------------
+
+function glowSandbox(overrides) {
+  // wasdBeatCueOn / wasdBeatGlow lifted verbatim out of index.html, so this sandbox cannot drift from the shipped law.
+  const context = vm.createContext({ Math, Number });
+  const prelude = `
+    var CFG = { floorBeat:true, wasdRhythm:true, beatQuant:true, floorBeatMax:0.45, wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01] };
+    var MOBILE = false, templeActive = false, trainMode = false, reduceMotion = false, toneReady = true;
+    var state = { running:true, bpm:60 };
+    var Tone = { Transport:{ state:'started' } };
+    var _combo = [0,1,2,3], _beatGlowKey = 0, _beats = 0;
+    var diffT = function(){ return 0; };
+    var pocketLive = function(){ return false; };
+    var pocketIdeal = function(){ return 0; };
+    var pocketExpected = function(){ return 'on'; };
+    var wasdBeats = function(){ return _beats; };
+    var wasdBeatsHeard = function(){ return _beats; };
+    ${overrides || ""}
+  `;
+  const source = ["wasdNoteDiv", "wasdBeatCueOn", "wasdBeatGlow"].map((n) => extractFunction(n)).join("\n");
+  vm.runInContext(prelude + source, context);
+  context.read = (expression) => vm.runInContext(expression, context);
+  context.write = (statement) => vm.runInContext(statement, context);
+  return context;
+}
+
+test("CURSOR: the pre-wave-7 pulsating glow is RESTORED, not reinvented - one law, two surfaces (W)", () => {
+  // SPEC_MOONLINE section 1's cue contract, from the user's regression report. The envelope that washed the FLOOR before
+  // wave 7 now lights the LETTER in the void, and the ONLY way that can be byte-faithful is if there is exactly one copy
+  // of the law. There is: wasdBeatGlow(), called by updateFloorBeat and by drawWasdLane and by nothing else.
+  assert.equal((html.match(/function wasdBeatGlow\(\)/g) || []).length, 1, "the envelope exists exactly once");
+  assert.equal((html.match(/amt=wasdBeatGlow\(\);/g) || []).length, 1, "...the FLOOR renderer is one call site");
+  assert.equal((html.match(/wasdBeatGlow\(\)\/_cueMax/g) || []).length, 1, "...the CROSSHAIR renderer is the other, and it normalises");
+  // The law itself, character-for-character what shipped before the road existed.
+  const glow = extractFunction("wasdBeatGlow");
+  assert.match(glow, /if\(trainMode && reduceMotion\) return off<0\.12\?maxAmt:0;/, "the trainer's discrete reduced-motion flash");
+  assert.match(glow, /const env=Math\.max\(0,1-off\*2\); return maxAmt\*env\*env;/, "and the soft envelope, in that multiply order");
+  assert.match(glow, /const bi=Math\.round\(beats\), off=Math\.abs\(beats-bi\);/, "measured against the nearest heard beat");
+  // The floor path is the shipped gate with the surface test still last, and the shared prefix carries every other clause.
+  assert.match(extractFunction("updateFloorBeat"), /const floorCueOn=wasdBeatCueOn\(\) && !roadLive\(\);/, "the floor still asks !roadLive()");
+  const cueOn = extractFunction("wasdBeatCueOn");
+  for (const clause of ["!templeActive", "!MOBILE", "CFG.floorBeat", "CFG.wasdRhythm", "CFG.beatQuant", "state.running",
+    "toneReady", "Tone.Transport.state==='started'", "(!reduceMotion || trainMode)"])
+    assert.ok(cueOn.includes(clause), `the shared gate keeps the shipped clause ${clause}`);
+  assert.ok(!cueOn.includes("roadLive") && !cueOn.includes("moonline"), "...and knows nothing about which surface is asking");
+
+  // THE TWO RENDERERS ARE DISJOINT BY CONSTRUCTION: the floor asks !roadLive(), the crosshair asks moonlineVoid(), and
+  // moonlineVoid() is identically `moonline.on && roadLive()`. Swept - there is no state where the beat is painted twice.
+  for (const roadLive of [true, false]) for (const moonlineOn of [true, false]) {
+    const floor = !roadLive, crosshair = moonlineOn && roadLive;
+    assert.ok(!(floor && crosshair), `never two beat clocks (roadLive=${roadLive}, moonline.on=${moonlineOn})`);
+  }
+
+  // The envelope, replayed against a hand transcription of the pre-wave-7 expression at every offset in the beat.
+  const probe = glowSandbox();
+  const shipped = (off) => { const env = Math.max(0, 1 - off * 2); return 0.45 * env * env; };
+  for (let n = 0; n <= 100; n += 1) {
+    const beats = 12 + n / 200, off = Math.abs(beats - Math.round(beats));   // the same |off| the function itself measures, so this compares LAWS and not float noise
+    probe.write(`_beats = ${beats};`);
+    assert.equal(probe.read("wasdBeatGlow()"), shipped(off), `envelope at |off| = ${off.toFixed(3)}`);
+  }
+  assert.equal(probe.read("(_beats = 12, wasdBeatGlow())"), 0.45, "it peaks at the beat, at CFG.floorBeatMax exactly");
+  assert.equal(probe.read("(_beats = 12.5, wasdBeatGlow())"), 0, "and is fully dark half a beat either side: ONE pulse per beat");
+  // reduceMotion is inherited verbatim: OFF in free play (only the trainer ever kept a flash), so the void's bloom is
+  // off there too and a reduced-motion player loses nothing they ever had.
+  assert.equal(glowSandbox("reduceMotion = true;").read("wasdBeatCueOn()"), false, "free play under reduced motion: no cue, exactly as before wave 7");
+  const train = glowSandbox("reduceMotion = true; trainMode = true;");
+  assert.equal(train.read("wasdBeatCueOn()"), true, "the trainer keeps its functional colour cue");
+  train.write("_beats = 12.05;");
+  assert.equal(train.read("wasdBeatGlow()"), 0.45, "...as a DISCRETE flash inside 0.12 beat");
+  train.write("_beats = 12.2;");
+  assert.equal(train.read("wasdBeatGlow()"), 0, "...and nothing outside it");
+});
+
+test("CURSOR: the letter's bloom is a table lookup - zero per-frame allocation, and the colour is the key's own (W)", () => {
+  // The glow reaches the DOM as one cached style write per STEP, never as a string built on the hot path.
+  assert.match(html, /const GLYPH_GLOW_STEPS=12;/, "the quantisation is a named constant");
+  const table = html.slice(html.indexOf("const GLYPH_GLOW=(()=>{"), html.indexOf("let _glyphGlowOwned"));
+  assert.match(table, /const base='0 0 4px #000,0 0 10px rgba\(0,0,0,\.95\),0 2px 2px #000'/, "step 0 IS the stylesheet's own shadow stack");
+  assert.match(html, /#wasdGlyph\{[^}]*text-shadow:0 0 4px #000,0 0 10px rgba\(0,0,0,\.95\),0 2px 2px #000/, "...and the stylesheet still says exactly that");
+  assert.match(table, /currentColor/, "the bloom rides `color`, which showWasdGlyph already sets from WASD_COL - the hue law is inherited, never copied");
+  const show = extractFunction("showWasdGlyph");
+  assert.match(show, /setStyle\(wasdGlyphEl,'textShadow', GLYPH_GLOW\[glow>=1\?GLYPH_GLOW_STEPS:Math\.round\(glow\*GLYPH_GLOW_STEPS\)\]\);/, "the per-frame write is an INDEX, not a concatenation");
+  assert.ok(!/toFixed/.test(show), "no string arithmetic anywhere in the per-frame path");
+  assert.match(show, /else if\(_glyphGlowOwned\)\{ _glyphGlowOwned=false; setStyle\(wasdGlyphEl,'textShadow',''\); \}/, "and a single boundary write hands the element back to the stylesheet");
+  // The crosshair only owns the letter where the floor it replaces is gone.
+  assert.match(html, /const cueGlow=\(_cueMax>0 && wasdBeatCueOn\(\) && moonlineVoid\(\)\) \? wasdBeatGlow\(\)\/_cueMax : -1;/, "the void is the surface test, and -1 means 'not mine'");
+  assert.match(html, /cueGlowPx\s*:\s*26\b/, "cueGlowPx is a flat CFG.moonline knob");
+});
+
+test("TETHERS: a pooled thread per star-bound Echo, bounded by patternConcurrency, allocating nothing (W)", () => {
+  const cfg = extractCfg();
+  // SPEC section 5: "line pool bounded by patternConcurrency, zero per-spawn allocation". The spawn gate is `active < C`,
+  // so C-1 Echoes are live when it opens and a poly/dealt PAIR issues two on that one Draw: C+1 is the field's true ceiling.
+  assert.match(html, /const ML_TETH_N=Math\.max\(1,\(\+CFG\.patternConcurrency\|\|3\)\|0\)\+1;/, "the pool IS patternConcurrency, plus the pair overshoot");
+  assert.equal(loadRoadGeom(true, false).read("ML_TETH_N"), (cfg.patternConcurrency | 0) + 1, "4 threads at the shipped concurrency of 3");
+  const step = extractFunction("updateStarTethers");
+  assert.ok(!/\bnew\s+[A-Z]/.test(step), "not one allocation on the per-frame path");
+  assert.match(step, /n<ML_TETH_N/, "the loop is hard-capped at the pool: an overflow drops the THREAD, never the orb");
+  assert.match(extractFunction("ensureStarTethers"), /new THREE\.LineSegments/, "ONE LineSegments for the whole field - one draw call, not one per orb");
+  assert.equal((extractFunction("ensureStarTethers").match(/new Float32Array\(ML_TETH_N\*6\)/g) || []).length, 2, "position + colour, sized once and never grown");
+  assert.match(step, /if\(_tethMesh && _tethMesh\.visible\) _tethMesh\.visible=false; return;/, "an off parcel returns before it ever builds anything");
+  assert.match(step, /if\(m\.visible!==\(n>0\)\) m\.visible=\(n>0\);/, "visibility is a boundary write, never a per-frame one");
+});
+
+test("TETHERS: the thread reads the shell's OWN open glow, and the sky's own position (W)", () => {
+  const step = extractFunction("updateStarTethers");
+  // ONE LAW, TWO RENDERERS (SPEC section 5). The tether does not recompute the window - it reads the opacity the run loop
+  // already wrote onto this orb's shell, so the two cues cannot disagree about the peak, the skill-tightened width,
+  // grooveFireEarlyBeat, or which clock the elected drum-fill tank is on.
+  assert.match(step, /const a=k\*sh\.material\.opacity;/, "the thread's brightness IS the shell's opacity");
+  for (const forbidden of [/_openAmt/, /_fillAmt/, /grooveOpenSec/, /grooveFireEarlyBeat/, /audioLat/, /Tone\.Transport/])
+    assert.doesNotMatch(step, forbidden, `the tether re-derives nothing (${forbidden})`);
+  // reduceMotion: the shell glow does NOT degrade (the run loop's vuln branch has no reduceMotion gate at all), so the
+  // tether must not either - and the only way to guarantee that is to never read the flag.
+  assert.doesNotMatch(step, /reduceMotion/, "the tether inherits the shell's reduced-motion behaviour by not having one of its own");
+  const animate = extractFunction("animate");
+  const vuln = animate.slice(animate.indexOf("if(CFG.grooveGroove && CFG.grooveVuln)"), animate.indexOf("_fillAmt = CFG.tank.fillOnly"));
+  assert.ok(vuln.length > 0, "the run loop's open-window branch is where it always was");
+  const vulnCode = vuln.split("\n").map((line) => line.replace(/\/\/.*$/, "")).join("\n");
+  assert.ok(!vulnCode.includes("reduceMotion"), "...and the shell glow it inherits from is indeed reduced-motion-blind");
+  assert.match(vuln, /Functional cue, shown under reduceMotion too/, "...which is what that branch has always said about itself");
+  // SKY HONESTY (SPEC section 1): the TRUE current position, from the one function that knows it.
+  assert.match(step, /const w=starWorldAt\(i,_tethW\)/, "the star end is starWorldAt() - the same reader the returning voice uses");
+  assert.match(step, /const i=_starLitIdx\[tg\.starId\]; if\(i===undefined\) continue;/, "a bind the fixture cannot draw gets no thread");
+  // FALLBACK ORBS GET NO TETHER.
+  assert.match(step, /if\(tg\.dead \|\| !tg\.starId\) continue;/, "no bearing, no thread");
+  // KILL-SWITCH: the void first, which reads moonline.on and road.on first in turn.
+  assert.match(extractFunction("starTetherLive"), /return moonlineVoid\(\) && !!\(CFG\.stars && CFG\.stars\.on\) && \(\+CFG\.moonline\.tetherGlow\|\|0\)>0/, "master switch first, then the sky spine's, then the knob");
+  assert.match(html, /tetherGlow\s*:\s*0\.9\b/, "tetherGlow is a flat CFG.moonline knob");
+  assert.ok(html.indexOf("try{ updateTargetMarks();") < html.indexOf("try{ updateStarTethers();"), "and the thread is stepped after the field it hangs in");
+});
+
+test("TETHERS: the void retires the orb-to-ground drop-line, and the trainer keeps it (W)", () => {
+  // SPEC section 5: "the old orb-to-ground drop-line is fully retired from post-grad play (trainer keeps its look)",
+  // read with section 1's "nothing beside the road but space". All three floor marks are ONE apparatus anchored to the
+  // ground plane parcel T deleted; the .tgtKey label survives because it floats AT THE ORB.
+  const marks = extractFunction("updateTargetMarks");
+  assert.match(marks, /const vd=moonlineVoid\(\);/, "one predicate, hoisted - and it reads the master kill-switch first");
+  assert.match(marks, /if\(vd\)\{ if\(m\.ring\.visible\) m\.ring\.visible=false; if\(m\.drop\.visible\) m\.drop\.visible=false; if\(m\.label\.classList\.contains\('on'\)\) m\.label\.classList\.remove\('on'\); \}/,
+    "ring, drop-line and the floor distance label all go, and they go as latched writes");
+  const vdAt = marks.indexOf("if(vd){"), hAt = marks.indexOf("if(tg._flickLocked)");
+  assert.ok(vdAt > 0 && hAt > vdAt, "the orb-anchored .tgtKey label is OUTSIDE the void branch");
+  assert.match(marks.slice(hAt), /m\.hlabel\.classList\.add\('on','held'\)/, "...and still says LOCK / remaining hits in the void");
+  // moonlineVoid() is false in the trainer and under either kill-switch, so the room's floor HUD is the one that shipped.
+  for (const off of ["CFG.moonline.on = false;", "CFG.road.on = false;", "trainMode = true;", "templeActive = true;"])
+    assert.equal(loadVoidSandbox(off).read("moonlineVoid()"), false, `${off} keeps the floor HUD`);
 });

@@ -1027,7 +1027,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the road it rides. Flat literal — nested {} would break the CFG contract test regex
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the road it rides · cueGlowPx = THE CROSSHAIR'S PULSATING GLOW (parcel W): the blur radius, in CSS px, of the bloom the required LETTER wears at the peak of its beat — the pre-wave-7 floor-beat cue's own envelope, on the one surface a floorless world still has (0 = the letter is the shipped one, with no bloom at all, and the beat is then carried by the road and the audio alone) · tetherGlow = THE STAR-TETHERS' brightness per unit of the orb shell's OWN open glow (0 = no thread is ever built; the thread's alpha IS the shell's opacity times this, so the two cues can never disagree about the window). Flat literal — nested {} would break the CFG contract test regex
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1091,7 +1091,7 @@ const CFG = {
   // THE MEANING (parcel S2) fills the ribbon in: every band now carries its beat's required lane colour + glyph, the swell's
   // position as luminance, the mercy bar as one wide bright band, the fill's gates as amber edge-marks, and — behind the
   // now-line — THE WAKE, the run you just played. The bend at your feet drives the camera instead of the old noise lissajous.
-  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1747) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
+  road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1749; WAVE 8, PARCEL W: the Moonline's road is COLOUR-ONLY and emits no glyph pass at all, so under the ribbon this flag reaches nothing and the letter is at the crosshair whatever it says — it still governs wave 7's road under moonline.on:false) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
@@ -1699,15 +1699,16 @@ function makeGridGlowTex(){   // GLOW: one 2m grid cell — white core lines + p
        early discards are unchanged and still first. The impostor is ~3 px tall by ~14 px wide: under 100 fragments.
      · PER FRAME CPU: the road's uniform writes are the same THREE floats wave 7 wrote (uNow, uBase.x, uBase.y); the impostor
        adds two course evaluations and three number writes into objects that already exist. ZERO new allocations anywhere.
-     · LOW-REZ: one course harmonic instead of three (inherited), constant-width antialiasing, TWO crossbar tiers instead of
-       four (the beat and the bar — the sixteenth carrier is the first thing foreshortening takes anyway), and NO GLYPH PASS:
-       the mid-cell letter is not emitted into the shader text at all (ROAD_GLYPH_PASS, index.html:1746), which is the only
-       way to shed it — a uniform gate would still pay the footprint test on every fragment. MEASURED by emitting the text
-       at both tiers and differencing: the pass is 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch
-       and ONE DEPENDENT texture2D. At 1920×1080 / EYE 4 / fov 95 the ribbon covers 511k px (24.65% of the frame) and each
-       ran the footprint test; the fetch ran on the 53.3% inside a letter's box (272k px = 13.13% of the frame, averaged
-       over cell phase). LOW now runs none of it and builds no 64 KB atlas, and the required letter goes back to the
-       CROSSHAIR in the same read — SPEC §1's cue contract, early, for the tier that cannot afford the world's copy.
+     · EVERY TIER: NO GLYPH PASS. The mid-cell letter is not emitted into the shader text at all (ROAD_GLYPH_PASS,
+       index.html:1748), which is the only way to shed it — a uniform gate would still pay the footprint test on every
+       fragment. MEASURED by emitting the text both ways and differencing: the pass is 6 step, 1 smoothstep, 1 fract,
+       2 floor, 17 mul, 9 add, 1 mix, 1 branch and ONE DEPENDENT texture2D. At 1920×1080 / EYE 4 / fov 95 the ribbon
+       covers 511k px (24.65% of the frame) and each ran the footprint test; the fetch ran on the 53.3% inside a letter's
+       box (272k px = 13.13% of the frame, averaged over cell phase). The ribbon runs none of it and builds no 64 KB
+       atlas, and the required letter is back at the CROSSHAIR — SPEC §1's cue contract. [PARCEL U shipped this for LOW
+       only; PARCEL W made it universal, because the contract is about the ROAD, not about a tier.]
+     · LOW-REZ: one course harmonic instead of three (inherited), constant-width antialiasing, and TWO crossbar tiers
+       instead of four (the beat and the bar — the sixteenth carrier is the first thing foreshortening takes anyway).
      · reduceMotion is FIRST CLASS exactly as it was: uNow pinned to 0, the ribbon STANDS STILL as a ruler of the next eight
        beats, the cells pulse in place on the heard beat, and the impostor is frozen with them (it reads the same pinned clock).
    ========================================================================================================================== */
@@ -1744,8 +1745,8 @@ function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0
 function roadCourseD(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); return s; }   // its slope, metres per beat — the second half of the re-basing pair (and, next parcel, the tracking drill's bank)
 function roadBeatNow(){ return wasdBeatsHeard() + (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // ONE CLOCK: literally the grading expression (wasdBeats() − audioLat()/bps) plus the groove phase, so the band edge is the heard "1" and the lane note is mid-band. Reads, never writes
 function roadLive(){ return !!(CFG.road && CFG.road.on) && !trainMode && !templeActive; }   // raw kill-switch FIRST; post-graduation only (the trainer keeps its didactic floor) and the Temple's floor-dissolve is never touched
-const ROAD_GLYPH_PASS=!(ML_RIBBON&&LOW);                                  // IS THE MID-CELL LETTER COMPILED AT ALL? LOW-REZ sheds it — the glyph is the single most expensive thing in the ribbon's fragment, and it is the ONE cost the frame budget above claims LOW does not pay. MEASURED by emitting the shader text both ways and differencing it: the pass is 428 chars carrying 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch and ONE DEPENDENT texture2D. The footprint test runs on EVERY surviving road fragment — 511k px, 24.65% of a 1920×1080 frame at EYE 4 / fov 95 / 27 m to the beat — and the fetch on the 53.3% of those inside a letter's box (272k px = 13.13% of the frame, averaged over cell phase). A uniform gate would have shed NONE of it: uGlyphOn:0 still pays the test. Under the RIBBON only: moonline.on:false hands wave 7 back the glyph its own LOW path always drew, so the kill-switch is still exact. The cue is MOVED, never deleted — ROAD_LANE_READY reads this in the same breath and puts the required letter back at the CROSSHAIR, which is where SPEC_MOONLINE §1's cue contract wants it anyway (parcel W does it for every tier)
-const ROAD_LANE_READY=!!(CFG.road && CFG.road.bandGlyphs) && ROAD_GLYPH_PASS;   // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL? THE MEANING draws it — the band is tinted by its beat's required lane and the lane's own glyph is rendered mid-band — so the crosshair letter may finally stand down: the cue is MOVED into the world, not deleted from it. Bound to the very flags that draw the glyph, so the two can never disagree; bandGlyphs:false, road.on:false (which roadLive() reads first) and now LOW-under-the-ribbon (which does not compile the pass) each restore the centre letter in the same read. With moonline.on:false ROAD_GLYPH_PASS is true on every tier, so this is character-for-character the boolean wave 7 shipped
+const ROAD_GLYPH_PASS=!ML_RIBBON;                                         // IS THE MID-CELL LETTER COMPILED AT ALL? THE MOONLINE'S ROAD IS COLOUR-ONLY (SPEC §1's cue contract, user regression report: the required LETTER belongs at the CROSSHAIR and the road's cells say which key by their COLOUR). Parcel U had already dropped this on LOW; parcel W drops it on EVERY tier under the ribbon, which is the whole of the contract in one const — the shader stops emitting the letter and ROAD_LANE_READY, reading this in the same breath, hands the letter back to the crosshair. MEASURED by emitting the shader text both ways and differencing it: the pass is 428 chars carrying 6 step, 1 smoothstep, 1 fract, 2 floor, 17 mul, 9 add, 1 mix, 1 branch and ONE DEPENDENT texture2D. The footprint test ran on EVERY surviving road fragment — 511k px, 24.65% of a 1920×1080 frame at EYE 4 / fov 95 / 27 m to the beat (recomputed for this parcel by integrating the ribbon over screen rows 3…540 below the horizon at focal 494.82 px: 511,234 px = 24.65%, the same integral the parcel-U comment reports) — and the fetch on the 53.3% of those inside a letter's box (272k px = 13.13% of the frame, averaged over cell phase). A uniform gate would have shed NONE of it: uGlyphOn:0 still pays the test. Dropping the TEXT is the only way, so the text is what drops, on desktop as well as LOW, and the 64 KB atlas is never built either. THE KILL-SWITCH IS EXACT AND NOW SIMPLER: moonline.on:false makes this true on every tier, which is the unconditional glyph wave 7 shipped
+const ROAD_LANE_READY=!!(CFG.road && CFG.road.bandGlyphs) && ROAD_GLYPH_PASS;   // DOES THE ROAD CARRY THE REQUIRED-LANE CHANNEL? UNCHANGED SINCE THE MEANING, deliberately: the switch is BOUND to the very flags that draw the glyph, so parcel W turning the ribbon's glyph pass off is all it takes for the centre letter to come home — there is no second place to remember. Under the Moonline this is now false on every tier (the road says WHICH KEY by cell colour and nothing else); with bandGlyphs:false, or road.on:false (which roadLive() reads first), or moonline.on:false-plus-bandGlyphs:false it is false for the reasons it always was; and with moonline.on:false it is character-for-character the boolean wave 7 shipped
 
 /* ========================= THE STAR ROAD — THE MEANING (wave 7, parcel S · SPEC_STAR_ROAD §3, decisions 3+4 + the band encodings) =========================
    THE RIVER built the conveyor; THE MEANING is what it carries. Still zero gameplay math: everything below is a PURE READ of
@@ -1804,7 +1805,7 @@ const ROAD_WAKE=Math.max(1,Math.ceil(ROAD_FADE1_7/ROAD_BAND_M)|0);        // 14 
 const ROAD_SLOTS=ROAD_WAKE+1+ROAD_LOOK;                                   // 23 = 14 behind · the band at your feet · lookAheadBeats ahead. Slot i is beat (n0 + i − ROAD_WAKE); beyond the ends the ribbon is plain (the road states 8 beats, not 13)
 const ROAD_TIDE_LO=0.45, ROAD_LANE_MIX=0.80, ROAD_WAKE_DARK=0.16, ROAD_WAKE_BLANK=0.55;   // band body luminance at the swell's trough (crest = 1.0) · how far the base ink is pulled to the lane colour · a MISSED beat's band behind you · a beat that was never judged (pre-run, lane off)
 const ROAD_INK_BODY=0.16, ROAD_INK_GLYPH=1.30;                            // the band interior once it carries information (plain ribbon keeps ROAD_INK_BASE 0.10) · the glyph's own ink
-const ROAD_GLYPH_S=ROAD_MPB/ROAD_BAND_M;                                  // THE RIBBON's cells are 2.7× longer and 2.7× further away, so the letter and its fade travel with them (1.000 exactly with moonline.on:false — every glyph constant below is then the shipped one, multiplied by one). PROVISIONAL BY DESIGN: SPEC §1's cue contract puts the required letter back at the CROSSHAIR and leaves the road colour-only, and parcel W does that — moving it in the SAME commit that restores the crosshair cue, because a commit that deleted it here and restored it there would be a commit with no letter cue at all
+const ROAD_GLYPH_S=ROAD_MPB/ROAD_BAND_M;                                  // THE RIBBON's cells are 2.7× longer and 2.7× further away, so the letter and its fade travel with them (1.000 exactly with moonline.on:false — every glyph constant below is then the shipped one, multiplied by one). PARCEL W SETTLED THE "PROVISIONAL" NOTE THAT STOOD HERE: SPEC §1's cue contract took the letter off the road and put it back at the CROSSHAIR, in the same commit that restored the crosshair cue, so under the ribbon nothing reads these four constants at all (the glyph pass is not emitted — ROAD_GLYPH_PASS). They stay because the kill-switch does: with moonline.on:false this scale is 1.000 and wave 7's pavement letter is the one that ships
 const ROAD_GLYPH_W=Math.min(5.2*ROAD_GLYPH_S, ROAD_HALF_W*1.24), ROAD_GLYPH_L=8.6*ROAD_GLYPH_S, ROAD_GLYPH_F0=25*ROAD_GLYPH_S, ROAD_GLYPH_F1=45*ROAD_GLYPH_S;   // the width is capped at 62% of the ribbon so a 2.7× letter cannot climb its own rails (8.68 m of 14; the cap is inert at wave-7 scale, where 5.2 < 8.68). On a 27 m cell the mid-cell footprint is 186×37 px one cell out and 112×13 px at two, so it still fades between cells +2 and +4 and the CELL COLOUR carries the lane for all eight. Wave 7 verbatim: the letter is STRETCHED down the road like real pavement text (1.65:1) to survive foreshortening: at EYE 4 m / fov 95 / 1080p its mid-band footprint is 289×147 px one band out, 178×55 at two, 128×28 at three — so it fades between bands +2 and +4 and the band COLOUR carries the lane for all eight. Drawing it out to band 8 would be 53×2 px of noise
 const ROAD_TIER_D=Math.sqrt(EYE*(ROAD_MPB/16)*(180/Math.PI)*(1080/95)/4);   // THE RIBBON's LOD ladder, computed from the SHIPPED optics and nothing else: a segment of length s on the ground at distance d subtends h·s/d² rad, so this is where a SIXTEENTH crossbar (1.6875 m) is still 4 px tall at 1080p with EYE 4 m and fov 95 — 33.16 m. Every coarser tier's spacing is 4× the last, and distance goes as √s, so each tier lives over [D·2^k, D·2^(k+1)] and dies exactly where the next is still four pixels wide. A mip pyramid the geometry dictated
 const ROAD_TIER_W=[0.42,0.58,1.00,1.24];                                  // and how loudly each tier speaks: the sixteenth carrier is the quietest, the "1" is unit, the bar line is the loudest — so the beat reads OUT of the carrier up close instead of drowning in it. Read once at build time into the shader's literals; never touched again
@@ -2307,11 +2308,12 @@ function roadArchFill(n0){
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
       '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner;',                 // reduceMotion only: the cells pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
       '  col=mix(col, uMark, min(1.0, gb*markE));',                                                       // THE FILL'S GATES: the tank's own amber on the beats its figure still owes — "3, 4, 1" rolling in, riding the "1" crossbar
-      // ---- the lane's GLYPH, mid-cell (PROVISIONAL — parcel W moves it back to the crosshair; see ROAD_GLYPH_S).
-      //      NOT EMITTED AT ALL under LOW (ROAD_GLYPH_PASS, index.html:1746): the LOW-REZ budget below claims "no glyph
-      //      pass", and a uniform gate would not have been one — uGlyphOn:0 still pays the footprint test on every road
-      //      fragment. Dropping the TEXT is the only way to shed a dependent texture fetch, so the text is what drops,
-      //      and ROAD_LANE_READY hands the letter back to the crosshair in the same read.
+      // ---- the lane's GLYPH, mid-cell — NOT EMITTED ON ANY TIER UNDER THE RIBBON (ROAD_GLYPH_PASS, index.html:1748).
+      //      SPEC_MOONLINE §1's cue contract: the Moonline's road is COLOUR-ONLY and the required LETTER lives at the
+      //      CROSSHAIR. A uniform gate would not have shed this — uGlyphOn:0 still pays the footprint test on every road
+      //      fragment — so the TEXT is what drops, and ROAD_LANE_READY hands the letter back to the crosshair in the same
+      //      read. The block below is therefore dead under the Moonline and alive verbatim under moonline.on:false, which
+      //      is exactly what the kill-switch owes wave 7. (Kept as a conditional rather than deleted for that reason.)
       ...(ROAD_GLYPH_PASS ? [
       '  float fb=fract(b);',                                                                          // the position WITHIN the cell — the glyph is its ONLY reader on this presentation, so it is declared here and vanishes with the pass
       '  float gv=(fb-0.5)*'+_roadG(ROAD_MPB/ROAD_GLYPH_L)+'+0.5, gu=(vXZ.x-cx)*'+_roadG(1/ROAD_GLYPH_W)+'+0.5;',
@@ -7718,20 +7720,108 @@ function ensureTargetMark(i){
   return targetMarks[i]={ring,drop,label,hlabel};
 }
 function updateTargetMarks(){                                                 // floor HUD under every target (all modes); beat-synced ring + dropline + distance label
+  // THE FLOOR HUD IS RETIRED IN THE VOID (wave 8, parcel W — SPEC_MOONLINE §5's "the old orb-to-ground drop-line is fully
+  // retired", read together with §1's "nothing beside the road but space"). All three of these marks are ONE apparatus and
+  // all three are anchored to y=0.02 — the ground plane parcel T deleted. A drop-line to nothing, a pulsing ring lying on
+  // nothing and a distance label pinned to nothing are not three decisions: they are one lie about a floor. What replaces
+  // the depth read they gave is the STAR-TETHER below (SPEC §5: "can you read an orb's height/depth against the void by its
+  // thread?"), which hangs from a real place in a real sky instead of from a plane that is gone.
+  // WHAT STAYS: the .tgtKey label (LOCK / remaining tank hits), because it floats AT THE ORB — orb-anchored information was
+  // never part of the floor. And the trainer keeps every one of them, byte for byte, because moonlineVoid() reads !trainMode.
+  const vd=moonlineVoid();   // one predicate, hoisted out of the loop; false on every frame with moonline.on:false, road.on:false, in the trainer and in the Temple, where the three lines below are the ones that shipped
   if(!state.running || templeActive){ for(const m of targetMarks){ m.ring.visible=false; m.drop.visible=false; m.label.classList.remove('on'); m.hlabel.classList.remove('on','held'); } return; }   // floor HUD (ring + dropline + distance) is a functional aim aid -> shown under reduced-motion too; only the beat PULSE is motion (frozen below)
   const bl=60/Math.max(20,state.bpm), beat=reduceMotion?0:Math.pow(1-(state.t%bl)/bl, 1.6);   // reduced-motion -> beat=0 -> a static ring (no pulse)
   let i=0;
   for(const tg of targets){ if(tg.dead) continue; const p=tg.mesh.position, m=ensureTargetMark(i++);
+    if(vd){ if(m.ring.visible) m.ring.visible=false; if(m.drop.visible) m.drop.visible=false; if(m.label.classList.contains('on')) m.label.classList.remove('on'); }   // THE VOID: latched writes, so a void run costs three compares per orb per frame and no scene-graph churn at all
+    else {
     const r=0.5+beat*0.38; m.ring.position.set(p.x,0.02,p.z); m.ring.scale.set(r,r,r); m.ring.material.opacity=0.4+beat*0.5; m.ring.visible=true;
     const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;
     m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true;
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
     if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
+    }
     if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, T('lock','LOCK')); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
     else if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); m.hlabel.classList.remove('held'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
     else m.hlabel.classList.remove('on','held'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
+}
+/* =========================================================================================================================
+   STAR-TETHERS (wave 8, parcel W — SPEC_MOONLINE §5). Every star-bound Echo hangs from its origin star by a thread of light.
+
+   WHAT IT SAYS. The sky spine already binds each Echo to a REAL risen star: spawnTarget takes the orb's azimuth from that
+   star's bearing and stamps tg.starId, and a landed arrival flies a line home to it. The tether is the other half of that
+   sentence, drawn while the Echo is still alive: a faint line from the orb to the star's TRUE CURRENT sky position — read
+   from the same vertex buffer, through the same rotating sphere, by the same starWorldAt() the ceremony uses, so the sphere
+   turning under a long-lived orb drags the thread with it. SKY HONESTY (SPEC §1): there is no second copy of where a star is.
+   It is also the void's depth cue. With the floor gone, an Echo against a starfield has no ground line to sit on; the thread
+   gives it a fixed far anchor, and how the thread rakes across the sky IS the orb's height and depth (SPEC §5's playtest
+   question). That is the whole reason the floor HUD above could be retired instead of merely moved.
+
+   ONE LAW, TWO RENDERERS. The tether BRIGHTENS with the open window, and it does not compute the window: it reads the orb's
+   OWN shell material opacity, which the run loop wrote this frame from _openAmt (or, for the elected drum-fill tank, from
+   _fillAmt on the fill's own figure). alpha = tetherGlow × shellOpacity. The two cues therefore cannot disagree by
+   construction — not about the peak, not about the skill-tightened width, not about grooveFireEarlyBeat, not about which
+   clock a tank is on — because there is exactly one number and the shell is holding it.
+   reduceMotion: IDENTICAL, and that is the match SPEC §5 asks for. The shell glow does not degrade under reduced motion —
+   it is a functional cue and the run loop's vuln branch has no reduceMotion gate at all (index.html:8474) — so the tether
+   does not either. Where the shell DOES fall back (the vuln mechanic off, where the run loop's `else if(!reduceMotion)`
+   idle shimmer is the reduced-motion casualty), the tether inherits that too, to the frame: a still shell holds a still
+   thread. Nothing here reads reduceMotion, which is exactly why it can never drift from what the shell does.
+
+   FALLBACK ORBS GET NO THREAD (SPEC §5). No tg.starId — every trainer orb, every orb with CFG.stars.on false, every orb the
+   sky had no risen bearing for — means no line, silently: a thread to a star that did not call would be a decoration, and
+   this parcel's whole argument is that a line must be a fact.
+
+   BUDGET (1920×1080, shipped constants; computed, not asserted).
+     · DRAW CALLS: ONE LineSegments for the whole field, against the TWO per orb (a LineLoop ring + a Line drop) the void
+       retired above: at a full field that is 8 draw calls → 1, a NET −7, plus 4 .tgtDist DOM elements no longer written.
+     · GEOMETRY: 2 vertices per thread × ML_TETH_N — 8 verts, 24 position floats + 24 colour floats = 192 bytes of VRAM,
+       allocated ONCE and never grown. The retired rings alone were 4 × 17 = 68 verts.
+     · PER FRAME: per thread one starWorldAt (3 array reads + one quaternion apply = 16 mul, 12 add) and 12 float writes;
+       at the full field 64 mul, 48 add, 48 writes, and two 96-byte attribute uploads. ZERO allocations: one module-scope
+       scratch Vector3, one geometry, one material, and an early return that costs one boolean when the parcel is off.
+     · LOW-REZ: nothing to shed. One additive line pair per orb is already the cheapest honest thing in the frame, and it is
+       what makes the void READABLE — the tier that most needs a depth cue is the one that can least afford to lose it.
+     · KILL-SWITCH: moonline.on:false (or road.on:false, the trainer, the Temple) → starTetherLive() is false on its first
+       reads, no geometry is ever built, no material exists, and the orb-to-ground drop-line above is the one that shipped.
+   ========================================================================================================================= */
+const ML_TETH_N=Math.max(1,(+CFG.patternConcurrency||3)|0)+1;             // THE POOL, BOUNDED BY patternConcurrency (SPEC §5). The spawn gate is `active < CFG.patternConcurrency`, so at most C−1 Echoes are live when it opens and a POLY/DEALT PAIR issues two orbs on that one Draw — C+1 is the true ceiling of the field, and it is 4 with the shipped 3 (SENSEI_PACK's value too; the trainer phases only ever lower it). Sized once at build; an overflow past it drops the THREAD, never the orb, exactly as _STAR_FLY_MAX drops a ceremony
+const ML_TETH_RGB=[0.682,0.776,0.910];                                    // the zodiac sticks' own line colour (0xaec6e8, index.html:2831) — the thread is made of the same light as the constellation it ends on, so it reads as one object crossing the void and not as a new kind of thing
+const ML_TETH_FAR=0.12;                                                   // and it FADES toward the star: full at the orb (the end you are playing), a twelfth of that at the sky end, so the tether points home without ever competing with the star it points at
+let _tethMesh=null; const _tethW=new THREE.Vector3();                     // the one mesh (built lazily, on the first void frame that has something to say) and the one scratch vector every thread reuses
+function starTetherLive(){ return moonlineVoid() && !!(CFG.stars && CFG.stars.on) && (+CFG.moonline.tetherGlow||0)>0 && !!_starLitIdx && !!_stickFig && !!_stickFig.pGeo; }   // the void FIRST (which reads the master kill-switch first in turn), then the sky spine's own switch, then the knob, then the fixture — so an off parcel costs one call and a missing fixture is silence, not a throw
+function ensureStarTethers(){
+  if(_tethMesh) return _tethMesh;
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ML_TETH_N*6),3).setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(ML_TETH_N*6),3).setUsage(THREE.DynamicDrawUsage));
+  _tethMesh=new THREE.LineSegments(g, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false}));
+  _tethMesh.frustumCulled=false; _tethMesh.renderOrder=998;              // just under the returning-voice lines (999) and above everything else: the thread ends on a star 330 m out, so depth-testing it against a shell that stands for infinity would only ever be wrong. The same material law the voice's own line already uses
+  _tethMesh.visible=false; scene.add(_tethMesh);
+  return _tethMesh;
+}
+function updateStarTethers(){
+  if(!starTetherLive()){ if(_tethMesh && _tethMesh.visible) _tethMesh.visible=false; return; }
+  const m=ensureStarTethers(), pa=m.geometry.attributes.position.array, ca=m.geometry.attributes.color.array;
+  const k=Math.max(0,+CFG.moonline.tetherGlow||0);
+  let n=0;
+  for(let t=0;t<targets.length && n<ML_TETH_N;t++){
+    const tg=targets[t]; if(tg.dead || !tg.starId) continue;              // FALLBACK ORBS GET NO TETHER — no bearing, no thread
+    const i=_starLitIdx[tg.starId]; if(i===undefined) continue;           // a bind the fixture cannot draw: the ceremony refuses one of these too (index.html:3786), and for the same reason
+    const sh=tg.mesh.userData.shell; if(!sh) continue;                    // no shell = no open glow to read = nothing this cue could honestly say
+    const a=k*sh.material.opacity;                                        // THE ONE LAW: the thread's brightness IS the shell's, times the knob. Never recomputed, so never in disagreement
+    const w=starWorldAt(i,_tethW), p=tg.mesh.position, j=n*6;
+    pa[j]=p.x; pa[j+1]=p.y; pa[j+2]=p.z; pa[j+3]=w.x; pa[j+4]=w.y; pa[j+5]=w.z;
+    const f=a*ML_TETH_FAR;
+    ca[j]=a*ML_TETH_RGB[0]; ca[j+1]=a*ML_TETH_RGB[1]; ca[j+2]=a*ML_TETH_RGB[2];
+    ca[j+3]=f*ML_TETH_RGB[0]; ca[j+4]=f*ML_TETH_RGB[1]; ca[j+5]=f*ML_TETH_RGB[2];
+    n++;
+  }
+  m.geometry.setDrawRange(0,n*2);
+  if(n){ m.geometry.attributes.position.needsUpdate=true; m.geometry.attributes.color.needsUpdate=true; }
+  if(m.visible!==(n>0)) m.visible=(n>0);                                  // one boundary write, never a per-frame one
 }
 /* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride the LANE's own ladder (wasdNoteDiv — one per beat from 20 to 50 bpm, an optional in-between one from 50 to 60; it used to be half the orb-jump rate, which THE SIXTY CAP turned into a doubled press demand from ~37.5 bpm up). On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); in-between (BONUS) notes draw as dim ghosts and stack a combo that calms the field further + intensifies the groove — claiming one credits it, skipping one costs nothing, and only a MAIN going unresolved resets it. Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
@@ -7739,15 +7829,29 @@ const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x7
 const WASD_COL_GHOST=WASD_COL.map(c=>c+'73');   // DE-COERCION (parcel R): the same four colors at alpha 0x73 (0.45) — an in-between (bonus) note is drawn as a GHOST of its key, so the eye reads "optional" with no new text and no new glyph. Precomputed once (setStyle caches, so the letter costs nothing per frame).
 const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
 if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
-function showWasdGlyph(key, spoiled, on, ghost){   // ghost = this note is an in-between (bonus) one: same letter, dimmed, because it is claimable but never demanded
+const GLYPH_GLOW_STEPS=12;   // THE CROSSHAIR'S PULSATING GLOW (parcel W), quantised so the hot path can never allocate: the envelope sweeps 0→1→0 once per beat, so 24 step changes a beat = 8.0 style writes/s at the 20 bpm floor and 24.0 at the sixty cap, each one a cached setStyle that no-ops when the string has not changed. 12 steps puts the quantisation at 0.0375 of the envelope — under a twelfth of the pulse, which is well below what an eye reads on a bloom
+const GLYPH_GLOW=(()=>{
+  // THE THIRTEEN STRINGS, built ONCE at module scope. Step 0 is the stylesheet's own shadow stack character-for-character
+  // (index.html:74), so a letter at rest is the letter that shipped; every step above it adds a `currentColor` bloom, which
+  // means the glow is ALREADY the required key's colour — showWasdGlyph sets `color` from WASD_COL and the bloom follows it,
+  // so the pre-wave-7 cue's HUE law ("the wash names the key that is due") is inherited rather than copied.
+  const base='0 0 4px #000,0 0 10px rgba(0,0,0,.95),0 2px 2px #000', px=Math.max(0,+((CFG.moonline&&CFG.moonline.cueGlowPx))||0), a=[];
+  for(let k=0;k<=GLYPH_GLOW_STEPS;k++){ const r=px*k/GLYPH_GLOW_STEPS;
+    a.push(k&&r>0 ? base+',0 0 '+r.toFixed(1)+'px currentColor,0 0 '+(r*0.42).toFixed(1)+'px currentColor' : base); }
+  return a;
+})();
+let _glyphGlowOwned=false;   // has the glow ever written an inline text-shadow? one boundary flag, so the trainer and every kill-switch path leave the element's inline style untouched — and a single write puts it back if the world changes underfoot
+function showWasdGlyph(key, spoiled, on, ghost, glow){   // ghost = this note is an in-between (bonus) one: same letter, dimmed, because it is claimable but never demanded · glow = 0..1 of the beat envelope, or <0 for "this cue does not own the letter right now"
   if(!wasdGlyphEl) return;
   if(!on){ if(wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.remove('on'); return; }
   setText(wasdGlyphEl, WASD_GLYPH[key]); setStyle(wasdGlyphEl,'color',spoiled?'rgba(150,152,160,0.9)':(ghost?WASD_COL_GHOST[key]:WASD_COL[key]));
+  if(glow>=0){ _glyphGlowOwned=true; setStyle(wasdGlyphEl,'textShadow', GLYPH_GLOW[glow>=1?GLYPH_GLOW_STEPS:Math.round(glow*GLYPH_GLOW_STEPS)]); }   // the ONE per-frame write, and it is an index into the table above — no string is built here, ever
+  else if(_glyphGlowOwned){ _glyphGlowOwned=false; setStyle(wasdGlyphEl,'textShadow',''); }   // handed back to the stylesheet, once, on the boundary
   if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
 }
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
-  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD subsumes the NOTE LANE — but only when it CARRIES it, and with THE MEANING it finally does: every band is tinted by its beat's required lane and the lane's own glyph rides mid-band, arriving at the feet exactly when the key is due (ROAD_LANE_READY is bound to the very flags that draw it, index.html:1747). The sequence is MOVED into the world, not deleted from the crosshair. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. Whenever laneCue is true — the trainer, the Temple, bandGlyphs:false, LOW-REZ under the ribbon (which compiles no glyph pass to carry it), and every configuration at all under the raw kill-switch road.on:false — both gates below fall back to the shipped expressions verbatim
+  const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD may subsume the NOTE LANE — but only when it CARRIES it (ROAD_LANE_READY is bound to the very flags that draw the glyph, index.html:1749) — and UNDER THE MOONLINE IT NEVER DOES: SPEC_MOONLINE §1's cue contract, from the user's own regression report, leaves the road COLOUR-ONLY and puts the required LETTER back at the CROSSHAIR, where the pre-wave-7 pulsating beat glow is now waiting for it (parcel W). So laneCue is TRUE on every shipped Moonline configuration and on every tier, and true again in the trainer, in the Temple, with bandGlyphs:false and under the raw kill-switch road.on:false — which means both gates below are the pre-road expressions, verbatim, in every world this build can reach. The opt-in BEAT CIRCLE (wasdHud) is deliberately untouched — it is the player's own training wheel, not the lane. The false branch survives for moonline.on:false, the one world where the pavement letter still exists
   const on = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started' && (CFG.wasdHud || (CFG.wasdTapText && !laneCue) || ((CFG.wasdLetter || reduceMotion) && laneCue));   // THE STAR ROAD: the letter clause is the only one the road takes over; the tapText clause exists so an explicitly opted-in TAP TIMING READOUT is not collateral damage of the day the lane stands down (it reached the canvas by riding wasdLetter's default). With laneCue true it is `wasdTapText && false`, a dead term in an ||, so this reduces character-for-character to the shipped expression; with laneCue false it is the shipped expression with the LETTER term removed and the readout kept, which is exactly the trade the road earns. canvas shows if ANY center cue is wanted; wasdHud gates the circle, wasdLetter the letter; hidden on touch (no keys to answer it with)
   if(!on){ if(hudCanvas.style.display!=='none') hudCanvas.style.display='none'; showWasdGlyph(0,false,false); return; }
   const showHud=CFG.wasdHud || CFG.wasdTapText;   // zen default: never force a ring; the pause BEAT CIRCLE toggle remains the user's training wheel
@@ -7795,7 +7899,14 @@ function drawWasdLane(){
     ARC(rt);
   }
   // ---- the key to TAP as it lands (top DOM layer so decorative HUD labels cannot cover it). Correct hit -> VANISHES until the next note; grey = spoiled by a wrong key. ----
-  showWasdGlyph(letterKey, spoiled, laneCue && (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote);
+  // THE PULSATING GLOW COMES WITH IT (parcel W): in THE VOID the floor that carried the beat wash is gone, so the same
+  // envelope lights the letter itself. wasdBeatCueOn() is the shipped floor-beat gate minus its surface test and
+  // moonlineVoid() is that surface — disjoint from updateFloorBeat's !roadLive(), so exactly one renderer ever runs the
+  // law, and with moonline.on:false (or in the trainer, or in the Temple) this is a single boolean read that yields −1
+  // and the letter is byte-identically the one wave 7 shipped.
+  const _cueMax=+CFG.floorBeatMax||0;
+  const cueGlow=(_cueMax>0 && wasdBeatCueOn() && moonlineVoid()) ? wasdBeatGlow()/_cueMax : -1;
+  showWasdGlyph(letterKey, spoiled, laneCue && (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote, cueGlow);
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
   // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
   if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
@@ -7912,24 +8023,42 @@ function updateFlock(dt){
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt)*dens);
   }
 }
-/* ---- WASD floor beat-tint: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer. ---- */
+/* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
+   THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
+   report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
+   the key that was due, and the road subsumed it because two beat clocks on screen is clutter. THE VOID has no floor left to
+   wash — and it is also where the required LETTER came home to the crosshair — so the identical envelope now lights the
+   LETTER instead, and the cue is MOVED rather than deleted for the second time in two waves.
+   RESTORED, NOT REINVENTED: the timing law below is the shipped one, lifted whole into wasdBeatGlow() and called by both
+   renderers, so there is no second copy of it to drift. The floor path's arithmetic is character-for-character what it was
+   (maxAmt*env*env, in that order, with the trainer's discrete reduced-motion flash intact); the crosshair reads the SAME
+   return and normalises it to 0..1 for its bloom. The two can never both run: the floor asks for !roadLive(), the crosshair
+   for moonlineVoid() ≡ moonline.on && roadLive(), which are disjoint by construction.
+   reduceMotion is inherited verbatim, and that is the honest restoration: the pre-wave-7 cue was OFF in free play under
+   reduced motion (only the trainer kept a discrete flash), so the void's crosshair bloom is off there too — a reduced-motion
+   player loses nothing they ever had, and the letter itself is still shown (CFG.wasdLetter || reduceMotion). ---- */
 const _floorBeatCol=new THREE.Color();
+let _beatGlowKey=0;   // the lane the last wasdBeatGlow() call was about — an int, written where the hue is already computed, so neither renderer needs a second pass over the combo
+function wasdBeatCueOn(){ return !templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started' && (!reduceMotion || trainMode); }   // EVERY condition of the shipped floor-beat gate except which SURFACE is asking: trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). Both callers append their own surface test, and updateFloorBeat's is still `&& !roadLive()`, so its gate reduces character-for-character to the one that shipped
+function wasdBeatGlow(){   // THE ENVELOPE, verbatim: |beats − round(beats)| against a linear ramp, squared. Returns floor-beat units (0..CFG.floorBeatMax) so the floor path's product is bit-for-bit unchanged; the crosshair divides by the same max
+  let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
+  const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
+  beats-=cueI;
+  const nd=wasdNoteDiv();
+  // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
+  const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length;
+  _beatGlowKey=_combo[(((biKey*nd)%len)+len)%len];
+  const bi=Math.round(beats), off=Math.abs(beats-bi);
+  const maxAmt=CFG.floorBeatMax;
+  if(trainMode && reduceMotion) return off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
+  const env=Math.max(0,1-off*2); return maxAmt*env*env;
+}
 function updateFloorBeat(){
   let amt=0;
-  const floorCueOn=!templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started'
-    && (!reduceMotion || trainMode) && !roadLive();   // trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
+  const floorCueOn=wasdBeatCueOn() && !roadLive();   // THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
   if(floorCueOn){
-    let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
-    const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
-    beats-=cueI;
-    const nd=wasdNoteDiv();
-    // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
-    const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length, ckey=_combo[(((biKey*nd)%len)+len)%len];
-    const bi=Math.round(beats), off=Math.abs(beats-bi);
-    const maxAmt=CFG.floorBeatMax;
-    if(trainMode && reduceMotion) amt=off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
-    else { const env=Math.max(0,1-off*2); amt=maxAmt*env*env; }
-    _floorBeatCol.setHex(WASD_HEX[ckey]);
+    amt=wasdBeatGlow();
+    _floorBeatCol.setHex(WASD_HEX[_beatGlowKey]);
   }
   const fsh=dayFloor&&dayFloor.material.userData.sh;
   if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
@@ -8486,6 +8615,7 @@ function animate(frameNow){
   try{ if(state.running&&!templeActive) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
   try{ updateTanks(dt); }catch(e){ if(!updateTanks._e){ updateTanks._e=1; console.error('updateTanks',e); } }   // MULTI-HIT TANK: the per-chip shell pop
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
+  try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
   try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
