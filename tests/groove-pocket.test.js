@@ -192,7 +192,7 @@ function floorFrame(expected, beats, pocketEnabled = true) {
   // PARCEL W lifted the envelope out of updateFloorBeat into wasdBeatGlow() so the CROSSHAIR can read the same law
   // (SPEC_MOONLINE §1's cue contract) — the floor path is the same arithmetic, one call deeper, so this sandbox lifts
   // both halves and every B5/B7 expectation below is the one that shipped.
-  vm.runInContext(`var _beatGlowKey=0; ${extractFunction("wasdNoteDiv")}; ${extractFunction("wasdBeatCueOn")}; ${extractFunction("wasdBeatGlow")}; ${extractFunction("updateFloorBeat")}; updateFloorBeat();`, context);
+  vm.runInContext(`var _beatGlowKey=0; ${extractFunction("wasdNoteDiv")}; ${extractFunction("wasdBeatCueOn")}; ${extractFunction("beatSwell")}; ${extractFunction("wasdBeatGlow")}; ${extractFunction("updateFloorBeat")}; updateFloorBeat();`, context);
   return { amount: amount.value, color: seen.color };
 }
 
@@ -1222,7 +1222,7 @@ test("THE MOONLINE: the ribbon pays for NO glyph pass on any tier, and the cross
   // so it costs no upload and no fragment op - and keeping it makes the two branches' first line identical, which is
   // exactly what the kill-switch wants to be readable.
   assert.ok(!/\*uGlyphOn/.test(outside), "uGlyphOn is never multiplied into anything outside the block - it is a declaration, not a gate");
-  assert.match(outside, /uniform float uNow,uAmt,uPulse,uBeat0,uGlyphOn,uMercyB;/, "the declaration line is the shipped one");
+  assert.match(outside, /uniform float uNow,uAmt,uPulse,uBeat0,uGlyphOn,uMercyB,uBreath;/, "the declaration line is the shipped one, plus wave 8.1's BREATH");
   assert.match(outside, /uniform sampler2D uBands,uGlyph;/, "...and so does the sampler it never binds on LOW");
   // The one dependent texture fetch in the whole ribbon shader is the glyph's; the band table's two reads are not.
   assert.equal((ribbon.match(/texture2D\(/g) || []).length, 3, "two band texels plus the one glyph fetch, and no more");
@@ -1444,7 +1444,7 @@ test("THE MERCY RING: the only complete circle, and it can only land on a bar li
   assert.equal(hlf(0, 1, -1), 1, "...and the MERCY RING is untouched by it - its lower half is not a reflection of anything");
   assert.equal(hlf(0.18, 1, -1), 1, "the ring closes at full strength whatever reflectAlpha says");
   assert.match(html, /float hlf=mix\(1\.0, mix\(uReflect,1\.0,mercy\), step\(mir,0\.0\)\);/, "...which is exactly the line the vertex shader carries");
-  assert.match(html, /vAmt=uAmt\*uArchGlow\*mix\(fade,sqrt\(fade\),mercy\)\*mix\(1\.0,uMercyRB,mercy\)\*hlf;/, "the ring is boosted AND fades as sqrt(fade), so it is legible from far out");
+  assert.match(html, /vAmt=uAmt\*uArchGlow\*mix\(fade,sqrt\(fade\),mercy\)\*mix\(1\.0,uMercyRB,mercy\)\*hlf\*\(1\.0\+uBreath\*/, "the ring is boosted AND fades as sqrt(fade), so it is legible from far out - and wave 8.1's breath rides the same amount");
   // "half" is reserved in GLSL ES - the identifier had to be hlf, and nothing in either shader may use a reserved word.
   const archSrc = extractFunction("buildRoadArches").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");   // the EMITTED text only: the prose around it is allowed to say "half-width"
   for (const word of ["half", "fixed", "input", "output", "asm", "union", "template", "namespace"])
@@ -1462,10 +1462,11 @@ test("THE STARDUST: the road's own speed, the sixteenth's own grain, and not one
     assert.equal((sixteenth / (MPB * pair[0] / 60) * 1000).toFixed(1), pair[1], "a sixteenth cell arrives every " + pair[1] + " ms at " + pair[0] + " bpm");
   // The window and its density are the numbers the comment claims.
   const span = on.read("ML_DUST_SPAN"), behind = on.read("ML_DUST_BEHIND"), N = on.read("ML_DUST_N");
-  assert.equal(span * MPB, 324, "324 m of road carries dust");
-  assert.equal(behind * MPB, 54, "...54 m of it behind the feet");
-  assert.equal((span - behind) * MPB, 270, "...and 270 m ahead, past the 216 m look-ahead");
-  assert.equal((N / (span * 16)).toFixed(3), "2.083", "2.08 motes per sixteenth cell");
+  assert.equal(span * MPB, 135, "135 m of road carries dust");
+  assert.equal(behind * MPB, 13.5, "...13.5 m of it behind the feet");
+  assert.equal((span - behind) * MPB, 121.5, "...and 121.5 m ahead");
+  assert.equal(span * 16, 80, "the window is a WHOLE number of sixteenth cells - the one invariant the anchor law owes");
+  assert.equal(N / (span * 16), 5, "exactly 5 motes per sixteenth cell");
   assert.equal(on.read("ML_DUST_FAR1"), (span - behind) * MPB, "the far ramp ends exactly where the window does");
   assert.ok(on.read("ML_DUST_FAR0") < on.read("ML_DUST_FAR1"), "...and it IS a ramp, so the wrap has no seam");
   // THE STREAM RULE: the layer is seeded from a PRIVATE mulberry32 exactly as the course is - never rnd(), never Math.random.
@@ -1477,6 +1478,52 @@ test("THE STARDUST: the road's own speed, the sixteenth's own grain, and not one
   const dustVs = html.slice(html.indexOf("uniform float uNow,uAmt,uDustGlow;"), html.indexOf("uniform vec3 uCol; varying float vA;"));
   assert.match(dustVs, /float ba=mod\(position\.x-uNow,/, "the anchor is wrapped against the clock, not integrated over frames");
   assert.doesNotMatch(dustVs, /uTime|elapsed/, "there is no time term for reduceMotion to have to silence");
+});
+
+test("THE STARDUST IS RESOLVABLE: the window ends where the grain dies, and the alpha arrives whole (V, 8.1)", () => {
+  // WAVE 8.1, from first light ("I do not see any stardust coming"). The layer was never missing: it was spent where the
+  // eye cannot resolve it, and then halved by a blend-mode mismatch. Both halves are ARITHMETIC, so both are pinned here.
+  const on = loadRoadGeom(true, false), MPB = on.read("ROAD_MPB"), EYE = 4;
+  const focal = on.read("ML_FOCAL_PX"), N = on.read("ML_DUST_N");
+  const span = on.read("ML_DUST_SPAN"), behind = on.read("ML_DUST_BEHIND");
+  const px0 = on.read("ML_DUST_PX0"), px1 = on.read("ML_DUST_PX1");
+  const num = on.read("ML_DUST_M") * focal, sizeAt = (d) => Math.min(px1, Math.max(px0, num / d));
+
+  // (1) THE SIZE LAW. The shader is clamp(ML_DUST_M*ML_FOCAL_PX/d, PX0, PX1), so one number decides everything.
+  assert.equal(num.toFixed(2), "148.45", "148.45 px*m, from the shipped optics and a 0.30 m mote");
+  assert.equal((num / px1).toFixed(2), "24.74", "a mote is at the 6 px cap inside 24.74 m");
+  assert.equal((num / 2).toFixed(2), "74.22", "...still 2 px at 74.22 m");
+  const far = (span - behind) * MPB;
+  assert.ok(sizeAt(far) > px0, "EVERY mote in the window resolves above the floor - the window ends where the grain would die");
+  assert.equal(sizeAt(far).toFixed(2), "1.22", "the farthest mote is 1.22 px, not a sub-pixel wash");
+  // ...which is exactly what the shipped pair could not say: 0.10 m gave 49.48 px*m, under a pixel past 49.5 m, for 81%
+  // of a 270 m window. That is the whole bug, in one comparison.
+  assert.equal((0.1 * focal).toFixed(2), "49.48");
+  assert.ok(0.1 * focal < 54, "the OLD mote was sub-pixel over four fifths of the OLD window");
+
+  // (2) THE FRAME BUDGET, integrated rather than asserted. Everything below the frame's bottom edge draws no fragment:
+  // at a level 95-deg view from EYE the ground enters the frame at EYE/tan(47.5 deg).
+  const u0 = EYE / Math.tan((95 * Math.PI) / 360), density = N / (span * MPB);
+  assert.equal(density.toFixed(3), "2.963", "2.963 motes per metre of road");
+  let area = 0;
+  for (let u = u0; u < far; u += 0.005) { const s = sizeAt(u); area += s * s * density * 0.005; }
+  const frame = 1920 * 1080;
+  assert.ok(area / frame < 0.0031, `the dust covers ${(area / frame * 100).toFixed(2)}% of the frame, under the 0.31% parcel V budgeted`);
+  assert.ok(area > 6.5 * 627, `...and it is genuinely more dust: ${area.toFixed(0)} px^2 against the 627 the old window actually drew`);
+  assert.ok(N * px1 * px1 / frame < 0.007, "even the unreachable hard bound (every mote at the cap) stays under 0.7%");
+
+  // (3) THE BLEND. The fragment emits premultiplied vec4(uCol*a, a); three.js r128 defaults premultipliedAlpha=false and
+  // would pick blendFunc(SRC_ALPHA, ONE), delivering a^2. Saying so is the fix, and it is one word on the material.
+  const dust = extractFunction("buildRoadDust");
+  assert.match(dust, /blending:THREE\.AdditiveBlending, premultipliedAlpha:true,/, "the material declares what its shader already does");
+  assert.match(dust, /gl_FragColor=vec4\(uCol\*a, a\);/, "...and the shader still emits premultiplied, unchanged");
+  const peak = on.read("ML_DUST_INK") * 0.85;   // dustGlow's shipped default
+  assert.equal(peak.toFixed(4), "0.4675", "peak mote alpha");
+  assert.equal((peak * peak).toFixed(4), "0.2186", "...which is what the double-alpha was delivering instead");
+  assert.ok(peak / (0.95 * 0.55) > 0.85, "a peak mote now reads at 90% of a road rail, where it read at 42%");
+  // The arches emit the same premultiplied shape and are deliberately NOT touched: their core saturates rather than dims,
+  // so changing them would change a look that shipped and is wanted.
+  assert.doesNotMatch(extractFunction("buildRoadArches"), /premultipliedAlpha/, "the arches keep the compositing they shipped with");
 });
 
 test("PARCEL V PAYS FOR ITSELF: every halved count, old -> new (V)", () => {
@@ -1566,7 +1613,7 @@ function glowSandbox(overrides) {
   // wasdBeatCueOn / wasdBeatGlow lifted verbatim out of index.html, so this sandbox cannot drift from the shipped law.
   const context = vm.createContext({ Math, Number });
   const prelude = `
-    var CFG = { floorBeat:true, wasdRhythm:true, beatQuant:true, floorBeatMax:0.45, wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01] };
+    var CFG = { floorBeat:true, wasdRhythm:true, beatQuant:true, floorBeatMax:0.45, wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01], moonline:{ breathMax:0.45 } };
     var MOBILE = false, templeActive = false, trainMode = false, reduceMotion = false, toneReady = true;
     var state = { running:true, bpm:60 };
     var Tone = { Transport:{ state:'started' } };
@@ -1579,7 +1626,7 @@ function glowSandbox(overrides) {
     var wasdBeatsHeard = function(){ return _beats; };
     ${overrides || ""}
   `;
-  const source = ["wasdNoteDiv", "wasdBeatCueOn", "wasdBeatGlow"].map((n) => extractFunction(n)).join("\n");
+  const source = ["wasdNoteDiv", "wasdBeatCueOn", "beatSwell", "wasdBeatGlow", "roadBreath"].map((n) => extractFunction(n)).join("\n");
   vm.runInContext(prelude + source, context);
   context.read = (expression) => vm.runInContext(expression, context);
   context.write = (statement) => vm.runInContext(statement, context);
@@ -1593,10 +1640,13 @@ test("CURSOR: the pre-wave-7 pulsating glow is RESTORED, not reinvented - one la
   assert.equal((html.match(/function wasdBeatGlow\(\)/g) || []).length, 1, "the envelope exists exactly once");
   assert.equal((html.match(/amt=wasdBeatGlow\(\);/g) || []).length, 1, "...the FLOOR renderer is one call site");
   assert.equal((html.match(/wasdBeatGlow\(\)\/_cueMax/g) || []).length, 1, "...the CROSSHAIR renderer is the other, and it normalises");
-  // The law itself, character-for-character what shipped before the road existed.
+  // The law itself, character-for-character what shipped before the road existed. WAVE 8.1 lifted the CURVE one level out
+  // into beatSwell() so the RIBBON can read the same shape on its own clock - same expression, same multiply order, one copy.
   const glow = extractFunction("wasdBeatGlow");
   assert.match(glow, /if\(trainMode && reduceMotion\) return off<0\.12\?maxAmt:0;/, "the trainer's discrete reduced-motion flash");
-  assert.match(glow, /const env=Math\.max\(0,1-off\*2\); return maxAmt\*env\*env;/, "and the soft envelope, in that multiply order");
+  assert.equal((html.match(/function beatSwell\(/g) || []).length, 1, "the curve exists exactly once");
+  assert.match(extractFunction("beatSwell"), /\{ const env=Math\.max\(0,1-off\*2\); return maxAmt\*env\*env; \}/, "and the soft envelope, in that multiply order");
+  assert.match(glow, /return beatSwell\(maxAmt, off\);/, "...which wasdBeatGlow now delegates to rather than transcribing");
   assert.match(glow, /const bi=Math\.round\(beats\), off=Math\.abs\(beats-bi\);/, "measured against the nearest heard beat");
   // The floor path is the shipped gate with the surface test still last, and the shared prefix carries every other clause.
   assert.match(extractFunction("updateFloorBeat"), /const floorCueOn=wasdBeatCueOn\(\) && !roadLive\(\);/, "the floor still asks !roadLive()");
@@ -1648,6 +1698,92 @@ test("CURSOR: the letter's bloom is a table lookup - zero per-frame allocation, 
   // The crosshair only owns the letter where the floor it replaces is gone.
   assert.match(html, /const cueGlow=\(_cueMax>0 && wasdBeatCueOn\(\) && moonlineVoid\(\)\) \? wasdBeatGlow\(\)\/_cueMax : -1;/, "the void is the surface test, and -1 means 'not mine'");
   assert.match(html, /cueGlowPx\s*:\s*26\b/, "cueGlowPx is a flat CFG.moonline knob");
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// THE MOONLINE - THE BREATH (SPEC_MOONLINE section 1.1, wave 8.1).
+// First light: "the playing field was the color and it had a mesmerizing increase in saturation up until the correct fire
+// time, and that helped gauge timing - without it, it's hard." The pre-wave-7 FLOOR WASH is restored on the ribbon: the
+// same curve, the road's own latency-corrected clock, the shipped gate, and not one gameplay number touched.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test("THE BREATH: the recovered curve, the road's own clock, and zero gameplay math (8.1)", () => {
+  // THE AMPLITUDE IS THE RECOVERED ONE, not a new taste: CFG.moonline.breathMax defaults to CFG.floorBeatMax exactly.
+  const cfg = extractCfg();
+  assert.equal(cfg.moonline.breathMax, 0.45);
+  assert.equal(cfg.moonline.breathMax, cfg.floorBeatMax, "the ribbon swells by the amount the floor swelled by");
+  assert.match(html.match(/moonline\s*:\s*\{[^}]+\}/)[0], /breathMax\s*:\s*0\.45\b/, "flat, like every other moonline knob");
+
+  // ONE CURVE, THREE RENDERERS. The breath reads beatSwell() - the same object the floor and the crosshair read.
+  const breath = extractFunction("roadBreath");
+  assert.match(breath, /return beatSwell\(Math\.max\(0,\+CFG\.moonline\.breathMax\|\|0\), Math\.abs\(r-Math\.round\(r\)\)\);/,
+    "the curve is the shared one and the phase is |r - round(r)|, the law the floor measured by");
+  assert.match(breath, /if\(!wasdBeatCueOn\(\)\) return 0;/, "the gate is the shipped floor-beat gate, whole");
+  assert.doesNotMatch(breath, /Math\.max\(0,1-|env\*env/, "the curve is NOT transcribed a second time here");
+  assert.equal((html.match(/function roadBreath\(/g) || []).length, 1, "the breath's driver exists exactly once");
+  assert.equal((html.match(/=roadBreath\(r\);/g) || []).length, 1, "...and is called from roadSync's per-frame write and nowhere else");
+
+  // THE CLOCK. roadBeatNow() = wasdBeatsHeard() + freeze = ticks/PPQ - audioLat()/bps: the RAW heard beat, which is the
+  // clock the pre-wave-7 wash used (Tone.Transport.ticks/PPQ, before grooveFreezePhase existed) plus the one correction
+  // every cue now carries. Replayed, not asserted - and the freeze cancels itself, so grooveGroove cannot move the peak.
+  for (const grooveGroove of [true, false]) {
+    const clock = vm.createContext({ Math, Number, CFG: { grooveGroove, grooveFreezePhase: 0.5 }, state: { bpm: 120 },
+      Tone: { Transport: { ticks: 0, PPQ: 192 } }, audioLat: () => 0.05 });
+    vm.runInContext(["wasdBeats", "wasdBeatsHeard", "roadBeatNow"].map(extractFunction).join("\n"), clock);
+    for (const ticks of [0, 192, 480, 1000]) {
+      clock.Tone.Transport.ticks = ticks;
+      assert.equal(vm.runInContext("roadBeatNow()", clock).toFixed(9), (ticks / 192 - 0.1).toFixed(9),
+        `roadBeatNow is the raw beat minus the latency (ticks=${ticks}, grooveGroove=${grooveGroove})`);
+    }
+  }
+  // ...and the ribbon's own geometry agrees with it by construction: the shader's beat at u metres is b = uNow + u/MPB,
+  // so b is integral at the now-line (u = 0) exactly when r is. One clock, one surface.
+  assert.match(html, /INV=_roadG\(1\/ROAD_MPB\)/);
+  assert.match(html, /float b=uNow\+u\*'\+INV\+';/);
+
+  // THE ENVELOPE, replayed against a hand transcription of the pre-wave-7 expression at every offset in the beat.
+  const probe = glowSandbox();
+  const shipped = (off) => { const env = Math.max(0, 1 - off * 2); return 0.45 * env * env; };
+  for (let n = 0; n <= 100; n += 1) {
+    const r = 7 + n / 200, off = Math.abs(r - Math.round(r));
+    assert.equal(probe.read(`roadBreath(${r})`), shipped(off), `breath at |off| = ${off.toFixed(3)}`);
+  }
+  assert.equal(probe.read("roadBreath(7)"), 0.45, "it peaks ON the beat, at breathMax exactly");
+  assert.equal(probe.read("roadBreath(7.5)"), 0, "and is fully dark half a beat either side: ONE swell per beat");
+  assert.equal(probe.read("(CFG.moonline.breathMax = 0, roadBreath(7))"), 0, "breathMax 0 rests the ribbon at its shipped brightness");
+
+  // THE REDUCED-MOTION STANCE IS THE ORIGINAL'S, inherited rather than restated: the pre-wave-7 wash was OFF in free play
+  // under reduced motion, and roadSync only reaches roadBreath where roadLive() is true, i.e. where trainMode is false.
+  assert.equal(glowSandbox("reduceMotion = true;").read("roadBreath(7)"), 0, "no breath under reduced motion in free play");
+  assert.equal(glowSandbox("MOBILE = true;").read("roadBreath(7)"), 0, "...nor on mobile, which the shipped gate also excluded");
+  assert.equal(glowSandbox("CFG.floorBeat = false;").read("roadBreath(7)"), 0, "...and CFG.floorBeat still silences the whole cue");
+
+  // THE SURFACE: one multiply on the ink every element of the ribbon is already summed into, in the MOONLINE branch only.
+  const a = html.indexOf("fragmentShader:(ML_RIBBON?["), w0 = html.indexOf("]:[", a);
+  const ribbon = html.slice(a, w0), wave7 = html.slice(w0, html.indexOf("]).join('\\n') });", w0));
+  assert.match(ribbon, /'  ink\*=1\.0\+uBreath;',/, "the ribbon swells as one body - rails, crossbars, cells and the now-line together");
+  assert.ok(!wave7.includes("uBreath"), "wave 7's branch never learned the word, so moonline.on:false compiles the shader it shipped");
+  assert.match(html, /uBeat0:\{value:0\}, uBreath:\{value:0\},/, "the uniform is declared once, beside the clock it rides");
+  assert.match(extractFunction("roadSync"), /if\(ML_RIBBON\) U\.uBreath\.value=roadBreath\(r\);/, "one float, behind the build-time switch");
+  const sync = extractFunction("roadSync");
+  assert.ok(sync.indexOf("U.uBreath.value=roadBreath(r)") < sync.lastIndexOf("if(reduceMotion){"),
+    "written BEFORE the reduceMotion fork, so a standing road is never left holding a stale swell");
+  assert.doesNotMatch(sync, /new [A-Z]/, "roadSync still allocates nothing");
+
+  // THE GATES RIDE IT at lower amplitude, on the ribbon's OWN uniform object - one uniform, no new pass, per VERTEX.
+  assert.equal(loadRoadGeom(true, false).read("ML_ARCH_BREATH"), 0.45);
+  assert.match(extractFunction("buildRoadArches"), /uP:U\.uP, uBreath:U\.uBreath,/, "the arches share the object, so they cannot be a frame out of step");
+  assert.match(html, /\*hlf\*\(1\.0\+uBreath\*'\+_roadG\(ML_ARCH_BREATH\)\+'\);/, "...at ML_ARCH_BREATH of the ribbon's swell, in the vertex shader where vAmt already lives");
+  assert.equal(loadRoadGeom(true, false).read("_roadG(ML_ARCH_BREATH)"), "0.45000", "...emitted as a GLSL float literal, not an int");
+  assert.match(html, /uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath;/);
+
+  // ZERO GAMEPLAY MATH, and the TRAINER'S FLOOR IS UNTOUCHED: the two surfaces still cannot both run, and the floor path
+  // is the same two lines it was before this wave.
+  assert.doesNotMatch(breath, /state\.|_road|spawn|judge|score|streak/i, "roadBreath reads the clock and the knob, and nothing else");
+  const floor = extractFunction("updateFloorBeat");
+  assert.match(floor, /const floorCueOn=wasdBeatCueOn\(\) && !roadLive\(\);/, "the floor still asks !roadLive()");
+  assert.match(floor, /amt=wasdBeatGlow\(\);/, "...and still reads the letter's clock, not the road's");
+  assert.ok(!floor.includes("roadBreath") && !floor.includes("breathMax"), "the trainer's floor knows nothing about the ribbon's breath");
 });
 
 test("TETHERS: a pooled thread per star-bound Echo, bounded by patternConcurrency, allocating nothing (W)", () => {
