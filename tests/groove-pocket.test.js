@@ -1049,3 +1049,200 @@ test("THE VOID: every call site keeps its wave-7 expression and only RAISES it",
   assert.match(html, /uniform float uTime,uCloud,uTemple,uHazeAmt;/);
   assert.match(html, /\*'\+\(GLOW\?'0\.62':'0\.55'\)\+'\*uHazeAmt\)/);
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// THE MOONLINE - THE RIBBON REBUILT (SPEC_MOONLINE section 3, wave 8 parcel U).
+// Wave 7 keeps its MACHINERY and hands over only its PRESENTATION: a spline-mapped wireframe at 27 m to the beat, cells
+// that fill with lane colour for the look-ahead, naked grid to drawBeats, the wake on the same ring and the same epoch,
+// and one painted streak where the geometry has run out of pixels. moonline.on:false must compile wave 7, verbatim.
+// ---------------------------------------------------------------------------------------------------------------------
+
+const ROAD_GEOM_SRC = (() => {
+  // Every ROAD_* / ML_RIBBON / _roadG declaration, lifted verbatim in file order, so this sandbox cannot drift from the
+  // shipped constants. They are pure arithmetic over CFG + EYE + LOW + the camera, which is exactly what makes the
+  // kill-switch checkable: run the SAME lines with the switch off and demand wave 7's numbers back.
+  const lines = html.split("\n").filter((line) => /^const (ROAD_[A-Z0-9_]+|ML_RIBBON|_roadG)\b/.test(line.trim()));
+  assert.ok(lines.length > 12, "the road's constant block is where it always was");
+  return lines.map((line) => line.trim()).join("\n");
+})();
+
+function loadRoadGeom(moonline, low) {
+  const context = vm.createContext({
+    Math, Number, console, EYE: 4, LOW: !!low, camera: { far: 700 },
+    CFG: {
+      road: { on: true, lookAheadBeats: 8, widthM: 14, bandGlyphs: true, mercyBoost: 1.6, fillMark: true, holdDemo: false },
+      moonline: { on: moonline, metersPerBeat: 27, drawBeats: 32, impostorMinStraight: 0.55, impostorInk: 0.9 },
+    },
+    moonlineOn: () => moonline,
+  });
+  vm.runInContext(ROAD_GEOM_SRC, context);
+  context.read = (expression) => vm.runInContext(expression, context);
+  return context;
+}
+
+test("THE RIBBON: the parcel's knobs are CFG.moonline's, flat, and the switch is moonlineOn() itself (U)", () => {
+  const cfg = html.match(/moonline\s*:\s*\{[^}]+\}/);
+  assert.ok(cfg, "CFG.moonline is still a flat (nested-brace-free) literal");
+  for (const contract of [/metersPerBeat\s*:\s*27\b/, /drawBeats\s*:\s*32\b/, /impostorMinStraight\s*:\s*0\.55\b/, /impostorInk\s*:\s*0\.9\b/])
+    assert.match(cfg[0], contract);
+  // ONE build-time read of the parcel-T predicate, never a second copy of its booleans - sound because the road mesh is
+  // visible exactly on the frames moonlineVoid() is true (roadLive already excludes the trainer and the Temple).
+  assert.match(html, /const ML_RIBBON=moonlineOn\(\);/, "the switch IS moonlineOn()");
+  assert.doesNotMatch(html, /const ML_RIBBON=!!\(CFG\.moonline/, "...and never a re-derivation of it");
+});
+
+test("THE RIBBON: every geometry constant collapses to its wave-7 value with the switch off (U)", () => {
+  const off = loadRoadGeom(false), on = loadRoadGeom(true);
+  // The shipped wave-7 numbers, to the double. If any of these move, the kill-switch stopped restoring wave 7.
+  for (const [name, want] of [["ROAD_MPB", 10], ["ROAD_DRAW", 13.2], ["ROAD_DRAW_M", 132], ["ROAD_FADE0", 44], ["ROAD_FADE1", 132],
+    ["ROAD_BEND_M", 26], ["ROAD_PLANE_W", 76], ["ROAD_PLANE_L", 280], ["ROAD_WAKE", 14], ["ROAD_SLOTS", 23],
+    ["ROAD_GLYPH_S", 1], ["ROAD_GLYPH_W", 5.2], ["ROAD_GLYPH_L", 8.6], ["ROAD_GLYPH_F0", 25], ["ROAD_GLYPH_F1", 45],
+    ["ROAD_FAR_ROOM", 700], ["ROAD_ALPHA", 0.55]])
+    assert.equal(off.read(name), want, `${name} is wave 7's with moonline.on:false`);
+  assert.equal(off.read("ROAD_DRAW"), off.read("ROAD_FADE1 / ROAD_BAND_M"), "...and dbMax is still the fade's own end, to the last bit");
+  assert.equal(off.read("ROAD_MPB === ROAD_BAND_M"), true, "metres-per-beat IS the band length when the parcel is off, so every literal below it is wave 7's");
+  // ...and the ribbon's own geometry, computed rather than chosen.
+  assert.equal(on.read("ROAD_MPB"), 27);
+  assert.equal(on.read("ROAD_DRAW_M"), 864, "32 beats x 27 m of grid each way");
+  assert.equal(on.read("ROAD_WAKE"), 14, "the wake ring is UNCHANGED - 14 beats of memory, now 378 m of road");
+  assert.equal(on.read("ROAD_SLOTS"), 23, "...and so is the band table it indexes");
+  assert.equal(on.read("ROAD_BEND_M"), 181, "the bend that puts the p90 lead-4 heading back on ROAD_TURN_FULL");
+  assert.equal(on.read("ROAD_PLANE_W"), 386, "the smallest plane the bounded ribbon can never leave");
+  assert.equal(on.read("ROAD_FAR"), 1000, "...and enough depth for a road that runs to 894 m");
+  // THE LOD LADDER IS THE GEOMETRY'S, not a taste: a segment of length s at distance d subtends EYE*s/d^2.
+  const K = 4 * (180 / Math.PI) * (1080 / 95);
+  const dFor = (s, px) => Math.sqrt(K * s / px);
+  assert.equal(on.read("ROAD_TIER_D").toFixed(6), dFor(27 / 16, 4).toFixed(6), "tier 0 dies where a SIXTEENTH is 4 px");
+  for (let k = 0; k < 4; k += 1) {
+    const spacing = (27 / 16) * Math.pow(4, k);
+    const start = on.read("ROAD_TIER_D") * Math.pow(2, k);
+    assert.equal(start.toFixed(6), dFor(spacing, 4).toFixed(6), `tier ${k} opens where its own crossbar is 4 px`);
+    assert.equal((2 * start).toFixed(6), dFor(spacing, 1).toFixed(6), `...and closes where it is 1 px`);
+    if (k < 3) assert.equal((2 * start).toFixed(6), dFor(spacing * 4, 4).toFixed(6), `...which is exactly where tier ${k + 1} is still 4 px`);
+  }
+});
+
+test("THE RIBBON: the ONE CLOCK survives the new speed scale, by construction (U)", () => {
+  // The shader's beat at u metres ahead is b = R + u/ROAD_MPB, so the NOW-LINE is u = 0 at every scale: metres-per-beat
+  // cannot reach the identity, only the metres a beat occupies. Swept over the reachable ladder x latency x transport.
+  const on = loadRoadGeom(true);
+  const MPB = on.read("ROAD_MPB"), FREEZE = 0.5;
+  let worst = 0, worstTrip = 0;
+  for (const bpm of [20, 28, 33, 40, 50, 57.5, 60]) for (const lat of [0, 0.005, 0.02, 0.08, 0.25]) {
+    const bps = 60 / bpm;
+    for (let tp = 0; tp <= 4321.75; tp += 2.5) {
+      const G = tp - lat / bps, R = G + FREEZE;
+      worst = Math.max(worst, Math.abs((R - G) - FREEZE));
+      for (let k = 0; k < 16; k += 5) {
+        const target = Math.floor(R) + k / 16;
+        worstTrip = Math.max(worstTrip, Math.abs(R + ((target - R) * MPB) / MPB - target));
+      }
+    }
+  }
+  assert.ok(worst < 1e-12, `R - G is grooveFreezePhase at every rung and latency (max residual ${worst.toExponential(2)})`);
+  assert.ok(worstTrip < 1e-15, `beat -> metres -> beat through ${MPB} is exact (max ${worstTrip.toExponential(2)})`);
+  assert.equal((0 / MPB).toFixed(12), "0.000000000000", "the now-line is u = 0 whatever a beat is worth in metres");
+  // THE SIXTEENTH GRID needs four more float32 bits than wave 7's fract(b) ever did. At 3 h x 60 bpm that is 2.64 cm.
+  const beats = 60 * 60 * 3, ulp16 = Math.pow(2, Math.floor(Math.log2(beats * 16)) - 23);
+  assert.ok(ulp16 * MPB / 16 < 0.05, `fract(b*16) resolves to ${(ulp16 * MPB / 16 * 100).toFixed(2)} cm after three hours at the cap, on a ${(MPB / 16).toFixed(4)} m cell`);
+  // ...and the shader is fed by 1/ROAD_MPB, so there is no second place for the scale to disagree with itself.
+  assert.match(html, /INV=_roadG\(1\/ROAD_MPB\)/);
+  assert.match(html, /const t=Math\.atan2\(sl, ROAD_MPB\)\/ROAD_TURN_FULL;/, "the tracking drill measures its heading against the same metres-per-beat");
+});
+
+test("THE RIBBON: the wake and the playability epoch cannot feel a change of metres-per-beat (U)", () => {
+  // The epoch is stated in BEATS - claim windows, ring indices, the half-open [_roadEpoch, _roadEpochEnd). No distance
+  // quantity appears anywhere in it, which is why parcel U needed to change exactly none of it.
+  for (const name of ["roadJudging", "roadJudgeStamp", "roadWakeReset", "roadWakeAt", "roadWakeWrite", "roadWakeLatch"])
+    assert.doesNotMatch(extractFunction(name), /ROAD_MPB|ROAD_BAND_M|ROAD_DRAW|ROAD_FADE|metersPerBeat/, `${name} knows nothing about metres`);
+  assert.match(html, /const ROAD_WAKE=Math\.max\(1,Math\.ceil\(ROAD_FADE1_7\/ROAD_BAND_M\)\|0\);/, "the ring is bound to the UNBRANCHED double, so it is 14 on both presentations");
+  // NEUTRAL renders as the naked grid itself: no fill at all, indistinguishable from road that was never offered.
+  const ribbon = (() => { const a = html.indexOf("fragmentShader:(ML_RIBBON?["); return html.slice(a, html.indexOf("]:[", a)); })();
+  assert.match(ribbon, /float fillA=has\*\(ahead\+\(1\.0-ahead\)\*\(landed\+missed\*/, "landed keeps its colour, missed is darkened, and a never-judged beat gets neither");
+  assert.doesNotMatch(ribbon, /blank/, "...there is no separate 'never judged' shade to get wrong: it is the grid");
+  // The 0.200-beat dead zone is unchanged in beats, and that is now 5.40 m of road at 27 m to the beat.
+  const on = loadRoadGeom(true);
+  assert.equal((0.2 * on.read("ROAD_MPB")).toFixed(2), "5.40");
+  assert.equal((on.read("ROAD_WAKE") * on.read("ROAD_MPB")).toFixed(0), "378", "the ring reaches 378 m behind the feet inside an 864 m grid");
+});
+
+test("THE RIBBON: rails plus four tiers of ONE crossbar set, and cells only where there is a beat to state (U)", () => {
+  const ribbon = (() => { const a = html.indexOf("fragmentShader:(ML_RIBBON?["); return html.slice(a, html.indexOf("]:[", a)); })();
+  assert.match(ribbon, /float rail=1\.0-smoothstep\(0\.0,rw,abs\(al-/, "TWO luminous edge rails, on the ribbon's own boundary");
+  assert.match(ribbon, /float xb\(float x, float w\)/, "...and one crossbar helper the tiers all share");
+  for (const rate of ["16", "4", "1", "0.25"]) assert.ok(ribbon.includes("TIER(" + rate + ","), `the ${rate}/beat tier is emitted`);
+  assert.match(ribbon, /g=max\(g,\(1\.0-cont\)\*max\(gb,/, "a mercy continuation swallows its '1' AND its bar line - and only those");
+  assert.ok(!ribbon.includes("xb(b*16"), "the tier text is generated, never hand-written twice");
+  assert.match(html, /const TIER=\(rate,k\)=>/, "...by one build-time emitter");
+  assert.match(html, /LOW \? '  float g=0\.0;' : '  float g=max\('\+TIER\(16,0\)\+','\+TIER\(4,1\)\+'\);'/, "LOW drops the two tiers foreshortening takes first, and keeps the '1' and the bar");
+  // Cells are the look-ahead's, ahead of the now-line; the wake is the same cells behind it. Nothing fills what has no beat.
+  assert.match(ribbon, /float ahead=step\(/, "the current cell and forward are 'ahead'");
+  assert.match(ribbon, /float ink='\+_roadG\(ROAD_CELL_INK\)\+'\*fillA\*lum\*inner\+'\+_roadG\(ROAD_GRID_INK\)\+'\*g\+'\+_roadG\(ROAD_RAIL_INK\)\+'\*rail/, "cell fill, grid and rails are three separate loudness knobs");
+  assert.match(ribbon, /gl_FragColor=vec4\(col\*ink, outer\*fade\*uAmt\);/, "...and the clip reaches past the rail it has to contain");
+});
+
+test("THE RIBBON: the horizon impostor is the EXACT projection of a straight continuation (U)", () => {
+  // Not a fudge: a point at road distance D projects EYE/D below the horizon, so on a quad at Dq spanning y in [0, EYE]
+  // the height h = 1 - Dq/D carries it, the half-width there is HW*(1-h) and the centre is apex*h with apex = s*D0 - x0.
+  // Both LINEAR, which is why the impostor is a triangle. Proven here against the true projection, to machine precision.
+  const on = loadRoadGeom(true);
+  const HW = on.read("ROAD_HALF_W"), Dq = on.read("ROAD_IMP_D"), D0 = on.read("ROAD_DRAW_M");
+  let worstX = 0, worstW = 0;
+  for (const x0 of [-40, -3, 0, 7.5, 61]) for (const s of [-0.047, -0.01, 0, 0.008, 0.047]) {
+    const xb = x0 + s * (Dq - D0), apex = s * D0 - x0;
+    for (const D of [Dq, 1000, 1500, 4000, 1e5, 1e9]) {
+      const h = 1 - Dq / D;                                  // the quad height that stands for road distance D
+      const trueCx = (x0 + s * (D - D0)) * Dq / D - xb;      // where the real road's centre lands on the quad, relative to it
+      const trueHw = HW * Dq / D;                            // ...and how wide it is there
+      worstX = Math.max(worstX, Math.abs(apex * h - trueCx));
+      worstW = Math.max(worstW, Math.abs(HW * (1 - h) - trueHw));
+    }
+  }
+  assert.ok(worstX < 1e-9, `the shader's centre law is the true projection (max error ${worstX.toExponential(2)} m)`);
+  assert.ok(worstW < 1e-9, `...and so is its width law (max error ${worstW.toExponential(2)} m)`);
+  assert.match(html, /float x=\(vQ\.x-0\.5\)\*'\+_roadG\(QW\)\+'-uApex\*h;/, "...which is exactly what the quad's shader computes");
+  assert.match(html, /float hw='\+_roadG\(ROAD_HALF_W\)\+'\*\(1\.0-h\);/);
+  assert.match(html, /roadImp\.position\.x=x0\+sl\*\(ROAD_IMP_D-ROAD_DRAW_M\);/, "the quad stands where the continuation is at its own distance");
+  assert.match(html, /roadImpMat\.uniforms\.uApex\.value=sl\*ROAD_DRAW_M-x0;/, "...and leans to where it vanishes (the algebra cancels ROAD_IMP_D)");
+  // The quad has room for every shear the gate can admit, and no more.
+  const maxShear = Math.tan((1 - 0.55) * on.read("ROAD_IMP_ANG")) * Dq;
+  assert.ok(on.read("ROAD_IMP_SHEAR") >= maxShear, `the quad is wide enough for the gate's own worst lean (${maxShear.toFixed(1)} m)`);
+  assert.ok(on.read("ROAD_IMP_SHEAR") < 2 * maxShear, "...and not wastefully wider");
+});
+
+test("THE RIBBON: the impostor may only stand in for a road that is actually straight (U)", () => {
+  // straightness = 1 - |far heading| / ROAD_IMP_ANG, clamped; the gate is moonline.impostorMinStraight and the fade
+  // reaches full brightness halfway to dead straight, so the streak arrives and leaves as a fade rather than a pop.
+  const sync = extractFunction("roadImpSync");
+  assert.match(sync, /const st=1-Math\.min\(1,Math\.abs\(Math\.atan\(sl\)\)\/ROAD_IMP_ANG\);/);
+  assert.match(sync, /let t=\(st-mn\)\/Math\.max\(1e-6,\(1-mn\)\*0\.5\);/);
+  assert.match(sync, /const amt=t\*t\*\(3-2\*t\)\*Math\.max\(0,\+CFG\.moonline\.impostorInk\|\|0\);/, "...and the ramp is a smoothstep, not a step");
+  assert.doesNotMatch(sync, /new |\.push\(|=>/, "roadImpSync allocates nothing on the frame path");
+  // The gate has to be able to say NO: impostorInk 0 and impostorMinStraight 1 both silence it entirely.
+  const gate = (st, mn, ink) => { let t = (st - mn) / Math.max(1e-6, (1 - mn) * 0.5); t = t < 0 ? 0 : (t > 1 ? 1 : t); return t * t * (3 - 2 * t) * ink; };
+  assert.equal(gate(1, 1, 0.9), 0, "impostorMinStraight 1 -> never");
+  assert.equal(gate(1, 0.55, 0), 0, "impostorInk 0 -> the painted road is off and the ribbon simply ends");
+  assert.equal(gate(0.55, 0.55, 0.9), 0, "at the gate itself the streak is not yet lit");
+  assert.equal(gate(1, 0, 0.9).toFixed(4), "0.9000", "dead straight with no gate at all -> full ink");
+  assert.ok(gate(0.9, 0.55, 0.9) > gate(0.7, 0.55, 0.9), "...and it is monotone in straightness between");
+  // Only the road's own visibility latch can take it away; only this gate can bring it back.
+  assert.match(html, /if\(roadImp && !live\) roadImp\.visible=false;/);
+  assert.match(html, /if\(ML_RIBBON\)\{ camera\.far=live\?ROAD_FAR:ROAD_FAR_ROOM; camera\.updateProjectionMatrix\(\); \}/, "the trainer and the Temple keep the projection matrix that shipped");
+});
+
+test("THE RIBBON: no new per-frame allocations, and the void's depth order is repaired (U)", () => {
+  const sync = extractFunction("roadSync");
+  assert.doesNotMatch(sync, /new [A-Z]/, "roadSync still allocates nothing");
+  assert.ok(sync.indexOf("_roadBase.set(roadCourseX(r)") < sync.indexOf("roadImpSync(r)"), "the impostor continues the re-basing pair the line above just wrote");
+  assert.match(sync, /roadImpSync\(0\);/, "reduceMotion freezes the painted horizon with the standing ribbon - the same pinned clock");
+  // THE VOID'S DEPTH ORDER: the shell is a backdrop standing for infinity, not a wall at 400 m in front of an 864 m road.
+  assert.match(html, /roadMesh\.renderOrder=ML_RIBBON\?-40:-900;/, "the ribbon draws AFTER the celestial shell, and wave 7 keeps -900");
+  assert.match(html, /depthWrite:!moonlineOn\(\), depthTest:true/, "...because the shell stops WRITING depth, and never stops testing it");
+  // The kill-switch is a compile-time fork: wave 7's shader text is still there, unedited, including the terms the
+  // wireframe does not have (its own antialiasing law, its band edge, its solid-band ink).
+  const wave7 = html.slice(html.indexOf("]:[", html.indexOf("fragmentShader:(ML_RIBBON?[")));
+  assert.match(wave7, /float aa='\+\(LOW\?'1\.10':'0\.30\+d\*0\.020'\)\+';'/);
+  assert.match(wave7, /float ribbon=1\.0-smoothstep\('\+HW\+'-aa,'\+HW\+'\+aa,lat\); if\(ribbon<=0\.004\) discard;/);
+  assert.match(wave7, /float fb=fract\(b\), e=min\(fb,1\.0-fb\);/);
+  assert.match(wave7, /gl_FragColor=vec4\(col\*ink, ribbon\*fade\*uAmt\);/);
+});
