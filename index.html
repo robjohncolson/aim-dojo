@@ -5452,10 +5452,34 @@ function buildDrums(){
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
 }
+/* AUDIO AUTOMATION DIET (audio audit 2026-08-18 — user report: random crackle/dropouts in Chrome at a steady 60 fps).
+   r128's AudioListener.updateMatrixWorld pushes NINE linearRampToValueAtTime events (position ×3, forward ×3, up ×3) on EVERY
+   call, and PositionalAudio.updateMatrixWorld pushes SIX per Echo — moved or not. The camera's children get walked ~3× per
+   frame (the main render, the mirror pass, the frame-start pose refresh), so at 60 fps that is ≈1,600 automation events/s
+   with no Echo alive and ≈+1,100/s per live Echo (measured ~240/s + 60/s per Echo at 11 fps under a software rasteriser).
+   Each event takes the AudioParam timeline lock Chrome's audio thread also needs inside every 128-frame render quantum —
+   the classic recipe for intermittent glitches that get worse with more sources. This wrapper keeps the SAME ramps
+   (same targets, same smoothing) but pushes the listener ONCE per animate() frame and an Echo's panner ONLY when its
+   world pose actually changed (Echoes hold still between strobe steps). Spatialisation is unchanged; only the redundant
+   re-statements of an unchanged value are dropped. Musical timing never touches this path. */
+let _audioFrame=0;   // bumped once per animate() body (index.html — right after the idle gate)
+function quietAudioMatrixUpdates(node, onlyWhenMoved){
+  const orig=Object.getPrototypeOf(node).updateMatrixWorld;
+  node.updateMatrixWorld=function(force){
+    THREE.Object3D.prototype.updateMatrixWorld.call(this, force);            // keep the scene-graph bookkeeping exactly as three does it
+    if(this._af===_audioFrame) return;                                        // already pushed this frame
+    if(!onlyWhenMoved && (_audioFrame&1)) return;                              // the LISTENER (camera) moves every frame, so pose-compare would never skip it: push it on every OTHER frame instead — 30 Hz spatial updates with 33 ms ramps are inaudibly different from 60 Hz, and it halves the steady-state floor (9 ramps/frame → 4.5)
+    if(onlyWhenMoved){ const e=this.matrixWorld.elements, l=this._lm;
+      if(l && e[12]===l[12] && e[13]===l[13] && e[14]===l[14] && e[8]===l[8] && e[9]===l[9] && e[10]===l[10]) return;   // translation + facing (+z column) unchanged → the panner already holds these values
+      if(!l) this._lm=new Float64Array(16); this._lm.set(e); }
+    this._af=_audioFrame;
+    orig.call(this, force);                                                    // three's own ramps (its inner super.updateMatrixWorld is a no-op now — the flag was cleared above)
+  };
+}
 function ensureListener(){
   if(listener){ try{ if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{}); }catch(e){} return; }   // THREE's listener context is SEPARATE from Tone's rawCtx — it needs its own post-gesture resume retry or the positional orb hums stay dead after a pad-first start (Firefox rejects the pre-gesture resume)
   try{
-    listener=new THREE.AudioListener(); camera.add(listener);
+    listener=new THREE.AudioListener(); quietAudioMatrixUpdates(listener,false); camera.add(listener);
     if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{});
   }catch(e){ listener=null; }
 }
@@ -5881,7 +5905,7 @@ function makeTargetSound(mesh){
   if(!listener || !soundOn) return null;
   const ctx=listener.context;
   try{
-    const pa=new THREE.PositionalAudio(listener);
+    const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
     const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=pickPenta();
     const ampGain=ctx.createGain(); ampGain.gain.value=0.55;
@@ -8529,6 +8553,7 @@ function animate(frameNow){
   if(frameNow==null) frameNow=performance.now();
   if(!state.running && explosions.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
   if(!state.running) lastIdleFrame=frameNow;
+  _audioFrame++;   // AUDIO AUTOMATION DIET: one listener push per frame, however many times the camera's children get walked
   const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
   if(_trainCoachT>0){
     _trainCoachT-=dt;

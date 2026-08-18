@@ -5452,10 +5452,34 @@ function buildDrums(){
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
 }
+/* AUDIO AUTOMATION DIET (audio audit 2026-08-18 — user report: random crackle/dropouts in Chrome at a steady 60 fps).
+   r128's AudioListener.updateMatrixWorld pushes NINE linearRampToValueAtTime events (position ×3, forward ×3, up ×3) on EVERY
+   call, and PositionalAudio.updateMatrixWorld pushes SIX per Echo — moved or not. The camera's children get walked ~3× per
+   frame (the main render, the mirror pass, the frame-start pose refresh), so at 60 fps that is ≈1,600 automation events/s
+   with no Echo alive and ≈+1,100/s per live Echo (measured ~240/s + 60/s per Echo at 11 fps under a software rasteriser).
+   Each event takes the AudioParam timeline lock Chrome's audio thread also needs inside every 128-frame render quantum —
+   the classic recipe for intermittent glitches that get worse with more sources. This wrapper keeps the SAME ramps
+   (same targets, same smoothing) but pushes the listener ONCE per animate() frame and an Echo's panner ONLY when its
+   world pose actually changed (Echoes hold still between strobe steps). Spatialisation is unchanged; only the redundant
+   re-statements of an unchanged value are dropped. Musical timing never touches this path. */
+let _audioFrame=0;   // bumped once per animate() body (index.html — right after the idle gate)
+function quietAudioMatrixUpdates(node, onlyWhenMoved){
+  const orig=Object.getPrototypeOf(node).updateMatrixWorld;
+  node.updateMatrixWorld=function(force){
+    THREE.Object3D.prototype.updateMatrixWorld.call(this, force);            // keep the scene-graph bookkeeping exactly as three does it
+    if(this._af===_audioFrame) return;                                        // already pushed this frame
+    if(!onlyWhenMoved && (_audioFrame&1)) return;                              // the LISTENER (camera) moves every frame, so pose-compare would never skip it: push it on every OTHER frame instead — 30 Hz spatial updates with 33 ms ramps are inaudibly different from 60 Hz, and it halves the steady-state floor (9 ramps/frame → 4.5)
+    if(onlyWhenMoved){ const e=this.matrixWorld.elements, l=this._lm;
+      if(l && e[12]===l[12] && e[13]===l[13] && e[14]===l[14] && e[8]===l[8] && e[9]===l[9] && e[10]===l[10]) return;   // translation + facing (+z column) unchanged → the panner already holds these values
+      if(!l) this._lm=new Float64Array(16); this._lm.set(e); }
+    this._af=_audioFrame;
+    orig.call(this, force);                                                    // three's own ramps (its inner super.updateMatrixWorld is a no-op now — the flag was cleared above)
+  };
+}
 function ensureListener(){
   if(listener){ try{ if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{}); }catch(e){} return; }   // THREE's listener context is SEPARATE from Tone's rawCtx — it needs its own post-gesture resume retry or the positional orb hums stay dead after a pad-first start (Firefox rejects the pre-gesture resume)
   try{
-    listener=new THREE.AudioListener(); camera.add(listener);
+    listener=new THREE.AudioListener(); quietAudioMatrixUpdates(listener,false); camera.add(listener);
     if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{});
   }catch(e){ listener=null; }
 }
@@ -5881,7 +5905,7 @@ function makeTargetSound(mesh){
   if(!listener || !soundOn) return null;
   const ctx=listener.context;
   try{
-    const pa=new THREE.PositionalAudio(listener);
+    const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
     const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=pickPenta();
     const ampGain=ctx.createGain(); ampGain.gain.value=0.55;
@@ -7219,125 +7243,125 @@ function polyPairSpawn(){
     _polyK=rt[1]; spawnRhythmOrb();   // the LONG lead: released k2/16 beat before its arrival — (k2−k1)/16 beat earlier than its partner for the same beat, a whole beat minus that for the next one
   }finally{ _polyK=-1; _polyPairing=false; }   // cleared whatever happens, so a throw can never leave a stale pin to steer — or a stale pairing to silence the kind of — an unrelated Echo
 }
-function spawnTarget(opts){
-  if(templeActive) return null;
-  opts=opts||{};
-  const r=targetRadius();
-  const core=acquireTargetMesh(), shell=core.userData.shell;
-  const a0=setAimDir(_spawnAim0); let dir3, starId=null;
-  if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)
-    let minDeg=lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT());
-    if(CFG.deal.on && _deal.spreadMul!==1) minDeg=Math.min(170, minDeg*_deal.spreadMul);   // THE DARK LISTENS (NEW MOON): the minimum angle FROM YOUR AIM opens up, which in this uniform 360° field is exactly "wider spread, more bearings behind you" — the same constant this cone already reads, clamped short of 180° so the reroll loop can still find a direction. Raw boolean first, and the whole statement is skipped on every other night, so the expression below is the one that shipped. STREAM: a wider cone rejects more directions, so the loop below runs more iterations and this night's spawn draws more than a plain night's. That is the DEAL'S OWN NIGHT changing its own draws, which the stream rule permits (see CFG.deal) — keeping it draw-neutral would mean pinning the loop to a fixed iteration count or rotating the rejected direction instead of rerolling it, and either one rewrites the shipped spawn direction for every night, which is a far bigger change than the rule is worth
-    const minDot=Math.cos(THREE.MathUtils.degToRad(minDeg));
-    let tries=0, pit=0;
-    do{                                                   // TODAY'S ROLL, ALWAYS, FIRST — same draws, same order, same count, whatever the sky is doing (see the override below)
-      const az=rnd()*Math.PI*2; pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)
-      dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));
-    }while(dir3.dot(a0)>minDot && ++tries<8);
-    if(CFG.stars.on && !trainMode){                       // STAR-BOUND SPAWN, as a pure AZIMUTH OVERRIDE (1.1): the roll above already happened and its pitch is the pitch this orb will really take, so the cone test runs on the true direction and the rolled azimuth is simply discarded — consumed, never skipped. starSpawnAz itself draws from starPickRnd, not rnd(). Net effect: the rnd() stream that feeds beatSpawnDist, the drift velocity, the kind roll and the tank roll below is IDENTICAL to the no-stars build, draw for draw, on the bound path and on the fallback alike — the star changes one number and nothing else. Raw boolean first, so with the parcel off (or in the trainer, which keeps its didactic field) this costs one read and no call
-      const sAz=starSpawnAz(a0,minDot,pit);
-      if(_starSpawnId){ starId=_starSpawnId; dir3=_spawnDir.set(Math.sin(sAz)*Math.cos(pit), Math.sin(pit), Math.cos(sAz)*Math.cos(pit)); }   // the Echo calls from a real risen star's bearing; _starSpawnId null (nothing risen, nothing outside the aim cone, no fixture) leaves the rolled direction standing — today's path, verbatim and silent
-    }
-  }else{
-    camera.getWorldDirection(_spawnFwd);
-    _spawnFlat.set(_spawnFwd.x,0,_spawnFwd.z).normalize();
-    _spawnRight.crossVectors(_spawnFlat,SPAWN_UP).normalize();
-    const yawOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.yawSpreadDeg);
-    const pitOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);
-    dir3=_spawnDir.copy(_spawnFlat).applyQuaternion(_spawnQYaw.setFromAxisAngle(SPAWN_UP,yawOff)).applyQuaternion(_spawnQPit.setFromAxisAngle(_spawnRight,pitOff));
-  }
-  _beatSpawnK=0;
-  let dist = CFG.beatSpawn ? beatSpawnDist() : null;        // BEAT-QUANTIZED distance (flight time = k/16 beat → release on a rhythmic subdivision)
-  if(dist==null){ const far=state.range, d0=Math.max(CFG.rangeNear, far-CFG.rangeBand), d1=far;   // fallback (beatSpawn off, or no feasible 16th at this tempo/reach): the old cube-root warp → constant volumetric density (no bunching at the near edge). state.range = skill-gated shell that marches outward as you hit, eases back when you struggle
-    dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd())); }
-  _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist);
-  _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos);
-  const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*0.7;
-  const tg=acquireTargetRecord();
-  const vel=tg.vel.set(rnd()*2-1,(rnd()*2-1)*0.35,rnd()*2-1).normalize().multiplyScalar(dmag);
-  core.scale.setScalar(r*(reduceMotion?1:0.01)); shell.scale.setScalar(1.55);   // reset shell scale (a pooled mesh may have been left mid-throb by a tank combo)
-  const snd=makeTargetSound(core);
-  const life=opts.life!=null?opts.life:(60/state.bpm)*CFG.rhythmLifeBeats;   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring
-  tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock
-  tg._chipT=0;   // MULTI-HIT TANK: per-chip shell scale-punch flash timer (only used when hpMax>1)
-  tg.starId=starId;   // STAR-BOUND SPAWNS: the star this Echo called from, or null — which is every orb in the trainer, every orb with the parcel off, and every orb the sky had no risen bearing for. Assigned here, with the other per-spawn resets, so a pooled record can never carry a stale bearing home
-  tg.fill16=-1; tg.fig=null; tg.lifeBeatsEff=0;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base, figure or stretched life); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for. lifeBeatsEff 0 = "my life is the standard rhythmLifeBeats", which is every orb that is not the fill (and, with the kill-switch off, every orb there will ever be) — orbRed's ink law reads it
-  if(CFG.deal.on && _deal.quickLifeMul!==1) tg.lifeBeatsEff=CFG.rhythmLifeBeats*_deal.quickLifeMul;   // THE QUICK ONES WAKE: a brisker field is a brisker CLOCK too — the trail's white→red→white ink law reads lifeBeatsEff, so latching the dealt life here keeps that timing cue honest instead of colouring against a life this orb does not have. Written AFTER the reset above and BEFORE the fill's own stretch below, which outranks it on the one orb that is a figure
-  tg.poly=_polyPairing;   // POLYRHYTHM PAIRS: the tag both members carry (and every other orb clears, so a pooled record can never haunt the gate with a pair that popped three swells ago). It is READ by exactly one thing — polyOnField's "at most one pair live" — and by nothing on any hot path: a poly member is a plain Echo in every other respect, scored, sung, star-bound and volleyed exactly as it would be alone. Written unconditionally, like tg.starId, so the field is honest even with the parcel off, where _polyPairing is false forever
-  tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true;   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets)
-  let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
-  if(_specialLive){ const kr=rnd(); const dl=CFG.deal.on;   // THE SKY DEALS THE NIGHT tilts the MIX and nothing else: the phase rule and every risen planet move these three thresholds, the SAME single draw decides the kind, and a planet can therefore never become a second rule. Raw boolean first — an off night reads the three base chances verbatim
-    const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = ((dl&&_dealPairing)||(CFG.poly.on&&_polyPairing)) ? 0 : (kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0))); }   // gold + speed (3) + mover (4) — except a member of a dealt PAIR, which is pinned plain (1.1: pairs are pure volley material, and gold's goldDistMul would move it off the distance its own k was drawn for). The draw is still taken and simply discarded, so a pair member's spawn costs exactly what every other spawn costs. POLYRHYTHM PAIRS (wave 6) pins kind 0 for exactly the same reason and by exactly the same means: its two members' distances ARE the ratio, and gold would silently move one of them off the lead it was chosen for. Raw boolean first on both sides, so an off parcel reads one flag and stops, and with poly.on:false this ternary is character-for-character the wave-5 decision
-  tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
-  let hp=1;   // MULTI-HIT TANK (kind 0, free-play): a plain orb can roll 2-3 hp — hit it on that many consecutive BEATS to pop it
-  // THE POLY PIN EXCLUDES ALL TANK ELECTION (SPEC_SIXTY_AND_POLY 1.1 amendment F4). The pin shipped covering the KIND roll only, on the reading that a poly member could never meet a tank anyway — true on the shipped config (a pending fill election makes polyLive stand down) but NOT under tank.fillOnly:false or tide.on:false, where the legacy branch below rolls multiHitChance on every plain orb: at SENSEI's 0.34 that catches at least one member of ~56% of pairs, turns it AMBER with 2-3 hp, and then re-draws its distance through beatSpawnDist(maxLeadSixteenths) — a call the pin deliberately ignores (!maxK) — which would move that member clean off the lead the ratio chose for it. The pair would still LOOK like a pair and would no longer BE one. Both election paths are therefore gated on the pin now, and per the established pinning pattern the rolls are SPENT AND DISCARDED, so a pinned member's spawn costs exactly what every other spawn costs. EVERY REMAINING PATH THAT COULD MUTATE kind/hp/distance AFTER THE PIN, enumerated and closed: the kind roll (pinned 0 above) · the fill election (gated below, and unreachable while pairing anyway — polyLive returns false on _fillPend16>=0 — so this is the second lock on that door, at zero stream cost) · the legacy multiHit roll (gated below) · the tank's close re-draw and the tank reposition (both behind hp>1, now unreachable) · gold's goldDistMul, SPEED's life and MOVER's velocity (all behind kind, pinned 0). The ONE adjustment a pinned member still shares with every other Echo is the _spawnPos.y clamp into [2.2, ROOM_BY] — kind-independent, election-free, older than every parcel here, and part of the flight-time model's standing tolerance rather than anything the pair introduced.
-  if(CFG.tank.fillOnly && CFG.tide.on){   // THE TANK IS A DRUM FILL: no random roll at all — the swell's fill bar already elected this orb, or nothing here is a tank
-    const pend=_fillPend16; _fillPend16=-1;   // consume the handoff WHATEVER happens below, so a rejected (or dropped) election can never leak onto a later orb
-    const off=pend>=0?fillOff16(pend):0;     // …and re-validate it against the heard clock: within a bar of that downbeat, or the election is stale (a dropped Draw, a pause) and is simply dropped. The lower bound is generous because a large audio offset at a fast tempo legitimately reads a few sixteenths early; a stale election is a whole minGap (10+ sixteenths) late, so the two never overlap
-    if(pend>=0 && !(CFG.poly.on&&_polyPairing) && off>-8 && off<8 && CFG.multiHit && _specialLive && kind===0 && (state.bpm<=CFG.tank.maxBpm || (CFG.deal.on&&_deal.tankAny))){   // POLYRHYTHM PAIRS (1.1 amendment F4): the pin is the SECOND lock on this door and costs nothing — polyLive already returns false while an election is pending, so a pinned member can never reach a pend>=0 here, and the clause is a pure read either way (no draw sits between it and the guard). THE SKY DEALS THE NIGHT: a FULL MOON (the generous night) keeps the tank eligible at any tempo — an effective value on the constant this gate already reads. This IS a gate, so opening it spends the figure draw below on a beat a plain night spends nothing: that is why it is a PHASE RULE and only a phase rule (an active rule may change its own night's draws — see THE STREAM RULE), and why 1.2 took SATURN off this line. No planet reaches this gate; above tank.maxBpm there is no tank, Saturn or not. Raw boolean first, and the base cap is tested first so an off night short-circuits before any _deal read. THE SIXTY CAP (parcel P): tank.maxBpm is now the ceiling itself (60), so `state.bpm<=CFG.tank.maxBpm` is TRUE at every reachable tempo — the left branch always wins, the `_deal.tankAny` read is never even evaluated, and the FULL MOON's one gate-opening clause has quietly become inert. That is a STRENGTHENING of THE STREAM RULE, not a violation of it: the one night that was allowed to spend a draw a plain night skips no longer needs to, so every night is now draw-for-draw identical on this axis. Both sides of the || are kept, because the day the cap moves the clause has to mean something again
-      const fg=rnd()<Math.min(1,0.5*(CFG.deal.on?_deal.fillMul:1))?CFG.tank.fig3:CFG.tank.fig2;   // the SAME single draw today's tank takes to pick 3-vs-2 hits; here the figure's LENGTH is the hit count. THE HEAVY ONE (1.2): a risen SATURN leans that one draw toward the three-note figure — a weight on a threshold, on a roll this election spends either way and whose two branches both fall straight through to the length test, so a Saturn night and a planet-less night draw identically. Clamped at 1 (a certainty, never a spent-but-meaningless roll), and ×1 on every other night and with the parcel off
-      if(fg && fg.length>=2){ hp=fg.length; tg.fig=fg; tg.fill16=pend; }
-    }
-  }
-  else if(CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm && rnd()<CFG.multiHitChance){ const _hpRoll=rnd()<0.5?3:2; if(!(CFG.poly.on&&_polyPairing)) hp=_hpRoll; }   // THE LEGACY RANDOM TANK (reachable only with tank.fillOnly:false or tide.on:false). POLYRHYTHM PAIRS (1.1 amendment F4): a pinned member takes BOTH of these draws and discards the result — the eligibility roll is already spent by the time the pin can be read, and the 3-vs-2 roll is spent deliberately so a pair member's spawn costs exactly what an unpinned orb's does, which is the same discipline the kind roll above keeps. hp stays 1, kind stays 0, and the tank's distance re-draw below (behind hp>1, and blind to the pin by design) is therefore never reached — that re-draw is the whole reason this gate exists: it would have moved a member off the lead the ratio chose. Raw boolean first, so with poly.on:false this line is the wave-5 statement, draw for draw and branch for branch
-  // TANKS SPAWN CLOSE IS AN INVARIANT (spec 1.2 amendment T5a). The close re-draw runs HERE, before the tank is dressed,
-  // because its RESULT is now allowed to veto the election. beatSpawnDist(maxLeadSixteenths=4) returns null whenever no
-  // k<=4 lands inside the live band — and above a middling tempo that is EVERY tempo: a 4-sixteenth flight covers only
-  // ~4.9m at 86bpm mid-skill (rangeNear is 8m), so the whole feasible set {2,3,4} is empty above ~52bpm at learning speed
-  // and ~135bpm at expert speed. The shipped code then silently KEPT the first, uncapped draw — which is the full
-  // beatSpawnSixteenths list up to k=16 — so the swell's fill could be a four-beat-lead orb across the room asking for
-  // three hits one beat apart, the exact opposite of what the constant promises. Now: clamp to the NEAR EDGE (the closest
-  // legal spawn there is), and if even that has no answer, drop the election and let this orb be plain — no tank beats an
-  // unreachable tank. Both new branches are gated on the fill tag under the raw kill-switch, so a fillOnly:false legacy
-  // tank still takes today's silent-keep path, draw for draw and byte for byte.
-  // THE SIXTY CAP (wave 6, parcel P) — RE-SOLVED, NOT ASSUMED. The paragraph above describes the OLD tempo law; under the new
-  // one the arithmetic inverts, because diffT (and therefore projSpeedNow) rises far faster per bpm. Measured over the whole
-  // live (bpm 20..60) x (state.range 11..28) domain with the real solver: the capped k<=4 set is NEVER empty — not on a plain
-  // night, not on a LAST QUARTER, not at any reach — so beatSpawnDist(4) always answers and the two rescue branches below
-  // (tankCloseDist, then abandon-the-tank) are now UNREACHABLE IN PRACTICE at every playable tempo. At the cap itself the
-  // capped set is {2,3,4} at d {9.00, 13.50, 17.99} m, all comfortably inside rangeNear 8 .. rangeMax 28. (Under the old cap
-  // the same sweep found 22392 empty grid cells — that is the hole T5a was written to plug, and the cap has now closed it by
-  // construction.) THE CODE IS KEPT VERBATIM ANYWAY: it costs one null test on a path that already runs, it is the invariant's
-  // proof rather than its patch, and tankCloseDist's own r>=1 impossibility check is likewise never hit over 20..60 (verified).
-  let _tankD=null;
-  if(hp>1 && CFG.beatSpawn){ _tankD=beatSpawnDist(CFG.tank.maxLeadSixteenths);   // the same single draw, in the same guard, at the same point in the rnd() stream as the shipped re-draw
-    if(_tankD==null && CFG.tank.fillOnly && tg.fill16>=0){ const k0=_beatSpawnK; _tankD=tankCloseDist();   // k0 = the k the FIRST draw latched; the failed call above has already reset _beatSpawnK to 0
-      if(_tankD==null){ hp=1; tg.fig=null; tg.fill16=-1; _beatSpawnK=k0; }   // no distance at all (the shot cannot return to eye height in a 4-sixteenth flight at this speed): abandon the tank, restore the honest k of the position this orb is keeping, and it lives on as a plain Echo. The figure draw above is already spent and stays spent — this is the active parcel's own night. _fillSpent8 latched at ELECTION time, so the swell does not try again: this is one silent swell without a fill, which is the whole point
-    } }
-  tg.hp=hp; tg.hpMax=hp;
-  if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
-    if(_tankD!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, _tankD); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
-  if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);
-    tg.expireAt=state.t+lifeF; tg.lifeBeatsEff=lifeF/spbF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves. lifeBeatsEff latches that stretched life in BEATS so the white→red→white ink law (orbRed) runs on the life this orb actually has: the trail is a clock, and a clock that says "fresh" through the four beats you can still play the figure in was lying
-  if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
-    if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller. THE FAR ONES CALL reaches gold through `dist` — the band it was drawn from already moved out — and deliberately NOT a second time here: goldDistMul on top of a farMul'd band would compound to ~1.8× and put the Ancient past the arc's reach, which is an unkillable orb, not a long lead
-    else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
-    else if(kind===4){ tg.vel.multiplyScalar(CFG.moverVelMul); }                                               // mover: faster, more erratic drift
-  }
-  if(CFG.sing.on) singTargetSound(snd, kind, _beatSpawnK, true);   // ORBS SING THEIR DISTANCE: pitch this orb's hum from its FINAL k (the tank's close re-draw above already landed) and let its first gate-open call out. Raw boolean first so the parcel off costs one read and no call.
-  tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.
-  tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
-}
-function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }
-function reconcileTargetSounds(){
-  for(const tg of targets){
-    if(!soundOn){ if(tg.snd){ stopTargetSound(tg.snd); tg.snd=null; } }
-    else if(state.running && !templeActive && listener && !tg.snd){ tg.snd=makeTargetSound(tg.mesh); voiceTargetSound(tg.snd, tg.kind); if(CFG.sing.on) singTargetSound(tg.snd, tg.kind, tg.bowK, false); tg.sndAccum=999; }   // a rebuilt voice re-sings its distance; no call boost — the orb announced itself once, at spawn
-  }
-}
+                           
+                               
+                
+                         
+                                                            
+                                                        
+                                                                                                                                                                                                   
+                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                            
+                       
+                                                                                                                                                                                 
+                                                                                                                                                                                                                                               
+                                                                                                
+                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                           
+                                                                                                                                                                                                                                                                                                                                                      
+     
+        
+                                        
+                                                          
+                                                              
+                                                                        
+                                                                                                              
+                                                                                                                                                                   
+   
+                
+                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                          
+                                                      
+                                                         
+                                                                                         
+                                                           
+                                 
+                                                                                              
+                                                                                                                                                                 
+                                  
+                                                                                                                                                                 
+                                                                                                                                                                                                                                                                              
+                                                                                                   
+                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                   
+                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                    
+                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                      
+                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                        
+     
+   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                         
+                                                                                                                        
+                                                                                                                       
+                                                                                                                          
+                                                                                                                  
+                                                                                                                       
+                                                                                                                          
+                                                                                                                          
+                                                                                                                        
+                                                                                
+                                                                                                                              
+                                                                                                                             
+                                                                                                                              
+                                                                                                                          
+                                                                                                                          
+                                                                                                                             
+                                                                                                                             
+                                                                                                                               
+                                                                                                                                
+                  
+                                                                                                                                                                                         
+                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+       
+                        
+                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                   
+                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                  
+                                                                                                                                                   
+   
+                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                   
+ 
+                                                                                                          
+                                 
+                           
+                                                                       
+                                                                                                                                                                                                                                                                                                                                
+   
+ 
 
 
-/* ========================= ADAPTIVE ENGINE ========================= */
-const events=[]; let sinceAdjust=0, eventsGood=0, eventsHead=0;
-function windowAccuracy(){ return events.length ? eventsGood/events.length : null; }
-function pushEvent(good){
-  good=!!good;
-  if(good) tickBump(); else tickDrop();   // QUIET TICK: this IS the ledger windowAccuracy reads, so it's the one honest funnel — every scoring arrival (gradeRhythmHit good) raises tickI, every whiff / expire / clank / decoy / late-GOOD drops it. Both no-op with the parcel off or in the trainer, so the accuracy engine below is unchanged.
-  if(events.length<CFG.windowSize){ events.push(good); if(good) eventsGood++; }
-  else { if(events[eventsHead]) eventsGood--; events[eventsHead]=good; if(good) eventsGood++; eventsHead=(eventsHead+1)%CFG.windowSize; }
-  changeRange(good ? CFG.rangeHitStep : -CFG.rangeMissStep);   // DISTANCE TRAINER: the spawn shell creeps sub-perceptually FARTHER on each hit, eases back on a miss -> converges on your reliable reach
-  sinceAdjust++; maybeAdjust();
-}
+                                                                         
+                                                               
+                                                                                    
+                         
+              
+                                                                                                                                                                                                                                                                                                                                                   
+                                                                               
+                                                                                                                                         
+                                                                                                                                                                                                         
+                               
+ 
                        
                                                                                                                                                                                                                                                        
                                                                    
@@ -8529,6 +8553,7 @@ function pushEvent(good){
                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                             
+                                                                                                                             
                                                                                                                                                 
                      
                      

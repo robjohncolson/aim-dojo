@@ -5452,10 +5452,34 @@
                     
                                 
  
+                                                                                                                      
+                                                                                                                              
+                                                                                                                           
+                                                                                                                          
+                                                                                                                          
+                                                                                                                         
+                                                                                                                   
+                                                                                                                     
+                                                                                                                        
+                                                                                              
+                                                                                               
+                                                      
+                                                           
+                                         
+                                                                                                                                         
+                                                                                                          
+                                                                                                                                                                                                                                                                                                                                            
+                                                                     
+                                                                                                                                                                                                             
+                                                              
+                         
+                                                                                                                                                                                   
+    
+ 
                           
                                                                                                                                                                                                                                                                                                                                                                                          
       
-                                                             
+                                                                                                      
                                                                                                                                   
                              
  
@@ -5881,7 +5905,7 @@
                                         
                              
       
-                                                 
+                                                                                   
                                                                                                            
                                                                                        
                                                             
@@ -8529,6 +8553,7 @@
                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                             
+                                                                                                                             
                                                                                                                                                 
                      
                      
@@ -9698,225 +9723,225 @@
                                                                                                                                                                                    
                                                                                                                                 
 
-                                                                                                                       
-                                                                                                                      
-                                                                                                                       
-                                                                                                                       
-                                                                                                                       
-                                                                                                                     
-                                                                                                                     
-                                                                                                            
-                                                                                                                   
-                                                                                                                  
-                                                                                                                     
-                                                                                                                    
-                                                                                                              
-                                                                                                              
-                                                                                                                   
-                                                                                                                    
-                                                                            
-                                                                                                           
-                                                                                                                 
-                                                                                                                    
-                                                                                                                  
-                                                                                                                 
-                                                                                                                     
-                                                                                                                    
-                                                                                                                     
-                                                                                                                   
-                                                                                                                
-                                                     
-                            
-                                                       
-                                                                                                                                     
- 
-                                                                                                                                                     
-                                                                                                                                                                                      
-                                                                                                                                     
-                      
-                     
-                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                       
-   
-                        
-                                                                                                                                                     
-               
- 
-                              
-                                                                                                                                                         
-                  
-                                                                                      
-                
-                                                                                                                                                                                                                                                                                                                                                                               
-           
-   
-                                                                                                                                                        
-                          
-                           
-                                 
-                                                                                                                                                    
-                                                                                                                                                                  
-                             
-                             
-                                                                                                                                                                                                                                         
-                       
-                                                                                                                                                                                                                         
-     
- 
-                                                                                                                                                                                                                                                                                                                                                                                                                                           
+/* ===== THE FIRST GESTURE (parcel J) — the boot chorus sings as soon as the browser permits, and not one moment sooner
+   The boot chorus is supposed to be the first thing a returning player hears, and it was never heard: the ONLY caller
+   of initAudio was startRun, so before PLAY there was no audio graph at all, and the instant PLAY built one it entered
+   the run and hushed. No autoplay policy in any browser lets a page sing before it is touched, so the honest answer is
+   not to sing at load — it is to sing at the FIRST TOUCH. One pointerdown or keydown while the start card is up builds
+   the graph through the same initAudio call startRun makes (idempotent — startRun's own call then takes the already-
+   initialised branch) and walks tonight's ensemble in. If that first gesture IS the PLAY activation, this visit gets
+   no menu chorus and the run proceeds exactly as it does today: a stem that lives forty milliseconds before
+   enterRunning hushes it is a click, not a chorus. Pause, Bow and menu-return keep their own sing calls untouched.
+   (1.2) A LISTENER THAT ONLY SPENDS ITSELF ON THE MOMENT IT IS FOR. It used to disarm on whatever gesture arrived
+   first, wherever it landed and whatever state the page was in: a click inside the Save My Sky form, a gamepad run's
+   first press, a keystroke in the Temple all consumed the one chance, and a gesture that arrived before the CDN did
+   consumed nothing but did not help either. Now the handler acts ONLY when the start/pause card is the active
+   surface and the gesture is not the player working a sub-panel (form, records, share, chat) or pressing PLAY
+   itself; anything else is IGNORED WITHOUT DISARMING. And it disarms only when it has actually done its job — with
+   Tone loaded that is init + sing, and with Tone still in flight it stays armed and re-offers the moment the script
+   lands, so a slow CDN racing PLAY can no longer cost the visit its chorus.
+   THE UNLOCK CANNOT BE PRE-BUILT ON THIS TONE (verified against the pinned 14.8.49): the library evaluates
+   `const Transport = getContext().transport` and the same for Destination at SCRIPT LOAD, so its AudioContext is
+   created the moment the file lands and those singletons are bound to it for good. Tone.setContext() would swap the
+   context every later node is built on while Transport — the game's whole clock — stayed on the abandoned one, so
+   adopting a context we unlocked ourselves inside the gesture is not available here (it is a real path on builds
+   whose Transport is resolved per call; it is not one on this build, and the whole game rides Transport). What we do
+   instead is the spec's stated fallback: kick the fetch, keep the listener, and when the script lands resume Tone's
+   own context under the page's sticky activation (any earlier real gesture — and we know there was one, it is why we
+   are here) and sing if the card is still up. If that resume does not take — a browser that honours it only INSIDE
+   the gesture — we stay armed and the next gesture does it, which is exactly today's behaviour, never worse. */
+let _chorusBootArmed=false, _chorusBootPending=false;
+function chorusBootDisarm(){
+  if(!_chorusBootArmed) return; _chorusBootArmed=false;
+  document.removeEventListener('pointerdown',chorusBootGesture,true); document.removeEventListener('keydown',chorusBootGesture,true);
+}
+function chorusBootSkip(e){   // is this gesture the overlay's arrival, or is it someone else's? Anything but an arrival is ignored WITHOUT disarming
+  if(state.running || document.hidden || templeActive) return true;                      // a live run (gamepad starts included), a hidden tab, the Temple: not this listener's moment
+  if(!overlay || overlay.classList.contains('hidden')) return true;                      // the card is not the active surface at all
+  const t=e&&e.target;
+  if(t && t.closest){
+    if(t.closest('#beginBtn,#beginTrain')) return true;                                  // the gesture that starts the run is not an invitation to sing
+    if(t.closest('#settingsBox,#recordsWrap,#shareOverlay,#transitEssayReader,#skyTemplePanel')) return true;   // the player is working a sub-panel — a form, the records board, the share card, a reader, the chat: their gesture belongs to that panel, and the boot chorus waits for one that is simply "I am here"
+  }
+  const n=t&&t.nodeName;
+  if(n==='INPUT'||n==='TEXTAREA'||n==='SELECT'||(t&&t.isContentEditable)) return true;   // typing is not an arrival either, wherever the field lives
+  return false;
+}
+function chorusBootGesture(e){
+  if(!_chorusBootArmed || chorusBootSkip(e)) return;   // IGNORED, NOT CONSUMED: the listener is still here for the gesture this parcel is actually about
+  if(window.Tone){
+    chorusBootDisarm();   // the job can be done in this gesture: graph now, stems now
+    initAudio();
+    if(CFG.chorus.on) chorusMenu();   // chorusMenu's own guards still decline for a live run, the trainer and a hidden tab; chorusPick still returns 0 for a sky with nothing lit — or for one whose catalog has not bound yet (1.2), which buildZodiacSticks answers with its own re-offer the moment the fixture lands — so a first-ever visit hears exactly today's silence
+    return;
+  }
+  if(_chorusBootPending) return;   // the fetch is already in the air; more gestures do not make it land sooner, and the listener stays armed either way
+  _chorusBootPending=true;
+  loadToneOnce().then(()=>{
+    if(!window.Tone) return null;
+    initAudio();                                                   // the graph, on Tone's own load-time context (see the header: it cannot be ours)
+    return Promise.resolve(window.Tone.start()).catch(()=>{});     // and the resume, under the sticky activation the gesture that brought us here already granted
+  }).catch(()=>{}).then(()=>{
+    _chorusBootPending=false;
+    if(!toneReady || !(rawCtx && rawCtx.state==='running')) return;   // the CDN failed, the graph did not build, or the context is still suspended: STAY ARMED — PLAY's own showToneBlock tells the player, and the next gesture retries
+    chorusBootDisarm();
+    if(CFG.chorus.on) chorusMenu();                                  // no second gesture needed: the card is still up (chorusMenu declines if it is not), so the chorus lands as if the library had been there all along
+  });
+}
+if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown',chorusBootGesture,true); document.addEventListener('keydown',chorusBootGesture,true); }   // raw boolean first: with the parcel off nothing is armed, no listener exists, and audio still starts exactly where it does today (inside startRun). Capture phase so a handler that stops propagation cannot swallow the one gesture the graph is waiting for
 
-                        
-                                                                         
-                 
-                     
-                                                                                    
-                                                                                                 
-                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                    
-                                                            
-                     
-                                                                                                                                                                                                        
-               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                      
-                                                                                                                                                                                                  
-                                                                                                                                                      
-                                                                                   
-                                                 
-                                                    
-                                                                                                 
-                                                     
-                                                                                      
-                 
-                             
- 
+function resetSession(){
+  if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
+  skyChatReset();
+  rhythmGeneration++;
+  rng = Math.random;   // free-play uses plain random (the seeded daily was removed)
+  pickTheme();   // TUNE LIBRARY: resolve song for this run (card pick, or RANDOM with no-repeat)
+  senseiArm();   // SENSEI'S ONE QUESTION: read the one observation the last Bow left (if it is still fresh) and latch the lead this night's opening swells will quietly ask more of. Storage only — no draw, no CFG write, nothing said, and nothing at all with the parcel off or in the trainer
+  if(CFG.nightCard.on) _cardStars.length=0;   // NIGHT CARDS: a new night haloes its OWN stars — the list is this run's work, exactly like the Mandala ledger it will be drawn beside. Memory only, and a no-op with the parcel off (the list can never have filled)
+  _phasesRun=false;   // PHASES WITNESSED: this night has not taken its stamp attempt yet. Memory only — no read, no write, no bucket computed here, because a night nobody scores in never opens the file at all
+  dealCompute();   // THE SKY DEALS THE NIGHT: the ONE rule and the planet tilt for this run, resolved here — before the first spawn, once, from the real sky. dealCompute writes only _deal (never CFG), returns immediately with the parcel off or in the trainer, and leaves _deal neutral if the ephemeris cannot be read
+  if(CFG.wind||_windFlag){ const wa=Math.random()*Math.PI*2, wm=CFG.windMin+Math.random()*(CFG.windMax-CFG.windMin); windX=Math.cos(wa)*wm; windZ=Math.sin(wa)*wm; }   // gentle constant wind per run (prototype)
+  else if(CFG.deal.on && _deal.windMul>0) dealWind();         // THE WIND STIRS / THE WIND REMEMBERS: the two waxing phases deal the shipped prototype ON — same clouds, same ballistics, same HUD, seeded from the local date so the night is the same everywhere and, crucially, so it spends NO Math.random draw where an undealt night spends none. Every other phase (and ?wind on any night) keeps today's behaviour exactly
+  else { windX=0; windZ=0; }                                  // wind-off → no wind
+  applyCloudWind();                                           // …and the clouds are re-stated with it, unconditionally: the drift vector is part of the wind STATE, so a night that deals no wind must overwrite the last one's vector at the same moment it clears windX/windZ, not wait to be noticed. Wind-never-dealt nights get the same baseline gentle drift they always had
+  for(const t of targets) removeTarget(t); targets.length=0;
+  clearProjectiles();
+  if(CFG.stars.on) starFlyClear();   // a new night never inherits a voice still in the air — its level was already paid at drain (v1.3); only unpaid pending/debt get paid here before the visuals drop
+  clearRings();
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
+  _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
+  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1; _polyK=-1; _polyPairing=false;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives). POLYRHYTHM PAIRS rides along: the try/finally in polyPairSpawn already makes both of these unreachable-when-set outside its own synchronous body, so this is belt-and-braces for a run that begins while nothing is half-built — and it is the line that guarantees "one pair live" starts every night at zero, since the targets it counted were freed above
+  teardownTransport();
+  Object.assign(state,{t:0,bpm:CFG.startBpm,maxBpm:CFG.startBpm,range:CFG.rangeStart,maxHitDist:0,maxHitHeight:0,hits:0,shots:0,streak:0,bestStreak:0,reactions:[],reactionSum:0,reactionHead:0});
+  // apply run kind BEFORE special latch — otherwise train CFG.specialOrbs=false never reaches the latch and ~26% of trainer orbs are gold/speed/mover
+  if(trainMode) setTrainPhase(MOBILE?1:0);   // mobile skips letter phase (no WASD)
+  else { applySenseiFull(); showTrainCoach(''); }
+  state.bpm=CFG.startBpm; state.maxBpm=CFG.startBpm;
+  if(!trainMode) state.range=CFG.rangeStart;   // train phases set their own range; don't clobber
+  else if(trainPhase===0) state.range=CFG.rangeStart;
+  _specialLive=specialOrbsLive();   // latch AFTER config (train → false; full → true)
+  ensureRhythm();
+  renderPrimary(false,false);
+}
 
-                                                   
-                                                                                                                 
-                                                                                   
-                                                                                                                   
-   
-                                                                                                  
-                                      
-                                           
-                                                                                                                                                                                   
-                                                                         
-                                                                                                                                           
-                                 
-                                                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                       
-                                                                                                                 
-                                     
-                                      
-                                                                                                               
-                                                                                                                    
-                                                        
-                           
-                             
-                                                                                             
-                                
-                                                                                                                        
-                                          
- 
-                                                                                                                                                                
-                         
-                                                                                                                                                                    
-                                                                                               
-                                                                                                                                                       
-                                                                                                  
- 
-                                                                                                                             
-                                                    
-                                                                                                               
-                                                                                                                                                                                                                                               
-                                                                                                                                                                               
-                        
-                                      
-      
-                                                                                                                                                                                
-                                                                                                  
-                                                     
-                                                                                                     
-                                                                                                                            
-                                                                                                                                        
-                                                                                                                                     
-                         
- 
-                                                                                                                                                        
-                                                                                                                   
-                                                                                                                                                                                                                          
-                                                                  
-                           
-                              
-                              
-                                                                                                 
-                               
-                                                                       
-                                                                                                    
-                                                       
-                                                                     
-                                                     
-                                                                                                                        
-                          
-                                                                                   
-   
- 
-                                                                                                                     
-                                                                     
-                                                                                                                                                                                                                                                  
-     
-                                                                                                                                                 
-                                                                                                                                                                             
-                  
-                                
-                                                                                                                                                      
-               
- 
-                          
-      
-                                                                          
-                                                                                                           
-             
- 
-                 
-                                                                    
-                                                                                                                                                     
-                                                                                                                                   
-                                                                                                                                                                  
-                                                                                                               
-                                                        
-                                                                                                  
-                                               
-    
-                                                                                                            
-                                                        
-                                                                                                          
-                                                                                            
-                                                                                                                 
-                                                                                                                   
-                                                                                                                      
-                                                                                                                  
-                                                                                                                    
-                                                                                                    
-                                                                                                                     
-                                                                                                                   
-                                                                                                                 
-                                                                                                                      
-                                                                                                                  
-                                                                     
-                                             
-                                                                                                                                                                        
-                                                           
-                                                                                         
- 
+document.addEventListener('pointerlockchange',()=>{
+  if(document.pointerLockElement===canvas){ _templeEscapeGuard=false; _templeNeedsRelock=false; enterRunning(); }
+  else if(_templeEscapeGuard){ _templeEscapeGuard=false; _templeNeedsRelock=true; }
+  else if(state.running) exitRunning();                  // pause remembers temple via forPause; RESUME restores it
+});
+/* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
+const SB_URL=DEFAULT_SKY_SUPABASE_URL;
+const SB_KEY=DEFAULT_SKY_SUPABASE_ANON_KEY;
+const RAILWAY_URL='https://aim-dojo-production.up.railway.app';   // verify-server (Railway): daily scores validated server-side before insert; empty = submit straight to Supabase
+const SUPABASE_JS='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+function sbH(extra){ return Object.assign({apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'}, extra||{}); }
+let _clientId='', _playerName='';
+function clientId(){ if(_clientId) return _clientId; let id=null; try{ id=localStorage.getItem('aimdojo.cid'); }catch(e){} if(!id){ id='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); try{ localStorage.setItem('aimdojo.cid', id); }catch(e){} } return _clientId=id; }
+function playerName(){ if(_playerName) return _playerName; let n=''; try{ n=(localStorage.getItem('aimdojo.name')||'').trim(); }catch(e){} return _playerName=(n || ('Guest-'+clientId().slice(-4))); }
+function esc(s){ return String(s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+const ghostToastEl=gid('ghostToast');
+function showGhostToast(txt, holdSec){
+  // holdSec (THE BOW's line only) swaps in the .show-slow variant and drives its duration from CFG, so the one
+  // session-boundary line is actually readable instead of fading at the default 1.5s. Every other caller passes one
+  // argument and takes the original path byte-for-byte.
+  if(!ghostToastEl) return;
+  setText(ghostToastEl, txt);
+  ghostToastEl.classList.remove('show','show-slow'); ghostToastEl.style.animationDuration='';
+  void ghostToastEl.offsetWidth;
+  if(holdSec>0){ ghostToastEl.style.animationDuration=holdSec.toFixed(2)+'s'; ghostToastEl.classList.add('show-slow'); }
+  else ghostToastEl.classList.add('show');
+}
+const _projectWorld=new THREE.Vector3(), _projectLocal=new THREE.Vector3(), _projectScreen=[0,0], _ghostDir=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
+function projectDir(dir){
+  _projectWorld.copy(PLAYER_POS).addScaledVector(dir,50); _projectLocal.copy(_projectWorld).applyMatrix4(camera.matrixWorldInverse); const behind=_projectLocal.z>0;
+  _projectLocal.applyMatrix4(camera.projectionMatrix); let x=_projectLocal.x,y=_projectLocal.y;
+  if(behind||Math.abs(x)>1||Math.abs(y)>1){ if(behind){x=-x;y=-y;} const ax=Math.abs(x)||1e-3,ay=Math.abs(y)||1e-3,s=0.92/Math.max(ax,ay); x*=s;y*=s; }
+  _projectScreen[0]=viewCX + x*viewCX; _projectScreen[1]=viewCY - y*viewCY; return _projectScreen;
+}
+/* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
+let rtCh=null, lastBcast=0; const remotes=new Map();
+function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
+function showPresence(){ const el=gid('presence'); if(el){ el.classList.remove('on'); el.textContent=''; } }   // DEPRECATED: the "N in the dojo" count is hidden (realtime presence + opponent reticles still work; just no on-screen counter)
+function newRemoteEl(){ const d=document.createElement('div'); d.className='liveRet'; d._shown=false; d._name=''; d._sx=d._sy=999999; document.body.appendChild(d); return d; }
+function initRealtime(){
+  if(rtCh || !window.supabase) return;
+  try{
+    const sb=window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{params:{eventsPerSecond:14}}});
+    rtCh=sb.channel('aimdojo-room', {config:{presence:{key:clientId()}, broadcast:{self:false}}});
+    rtCh.on('presence',{event:'sync'}, showPresence);
+    rtCh.on('broadcast',{event:'aim'}, ({payload})=>{ if(!payload || payload.id===clientId()) return;
+      let r=remotes.get(payload.id); if(!r){ if(remotes.size>=10) return; r={el:newRemoteEl()}; remotes.set(payload.id,r); }
+      r.y=payload.y; r.p=payload.p; r.name=payload.n; r.k=payload.k|0; r.s=payload.s|0; r.c=payload.c?1:0; r.last=performance.now(); });
+    rtCh.subscribe(async (st)=>{ if(st==='SUBSCRIBED'){ try{ await rtCh.track({name:playerName()}); }catch(e){} showPresence(); } });
+  }catch(e){ rtCh=null; }
+}
+function loadRealtimeClient(){ if(rtCh) return; if(window.supabase) initRealtime(); else loadScriptOnce(SUPABASE_JS).then(initRealtime).catch(()=>{}); }
+function broadcastAim(){ if(!rtCh) return; const now=performance.now(); if(now-lastBcast<85) return; lastBcast=now;
+  try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch, k:state.hits, s:state.streak}}); }catch(e){} }   // k/s ride the existing aim send (presence + opponent reticles)
+const REMOTE_UPDATE_STEP=1/30; let remoteAccum=REMOTE_UPDATE_STEP;
+function updateRemotes(dt){
+  if(remotes.size===0) return;
+  const now=performance.now();
+  if(state.running){ remoteAccum+=dt; if(remoteAccum<REMOTE_UPDATE_STEP) return; remoteAccum=0; }
+  for(const [id,r] of remotes){
+    if(now-r.last>2600){ r.el.remove(); remotes.delete(id); continue; }
+    if(!state.running){ if(r.el._shown){ r.el.style.display='none'; r.el._shown=false; } continue; }
+    const sc=projectDir(setAimDir(_remoteDir,r.p,r.y));
+    if(!r.el._shown){ r.el.style.display='block'; r.el._shown=true; }
+    const sx=Math.round(sc[0]), sy=Math.round(sc[1]);
+    if(r.el._sx!==sx || r.el._sy!==sy){ r.el._sx=sx; r.el._sy=sy; r.el.style.transform='translate('+sx+'px,'+sy+'px)'; }
+    const name=r.name||'';
+    if(r.el._name!==name){ r.el.setAttribute('data-name', name); r.el._name=name; }
+  }
+}
+(function(){ const ni=gid('nameInput'); if(!ni) return;                      // persist the player name as it's typed
+  try{ ni.value=localStorage.getItem('aimdojo.name')||''; }catch(e){}
+  ni.addEventListener('input', ()=>{ const v=ni.value.slice(0,24); _playerName=v.trim() || ('Guest-'+clientId().slice(-4)); try{ localStorage.setItem('aimdojo.name', v); }catch(e){} queueCloudPrefs({display_name:_playerName.slice(0,24)}); });
+})();
+/* ===== DOJO RECORDS — global free-play leaderboard (THE DOJO PIVOT). Multi-metric, tabbed; submits session bests on free-play run end. ===== */
+// BOARD_GEN: bump when the global board is wiped / schema meaning changes. On mismatch we drop local board caches so the app doesn't look "stale" after a Supabase truncate.
+const BOARD_GEN=3;
+function clearLocalDojoCaches(){
+  try{ localStorage.removeItem('aimdojo.dojobest'); localStorage.removeItem('aimdojo.rtmap'); localStorage.removeItem('aimdojo.songBest'); }catch(e){}
+  _dojoBest={};
+}
+function ensureBoardGen(){
+  try{
+    const g=parseInt(localStorage.getItem('aimdojo.boardGen')||'0',10)||0;
+    if(g<BOARD_GEN){ clearLocalDojoCaches(); localStorage.setItem('aimdojo.boardGen', String(BOARD_GEN)); }
+  }catch(e){}
+}
+ensureBoardGen();
+let _dojoBest=null, _dojoRecHit={far:false,high:false,streak:false};
+const _DOJO_SORTS={peak_bpm:1,runtime:1};                         // whitelist (also guards the order= query string) — records = BPM + length of time
+let dojoSort='peak_bpm'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
+function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
+function dojoSession(){ return {   // board metrics + legacy columns the table/Railway still require (NOT NULL)
+  dur:Math.round(state.t), bpm:Math.round(state.maxBpm),
+  far:Math.round((state.maxHitDist||0)*100)/100, high:Math.round((state.maxHitHeight||0)*100)/100,
+  streak:state.bestStreak|0, kills:state.hits|0
+}; }
+function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
+  if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
+  sub.textContent=TF('yourBest','your best · {time} · {bpm} bpm',{time:fmtTime(b.dur||0),bpm:b.bpm||0}); }
+function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
+  // THE THRESHOLD IS ONE MOMENT AND ONE LINE (1.1). On a post-graduation night that the sky actually dealt, this
+  // flash names THE NIGHT instead of the song — the same element, the same animation, the same song colour and the
+  // same breath, one line where there was one line. It is a REPLACEMENT, never an addition: nothing else speaks here,
+  // and no toast is used at the threshold at all, so the deal line can never race the song name or be overwritten
+  // mid-animation. Pre-graduation (the trainer never reaches this call), deal.on:false, and any night the ephemeris
+  // could not be read (dealLine() returns '') all keep the song name exactly as it has always been.
+  // THE THRESHOLD'S PRIORITY CHAIN (wave 5a), and still exactly ONE line: the comeback greeting (parcel N, the first
+  // run of a day after a real absence) > the night the sky dealt (wave 4) > the song name. Each tier can only ever
+  // REPLACE the one below it, never stack with it, and a greeted night is still fully dealt — dealCompute ran at
+  // resetSession, so only the SENTENCE is given away, never a rule. Raw booleans first: with remember off this is one
+  // read and no call and the flash is wave 4's exactly; with both off it is the song name, as it has always been.
+  const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook();
+  const rl=CFG.remember.on?rememberLine():'';
+  const dl=rl?'':(CFG.deal.on?dealLine():'');   // not even evaluated on a greeted night: dealLine is a pure read of _deal, so skipping it changes nothing but the words
+  setText(f, rl||dl||('♪ '+songDisplay(activeTheme.name)));
+  f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath();
+}
 function noteSongPeak(){   // per-song personal bests — flash only when you set a new peak BPM or longest hold on THIS song
   if(!activeTheme || state.t<15) return;
   const name=activeTheme.name, dur=Math.round(state.t), bpm=Math.round(state.maxBpm);

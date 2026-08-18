@@ -5452,10 +5452,34 @@ function acquireShards(n, color){
                     
                                 
  
+                                                                                                                      
+                                                                                                                              
+                                                                                                                           
+                                                                                                                          
+                                                                                                                          
+                                                                                                                         
+                                                                                                                   
+                                                                                                                     
+                                                                                                                        
+                                                                                              
+                                                                                               
+                                                      
+                                                           
+                                         
+                                                                                                                                         
+                                                                                                          
+                                                                                                                                                                                                                                                                                                                                            
+                                                                     
+                                                                                                                                                                                                             
+                                                              
+                         
+                                                                                                                                                                                   
+    
+ 
                           
                                                                                                                                                                                                                                                                                                                                                                                          
       
-                                                             
+                                                                                                      
                                                                                                                                   
                              
  
@@ -5881,7 +5905,7 @@ function acquireShards(n, color){
                                         
                              
       
-                                                 
+                                                                                   
                                                                                                            
                                                                                        
                                                             
@@ -8529,6 +8553,7 @@ function acquireShards(n, color){
                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                             
+                                                                                                                             
                                                                                                                                                 
                      
                      
