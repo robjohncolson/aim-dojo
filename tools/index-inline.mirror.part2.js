@@ -3095,16 +3095,9 @@ function enhancePlanetTexture(tex, bodyId, onReady){
     const c=document.createElement('canvas'); c.width=w; c.height=h;
     const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,w,h);
     const idata=ctx.getImageData(0,0,w,h), d=idata.data;
-    const cfac=contrast;
-    for(let i=0;i<d.length;i+=4){
-      for(let k=0;k<3;k++){
-        let v=d[i+k]/255;
-        v=(v-0.5)*cfac+0.5;
-        if(v<0) v=0; else if(v>1) v=1;
-        v=Math.pow(v, gamma);
-        d[i+k]=(v*255+0.5)|0;
-      }
-    }
+    const lut=new Uint8Array(256);   // the tone curve is a pure per-channel map of a byte, so bake it ONCE (256 pow calls) and index — not 3 pow calls per pixel (~6.3 M for a 2048×1024 map, a 100-300 ms main-thread stall on first focus; perf audit 2026-08-18). Same arithmetic, same rounding, byte-identical output.
+    for(let b=0;b<256;b++){ let v=b/255; v=(v-0.5)*contrast+0.5; if(v<0) v=0; else if(v>1) v=1; v=Math.pow(v, gamma); lut[b]=(v*255+0.5)|0; }
+    for(let i=0;i<d.length;i+=4){ d[i]=lut[d[i]]; d[i+1]=lut[d[i+1]]; d[i+2]=lut[d[i+2]]; }
     ctx.putImageData(idata,0,0);
     const out=new THREE.CanvasTexture(c);
     out.wrapS=tex.wrapS; out.wrapT=tex.wrapT; out.minFilter=tex.minFilter; out.magFilter=tex.magFilter;
@@ -3380,7 +3373,7 @@ function placeAllSignArt(){
   // PERF P5 (SPEC §P5 F2): the belt is sky-pinned — skip the per-plane re-place while neither the
   // sky attitude nor the camera has moved since last placement (new-slot arrival places itself directly).
   const q=skySphere.quaternion, p=camera.position;
-  if(_saPlaced && _saLastQ.equals(q) && _saLastP.equals(p)) return;
+  if(_saPlaced && _saLastQ.angleTo(q)<1e-4 && _saLastP.distanceToSquared(p)<1e-8) return;   // epsilon, not exact-float equality: in natural mode the sphere quaternion is rewritten with a fresh wall-clock value every 20 Hz tick, so exact equality never held and all 13 planes were re-placed on every tick (perf audit 2026-08-18). 1e-4 rad ≈ 0.006° — a tenth of a pixel at 95° FOV
   _saLastQ.copy(q); _saLastP.copy(p); _saPlaced=true;
   for(const id in _signArtSlots) placeSignArtSlot(_signArtSlots[id]);
 }
@@ -4919,7 +4912,7 @@ function enterSkyTemple(options){
   templeActive=true; _templeFreeMouse=false; document.body.classList.remove('temple-free-mouse');
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false; skyFrozen=false;
   abortFlickBonus(); for(const target of targets) removeTarget(target); targets.length=0;
-  clearProjectiles(); clearRings(); clearLandRings(); resetFlock(); if(CFG.stars.on) starFlyClear(); for(const ghost of ghosts) releaseTrailMesh(ghost.mesh); ghosts.length=0;   // the Temple takes the field away mid-flight: unpaid pending/debt levels land first, airborne lines (already paid at drain, v1.3) just go with it — and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into. clearLandRings (wave 8, G2b) closes a POOL-CLEAR ASYMMETRY that predates the void and is a bug on ANY build: RING_POOL was swept here and landRingPool was not, so a shot that hit the ground inside the last 0.55 s carried a blue floor ring INTO the Temple and kept animating it there — updateLandRings is unconditional in animate, so the ring expands and fades for its full 0.55 s over the Temple's own shell, on the plane the Temple hard-hides four lines below. Unconditional by design: no moonline read, because the Temple owes this sweep with the parcel off too
+  clearProjectiles(); clearRings(); clearLandRings(); resetFlock(); if(CFG.stars.on) starFlyClear();   // the Temple takes the field away mid-flight: unpaid pending/debt levels land first, airborne lines (already paid at drain, v1.3) just go with it — and BEFORE the ghost sweep, so the flight's mesh is back in the pool it is about to be released into. clearLandRings (wave 8, G2b) closes a POOL-CLEAR ASYMMETRY that predates the void and is a bug on ANY build: RING_POOL was swept here and landRingPool was not, so a shot that hit the ground inside the last 0.55 s carried a blue floor ring INTO the Temple and kept animating it there — updateLandRings is unconditional in animate, so the ring expands and fades for its full 0.55 s over the Temple's own shell, on the plane the Temple hard-hides four lines below. Unconditional by design: no moonline read, because the Temple owes this sweep with the parcel off too
   hideArc(); hideScope(); recoilPitch=0; recoilYaw=0; trauma=0;
   if(_lsn.line){ _lsn.line.visible=false; _lsn.lineT=-1; }
   if(_lsn.card) _lsn.card.style.display='none';
@@ -5089,9 +5082,9 @@ function acquireShards(n, color){
   rec=rec || createShards(n,color);
   rec.mat.color.setHex(color); rec.mat.opacity=1; rec.pts.visible=true; scene.add(rec.pts); return rec;
 }
-function releaseShards(rec){ rec.pts.visible=false; scene.remove(rec.pts); shardPool.push(rec); }
-function addRecoil(){ if(reduceMotion) return; recoilPitch=Math.min(recoilPitch+CFG.recoilKick, CFG.recoilMax); recoilYaw += (Math.random()*2-1)*CFG.recoilYaw; }
-function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt); }
+                                                                                                 
+                                                                                                                                                                 
+                                                                                   
                                                      
                      
                                   
@@ -6168,7 +6161,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                   
                         
                                             
-                                                        
+                                 
                                                        
                                                                                                                  
                                                                                                                                                                                                                                                                                                    
@@ -7132,12 +7125,9 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                     
  
                           
-                        
-                                                                                                              
-                                                                                                      
                                
-                                                                                                                                
-                                               
+                                                               
+            
  
                         
                  
@@ -7147,7 +7137,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
             
  
                                  
-                                                                                                                
+                                                                     
  
                                                                  
                                                                                                                               
@@ -7274,8 +7264,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                      
-                                                                           
+                                                                                                                                                                                   
                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
@@ -7329,7 +7318,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                    
  
-                                                                                                                                                                                 
+                                                                                                          
                                  
                            
                                                                        
@@ -7405,7 +7394,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                                                                                             
                                                           
                                                                            
-                                                                                                                                       
+                                                                                                                 
    
                                                                                                                                                                                                
                       
@@ -7424,7 +7413,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                        
+                                                 
  
                                                                                                                             
                                                             
@@ -7511,9 +7500,8 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                          
                                        
  
-                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                     
+                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                         
                                                   
  
@@ -7801,11 +7789,11 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                          
  
                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                 
                                                                                                      
                                                                                                                                              
-                                                                                                                                                                                                                             
-                                                                                       
+                                                                                                       
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                           
@@ -7907,11 +7895,11 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                       
                                                                               
                                                                                                                              
-                                                                                                                                                                                              
+                                                                                                                                                                        
                                         
      
-                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                      
                                                   
                                                                                                                                                                                                              
  
@@ -8031,6 +8019,8 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                                      
                                                                             
  
+                       
+                                                                                                                                                                                                                  
                         
                                                       
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
@@ -8040,7 +8030,6 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                       
                                                                            
                                                                                                                                         
-                                                                                                 
                                                                                                                                                     
                                                                                            
                                                                                                                                 
@@ -8301,7 +8290,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                                                                               
  
                                                                                                                                                                      
-                                                                                                                                              
+                                                                                                                                                          
                                                                                                                                                                      
                                                                                                     
                                                                                                                                                                                                                                                                       
@@ -8323,7 +8312,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                  
                                                                                                                                                   
                                                                     
-                                                                                                     
+                                                                               
                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                   
                                                                          
@@ -8388,8 +8377,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                            
                 
                                                                                                             
-                                                                                                                                                                       
-                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                      
  
                                                                                                                               
                                                                                        
@@ -8433,6 +8421,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                                                                                           
                                                                                                                          
                                                                                                                  
+                                                                                                                                                                                                                                                                                        
                                                                                                                                    
 
                   
@@ -8478,7 +8467,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                         
                            
                          
-                                                                                                          
+                                                                                                               
                                                                                                            
                                                              
                              
@@ -8500,10 +8489,8 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                                                                             
                                                                                                           
                                                                                                  
-                                                                                             
-                             
-                                  
-                                  
+                                                                                            
+                                                                                                                                                                                                                                                                                      
                               
                          
                                                                                                                                       
@@ -8511,18 +8498,6 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
    
                                                                                                                           
  
-                        
-                                  
-                                                                                                                                   
-                                    
- 
-                                                                                                                    
-                                                                                                                 
-                                                                                                                    
-                                                                                                                   
-                                                                                                
-                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                       
                         
                             
          
@@ -8538,62 +8513,8 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                              
                                                                                                                                     
  
-                                                 
-                                                          
-                                                                         
-                                                                                            
-                       
-                                                             
-                                        
-                                           
-   
-                                  
-                                                                                                                         
- 
-                                        
-                                        
-                 
-                                                
-                                                                                                
-                                                  
- 
-                                                                                                      
-                           
-                                                                           
-                    
- 
-                         
-                                      
-                                 
-                                                               
-                             
-                                            
-                                                                  
-                                                                         
-                                                     
-                                   
-                                                                                                                       
-                                                        
-                           
-       
-                        
-                                           
-                                                  
-                               
-                                                                                
-                                                                                                                  
-                                                      
-                                                               
-         
-                        
-       
-     
-   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-                                                                                            
-                                                               
-                                                                                                 
-   
+                                                                                                                                                                                  
+                                                                                                                                                                                        
  
 
                                                               
@@ -8606,7 +8527,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                  
                                                   
                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                             
                                                                                                                                                 
                      
@@ -8650,6 +8571,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
    
                                                                                                                                                                                                                                                                                                         
                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                         
                                     
                                                                                              
@@ -9860,7 +9782,6 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
                                                             
                      
                                                                                                                                                                                                         
-                                                                   
                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
@@ -9907,7 +9828,7 @@ function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt)
  
                                                                                                                                                                 
                          
-                                                                                                                                                                
+                                                                                                                                                                    
                                                                                                
                                                                                                                                                        
                                                                                                   

@@ -3095,16 +3095,9 @@
                                                                     
                                                              
                                                         
-                        
-                                 
-                           
-                         
-                           
-                                      
-                             
-                             
-       
-     
+                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                             
+                                                                                           
                                 
                                          
                                                                                                        
@@ -3380,7 +3373,7 @@
                                                                                                   
                                                                                                           
                                                   
-                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                           
                                                      
                                                                      
  
@@ -4919,7 +4912,7 @@
                                                                                                  
                                                                                   
                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                
                                                           
                                                
@@ -5089,9 +5082,9 @@
                                    
                                                                                                        
  
-                                                                                                 
-                                                                                                                                                                 
-                                                                                   
+function releaseShards(rec){ rec.pts.visible=false; scene.remove(rec.pts); shardPool.push(rec); }
+function addRecoil(){ if(reduceMotion) return; recoilPitch=Math.min(recoilPitch+CFG.recoilKick, CFG.recoilMax); recoilYaw += (Math.random()*2-1)*CFG.recoilYaw; }
+function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt); }
 function explodeAt(pos, radius, color, slow, shardN){
   color=color||TOXIC;
   const flash=acquireFlash(color);
@@ -6168,7 +6161,7 @@ function bowEnterLast(){
   const live=targets.slice(), stagger=Math.max(0,(B.riseBeatsPerOrb||0))*_bow.spb;
   for(const tg of live){
     if(!tg || tg.dead || !tg.mesh) continue;
-    tg.dead=true; dropTarget(tg); retireTrail(tg, 0.45);
+    tg.dead=true; dropTarget(tg);
     if(tg.snd){ stopTargetSound(tg.snd); tg.snd=null; }
     const p=tg.mesh.position, dx=p.x-PLAYER_POS.x, dz=p.z-PLAYER_POS.z, h=Math.max(0.001,Math.sqrt(dx*dx+dz*dz));
     const o={tg:tg, x0:p.x, y0:p.y, z0:p.z, ex:PLAYER_POS.x+dx/h*(h*3.2), ez:PLAYER_POS.z+dz/h*(h*3.2), ey:ROOM_BY*2.6, at:_bow.t+_bow.orbs.length*stagger, mat0:null, sh0:null, matC:null, shC:null, shOp:0};   // outward along its OWN azimuth toward the sky shell, one per beat in spawn order
@@ -7132,12 +7125,9 @@ function dollyStrengthMul(){
   return base*(0.35+0.65*Math.max(0,Math.min(1,t)));
 }
 const targetRecordPool=[];
-const trailPointPool=[];
-function acquireTrailPoint(x,y,z){ const p=trailPointPool.pop() || new THREE.Vector3(); return p.set(x,y,z); }
-function releaseTrailPoints(points){ for(const p of points) trailPointPool.push(p); points.length=0; }
 function acquireTargetRecord(){
-  const tg=targetRecordPool.pop() || {vel:new THREE.Vector3(), aim0:new THREE.Vector3(), lastAim:new THREE.Vector3(), trail:[]};
-  tg.trail.length=0; tg.trailHead=0; return tg;
+  const tg=targetRecordPool.pop() || {vel:new THREE.Vector3()};
+  return tg;
 }
 function dropTarget(tg){
   const i=tg.idx;
@@ -7147,7 +7137,7 @@ function dropTarget(tg){
   tg.idx=-1;
 }
 function releaseTargetRecord(tg){
-  releaseTrailPoints(tg.trail); tg.mesh=tg.shell=tg.snd=tg.trailMesh=null; tg.idx=-1; targetRecordPool.push(tg);
+  tg.mesh=tg.shell=tg.snd=null; tg.idx=-1; targetRecordPool.push(tg);
 }
 function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
 // THE ONE SKILL RAMP. UNCHANGED BY THE SIXTY CAP (wave 6, parcel P) — and that is exactly why P is one constant: this law now
@@ -7274,8 +7264,7 @@ function spawnTarget(opts){
   tg.fill16=-1; tg.fig=null; tg.lifeBeatsEff=0;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base, figure or stretched life); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for. lifeBeatsEff 0 = "my life is the standard rhythmLifeBeats", which is every orb that is not the fill (and, with the kill-switch off, every orb there will ever be) — orbRed's ink law reads it
   if(CFG.deal.on && _deal.quickLifeMul!==1) tg.lifeBeatsEff=CFG.rhythmLifeBeats*_deal.quickLifeMul;   // THE QUICK ONES WAKE: a brisker field is a brisker CLOCK too — the trail's white→red→white ink law reads lifeBeatsEff, so latching the dealt life here keeps that timing cue honest instead of colouring against a life this orb does not have. Written AFTER the reset above and BEFORE the fill's own stretch below, which outranks it on the one orb that is a figure
   tg.poly=_polyPairing;   // POLYRHYTHM PAIRS: the tag both members carry (and every other orb clears, so a pooled record can never haunt the gate with a pair that popped three swells ago). It is READ by exactly one thing — polyOnField's "at most one pair live" — and by nothing on any hot path: a poly member is a plain Echo in every other respect, scored, sung, star-bound and volleyed exactly as it would be alone. Written unconditionally, like tg.starId, so the field is honest even with the parcel off, where _polyPairing is false forever
-  tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true; tg.aim0.copy(a0); tg.angPath=0; tg.lastAim.copy(a0);   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets) tg.trailMesh=rhythm?newTrailMesh():null; tg.trailDirty=true; tg.trailAccum=TRAIL_UPDATE_STEP;
-  tg.trail.push(acquireTrailPoint(a0.x*TRAIL_R,a0.y*TRAIL_R,a0.z*TRAIL_R));
+  tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true;   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets)
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const dl=CFG.deal.on;   // THE SKY DEALS THE NIGHT tilts the MIX and nothing else: the phase rule and every risen planet move these three thresholds, the SAME single draw decides the kind, and a planet can therefore never become a second rule. Raw boolean first — an off night reads the three base chances verbatim
     const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = ((dl&&_dealPairing)||(CFG.poly.on&&_polyPairing)) ? 0 : (kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0))); }   // gold + speed (3) + mover (4) — except a member of a dealt PAIR, which is pinned plain (1.1: pairs are pure volley material, and gold's goldDistMul would move it off the distance its own k was drawn for). The draw is still taken and simply discarded, so a pair member's spawn costs exactly what every other spawn costs. POLYRHYTHM PAIRS (wave 6) pins kind 0 for exactly the same reason and by exactly the same means: its two members' distances ARE the ratio, and gold would silently move one of them off the lead it was chosen for. Raw boolean first on both sides, so an off parcel reads one flag and stops, and with poly.on:false this ternary is character-for-character the wave-5 decision
@@ -7329,7 +7318,7 @@ function spawnTarget(opts){
   tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
 }
-function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); if(tg.trailMesh){ releaseTrailMesh(tg.trailMesh); tg.trailMesh=null; } releaseTargetRecord(tg); }
+function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }
 function reconcileTargetSounds(){
   for(const tg of targets){
     if(!soundOn){ if(tg.snd){ stopTargetSound(tg.snd); tg.snd=null; } }
@@ -7405,7 +7394,7 @@ function pushEvent(good){
                                                                                                                                                                                                             
                                                           
                                                                            
-                                                                                                                                       
+                                                                                                                 
    
                                                                                                                                                                                                
                       
@@ -7424,7 +7413,7 @@ function pushEvent(good){
                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                        
+                                                 
  
                                                                                                                             
                                                             
@@ -7511,9 +7500,8 @@ function pushEvent(good){
                                                                          
                                        
  
-                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                     
+                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                         
                                                   
  
@@ -7801,11 +7789,11 @@ function pushEvent(good){
                                                                                                          
  
                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                 
                                                                                                      
                                                                                                                                              
-                                                                                                                                                                                                                             
-                                                                                       
+                                                                                                       
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                           
@@ -7907,11 +7895,11 @@ function pushEvent(good){
                                                                                                                       
                                                                               
                                                                                                                              
-                                                                                                                                                                                              
+                                                                                                                                                                        
                                         
      
-                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                      
                                                   
                                                                                                                                                                                                              
  
@@ -8031,6 +8019,8 @@ function pushEvent(good){
                                                                                                                                                      
                                                                             
  
+                       
+                                                                                                                                                                                                                  
                         
                                                       
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
@@ -8040,7 +8030,6 @@ function pushEvent(good){
                                                                                       
                                                                            
                                                                                                                                         
-                                                                                                 
                                                                                                                                                     
                                                                                            
                                                                                                                                 
@@ -8301,7 +8290,7 @@ function pushEvent(good){
                                                                                                                                                                                               
  
                                                                                                                                                                      
-                                                                                                                                              
+                                                                                                                                                          
                                                                                                                                                                      
                                                                                                     
                                                                                                                                                                                                                                                                       
@@ -8323,7 +8312,7 @@ function pushEvent(good){
                                  
                                                                                                                                                   
                                                                     
-                                                                                                     
+                                                                               
                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                   
                                                                          
@@ -8388,8 +8377,7 @@ function pushEvent(good){
                                                                                                                                            
                 
                                                                                                             
-                                                                                                                                                                       
-                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                      
  
                                                                                                                               
                                                                                        
@@ -8433,6 +8421,7 @@ function pushEvent(good){
                                                                                                                                                                           
                                                                                                                          
                                                                                                                  
+                                                                                                                                                                                                                                                                                        
                                                                                                                                    
 
                   
@@ -8478,7 +8467,7 @@ function pushEvent(good){
                                         
                            
                          
-                                                                                                          
+                                                                                                               
                                                                                                            
                                                              
                              
@@ -8500,10 +8489,8 @@ function pushEvent(good){
                                                                                                             
                                                                                                           
                                                                                                  
-                                                                                             
-                             
-                                  
-                                  
+                                                                                            
+                                                                                                                                                                                                                                                                                      
                               
                          
                                                                                                                                       
@@ -8511,18 +8498,6 @@ function pushEvent(good){
    
                                                                                                                           
  
-                        
-                                  
-                                                                                                                                   
-                                    
- 
-                                                                                                                    
-                                                                                                                 
-                                                                                                                    
-                                                                                                                   
-                                                                                                
-                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                       
                         
                             
          
@@ -8538,62 +8513,8 @@ function pushEvent(good){
                              
                                                                                                                                     
  
-                                                 
-                                                          
-                                                                         
-                                                                                            
-                       
-                                                             
-                                        
-                                           
-   
-                                  
-                                                                                                                         
- 
-                                        
-                                        
-                 
-                                                
-                                                                                                
-                                                  
- 
-                                                                                                      
-                           
-                                                                           
-                    
- 
-                         
-                                      
-                                 
-                                                               
-                             
-                                            
-                                                                  
-                                                                         
-                                                     
-                                   
-                                                                                                                       
-                                                        
-                           
-       
-                        
-                                           
-                                                  
-                               
-                                                                                
-                                                                                                                  
-                                                      
-                                                               
-         
-                        
-       
-     
-   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-                                                                                            
-                                                               
-                                                                                                 
-   
+                                                                                                                                                                                  
+                                                                                                                                                                                        
  
 
                                                               
@@ -8606,7 +8527,7 @@ function pushEvent(good){
                                  
                                                   
                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                             
                                                                                                                                                 
                      
@@ -8650,6 +8571,7 @@ function pushEvent(good){
    
                                                                                                                                                                                                                                                                                                         
                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                         
                                     
                                                                                              
@@ -9860,7 +9782,6 @@ function pushEvent(good){
                                                             
                      
                                                                                                                                                                                                         
-                                                                   
                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
@@ -9907,7 +9828,7 @@ function pushEvent(good){
  
                                                                                                                                                                 
                          
-                                                                                                                                                                
+                                                                                                                                                                    
                                                                                                
                                                                                                                                                        
                                                                                                   

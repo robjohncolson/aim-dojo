@@ -3095,16 +3095,9 @@
                                                                     
                                                              
                                                         
-                        
-                                 
-                           
-                         
-                           
-                                      
-                             
-                             
-       
-     
+                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                             
+                                                                                           
                                 
                                          
                                                                                                        
@@ -3380,7 +3373,7 @@
                                                                                                   
                                                                                                           
                                                   
-                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                           
                                                      
                                                                      
  
@@ -4919,7 +4912,7 @@
                                                                                                  
                                                                                   
                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                
                                                           
                                                
@@ -6168,7 +6161,7 @@
                                                                                   
                         
                                             
-                                                        
+                                 
                                                        
                                                                                                                  
                                                                                                                                                                                                                                                                                                    
@@ -7132,12 +7125,9 @@
                                                     
  
                           
-                        
-                                                                                                              
-                                                                                                      
                                
-                                                                                                                                
-                                               
+                                                               
+            
  
                         
                  
@@ -7147,7 +7137,7 @@
             
  
                                  
-                                                                                                                
+                                                                     
  
                                                                  
                                                                                                                               
@@ -7274,8 +7264,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                      
-                                                                           
+                                                                                                                                                                                   
                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
@@ -7329,7 +7318,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                    
  
-                                                                                                                                                                                 
+                                                                                                          
                                  
                            
                                                                        
@@ -7405,7 +7394,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.kind===2){                                                          // DECOY: never scores — the hit IS the penalty (streak break + a wasted shot). Skip the grade path entirely; h/score untouched.
     state.streak=0; pushReaction(beats); pushEvent(false);
     showTiming(T('decoy','NOT A VOICE'),T('decoySub','let it pass'),'off');
-    popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); padRumble(70,0.9); retireTrail(tg, 0.3); killTarget(tg, false); return;
+    popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); padRumble(70,0.9); killTarget(tg, false); return;
   }
   if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
   else state.streak=0;
@@ -7424,7 +7413,7 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(good) playHit(gradeIdx); else { if(CFG.voice.on) voiceBreak(); sfx('offbeat'); }   // a late GOOD is still a non-FLAWLESS arrival, so it ends the consonance run (audio only — the grade, the score and sfx('offbeat') are exactly as they were)
   if(good && CFG.chordVolley.on && !(CFG.tank.fillOnly && tg.fill16>=0)) volleyNote(tg);   // CHORD VOLLEYS: only SCORING arrivals are offered to the tracker (a late GOOD, a clank, a whiff and a decoy all miss this line by construction), and the exclusion is the FILL TAG — tg.fill16>=0 under the raw fillOnly read, the same one-and-only marker handleTankHit and the walking note read — not "any multi-hit orb". The swell's stated figure stays its own voice; a legacy random tank (fillOnly:false, where fill16 is -1 on every orb that ever exists) lands a scoring kill like anything else and is allowed back into a dyad
   if(good && CFG.stars.on && tg.starId) starVoiceHome(tg);   // THE VOICE FLIES HOME: only a LANDED SCORING arrival returns a voice (a clank, a whiff, a decoy and a late GOOD all miss this line by construction), and only from an orb that was called by a star at all — so the trainer and the Temple, where no orb ever carries a bearing, can never reach it. Queued here, BEFORE killTarget hands the mesh back to the pool, because the burst position is the flight's origin. Raw boolean first so the parcel off costs one read and no call. Nothing about the grade, the score, the streak or ghostRec above changed
-  chordHit(state.streak); retireTrail(tg, 0.55); killTarget(tg, clutch);
+  chordHit(state.streak); killTarget(tg, clutch);
 }
 function missGrooveDuck(heavy){   // short musical flinch (lighter than v1 — half-beat −16dB was too busy with shake+sparks)
   const tDuck=(60/Math.max(20,state.bpm))*(heavy?0.35:0.22);
@@ -7511,9 +7500,8 @@ function onWhiff(){
   if(!reduceMotion){ addTrauma(CFG.hitTrauma*0.18); missCamKick(false); }
   try{ padRumble(16, 0.25); }catch(e){}
 }
-function onExpire(tg){ if(tg.kind===2){ retireTrail(tg, 0.3); removeTarget(tg); return; }
-  if(CFG.tank.fillOnly && tg.fill16>=0){ retireTrail(tg, 0.3); removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly
-  retireTrail(tg, 0.3); removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
+function onExpire(tg){ if(tg.kind===2){ removeTarget(tg); return; }
+  if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
   playWhiffSfx(); missGrooveDuck(false);
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.14);
 }
@@ -7801,11 +7789,11 @@ function ensureArcObjs(){
   for(const o of [arcRibbon,arcLand,arcPulseA,arcPulseB,arcApex]){ o.frustumCulled=false; scene.add(o); }
 }
 function hideArc(){ if(arcRibbon){ arcRibbon.visible=arcLand.visible=arcPulseA.visible=arcPulseB.visible=false; if(arcApex) arcApex.visible=false; } arcLanded=false; _arcApexOn=false; }
+function _arcPulseSet(ring,ph){ const r=0.5+ph*2.6; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*(0.5+0.3*dayAmt); ring.visible=true; }   // bigger pulse rings, brighter by day (module-scope: animateArcPulse runs every frame and used to allocate this closure each time)
 function animateArcPulse(){                                                                  // expanding rings pulsing out of the impact point, synced to the beat (runs EVERY frame for smoothness, not the 20Hz arc throttle)
   if(!arcPulseA || !arcLanded){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } return; }
   const beatLen=60/Math.max(20,state.bpm), period=beatLen*0.5;     // a fresh ring every half-beat; two staggered → a ping every quarter-beat
-  const setP=(ring,ph)=>{ const r=0.5+ph*2.6; ring.position.copy(_arcLandPos); ring.scale.set(r,r,r); ring.material.opacity=Math.max(0,1-ph)*(0.5+0.3*dayAmt); ring.visible=true; };   // bigger pulse rings, brighter by day
-  const ph=(state.t % period)/period; setP(arcPulseA, ph); setP(arcPulseB, (ph+0.5)%1);
+  const ph=(state.t % period)/period; _arcPulseSet(arcPulseA, ph); _arcPulseSet(arcPulseB, (ph+0.5)%1);
 }
 function projSpeedNow(){ return lerp(CFG.projSpeed, CFG.projSpeedFast, diffT()); }   // muzzle speed scales with tempo/skill (diffT) so the bullet's flight time — and thus the lead a fast orb demands — stays manageable at high BPM. Used by computeShotPlan (→ bullet+ribbon+lock) and the ideal-arc readout, so all stay consistent. THE SIXTY CAP (parcel P) KEEPS BOTH LERP ENDPOINTS UNCHANGED — see CFG.projSpeedFast for the full decision. In one line: projSpeedFast IS the expert muzzle speed and 60 IS expert now, so the arc reaching 72 m/s at the cap is the definition being honoured, not a range artefact. It is FLAGGED for the post-wave tuning session (arc flatness at the cap) and deliberately NOT pre-tuned. Note this fn is also the solver input for beatSpawnDist/tankCloseDist, which is precisely why the feasible k-set moves down to {2,3,4,6} at 60: a faster bullet covers a k-sixteenth flight in more metres, so the long leads walk out past rangeMax.
 function computeShotPlan(M, V){                                                              // shared by the dashed arc, the REAL projectile, and the lock: launch from the bottom-right muzzle, solved to land where the eye→crosshair parabola lands. Fills M (muzzle) + V (launch velocity), sets _arcI (impact) + _planLanded, returns flight time T.
@@ -7907,11 +7895,11 @@ function updateTargetMarks(){                                                 //
     const da=m.drop.geometry.attributes.position.array; da[0]=p.x;da[1]=p.y;da[2]=p.z; da[3]=p.x;da[4]=0.02;da[5]=p.z;
     m.drop.geometry.attributes.position.needsUpdate=true; m.drop.visible=true;
     _tmFloor.set(p.x,0.02,p.z); const sc=projectPointScope(_tmFloor);          // DISTANCE label at the feet (the floor ring)
-    if(sc[2]){ m.label.style.setProperty('--tx',sc[0]+'px'); m.label.style.setProperty('--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
+    if(sc[2]){ setVar(m.label,'--tx',sc[0]+'px'); setVar(m.label,'--ty',sc[1]+'px'); setText(m.label, fmtDist(p.distanceTo(PLAYER_POS))); m.label.classList.add('on'); }
     else m.label.classList.remove('on');
     }
-    if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, T('lock','LOCK')); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
-    else if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ m.hlabel.style.setProperty('--tx',os[0]+'px'); m.hlabel.style.setProperty('--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); m.hlabel.classList.remove('held'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
+    if(tg._flickLocked){ const os=projectPointScope(p); if(os[2]){ setVar(m.hlabel,'--tx',os[0]+'px'); setVar(m.hlabel,'--ty',os[1]+'px'); setText(m.hlabel, T('lock','LOCK')); m.hlabel.classList.add('on','held'); } else m.hlabel.classList.remove('on'); }   // RAIL-FLICK BONUS: the persistent "LOCKED" set (green-filled .tgtKey glyph), floating at the orb
+    else if(tg.hpMax>1){ const os=projectPointScope(p); if(os[2]){ setVar(m.hlabel,'--tx',os[0]+'px'); setVar(m.hlabel,'--ty',os[1]+'px'); setText(m.hlabel, String(tg.hp)); m.hlabel.classList.add('on'); m.hlabel.classList.remove('held'); } else m.hlabel.classList.remove('on'); }   // MULTI-HIT: remaining on-beat hits, floating at the orb (reuses the dormant .tgtKey glyph)
     else m.hlabel.classList.remove('on','held'); }
   for(; i<targetMarks.length; i++){ targetMarks[i].ring.visible=false; targetMarks[i].drop.visible=false; targetMarks[i].label.classList.remove('on'); targetMarks[i].hlabel.classList.remove('on','held'); }
 }
@@ -8031,6 +8019,8 @@ function showWasdGlyph(key, spoiled, on, ghost, glow){   // ghost = this note is
   else if(_glyphGlowOwned){ _glyphGlowOwned=false; setStyle(wasdGlyphEl,'textShadow',''); }   // handed back to the stylesheet, once, on the boundary
   if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
 }
+const HUD_CX=HUD_CSS/2;
+function ARC(r){ hudCtx.beginPath(); hudCtx.arc(HUD_CX,HUD_CX,Math.max(0.5,r),0,Math.PI*2); hudCtx.stroke(); }   // hoisted out of drawWasdLane (was a fresh closure per frame; cx===cy===HUD_CSS/2 are constants)
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
   const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD may subsume the NOTE LANE — but only when it CARRIES it (ROAD_LANE_READY is bound to the very flags that draw the glyph, index.html:1749) — and UNDER THE MOONLINE IT NEVER DOES: SPEC_MOONLINE §1's cue contract, from the user's own regression report, leaves the road COLOUR-ONLY and puts the required LETTER back at the CROSSHAIR, where the pre-wave-7 pulsating beat glow is now waiting for it (parcel W). So laneCue is TRUE on every shipped Moonline configuration and on every tier, and true again in the trainer, in the Temple, with bandGlyphs:false and under the raw kill-switch road.on:false — which means both gates below are the pre-road expressions, verbatim, in every world this build can reach. The BEAT CIRCLE (wasdHud) is deliberately untouched by the road's arithmetic — it is the player's own training wheel, not the lane; wave 8.2 (Y3) only changed what it DEFAULTS to, never who decides. The false branch survives for moonline.on:false, the one world where the pavement letter still exists
@@ -8040,7 +8030,6 @@ function drawWasdLane(){
   if(showHud){ if(hudCanvas.style.display==='none') hudCanvas.style.display='block'; }
   else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
-  const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
   if(showHud){ hudCtx.setTransform(HUD_K,0,0,HUD_K,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
   const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketTarget=!!(pocketCueOn && pocketExpected()!=='on');
@@ -8301,7 +8290,7 @@ function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-c
   const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
 }
 function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
-function projectPointScope(p){ _scPP.copy(p); camera.worldToLocal(_scPP); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
+function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
 function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
@@ -8323,7 +8312,7 @@ function updateScope(dt){
   const ts=projectPointScope(Tt);
   if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
     lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
-    lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px');
+    setVar(lockBoxEl,'--lx', ts[0]+'px'); setVar(lockBoxEl,'--ly', ts[1]+'px');
     const isDecoy=tg.kind===2, lk=locked && !isDecoy; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', lk);   // decoy -> red AVOID box, never the gold LOCK
     if(lk && flight>0 && !reduceMotion){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast. reduced-motion -> steady box (no breathe)
     else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
@@ -8388,8 +8377,7 @@ function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus 
   const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
   recordHit(tg);
   if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
-  playHit(0); chordHit(state.streak);                                               // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak
-  retireTrail(tg, 0.55); killTarget(tg, true);                                      // clutch=true → the bigger GOLDEN burst reads these as bonus kills
+  playHit(0); chordHit(state.streak);                                               // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak killTarget(tg, true);                                      // clutch=true → the bigger GOLDEN burst reads these as bonus kills
 }
 function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
   const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
@@ -8433,6 +8421,7 @@ const el={ speedVal:gid('speedVal'), hitFlash:gid('hitFlash'), dojoFlash:gid('do
 el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
 function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
 function setClassName(node, value){ if(node._className!==value){ node.className=value; node._className=value; } }
+function setVar(node, name, value){ const key='_var_'+name; if(node[key]!==value){ node.style.setProperty(name, value); node[key]=value; } }   // change-guarded CSS custom property write (the --tx/--ty/--lx/--ly reticle anchors: skipped while neither the camera nor the orb moved)
 function setStyle(node, prop, value){ const key='_style_'+prop; if(node[key]!==value){ node.style[prop]=value; node[key]=value; } }
 
 let primaryKey='';
@@ -8478,7 +8467,7 @@ function updateAssist(dt){
   const cx=viewCX, cy=viewCY; let idx=0;
   for(const tg of targets){
     if(tg.dead) continue;
-    _assistLocal.copy(tg.mesh.position); camera.worldToLocal(_assistLocal); const behind=_assistLocal.z>0;
+    _assistLocal.copy(tg.mesh.position).applyMatrix4(camera.matrixWorldInverse); const behind=_assistLocal.z>0;
     _assistNdc.copy(_assistLocal).applyMatrix4(camera.projectionMatrix); let x=_assistNdc.x,y=_assistNdc.y;
     if(!behind && Math.abs(x)<=1 && Math.abs(y)<=1) continue;
     if(behind){ x=-x; y=-y; }
@@ -8500,10 +8489,8 @@ function updateAssist(dt){
 // Each target paints its OWN trail: when it spawns the crosshair starts drawing on an invisible sphere; the
 // line ripens white→red toward the optimal click time, then detaches and fades for a moment after the orb
 // dies. Path score per orb = great-circle angle to where you started ÷ angle actually travelled.
-const INK_OPT=3, TRAIL_R=12, TRAIL_MAX=90;  // beats-to-red; sphere radius; max samples/trail
-const TRAIL_UPDATE_STEP=1/20;
-const ghosts=[], trailMeshPool=[];
-const _aimCur=new THREE.Vector3();
+const TRAIL_MAX=90;   // max samples per pooled trail line (the returning-voice line uses 2)
+const trailMeshPool=[];   // additive depth-test-free THREE.Line pool — today only the returning-voice line (starFlyStep) rides it; the per-orb aim trail that once shared it was retired 2026-08-18 (it had been silently dead since e172584 swallowed its spawn line into a comment)
 function setAimDir(out, p, y){
   if(p==null && y==null){
     if(aimDirty){ const cp=Math.cos(pitch); _aimDirCache.set(-Math.sin(yaw)*cp, Math.sin(pitch), -Math.cos(yaw)*cp); aimDirty=false; }
@@ -8511,18 +8498,6 @@ function setAimDir(out, p, y){
   }
   p=p==null?pitch:p; y=y==null?yaw:y; const cp=Math.cos(p); return out.set(-Math.sin(y)*cp, Math.sin(p), -Math.cos(y)*cp);
 }
-function unitAngle(a,b){
-  const d=a.x*b.x+a.y*b.y+a.z*b.z;
-  if(d>0.985) return Math.sqrt(Math.max(0,2*(1-d)));          // near-aligned aim: chord length is a very close angle approximation
-  return Math.acos(d<-1?-1:d>1?1:d);
-}
-/* The trail's white→red→white age law. It is a TIMING CUE, so it reads the orb's OWN lifetime: eff = the beats this
-   target actually gets (lifeBeatsEff, latched at spawn ONLY for the drum-fill tank, whose expiry is stretched to
-   mercy end), and the true age is mapped back onto the standard rhythmLifeBeats timeline before the identical curve
-   below runs. Every normal orb carries lifeBeatsEff 0 → eff===maxB → the factor is exactly 1 and the arithmetic is
-   byte-for-byte today's (x*1===x); with tank.fillOnly:false no orb ever has any other value. */
-function orbRed(tg){ const spb=60/state.bpm, maxB=CFG.rhythmLifeBeats, eff=tg.lifeBeatsEff>0?tg.lifeBeatsEff:maxB, sc=maxB/eff, a=((state.t-tg.born)/spb)*(isFinite(sc)&&sc>0?sc:1);   // sc guarded finite-positive: rhythmLifeBeats 0/Infinity would otherwise freeze the trail white (×0) or NaN it (∞/∞); degenerate configs age on raw beats instead
-  return Math.max(0, Math.min(1, a<=INK_OPT ? a/INK_OPT : 1-(a-INK_OPT)/Math.max(0.5,maxB-INK_OPT))); }
 function newTrailMesh(){
   let m=trailMeshPool.pop();
   if(!m){
@@ -8538,62 +8513,8 @@ function newTrailMesh(){
 function releaseTrailMesh(m){
   m.visible=false; m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); scene.remove(m); trailMeshPool.push(m);
 }
-function buildTrail(mesh, pts, head, cr, cg, cb){
-  const n=Math.min(pts.length, TRAIL_MAX), len=pts.length;
-  if(n<2){ mesh.visible=false; mesh.geometry.setDrawRange(0,0); return; }
-  const pa=mesh.geometry.attributes.position.array, ca=mesh.geometry.attributes.color.array;
-  for(let i=0;i<n;i++){
-    const q=pts[(head+i)%len], j=i*3, f=n>1?i/(n-1):1, b=f*f;
-    pa[j]=q.x; pa[j+1]=q.y; pa[j+2]=q.z;
-    ca[j]=cr*b; ca[j+1]=cg*b; ca[j+2]=cb*b;
-  }
-  mesh.geometry.setDrawRange(0,n);
-  mesh.geometry.attributes.position.needsUpdate=true; mesh.geometry.attributes.color.needsUpdate=true; mesh.visible=true;
-}
-function recolorTrail(mesh, cr, cg, cb){
-  const n=mesh.geometry.drawRange.count;
-  if(n<2) return;
-  const ca=mesh.geometry.attributes.color.array;
-  for(let i=0;i<n;i++){ const j=i*3, f=i/(n-1), b=f*f; ca[j]=cr*b; ca[j+1]=cg*b; ca[j+2]=cb*b; }
-  mesh.geometry.attributes.color.needsUpdate=true;
-}
-function retireTrail(tg, life){                          // hand the orb's trail off to a fading ghost
-  if(!tg.trailMesh) return;
-  ghosts.push({mesh:tg.trailMesh, mat:tg.trailMesh.material, age:0, life});
-  tg.trailMesh=null;
-}
-function updateTrail(dt){
-  if(state.running && targets.length){
-    const cur=setAimDir(_aimCur);
-    const tx=cur.x*TRAIL_R, ty=cur.y*TRAIL_R, tz=cur.z*TRAIL_R;
-    for(const tg of targets){
-      if(tg.dead || !tg.trailMesh) continue;
-      tg.angPath+=unitAngle(tg.lastAim,cur); tg.lastAim.copy(cur);
-      const len=tg.trail.length, last=tg.trail[(tg.trailHead+len-1)%len];
-      const dx=tx-last.x, dy=ty-last.y, dz=tz-last.z;
-      if(dx*dx+dy*dy+dz*dz>0.0016){
-        if(len>=TRAIL_MAX){ const q=tg.trail[tg.trailHead]; q.set(tx,ty,tz); tg.trailHead=(tg.trailHead+1)%TRAIL_MAX; }
-        else tg.trail.push(acquireTrailPoint(tx,ty,tz));
-        tg.trailDirty=true;
-      }
-      tg.trailAccum+=dt;
-      if(tg.trailAccum>=TRAIL_UPDATE_STEP){
-        if(tg.trailDirty || tg.trailMesh.visible){
-          const red=orbRed(tg);
-          const cr=(232+23*red)/255, cg=(238-200*red)/255, cb=(232-184*red)/255;
-          if(tg.trailDirty || !tg.trailMesh.visible) buildTrail(tg.trailMesh, tg.trail, tg.trailHead, cr, cg, cb);
-          else recolorTrail(tg.trailMesh, cr, cg, cb);
-          tg.trailMesh.material.opacity=1; tg.trailDirty=false;
-        }
-        tg.trailAccum=0;
-      }
-    }
-  }
-  if(CFG.stars.on && (_starFly.length || _starPend.length || _starDebt.length)) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes — one boolean and three length reads per frame with nothing in the air or waiting, and nothing at all with the parcel off. The queues are in the gate because a return that has not launched yet is still owed a tick, and this is the only frame hook that can pay it
-  for(let i=ghosts.length-1;i>=0;i--){ const g=ghosts[i]; g.age+=dt; const k=1-g.age/g.life;
-    if(k<=0){ releaseTrailMesh(g.mesh); swapRemove(ghosts,i); }
-    else { g.mat.opacity=k; g.mesh.scale.setScalar(1+(1-k)*0.7); }   // bloom outward as it fades
-  }
+function updateTrail(dt){   // the per-orb aim trail is gone; the name stays because the returning voices still ride the trail pool from here (one boolean, one call, every frame)
+  if(CFG.stars.on && (_starFly.length || _starPend.length || _starDebt.length)) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes
 }
 
 /* ========================= LOOP ========================= */
@@ -8606,7 +8527,7 @@ function animate(frameNow){
   requestAnimationFrame(animate);
   if(document.hidden){ clock.getDelta(); return; }
   if(frameNow==null) frameNow=performance.now();
-  if(!state.running && explosions.length===0 && ghosts.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
+  if(!state.running && explosions.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
   if(!state.running) lastIdleFrame=frameNow;
   const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
   if(_trainCoachT>0){
@@ -8650,6 +8571,7 @@ function animate(frameNow){
   }
   camera.rotation.set(pitch+recoilPitch+shP+_dollyP, yaw+recoilYaw+shY+_dollyY, shR+_dollyR, 'YXZ');   // THE STAR ROAD's bank rides the roll slot the trauma shake already owns; _dollyR is 0 on every path but the road's, so `shR+0` is the shipped value at every other site and under road.on:false
   camera.position.set(shX, EYE+shPY, shZ);
+  camera.updateMatrixWorld(); camera.matrixWorldInverse.copy(camera.matrixWorld).invert();   // the pose is final for this frame here, so refresh matrixWorld + its inverse ONCE (exactly what renderer.render does at the end of the frame anyway) — projectPointScope / updateAssist / the remote reticles then read camera.matrixWorldInverse instead of each re-inverting a 4×4 through camera.worldToLocal (perf audit 2026-08-18)
   if(clutchT>0){                                               // clutch FOV punch: a quick zoom-in that eases out. Purely visual — does NOT touch dt or the beat clock.
     clutchT=Math.max(0, clutchT-dt);
     const a=clutchDur*0.14, tIn=clutchDur-clutchT;             // short attack, then ease-out
@@ -9860,7 +9782,6 @@ function resetSession(){
   for(const t of targets) removeTarget(t); targets.length=0;
   clearProjectiles();
   if(CFG.stars.on) starFlyClear();   // a new night never inherits a voice still in the air — its level was already paid at drain (v1.3); only unpaid pending/debt get paid here before the visuals drop
-  for(const g of ghosts) releaseTrailMesh(g.mesh); ghosts.length=0;
   clearRings();
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
@@ -9907,7 +9828,7 @@ function showGhostToast(txt, holdSec){
 }
 const _projectWorld=new THREE.Vector3(), _projectLocal=new THREE.Vector3(), _projectScreen=[0,0], _ghostDir=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
 function projectDir(dir){
-  _projectWorld.copy(PLAYER_POS).addScaledVector(dir,50); _projectLocal.copy(_projectWorld); camera.worldToLocal(_projectLocal); const behind=_projectLocal.z>0;
+  _projectWorld.copy(PLAYER_POS).addScaledVector(dir,50); _projectLocal.copy(_projectWorld).applyMatrix4(camera.matrixWorldInverse); const behind=_projectLocal.z>0;
   _projectLocal.applyMatrix4(camera.projectionMatrix); let x=_projectLocal.x,y=_projectLocal.y;
   if(behind||Math.abs(x)>1||Math.abs(y)>1){ if(behind){x=-x;y=-y;} const ax=Math.abs(x)||1e-3,ay=Math.abs(y)||1e-3,s=0.92/Math.max(ax,ay); x*=s;y*=s; }
   _projectScreen[0]=viewCX + x*viewCX; _projectScreen[1]=viewCY - y*viewCY; return _projectScreen;
@@ -9969,33 +9890,33 @@ ensureBoardGen();
 let _dojoBest=null, _dojoRecHit={far:false,high:false,streak:false};
 const _DOJO_SORTS={peak_bpm:1,runtime:1};                         // whitelist (also guards the order= query string) — records = BPM + length of time
 let dojoSort='peak_bpm'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
-                                                                                                                                                                  
-                                                                                                               
-                                                        
-                                                                                                  
-                                               
-    
-                                                                                                            
-                                                        
-                                                                                                          
-                                                                                            
-                                                                                                                 
-                                                                                                                   
-                                                                                                                      
-                                                                                                                  
-                                                                                                                    
-                                                                                                    
-                                                                                                                     
-                                                                                                                   
-                                                                                                                 
-                                                                                                                      
-                                                                                                                  
-                                                                     
-                                             
-                                                                                                                                                                        
-                                                           
-                                                                                         
- 
+function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
+function dojoSession(){ return {   // board metrics + legacy columns the table/Railway still require (NOT NULL)
+  dur:Math.round(state.t), bpm:Math.round(state.maxBpm),
+  far:Math.round((state.maxHitDist||0)*100)/100, high:Math.round((state.maxHitHeight||0)*100)/100,
+  streak:state.bestStreak|0, kills:state.hits|0
+}; }
+function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
+  if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
+  sub.textContent=TF('yourBest','your best · {time} · {bpm} bpm',{time:fmtTime(b.dur||0),bpm:b.bpm||0}); }
+function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
+  // THE THRESHOLD IS ONE MOMENT AND ONE LINE (1.1). On a post-graduation night that the sky actually dealt, this
+  // flash names THE NIGHT instead of the song — the same element, the same animation, the same song colour and the
+  // same breath, one line where there was one line. It is a REPLACEMENT, never an addition: nothing else speaks here,
+  // and no toast is used at the threshold at all, so the deal line can never race the song name or be overwritten
+  // mid-animation. Pre-graduation (the trainer never reaches this call), deal.on:false, and any night the ephemeris
+  // could not be read (dealLine() returns '') all keep the song name exactly as it has always been.
+  // THE THRESHOLD'S PRIORITY CHAIN (wave 5a), and still exactly ONE line: the comeback greeting (parcel N, the first
+  // run of a day after a real absence) > the night the sky dealt (wave 4) > the song name. Each tier can only ever
+  // REPLACE the one below it, never stack with it, and a greeted night is still fully dealt — dealCompute ran at
+  // resetSession, so only the SENTENCE is given away, never a rule. Raw booleans first: with remember off this is one
+  // read and no call and the flash is wave 4's exactly; with both off it is the song name, as it has always been.
+  const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook();
+  const rl=CFG.remember.on?rememberLine():'';
+  const dl=rl?'':(CFG.deal.on?dealLine():'');   // not even evaluated on a greeted night: dealLine is a pure read of _deal, so skipping it changes nothing but the words
+  setText(f, rl||dl||('♪ '+songDisplay(activeTheme.name)));
+  f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath();
+}
                                                                                                                            
                                         
                                                                                      
