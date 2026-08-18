@@ -1536,7 +1536,7 @@
                                                                                                 
                                                                                                                                                
                                                                                                             
-                                                                          
+                                                                                                                                                                                                                                                                                             
                                                                                                
      
                                                                                                                               
@@ -2763,12 +2763,13 @@ skyDome.frustumCulled=false; skyDome.renderOrder=-1000; skyDome.layers.enable(1)
 const reflRT=new THREE.WebGLRenderTarget(2,2,{minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter, depthBuffer:false});
 const mirrorCam=new THREE.PerspectiveCamera(); mirrorCam.matrixAutoUpdate=false;
 const REFL_M=new THREE.Matrix4().makeScale(1,-1,1);          // reflect about the floor plane y=0
+const REFL_FLIP_X=new THREE.Matrix4().makeScale(-1,1,1);      // …and reverse the mirror camera's LOCAL x so its frame is a proper rotation again (det (−1)·(−1)=+1). A det<0 camera flips every triangle's screen winding, and r128 only compensates winding per OBJECT (frontFaceCW = object.matrixWorld.determinant()<0), so the BackSide skyDome/milkyShell were culled out of the mirror entirely — the floor reflected the flat scene.background instead of the dome (verified: RT pixel stats identical to dome.visible=false). Rigid camera + the x-flipped RT sample in the floor shader (index.html:1539) = the same planar mirror, with culling correct.
 const REFL_SCALE = MOBILE ? 0.22 : 0.28, REFL_INTERVAL = MOBILE ? 1/6 : 1/8, REFL_IDLE_INTERVAL = 1/3;
 let reflResDirty=true, lastReflT=-999;
 function sizeRefl(){
   const pr=renderer.getPixelRatio();
   reflRT.setSize(Math.max(2,Math.round(viewW*pr*REFL_SCALE)), Math.max(2,Math.round(viewH*pr*REFL_SCALE)));
-  reflResDirty=true;
+  reflResDirty=true; lastReflT=-999;   // setSize disposes the RT's texture → it reads black until the next mirror pass; -999 makes renderReflection re-render on the very next sky tick instead of up to 125 ms (idle: 333 ms) later, so an adaptive-DPR step or a resize can't blink the far floor's reflection
 }
 sizeRefl();
 let frameAvg=1/60, perfCooldown=0;
@@ -2796,7 +2797,7 @@ function renderReflection(){
   lastReflT=skyT;
   camera.updateMatrixWorld();
   mirrorCam.projectionMatrix.copy(camera.projectionMatrix);
-  mirrorCam.matrixWorld.multiplyMatrices(REFL_M, camera.matrixWorld); mirrorCam.matrixWorldNeedsUpdate=false;
+  mirrorCam.matrixWorld.multiplyMatrices(REFL_M, camera.matrixWorld).multiply(REFL_FLIP_X); mirrorCam.matrixWorldNeedsUpdate=false;   // S·M·Fx: mirrored eye + mirrored view, local x reversed → det +1 (winding stays right; the floor shader un-flips x when it samples)
   mirrorCam.matrixWorldInverse.copy(mirrorCam.matrixWorld).invert();
   mirrorCam.layers.set(1);
   const prev=renderer.getRenderTarget();
@@ -2813,10 +2814,18 @@ if(SKY_MODE!=='decorative') dayPhase=clockedDayPhase(Date.now());   // theatre: 
 const DAY_SLOW=0.32, DAY_FAST=4.2;                           // ease time: ~half the cycle in dawn/dusk, hurry through deep day/night (period preserved)
 const GRID_COLS=[[0x33b39e,0x1c3b34],[0xe0a23a,0x4a3416],[0xdd4a3a,0x481815]];  // night grid: green, amber, red ([line,cell])
 let gridColIdx=(Math.random()*3)|0, wasNight=false;          // each night picks a colour ≠ the previous one
-function setNightGrid(lineCol, cellCol){                      // recreate the grid lines in a new colour
-  if(nightGrid){ scene.remove(nightGrid); nightGrid.geometry.dispose(); nightGrid.material.dispose(); }
-  nightGrid=new THREE.GridHelper(620, LOW?80:310, lineCol, cellCol); nightGrid.position.y=0.02;   // LOW: coarser grid (80 vs 310); normal unchanged
-  nightGrid.material.transparent=true; nightGrid.material.depthWrite=false; nightGrid.material.opacity=0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
+const _gridC1=new THREE.Color(), _gridC2=new THREE.Color();
+function setNightGrid(lineCol, cellCol){                      // repaint the grid lines in a new colour
+  const divs=LOW?80:310;   // LOW: coarser grid (80 vs 310); normal unchanged
+  if(nightGrid && nightGrid.geometry.attributes.color && nightGrid.geometry.attributes.color.count===(divs+1)*4){   // RECOLOUR IN PLACE (perf audit 2026-08-18): GridHelper bakes its two colours into a per-vertex colour attribute (4 vertices per division; the centre line = colour 1), so a new night just rewrites that buffer. The old path disposed the helper + material and built a new one: disposing the ONLY material on the grid's program dropped its refcount to 0 and deleted the WebGLProgram, so the fresh material had to relink the shader on the next frame (a synchronous hitch), on top of a fresh geometry upload — every dusk. Same mesh, same material (patchGridBeat's uBeat hook stays live), same look.
+    const attr=nightGrid.geometry.attributes.color, arr=attr.array, center=divs/2; _gridC1.setHex(lineCol); _gridC2.setHex(cellCol);
+    for(let i=0,j=0;i<=divs;i++){ const c=i===center?_gridC1:_gridC2; for(let k=0;k<4;k++){ arr[j++]=c.r; arr[j++]=c.g; arr[j++]=c.b; } }
+    attr.needsUpdate=true;
+  } else {
+    if(nightGrid){ scene.remove(nightGrid); nightGrid.geometry.dispose(); nightGrid.material.dispose(); }
+    nightGrid=new THREE.GridHelper(620, divs, lineCol, cellCol); nightGrid.position.y=0.02;
+    nightGrid.material.transparent=true; nightGrid.material.depthWrite=false; nightGrid.material.opacity=0.55; scene.add(nightGrid); patchGridBeat(nightGrid);
+  }
   if(glowGrid) glowGrid.material.color.setHex(lineCol);   // GLOW halo follows each night's grid colour roll
 }
 const SKY_NIGHT=new THREE.Color(0x05060e), SKY_DAY=new THREE.Color(0x5e93cf), SKY_DUSK=new THREE.Color(0xd0743a);
@@ -4395,7 +4404,7 @@ const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new
 function _templeDisposeChildren(){
   while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
     if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
-    if(obj.material && obj.material.dispose) obj.material.dispose();
+    if(obj.material && obj.material.dispose){ obj.material.dispose(); const hz=_hzFadeMats.indexOf(obj.material); if(hz>=0) _hzFadeMats.splice(hz,1); }   // the aspect/highlight lines are horizonFadeMat() materials: drop the disposed one from the list setHorizonOpen walks every sky tick, or the list grows by two per Temple entry forever (perf audit 2026-08-18)
   }
   _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
 }
@@ -5083,39 +5092,39 @@ function acquireShards(n, color){
 function releaseShards(rec){ rec.pts.visible=false; scene.remove(rec.pts); shardPool.push(rec); }
 function addRecoil(){ if(reduceMotion) return; recoilPitch=Math.min(recoilPitch+CFG.recoilKick, CFG.recoilMax); recoilYaw += (Math.random()*2-1)*CFG.recoilYaw; }
 function addTrauma(amt){ if(reduceMotion) return; trauma=Math.min(1, trauma+amt); }
-function explodeAt(pos, radius, color, slow, shardN){
-  color=color||TOXIC;
-  const flash=acquireFlash(color);
-  flash.position.copy(pos);
-  const flashBase=Math.max(0.3,radius*1.1); flash.scale.setScalar(flashBase);
-  let shards=null,pts=null,geo=null,mat=null,vels=null;
-  if(!reduceMotion){
-    const N=Math.max(1, Math.min(CFG.shards, shardN!=null?shardN:CFG.shards));
-    shards=acquireShards(N,color); pts=shards.pts; geo=shards.geo; mat=shards.mat; vels=shards.vels;
-    const positions=geo.attributes.position.array;
-    // SHARD_VELS patterns are sized for CFG.shards; sample with wrap so smaller clank bursts still work
-    const vo=(shardPatternCursor++ % SHARD_PATTERNS)*CFG.shards*3;
-    for(let i=0;i<N;i++){ positions[i*3]=pos.x; positions[i*3+1]=pos.y; positions[i*3+2]=pos.z;
-      const j=i*3, src=((vo+i*3)%(SHARD_VELS.length-2)); vels[j]=SHARD_VELS[src]*0.85; vels[j+1]=SHARD_VELS[src+1]*0.85; vels[j+2]=SHARD_VELS[src+2]*0.85; }
-    geo.attributes.position.needsUpdate=true;
-  }
-  const rec=explosionRecordPool.pop() || {};
-  rec.shards=shards; rec.pts=pts; rec.geo=geo; rec.mat=mat; rec.vels=vels; rec.flash=flash; rec.flashBase=flashBase; rec.age=0; rec.life=shardN!=null?0.38:0.55; rec.slow=slow||1;
-  explosions.push(rec);
-}
-/* ---- clutch flourish: a localized camera FOV punch + a camera-facing shockwave ring (the explosion-only slow-mo lives in the explosion loop via rec.slow). RHYTHM-SAFE — never scales dt or Tone.Transport. ---- */
-const CLUTCH_COLOR=0xffd27a;   // hex (NOT a THREE.Color): explodeAt → acquireFlash/acquireShards call color.setHex(color), which needs an int
-let clutchT=0, clutchDur=0, camFovBase=camera.fov, _clutchLast=-999;
-let missKickT=0, missKickDur=0.15;   // brief FOV flinch on clank/whiff (widens, opposite of clutch zoom-in)
-let clutchRing=null, clutchRingT=0, clutchRingDur=0; const _clutchRingPos=new THREE.Vector3();
-let glowI=0; const comboGlowEl=gid('comboGlow');
-function ensureClutchRing(){
-  if(clutchRing) return;
-  const a=new Float32Array(49*3); for(let i=0;i<=48;i++){ const th=i/48*Math.PI*2; a[i*3]=Math.cos(th); a[i*3+1]=Math.sin(th); }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3));
-  clutchRing=new THREE.LineLoop(g, new THREE.LineBasicMaterial({color:0xffe0a0, transparent:true, opacity:0, depthWrite:false}));
-  clutchRing.frustumCulled=false; clutchRing.visible=false; scene.add(clutchRing);
-}
+                                                     
+                     
+                                  
+                           
+                                                                             
+                                                       
+                    
+                                                                              
+                                                                                                    
+                                                  
+                                                                                                        
+                                                                  
+                                                                                               
+                                                                                                                                                            
+                                             
+   
+                                            
+                                                                                                                                                                                  
+                       
+ 
+                                                                                                                                                                                                                      
+                                                                                                                                              
+                                                                    
+                                                                                                            
+                                                                                              
+                                                
+                            
+                        
+                                                                                                                                
+                                                                                                 
+                                                                                                                                 
+                                                                                  
+ 
                            
                                          
                                                                                                           
@@ -8000,8 +8009,8 @@ function ensureClutchRing(){
                                                                                                            
                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                        
-                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                        
                                                                                                                           
@@ -8032,7 +8041,7 @@ function ensureClutchRing(){
                                                                            
                                                                                                                                         
                                                                                                  
-                                                                                                                                                        
+                                                                                                                                                    
                                                                                            
                                                                                                                                 
                                                                                                     
@@ -8597,7 +8606,7 @@ function ensureClutchRing(){
                                  
                                                   
                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                             
                                                                                                                                                 
                      
@@ -8657,9 +8666,10 @@ function ensureClutchRing(){
 
                                      
                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                              
-                                                                            
+                         
                                                                                                                                                                     
                                                                                                                                                              
                                                                                                        
@@ -8693,7 +8703,7 @@ function ensureClutchRing(){
                       
                                                                                                                                                        
                                                                                                                      
-                                                                                                                                                                                                                               
+                                                                                                                                                                         
                                        
                                 
                                                                                                                                                                                                                                                                                                                                        
@@ -10201,7 +10211,29 @@ function ensureClutchRing(){
                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                  
-                                                                                                                                                                                                                                   
+                                                                                                                             
+                                                                                                                          
+                                                                                                                               
+                                                                                                                               
+                                                                                                                              
+                                                                                                                             
+                                                                                                                        
+                                                                                                                           
+                                                                                                                           
+                                                                                                                     
+                                                
+                       
+                
+                                                                                                                                                                                                          
+                                                                                                                                                                                                                                           
+                                                                                                                                                                                                            
+                                                                                                        
+                                                                                                                                                                                            
+                                                                                                   
+                                                                                                                                                                                                                                             
+                                               
+ 
+                              
                                                                                                                                                                              
                              
                                                                                      

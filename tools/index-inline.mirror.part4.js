@@ -1536,7 +1536,7 @@
                                                                                                 
                                                                                                                                                
                                                                                                             
-                                                                          
+                                                                                                                                                                                                                                                                                             
                                                                                                
      
                                                                                                                               
@@ -2763,12 +2763,13 @@
                                                                                                                               
                                                                                 
                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                       
                                       
                     
                                     
                                                                                                            
-                    
+                                                                                                                                                                                                                                                                                                                 
  
            
                                   
@@ -2796,7 +2797,7 @@
                  
                              
                                                            
-                                                                                                             
+                                                                                                                                                                                                                                                                           
                                                                     
                           
                                         
@@ -2813,10 +2814,18 @@
                                                                                                                                                         
                                                                                                                               
                                                                                                             
-                                                                                                        
+                                                           
                                                                                                        
-                                                                                                                                                    
-                                                                                                                                                            
+                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                    
+                                                                                                                                         
+                          
+          
+                                                                                                         
+                                                                                           
+                                                                                                                                                              
+   
                                                                                                             
  
                                                                                                                  
@@ -4395,7 +4404,7 @@
                                   
                                                                                                                                  
                                                                                                                                                                                  
-                                                                    
+                                                                                                                                                                                                                                                                                                                                                                          
    
                                                                                                 
  
@@ -7340,31 +7349,31 @@
                                                                                                                                                                                                          
                                
  
-                       
-                                                                                                                                                                                                                                                       
-                                                                   
-                                                     
-                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                          
- 
-                                                                                                                                                                                          
-                             
-                                                                                                                                
-                                                                                                                             
-                                                                                                                               
-                                                                                                                            
-                                                                                                                            
-                                                                                            
-                                                                                            
-                                                                             
-                                                        
- 
+function maybeAdjust(){
+  if(tideLive()) return;   // TIDES: the tempo step moved to the mercy→rise boundary (tideStepBpm) so it can't lurch mid-swell. tide.on:false / trainer → this per-event path runs exactly as before. Range creep in pushEvent is untouched either way.
+  if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
+  if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
+  const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
+  if(up) changeBpm(+CFG.bpmUp*(CFG.deal.on?_deal.bpmMul:1),true); else if(down) changeBpm(-CFG.bpmDown,false);   // THE SKY DEALS THE NIGHT: a WANING CRESCENT climbs gentler here too. "the drum rests" is a named rule about the NIGHT, not about one tempo path — tideStepBpm carries it when TIDES are on, and this per-event path carries it when they are off, so no inherited kill-switch combination can quietly cancel a rule the threshold line already promised. Raw boolean first; the DOWN step is untouched (the drum rests, it does not stall)
+  if(up||down) sinceAdjust=0;            // hold the bpm/speed adjust cadence even when railed (range is now a per-hit micro-creep in pushEvent, not a chunked march here)
+}
+function changeRange(delta){ state.range=Math.max(CFG.rangeStart,Math.min(CFG.rangeMax,state.range+delta)); }   // never closer than the start, never past the ballistically-reachable cap
+function changeBpm(delta,up){
+  // THE SIXTY CAP (parcel P) IS ENFORCED HERE AND NOWHERE ELSE: this clamp is the single write path to state.bpm, so raising or
+  // lowering CFG.maxBpm needs no other edit and no run can exceed it. The early return on an unchanged value already makes a
+  // step INTO the ceiling a no-op (no sinceAdjust reset, no Transport ramp, no level-up sfx), so pressing against 60 is silent
+  // rather than a repeating chime — the summit reads as arrival, not as a wall being hit. state.maxBpm bookkeeping below is
+  // untouched, and it is the RUN's peak only: the dojo board's stored legacy >60 rows are history and are never re-clamped.
+  const prev=state.bpm; state.bpm=Math.max(CFG.minBpm,Math.min(CFG.maxBpm,state.bpm+delta));
+  if(state.bpm===prev) return; sinceAdjust=0; state.maxBpm=Math.max(state.maxBpm,state.bpm);
+  if(toneReady){ try{ Tone.Transport.bpm.rampTo(state.bpm,0.3); }catch(e){} }
+  renderPrimary(up,true); sfx(up?'levelUp':'levelDown');
+}
 
-                                                                          
-                                                                  
-                                                                                            
-                                                                                         
+/* ========================= STATE + OUTCOMES ========================= */
+const state={ running:false, started:false, needsReset:false, t:0,
+  bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart, maxHitDist:0, maxHitHeight:0,
+  hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0 };
 function pushReaction(v){
   const a=state.reactions;
   if(a.length<12) a.push(v); else { state.reactionSum-=a[state.reactionHead]; a[state.reactionHead]=v; state.reactionHead=(state.reactionHead+1)%12; }
@@ -8000,8 +8009,8 @@ function updateStarTethers(){
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
 const WASD_COL_GHOST=WASD_COL.map(c=>c+'73');   // DE-COERCION (parcel R): the same four colors at alpha 0x73 (0.45) — an in-between (bonus) note is drawn as a GHOST of its key, so the eye reads "optional" with no new text and no new glyph. Precomputed once (setStyle caches, so the letter costs nothing per frame).
-const HUD_CSS=560, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2);   // crisp on HiDPI: backing store = CSS px × dpr; the ctx is dpr-scaled in drawWasdLane so all draw math stays in CSS px (LOW: dpr 1 quarters the ring raster)
-if(hudCanvas){ hudCanvas.width=HUD_CSS*HUD_DPR; hudCanvas.height=HUD_CSS*HUD_DPR; }
+const HUD_CSS=560, HUD_BOX=300, HUD_DPR=LOW?1:Math.min(DEVICE_DPR,2), HUD_K=HUD_DPR*HUD_BOX/HUD_CSS;   // HUD_CSS = the ring's LOGICAL drawing space (every radius/offset below is in these units); HUD_BOX = the element's real CSS box (#wasdHud is 300×300 — keep in step with the stylesheet); backing store = box × dpr and the ctx is scaled by HUD_K in drawWasdLane, so all draw math stays in the 560 space (LOW: dpr 1 quarters the ring raster). Was 560×dpr into a 300 px box: 3.5× the pixels cleared, rasterised and composited every running frame, only for the compositor to downscale them
+if(hudCanvas){ hudCanvas.width=Math.round(HUD_BOX*HUD_DPR); hudCanvas.height=Math.round(HUD_BOX*HUD_DPR); }
 const GLYPH_GLOW_STEPS=12;   // THE CROSSHAIR'S PULSATING GLOW (parcel W), quantised so the hot path can never allocate: the envelope sweeps 0→1→0 once per beat, so 24 step changes a beat = 8.0 style writes/s at the 20 bpm floor and 24.0 at the sixty cap, each one a cached setStyle that no-ops when the string has not changed. 12 steps puts the quantisation at 0.0375 of the envelope — under a twelfth of the pulse, which is well below what an eye reads on a bloom
 const GLYPH_GLOW=(()=>{
   // THE THIRTEEN STRINGS, built ONCE at module scope. Step 0 is the stylesheet's own shadow stack character-for-character
@@ -8032,7 +8041,7 @@ function drawWasdLane(){
   else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
   const ARC=r=>{ hudCtx.beginPath(); hudCtx.arc(cx,cy,Math.max(0.5,r),0,PI2); hudCtx.stroke(); };
-  if(showHud){ hudCtx.setTransform(HUD_DPR,0,0,HUD_DPR,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
+  if(showHud){ hudCtx.setTransform(HUD_K,0,0,HUD_K,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
   const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketTarget=!!(pocketCueOn && pocketExpected()!=='on');
   const pocketDim=Number.isFinite(CFG.pocketMainDim)?Math.max(0,Math.min(1,CFG.pocketMainDim)):0.28;
@@ -8597,7 +8606,7 @@ function animate(frameNow){
   requestAnimationFrame(animate);
   if(document.hidden){ clock.getDelta(); return; }
   if(frameNow==null) frameNow=performance.now();
-  if(!state.running && _gpIndex===null && explosions.length===0 && ghosts.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS) return;   // pad connected → poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
+  if(!state.running && explosions.length===0 && ghosts.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
   if(!state.running) lastIdleFrame=frameNow;
   const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
   if(_trainCoachT>0){
@@ -8657,9 +8666,10 @@ function animate(frameNow){
 
   if(state.running && !templeActive){
     state.t+=dt;
+    let _fb=NaN; const frameBeat=()=>{ if(_fb!==_fb){ _fb=0; try{ _fb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} } return _fb; };   // ONE transport read per frame for the two consumers below (perf audit 2026-08-18): Tone's `Transport.ticks` getter walks the state timeline with allocations on every read, and the vuln glow + the strobe grid asked it twice for one value. Lazy, so a build with both consumers off gains no read; the sample is the same render quantum either way. Input grading (fire/keydown) never comes through here.
     _fillAmt=-1;   // THE FILL'S OWN PULSE rests at "nothing is asking" every frame and is re-earned inside the vuln branch below, so a build with the vuln mechanic off (or reduced motion on top of it) can never read a stale amount off a previous frame
     if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
-      let hb=0; try{ hb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}
+      let hb=frameBeat();
       const _bps=60/Math.max(20,state.bpm), _lat=audioLat(); hb-=_lat/_bps;   // heard timeline (reported latency + user offset) → the glow matches the audible beat
       // Open window peaks on the audible 1 by default (grooveFireEarlyBeat:0). Optional early shift is CFG-only — never coupled to WASD pocket push/layback.
       const _early=Math.max(0,Math.min(0.45, CFG.grooveFireEarlyBeat!=null?CFG.grooveFireEarlyBeat:0));
@@ -8693,7 +8703,7 @@ function animate(frameNow){
       else if(strobe){
         const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/2 → 1/4 → 1/8 beat as skill (diffT) rises
         _snapInterval=(60/Math.max(20,state.bpm))/spb;   // seconds between strobe steps → scales the WASD hit window
-        let beats=0; try{ beats=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){}   // same audio clock as the spawn scheduler (onGrid) → in the daily, strobe steps + spawns share one timeline (seeded-fair, fps-tolerant)
+        let beats=frameBeat();   // same audio clock as the spawn scheduler (onGrid) → in the daily, strobe steps + spawns share one timeline (seeded-fair, fps-tolerant)
         const qi=Math.floor(beats*spb);
         doSnap = qi!==_quantIdx;
         if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
@@ -9959,33 +9969,33 @@ ensureBoardGen();
 let _dojoBest=null, _dojoRecHit={far:false,high:false,streak:false};
 const _DOJO_SORTS={peak_bpm:1,runtime:1};                         // whitelist (also guards the order= query string) — records = BPM + length of time
 let dojoSort='peak_bpm'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
-function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
-function dojoSession(){ return {   // board metrics + legacy columns the table/Railway still require (NOT NULL)
-  dur:Math.round(state.t), bpm:Math.round(state.maxBpm),
-  far:Math.round((state.maxHitDist||0)*100)/100, high:Math.round((state.maxHitHeight||0)*100)/100,
-  streak:state.bestStreak|0, kills:state.hits|0
-}; }
-function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
-  if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
-  sub.textContent=TF('yourBest','your best · {time} · {bpm} bpm',{time:fmtTime(b.dur||0),bpm:b.bpm||0}); }
-function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
-  // THE THRESHOLD IS ONE MOMENT AND ONE LINE (1.1). On a post-graduation night that the sky actually dealt, this
-  // flash names THE NIGHT instead of the song — the same element, the same animation, the same song colour and the
-  // same breath, one line where there was one line. It is a REPLACEMENT, never an addition: nothing else speaks here,
-  // and no toast is used at the threshold at all, so the deal line can never race the song name or be overwritten
-  // mid-animation. Pre-graduation (the trainer never reaches this call), deal.on:false, and any night the ephemeris
-  // could not be read (dealLine() returns '') all keep the song name exactly as it has always been.
-  // THE THRESHOLD'S PRIORITY CHAIN (wave 5a), and still exactly ONE line: the comeback greeting (parcel N, the first
-  // run of a day after a real absence) > the night the sky dealt (wave 4) > the song name. Each tier can only ever
-  // REPLACE the one below it, never stack with it, and a greeted night is still fully dealt — dealCompute ran at
-  // resetSession, so only the SENTENCE is given away, never a rule. Raw booleans first: with remember off this is one
-  // read and no call and the flash is wave 4's exactly; with both off it is the song name, as it has always been.
-  const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook();
-  const rl=CFG.remember.on?rememberLine():'';
-  const dl=rl?'':(CFG.deal.on?dealLine():'');   // not even evaluated on a greeted night: dealLine is a pure read of _deal, so skipping it changes nothing but the words
-  setText(f, rl||dl||('♪ '+songDisplay(activeTheme.name)));
-  f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath();
-}
+                                                                                                                                                                  
+                                                                                                               
+                                                        
+                                                                                                  
+                                               
+    
+                                                                                                            
+                                                        
+                                                                                                          
+                                                                                            
+                                                                                                                 
+                                                                                                                   
+                                                                                                                      
+                                                                                                                  
+                                                                                                                    
+                                                                                                    
+                                                                                                                     
+                                                                                                                   
+                                                                                                                 
+                                                                                                                      
+                                                                                                                  
+                                                                     
+                                             
+                                                                                                                                                                        
+                                                           
+                                                                                         
+ 
                                                                                                                            
                                         
                                                                                      
@@ -10201,7 +10211,29 @@ function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + openin
                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                  
-                                                                                                                                                                                                                                   
+                                                                                                                             
+                                                                                                                          
+                                                                                                                               
+                                                                                                                               
+                                                                                                                              
+                                                                                                                             
+                                                                                                                        
+                                                                                                                           
+                                                                                                                           
+                                                                                                                     
+                                                
+                       
+                
+                                                                                                                                                                                                          
+                                                                                                                                                                                                                                           
+                                                                                                                                                                                                            
+                                                                                                        
+                                                                                                                                                                                            
+                                                                                                   
+                                                                                                                                                                                                                                             
+                                               
+ 
+                              
                                                                                                                                                                              
                              
                                                                                      

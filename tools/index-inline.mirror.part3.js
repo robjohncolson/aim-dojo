@@ -1536,7 +1536,7 @@
                                                                                                 
                                                                                                                                                
                                                                                                             
-                                                                          
+                                                                                                                                                                                                                                                                                             
                                                                                                
      
                                                                                                                               
@@ -2763,12 +2763,13 @@
                                                                                                                               
                                                                                 
                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                       
                                       
                     
                                     
                                                                                                            
-                    
+                                                                                                                                                                                                                                                                                                                 
  
            
                                   
@@ -2796,7 +2797,7 @@
                  
                              
                                                            
-                                                                                                             
+                                                                                                                                                                                                                                                                           
                                                                     
                           
                                         
@@ -2813,10 +2814,18 @@
                                                                                                                                                         
                                                                                                                               
                                                                                                             
-                                                                                                        
+                                                           
                                                                                                        
-                                                                                                                                                    
-                                                                                                                                                            
+                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                    
+                                                                                                                                         
+                          
+          
+                                                                                                         
+                                                                                           
+                                                                                                                                                              
+   
                                                                                                             
  
                                                                                                                  
@@ -4395,7 +4404,7 @@
                                   
                                                                                                                                  
                                                                                                                                                                                  
-                                                                    
+                                                                                                                                                                                                                                                                                                                                                                          
    
                                                                                                 
  
@@ -5083,39 +5092,39 @@
                                                                                                  
                                                                                                                                                                  
                                                                                    
-                                                     
-                     
-                                  
-                           
-                                                                             
-                                                       
-                    
-                                                                              
-                                                                                                    
-                                                  
-                                                                                                        
-                                                                  
-                                                                                               
-                                                                                                                                                            
-                                             
-   
-                                            
-                                                                                                                                                                                  
-                       
- 
-                                                                                                                                                                                                                      
-                                                                                                                                              
-                                                                    
-                                                                                                            
-                                                                                              
-                                                
-                            
-                        
-                                                                                                                                
-                                                                                                 
-                                                                                                                                 
-                                                                                  
- 
+function explodeAt(pos, radius, color, slow, shardN){
+  color=color||TOXIC;
+  const flash=acquireFlash(color);
+  flash.position.copy(pos);
+  const flashBase=Math.max(0.3,radius*1.1); flash.scale.setScalar(flashBase);
+  let shards=null,pts=null,geo=null,mat=null,vels=null;
+  if(!reduceMotion){
+    const N=Math.max(1, Math.min(CFG.shards, shardN!=null?shardN:CFG.shards));
+    shards=acquireShards(N,color); pts=shards.pts; geo=shards.geo; mat=shards.mat; vels=shards.vels;
+    const positions=geo.attributes.position.array;
+    // SHARD_VELS patterns are sized for CFG.shards; sample with wrap so smaller clank bursts still work
+    const vo=(shardPatternCursor++ % SHARD_PATTERNS)*CFG.shards*3;
+    for(let i=0;i<N;i++){ positions[i*3]=pos.x; positions[i*3+1]=pos.y; positions[i*3+2]=pos.z;
+      const j=i*3, src=((vo+i*3)%(SHARD_VELS.length-2)); vels[j]=SHARD_VELS[src]*0.85; vels[j+1]=SHARD_VELS[src+1]*0.85; vels[j+2]=SHARD_VELS[src+2]*0.85; }
+    geo.attributes.position.needsUpdate=true;
+  }
+  const rec=explosionRecordPool.pop() || {};
+  rec.shards=shards; rec.pts=pts; rec.geo=geo; rec.mat=mat; rec.vels=vels; rec.flash=flash; rec.flashBase=flashBase; rec.age=0; rec.life=shardN!=null?0.38:0.55; rec.slow=slow||1;
+  explosions.push(rec);
+}
+/* ---- clutch flourish: a localized camera FOV punch + a camera-facing shockwave ring (the explosion-only slow-mo lives in the explosion loop via rec.slow). RHYTHM-SAFE — never scales dt or Tone.Transport. ---- */
+const CLUTCH_COLOR=0xffd27a;   // hex (NOT a THREE.Color): explodeAt → acquireFlash/acquireShards call color.setHex(color), which needs an int
+let clutchT=0, clutchDur=0, camFovBase=camera.fov, _clutchLast=-999;
+let missKickT=0, missKickDur=0.15;   // brief FOV flinch on clank/whiff (widens, opposite of clutch zoom-in)
+let clutchRing=null, clutchRingT=0, clutchRingDur=0; const _clutchRingPos=new THREE.Vector3();
+let glowI=0; const comboGlowEl=gid('comboGlow');
+function ensureClutchRing(){
+  if(clutchRing) return;
+  const a=new Float32Array(49*3); for(let i=0;i<=48;i++){ const th=i/48*Math.PI*2; a[i*3]=Math.cos(th); a[i*3+1]=Math.sin(th); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3));
+  clutchRing=new THREE.LineLoop(g, new THREE.LineBasicMaterial({color:0xffe0a0, transparent:true, opacity:0, depthWrite:false}));
+  clutchRing.frustumCulled=false; clutchRing.visible=false; scene.add(clutchRing);
+}
 function triggerClutch(tg){
   if(reduceMotion || !CFG.clutch) return;
   if(state.t - _clutchLast < CFG.clutchCooldown) return;       // keep each flourish a treat, not a strobe
@@ -7340,31 +7349,31 @@ function pushEvent(good){
   changeRange(good ? CFG.rangeHitStep : -CFG.rangeMissStep);   // DISTANCE TRAINER: the spawn shell creeps sub-perceptually FARTHER on each hit, eases back on a miss -> converges on your reliable reach
   sinceAdjust++; maybeAdjust();
 }
-function maybeAdjust(){
-  if(tideLive()) return;   // TIDES: the tempo step moved to the mercy→rise boundary (tideStepBpm) so it can't lurch mid-swell. tide.on:false / trainer → this per-event path runs exactly as before. Range creep in pushEvent is untouched either way.
-  if(events.length<Math.min(CFG.windowSize,CFG.warmEvents)) return;
-  if(sinceAdjust<Math.ceil(CFG.windowSize/2)) return;
-  const acc=windowAccuracy(), up=acc>=CFG.upThreshold, down=acc<=CFG.downThreshold;
-  if(up) changeBpm(+CFG.bpmUp*(CFG.deal.on?_deal.bpmMul:1),true); else if(down) changeBpm(-CFG.bpmDown,false);   // THE SKY DEALS THE NIGHT: a WANING CRESCENT climbs gentler here too. "the drum rests" is a named rule about the NIGHT, not about one tempo path — tideStepBpm carries it when TIDES are on, and this per-event path carries it when they are off, so no inherited kill-switch combination can quietly cancel a rule the threshold line already promised. Raw boolean first; the DOWN step is untouched (the drum rests, it does not stall)
-  if(up||down) sinceAdjust=0;            // hold the bpm/speed adjust cadence even when railed (range is now a per-hit micro-creep in pushEvent, not a chunked march here)
-}
-function changeRange(delta){ state.range=Math.max(CFG.rangeStart,Math.min(CFG.rangeMax,state.range+delta)); }   // never closer than the start, never past the ballistically-reachable cap
-function changeBpm(delta,up){
-  // THE SIXTY CAP (parcel P) IS ENFORCED HERE AND NOWHERE ELSE: this clamp is the single write path to state.bpm, so raising or
-  // lowering CFG.maxBpm needs no other edit and no run can exceed it. The early return on an unchanged value already makes a
-  // step INTO the ceiling a no-op (no sinceAdjust reset, no Transport ramp, no level-up sfx), so pressing against 60 is silent
-  // rather than a repeating chime — the summit reads as arrival, not as a wall being hit. state.maxBpm bookkeeping below is
-  // untouched, and it is the RUN's peak only: the dojo board's stored legacy >60 rows are history and are never re-clamped.
-  const prev=state.bpm; state.bpm=Math.max(CFG.minBpm,Math.min(CFG.maxBpm,state.bpm+delta));
-  if(state.bpm===prev) return; sinceAdjust=0; state.maxBpm=Math.max(state.maxBpm,state.bpm);
-  if(toneReady){ try{ Tone.Transport.bpm.rampTo(state.bpm,0.3); }catch(e){} }
-  renderPrimary(up,true); sfx(up?'levelUp':'levelDown');
-}
+                       
+                                                                                                                                                                                                                                                       
+                                                                   
+                                                     
+                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                          
+ 
+                                                                                                                                                                                          
+                             
+                                                                                                                                
+                                                                                                                             
+                                                                                                                               
+                                                                                                                            
+                                                                                                                            
+                                                                                            
+                                                                                            
+                                                                             
+                                                        
+ 
 
-/* ========================= STATE + OUTCOMES ========================= */
-const state={ running:false, started:false, needsReset:false, t:0,
-  bpm:CFG.startBpm, maxBpm:CFG.startBpm, range:CFG.rangeStart, maxHitDist:0, maxHitHeight:0,
-  hits:0, shots:0, streak:0, bestStreak:0, reactions:[], reactionSum:0, reactionHead:0 };
+                                                                          
+                                                                  
+                                                                                            
+                                                                                         
                          
                           
                                                                                                                                                       
@@ -8000,8 +8009,8 @@ const state={ running:false, started:false, needsReset:false, t:0,
                                                                                                            
                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                        
-                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                        
                                                                                                                           
@@ -8032,7 +8041,7 @@ const state={ running:false, started:false, needsReset:false, t:0,
                                                                            
                                                                                                                                         
                                                                                                  
-                                                                                                                                                        
+                                                                                                                                                    
                                                                                            
                                                                                                                                 
                                                                                                     
@@ -8597,7 +8606,7 @@ const state={ running:false, started:false, needsReset:false, t:0,
                                  
                                                   
                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                             
                                                                                                                                                 
                      
@@ -8657,9 +8666,10 @@ const state={ running:false, started:false, needsReset:false, t:0,
 
                                      
                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                              
-                                                                            
+                         
                                                                                                                                                                     
                                                                                                                                                              
                                                                                                        
@@ -8693,7 +8703,7 @@ const state={ running:false, started:false, needsReset:false, t:0,
                       
                                                                                                                                                        
                                                                                                                      
-                                                                                                                                                                                                                               
+                                                                                                                                                                         
                                        
                                 
                                                                                                                                                                                                                                                                                                                                        
@@ -10201,7 +10211,29 @@ const state={ running:false, started:false, needsReset:false, t:0,
                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                  
-                                                                                                                                                                                                                                   
+                                                                                                                             
+                                                                                                                          
+                                                                                                                               
+                                                                                                                               
+                                                                                                                              
+                                                                                                                             
+                                                                                                                        
+                                                                                                                           
+                                                                                                                           
+                                                                                                                     
+                                                
+                       
+                
+                                                                                                                                                                                                          
+                                                                                                                                                                                                                                           
+                                                                                                                                                                                                            
+                                                                                                        
+                                                                                                                                                                                            
+                                                                                                   
+                                                                                                                                                                                                                                             
+                                               
+ 
+                              
                                                                                                                                                                              
                              
                                                                                      

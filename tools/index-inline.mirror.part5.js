@@ -1536,7 +1536,7 @@
                                                                                                 
                                                                                                                                                
                                                                                                             
-                                                                          
+                                                                                                                                                                                                                                                                                             
                                                                                                
      
                                                                                                                               
@@ -2763,12 +2763,13 @@
                                                                                                                               
                                                                                 
                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                       
                                       
                     
                                     
                                                                                                            
-                    
+                                                                                                                                                                                                                                                                                                                 
  
            
                                   
@@ -2796,7 +2797,7 @@
                  
                              
                                                            
-                                                                                                             
+                                                                                                                                                                                                                                                                           
                                                                     
                           
                                         
@@ -2813,10 +2814,18 @@
                                                                                                                                                         
                                                                                                                               
                                                                                                             
-                                                                                                        
+                                                           
                                                                                                        
-                                                                                                                                                    
-                                                                                                                                                            
+                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                    
+                                                                                                                                         
+                          
+          
+                                                                                                         
+                                                                                           
+                                                                                                                                                              
+   
                                                                                                             
  
                                                                                                                  
@@ -4395,7 +4404,7 @@
                                   
                                                                                                                                  
                                                                                                                                                                                  
-                                                                    
+                                                                                                                                                                                                                                                                                                                                                                          
    
                                                                                                 
  
@@ -8000,8 +8009,8 @@
                                                                                                            
                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                        
-                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                        
                                                                                                                           
@@ -8032,7 +8041,7 @@
                                                                            
                                                                                                                                         
                                                                                                  
-                                                                                                                                                        
+                                                                                                                                                    
                                                                                            
                                                                                                                                 
                                                                                                     
@@ -8597,7 +8606,7 @@
                                  
                                                   
                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                             
                                                                                                                                                 
                      
@@ -8657,9 +8666,10 @@
 
                                      
                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                              
-                                                                            
+                         
                                                                                                                                                                     
                                                                                                                                                              
                                                                                                        
@@ -8693,7 +8703,7 @@
                       
                                                                                                                                                        
                                                                                                                      
-                                                                                                                                                                                                                               
+                                                                                                                                                                         
                                        
                                 
                                                                                                                                                                                                                                                                                                                                        
@@ -9959,33 +9969,33 @@
                                                                     
                                                                                                                                                      
                                                                                                                                    
-                                                                                                                                                                  
-                                                                                                               
-                                                        
-                                                                                                  
-                                               
-    
-                                                                                                            
-                                                        
-                                                                                                          
-                                                                                            
-                                                                                                                 
-                                                                                                                   
-                                                                                                                      
-                                                                                                                  
-                                                                                                                    
-                                                                                                    
-                                                                                                                     
-                                                                                                                   
-                                                                                                                 
-                                                                                                                      
-                                                                                                                  
-                                                                     
-                                             
-                                                                                                                                                                        
-                                                           
-                                                                                         
- 
+function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
+function dojoSession(){ return {   // board metrics + legacy columns the table/Railway still require (NOT NULL)
+  dur:Math.round(state.t), bpm:Math.round(state.maxBpm),
+  far:Math.round((state.maxHitDist||0)*100)/100, high:Math.round((state.maxHitHeight||0)*100)/100,
+  streak:state.bestStreak|0, kills:state.hits|0
+}; }
+function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
+  if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
+  sub.textContent=TF('yourBest','your best · {time} · {bpm} bpm',{time:fmtTime(b.dur||0),bpm:b.bpm||0}); }
+function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + opening chord breath
+  // THE THRESHOLD IS ONE MOMENT AND ONE LINE (1.1). On a post-graduation night that the sky actually dealt, this
+  // flash names THE NIGHT instead of the song — the same element, the same animation, the same song colour and the
+  // same breath, one line where there was one line. It is a REPLACEMENT, never an addition: nothing else speaks here,
+  // and no toast is used at the threshold at all, so the deal line can never race the song name or be overwritten
+  // mid-animation. Pre-graduation (the trainer never reaches this call), deal.on:false, and any night the ephemeris
+  // could not be read (dealLine() returns '') all keep the song name exactly as it has always been.
+  // THE THRESHOLD'S PRIORITY CHAIN (wave 5a), and still exactly ONE line: the comeback greeting (parcel N, the first
+  // run of a day after a real absence) > the night the sky dealt (wave 4) > the song name. Each tier can only ever
+  // REPLACE the one below it, never stack with it, and a greeted night is still fully dealt — dealCompute ran at
+  // resetSession, so only the SENTENCE is given away, never a rule. Raw booleans first: with remember off this is one
+  // read and no call and the flash is wave 4's exactly; with both off it is the song name, as it has always been.
+  const f=el.dojoFlash; if(!f||!activeTheme) return; applyMoodLook();
+  const rl=CFG.remember.on?rememberLine():'';
+  const dl=rl?'':(CFG.deal.on?dealLine():'');   // not even evaluated on a greeted night: dealLine is a pure read of _deal, so skipping it changes nothing but the words
+  setText(f, rl||dl||('♪ '+songDisplay(activeTheme.name)));
+  f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath();
+}
 function noteSongPeak(){   // per-song personal bests — flash only when you set a new peak BPM or longest hold on THIS song
   if(!activeTheme || state.t<15) return;
   const name=activeTheme.name, dur=Math.round(state.t), bpm=Math.round(state.maxBpm);
@@ -10201,7 +10211,29 @@ else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick fig
 if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyGlossary(); },140,1600);   // definitions are a static asset and never wait on either sky server
 if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; announceSkyDay(p); }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers) and announced once per tab; failure leaves Meeus ☉/☽ + sticks + glossary untouched
 runIdle(()=>{ initSaveMySky(); },320,2400);   // restored auth/profile is optional and nonblocking; guests make no /api/me/* call
-runIdle(()=>{ try{ renderer.compile(scene, camera); }catch(e){} },900,4000);   // pre-warm every scene material's shader (beat rings, grid variants, floor) during boot idle — no first-use compile can hitch a run's opening beats
+/* SHADER WARM-UP. r128 links every GLSL program lazily, on the first frame an object needs it, and the link is SYNCHRONOUS —
+   the frame blocks on gl.getProgramInfoLog until the driver is done. renderer.compile() below walks the WHOLE scene graph
+   (hidden objects included, unlike render()) and has pre-warmed everything that exists at boot since it shipped. What it could
+   NOT reach (perf audit 2026-08-18, program tracer): the objects that are only CREATED later — the ARC RIBBON's ShaderMaterial
+   and arc line loops (ensureArcObjs runs on the first arc-preview frame = the PLAY frame), the shard PointsMaterial (the pool
+   is empty until the FIRST HIT), the target mark / tether LineBasic variants (first spawn). Measured: three hitches, each on
+   exactly the frame a rhythm game cannot afford one (5-90 ms on a real driver, ~90-360 ms under a software rasteriser).
+   So ONE member of each on-demand kind is created (or acquired) first, parked invisible for the compile pass, and released
+   straight back into its pool — which also pre-warms that pool's first GPU buffers. Deferred to idle exactly as before, so
+   first paint is untouched; a PLAY that beats the idle callback simply gets the old lazy links (no regression). Zero
+   gameplay/audio/timing reads — render-only. */
+function warmShaders(){
+  const back=[];
+  try{ ensureArcObjs(); hideArc(); }catch(e){}                                                          // arc ribbon shader + arc line loops (target marks / land rings share that LineBasic program key)
+  try{ ensureStarTethers(); }catch(e){}                                                                 // vertexColors + fog:false lines (tethers, aim trails, the returning-voice line): built hidden, exactly as its lazy path builds it
+  try{ const m=ensureTargetMark(0); m.ring.visible=false; m.drop.visible=false; }catch(e){}            // the floor mark's ring/dropline (updateTargetMarks parks unused marks invisible every frame anyway)
+  try{ const tm=acquireTargetMesh(); tm.visible=false; back.push(()=>releaseTargetMesh(tm)); }catch(e){}
+  try{ const sh=acquireShards(Math.max(1,CFG.shards|0), TOXIC); sh.pts.visible=false; back.push(()=>releaseShards(sh)); }catch(e){}   // shard Points (sizeAttenuation) — the first-hit link
+  try{ const fl=acquireFlash(TOXIC); fl.visible=false; back.push(()=>releaseFlash(fl)); }catch(e){}
+  try{ renderer.compile(scene, camera); }catch(e){}   // pre-warm every scene material's shader (beat rings, grid variants, floor, and now the on-demand kinds above) during boot idle — no first-use compile can hitch a run's opening beats
+  for(const f of back){ try{ f(); }catch(e){} }
+}
+runIdle(warmShaders,900,4000);
 if(SKY_MODE==='clocked_chart') runIdle(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; an authenticated profile is authoritative over every legacy source
   if(_skyAuthSession) return;
   if(!p){ showGhostToast('🌌 '+T('skyNoChart','SKY · CLOCKED — NO CHART')); return; }
