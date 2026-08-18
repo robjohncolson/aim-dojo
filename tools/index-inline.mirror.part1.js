@@ -1152,6 +1152,19 @@ const _skyChat={threadId:null,turns:[],status:'none',remainingTurns:10,inFlight:
 const OBSERVER_PREFS=window.AimDojoObserver||null;
 const LOCAL_SKY_MATH=window.AimDojoLocalSky||null;
 let _skyObserver=(function(){ try{ return OBSERVER_PREFS?OBSERVER_PREFS.readObserver(localStorage):null; }catch(e){ return null; } })();
+/* STALE OBSERVER GUARD (2026-08-18). The stored location is what the natural sky — and the SUN that decides checker vs.
+   grid — is computed for, and the one-shot device lookup below only ever runs when NOTHING is stored. So a location saved
+   in Boston stayed authoritative after the device moved to Japan: at 20:47 JST the game drew Boston's 07:47 morning
+   (checkerboard, faded stars). Longitude pins solar time to within a few hours of the device's civil UTC offset almost
+   everywhere (western China ~3 h), so a disagreement past 4 h means the record no longer describes where the device is:
+   forget it (and the geo-tried latch) so the ordinary boot path asks the device once more; a denial lands on the
+   civil-clock fallback, which is right by construction. A MANUAL location is the player's deliberate choice and is kept. */
+let _observerStaleDropped=false;
+if(_skyObserver && _skyObserver.source!=='manual' && OBSERVER_PREFS && OBSERVER_PREFS.timezoneDisagrees && OBSERVER_PREFS.timezoneDisagrees(_skyObserver, new Date().getTimezoneOffset())){
+  try{ OBSERVER_PREFS.clearObserver(localStorage); }catch(e){}
+  _skyObserver=null; _observerStaleDropped=true;
+  try{ console.info('[sky] stored observer location disagrees with the device time zone by >4 h — dropped; asking the device again'); }catch(e){}
+}
 function hasSkyObserver(){ return !!_skyObserver; }
 function cleanSkyApiBase(value){
   if(typeof value!=='string' || !value.trim()) return '';

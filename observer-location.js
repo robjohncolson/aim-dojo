@@ -79,6 +79,37 @@
     } catch (_error) {}
   }
 
+  // A stored location can go stale when the device travels: the sky (and the sun that decides
+  // day/night) would then be computed for where the player USED to be. Longitude fixes solar
+  // time to within a couple of hours of the device's civil UTC offset almost everywhere on
+  // Earth (wide zones like western China reach ~3 h), so a disagreement past `toleranceHours`
+  // (default 4) means the record no longer describes where the device is.
+  function timezoneDisagrees(observer, tzOffsetMinutes, toleranceHours) {
+    const obs = normalizeObserver(observer);
+    if (!obs || !Number.isFinite(tzOffsetMinutes)) return false;
+    const tol = Number.isFinite(toleranceHours) && toleranceHours > 0 ? toleranceHours : 4;
+    const deviceHours = -tzOffsetMinutes / 60;          // Date#getTimezoneOffset is minutes WEST of UTC
+    const solarHours = obs.lon / 15;
+    let diff = Math.abs(deviceHours - solarHours) % 24;
+    if (diff > 12) diff = 24 - diff;
+    return diff > tol;
+  }
+
+  // Forget the stored location AND the one-shot geo guard, so the next boot may ask the device again.
+  function clearObserver(storage) {
+    if (!storage || typeof storage.removeItem !== "function") return false;
+    try {
+      storage.removeItem(KEYS.updatedAt);
+      storage.removeItem(KEYS.lat);
+      storage.removeItem(KEYS.lon);
+      storage.removeItem(KEYS.source);
+      storage.removeItem(KEYS.geoTried);
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
   return Object.freeze({
     KEYS,
     SOURCES,
@@ -88,5 +119,7 @@
     saveObserver,
     hasGeoTried,
     markGeoTried,
+    timezoneDisagrees,
+    clearObserver,
   });
 });

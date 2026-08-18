@@ -111,3 +111,27 @@ test("the automatic geolocation attempt has a persistent one-shot guard", () => 
   assert.equal(observerPrefs.hasGeoTried(storage), true);
   assert.equal(storage.snapshot()["aimdojo.observerGeoTried"], "1");
 });
+
+test("a stored location that disagrees with the device time zone is recognised as stale", () => {
+  const boston = { lat: 42.36, lon: -71.06, source: "geo", updatedAt: 100 };
+  const tokyoOffsetMin = -540;   // JST: getTimezoneOffset() === -540
+  const bostonEdtOffsetMin = 240; // EDT: +240
+  assert.equal(observerPrefs.timezoneDisagrees(boston, tokyoOffsetMin), true, "Boston record on a JST device");
+  assert.equal(observerPrefs.timezoneDisagrees(boston, bostonEdtOffsetMin), false, "Boston record at home");
+  const kashgar = { lat: 39.47, lon: 75.99, source: "geo", updatedAt: 100 };
+  assert.equal(observerPrefs.timezoneDisagrees(kashgar, -480), false, "western China on UTC+8 stays inside the tolerance");
+  const kiritimati = { lat: 1.87, lon: -157.4, source: "geo", updatedAt: 100 };
+  assert.equal(observerPrefs.timezoneDisagrees(kiritimati, -840), false, "UTC+14 vs longitude -157 wraps around the date line");
+  assert.equal(observerPrefs.timezoneDisagrees(null, -540), false, "no record is never stale");
+  assert.equal(observerPrefs.timezoneDisagrees(boston, NaN), false, "an unknown device offset never invalidates");
+});
+
+test("clearing the observer forgets the record and re-arms the one-shot geo attempt", () => {
+  const storage = memoryStorage();
+  observerPrefs.saveObserver(storage, { lat: 42.36, lon: -71.06, source: "geo", updatedAt: 100 });
+  observerPrefs.markGeoTried(storage);
+  assert.ok(observerPrefs.readObserver(storage));
+  assert.equal(observerPrefs.clearObserver(storage), true);
+  assert.equal(observerPrefs.readObserver(storage), null);
+  assert.equal(observerPrefs.hasGeoTried(storage), false);
+});
