@@ -153,6 +153,7 @@
                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                         
                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                  
                                                                               
@@ -8813,6 +8814,8 @@ window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH
 
 /* ========================= OVERLAY ========================= */
 const overlay=gid('overlay'), beginBtn=gid('beginBtn'), beginLabel=gid('beginLabel');
+const WARM_CARD=true;   // WARM CARD experiment: platinum-warm bone on the start/pause card only (CSS #overlay.warm). false = the original cool bone everywhere. Eye-judged — flip and reload
+if(WARM_CARD && overlay) overlay.classList.add('warm');
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 /* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
@@ -9746,11 +9749,11 @@ function startRun(viaPad){
 }
 beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
 const beginTrainBtn=gid('beginTrain');
-function setGateReady(ready){
-  if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
-}
-setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
-if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
+                             
+                                                                                                                                                           
+ 
+                                                                                                                 
+                                                                                                                                                                                   
                            
                                                                                      
                                                                                                                                                                                                                                                                                     

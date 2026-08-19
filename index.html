@@ -153,6 +153,7 @@ html[lang=ja] #windHud .wh-mag::before{content:'風 '}
    vertically centered via margin:auto; tall cards grow and the overlay scrolls instead of clipping. */
 #overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:max(12px,env(safe-area-inset-top,0px)) 12px max(18px,env(safe-area-inset-bottom,0px));background:radial-gradient(120% 120% at 50% 40%,rgba(8,11,10,.78),rgba(8,11,10,.94));backdrop-filter:blur(3px)}
 #overlay.hidden{display:none}
+#overlay.warm{--bone:#e5e3d2;--bone-dim:#9d9889;color:var(--bone)}   /* WARM CARD (2026-08-19 experiment, JS const WARM_CARD): the start/pause card's bone goes platinum-warm (#e5e3d2, the Tangerine/Charcoal/Platinum/Powder-Blue poster palette) so the gold/plasma accents land harder against the night; scoped to the card only — HUD, temple panel and in-world text keep the cool bone. color re-anchored here because the card inherits body's colour, which was computed from the root bone. */
 html.i18n-pending #overlay,html.i18n-pending #shareOverlay,html.i18n-pending #transitEssayReader,html.i18n-pending #speedBox{visibility:hidden}   /* body parsing can yield before the post-card locale/touch swap; never paint the wrong card/HUD for one frame */
 .card{width:min(560px,92vw);flex:0 0 auto;margin-top:auto;margin-bottom:auto;max-height:none;overflow:visible;border:1px solid var(--menu-panel-edge);background:linear-gradient(165deg,rgba(22,26,42,.96),rgba(12,14,24,.98));padding:26px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(140,200,255,.06)}
 .eyebrow{font-size:11px;letter-spacing:.34em;color:var(--rail);margin:0 0 6px}
@@ -8813,6 +8814,8 @@ window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH
 
 /* ========================= OVERLAY ========================= */
 const overlay=gid('overlay'), beginBtn=gid('beginBtn'), beginLabel=gid('beginLabel');
+const WARM_CARD=true;   // WARM CARD experiment: platinum-warm bone on the start/pause card only (CSS #overlay.warm). false = the original cool bone everywhere. Eye-judged — flip and reload
+if(WARM_CARD && overlay) overlay.classList.add('warm');
 const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
 const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
 /* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */

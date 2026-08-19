@@ -153,6 +153,7 @@
                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                         
                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                  
                                                                               
@@ -8813,6 +8814,8 @@
 
                                                                  
                                                                                      
+                                                                                                                                                                                             
+                                                       
                                                                                                              
                                                                             
                                                                                                                             
@@ -9746,11 +9749,11 @@
  
                                                                                              
                                       
-                             
-                                                                                                                                                           
- 
-                                                                                                                 
-                                                                                                                                                                                   
+function setGateReady(ready){
+  if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
+}
+setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
+if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
 function cancelLockRetry(){
   clearTimeout(_lockRetryT); _lockRetryT=null; _lockRetries=0; _lockReqPending=false;
   const resumeWait=T('resumeWait','ONE MOMENT…'); if(beginLabel && beginLabel.textContent===resumeWait) beginLabel.textContent=T('resume','RESUME'); else if(!beginLabel && beginBtn && beginBtn.textContent.indexOf(resumeWait)>=0) beginBtn.textContent='▶ '+T('resume','RESUME');
