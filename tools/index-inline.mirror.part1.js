@@ -754,7 +754,7 @@ window.JA={
   clickDesc:'発射 — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる（道場）', escDesc:'ポーズ / 再開',
   selectDesc:'照準下の空の対象に印をつける', templeEDesc:'印あり: 神殿に入る · 神殿内: 出る', templeFreeDesc:'神殿内: マウス解放（視点はそのまま）· HUD操作', templeTDesc:'神殿内: 空にたずねる（チャート保存が必要）',
   beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
-  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
+  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける', resumeWait:'すこしまって…',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
@@ -1106,6 +1106,7 @@ const DEVICE_DPR = window.devicePixelRatio || 1;
 /* LOW-REZ MODE — N64-crunch/low-cost render for weak GPUs (e.g. a 2014 Mac Mini). Forced via ?low in the URL or CFG.lowRez; auto-detected on software rasterizers + old pre-Xe Intel iGPUs; ?hi forces it OFF (escape hatch for a false positive). Resolved HERE because antialias + the initial DPR are construction-time-only. Pure render cost — ZERO gameplay/timing/audio change. */
 function detectWeakGPU(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl) return true; const ext=gl.getExtension('WEBGL_debug_renderer_info'), r=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=gl.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(e){} if(/swiftshader|llvmpipe|software|mesa|microsoft basic/i.test(r)) return true; if(/intel/i.test(r) && /(hd graphics|iris)/i.test(r) && !/(xe|iris\W*(?:\(r\)|\(tm\))?\W*plus|uhd|hd graphics 6)/i.test(r)) return true; return false; }catch(e){ return false; } }   // conservative: software + old Intel HD/Iris (4000/5000-class); excludes UHD/Iris Plus/Xe. The Iris-Plus exclusion tolerates the (R)/(TM) marks real UNMASKED_RENDERER strings carry ("Iris(R) Plus Graphics 655") — the old literal "iris plus" never matched any real string, so Ice/Coffee-Lake Iris Plus machines were silently classed LOW (wave-8.1 dust investigation find)
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=auto-detect
+const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);
 const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false        // ?hi (this visit) wins
   : /(?:^|[?&#])low\b/.test(location.search+location.hash) ? true                // then ?low (this visit)
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
@@ -1121,12 +1122,12 @@ const GLOW = !LOW;
 const SKY_MODES=['decorative','clocked','clocked_chart'];
 const SKY_PREF_GEN=1;
 try{ const g=parseInt(localStorage.getItem('aimdojo.skyGen')||'0',10)||0; if(g<SKY_PREF_GEN){ localStorage.setItem('aimdojo.skyGen',String(SKY_PREF_GEN)); localStorage.removeItem('aimdojo.skyMode'); } }catch(e){}
-const SKY_MODE=(function(){
+const [SKY_MODE,SKY_MODE_FROM_URL]=(function(){
   const m=(location.search+location.hash).match(/[?&#]sky=([a-z_]+)/);
   const fromUrl=(m && SKY_MODES.indexOf(m[1])>=0) ? m[1] : null;
-  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return fromUrl; }
-  try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return v; }catch(e){}
-  return 'clocked';   // public ship: everyone gets the constellation sphere without a birth chart or desk
+  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return [fromUrl,!!fromUrl]; }
+  try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return [v,!!fromUrl]; }catch(e){}
+  return ['clocked',!!fromUrl];   // public ship: everyone gets the constellation sphere without a birth chart or desk
 })();
 // Cloud may later supersede skyMode via reload; URL always wins once for the session that set it.
 /* SPIN RATE (v2.2 + public settings): natural (new-visitor default = wall clock) · theatre (accelerated full-sky spin).
@@ -1144,6 +1145,7 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
 })();
 let templeActive=false, _skySelectHeld=false, _skySelectUsed=false, _skySel=null;
 let _templeBlend=0, _templeFocus=null, _templeEscapeGuard=false, _templeNeedsRelock=false;
+let _lockLostAt=-1e9, _lockRetryT=null, _lockRetries=0, _runNeedsRelock=false, _relockTries=0, _lockReqPending=false;
 let _templeResumeWanted=false, _templeResumeSel=null, _templeResumeFocus=null, _templeStudySeq=0;
 let _templeChatOpen=false, _templeFreeMouse=false;   // free mouse = pointer unlocked so HUD scroll/click works under temple
 const _skyChat={threadId:null,turns:[],status:'none',remainingTurns:10,inFlight:false,loaded:false,seq:0,pollTimer:null,pollStep:0,startedAt:0,optimistic:false};
@@ -5149,7 +5151,13 @@ function buildRoadDust(){
                                                                
                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                
+                    
+                                             
+            
+                                                                                                                                                       
+                                                                     
+                                                                                                                                     
                                                                                                                                                     
                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
@@ -5427,11 +5435,14 @@ function buildRoadDust(){
  
                        
                                       
-                             
-                                                                    
-                                                           
-                                                  
-                                                                                 
+      
+                               
+                                                                      
+                                                       
+                                                    
+                                                                             
+                      
+                      
  
                                     
                                                       
@@ -5498,7 +5509,7 @@ function buildRoadDust(){
  
                      
                    
-                        
+                                                                                                               
                                                                                                                                                                                                                                                                                                                  
                                                                                                
                  
@@ -7538,7 +7549,8 @@ function buildRoadDust(){
                                        
  
                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                               
                                         
                                                   
  
@@ -7558,6 +7570,7 @@ function buildRoadDust(){
                                                                                                     
                                                                                                
                                                                                                                                                                                               
+                                                                                                                                                                                                        
            
                                            
                                                                                             
@@ -8414,7 +8427,7 @@ function buildRoadDust(){
                                                                                                                                            
                 
                                                                                                             
-                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                           
  
                                                                                                                               
                                                                                        
@@ -9018,6 +9031,7 @@ function buildRoadDust(){
                                                                                                                                                                                                                                                                                                                    
                                                                                                                      
                                                                 
+                                                   
                                                                                                                                                                            
                            
    
@@ -9067,7 +9081,7 @@ function buildRoadDust(){
    
                                      
                                                                                  
-                                           
+                                                            
    
                                          
                                                 
@@ -9081,7 +9095,7 @@ function buildRoadDust(){
    
                                                                                             
                                                                            
-                                                 
+                                                                       
    
                                       
                          
@@ -9670,6 +9684,7 @@ function buildRoadDust(){
                                                                                                                                                                              
 
                         
+                    
                                                                                                                             
                                                             
                                                    
@@ -9684,6 +9699,7 @@ function buildRoadDust(){
                                                      
  
                        
+                    
                                                                                                   
                                                                                           
                                                                  
@@ -9700,7 +9716,7 @@ function buildRoadDust(){
  
                                                   
                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                           
    
                                
@@ -9711,11 +9727,12 @@ function buildRoadDust(){
                                                                                                                                         
                                                                                                        
  
+                                                                                                                                               
                           
                                                                                   
               
                                                    
-                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                     
                                            
                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
@@ -9724,8 +9741,8 @@ function buildRoadDust(){
      
                            
    
-                                                                                                 
-                                                                         
+                                                                                                                        
+                                                                                                                                         
  
                                                                                              
                                       
@@ -9734,7 +9751,26 @@ function buildRoadDust(){
  
                                                                                                                  
                                                                                                                                                                                    
-                                                                                                                                
+                           
+                                                                                     
+                                                                                                                                                                                                                                                                                    
+ 
+                              
+                                                   
+                                                                         
+                              
+                                                                                    
+                   
+                                                                                                                                             
+                              
+                                                                                                                                                                                                                                                   
+                                                                                                     
+           
+   
+                                                                         
+                 
+ 
+                                                                                                                                                 
 
                                                                                                                        
                                                                                                                       
@@ -9838,9 +9874,9 @@ function buildRoadDust(){
  
 
                                                    
-                                                                                                                 
+                                                                                                                                                                                                                                                                                                                            
                                                                                    
-                                                                                                                   
+                                                                                                                                                     
    
                                                                                                   
                                       

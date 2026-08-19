@@ -19,6 +19,230 @@ test("every inline browser script parses", () => {
   });
 });
 
+test("inline script comments cannot swallow trailing call statements", () => {
+  const offenders = [];
+  for (const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)) {
+    if (!match[1]) continue;
+    const sourceAt = match.index + match[0].indexOf(match[1]);
+    const firstLine = html.slice(0, sourceAt).split("\n").length;
+    match[1].split("\n").forEach((line, index) => {
+      let commentAt = -1;
+      let cursor = 0;
+      while (true) {
+        cursor = line.indexOf("//", cursor);
+        if (cursor < 0) break;
+        if (cursor > 0 && line[cursor - 1] === ":") {
+          cursor += 2;
+          continue;
+        }
+        commentAt = cursor;
+        break;
+      }
+      if (commentAt < 0) return;
+      const tail = line.slice(commentAt + 2);
+      const trimmed = tail.trimEnd();
+      const tailCall = /\)\s*;\s*$/.test(trimmed) && /[A-Za-z_$][\w$]*\(/.test(trimmed);
+      const midCall = /[A-Za-z_$][\w$]*\(.*\)\s*;\s+\/\//.test(tail);
+      if (tailCall || midCall) offenders.push(firstLine + index);
+    });
+  }
+  assert.deepEqual(offenders, [], `call statements swallowed by // comments at index.html lines: ${offenders.join(", ")}`);
+});
+
+test("ordinary orb expiry releases the target and records a miss", () => {
+  const source = html.match(/function onExpire\(tg\)\{[\s\S]*?\n\}/);
+  assert.ok(source, "onExpire is present as a testable named function");
+  let removed = 0;
+  const pushed = [];
+  const state = { streak: 3 };
+  const context = vm.createContext({
+    CFG: { tank: { fillOnly: true }, hitTrauma: 0 }, state, reduceMotion: true,
+    removeTarget: () => { removed += 1; }, pushEvent: (value) => { pushed.push(value); },
+    showTiming: () => {}, playWhiffSfx: () => {}, missGrooveDuck: () => {}, addTrauma: () => {},
+    T: (_key, fallback) => fallback,
+  });
+  vm.runInContext(`${source[0]}; onExpire({kind:0, fill16:-1});`, context);
+  assert.equal(removed, 1);
+  assert.deepEqual(pushed, [false]);
+  assert.equal(state.streak, 0);
+});
+
+test("pointer lock resume waits out Esc cooldown and relocks before firing", () => {
+  const cancelRetry = html.match(/function cancelLockRetry\(\)\{[\s\S]*?\n\}/);
+  const errorHandler = html.match(/function onPointerLockError\(\)\{[\s\S]*?\n\}/);
+  const lockChange = html.match(/document\.addEventListener\('pointerlockchange',\(\)=>\{[\s\S]*?\n\}\);/);
+  const mouseDown = html.match(/canvas\.addEventListener\('mousedown', e=>\{[\s\S]*?\n\}\);/);
+  const enter = html.match(/function enterRunning\(\)\{[\s\S]*?\n\}/);
+  const exit = html.match(/function exitRunning\(\)\{[\s\S]*?\n\}/);
+  const start = html.match(/function startRun\(viaPad\)\{[\s\S]*?\n\}/);
+  const visibility = html.match(/document\.addEventListener\('visibilitychange',\(\)=>\{[\s\S]*?\n\}\);/);
+  assert.ok(cancelRetry && errorHandler && lockChange && mouseDown && enter && exit && start && visibility);
+  assert.match(errorHandler[0], /LOCK_COOLDOWN_MS/);
+  assert.match(errorHandler[0], /_lockLostAt/);
+  assert.match(errorHandler[0], /_runNeedsRelock=!MOBILE && _relockTries<1/);
+  assert.match(errorHandler[0], /if\(document\.hidden\)\{ cancelLockRetry\(\); return; \}/);
+  assert.match(errorHandler[0], /if\(!_lockReqPending\) return;/);
+  assert.doesNotMatch(errorHandler[0], /_lockReqPending=false;/);
+  assert.match(errorHandler[0], /try\{ _lockReqPending=true; canvas\.requestPointerLock\(\)/);
+  assert.match(lockChange[0], /_lockLostAt=performance\.now\(\)/);
+  assert.match(lockChange[0], /_relockTries=0/);
+  assert.match(lockChange[0], /document\.hidden \|\| \(!state\.running && !_lockReqPending\)/);
+  assert.match(lockChange[0], /document\.exitPointerLock\(\)/);
+  assert.match(cancelRetry[0], /clearTimeout\(_lockRetryT\)/);
+  assert.match(cancelRetry[0], /_lockReqPending=false/);
+  assert.match(enter[0], /cancelLockRetry\(\)/);
+  assert.match(exit[0], /cancelLockRetry\(\)/);
+  assert.match(start[0], /if\(viaPad===true\)\{ cancelLockRetry\(\)/);
+  assert.match(start[0], /try\{ _lockReqPending=true; canvas\.requestPointerLock\(\)/);
+  assert.match(visibility[0], /if\(document\.hidden\)\{ cancelLockRetry\(\)/);
+  const relockAt = mouseDown[0].indexOf("if(_runNeedsRelock");
+  const fireAt = mouseDown[0].indexOf("fire();");
+  assert.ok(relockAt >= 0 && relockAt < fireAt, "run relock branch precedes fire()");
+  assert.match(mouseDown[0], /_runNeedsRelock=false; _relockTries\+\+; try\{ canvas\.requestPointerLock\(\)/);
+});
+
+test("late in-run pointer lock error after pause preserves the pause card", () => {
+  const cancelRetry = html.match(/function cancelLockRetry\(\)\{[\s\S]*?\n\}/);
+  const errorHandler = html.match(/function onPointerLockError\(\)\{[\s\S]*?\n\}/);
+  assert.ok(cancelRetry && errorHandler);
+  const calls = { enter: 0, request: 0, timers: 0 };
+  const state = { running: false };
+  const beginLabel = { textContent: "RESUME" };
+  const context = vm.createContext({
+    state, beginLabel, beginBtn: { textContent: "▶ RESUME" },
+    overlay: { classList: { contains: () => false } },
+    canvas: { requestPointerLock: () => { calls.request += 1; } },
+    document: { hidden: false, pointerLockElement: null, exitPointerLock: () => {} },
+    MOBILE: false, LOCK_COOLDOWN_MS: 1350, performance: { now: () => 100 },
+    _lockLostAt: 0, _lockRetryT: null, _lockRetries: 0, _runNeedsRelock: false,
+    _relockTries: 1, _lockReqPending: false,
+    clearTimeout: () => {}, setTimeout: () => { calls.timers += 1; return 1; },
+    enterRunning: () => { calls.enter += 1; state.running = true; },
+    T: (_key, fallback) => fallback,
+  });
+  vm.runInContext(`${cancelRetry[0]}; ${errorHandler[0]}; onPointerLockError();`, context);
+  assert.equal(calls.enter, 0);
+  assert.equal(calls.request, 0);
+  assert.equal(calls.timers, 0);
+  assert.equal(state.running, false);
+  assert.equal(beginLabel.textContent, "RESUME");
+});
+
+test("pointer lock acquisition enters only with a pending run request", () => {
+  const cancelRetry = html.match(/function cancelLockRetry\(\)\{[\s\S]*?\n\}/);
+  const lockChange = html.match(/document\.addEventListener\('pointerlockchange',\(\)=>\{[\s\S]*?\n\}\);/);
+  assert.ok(cancelRetry && lockChange);
+  const calls = { enter: 0, exitLock: 0 };
+  const state = { running: false };
+  const canvas = { requestPointerLock: () => {} };
+  const listeners = {};
+  const document = {
+    hidden: false, pointerLockElement: canvas,
+    addEventListener: (name, handler) => { listeners[name] = handler; },
+    exitPointerLock: () => { calls.exitLock += 1; document.pointerLockElement = null; },
+  };
+  const context = vm.createContext({
+    state, canvas, document, beginLabel: { textContent: "RESUME" }, beginBtn: { textContent: "▶ RESUME" },
+    _lockRetryT: null, _lockRetries: 0, _runNeedsRelock: false, _relockTries: 0,
+    _lockReqPending: false, _templeEscapeGuard: false, _templeNeedsRelock: false, _lockLostAt: 0,
+    clearTimeout: () => {}, performance: { now: () => 100 },
+    enterRunning: () => { calls.enter += 1; state.running = true; },
+    exitRunning: () => {}, T: (_key, fallback) => fallback,
+  });
+  vm.runInContext(`${cancelRetry[0]}; ${lockChange[0]}`, context);
+  listeners.pointerlockchange();
+  assert.equal(calls.exitLock, 1);
+  assert.equal(calls.enter, 0);
+  assert.equal(state.running, false);
+
+  document.pointerLockElement = canvas;
+  context._lockReqPending = true;
+  listeners.pointerlockchange();
+  assert.equal(calls.exitLock, 1);
+  assert.equal(calls.enter, 1);
+  assert.equal(state.running, true);
+});
+
+test("stale pointer lock error cannot clear a newer resume request", () => {
+  const cancelRetry = html.match(/function cancelLockRetry\(\)\{[\s\S]*?\n\}/);
+  const errorHandler = html.match(/function onPointerLockError\(\)\{[\s\S]*?\n\}/);
+  const lockChange = html.match(/document\.addEventListener\('pointerlockchange',\(\)=>\{[\s\S]*?\n\}\);/);
+  assert.ok(cancelRetry && errorHandler && lockChange);
+  const calls = { enter: 0, exitLock: 0, timers: 0 };
+  const state = { running: false };
+  const canvas = { requestPointerLock: () => {} };
+  const listeners = {};
+  const document = {
+    hidden: false, pointerLockElement: null,
+    addEventListener: (name, handler) => { listeners[name] = handler; },
+    exitPointerLock: () => { calls.exitLock += 1; document.pointerLockElement = null; },
+  };
+  const context = vm.createContext({
+    state, canvas, document, overlay: { classList: { contains: () => false } },
+    beginLabel: { textContent: "RESUME" }, beginBtn: { textContent: "▶ RESUME" },
+    MOBILE: false, LOCK_COOLDOWN_MS: 1350, performance: { now: () => 100 },
+    _lockLostAt: 0, _lockRetryT: null, _lockRetries: 0, _runNeedsRelock: false,
+    _relockTries: 0, _lockReqPending: false, _templeEscapeGuard: false, _templeNeedsRelock: false,
+    clearTimeout: () => {}, setTimeout: () => { calls.timers += 1; return 1; },
+    enterRunning: () => { calls.enter += 1; state.running = true; },
+    exitRunning: () => {}, T: (_key, fallback) => fallback,
+  });
+  vm.runInContext(`${cancelRetry[0]}; ${errorHandler[0]}; ${lockChange[0]}`, context);
+  context._lockReqPending = true; // newer RESUME request B is live when request A's stale error arrives
+  vm.runInContext("onPointerLockError();", context);
+  document.pointerLockElement = canvas;
+  listeners.pointerlockchange();
+  assert.equal(calls.enter, 1);
+  assert.equal(calls.exitLock, 0);
+  assert.equal(state.running, true);
+});
+
+test("URL render flags suppress cloud preference reloads", () => {
+  assert.match(html, /if\(row\.low_rez!==LOW\s*&&\s*!LOW_FROM_URL\) needsReload=true;/);
+  assert.match(html, /if\(row\.sky_mode!==SKY_MODE\s*&&\s*!SKY_MODE_FROM_URL\) needsReload=true;/);
+});
+
+test("audio latency prefers the native listener output estimate", () => {
+  const source = html.match(/function audioLat\(\)\{[\s\S]*?\n\}/);
+  assert.ok(source, "audioLat is present as a testable named function");
+  assert.match(html, /const AUDIO_OUT_LATENCY=true;/);
+  assert.match(source[0], /const n=\(listener&&listener\.context\)\|\|null;/);
+  assert.match(source[0], /AUDIO_OUT_LATENCY/);
+  assert.match(source[0], /isFinite\(n\.outputLatency\)/);
+  assert.match(source[0], /Math\.min\(n\.outputLatency,0\.35\)/);
+  const latency = (outputLatency) => vm.runInNewContext(`${source[0]}; audioLat();`, {
+    listener: { context: { outputLatency } }, rawCtx: { baseLatency: 0.01 },
+    _userOffsetSec: 0, AUDIO_OUT_LATENCY: true,
+  });
+  assert.equal(latency(0.03), 0.03);
+  assert.equal(latency(1.2), 0.35);
+  assert.equal(latency(Infinity), 0.01);
+  assert.equal(latency(-0.1), 0.01);
+  assert.equal(latency(undefined), 0.01);
+});
+
+test("reverb construction fails soft without publishing a partial graph", () => {
+  const source = html.match(/function buildReverb\(\)\{[\s\S]*?\n\}/);
+  assert.ok(source, "buildReverb is present as a testable named function");
+  const input = { gain: {}, connect: () => { throw new Error("closed context"); } };
+  const wet = { gain: {}, connect: () => {} };
+  let gainCalls = 0;
+  const context = vm.createContext({
+    reverbInput: null,
+    listener: {
+      context: {
+        createConvolver: () => ({ connect: () => {} }),
+        createGain: () => (++gainCalls === 1 ? input : wet),
+      },
+      getInput: () => ({}),
+    },
+    makeIR: () => ({}),
+  });
+  assert.doesNotThrow(() => vm.runInContext(`${source[0]}; buildReverb();`, context));
+  assert.equal(context.reverbInput, null);
+  assert.match(html, /if\(!reverbInput && listener && !state\.running\)\{ try\{ buildReverb\(\); \}catch\(e\)\{\} \} else scheduleReverbBuild\(\);/);
+});
+
 test("Save my sky remains inside pause settings and outside PLAY controls", () => {
   const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
   assert.ok(pauseBlock);

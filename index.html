@@ -754,7 +754,7 @@ window.JA={
   clickDesc:'発射 — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる（道場）', escDesc:'ポーズ / 再開',
   selectDesc:'照準下の空の対象に印をつける', templeEDesc:'印あり: 神殿に入る · 神殿内: 出る', templeFreeDesc:'神殿内: マウス解放（視点はそのまま）· HUD操作', templeTDesc:'神殿内: 空にたずねる（チャート保存が必要）',
   beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
-  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける',
+  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける', resumeWait:'すこしまって…',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
@@ -1106,6 +1106,7 @@ const DEVICE_DPR = window.devicePixelRatio || 1;
 /* LOW-REZ MODE — N64-crunch/low-cost render for weak GPUs (e.g. a 2014 Mac Mini). Forced via ?low in the URL or CFG.lowRez; auto-detected on software rasterizers + old pre-Xe Intel iGPUs; ?hi forces it OFF (escape hatch for a false positive). Resolved HERE because antialias + the initial DPR are construction-time-only. Pure render cost — ZERO gameplay/timing/audio change. */
 function detectWeakGPU(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl) return true; const ext=gl.getExtension('WEBGL_debug_renderer_info'), r=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=gl.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(e){} if(/swiftshader|llvmpipe|software|mesa|microsoft basic/i.test(r)) return true; if(/intel/i.test(r) && /(hd graphics|iris)/i.test(r) && !/(xe|iris\W*(?:\(r\)|\(tm\))?\W*plus|uhd|hd graphics 6)/i.test(r)) return true; return false; }catch(e){ return false; } }   // conservative: software + old Intel HD/Iris (4000/5000-class); excludes UHD/Iris Plus/Xe. The Iris-Plus exclusion tolerates the (R)/(TM) marks real UNMASKED_RENDERER strings carry ("Iris(R) Plus Graphics 655") — the old literal "iris plus" never matched any real string, so Ice/Coffee-Lake Iris Plus machines were silently classed LOW (wave-8.1 dust investigation find)
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=auto-detect
+const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);
 const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false        // ?hi (this visit) wins
   : /(?:^|[?&#])low\b/.test(location.search+location.hash) ? true                // then ?low (this visit)
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
@@ -1121,12 +1122,12 @@ const GLOW = !LOW;
 const SKY_MODES=['decorative','clocked','clocked_chart'];
 const SKY_PREF_GEN=1;
 try{ const g=parseInt(localStorage.getItem('aimdojo.skyGen')||'0',10)||0; if(g<SKY_PREF_GEN){ localStorage.setItem('aimdojo.skyGen',String(SKY_PREF_GEN)); localStorage.removeItem('aimdojo.skyMode'); } }catch(e){}
-const SKY_MODE=(function(){
+const [SKY_MODE,SKY_MODE_FROM_URL]=(function(){
   const m=(location.search+location.hash).match(/[?&#]sky=([a-z_]+)/);
   const fromUrl=(m && SKY_MODES.indexOf(m[1])>=0) ? m[1] : null;
-  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return fromUrl; }
-  try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return v; }catch(e){}
-  return 'clocked';   // public ship: everyone gets the constellation sphere without a birth chart or desk
+  if(fromUrl){ try{ localStorage.setItem('aimdojo.skyMode', fromUrl); }catch(e){} return [fromUrl,!!fromUrl]; }
+  try{ const v=localStorage.getItem('aimdojo.skyMode'); if(SKY_MODES.indexOf(v)>=0) return [v,!!fromUrl]; }catch(e){}
+  return ['clocked',!!fromUrl];   // public ship: everyone gets the constellation sphere without a birth chart or desk
 })();
 // Cloud may later supersede skyMode via reload; URL always wins once for the session that set it.
 /* SPIN RATE (v2.2 + public settings): natural (new-visitor default = wall clock) · theatre (accelerated full-sky spin).
@@ -1144,6 +1145,7 @@ let SKY_TIME=(function(){   // let: pause-menu theatre toggle mutates without re
 })();
 let templeActive=false, _skySelectHeld=false, _skySelectUsed=false, _skySel=null;
 let _templeBlend=0, _templeFocus=null, _templeEscapeGuard=false, _templeNeedsRelock=false;
+let _lockLostAt=-1e9, _lockRetryT=null, _lockRetries=0, _runNeedsRelock=false, _relockTries=0, _lockReqPending=false;
 let _templeResumeWanted=false, _templeResumeSel=null, _templeResumeFocus=null, _templeStudySeq=0;
 let _templeChatOpen=false, _templeFreeMouse=false;   // free mouse = pointer unlocked so HUD scroll/click works under temple
 const _skyChat={threadId:null,turns:[],status:'none',remainingTurns:10,inFlight:false,loaded:false,seq:0,pollTimer:null,pollStep:0,startedAt:0,optimistic:false};
@@ -5149,7 +5151,13 @@ function killTarget(tg, clutch){
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=(function(){ try{ const v=localStorage.getItem('aimdojo.soundOn'); if(v==='0') return false; if(v==='1') return true; }catch(e){} return true; })(), rawCtx=null;
 let _userOffsetSec = (function(){ try{ const v=parseFloat(localStorage.getItem('aimdojo.offsetMs')); return isFinite(v)?Math.max(-0.3,Math.min(0.4,v/1000)):0; }catch(e){ return 0; } })();   // LATENCY CALIBRATION: a persisted user audio/input offset (ms→sec), ADDED to the reported output latency so the beat windows line up with what the player actually HEARS on their device (Bluetooth adds 100-300ms the browser under-reports)
-function audioLat(){ return (((rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0)) + _userOffsetSec; }   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
+const AUDIO_OUT_LATENCY=true;   // THREE's native AudioContext exposes outputLatency where Tone 14's wrapper does not; one switch keeps this heard-time correction easy to audition or roll back
+function audioLat(){
+  const n=(listener&&listener.context)||null;
+  let out=0;
+  if(AUDIO_OUT_LATENCY && n && typeof n.outputLatency==='number' && isFinite(n.outputLatency) && n.outputLatency>0) out=Math.min(n.outputLatency,0.35);
+  return (out || (rawCtx&&rawCtx.baseLatency) || 0) + _userOffsetSec;
+}   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
 let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in the heard timeline) → powers the pause-menu "calibrate from my taps"
 let reverbInput=null, reverbQueued=false;
 let kick=null, snare=null, hat=null, tick=null, tickVol=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, leadLp=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // leadLp: the lead voice's OWN lowpass, held so THE LEAD INSTRUMENT can set its cutoff per kill note (same node buildDrums always made, never touched with voice.on:false). grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
@@ -5427,11 +5435,14 @@ function makeIR(ctx, dur, decay){
 }
 function buildReverb(){
   if(!listener || reverbInput) return;
-  const ctx=listener.context;
-  const conv=ctx.createConvolver(); conv.buffer=makeIR(ctx,2.2,2.4);
-  reverbInput=ctx.createGain(); reverbInput.gain.value=1.0;
-  const wet=ctx.createGain(); wet.gain.value=0.55;
-  reverbInput.connect(conv); conv.connect(wet); wet.connect(listener.getInput());
+  try{
+    const ctx=listener.context;
+    const conv=ctx.createConvolver(); conv.buffer=makeIR(ctx,2.2,2.4);
+    const input=ctx.createGain(); input.gain.value=1.0;
+    const wet=ctx.createGain(); wet.gain.value=0.55;
+    input.connect(conv); conv.connect(wet); wet.connect(listener.getInput());
+    reverbInput=input;
+  }catch(e){ return; }
 }
 function scheduleReverbBuild(delay){
   if(reverbQueued || reverbInput || !listener) return;
@@ -5498,7 +5509,7 @@ function ensureListener(){
 }
 function initAudio(){
   ensureListener();
-  scheduleReverbBuild();
+  if(!reverbInput && listener && !state.running){ try{ buildReverb(); }catch(e){} } else scheduleReverbBuild();
   if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
   if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
   audioInit=true;
@@ -7538,7 +7549,8 @@ function onWhiff(){
   try{ padRumble(16, 0.25); }catch(e){}
 }
 function onExpire(tg){ if(tg.kind===2){ removeTarget(tg); return; }
-  if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
+  if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly
+  removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
   playWhiffSfx(); missGrooveDuck(false);
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.14);
 }
@@ -7558,6 +7570,7 @@ canvas.addEventListener('mousedown', e=>{
     // Click empty sky (canvas) while free-mouse → re-engage aim; HUD clicks never reach the canvas.
     if(templeActive&&(_templeFreeMouse||_templeChatOpen)){ setTempleFreeMouse(false); return; }
     if(_templeNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _templeNeedsRelock=false; try{ canvas.requestPointerLock(); }catch(_e){} return; }
+    if(_runNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _runNeedsRelock=false; _relockTries++; try{ canvas.requestPointerLock(); }catch(_e){} return; }
     fire();
   }else if(e.button===2) toggleSkyFreeze();
 });   // after Esc leaves Temple, the next click restores pointer lock before combat resumes
@@ -8414,7 +8427,7 @@ function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus 
   const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
   recordHit(tg);
   if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
-  playHit(0); chordHit(state.streak);                                               // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak killTarget(tg, true);                                      // clutch=true → the bigger GOLDEN burst reads these as bonus kills
+  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
 }
 function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
   const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
@@ -9018,6 +9031,7 @@ if(calibBtn) calibBtn.addEventListener('click', ()=>{
   const avg=_tapOffSum/_tapOffN, nextOffset=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg)); if(nextOffset!==_userOffsetSec){ _userOffsetSec=nextOffset; rebasePocketMissTracking(); }   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
   const ms=Math.round(_userOffsetSec*1000); if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
   try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){}
+  try{ queueCloudPrefs({offset_ms:ms}); }catch(e){}
   if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
   _tapOffSum=0; _tapOffN=0;
 });
@@ -9067,7 +9081,7 @@ function applyCloudPrefsRow(row){
   }
   if(typeof row.low_rez==='boolean'){
     try{ localStorage.setItem('aimdojo.lowRez', row.low_rez?'1':'0'); }catch(e){}
-    if(row.low_rez!==LOW) needsReload=true;
+    if(row.low_rez!==LOW && !LOW_FROM_URL) needsReload=true;
   }
   if(typeof row.display_name==='string'){
     const n=row.display_name.trim().slice(0,24);
@@ -9081,7 +9095,7 @@ function applyCloudPrefsRow(row){
   }
   if(row.sky_mode==='decorative'||row.sky_mode==='clocked'||row.sky_mode==='clocked_chart'){
     try{ localStorage.setItem('aimdojo.skyMode', row.sky_mode); }catch(e){}
-    if(row.sky_mode!==SKY_MODE) needsReload=true;
+    if(row.sky_mode!==SKY_MODE && !SKY_MODE_FROM_URL) needsReload=true;
   }
   if(typeof row.sound_on==='boolean'){
     soundOn=row.sound_on;
@@ -9670,6 +9684,7 @@ if(MOBILE){
 // first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
 function enterRunning(){
+  cancelLockRetry();
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); clearTempleResume(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
   document.body.classList.remove('overlay-paused');
@@ -9684,6 +9699,7 @@ function enterRunning(){
   if(_templeResumeWanted) restoreTempleAfterResume();
 }
 function exitRunning(){
+  cancelLockRetry();
   // Remember temple across pause / tab-hide so RESUME returns to the investigation, not the dojo.
   if(templeActive) exitSkyTemple({forPause:true, resume:false, toast:false, audio:false});
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false;
@@ -9700,7 +9716,7 @@ function exitRunning(){
 }
 document.addEventListener('visibilitychange',()=>{
   transitEssayVisibilityChanged(); skyBriefVisibilityChanged(); skyChatVisibilityChanged();
-  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); if(CFG.stars.on) starLitFlush(); if(CFG.chorus.on) chorusHush(); clock.getDelta(); }   // parcel J: a hidden tab holds no chorus — the exit above lands on the pause card, and chorusMenu already declines to start under document.hidden, so this is the belt for the drone that was ALREADY held when the tab went away. parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty). The flush moved AFTER exitRunning for parcel I: that exit lands the voices still in the air, and this is the write that banks them
+  if(document.hidden){ cancelLockRetry(); _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); if(CFG.stars.on) starLitFlush(); if(CFG.chorus.on) chorusHush(); clock.getDelta(); }   // parcel J: a hidden tab holds no chorus — the exit above lands on the pause card, and chorusMenu already declines to start under document.hidden, so this is the belt for the drone that was ALREADY held when the tab went away. parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty). The flush moved AFTER exitRunning for parcel I: that exit lands the voices still in the air, and this is the write that banks them
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); if(CFG.chorus.on) chorusMenu(); }   // parcel J: coming back to a card that is still up is an arrival like any other, so the chorus walks in again (chorusMenu's own guards decline while a run is live)
 });
 function showToneBlock(reason){
@@ -9711,11 +9727,12 @@ function showToneBlock(reason){
     ? T('toneFailedHtml','<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>PLAY</b> again.')
     : T('toneLoadingHtml','<b>Sound is still loading.</b> Wait a moment, then tap <b>PLAY</b> again.');
 }
+const LOCK_COOLDOWN_MS=1350;   // Chromium kEffectiveUserEscapeDuration is 1250 ms; leave a small margin before retrying pointer lock after Esc
 function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
   initAudio();
   if(!toneReady){ showToneBlock('start'); return; }
-  if(viaPad===true){   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
+  if(viaPad===true){ cancelLockRetry(); _runNeedsRelock=false;   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
     if(rawCtx && rawCtx.state!=='running'){
       const t0=performance.now(); let ok=false;
       try{ rawCtx.resume().then(()=>{ ok=true; if(!state.running && performance.now()-t0<3000 && !padBeginBlocked()) enterRunning(); }).catch(()=>{}); }catch(e){}   // under sticky activation (any earlier click/keypress on the page) this resolves ~instantly; the 3s freshness + re-checked guards stop a resume that a much-later unrelated click (e.g. opening the share modal — the very gesture Chrome was waiting for) finally unblocks from yanking the player into a run
@@ -9724,8 +9741,8 @@ function startRun(viaPad){
     }
     enterRunning(); return;
   }
-  if(MOBILE || !canvas.requestPointerLock){ enterRunning(); }   // touch devices: no pointer lock
-  else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
+  if(MOBILE || !canvas.requestPointerLock){ _runNeedsRelock=false; enterRunning(); }   // touch devices: no pointer lock
+  else { _runNeedsRelock=false; cancelLockRetry(); try{ _lockReqPending=true; canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
 }
 beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
 const beginTrainBtn=gid('beginTrain');
@@ -9734,7 +9751,26 @@ function setGateReady(ready){
 }
 setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
 if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
-document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
+function cancelLockRetry(){
+  clearTimeout(_lockRetryT); _lockRetryT=null; _lockRetries=0; _lockReqPending=false;
+  const resumeWait=T('resumeWait','ONE MOMENT…'); if(beginLabel && beginLabel.textContent===resumeWait) beginLabel.textContent=T('resume','RESUME'); else if(!beginLabel && beginBtn && beginBtn.textContent.indexOf(resumeWait)>=0) beginBtn.textContent='▶ '+T('resume','RESUME');
+}
+function onPointerLockError(){
+  if(document.hidden){ cancelLockRetry(); return; }
+  if(state.running){ _runNeedsRelock=!MOBILE && _relockTries<1; return; }
+  if(!_lockReqPending) return;
+  if(!MOBILE && performance.now()-_lockLostAt < LOCK_COOLDOWN_MS && _lockRetries<2){
+    _lockRetries++;
+    const waitLabel=T('resumeWait','ONE MOMENT…'); if(beginLabel) beginLabel.textContent=waitLabel; else beginBtn.textContent='▶ '+waitLabel;
+    clearTimeout(_lockRetryT);
+    const retry=()=>{ _lockRetryT=null; if(document.hidden){ cancelLockRetry(); return; } if(state.running || overlay.classList.contains('hidden')) return; try{ _lockReqPending=true; canvas.requestPointerLock(); }catch(e){ enterRunning(); } };
+    _lockRetryT=setTimeout(retry, Math.max(80, LOCK_COOLDOWN_MS-(performance.now()-_lockLostAt)+40));
+    return;
+  }
+  _relockTries=0; _runNeedsRelock=!MOBILE && !!canvas.requestPointerLock;
+  enterRunning();
+}
+document.addEventListener('pointerlockerror', onPointerLockError);   // retry Chromium's post-Esc cooldown, then fall back if lock is unavailable
 
 /* ===== THE FIRST GESTURE (parcel J) — the boot chorus sings as soon as the browser permits, and not one moment sooner
    The boot chorus is supposed to be the first thing a returning player hears, and it was never heard: the ONLY caller
@@ -9838,9 +9874,9 @@ function resetSession(){
 }
 
 document.addEventListener('pointerlockchange',()=>{
-  if(document.pointerLockElement===canvas){ _templeEscapeGuard=false; _templeNeedsRelock=false; enterRunning(); }
+  if(document.pointerLockElement===canvas){ const rejectLock=document.hidden || (!state.running && !_lockReqPending); cancelLockRetry(); _relockTries=0; _runNeedsRelock=false; _templeEscapeGuard=false; _templeNeedsRelock=false; if(rejectLock){ try{ document.exitPointerLock(); }catch(e){} return; } enterRunning(); }
   else if(_templeEscapeGuard){ _templeEscapeGuard=false; _templeNeedsRelock=true; }
-  else if(state.running) exitRunning();                  // pause remembers temple via forPause; RESUME restores it
+  else if(state.running){ _lockLostAt=performance.now(); exitRunning(); }                  // pause remembers temple via forPause; RESUME restores it
 });
 /* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
 const SB_URL=DEFAULT_SKY_SUPABASE_URL;

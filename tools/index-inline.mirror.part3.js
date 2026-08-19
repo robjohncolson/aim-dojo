@@ -754,7 +754,7 @@
                                                                                 
                                                                                                                                                      
                                                                                                                                                 
-                                                                
+                                                                                      
                                                                                                           
                                                         
                                                                                                                                                          
@@ -1106,6 +1106,7 @@
                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                              
+                                                                                 
                                                                                                          
                                                                                                           
                                                                                                                        
@@ -1121,12 +1122,12 @@
                                                          
                      
                                                                                                                                                                                                                     
-                           
+                                               
                                                                       
                                                                 
-                                                                                                   
-                                                                                                         
-                                                                                                          
+                                                                                                               
+                                                                                                                     
+                                                                                                                      
      
                                                                                                   
                                                                                                                         
@@ -1144,6 +1145,7 @@
      
                                                                                  
                                                                                           
+                                                                                                                     
                                                                                                  
                                                                                                                             
                                                                                                                                                                  
@@ -5149,7 +5151,13 @@ function killTarget(tg, clutch){
 /* ========================= AUDIO ========================= */
 let listener=null, toneReady=false, audioInit=false, soundOn=(function(){ try{ const v=localStorage.getItem('aimdojo.soundOn'); if(v==='0') return false; if(v==='1') return true; }catch(e){} return true; })(), rawCtx=null;
 let _userOffsetSec = (function(){ try{ const v=parseFloat(localStorage.getItem('aimdojo.offsetMs')); return isFinite(v)?Math.max(-0.3,Math.min(0.4,v/1000)):0; }catch(e){ return 0; } })();   // LATENCY CALIBRATION: a persisted user audio/input offset (ms→sec), ADDED to the reported output latency so the beat windows line up with what the player actually HEARS on their device (Bluetooth adds 100-300ms the browser under-reports)
-function audioLat(){ return (((rawCtx && (rawCtx.outputLatency||rawCtx.baseLatency))||0)) + _userOffsetSec; }   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
+const AUDIO_OUT_LATENCY=true;   // THREE's native AudioContext exposes outputLatency where Tone 14's wrapper does not; one switch keeps this heard-time correction easy to audition or roll back
+function audioLat(){
+  const n=(listener&&listener.context)||null;
+  let out=0;
+  if(AUDIO_OUT_LATENCY && n && typeof n.outputLatency==='number' && isFinite(n.outputLatency) && n.outputLatency>0) out=Math.min(n.outputLatency,0.35);
+  return (out || (rawCtx&&rawCtx.baseLatency) || 0) + _userOffsetSec;
+}   // the total correction subtracted from the beat position to reach the HEARD timeline (one source of truth for every timing gate)
 let _tapOffSum=0, _tapOffN=0;   // running mean of WASD-tap offsets (already in the heard timeline) → powers the pause-menu "calibrate from my taps"
 let reverbInput=null, reverbQueued=false;
 let kick=null, snare=null, hat=null, tick=null, tickVol=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, leadLp=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // leadLp: the lead voice's OWN lowpass, held so THE LEAD INSTRUMENT can set its cutoff per kill note (same node buildDrums always made, never touched with voice.on:false). grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
@@ -5427,11 +5435,14 @@ function makeIR(ctx, dur, decay){
 }
 function buildReverb(){
   if(!listener || reverbInput) return;
-  const ctx=listener.context;
-  const conv=ctx.createConvolver(); conv.buffer=makeIR(ctx,2.2,2.4);
-  reverbInput=ctx.createGain(); reverbInput.gain.value=1.0;
-  const wet=ctx.createGain(); wet.gain.value=0.55;
-  reverbInput.connect(conv); conv.connect(wet); wet.connect(listener.getInput());
+  try{
+    const ctx=listener.context;
+    const conv=ctx.createConvolver(); conv.buffer=makeIR(ctx,2.2,2.4);
+    const input=ctx.createGain(); input.gain.value=1.0;
+    const wet=ctx.createGain(); wet.gain.value=0.55;
+    input.connect(conv); conv.connect(wet); wet.connect(listener.getInput());
+    reverbInput=input;
+  }catch(e){ return; }
 }
 function scheduleReverbBuild(delay){
   if(reverbQueued || reverbInput || !listener) return;
@@ -5498,7 +5509,7 @@ function ensureListener(){
 }
 function initAudio(){
   ensureListener();
-  scheduleReverbBuild();
+  if(!reverbInput && listener && !state.running){ try{ buildReverb(); }catch(e){} } else scheduleReverbBuild();
   if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
   if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
   audioInit=true;
@@ -7538,7 +7549,8 @@ function polyPairSpawn(){
                                        
  
                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                               
                                         
                                                   
  
@@ -7558,6 +7570,7 @@ function polyPairSpawn(){
                                                                                                     
                                                                                                
                                                                                                                                                                                               
+                                                                                                                                                                                                        
            
                                            
                                                                                             
@@ -8414,7 +8427,7 @@ function polyPairSpawn(){
                                                                                                                                            
                 
                                                                                                             
-                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                           
  
                                                                                                                               
                                                                                        
@@ -9018,6 +9031,7 @@ function polyPairSpawn(){
                                                                                                                                                                                                                                                                                                                    
                                                                                                                      
                                                                 
+                                                   
                                                                                                                                                                            
                            
    
@@ -9067,7 +9081,7 @@ function polyPairSpawn(){
    
                                      
                                                                                  
-                                           
+                                                            
    
                                          
                                                 
@@ -9081,7 +9095,7 @@ function polyPairSpawn(){
    
                                                                                             
                                                                            
-                                                 
+                                                                       
    
                                       
                          
@@ -9670,6 +9684,7 @@ function polyPairSpawn(){
                                                                                                                                                                              
 
                         
+                    
                                                                                                                             
                                                             
                                                    
@@ -9684,6 +9699,7 @@ function polyPairSpawn(){
                                                      
  
                        
+                    
                                                                                                   
                                                                                           
                                                                  
@@ -9700,7 +9716,7 @@ function polyPairSpawn(){
  
                                                   
                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                           
    
                                
@@ -9711,11 +9727,12 @@ function polyPairSpawn(){
                                                                                                                                         
                                                                                                        
  
+                                                                                                                                               
                           
                                                                                   
               
                                                    
-                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                     
                                            
                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
@@ -9724,8 +9741,8 @@ function polyPairSpawn(){
      
                            
    
-                                                                                                 
-                                                                         
+                                                                                                                        
+                                                                                                                                         
  
                                                                                              
                                       
@@ -9734,7 +9751,26 @@ function polyPairSpawn(){
  
                                                                                                                  
                                                                                                                                                                                    
-                                                                                                                                
+                           
+                                                                                     
+                                                                                                                                                                                                                                                                                    
+ 
+                              
+                                                   
+                                                                         
+                              
+                                                                                    
+                   
+                                                                                                                                             
+                              
+                                                                                                                                                                                                                                                   
+                                                                                                     
+           
+   
+                                                                         
+                 
+ 
+                                                                                                                                                 
 
                                                                                                                        
                                                                                                                       
@@ -9838,9 +9874,9 @@ function polyPairSpawn(){
  
 
                                                    
-                                                                                                                 
+                                                                                                                                                                                                                                                                                                                            
                                                                                    
-                                                                                                                   
+                                                                                                                                                     
    
                                                                                                   
                                       

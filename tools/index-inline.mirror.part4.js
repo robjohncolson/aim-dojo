@@ -754,7 +754,7 @@
                                                                                 
                                                                                                                                                      
                                                                                                                                                 
-                                                                
+                                                                                      
                                                                                                           
                                                         
                                                                                                                                                          
@@ -1106,6 +1106,7 @@
                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                              
+                                                                                 
                                                                                                          
                                                                                                           
                                                                                                                        
@@ -1121,12 +1122,12 @@
                                                          
                      
                                                                                                                                                                                                                     
-                           
+                                               
                                                                       
                                                                 
-                                                                                                   
-                                                                                                         
-                                                                                                          
+                                                                                                               
+                                                                                                                     
+                                                                                                                      
      
                                                                                                   
                                                                                                                         
@@ -1144,6 +1145,7 @@
      
                                                                                  
                                                                                           
+                                                                                                                     
                                                                                                  
                                                                                                                             
                                                                                                                                                                  
@@ -5149,7 +5151,13 @@
                                                                
                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                
+                    
+                                             
+            
+                                                                                                                                                       
+                                                                     
+                                                                                                                                     
                                                                                                                                                     
                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
@@ -5427,11 +5435,14 @@
  
                        
                                       
-                             
-                                                                    
-                                                           
-                                                  
-                                                                                 
+      
+                               
+                                                                      
+                                                       
+                                                    
+                                                                             
+                      
+                      
  
                                     
                                                       
@@ -5498,7 +5509,7 @@
  
                      
                    
-                        
+                                                                                                               
                                                                                                                                                                                                                                                                                                                  
                                                                                                
                  
@@ -7538,7 +7549,8 @@ function onWhiff(){
   try{ padRumble(16, 0.25); }catch(e){}
 }
 function onExpire(tg){ if(tg.kind===2){ removeTarget(tg); return; }
-  if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
+  if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly
+  removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
   playWhiffSfx(); missGrooveDuck(false);
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.14);
 }
@@ -7558,6 +7570,7 @@ canvas.addEventListener('mousedown', e=>{
     // Click empty sky (canvas) while free-mouse → re-engage aim; HUD clicks never reach the canvas.
     if(templeActive&&(_templeFreeMouse||_templeChatOpen)){ setTempleFreeMouse(false); return; }
     if(_templeNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _templeNeedsRelock=false; try{ canvas.requestPointerLock(); }catch(_e){} return; }
+    if(_runNeedsRelock && !MOBILE && document.pointerLockElement!==canvas && canvas.requestPointerLock){ _runNeedsRelock=false; _relockTries++; try{ canvas.requestPointerLock(); }catch(_e){} return; }
     fire();
   }else if(e.button===2) toggleSkyFreeze();
 });   // after Esc leaves Temple, the next click restores pointer lock before combat resumes
@@ -8414,7 +8427,7 @@ function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus 
   const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
   recordHit(tg);
   if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
-  playHit(0); chordHit(state.streak);                                               // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak killTarget(tg, true);                                      // clutch=true → the bigger GOLDEN burst reads these as bonus kills
+  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
 }
 function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
   const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
@@ -9018,6 +9031,7 @@ if(calibBtn) calibBtn.addEventListener('click', ()=>{
   const avg=_tapOffSum/_tapOffN, nextOffset=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg)); if(nextOffset!==_userOffsetSec){ _userOffsetSec=nextOffset; rebasePocketMissTracking(); }   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
   const ms=Math.round(_userOffsetSec*1000); if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
   try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){}
+  try{ queueCloudPrefs({offset_ms:ms}); }catch(e){}
   if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
   _tapOffSum=0; _tapOffN=0;
 });
@@ -9067,7 +9081,7 @@ function applyCloudPrefsRow(row){
   }
   if(typeof row.low_rez==='boolean'){
     try{ localStorage.setItem('aimdojo.lowRez', row.low_rez?'1':'0'); }catch(e){}
-    if(row.low_rez!==LOW) needsReload=true;
+    if(row.low_rez!==LOW && !LOW_FROM_URL) needsReload=true;
   }
   if(typeof row.display_name==='string'){
     const n=row.display_name.trim().slice(0,24);
@@ -9081,7 +9095,7 @@ function applyCloudPrefsRow(row){
   }
   if(row.sky_mode==='decorative'||row.sky_mode==='clocked'||row.sky_mode==='clocked_chart'){
     try{ localStorage.setItem('aimdojo.skyMode', row.sky_mode); }catch(e){}
-    if(row.sky_mode!==SKY_MODE) needsReload=true;
+    if(row.sky_mode!==SKY_MODE && !SKY_MODE_FROM_URL) needsReload=true;
   }
   if(typeof row.sound_on==='boolean'){
     soundOn=row.sound_on;
@@ -9670,6 +9684,7 @@ if(MOBILE){
 // first-visit-only legend/headphones: hidden pre-paint via the inline head script (html.seen) + CSS — no JS here or returning players would see a flash while three.js loads
 
 function enterRunning(){
+  cancelLockRetry();
   if(!state.started || state.needsReset){ state.started=true; state.needsReset=false; resetSession(); clearTempleResume(); }
   try{ localStorage.setItem('aimdojo.seen','1'); }catch(e){}
   document.body.classList.remove('overlay-paused');
@@ -9684,6 +9699,7 @@ function enterRunning(){
   if(_templeResumeWanted) restoreTempleAfterResume();
 }
 function exitRunning(){
+  cancelLockRetry();
   // Remember temple across pause / tab-hide so RESUME returns to the investigation, not the dojo.
   if(templeActive) exitSkyTemple({forPause:true, resume:false, toast:false, audio:false});
   rhythmGeneration++; _skySelectHeld=false; _skySelectUsed=false;
@@ -9700,7 +9716,7 @@ function exitRunning(){
 }
 document.addEventListener('visibilitychange',()=>{
   transitEssayVisibilityChanged(); skyBriefVisibilityChanged(); skyChatVisibilityChanged();
-  if(document.hidden){ _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); if(CFG.stars.on) starLitFlush(); if(CFG.chorus.on) chorusHush(); clock.getDelta(); }   // parcel J: a hidden tab holds no chorus — the exit above lands on the pause card, and chorusMenu already declines to start under document.hidden, so this is the belt for the drone that was ALREADY held when the tab went away. parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty). The flush moved AFTER exitRunning for parcel I: that exit lands the voices still in the air, and this is the write that banks them
+  if(document.hidden){ cancelLockRetry(); _skySelectHeld=false; _skySelectUsed=false; if(state.running) exitRunning(); if(CFG.stars.on) starLitFlush(); if(CFG.chorus.on) chorusHush(); clock.getDelta(); }   // parcel J: a hidden tab holds no chorus — the exit above lands on the pause card, and chorusMenu already declines to start under document.hidden, so this is the belt for the drone that was ALREADY held when the tab went away. parcel H: hiding the tab is the last chance to bank a pending level — the trailing throttle would otherwise lose a return to a close inside saveMs (no-op when nothing is dirty). The flush moved AFTER exitRunning for parcel I: that exit lands the voices still in the air, and this is the write that banks them
   else { lastIdleFrame=0; skyAccum=SKY_UPDATE_STEP; starAccum=STAR_UPDATE_STEP; clock.getDelta(); if(CFG.chorus.on) chorusMenu(); }   // parcel J: coming back to a card that is still up is an arrival like any other, so the chorus walks in again (chorusMenu's own guards decline while a run is live)
 });
 function showToneBlock(reason){
@@ -9711,11 +9727,12 @@ function showToneBlock(reason){
     ? T('toneFailedHtml','<b>Sound failed to load.</b> Check your connection or unblock the audio library, then tap <b>PLAY</b> again.')
     : T('toneLoadingHtml','<b>Sound is still loading.</b> Wait a moment, then tap <b>PLAY</b> again.');
 }
+const LOCK_COOLDOWN_MS=1350;   // Chromium kEffectiveUserEscapeDuration is 1250 ms; leave a small margin before retrying pointer lock after Esc
 function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
   initAudio();
   if(!toneReady){ showToneBlock('start'); return; }
-  if(viaPad===true){   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
+  if(viaPad===true){ cancelLockRetry(); _runNeedsRelock=false;   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
     if(rawCtx && rawCtx.state!=='running'){
       const t0=performance.now(); let ok=false;
       try{ rawCtx.resume().then(()=>{ ok=true; if(!state.running && performance.now()-t0<3000 && !padBeginBlocked()) enterRunning(); }).catch(()=>{}); }catch(e){}   // under sticky activation (any earlier click/keypress on the page) this resolves ~instantly; the 3s freshness + re-checked guards stop a resume that a much-later unrelated click (e.g. opening the share modal — the very gesture Chrome was waiting for) finally unblocks from yanking the player into a run
@@ -9724,8 +9741,8 @@ function startRun(viaPad){
     }
     enterRunning(); return;
   }
-  if(MOBILE || !canvas.requestPointerLock){ enterRunning(); }   // touch devices: no pointer lock
-  else { try{ canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
+  if(MOBILE || !canvas.requestPointerLock){ _runNeedsRelock=false; enterRunning(); }   // touch devices: no pointer lock
+  else { _runNeedsRelock=false; cancelLockRetry(); try{ _lockReqPending=true; canvas.requestPointerLock(); }catch(e){ enterRunning(); } }
 }
 beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
 const beginTrainBtn=gid('beginTrain');
@@ -9734,7 +9751,26 @@ function setGateReady(ready){
 }
 setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
 if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
-document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunning(); });   // fall back if lock is unavailable
+                           
+                                                                                     
+                                                                                                                                                                                                                                                                                    
+ 
+                              
+                                                   
+                                                                         
+                              
+                                                                                    
+                   
+                                                                                                                                             
+                              
+                                                                                                                                                                                                                                                   
+                                                                                                     
+           
+   
+                                                                         
+                 
+ 
+                                                                                                                                                 
 
                                                                                                                        
                                                                                                                       
@@ -9838,9 +9874,9 @@ document.addEventListener('pointerlockerror', ()=>{ if(!state.running) enterRunn
  
 
                                                    
-                                                                                                                 
+                                                                                                                                                                                                                                                                                                                            
                                                                                    
-                                                                                                                   
+                                                                                                                                                     
    
                                                                                                   
                                       

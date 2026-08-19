@@ -70,7 +70,8 @@ and share link use the page's own URL at runtime, so they work wherever it's hos
 | Path | Cache-Control | Why |
 |------|---------------|-----|
 | `/` · `/index.html` | `max-age=0, must-revalidate` | New deploys show up immediately |
-| `/assets/**` · `/fixtures/**` · `*.js` | `max-age=604800` (7 days) + SWR | Heavy sky textures / modules stay warm on return visits |
+| Root modules (`observer-location.js`, `local-sky.js`, `sky-temple.js`, `sky-maps.js`, `save-my-sky.js`) | `max-age=0, must-revalidate` | Root modules revalidate on every load alongside fresh HTML |
+| `/assets/**` · `/fixtures/**` · `*.css` · `*.woff` · `*.woff2` | `max-age=604800` (7 days) + SWR | Heavy sky textures and styles stay warm on return visits |
 
 Filenames are **not** content-hashed. After changing a sky JPEG/PNG in place, browsers may keep
 the old file for up to 7 days (or until a hard refresh). To force a bust, rename the file and

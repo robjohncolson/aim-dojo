@@ -754,7 +754,7 @@
                                                                                 
                                                                                                                                                      
                                                                                                                                                 
-                                                                
+                                                                                      
                                                                                                           
                                                         
                                                                                                                                                          
@@ -1106,6 +1106,7 @@
                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                              
+                                                                                 
                                                                                                          
                                                                                                           
                                                                                                                        
@@ -1121,12 +1122,12 @@
                                                          
                      
                                                                                                                                                                                                                     
-                           
+                                               
                                                                       
                                                                 
-                                                                                                   
-                                                                                                         
-                                                                                                          
+                                                                                                               
+                                                                                                                     
+                                                                                                                      
      
                                                                                                   
                                                                                                                         
@@ -1144,6 +1145,7 @@
      
                                                                                  
                                                                                           
+                                                                                                                     
                                                                                                  
                                                                                                                             
                                                                                                                                                                  
@@ -5149,7 +5151,13 @@
                                                                
                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                
+                    
+                                             
+            
+                                                                                                                                                       
+                                                                     
+                                                                                                                                     
                                                                                                                                                     
                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
@@ -5427,11 +5435,14 @@
  
                        
                                       
-                             
-                                                                    
-                                                           
-                                                  
-                                                                                 
+      
+                               
+                                                                      
+                                                       
+                                                    
+                                                                             
+                      
+                      
  
                                     
                                                       
@@ -5498,7 +5509,7 @@
  
                      
                    
-                        
+                                                                                                               
                                                                                                                                                                                                                                                                                                                  
                                                                                                
                  
@@ -7538,7 +7549,8 @@
                                        
  
                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                               
                                         
                                                   
  
@@ -7558,6 +7570,7 @@
                                                                                                     
                                                                                                
                                                                                                                                                                                               
+                                                                                                                                                                                                        
            
                                            
                                                                                             
@@ -8414,7 +8427,7 @@
                                                                                                                                            
                 
                                                                                                             
-                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                           
  
                                                                                                                               
                                                                                        
@@ -9018,6 +9031,7 @@
                                                                                                                                                                                                                                                                                                                    
                                                                                                                      
                                                                 
+                                                   
                                                                                                                                                                            
                            
    
@@ -9067,7 +9081,7 @@
    
                                      
                                                                                  
-                                           
+                                                            
    
                                          
                                                 
@@ -9081,7 +9095,7 @@
    
                                                                                             
                                                                            
-                                                 
+                                                                       
    
                                       
                          
@@ -9670,6 +9684,7 @@
                                                                                                                                                                              
 
                         
+                    
                                                                                                                             
                                                             
                                                    
@@ -9684,6 +9699,7 @@
                                                      
  
                        
+                    
                                                                                                   
                                                                                           
                                                                  
@@ -9700,7 +9716,7 @@
  
                                                   
                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                           
    
                                
@@ -9711,11 +9727,12 @@
                                                                                                                                         
                                                                                                        
  
+                                                                                                                                               
                           
                                                                                   
               
                                                    
-                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                     
                                            
                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
@@ -9724,8 +9741,8 @@
      
                            
    
-                                                                                                 
-                                                                         
+                                                                                                                        
+                                                                                                                                         
  
                                                                                              
                                       
@@ -9734,7 +9751,26 @@
  
                                                                                                                  
                                                                                                                                                                                    
-                                                                                                                                
+function cancelLockRetry(){
+  clearTimeout(_lockRetryT); _lockRetryT=null; _lockRetries=0; _lockReqPending=false;
+  const resumeWait=T('resumeWait','ONE MOMENT…'); if(beginLabel && beginLabel.textContent===resumeWait) beginLabel.textContent=T('resume','RESUME'); else if(!beginLabel && beginBtn && beginBtn.textContent.indexOf(resumeWait)>=0) beginBtn.textContent='▶ '+T('resume','RESUME');
+}
+function onPointerLockError(){
+  if(document.hidden){ cancelLockRetry(); return; }
+  if(state.running){ _runNeedsRelock=!MOBILE && _relockTries<1; return; }
+  if(!_lockReqPending) return;
+  if(!MOBILE && performance.now()-_lockLostAt < LOCK_COOLDOWN_MS && _lockRetries<2){
+    _lockRetries++;
+    const waitLabel=T('resumeWait','ONE MOMENT…'); if(beginLabel) beginLabel.textContent=waitLabel; else beginBtn.textContent='▶ '+waitLabel;
+    clearTimeout(_lockRetryT);
+    const retry=()=>{ _lockRetryT=null; if(document.hidden){ cancelLockRetry(); return; } if(state.running || overlay.classList.contains('hidden')) return; try{ _lockReqPending=true; canvas.requestPointerLock(); }catch(e){ enterRunning(); } };
+    _lockRetryT=setTimeout(retry, Math.max(80, LOCK_COOLDOWN_MS-(performance.now()-_lockLostAt)+40));
+    return;
+  }
+  _relockTries=0; _runNeedsRelock=!MOBILE && !!canvas.requestPointerLock;
+  enterRunning();
+}
+document.addEventListener('pointerlockerror', onPointerLockError);   // retry Chromium's post-Esc cooldown, then fall back if lock is unavailable
 
 /* ===== THE FIRST GESTURE (parcel J) — the boot chorus sings as soon as the browser permits, and not one moment sooner
    The boot chorus is supposed to be the first thing a returning player hears, and it was never heard: the ONLY caller
@@ -9838,9 +9874,9 @@ function resetSession(){
 }
 
 document.addEventListener('pointerlockchange',()=>{
-  if(document.pointerLockElement===canvas){ _templeEscapeGuard=false; _templeNeedsRelock=false; enterRunning(); }
+  if(document.pointerLockElement===canvas){ const rejectLock=document.hidden || (!state.running && !_lockReqPending); cancelLockRetry(); _relockTries=0; _runNeedsRelock=false; _templeEscapeGuard=false; _templeNeedsRelock=false; if(rejectLock){ try{ document.exitPointerLock(); }catch(e){} return; } enterRunning(); }
   else if(_templeEscapeGuard){ _templeEscapeGuard=false; _templeNeedsRelock=true; }
-  else if(state.running) exitRunning();                  // pause remembers temple via forPause; RESUME restores it
+  else if(state.running){ _lockLostAt=performance.now(); exitRunning(); }                  // pause remembers temple via forPause; RESUME restores it
 });
 /* ========================= GLOBAL LEADERBOARD (Supabase, anon REST) ========================= */
 const SB_URL=DEFAULT_SKY_SUPABASE_URL;
