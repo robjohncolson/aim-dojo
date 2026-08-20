@@ -96,3 +96,19 @@ Proven: the suite passed 195/195 **with the R1 lane swap live**. Token-presence 
 The dispatcher's harness works and its server is on **port 8771** (`<scratchpad>/harness/`, `make-harness.py` regenerates `index.html` from the repo with a `__dbg` hook, `nave-shot.mjs <page> <outPrefix>` renders). If your sandbox still refuses sockets/Chrome, say so plainly and state what you verified statically instead — do not claim a render you did not do.
 
 Verification: full suite, `node tools/extract-inline.mjs` LAST, swallow scans zero, `git status --short`, `git diff --stat`. Final message: per-item line ranges, the measured Δ for R2, the LOW-shader grep result for R4, and any concern.
+
+---
+
+# ROUND 4 — closing two test-coverage gaps (2026-08-20, post-ship)
+
+Wave 9 shipped as `5802a0f`. A second adversarial review returned BLOCK on **test coverage only** — it confirmed the shipped rendering is correct and could not break the runtime. Both findings are gaps in the safety net that would let a FUTURE regression through. Close them. Tests only; do not change `index.html` behaviour.
+
+### R6 — the lane contract does not cover the uniform bindings
+`tests/index-contract.test.js:~97` validates `WASD_HEX` and the shader's `uL0..uL3` selection expression separately, but never the *bindings* at `index.html:~2497` (`uL0:{value:_roadLaneCol[0]}, …`) nor the fill `_roadLaneCol[i].setHex(WASD_HEX[i])`. Proof the gap is real: the reviewer mutated the bindings to `uL0:_roadLaneCol[1], uL1:_roadLaneCol[0]` — recreating the exact W/A swap that shipped-and-was-caught last round — and the suite still passed 196/196.
+**Fix:** extend the lane test to assert **index identity across the whole chain**: parse the `uL0..uL3` binding literals from index.html and assert `uL{i}` binds `_roadLaneCol[{i}]` for each i, and that the fill loop assigns `WASD_HEX[i]` to `_roadLaneCol[i]` (same index on both sides — a test that fails if either side is reordered). Prefer parsing over evaluation if evaluation needs too much scaffolding, but the assertion must be index-sensitive, not presence-based. Verify by making the reviewer's mutation locally and confirming your new test FAILS, then revert it and confirm it passes; state both results.
+
+### R7 — the wave-8 shader fixture only freezes the desktop emission
+`tests/moonline-wave8-arch-shaders.fixture.json` freezes `{nave:false, low:false}` only. Proof: mutating the LOW-only wave-8 line at `index.html:~2270` (`float a=core*vAmt;` → `float a=core*vAmt*0.5;`) changes the emitted LOW shader while the fixture test still passes.
+**Fix:** freeze and compare **both** `{nave:false, low:false}` and `{nave:false, low:true}`. Keep the existing desktop entry byte-identical (it is correctly captured from pre-Nave `ae231cb` — vertex and fragment hashes verified) and add the LOW pair alongside it; update the test to `deepEqual` both. Verify with the same mutate → fail → revert → pass cycle and state both results.
+
+Do not commit or push. Do not run `gitnexus analyze`. `index.html` should not change at all this round — if you believe it must, stop and say why instead. Regenerate mirrors only if index.html changed. Final message: what you changed, the mutate/revert verification results for BOTH findings, and the suite count.

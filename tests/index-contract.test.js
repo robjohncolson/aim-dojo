@@ -79,11 +79,14 @@ test("inline script comments cannot swallow trailing call statements", () => {
 
 test("the Nave kill-switch emits the frozen Wave 8 shaders character-for-character", () => {
   assert.match(html, /const ML_NAVE=ML_ARCH && !!\(CFG\.moonline && CFG\.moonline\.naveOn\);/);
-  const wave8 = emitRoadArchShaders({ nave: false, low: false });
+  const wave8 = {
+    desktop: emitRoadArchShaders({ nave: false, low: false }),
+    low: emitRoadArchShaders({ nave: false, low: true }),
+  };
   const nave = emitRoadArchShaders({ nave: true, low: false });
   assert.deepEqual(wave8, wave8ArchFixture);
-  assert.notEqual(nave.vertexShader, wave8.vertexShader);
-  assert.notEqual(nave.fragmentShader, wave8.fragmentShader);
+  assert.notEqual(nave.vertexShader, wave8.desktop.vertexShader);
+  assert.notEqual(nave.fragmentShader, wave8.desktop.fragmentShader);
   assert.match(nave.fragmentShader, /vec3 cool=.*warm=/);
 });
 
@@ -100,6 +103,16 @@ test("the Nave lane palette derives every jewel from the authoritative WASD unif
   assert.deepEqual(laneHex, [0x43d9ff, 0x74e84a, 0xffd36b, 0xff5a7a]);
   const roadBuilder = html.match(/\(function buildRoad\(\)\{[\s\S]*?\n\}\)\(\);/);
   assert.ok(roadBuilder, "the road material builder is present");
+  const laneBindings = [...roadBuilder[0].matchAll(/\buL([0-3]):\{value:_roadLaneCol\[(\d+)\]\}/g)]
+    .map(([, uniformIndex, paletteIndex]) => [Number(uniformIndex), Number(paletteIndex)]);
+  assert.deepEqual(laneBindings, [[0, 0], [1, 1], [2, 2], [3, 3]], "each WASD uniform binds the same-index lane colour");
+  const roadSync = html.match(/function roadSync\(\)\{[\s\S]*?\n\}/);
+  assert.ok(roadSync, "roadSync is present as the lane-colour fill owner");
+  const laneFill = roadSync[0].match(/for\(let ([A-Za-z_$][\w$]*)=0;\1<4;\1\+\+\)\s*_roadLaneCol\[([^\]]+)\]\.setHex\(WASD_HEX\[([^\]]+)\]\)/);
+  assert.ok(laneFill, "the WASD lane-colour fill loop is present");
+  const [, iterator, paletteIndex, wasdIndex] = laneFill;
+  assert.equal(paletteIndex, iterator, "the fill writes the loop's same-index lane colour");
+  assert.equal(wasdIndex, iterator, "the fill reads the loop's same-index WASD colour");
   const laneAt = roadBuilder[0].indexOf("'  vec3 lc=");
   const colourAt = roadBuilder[0].indexOf("'  vec3 col=", laneAt);
   assert.ok(laneAt >= 0 && colourAt > laneAt, "the emitted lane-selection block is extractable");
