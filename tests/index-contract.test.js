@@ -8,6 +8,34 @@ const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const wave8ArchFixture = JSON.parse(fs.readFileSync(path.join(__dirname, "moonline-wave8-arch-shaders.fixture.json"), "utf8"));
+
+function emitRoadArchShaders({ nave, low }) {
+  const match = html.match(/function buildRoadArches\(\)\{[\s\S]*?\n\}(?=\nfunction buildNaveVault)/);
+  assert.ok(match, "buildRoadArches is extractable for shader emission");
+  class BufferGeometry { setAttribute() {} setIndex() {} }
+  class BufferAttribute { constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; } }
+  class ShaderMaterial { constructor(options) { Object.assign(this, options); } }
+  class Mesh { constructor(geometry, material) { this.geometry = geometry; this.material = material; } }
+  class Color { constructor(value) { this.value = value; } }
+  const uniforms = { uNow: {}, uBase: {}, uA: {}, uW: {}, uP: {}, uBreath: {} };
+  const context = vm.createContext({
+    ML_NAVE: nave, LOW: low, ML_ARCH_RICH: !low, ML_ARCH_SEG: low ? 14 : 28, ML_NAVE_SEG: low ? 18 : 40,
+    ML_ARCH_N: 11, ML_ARCH_BEHIND: 8, ML_ARCH_EVERY: 4, ML_ARCH_SPREAD: 0.25,
+    ROAD_HALF_W: 7, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
+    ML_ARCH_PX: 3.2, ML_FOCAL_PX: (1080 / 2) / Math.tan(95 * Math.PI / 360), ML_ARCH_WMIN: 0.06, ML_ARCH_WMAX: 2.6,
+    ML_ARCH_BREATH: 0.45, ML_ARCH_CORE: 16, ML_ARCH_NODE: 2.2, ML_ARCH_PRISM_AT: -0.55, ML_ARCH_PRISM_K: 22,
+    ML_ARCH_AUR: 2.4, ML_ARCH_INK: 0.62, ML_GOLD: 0xffeccc, ML_NAVE_VEIL: low ? 0 : 0.45,
+    ML_NAVE_SPRING: 9.5, ML_NAVE_R1: 7, ML_NAVE_R2: 8.3, ML_NAVE_RM1: 10, ML_NAVE_RM2: 11.6,
+    _roadG: (number) => (+number).toFixed(5), _archKind: new Float32Array(11),
+    roadMat: { uniforms }, roadArchMat: null, roadArch: null, roadArchAccentMat: null, roadArchAccent: null,
+    CFG: { moonline: { archHeightM: 7, archGlow: 1, archPrism: 0.35, reflectAlpha: 0.18, mercyRingBoost: 1.9 } },
+    THREE: { BufferGeometry, BufferAttribute, Float32BufferAttribute: BufferAttribute, ShaderMaterial, Mesh, Color, DoubleSide: 1, AdditiveBlending: 2, NormalBlending: 3 },
+    scene: { add() {} },
+  });
+  new vm.Script(`${match[0]}\nbuildRoadArches();`, { filename: "buildRoadArches.vm.js" }).runInContext(context);
+  return { vertexShader: context.roadArchMat.vertexShader, fragmentShader: context.roadArchMat.fragmentShader };
+}
 
 test("every inline browser script parses", () => {
   const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
@@ -47,6 +75,60 @@ test("inline script comments cannot swallow trailing call statements", () => {
     });
   }
   assert.deepEqual(offenders, [], `call statements swallowed by // comments at index.html lines: ${offenders.join(", ")}`);
+});
+
+test("the Nave kill-switch emits the frozen Wave 8 shaders character-for-character", () => {
+  assert.match(html, /const ML_NAVE=ML_ARCH && !!\(CFG\.moonline && CFG\.moonline\.naveOn\);/);
+  const wave8 = emitRoadArchShaders({ nave: false, low: false });
+  const nave = emitRoadArchShaders({ nave: true, low: false });
+  assert.deepEqual(wave8, wave8ArchFixture);
+  assert.notEqual(nave.vertexShader, wave8.vertexShader);
+  assert.notEqual(nave.fragmentShader, wave8.fragmentShader);
+  assert.match(nave.fragmentShader, /vec3 cool=.*warm=/);
+});
+
+test("the Nave CFG defaults remain flat ship literals", () => {
+  const moonline = html.match(/moonline:\{([^{}\n]+)\}/);
+  assert.ok(moonline, "CFG.moonline is a single flat literal");
+  assert.match(moonline[1], /naveOn:true, naveStars:1500, naveVeil:0\.45, naveStreetGold:1(?:,|\s)/);
+});
+
+test("the Nave lane palette derives every jewel from the authoritative WASD uniforms", () => {
+  const wasd = html.match(/WASD_HEX=\[([^\]]+)\]/);
+  assert.ok(wasd, "WASD_HEX is present as the lane-colour authority");
+  const laneHex = wasd[1].split(",").map((value) => Number(value.trim()));
+  assert.deepEqual(laneHex, [0x43d9ff, 0x74e84a, 0xffd36b, 0xff5a7a]);
+  const roadBuilder = html.match(/\(function buildRoad\(\)\{[\s\S]*?\n\}\)\(\);/);
+  assert.ok(roadBuilder, "the road material builder is present");
+  const laneAt = roadBuilder[0].indexOf("'  vec3 lc=");
+  const colourAt = roadBuilder[0].indexOf("'  vec3 col=", laneAt);
+  assert.ok(laneAt >= 0 && colourAt > laneAt, "the emitted lane-selection block is extractable");
+  const laneBlock = roadBuilder[0].slice(laneAt, colourAt);
+  assert.match(laneBlock, /vec3 lc=mix\(mix\(uL0,uL1,step\(0\.5,lane\)\), mix\(uL2,uL3,step\(2\.5,lane\)\), step\(1\.5,lane\)\)/);
+  assert.match(laneBlock, /vec3 jewel=clamp\(mix\(vec3\(dot\(lc,vec3\(0\.299,0\.587,0\.114\)\)\),lc,([0-9.]+)\)\*([0-9.]+),0\.0,1\.0\); lc=mix\(lc,jewel,uNaveGold\)/);
+  assert.doesNotMatch(laneBlock, /\bj[0-3]\b/);
+  assert.deepEqual(laneBlock.match(/vec3\([0-9.]+,[0-9.]+,[0-9.]+\)/g), ["vec3(0.299,0.587,0.114)"], "the Nave fork contains no hardcoded lane-hue vec3 literals");
+
+  const [, saturationText, liftText] = laneBlock.match(/\),lc,([0-9.]+)\)\*([0-9.]+),0\.0,1\.0/);
+  const saturation = Number(saturationText), lift = Number(liftText);
+  const jewels = laneHex.map((hex) => {
+    const lane = [hex >> 16, (hex >> 8) & 0xff, hex & 0xff].map((channel) => channel / 255);
+    const luminance = lane[0] * 0.299 + lane[1] * 0.587 + lane[2] * 0.114;
+    return lane.map((channel) => Math.max(0, Math.min(1, (luminance + (channel - luminance) * saturation) * lift)));
+  });
+  assert.ok(jewels[0][2] > jewels[0][1] && jewels[0][1] > jewels[0][0], "W remains cyan");
+  assert.ok(jewels[1][1] > jewels[1][0] && jewels[1][1] > jewels[1][2], "A remains green");
+  assert.ok(jewels[2][0] > jewels[2][1] && jewels[2][1] > jewels[2][2], "S remains gold");
+  assert.ok(jewels[3][0] > jewels[3][2] && jewels[3][2] > jewels[3][1], "D remains pink");
+  for (const jewel of jewels) assert.ok(Math.max(...jewel) - Math.min(...jewel) > 0.45, "jewel lift preserves stained-glass saturation");
+});
+
+test("LOW emits plain marble without coffer recess or lip code", () => {
+  const desktop = emitRoadArchShaders({ nave: true, low: false });
+  const low = emitRoadArchShaders({ nave: true, low: true });
+  assert.match(desktop.fragmentShader, /\brec\b/);
+  assert.match(desktop.fragmentShader, /\blip\b/);
+  assert.doesNotMatch(low.fragmentShader, /\b(?:rec|lip|recess)\b/i);
 });
 
 test("ordinary orb expiry releases the target and records a miss", () => {

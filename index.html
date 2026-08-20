@@ -1028,7 +1028,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the course must be at the ribbon's end before the painted horizon streak may stand in for the road beyond it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the void it streams through — THE DIAL for wave 8.2's volumetric field (Y1), which spends only 0.109% of the frame and has room to be pushed · cueGlowPx = THE CROSSHAIR'S PULSATING GLOW (parcel W): the blur radius, in CSS px, of the bloom the required LETTER wears at the peak of its beat — the pre-wave-7 floor-beat cue's own envelope, on the one surface a floorless world still has (0 = the letter is the shipped one, with no bloom at all, and the beat is then carried by the road and the audio alone) · tetherGlow = THE GOLDEN THREAD's master brightness (wave 8.2, Y2 — this used to be "per unit of the orb shell's open glow", and the window-driven law it scaled is gone): the idle thread's alpha is tetherGlow × ML_TETH_IDLE, CONSTANT for the orb's whole life, and the landed kill's golden pulse rides CFG.stars.lineAlpha on the same path. 0 = no thread is ever built · breathMax = THE BREATH (wave 8.1, SPEC_MOONLINE §1.1): how much brighter the WHOLE ribbon burns at the peak of a beat than between two — rails, crossbars and cell fills together, on one multiply. 0.45 is not a new number: it is CFG.floorBeatMax, the amplitude the pre-wave-7 FLOOR WASH swelled by, restored on the only surface a floorless world still has (0 = the ribbon rests at its shipped brightness and the beat is carried by the audio, the now-line and the crosshair's letter alone; the arches ride the same swell at ML_ARCH_BREATH of it). Flat literal — nested {} would break the CFG contract test regex
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE (wave 8) MASTER KILL-SWITCH. on:false → wave-7 rendering EXACTLY (the flat road over the room's own ground plane, fog and horizon haze); moonlineVoid() reads this raw boolean FIRST and then roadLive(), so road.on:false keeps its wave-6 floor whatever this says — the Moonline IS the road, and a void with no ribbon in it would be a world with nothing to say · shellOpacity = the celestial shell's opacity in post-graduation play (1 = SPEC §2's "full opacity, complete sphere"; 0 = the void keeps only the gradient dome, which is also the escape hatch if the 3072×1536 map ever costs a device too much) · fogDensity = the void's fog (0 — there is no ground for ground-fog to sit on; raise it to put air back into the room the void replaced) · domeCull = skip the gradient sky dome's whole full-screen pass while the shell is solid and loaded, since it is then 100% occluded (this is what PAYS for the shell: −1 draw call and −12 sin/fract of cloud fbm per sky fragment) · metersPerBeat = THE SPEED SCALE (parcel U): road speed = metersPerBeat × bpm/60, so 27 gives 9.00 m/s at the 20 bpm floor and 27.00 m/s = 60.4 mph at the sixty cap — the climb to sixty literally TRIPLES ground speed, and one number is enough because distance IS time on this road (a beat is 27 m, a sixteenth crossbar 1.6875 m) · drawBeats = how far the naked grid runs (32 beats = 864 m each way; the COLOURED cells are still road.lookAheadBeats, untouched) · impostorMinStraight = how straight the far end must be before the painted streak may stand in for the road past it (0.55 = a far heading under 2.70°, which over a swept year of courses is 32% of now-positions; 0.72 → 20%, 0 → always, 1 → never) · impostorInk = that streak's brightness, and 0 turns the painted road off entirely so the ribbon simply ends at drawBeats (the honest escape hatch for SPEC §6's seam question) · archOn = ARCHES, RINGS AND DUST (parcel V) as one raw boolean: false leaves the ribbon exactly as parcel U shipped it, and moonline.on:false never even reaches this read · naveOn = WAVE 9's raw master, read only after the Moonline and arch switches; false selects the preserved wave-8 source strings and builds no nave-only draw · naveStars = vault point count, hard-capped below and 0 means no buffer, material or draw · naveVeil = the mercy curtain's alpha (LOW compiles and builds none) · naveStreetGold = the live 0..1 palette mix: 1 is the Nave's honey-glass street; the dial remains the escape hatch back toward wave-8's dark glass, and 0 is that old palette byte-identically · archHeightM = the arch's apex height in metres, and 7 is not a taste — it is ROAD_HALF_W, so the default arch is a TRUE SEMICIRCLE (the front-view outline is the ellipse (x/halfW)² + (y/archHeightM)² = 1, exactly; raise it for a taller gothic sweep, drop it for a flatter vault, and the mercy RING stays a true circle only at 7) · archGlow = the whole gold's master brightness (0 = the arches go dark without changing one line of geometry) · archPrism = how much rainbow the inner rim carries (0 = plain gold; the rim is a thin band just INSIDE the core, never the core itself, so the arch reads gold at every setting) · mercyRingBoost = how much grander the one COMPLETE circle burns than an ordinary bar line (1 = no boost at all, and the ring is then legible only by being closed) · reflectAlpha = the mirrored pass below the road plane (0.18 first guess; 0 = off, and the mercy ring is UNAFFECTED because its lower half is not a reflection but the ring itself closing) · dustCount = live stardust motes, hard-capped at ML_DUST_MAX 400 (0 = off; the sixteenth carrier then lives only in the crossbar tier that already draws it) · dustGlow = the dust's brightness against the void it streams through — THE DIAL for wave 8.2's volumetric field (Y1), which spends only 0.109% of the frame and has room to be pushed · cueGlowPx = THE CROSSHAIR'S PULSATING GLOW (parcel W): the blur radius, in CSS px, of the bloom the required LETTER wears at the peak of its beat — the pre-wave-7 floor-beat cue's own envelope, on the one surface a floorless world still has (0 = the letter is the shipped one, with no bloom at all, and the beat is then carried by the road and the audio alone) · tetherGlow = THE GOLDEN THREAD's master brightness (wave 8.2, Y2 — this used to be "per unit of the orb shell's open glow", and the window-driven law it scaled is gone): the idle thread's alpha is tetherGlow × ML_TETH_IDLE, CONSTANT for the orb's whole life, and the landed kill's golden pulse rides CFG.stars.lineAlpha on the same path. 0 = no thread is ever built · breathMax = THE BREATH (wave 8.1, SPEC_MOONLINE §1.1): how much brighter the WHOLE ribbon burns at the peak of a beat than between two — rails, crossbars and cell fills together, on one multiply. 0.45 is not a new number: it is CFG.floorBeatMax, the amplitude the pre-wave-7 FLOOR WASH swelled by, restored on the only surface a floorless world still has (0 = the ribbon rests at its shipped brightness and the beat is carried by the audio, the now-line and the crosshair's letter alone; the arches ride the same swell at ML_ARCH_BREATH of it). Flat literal — nested {} would break the CFG contract test regex
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1918,6 +1918,7 @@ const ROAD_HOLD_AT=4, ROAD_HOLD_LEN=3;                                    // hol
    ============================================================================================================== */
 const ML_GOLD=0xffeccc;                                                   // THE GOLD, declared once: the arches, their nodes and the horizon impostor's painted road are all the same golden-white, because the impostor IS road and the arches are grown from it
 const ML_ARCH=ML_RIBBON && !!(CFG.moonline && CFG.moonline.archOn);       // raw boolean, and the master switch first — archOn:false leaves parcel U exactly as it shipped
+const ML_NAVE=ML_ARCH && !!(CFG.moonline && CFG.moonline.naveOn);         // WAVE 9 MASTER, raw booleans first: false selects the old buildRoadArches/road/dust source texts and does not reach one nave-only builder
 const ML_ARCH_EVERY=4;                                                    // BEATS PER ARCH = the BAR, not a knob: it is the same 4 the ribbon's coarsest crossbar tier (TIER(0.25,3)) already draws as the bar line, and the same 4 roadTideAt counts its swell in. A knob here could make the arches disagree with the grid under them
 const ML_ARCH_BEHIND=8, ML_ARCH_N=11;                                     // 2 arches behind the feet (216 m — turn around and the gates you passed are still there) and 9 ahead, out to 32 beats = 864 m, which is ROAD_DRAW exactly: the last arch dies where the ribbon does. A multiple of ML_ARCH_EVERY, so the slot ring re-anchors on a bar line
 const ML_ARCH_SPREAD=0.25, ML_ARCH_SPREAD_M=ML_ARCH_SPREAD*ROAD_MPB;      // the branch's half-spread along the road: a QUARTER BEAT = 6.75 m = one quarter-crossbar = four sixteenths, so all four junction nodes land on crossbars the grid already draws (see the block comment for the 58.5° departure this buys)
@@ -1926,6 +1927,11 @@ const ML_FOCAL_PX=(1080/2)/Math.tan(95*Math.PI/360);                      // 494
 const ML_ARCH_PX=3.2, ML_ARCH_WMIN=0.06, ML_ARCH_WMAX=2.6;               // the strand's half-width in PIXELS, and the metres it may never fall below or rise above (a 0.06 m floor keeps a near strand a beam instead of a wire; a 2.6 m cap keeps the far ones ~3 px instead of ballooning with distance)
 const ML_ARCH_INK=0.62, ML_ARCH_NODE=2.2, ML_ARCH_CORE=16.0, ML_ARCH_AUR=2.4, ML_ARCH_PRISM_AT=-0.55, ML_ARCH_PRISM_K=22.0;   // the gold's base alpha (against the ribbon's own ROAD_ALPHA 0.55 — the arch is the brightest thing on the road because the bar is the loudest thing in the grid) · the junction node's core boost · the core's gaussian tightness · the aurora tail's · where the prismatic rim sits across the strand (negative = INSIDE the arc) and how thin it is
 const ML_ARCH_BREATH=0.45;                                                // THE BREATH on the GATES (wave 8.1, SPEC_MOONLINE §1.1), as a fraction of the ribbon's own amplitude: the gold swells with the road at 45% of it, so the bar lines breathe WITH the surface they are grown from instead of racing it. It costs the arches ONE uniform — roadMat's own uBreath OBJECT, the sharing this parcel already does for the clock — and one multiply-add in the VERTEX shader, where vAmt is already computed: no new pass, no new per-frame write, and 0 leaves every arch exactly as parcel V shipped it
+const ML_NAVE_STAR_MAX=3000, ML_NAVE_STARS=ML_NAVE?Math.floor(Math.max(0,Math.min(ML_NAVE_STAR_MAX,(+CFG.moonline.naveStars||0)|0))*(LOW?0.5:1)):0;   // one vault Points; LOW halves the buffer at build time, and 0 crosses no builder, allocation, material or draw call
+const ML_NAVE_VEIL=ML_NAVE&&!LOW?Math.max(0,Math.min(1,+CFG.moonline.naveVeil||0)):0;   // LOW excludes the mercy sheet itself, not merely its alpha math
+const ML_NAVE_SEG=LOW?18:40, ML_NAVE_SPRING=9.5, ML_NAVE_R1=7, ML_NAVE_R2=8.3, ML_NAVE_RM1=10, ML_NAVE_RM2=11.6;   // the user-locked Renaissance proportions; LOW spends fewer band quads and emits neither coffers nor inner glow
+const ML_NAVE_VAULT_SPAN=26, ML_NAVE_VAULT_BEHIND=1;                      // 702 m of painted ceiling with one beat behind the eye; the far fade ends before the ribbon, leaving its portal cone clean
+const ML_NAVE_BREATH=0.20;                                                // THE CANOPY'S QUIET BREATH: vault and veil share the ribbon's uBreath object but take only a fifth of its swell, enough to live with the gates without turning the star field or mercy curtain into a strobe
 const ML_DUST_MAX=400;                                                    // the hard cap SPEC §4 names, enforced on the CFG read below so no console typo can put 40000 motes on the road
 const ML_DUST_N=ML_RIBBON&&!LOW&&!reduceMotion?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform. WAVE 8.2 (Y1) ADDS reduceMotion TO THE SAME READ: the dust is now the SPACE STREAMING PAST YOU and nothing else — a standing volumetric field is not a quieter version of that cue, it is a fog of dots with no meaning left in it — so reduced motion switches it off exactly the way LOW does, at build time, and the ribbon, the arches and the crossbar tier carry the sixteenth on their own (SPEC_MOONLINE §1.2)
 /* THE DUST WAS SPENT WHERE THE EYE CANNOT RESOLVE IT (wave 8.1 — user first light: "I do not see any stardust coming").
@@ -1984,7 +1990,7 @@ const ML_DUST_M=0.30, ML_DUST_INK=0.55;                                   // a m
 const ML_DUST_PX0=1.0, ML_DUST_PX1=6.0;                                   // the mote's floor and ceiling in PIXELS (was an unnamed 1.0,4.0 in the shader). The cap is what the near field spends its budget on — 11 motes hold it at any instant; see the population arithmetic above
 const ML_DUST_FAR0=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB*0.62, ML_DUST_FAR1=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB, ML_DUST_BEH_M=ML_DUST_BEHIND*ROAD_MPB;   // both ends of the window are ramps, so a mote fades in where it wraps and fades out where it leaves — no popping at either seam. The rear ramp now does real work: it is behind you, and you can turn around and look at it
 let roadMesh=null, roadMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
-let roadArch=null, roadArchMat=null, roadDust=null, roadDustMat=null;
+let roadArch=null, roadArchMat=null, roadArchAccent=null, roadArchAccentMat=null, roadVault=null, roadVaultMat=null, roadNaveVeil=null, roadNaveVeilMat=null, roadDust=null, roadDustMat=null;
 const _archKind=new Float32Array(ML_ARCH_N);                              // slot k's MERCY flag, rewritten once per BEAT into the very array the uniform points at — no allocation, no upload call of our own
 const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
 const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], _roadMark=new THREE.Color();   // the LANE's own four colours and the FILL's own amber — filled from WASD_HEX / TANK_COLOR in roadSync's one-time block, because both of those literals are declared further down the file and this parcel refuses to keep a second copy of either
@@ -2198,6 +2204,7 @@ function roadImpSync(r){
   roadImpMat.uniforms.uAmt.value=amt;
 }
 function buildRoadArches(){
+  if(!ML_NAVE){
   /* THE RAIL-SPLIT ARCHES, THE MERCY RING AND THE REFLECTIONS — ONE indexed mesh, ONE draw call, built ONCE (SPEC §4).
      Every arch on screen, its crossing partner, both junction pairs, the mirrored pass below the road plane and the mercy
      ring are the same 44 ribbon strips: the VERTEX shader places each station from tonight's course at its OWN beat, so
@@ -2268,6 +2275,146 @@ function buildRoadArches(){
     ]).join('\n') });
   roadArch=new THREE.Mesh(g, roadArchMat);
   roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);   // −39: straight after the ribbon (−40) and still before every other transparent thing, with depthTest untouched — an opaque Echo occludes a gate exactly as it occludes the road under it
+    return;
+  }
+  /* THE NAVE — TWO DRAWS, ONE PARAMETRIC BUFFER, ZERO PER-FRAME CPU (SPEC_MOONLINE_NAVE §2–§3).
+     The normal-blended stone and the additive alabaster/gold overlay share this indexed geometry and every uniform object.
+     Attributes remain parameters, never world positions: slot + primitive coordinates are placed from the course spline in
+     the vertex shader. Shipped desktop submits 2 × 2,200 triangles in two arch calls; LOW submits 1 × 1,232 and never
+     builds the accent material, compiling out coffers, stone glow and sparkles. Vault and veil are separate +1 calls by contract. */
+  const SEG=ML_NAVE_SEG, p=[], kd=[], mr=[], uv=[], ix=[]; let nv=0;
+  function nq(k,kind,x0,x1,y0,y1,mir){ const b=nv, q=[[x0,y0,0,0],[x1,y0,1,0],[x1,y1,1,1],[x0,y1,0,1]]; for(let i=0;i<4;i++){ p.push(k,q[i][0],q[i][1]); kd.push(kind); mr.push(mir); uv.push(q[i][2],q[i][3]); nv++; } ix.push(b,b+1,b+2,b,b+2,b+3); }
+  function nb(k,mir){ const b=nv; for(let s=0;s<=SEG;s++){ const t=s/SEG; for(let r=0;r<2;r++){ p.push(k,t,r); kd.push(0); mr.push(mir); uv.push(t,r); nv++; } } for(let s=0;s<SEG;s++){ const a=b+s*2; ix.push(a,a+1,a+2,a+1,a+3,a+2); } }
+  for(let k=0;k<ML_ARCH_N;k++){
+    nb(k,1); nb(k,-1);
+    for(const side of [-1,1]) for(const mir of [1,-1]){ const xc=side*7.65; nq(k,1,xc-0.65,xc+0.65,0.02,8.65,mir); nq(k,2,xc-0.92,xc+0.92,0,0.9,mir); nq(k,3,xc-1.02,xc+1.02,8.65,9.5,mir); const xm=side*10.8; nq(k,4,xm-1.05,xm+1.05,0,1,mir); }
+    nq(k,5,0,0,0,0,1); nq(k,5,0,0,0,0,-1);
+    nq(k,10,-1,1,-1,1,1); nq(k,11,-1,1,-1,1,1);
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(p,3)); g.setAttribute('aKind',new THREE.Float32BufferAttribute(kd,1)); g.setAttribute('aMir',new THREE.Float32BufferAttribute(mr,1)); g.setAttribute('aUV',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(ix);
+  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath, uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };
+  const naveVert=[
+    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+    'attribute float aKind,aMir; attribute vec2 aUV; varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade;',
+    'void main(){',
+    '  float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
+    '  float xl=position.y, yl=position.z, th=0.0, show=1.0;',
+    '  if(aKind<0.5){ th=3.14159265*position.y; float r=mix(mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy),mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy),position.z); xl=r*cos(th); yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+r*sin(th); }',
+    '  else if(aKind<3.5){ show=1.0-mercy; }',
+    '  else if(aKind<4.5){ show=mercy; }',
+    '  else if(aKind<5.5){ float kt=aUV.y, r1=mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy), r2=mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy), kw=mix(0.55,0.78,kt); xl=(aUV.x-0.5)*2.0*kw; yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+mix(r1-0.55,r2+0.35,kt); }',
+    '  else if(aKind<10.5){ float sz=mix(2.05,2.20,mercy); xl=position.y*sz; yl=mix(18.65,14.45,mercy)+position.z*sz; }',
+    '  else { show=mercy; xl=position.y*7.0; yl=12.45+position.z*7.0; }',
+    '  if(aKind<9.5) yl*=aMir;',
+    (LOW?'  float cx=uA.x*sin(uW.x*b+uP.x)-uBase.x-uBase.y*(b-uNow);':'  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);'),
+    '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',
+    '  float refl=aMir>0.0?1.0:mix(0.50*exp(-abs(yl)/6.0),0.66*exp(-abs(yl)/26.0),mercy);',
+    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+uBreath*'+_roadG(ML_ARCH_BREATH)+');',
+    '  gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,yl,-u+(aKind>9.5?0.12:0.0),1.0);',
+    '}'
+  ].join('\n');
+  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:true, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.NormalBlending, uniforms:NU, vertexShader:naveVert,
+    fragmentShader:[
+      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade;',
+      'void main(){',
+      '  if(vShow<=0.004 || vFade<=0.004 || vKind>9.5) discard;',
+      '  float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0;',
+      '  float crest=exp(-edge*edge*2.2);',
+      '  vec3 cool=vec3(0.725,0.753,0.800), warm=mix(vec3(0.957,0.937,0.902),vec3(1.0,0.980,0.940),crest);',
+      '  vec3 col=mix(cool,warm,0.38+0.62*crest); col=mix(col,vec3(1.0),crest*0.34);'
+    ].concat(ML_ARCH_RICH?[
+      '  float rec=0.0, lip=0.0;',
+      '  if(vKind<0.5){ float dth=abs(vTh-1.57079633), n=mix(10.0,12.0,vMercy), cell=(dth-0.11)/(1.46079633/n), fc=abs(fract(cell)-0.5)*2.0, rr=abs(vR-0.5)*2.0; rec=step(0.0,cell)*(1.0-smoothstep(0.42,0.78,fc))*(1.0-smoothstep(0.34,0.72,rr))*(1.0-smoothstep(120.0,250.0,vDist)); lip=smoothstep(0.05,0.24,rec)*(1.0-smoothstep(0.30,0.62,rec)); }',
+      '  vec3 recess=mix(vec3(0.565,0.605,0.675),warm,0.50); col=mix(col,recess,rec*0.396); col=mix(col,vec3(1.0,0.985,0.950),lip*0.06);'
+    ]:[]).concat([
+      '  float key=step(4.5,vKind)*step(vKind,5.5), gild=key*(0.25+0.20*vMercy)*(1.0-smoothstep(220.0,560.0,vDist)); col=mix(col,vec3(1.0,0.885,0.60),gild);',
+      '  gl_FragColor=vec4(col,clamp(0.97*vShow*vFade,0.0,0.995));',
+      '}'
+    ]).join('\n') });
+  if(ML_ARCH_RICH) roadArchAccentMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, uniforms:NU, vertexShader:naveVert,
+    fragmentShader:[
+      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade;',
+      'void main(){',
+      '  if(vShow<=0.003 || vFade<=0.003) discard;',
+      '  vec2 q=vUV*2.0-1.0; float a=0.0; vec3 col=vec3(1.0,0.824,0.478);',
+      '  if(vKind<9.5){'
+    ].concat(ML_ARCH_RICH?[
+      '    float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0, near=1.0-smoothstep(260.0,540.0,vDist); a=(0.035+0.075*exp(-edge*edge*2.0))*near*vShow*vFade; col=mix(vec3(1.0,0.86,0.66),vec3(1.0,0.965,0.90),exp(-edge*edge*2.0));'
+    ]:[
+      '    discard;'
+    ]).concat([
+      '  } else if(vKind<10.5){',
+      '    float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0), honey=exp(-r2*2.0), r4=exp(-abs(q.x)*18.0)*exp(-q.y*q.y*3.0)+exp(-abs(q.y)*18.0)*exp(-q.x*q.x*3.0);'
+    ]).concat(ML_ARCH_RICH?[
+      '    vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*20.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*20.0)*exp(-d.x*d.x*4.0); a=(core*1.20+r4*0.62+r8*0.46+honey*0.18)*vShow*sqrt(sqrt(max(vFade,0.0)));'
+    ]:[
+      '    a=(core+r4*0.30)*vShow*vFade;'
+    ]).concat([
+      '    col=mix(vec3(1.0,0.72,0.30),vec3(1.0,0.925,0.80),core);',
+      '  } else {',
+      '    float r=length(q), ang=atan(q.y,q.x), petR=0.24+0.10*(0.5+0.5*cos(10.0*ang)); float petals=(1.0-smoothstep(petR,petR+0.055,r))*smoothstep(0.055,0.12,r); float spoke=abs(fract((ang/6.28318531)*19.0+0.5)-0.5), rays=(1.0-smoothstep(0.0,0.12,spoke))*smoothstep(0.28,0.36,r)*(1.0-smoothstep(0.83,1.0,r))*(1.0-r); float heart=exp(-r*r*46.0); a=(heart+petals*0.70+rays*0.65)*vShow*vFade; col=mix(vec3(1.0,0.66,0.24),vec3(1.0,0.95,0.82),heart);',
+      '  }',
+      '  a*=0.72; if(a<=0.003) discard; gl_FragColor=vec4(col,a);',
+      '}'
+    ]).join('\n') });
+  roadArch=new THREE.Mesh(g,roadArchMat); roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);
+  if(roadArchAccentMat){ roadArchAccent=new THREE.Mesh(g,roadArchAccentMat); roadArchAccent.frustumCulled=false; roadArchAccent.renderOrder=-37.8; roadArchAccent.visible=false; scene.add(roadArchAccent); }
+}
+function buildNaveVault(){
+  /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
+     uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's
+     existing pin makes the whole painted vault stand. Private seeded generation preserves the gameplay random stream. */
+  const N=ML_NAVE_STARS, pos=new Float32Array(N*3), dat=new Float32Array(N*3), rr=mulberry32(0x51f15e9d);
+  for(let i=0;i<N;i++){
+    const canopy=i<Math.floor(N*0.76), anchor=rr()*ML_NAVE_VAULT_SPAN, u=anchor*ROAD_MPB; let x,y;
+    if(canopy){ x=(rr()*2-1)*34; const roof=Math.max(19,58-Math.abs(x)*0.78); y=15+Math.pow(rr(),1.25)*(roof-15); }
+    else { const side=rr()<0.5?-1:1; x=side*(9+24*Math.pow(rr(),1.4)); y=5.5+16*rr(); }
+    if(u>430){ const cone=3+(u-430)*0.028; if(Math.abs(x)<cone) x=(x<0?-1:1)*cone; }
+    const near=1-0.72*Math.max(0,Math.min(1,(u-90)/560)), sz=(canopy?0.18:0.14)+(canopy?0.68:0.46)*Math.pow(rr(),1.8), pick=rr();
+    pos[i*3]=anchor; pos[i*3+1]=x; pos[i*3+2]=y; dat[i*3]=sz; dat[i*3+1]=pick<0.16?1:(pick<0.24?2:0); dat[i*3+2]=(0.48+0.52*rr())*near;
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aData',new THREE.BufferAttribute(dat,3));
+  const U=roadMat.uniforms;
+  roadVaultMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,
+    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBreath:U.uBreath},
+    vertexShader:[
+      'uniform float uNow,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; attribute vec3 aData; varying float vA,vT;',
+      'void main(){',
+      '  float ba=mod(position.x-uNow,'+_roadG(ML_NAVE_VAULT_SPAN)+')-'+_roadG(ML_NAVE_VAULT_BEHIND)+', b=uNow+ba;',
+      (LOW?'  float cx=uA.x*sin(uW.x*b+uP.x)-uBase.x-uBase.y*(b-uNow);':'  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);'),
+      '  float u=ba*'+_roadG(ROAD_MPB)+'; vec4 mv=viewMatrix*vec4(cx+position.y,position.z,-u,1.0); gl_Position=projectionMatrix*mv;',
+      '  float px=clamp(aData.x*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),1.6,34.0); gl_PointSize=px; vT=aData.y; vA=aData.z*clamp(px/8.0,0.18,1.0)*smoothstep('+_roadG(-ROAD_MPB)+','+_roadG(-ROAD_MPB*0.45)+',u)*(1.0-smoothstep(560.0,690.0,u))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+');',
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      'varying float vA,vT; void main(){ vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*7.0); float a=core;'
+    ].concat(ML_ARCH_RICH?[
+      '  if(vT>0.5){ float r4=exp(-abs(q.x)*10.0)*exp(-q.y*q.y*3.5)+exp(-abs(q.y)*10.0)*exp(-q.x*q.x*3.5); a+=r4*0.55; if(vT>1.5){ vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); a+=(exp(-abs(d.x)*12.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*12.0)*exp(-d.x*d.x*4.0))*0.40; } }'
+    ]:[]).concat([
+      '  a*=vA; if(a<0.003) discard; vec3 c=mix(vec3(1.0,0.824,0.478),vec3(1.0,0.925,0.80),core*0.55); gl_FragColor=vec4(c*a,a); }'
+    ]).join('\n') });
+  roadVault=new THREE.Points(g,roadVaultMat); roadVault.frustumCulled=false; roadVault.renderOrder=-38.6; roadVault.visible=false; scene.add(roadVault);
+}
+function buildNaveVeil(){
+  /* Mercy-only, one tiny indexed sheet draw. Each half owns geometry only on its side of the aim line; the lower opening is
+     wider than the crown opening, so neither transparency nor a fold can ever cross the centre gap. Its swell borrows the
+     roadArch material's uBreath object, which is roadMat's object in turn, so the mercy sheet cannot lag the gate around it. */
+  const pos=[], side=[], idx=[]; let v=0;
+  for(let k=0;k<ML_ARCH_N;k++) for(const sd of [-1,1]){ const b=v; for(const q of [[0,0],[1,0],[1,1],[0,1]]){ pos.push(k,q[0],q[1]); side.push(sd); v++; } idx.push(b,b+1,b+2,b,b+2,b+3); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('aSide',new THREE.Float32BufferAttribute(side,1)); g.setIndex(idx);
+  const U=roadArchMat.uniforms;
+  roadNaveVeilMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,premultipliedAlpha:true,
+    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBreath:U.uBreath,uArchN0:U.uArchN0,uK:U.uK,uVeil:U.uVeil},
+    vertexShader:[
+      'uniform float uNow,uArchN0,uVeil,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+']; attribute float aSide; varying vec2 vUV; varying float vA;',
+      'void main(){ float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot, gap=mix(1.75,0.45,position.z), xl=aSide*mix(gap,'+_roadG(ROAD_HALF_W-0.45)+',position.y);',
+      (LOW?'  float cx=uA.x*sin(uW.x*b+uP.x)-uBase.x-uBase.y*(b-uNow);':'  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);'),
+      '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vUV=vec2(aSide*(position.y*0.5+0.5),position.z); vA=mercy*uVeil*sqrt(max(fade,0.0))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+'); gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,position.z*9.7,-u+0.18,1.0); }'
+    ].join('\n'),
+    fragmentShader:[
+      'varying vec2 vUV; varying float vA; void main(){ if(vA<=0.003) discard; float x=abs(vUV.x), lat=1.0-smoothstep(0.82,1.0,x), folds=0.70+0.30*sin(vUV.x*31.0+vUV.y*2.0)*sin(vUV.x*9.0-0.6), vert=(0.10+0.90*pow(vUV.y,1.4))*(1.0-smoothstep(0.80,0.99,vUV.y)); float a=lat*folds*vert*0.22*vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.66,0.28),vec3(1.0,0.92,0.75),vUV.y*0.8); gl_FragColor=vec4(c*a,a); }'
+    ].join('\n') });
+  roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
 function buildRoadDust(){
   /* THE STARDUST — ONE THREE.Points, ONE draw call, ZERO per-frame CPU. A mote's position attribute is not a position: it
@@ -2288,10 +2435,11 @@ function buildRoadDust(){
   const U=roadMat.uniforms;
   roadDustMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,   // …and THE ONE WORD (wave 8.1): the fragment below has always emitted vec4(uCol*a, a), which IS premultiplied, but three.js r128's Material defaults this flag to false and setBlending then picks gl.blendFunc(SRC_ALPHA, ONE) — delivering uCol·a². Saying so picks (ONE, ONE) and the layer arrives at the alpha it was written for: peak 0.4675 instead of 0.2186, i.e. +83.7/255 green against a road rail's +93.5/255 (90% of a rail at its brightest, 70% on average) instead of 42% and 26%. Nothing else on the road is touched: the ribbon and the arches keep the compositing they shipped with
 
-    uniforms:{ uNow:U.uNow, uCol:U.uInk,                                  // uInk IS the road's own colour object, so tonight's grid-colour roll reaches the dust for free and the carrier is drawn in the colour of the crossbars it counts. THE GOLD IS THE BAR LINE'S ALONE. uNow is the road's OWN clock object, which is the one uniform this layer must share: it is what makes the dust and the ribbon agree about velocity by construction. uBase/uA/uW/uP are gone with the surface — the SPACE does not bend with the river, only the road does (wave 8.2, Y1)
+    uniforms:{ uNow:U.uNow, uCol:U.uInk, uNaveGold:U.uNaveGold,           // uInk and uNow remain the road's OWN objects; the nave palette object is shared too, so 0 compiles to the old colour result and the live knob never needs a dust-only write
                uAmt:{value:ML_DUST_INK}, uDustGlow:{value:Math.max(0,+CFG.moonline.dustGlow||0)} },
     vertexShader:[
       'uniform float uNow,uAmt,uDustGlow; attribute float aSeed; varying float vA;',
+      ...(ML_NAVE ? ['varying float vSeed;'] : []),
       'void main(){',
       '  float ba=mod(position.x-uNow,'+_roadG(ML_DUST_SPAN)+')-'+_roadG(ML_DUST_BEHIND)+';',                     // beats from the eye to this mote, wrapped into the streaming window. uNow rises, ba falls: the mote comes at you at the road's own speed because it is not moving at all — the world is
       '  float u=ba*'+_roadG(ROAD_MPB)+';',
@@ -2299,14 +2447,17 @@ function buildRoadDust(){
       '  vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
       '  gl_PointSize=clamp('+_roadG(ML_DUST_M*ML_FOCAL_PX)+'/length(mv.xyz),'+_roadG(ML_DUST_PX0)+','+_roadG(ML_DUST_PX1)+');',   // 148.45 px·m / distance: 6 px inside 24.7 m, 4 px at 37.1 m, 2 px at 74.2 m, 1.37 px at the window's far edge — a grain everywhere the layer is drawn at all
       '  vA=uAmt*uDustGlow*(0.55+0.45*aSeed)*smoothstep('+_roadG(-ML_DUST_BEH_M)+','+_roadG(-ML_DUST_BEH_M*0.45)+',u)*(1.0-smoothstep('+_roadG(ML_DUST_FAR0)+','+_roadG(ML_DUST_FAR1)+',u));',   // both ends of the window are ramps, so the wrap has no seam. No time term anywhere: the clock is uNow and nothing else, and reduced motion does not slow this layer down — it does not build it (ML_DUST_N)
+      ...(ML_NAVE ? ['  vSeed=aSeed;'] : []),
       '}'
     ].join('\n'),
     fragmentShader:[
+      ...(ML_NAVE ? ['uniform float uNaveGold;'] : []),
       'uniform vec3 uCol; varying float vA;',
+      ...(ML_NAVE ? ['varying float vSeed;'] : []),
       'void main(){',
       '  float a=(1.0-smoothstep(0.25,1.0,length(gl_PointCoord-vec2(0.5))*2.0))*vA;',
       '  if(a<=0.004) discard;',
-      '  gl_FragColor=vec4(uCol*a, a);',
+      ...(ML_NAVE ? ['  vec3 pollen=mix(vec3(1.0,0.859,0.522),vec3(1.0,0.45,0.12),step(0.92,vSeed)); vec3 col=mix(uCol,pollen,uNaveGold);','  gl_FragColor=vec4(col*a, a);'] : ['  gl_FragColor=vec4(uCol*a, a);']),
       '}'
     ].join('\n') });
   roadDust=new THREE.Points(g, roadDustMat);
@@ -2319,6 +2470,7 @@ function roadArchFill(n0){
   // of it are past ROAD_FADE1 or behind the wake, so the shift is invisible by construction.
   if(!roadArchMat) return;
   const AU=roadArchMat.uniforms, M=CFG.moonline;
+  if(roadMat && roadMat.uniforms.uNaveGold) roadMat.uniforms.uNaveGold.value=ML_NAVE?Math.max(0,Math.min(1,+M.naveStreetGold||0)):0;   // ONE live palette object drives street and dust; 0 is the old fragment result exactly
   const b0=ML_ARCH_EVERY*Math.floor((n0-ML_ARCH_BEHIND)/ML_ARCH_EVERY);
   for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // …and the RING is roadTideAt's own mercy flag 1 — the bar that OPENS the exhale, which is a multiple of 4 by that function's own arithmetic (g = 2n ≡ 0 mod 8), so it always lands on an arch slot and never between two
   AU.uArchN0.value=reduceMotion?-ML_ARCH_BEHIND:b0;                       // reduceMotion: the gates STAND STILL as a ruler of the coming bars while the mercy table scrolls through them — exactly how uBeat0 scrolls the band table under a standing ribbon
@@ -2327,6 +2479,7 @@ function roadArchFill(n0){
   AU.uArchPrism.value=Math.max(0,Math.min(1,+M.archPrism||0));
   AU.uReflect.value=Math.max(0,Math.min(1,+M.reflectAlpha||0));
   AU.uMercyRB.value=Math.max(1,+M.mercyRingBoost||1);
+  if(ML_NAVE && AU.uVeil) AU.uVeil.value=LOW?0:Math.max(0,Math.min(1,+M.naveVeil||0));
   if(roadDustMat) roadDustMat.uniforms.uDustGlow.value=Math.max(0,+M.dustGlow||0);   // the form knobs are LIVE: every one of them is read here, so archHeightM, archGlow, archPrism, reflectAlpha, mercyRingBoost and dustGlow can all be turned in a running session without a reload
 }
 (function buildRoad(){
@@ -2339,7 +2492,7 @@ function roadArchFill(n0){
   roadBandTex.wrapS=roadBandTex.wrapT=THREE.ClampToEdgeWrapping; roadBandTex.needsUpdate=true;
   roadMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
     uniforms:{ uNow:{value:0}, uBase:{value:_roadBase}, uA:{value:new THREE.Vector3()}, uW:{value:new THREE.Vector3()}, uP:{value:new THREE.Vector3()},
-               uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0}, uBeat0:{value:0}, uBreath:{value:0},   // uBreath (wave 8.1): declared unconditionally, DECLARED ONLY. It is named in the Moonline fragment text and nowhere in wave 7's, so with moonline.on:false it is not an ACTIVE uniform, three never builds a setter for it and never uploads it — and roadSync's write is itself behind ML_RIBBON, so the wave-7 path costs one dead property on an object built once
+               uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0}, uBeat0:{value:0}, uBreath:{value:0}, uNaveGold:{value:ML_NAVE?Math.max(0,Math.min(1,+CFG.moonline.naveStreetGold||0)):0},   // uNaveGold is one shared live palette mix; it is absent from every selected shader source when naveOn:false, so its inert object cannot change wave 8's compiled path
                uBands:{value:roadBandTex}, uGlyph:{value:ROAD_GLYPH_PASS?roadGlyphTex():null}, uGlyphOn:{value:(CFG.road.bandGlyphs?1:0)}, uMercyB:{value:Math.max(1,+CFG.road.mercyBoost||1)},   // the atlas is BUILT only where it is sampled: with no glyph pass compiled the sampler is not an active uniform, so three never uploads it and a LOW device is spared the 64 KB it would never read (uGlyphOn stays exactly as it shipped — an inert uniform costs nothing, and it is still the one flag the wave-7 branch gates on)
                uL0:{value:_roadLaneCol[0]}, uL1:{value:_roadLaneCol[1]}, uL2:{value:_roadLaneCol[2]}, uL3:{value:_roadLaneCol[3]}, uMark:{value:_roadMark} },
     vertexShader:'varying vec2 vXZ; void main(){ vec4 wp=modelMatrix*vec4(position,1.0); vXZ=wp.xz; gl_Position=projectionMatrix*viewMatrix*wp; }',
@@ -2347,6 +2500,7 @@ function roadArchFill(n0){
     // literals — the same text, byte for byte, that shipped — and nothing below it is even parsed. See ML_RIBBON (index.html:1710)
     // for why one build-time read is sound: the road mesh is visible exactly on the frames moonlineVoid() is true.
     fragmentShader:(ML_RIBBON?[
+      ...(ML_NAVE ? ['uniform float uNaveGold;'] : []),
       'uniform float uNow,uAmt,uPulse,uBeat0,uGlyphOn,uMercyB,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP,uInk,uL0,uL1,uL2,uL3,uMark; uniform sampler2D uBands,uGlyph; varying vec2 vXZ;',
       'float xb(float x, float w){ float e=0.5-abs(fract(x)-0.5); return 1.0-smoothstep(0.0,w,e); }',                            // ONE crossbar of a tier: distance to the nearest multiple of that tier's spacing, in that tier's own cell units
       'void main(){',
@@ -2390,6 +2544,9 @@ function roadArchFill(n0){
       '  lum=mix(lum, uMercyB, min(1.0,mercy));',                                                         // …and the mercy bar overrides it upward: the exhale is the one thing you must not miss
       '  float mixL='+_roadG(ROAD_LANE_MIX)+'*has*(ahead+(1.0-ahead)*(landed+missed*0.25));',
       '  vec3 lc=mix(mix(uL0,uL1,step(0.5,lane)), mix(uL2,uL3,step(2.5,lane)), step(1.5,lane));',         // the four lane colours without a dynamic array index — three mixes, no loop, no branch
+      ...(ML_NAVE ? [
+      '  vec3 jewel=clamp(mix(vec3(dot(lc,vec3(0.299,0.587,0.114))),lc,1.32)*1.04,0.0,1.0); lc=mix(lc,jewel,uNaveGold);'
+      ] : []),
       '  vec3 col=mix(uInk, lc, mixL);',
       '  float ink='+_roadG(ROAD_CELL_INK)+'*fillA*lum*inner+'+_roadG(ROAD_GRID_INK)+'*g+'+_roadG(ROAD_RAIL_INK)+'*rail'
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
@@ -2417,7 +2574,15 @@ function roadArchFill(n0){
       //      the KEY's own colour half of the old law lives at the crosshair (parcel W) where a letter can carry it.
       //      uBreath is 0 on every frame the cue is not owed (see roadBreath), so this line then multiplies by 1.0.
       '  ink*=1.0+uBreath;',
-      '  gl_FragColor=vec4(col*ink, outer*fade*uAmt);',
+      ...(ML_NAVE ? [
+      '  float bp=abs(fract(b*0.25+0.5)-0.5), pool=exp(-bp*bp*110.0), foot=pool*exp(-pow((al-7.65)/1.8,2.0));',
+      '  float barN=(1.0-cont)*xb(b*0.25,min(0.25,lwm*0.25/'+_roadG(ROAD_MPB)+'))*inner;',
+      '  vec3 ng=vec3(1.0,0.824,0.478), nw=vec3(1.0,0.925,0.800), nh=vec3(0.90,0.48,0.08), cell=lc;',
+      '  vec3 nave=vec3(0.115,0.040,0.004)*(0.16+0.10*(1.0-pow(abs(al/'+HW+'),2.0)))*inner;',
+      '  nave+=cell*('+_roadG(ROAD_CELL_INK)+'*fillA*lum*inner*1.35)+ng*('+_roadG(ROAD_GRID_INK)+'*g*0.86+'+_roadG(ROAD_RAIL_INK)+'*rail*1.20)+nw*(barN*0.32+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d)));',
+      '  nave+=nh*(pool*0.055+foot*0.10)*inner+nw*'+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner; nave*=1.0+uBreath; nave=mix(nave,uMark,min(1.0,gb*markE));',
+      '  gl_FragColor=vec4(mix(col*ink,nave,uNaveGold),outer*fade*uAmt);'
+      ] : ['  gl_FragColor=vec4(col*ink, outer*fade*uAmt);']),
       '}'
     ]:[
       'uniform float uNow,uAmt,uPulse,uBeat0,uGlyphOn,uMercyB; uniform vec2 uBase; uniform vec3 uA,uW,uP,uInk,uL0,uL1,uL2,uL3,uMark; uniform sampler2D uBands,uGlyph; varying vec2 vXZ;',
@@ -2480,6 +2645,8 @@ function roadArchFill(n0){
   roadMesh.visible=false; scene.add(roadMesh);
   if(ML_RIBBON) buildRoadImpostor();                                      // …and the painted horizon it hands off to. Nothing else is built: the wireframe is arithmetic inside the one shader above
   if(ML_ARCH) buildRoadArches();                                          // ARCHES, RINGS AND REFLECTIONS (parcel V): one more mesh, one more draw call, and it is built AFTER roadMat because it borrows roadMat's own uniform objects rather than keeping a second copy of the clock
+  if(ML_NAVE_STARS>0) buildNaveVault();                                   // the painted gold vault: naveStars:0 crosses no builder and LOW arrives here with half the requested point buffer
+  if(ML_NAVE_VEIL>0) buildNaveVeil();                                     // mercy-only sheet, compile-time absent on LOW and absent at a zero ship knob
   if(ML_DUST_N>0) buildRoadDust();                                        // …and the sixteenth carrier riding the surface. Not built at all on LOW, with archOn:false-style silence: ML_DUST_N is 0 there and this line never runs
 })();
 function roadHideOldFloor(){
@@ -2545,6 +2712,9 @@ function roadSync(){
     if(roadImp && !live) roadImp.visible=false;                           // the impostor leaves with the ribbon it continues; only roadImpSync's own gate ever brings it back, because the streak has to earn its frame from the course
     if(roadArch) roadArch.visible=live;                                   // ARCHES, RINGS, DUST (wave 8, parcel V): both ride the ROAD'S OWN visibility latch, so the trainer's room and the Temple hide them by the predicate that already hides the ribbon — no second rule to keep in sync, and one null read where the parcel is off
     if(roadDust) roadDust.visible=live;
+    if(roadArchAccent) roadArchAccent.visible=live;
+    if(roadVault) roadVault.visible=live;
+    if(roadNaveVeil) roadNaveVeil.visible=live;
     if(ML_RIBBON){ camera.far=live?ROAD_FAR:ROAD_FAR_ROOM; camera.updateProjectionMatrix(); }   // THE VOID needs 894 m of depth for a road the room never had; the trainer and the Temple get the projection matrix that shipped, to the bit. A transition write, never a frame write
   }
   if(!live){ roadJudgeStamp(_roadLastR); return; }   // THE PLAYABILITY EPOCH (v1.2): the trainer and the Temple shut the judging window on the way OUT of the frame, at the last beat the road actually saw — nothing writes the wake on this path, so the clock does not need re-reading, and the next live frame re-opens the window at ITS beat. This is what makes the graduation catch-up (W1) NEUTRAL instead of fourteen phantom misses
