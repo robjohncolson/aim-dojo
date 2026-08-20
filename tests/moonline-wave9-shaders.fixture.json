@@ -1,0 +1,7 @@
+{
+  "roadVertex": { "chars": 127, "sha256": "20c9778f4ead3f22a481c7d5faba1bb10dbf4c08ba141ed8c8a03687dde4dfb0" },
+  "roadFragment": { "chars": 3442, "sha256": "3673b92034cffbcbedc8c39a70d4b9e4a12df4921c0772a073838e2f549c2688" },
+  "naveVertex": { "chars": 1560, "sha256": "909c1bec55a7537e357f7cd4b3555b0f9abe49163df1468d3de9dfcb335a4e7a" },
+  "naveFragment": { "chars": 1117, "sha256": "a537eb1349c856c5887b8fc8fbc4677bf77e0d33ffab056a7c05422eff41acd6" },
+  "naveAccentFragment": { "chars": 1420, "sha256": "1feedcfa5dc36db626acc72140409b30afacd7ba3c47d936b967ad2c1fa68eae" }
+}
