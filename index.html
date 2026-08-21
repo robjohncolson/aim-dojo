@@ -1028,7 +1028,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: markGlyph:false restores wave 9's full-width bands; terrainOn:false or terrainAmp:0 restores its flat shaders and two-triangle plane; curveBite:0 and curveHeading:0 restore tonight's old course exactly. leanBite is the tracking-drill share of that fourth harmonic (0..1): the full bend still draws, while the measured 0.25 default keeps p90 |roadLean| at 0.9904 versus Wave 9's 1.0000. Every earlier Wave 8/9 knob keeps its shipped meaning.
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1760,7 +1760,7 @@ function roadCourse(){
     w.push(om); p.push(rr()*6.283185307); a.push((baseBudget/ROAD_HARM)/Math.max(1e-6,m));
   }
   const biteP=rr()*6.283185307, terrainPhase=(seed/4294967296)*22;         // terrain changes with the SAME night seed without taking a second random draw or inventing a second authority
-  return (_roadCourse={a:a,w:w,p:p,bite:{a:biteA,w:biteW,p:biteP},terrainPhase:terrainPhase});
+  return (_roadCourse={a:a,w:w,p:p,bite:{a:biteA,w:biteW,p:biteP},terrainPhase:terrainPhase,seed:seed});   // Wave 11 exposes the ALREADY-COMPUTED authority to a second private mulberry stream; no course draw, order or value changes
 }
 function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*Math.sin(c.w[i]*b+c.p[i]); if(c.bite.a) s+=c.bite.a*Math.sin(c.bite.w*b+c.bite.p); return s; }   // one CPU reader for the three old waves and the bounded fourth bite
 function roadCourseD(b,biteScale=1){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); if(c.bite.a) s+=biteScale*c.bite.a*c.bite.w*Math.cos(c.bite.w*b+c.bite.p); return s; }   // the matching analytic derivative: geometry/re-basing keeps the default full bite; only roadLean supplies its measured drill scalar
@@ -1927,6 +1927,8 @@ const ML_NAVE=ML_ARCH && !!(CFG.moonline && CFG.moonline.naveOn);         // WAV
 const ML_MARK=ML_NAVE && !!(CFG.moonline && CFG.moonline.markGlyph);      // PARCEL A, raw booleans first: false emits Wave 9's full-width honey-glass band text and never builds the socket pass
 const ML_TERRAIN=ML_NAVE && !!(CFG.moonline && CFG.moonline.terrainOn) && (+CFG.moonline.terrainAmp!==0);   // PARCEL B: either off spelling selects the old plane and every old shader string
 const ML_BITE=ML_NAVE && (+CFG.moonline.curveBite>0);                     // PARCEL C: zero never spends roadCourse's bend budget and never adds a shader uniform or term
+const ML_WALLS=ML_NAVE && !!(CFG.moonline && CFG.moonline.wallsOn) && (+CFG.moonline.wallDissolve>0);   // WAVE 11 MASTER, raw boolean first: false never reaches a wall/veil/through-glow builder and leaves the Wave 10 nave selected; wallDissolve:0 is the promised build silence
+const ML_SAT=ML_WALLS && ML_MARK && (+CFG.moonline.wallSat>0);             // SATURATED ON THE BEAT belongs to the Wave 11 master: wallsOn:false or wallDissolve:0 cannot leak one uniform or GLSL token; wallSat:0 still isolates Wave 10's resting fill while walls remain
 const ML_HEADING_KEEP=ML_NAVE?Math.max(0,Math.min(1,+CFG.moonline.curveHeading||0)):0;   // keep only a small fraction of tonight's tangent; zero is Wave 9's complete re-base
 const ML_LEAN_BITE=ML_BITE?Math.max(0,Math.min(1,+CFG.moonline.leanBite||0)):0;   // ROUND 3 R1: measured share of the fourth harmonic seen by the shipped course-following dolly; geometry always keeps 100%
 const ROAD_TERRAIN_A0=6, ROAD_TERRAIN_A1=2.4, ROAD_TERRAIN_A2=0.9, ROAD_TERRAIN_P0=22, ROAD_TERRAIN_P1=13, ROAD_TERRAIN_P2=10.5;   // metres and beats, locked by the elevation study
@@ -1958,6 +1960,7 @@ function roadTerrainGeometry(){
 const ROAD_MARK_W=(4.67*0.5-0.99*0.5)/1.03, ROAD_MARK_T=0.99/(2*ROAD_MARK_W), ROAD_MARK_G=0.25/ROAD_MARK_W;   // 4.67 m outer, 0.99 m stroke, 0.25 m groove — solved from the study's square-ended SDF rather than eyeballed
 const ROAD_MARK_STONE_HONEY=0.18;                                         // ROUND 2 R1: restore 18% of Wave 9's cell energy as UNSATURATED HONEY STONE, never lane hue — enough warmth to read as the loved street without resurrecting the coloured slab
 const ROAD_MARK_TAPER0=2*ROAD_MPB, ROAD_MARK_TAPER1=4*ROAD_MPB;           // ROUND 2 R2: keep the studied stretch through the near two cells, then ease it to 1× by cell four so cells 4–8 remain a string of marks with dark deck between them
+const ML_WALL_SAT_RAMP=1.0, ML_WALL_SAT_PEAK_LIFT=0.18;                   // one final approach beat to the PURE uL lane colour; the small energy lift is capped against RGB headroom in the shader so a 60 bpm mark keeps its carved shape
 function roadMarkShader(){ return [
   'float markSeg(vec2 p,vec2 a,vec2 z){ vec2 pa=p-a,ba=z-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); return length(pa-ba*h); }',
   'float markChev(vec2 p){ p.x=abs(p.x); return markSeg(p,vec2(0.0,0.62),vec2(1.0,-0.38)); }',
@@ -1977,6 +1980,13 @@ const ML_NAVE_VEIL=ML_NAVE&&!LOW?Math.max(0,Math.min(1,+CFG.moonline.naveVeil||0
 const ML_NAVE_SEG=LOW?18:40, ML_NAVE_SPRING=9.5, ML_NAVE_R1=7, ML_NAVE_R2=8.3, ML_NAVE_RM1=10, ML_NAVE_RM2=11.6;   // the user-locked Renaissance proportions; LOW spends fewer band quads and emits neither coffers nor inner glow
 const ML_NAVE_VAULT_SPAN=26, ML_NAVE_VAULT_BEHIND=1;                      // 702 m of painted ceiling with one beat behind the eye; the far fade ends before the ribbon, leaving its portal cone clean
 const ML_NAVE_BREATH=0.20;                                                // THE CANOPY'S QUIET BREATH: vault and veil share the ribbon's uBreath object but take only a fifth of its swell, enough to live with the gates without turning the star field or mercy curtain into a strobe
+const ML_WALL_DJ=7.3, ML_WALL_SPRING=12, ML_WALL_DA=7.3, ML_WALL_DB=5, ML_WALL_APEX=17;   // the locked tall-oblate door: jambs ±7.3, 12 m springline, 7.3×5 m crown, 17 m apex
+const ML_WALL_BAY_X=16.5, ML_WALL_BAY_Y0=-70, ML_WALL_BAY_Y1=21, ML_WALL_POWDER1=200, ML_WALL_POWDER_NOISE=22;   // the honest solid bay and the upright checkerboard law: solid radius comes from wallDissolve (95), powder is gone by 200
+const ML_WALL_X=ML_WALL_BAY_X+ML_WALL_POWDER1, ML_WALL_Y0=ML_WALL_BAY_Y0-ML_WALL_POWDER1, ML_WALL_Y1=ML_WALL_BAY_Y1+ML_WALL_POWDER1;
+const ML_WALL_RING_R1=10, ML_WALL_RING_R2=11.6, ML_WALL_PAL_N=512;
+const ML_WALL_LOW_N=7, ML_WALL_N=LOW?ML_WALL_LOW_N:ML_ARCH_N;             // LOW p90 bound: only the seven nearest slots (rear history through 4 bars ahead) receive geometry; the far four die under the existing dissolve horizon instead of paying the doorway SDF overdraw
+const ML_WALL_REAR0=-(ML_ARCH_BEHIND+ML_ARCH_EVERY), ML_WALL_REAR1=-ML_ARCH_BEHIND;   // the retiring rear wall spends its final bar crumbling from full at -8 beats to absent at the -12-beat recycle seam
+const ML_WALL_CHALK=[0xbf7486,0x6f91bc,0x789b6b,0xb99a49,0x8d70ac,0xc48465,0x6ea895];   // night-corrected rose, powder, sage, butter, lilac, peach, mint — chamber pigments, never lane colours
 const ML_DUST_MAX=400;                                                    // the hard cap SPEC §4 names, enforced on the CFG read below so no console typo can put 40000 motes on the road
 const ML_DUST_N=ML_RIBBON&&!LOW&&!reduceMotion?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform. WAVE 8.2 (Y1) ADDS reduceMotion TO THE SAME READ: the dust is now the SPACE STREAMING PAST YOU and nothing else — a standing volumetric field is not a quieter version of that cue, it is a fog of dots with no meaning left in it — so reduced motion switches it off exactly the way LOW does, at build time, and the ribbon, the arches and the crossbar tier carry the sixteenth on their own (SPEC_MOONLINE §1.2)
 /* THE DUST WAS SPENT WHERE THE EYE CANNOT RESOLVE IT (wave 8.1 — user first light: "I do not see any stardust coming").
@@ -2035,12 +2045,21 @@ const ML_DUST_M=0.30, ML_DUST_INK=0.55;                                   // a m
 const ML_DUST_PX0=1.0, ML_DUST_PX1=6.0;                                   // the mote's floor and ceiling in PIXELS (was an unnamed 1.0,4.0 in the shader). The cap is what the near field spends its budget on — 11 motes hold it at any instant; see the population arithmetic above
 const ML_DUST_FAR0=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB*0.62, ML_DUST_FAR1=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB, ML_DUST_BEH_M=ML_DUST_BEHIND*ROAD_MPB;   // both ends of the window are ramps, so a mote fades in where it wraps and fades out where it leaves — no popping at either seam. The rear ramp now does real work: it is behind you, and you can turn around and look at it
 let roadMesh=null, roadMat=null, roadSocket=null, roadSocketMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
-let roadArch=null, roadArchMat=null, roadArchAccent=null, roadArchAccentMat=null, roadVault=null, roadVaultMat=null, roadNaveVeil=null, roadNaveVeilMat=null, roadDust=null, roadDustMat=null;
+let roadArch=null, roadArchMat=null, roadArchAccent=null, roadArchAccentMat=null, roadVault=null, roadVaultMat=null, roadNaveVeil=null, roadNaveVeilMat=null, roadWall=null, roadWallMat=null, roadWallAccent=null, roadWallAccentMat=null, roadWallVeil=null, roadWallVeilMat=null, roadDust=null, roadDustMat=null;
 const _archKind=new Float32Array(ML_ARCH_N);                              // slot k's MERCY flag, rewritten once per BEAT into the very array the uniform points at — no allocation, no upload call of our own
 const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
 const _roadTerrainBase=new THREE.Vector2(0,0), _roadHorizon=new Float32Array(ROAD_TERRAIN_HN*4);   // one shared CPU horizon profile: [forward Y,X, backward Y,X] at each station; every terrain material borrows these exact uniform objects
 const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], _roadMark=new THREE.Color();   // the LANE's own four colours and the FILL's own amber — filled from WASD_HEX / TANK_COLOR in roadSync's one-time block, because both of those literals are declared further down the file and this parcel refuses to keep a second copy of either
+const _wallCol=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNext=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNight=new Uint32Array(ML_WALL_PAL_N); let _wallNightReady=false;
 const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};                         // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate
+function roadWallPalette(seed){
+  if(_wallNightReady) return _wallNight;
+  const over=CFG.moonline.wallPalette, src=Array.isArray(over)&&over.length?over:ML_WALL_CHALK, courseSeed=seed==null?(_roadCourse||roadCourse()).seed:seed, rr=mulberry32(courseSeed), n=Math.max(1,src.length); let prev=-1;
+  for(let i=0;i<ML_WALL_PAL_N;i++){ const a=Math.min(n-1,(rr()*n)|0), turn=Math.min(Math.max(0,n-2),(rr()*Math.max(1,n-1))|0), pick=(n>1&&a===prev)?(a+1+turn)%n:a; _wallNight[i]=Number(src[pick])>>>0; prev=pick; }   // two PRIVATE draws per chamber, always: adjacent repeats are stepped aside without making the stream data-dependent
+  if(n>1&&_wallNight[ML_WALL_PAL_N-1]===_wallNight[0]) for(let step=1;step<n;step++){ const c=Number(src[(prev+step)%n])>>>0; if(c!==_wallNight[0]&&c!==_wallNight[ML_WALL_PAL_N-2]){ _wallNight[ML_WALL_PAL_N-1]=c; break; } }   // the finite lookup is cyclic: bar 512 follows bar 511 too, repaired deterministically after every private draw is already spent
+  _wallNightReady=true; return _wallNight;
+}
+function roadWallPaletteAt(bar){ const p=roadWallPalette(); return p[((bar%ML_WALL_PAL_N)+ML_WALL_PAL_N)%ML_WALL_PAL_N]; }
 function roadTideAt(n){
   // THE SWELL AT BEAT n — onGrid's own tide expression, replayed on that beat's EIGHTH index. onGrid runs on Tone's '8n'
   // repeat from a Transport that teardownTransport resets to 0 alongside grid8, so the eighth whose audio sounds at heard
@@ -2483,6 +2502,86 @@ function buildNaveVeil(){
     ].join('\n') });
   roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
+function roadWallVertexShader(){ return [
+  'uniform float uNow,uArchN0,uWallSeed; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
+  ...(ML_BITE?['uniform vec3 uBite;']:[]),
+  'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+  'void main(){',
+  '  float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
+  '  vec3 ph=uW*b+uP, sc=sin(ph), co=cos(ph); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);',
+  '  float cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
+  '  vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x);',
+  ...(ML_TERRAIN?['  vWallTerrain=terrainVis(u,P.x,0.0); P.y+=cyAt(u);']:[]),
+  '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);',
+  '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
+  '}'
+].join('\n'); }
+function roadWallFragmentShader(){ return [
+  'uniform float uWallDissolve,uWallGlow; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(!LOW?[
+  'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
+  'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
+  ]:[]),
+  'void main(){',
+  '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
+  '  float x=vWallP.x, y=vWallP.y;',
+  ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
+  '  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }',
+  '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
+  '  if(d<0.0) discard;',
+  '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
+  ...(!LOW?[
+  '  float powderNoise=wallVn(vec2(x,y)*0.9)*0.6+wallVn(vec2(x,y)*3.7)*0.4, powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r+(powderNoise-0.5)*'+_roadG(ML_WALL_POWDER_NOISE)+'); if(powder<wallVn(vec2(x,y)*5.3+19.1)) discard;',
+  '  float grain=(wallVn(vec2(x,y)*1.6)-0.5)*0.04+(wallVn(vec2(x,y)*0.21+7.3)-0.5)*0.045;'
+  ]:[
+  '  float powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r); if(powder<0.5) discard;',
+  '  float grain=0.0;'
+  ]),
+  '  float grad=mix(0.42,0.97,smoothstep(0.0,18.5,y)); if(y<0.0) grad*=exp(y*0.05);',
+  '  vec3 col=vWallCol*(grad+grain); col+=vec3(1.0,0.70,0.30)*0.05*exp(-abs(y)*0.5);',
+  ...(!LOW?[
+  '  float rim=1.0-smoothstep(0.02,2.6,d); col=mix(col,vec3(1.0,0.97,0.90),rim*0.30*uWallGlow);',
+  '  float nextGlow=exp(-max(d-0.05,0.0)*0.50); col+=vWallNext*nextGlow*0.22*uWallGlow;'
+  ]:[]),
+  '  gl_FragColor=vec4(col*vWallFade,1.0);',
+  '}'
+].join('\n'); }
+function buildRoadWalls(){
+  /* One depth-writing parametric quad family carries every wall and the full mercy ring; one Points family carries apex stars, jamb nodes and the powder-band sparks; one optional additive veil carries next-chamber colour. No side wall and no mirror geometry exist. */
+  const pos=new Float32Array(ML_WALL_N*12), idx=new Uint16Array(ML_WALL_N*6); let po=0,io=0;
+  for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
+  const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)}};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; construction cannot freeze yesterday before graduation
+  const wallVS=roadWallVertexShader();
+  roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
+  roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
+  const sparkN=LOW?8:16, pn=ML_WALL_N*(3+sparkN), pp=new Float32Array(pn*3), pm=new Float32Array(pn), ps=new Float32Array(pn); let pv=0;
+  for(let k=0;k<ML_WALL_N;k++){
+    const put=(x,y,m,s)=>{ pp[pv*3]=k; pp[pv*3+1]=x; pp[pv*3+2]=y; pm[pv]=m; ps[pv]=s; pv++; };
+    put(0,ML_WALL_APEX+1.35,0,1); put(-ML_WALL_DJ,0.06,1,0.7); put(ML_WALL_DJ,0.06,1,0.3);
+    for(let j=0;j<sparkN;j++){ const t=(j+0.5)/sparkN, a=3.14159265*t, rr=95+105*((j*0.61803398875+k*0.17320508)%1); put(Math.cos(a)*(ML_WALL_BAY_X+rr),ML_WALL_BAY_Y1+Math.sin(a)*rr,2,t); }
+  }
+  const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(pp,3)); pg.setAttribute('aMode',new THREE.BufferAttribute(pm,1)); pg.setAttribute('aSeed',new THREE.BufferAttribute(ps,1));
+  roadWallAccentMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,blending:THREE.AdditiveBlending,premultipliedAlpha:true,uniforms:WU,
+    vertexShader:[
+      'uniform float uNow,uArchN0; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+']; attribute float aMode,aSeed; varying float vA,vMode,vMercy,vSeed;',
+      ...(ML_BITE?['uniform vec3 uBite;']:[]),
+      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+      'void main(){ float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot, kind=uK[int(slot)]; vec3 ph=uW*b+uP,sc=sin(ph),co=cos(ph); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow), cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
+      '  float mercy=step(0.5,kind)*step(kind,1.5); if(aMode<0.5) y=mix(y,'+_roadG(ML_WALL_RING_R2+0.85)+',mercy); else if(aMode<1.5) x*=mix(1.0,'+_roadG(((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)/ML_WALL_DJ)+',mercy); vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x+sign(u)*0.12); float tv=1.0;'+(ML_TERRAIN?' tv=terrainVis(u,P.x,0.0); P.y+=cyAt(u);':'')+' vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
+      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)), retire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow), show=(1.0-step(1.5,kind))*mix(1.0,1.0-mercy,step(1.5,aMode)); vA=show*fade*retire*tv*(aMode<0.5?1.0:(aMode<1.5?0.58:0.38*(1.0-aSeed))); vMode=aMode; vMercy=mercy; vSeed=aSeed; gl_PointSize=vA<=0.003?0.0:clamp((aMode<0.5?1.15:(aMode<1.5?0.45:0.28))*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),2.0,aMode<1.5?56.0:10.0);',
+      '}'
+    ].join('\n'),
+    fragmentShader:'varying float vA,vMode,vMercy,vSeed; void main(){ if(vA<=0.003) discard; vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0),halo=0.20*exp(-r2*2.0),a=core+halo; if(vMode<0.5){ float r4=exp(-abs(q.x)*16.0)*exp(-q.y*q.y*3.2)+exp(-abs(q.y)*16.0)*exp(-q.x*q.x*3.2); vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*18.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*18.0)*exp(-d.x*d.x*4.0); float ang=atan(q.y,q.x),rose=(1.0-smoothstep(0.28,0.36,r2))*(0.55+0.45*cos(10.0*ang)); a+=mix(r4*0.62+r8*0.46,rose,vMercy); } a*=vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.70,0.30),vec3(1.0,0.925,0.80),core); gl_FragColor=vec4(c*a,a); }'});
+  roadWallAccent=new THREE.Points(pg,roadWallAccentMat); roadWallAccent.frustumCulled=false; roadWallAccent.renderOrder=-37.8; roadWallAccent.visible=false; scene.add(roadWallAccent);
+  if(!LOW){ const vp=new Float32Array(ML_WALL_N*12), vi=new Uint16Array(ML_WALL_N*6); let vo=0,vio=0; for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_RING_R2,-ML_WALL_RING_R2],[ML_WALL_RING_R2,ML_WALL_APEX],[-ML_WALL_RING_R2,ML_WALL_APEX],[-ML_WALL_RING_R2,-ML_WALL_RING_R2]]){ vp[vo++]=k; vp[vo++]=q[0]; vp[vo++]=q[1]; } vi[vio++]=b; vi[vio++]=b+1; vi[vio++]=b+2; vi[vio++]=b; vi[vio++]=b+2; vi[vio++]=b+3; }
+    const vg=new THREE.BufferGeometry(); vg.setAttribute('position',new THREE.BufferAttribute(vp,3)); vg.setIndex(new THREE.BufferAttribute(vi,1));
+    roadWallVeilMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,premultipliedAlpha:true,uniforms:WU,vertexShader:wallVS,
+      fragmentShader:'uniform float uWallGlow; varying vec2 vWallP; varying vec3 vWallNext; varying float vWallKind,vWallFade,vWallRetire'+(ML_TERRAIN?',vWallTerrain':'')+'; void main(){ if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard; float x=vWallP.x,y=vWallP.y,inside=0.0; if(vWallKind>0.5) inside=1.0-step('+_roadG(ML_WALL_RING_R1)+',length(vec2(x,y))); else if(y>=0.0){ if(y<'+_roadG(ML_WALL_SPRING)+') inside=1.0-step('+_roadG(ML_WALL_DJ)+',abs(x)); else inside=1.0-step(1.0,length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+'))); } if(inside<0.5) discard; float lat=1.0-smoothstep(0.72,1.0,abs(x)/'+_roadG(ML_WALL_RING_R1)+'), vert=0.22+0.78*smoothstep(-'+_roadG(ML_WALL_RING_R1)+','+_roadG(ML_WALL_APEX)+',y), a=inside*lat*vert*vWallFade*vWallRetire*uWallGlow*mix(0.14,0.22,step(0.5,vWallKind)); vec3 c=mix(vWallNext,vec3(1.0,0.93,0.78),0.25+0.45*step(0.5,vWallKind)); gl_FragColor=vec4(c*a,a); }'});
+    roadWallVeil=new THREE.Mesh(vg,roadWallVeilMat); roadWallVeil.frustumCulled=false; roadWallVeil.renderOrder=-37.6; roadWallVeil.visible=false; scene.add(roadWallVeil);
+  }
+}
 function buildRoadDust(){
   /* THE STARDUST — ONE THREE.Points, ONE draw call, ZERO per-frame CPU. A mote's position attribute is not a position: it
      is (beat anchor along the travel axis, lateral in ML_DUST_RAD units, vertical in ML_DUST_VERT units about the eye),
@@ -2537,12 +2636,14 @@ function roadArchFill(n0){
   // WHICH BAR LINES ARE VISIBLE and which of them is the mercy bar. ML_ARCH_N floats into the array the uniform already
   // points at, five knob reads, and nothing allocates. The slot ring re-anchors on a bar line every fourth beat; both ends
   // of it are past ROAD_FADE1 or behind the wake, so the shift is invisible by construction.
-  if(!roadArchMat) return;
-  const AU=roadArchMat.uniforms, M=CFG.moonline;
+  if(!roadArchMat && !roadWallMat) return;
+  const AU=(roadWallMat||roadArchMat).uniforms, M=CFG.moonline;
   if(roadMat && roadMat.uniforms.uNaveGold) roadMat.uniforms.uNaveGold.value=ML_NAVE?Math.max(0,Math.min(1,+M.naveStreetGold||0)):0;   // ONE live palette object drives street and dust; 0 is the old fragment result exactly
   const b0=ML_ARCH_EVERY*Math.floor((n0-ML_ARCH_BEHIND)/ML_ARCH_EVERY);
-  for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // …and the RING is roadTideAt's own mercy flag 1 — the bar that OPENS the exhale, which is a multiple of 4 by that function's own arithmetic (g = 2n ≡ 0 mod 8), so it always lands on an arch slot and never between two
+  if(ML_WALLS){ const wallB0=reduceMotion?-ML_ARCH_BEHIND:b0; for(let k=0;k<ML_WALL_N;k++){ const b=wallB0+ML_ARCH_EVERY*k; _archKind[k]=(roadTideAt(b).m===1)?1:0; if(!_archKind[k]&&(roadTideAt(b+ML_ARCH_EVERY).m===1||roadTideAt(b-ML_ARCH_EVERY).m===1||roadTideAt(b-2*ML_ARCH_EVERY).m===1)) _archKind[k]=2; const bar=Math.floor(b/ML_ARCH_EVERY); _wallCol[k].setHex(roadWallPaletteAt(bar)); _wallNext[k].setHex(roadWallPaletteAt(bar+1)); } }   // kind 2 clears one bar before through two after the ring; reduceMotion keys kind and colour to the pinned station, so no standing wall can swap identity on a live bar
+  else for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // the inherited ring authority remains the exact Wave 10 assignment when the wall master is off
   AU.uArchN0.value=reduceMotion?-ML_ARCH_BEHIND:b0;                       // reduceMotion: the gates STAND STILL as a ruler of the coming bars while the mercy table scrolls through them — exactly how uBeat0 scrolls the band table under a standing ribbon
+  if(ML_WALLS){ AU.uWallDissolve.value=Math.max(1,Math.min(199,+M.wallDissolve||95)); AU.uWallGlow.value=LOW?0:Math.max(0,+M.wallGlow||0); if(roadDustMat) roadDustMat.uniforms.uDustGlow.value=Math.max(0,+M.dustGlow||0); return; }
   AU.uArchH.value=Math.max(0.5,+M.archHeightM||ROAD_HALF_W);
   AU.uArchGlow.value=Math.max(0,+M.archGlow||0);
   AU.uArchPrism.value=Math.max(0,Math.min(1,+M.archPrism||0));
@@ -2564,7 +2665,7 @@ function roadArchFill(n0){
                uBite:{value:new THREE.Vector3()}, uTerrain:{value:new THREE.Vector2(ML_TERRAIN?roadCourse().terrainPhase:0,ML_TERRAIN?+CFG.moonline.terrainAmp:0)}, uTerrainBase:{value:_roadTerrainBase}, uHorizon:{value:_roadHorizon},
                uInk:{value:_roadInk}, uAmt:{value:0}, uPulse:{value:0}, uBeat0:{value:0}, uBreath:{value:0}, uNaveGold:{value:ML_NAVE?Math.max(0,Math.min(1,+CFG.moonline.naveStreetGold||0)):0},   // uNaveGold is one shared live palette mix; it is absent from every selected shader source when naveOn:false, so its inert object cannot change wave 8's compiled path
                uBands:{value:roadBandTex}, uGlyph:{value:ROAD_GLYPH_PASS?roadGlyphTex():null}, uGlyphOn:{value:(CFG.road.bandGlyphs?1:0)}, uMercyB:{value:Math.max(1,+CFG.road.mercyBoost||1)},   // the atlas is BUILT only where it is sampled: with no glyph pass compiled the sampler is not an active uniform, so three never uploads it and a LOW device is spared the 64 KB it would never read (uGlyphOn stays exactly as it shipped — an inert uniform costs nothing, and it is still the one flag the wave-7 branch gates on)
-               uL0:{value:_roadLaneCol[0]}, uL1:{value:_roadLaneCol[1]}, uL2:{value:_roadLaneCol[2]}, uL3:{value:_roadLaneCol[3]}, uMark:{value:_roadMark} },
+               uL0:{value:_roadLaneCol[0]}, uL1:{value:_roadLaneCol[1]}, uL2:{value:_roadLaneCol[2]}, uL3:{value:_roadLaneCol[3]}, uMark:{value:_roadMark}, ...(ML_SAT?{uWallSat:{value:Math.max(0,Math.min(1,+CFG.moonline.wallSat||0))}}:{}) },
     vertexShader:(ML_TERRAIN?[
       'uniform float uNow;'+(!LOW?' uniform vec2 uBase; uniform vec3 uA,uW,uP;':'')+' varying vec2 vXZ; varying float vTerrainVis;',
       ...(!LOW&&ML_BITE?['uniform vec3 uBite;']:[]),
@@ -2579,6 +2680,7 @@ function roadArchFill(n0){
     fragmentShader:(ML_RIBBON?[
       ...(ML_NAVE ? ['uniform float uNaveGold;'] : []),
       ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
+      ...(ML_SAT ? ['uniform float uWallSat;'] : []),
       'uniform float uNow,uAmt,uPulse,uBeat0,uGlyphOn,uMercyB,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP,uInk,uL0,uL1,uL2,uL3,uMark; uniform sampler2D uBands,uGlyph; varying vec2 vXZ;'+(ML_TERRAIN?' varying float vTerrainVis;':''),
       'float xb(float x, float w){ float e=0.5-abs(fract(x)-0.5); return 1.0-smoothstep(0.0,w,e); }',                            // ONE crossbar of a tier: distance to the nearest multiple of that tier's spacing, in that tier's own cell units
       ...(ML_MARK ? [roadMarkShader()] : []),
@@ -2624,6 +2726,7 @@ function roadArchFill(n0){
       '  lum=mix(lum, uMercyB, min(1.0,mercy));',                                                         // …and the mercy bar overrides it upward: the exhale is the one thing you must not miss
       '  float mixL='+_roadG(ROAD_LANE_MIX)+'*has*(ahead+(1.0-ahead)*(landed+missed*0.25));',
       '  vec3 lc=mix(mix(uL0,uL1,step(0.5,lane)), mix(uL2,uL3,step(2.5,lane)), step(1.5,lane));',         // the four lane colours without a dynamic array index — three mixes, no loop, no branch
+      ...(ML_SAT ? ['  vec3 lanePure=lc;'] : []),
       ...(ML_NAVE ? [
       '  vec3 jewel=clamp(mix(vec3(dot(lc,vec3(0.299,0.587,0.114))),lc,1.32)*1.04,0.0,1.0); lc=mix(lc,jewel,uNaveGold);'
       ] : []),
@@ -2636,11 +2739,16 @@ function roadArchFill(n0){
       '  float markDet=1.0-smoothstep(34.0,115.0,d), markImm=1.0-smoothstep(0.0,2.4,abs(b-uNow)), markOn=step(0.001,fillA);',
       '  float markFill=markInside*fillA*(0.72+0.28*markDet)*(0.86+0.20*markImm), markCut=clamp(markOn*(markInside+0.82*markGroove),0.0,1.0);',
       '  float markWall='+(LOW?'0.72':'0.58+0.72*(1.0-smoothstep(0.45,-0.15,dFdy(markD)/max(fwidth(markD),1e-5)))')+', markLead=markGroove*markDet*markWall;',
-      '  vec3 col=mix(uInk,lc,mixL*markInside);'
+      ...(ML_SAT ? [
+      ...(reduceMotion ? [] : ['  float markPhase=floor(b)-uNow;']),
+      '  float markSat='+(reduceMotion?'uPulse':'(1.0-smoothstep(0.0,'+_roadG(ML_WALL_SAT_RAMP)+',max(markPhase,0.0)))*smoothstep(-0.25,0.0,markPhase)')+'*clamp(uWallSat,0.0,1.0)*ahead;',   // one CELL envelope: every fragment shares floor(b); the band edge, not its centre, is the audible beat. Standing geometry takes the already-established uPulse beat instead of retaining a spatial gradient
+      '  vec3 markCol=mix(lc,lanePure,min(1.0,markSat)); float markLift=min('+_roadG(ML_WALL_SAT_PEAK_LIFT)+'*markSat,max(0.0,1.0-max(max(markCol.r,markCol.g),markCol.b)));',
+      '  vec3 col=mix(uInk,markCol,mixL*markInside);'
+      ] : ['  vec3 col=mix(uInk,lc,mixL*markInside);'])
       ] : ['  vec3 col=mix(uInk, lc, mixL);']),
       '  float ink='+_roadG(ROAD_CELL_INK)+'*fillA*lum*inner+'+_roadG(ROAD_GRID_INK)+'*g+'+_roadG(ROAD_RAIL_INK)+'*rail'
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
-      ...(ML_MARK ? ['  ink+='+_roadG(ROAD_CELL_INK)+'*((markFill+0.18*min(1.0,mercy)*fillA)-fillA)*lum*inner; ink*=1.0-0.88*markCut; ink+=markFill*(0.36+0.68*markCore)+markLead*0.24;'] : []),
+      ...(ML_MARK ? ['  ink+='+_roadG(ROAD_CELL_INK)+'*((markFill+0.18*min(1.0,mercy)*fillA)-fillA)*lum*inner; ink*=1.0-0.88*markCut; ink+=markFill*(0.36+0.68*markCore'+(ML_SAT?'+markLift':'')+')+markLead*0.24;'] : []),
       '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner;',                 // reduceMotion only: the cells pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
       '  col=mix(col, uMark, min(1.0, gb*markE));',                                                       // THE FILL'S GATES: the tank's own amber on the beats its figure still owes — "3, 4, 1" rolling in, riding the "1" crossbar
       // ---- the lane's GLYPH, mid-cell — NOT EMITTED ON ANY TIER UNDER THE RIBBON (ROAD_GLYPH_PASS, index.html:1748).
@@ -2668,11 +2776,11 @@ function roadArchFill(n0){
       ...(ML_NAVE ? [
       '  float bp=abs(fract(b*0.25+0.5)-0.5), pool=exp(-bp*bp*110.0), foot=pool*exp(-pow((al-7.65)/1.8,2.0));',
       '  float barN=(1.0-cont)*xb(b*0.25,min(0.25,lwm*0.25/'+_roadG(ROAD_MPB)+'))*inner;',
-      '  vec3 ng=vec3(1.0,0.824,0.478), nw=vec3(1.0,0.925,0.800), nh=vec3(0.90,0.48,0.08), cell=lc;',
+      '  vec3 ng=vec3(1.0,0.824,0.478), nw=vec3(1.0,0.925,0.800), nh=vec3(0.90,0.48,0.08), cell='+(ML_SAT?'markCol':'lc')+';',
       '  vec3 nave=vec3(0.115,0.040,0.004)*(0.16+0.10*(1.0-pow(abs(al/'+HW+'),2.0)))*inner;',
       ...(ML_MARK ? ['  nave+=mix(ng,nw,0.55)*('+_roadG(ROAD_CELL_INK)+'*fillA*lum*inner*1.35*'+_roadG(ROAD_MARK_STONE_HONEY)+');'] : []),
       '  nave+=cell*('+_roadG(ROAD_CELL_INK)+'*'+(ML_MARK?'markFill':'fillA')+'*lum*inner*1.35)+ng*('+_roadG(ROAD_GRID_INK)+'*g*0.86+'+_roadG(ROAD_RAIL_INK)+'*rail*1.20)+nw*(barN*0.32+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d)))'+(ML_MARK?'+nw*(min(1.0,mercy)*fillA*lum*inner*0.20)':'')+';',
-      ...(ML_MARK ? ['  nave*=1.0-0.88*markCut; nave+=cell*markFill*(0.72+0.64*markCore)+ng*markLead*0.44;'] : []),
+      ...(ML_MARK ? ['  nave*=1.0-0.88*markCut; nave+=cell*markFill*(0.72+0.64*markCore'+(ML_SAT?'+markLift':'')+')+ng*markLead*0.44;'] : []),
       '  nave+=nh*(pool*0.055+foot*0.10)*inner+nw*'+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner; nave*=1.0+uBreath; nave=mix(nave,uMark,min(1.0,gb*markE));',
       ...(ML_MARK ? [
       '  float roadA=outer*fade*uAmt'+(ML_TERRAIN?'*vTerrainVis':'')+', socketA=0.85*markCut*fade*outer'+(ML_TERRAIN?'*vTerrainVis':'')+';',
@@ -2741,9 +2849,9 @@ function roadArchFill(n0){
   roadMesh.renderOrder=ML_RIBBON?-40:-900;                                // THE VOID'S DEPTH ORDER: wave 7's −900 drew the road before the celestial shell (−50), which in a void with no floor writing depth painted straight over the ribbon. −40 puts it after the shell and before every other transparent thing; depthTest stays TRUE, so the opaque Echoes still occlude it exactly as they did
   roadMesh.visible=false; scene.add(roadMesh);
   if(ML_RIBBON&&!ML_TERRAIN) buildRoadImpostor();                         // a rolling horizon has no honest straight continuation; the old two-triangle plane retains its painted handoff byte-for-byte
-  if(ML_ARCH) buildRoadArches();                                          // ARCHES, RINGS AND REFLECTIONS (parcel V): one more mesh, one more draw call, and it is built AFTER roadMat because it borrows roadMat's own uniform objects rather than keeping a second copy of the clock
+  if(ML_WALLS) buildRoadWalls(); else if(ML_ARCH) buildRoadArches();       // WAVE 11 replaces the white arch family only while its raw master is on; the false arm is the exact Wave 10 builder call
   if(ML_NAVE_STARS>0) buildNaveVault();                                   // the painted gold vault: naveStars:0 crosses no builder and LOW arrives here with half the requested point buffer
-  if(ML_NAVE_VEIL>0) buildNaveVeil();                                     // mercy-only sheet, compile-time absent on LOW and absent at a zero ship knob
+  if(!ML_WALLS && ML_NAVE_VEIL>0) buildNaveVeil();                         // the wall family owns its next-colour door veil; the Wave 10 mercy sheet stays byte-identical on the false arm
   if(ML_DUST_N>0) buildRoadDust();                                        // …and the sixteenth carrier riding the surface. Not built at all on LOW, with archOn:false-style silence: ML_DUST_N is 0 there and this line never runs
 })();
 function roadHideOldFloor(){
@@ -2811,6 +2919,9 @@ function roadSync(){
     if(roadArch) roadArch.visible=live;                                   // ARCHES, RINGS, DUST (wave 8, parcel V): both ride the ROAD'S OWN visibility latch, so the trainer's room and the Temple hide them by the predicate that already hides the ribbon — no second rule to keep in sync, and one null read where the parcel is off
     if(roadDust) roadDust.visible=live;
     if(roadArchAccent) roadArchAccent.visible=live;
+    if(roadWall) roadWall.visible=live;
+    if(roadWallAccent) roadWallAccent.visible=live;
+    if(roadWallVeil) roadWallVeil.visible=live;
     if(roadVault) roadVault.visible=live;
     if(roadNaveVeil) roadNaveVeil.visible=live;
     if(ML_RIBBON){ camera.far=live?ROAD_FAR:ROAD_FAR_ROOM; camera.updateProjectionMatrix(); }   // THE VOID needs 894 m of depth for a road the room never had; the trainer and the Temple get the projection matrix that shipped, to the bit. A transition write, never a frame write
@@ -2825,6 +2936,7 @@ function roadSync(){
     U.uBite.value.set(c.bite.a,c.bite.w,c.bite.p);
     if(ML_TERRAIN) U.uTerrain.value.set(c.terrainPhase,+CFG.moonline.terrainAmp);
     U.uAmt.value=ROAD_ALPHA;
+    if(ML_WALLS&&roadWallMat){ roadWallPalette(c.seed); roadWallMat.uniforms.uWallSeed.value=(c.seed%104729)/104729; }   // LAZY TONIGHT: only after Wave 10's first-live roadCourse call fixes tonight do walls derive their private palette and shared seed uniform; build time cannot move that authority earlier
     for(let i=0;i<4;i++) _roadLaneCol[i].setHex(WASD_HEX[i]);             // THE MEANING: the lane's own four colours and the fill's own amber, read from the ONE declaration of each (WASD_HEX index.html:7121 / TANK_COLOR index.html:6322) at first frame — by then both are long since initialised, and the road never keeps a second copy
     _roadMark.setHex(TANK_COLOR);
     if(reduceMotion){ U.uNow.value=0; _roadBase.set(roadCourseX(0), roadCourseD(0)*(1-ML_HEADING_KEEP)); roadHorizonSync(0); }   // the STILL road keeps the same partial tangent and cached horizon as the pinned course; zero is the old complete re-base
@@ -7422,11 +7534,14 @@ const TANK_COLOR=0xff8a2b;
 const TANK_CORE_MAT=new THREE.MeshBasicMaterial({color:TANK_COLOR});
 const TANK_SHELL_MAT=new THREE.MeshBasicMaterial({color:TANK_COLOR,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false});
 const KIND_CORE_MAT=[TARGET_CORE_MAT, GOLD_CORE_MAT, DECOY_CORE_MAT, SPEED_CORE_MAT, MOVER_CORE_MAT], KIND_SHELL_MAT=[TARGET_SHELL_MAT, GOLD_SHELL_MAT, DECOY_SHELL_MAT, SPEED_SHELL_MAT, MOVER_SHELL_MAT], KIND_COLOR=[TOXIC, GOLD_COLOR, DECOY_COLOR, SPEED_COLOR, MOVER_COLOR];
+const TARGET_THROUGH_MAT=ML_WALLS?KIND_COLOR.map(color=>new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.20,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:true,depthFunc:THREE.GreaterDepth})):null;   // CHALK DOES NOT HIDE SPIRITS: ONLY fragments behind ANY nearer depth writer survive (walls intended; mercy ring harmless; another orb/projectile cosmetic). Terrain cannot trigger it because the road writes no depth. This accepted broad scope avoids a stencil pass; colours still come from the Echo authorities, never a wall/lane copy
+const TANK_THROUGH_MAT=ML_WALLS?new THREE.MeshBasicMaterial({color:TANK_COLOR,transparent:true,opacity:0.20,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:true,depthFunc:THREE.GreaterDepth}):null;
 const SPAWN_UP=new THREE.Vector3(0,1,0), _spawnDir=new THREE.Vector3(), _spawnFwd=new THREE.Vector3(), _spawnFlat=new THREE.Vector3(), _spawnRight=new THREE.Vector3(), _spawnPos=new THREE.Vector3(), _spawnAim0=new THREE.Vector3(), _spawnQYaw=new THREE.Quaternion(), _spawnQPit=new THREE.Quaternion();
 const targetMeshPool=[];
 function createTargetMesh(){
   const core=new THREE.Mesh(TARGET_CORE_GEO, TARGET_CORE_MAT);
   const shell=new THREE.Mesh(TARGET_SHELL_GEO, TARGET_SHELL_MAT);
+  if(ML_WALLS){ const through=new THREE.Mesh(TARGET_SHELL_GEO,TARGET_THROUGH_MAT[0]); shell.add(through); shell.userData.through=through; }   // nested under the one child releaseTargetMesh already preserves: pooling gains one stable draw-capable shell, never an allocation per spawn
   shell.scale.setScalar(1.55); core.add(shell); core.userData.shell=shell;
   return core;
 }
@@ -7542,7 +7657,7 @@ function spawnTarget(opts){
   if(templeActive) return null;
   opts=opts||{};
   const r=targetRadius();
-  const core=acquireTargetMesh(), shell=core.userData.shell;
+  const core=acquireTargetMesh(), shell=core.userData.shell, through=shell.userData.through;
   const a0=setAimDir(_spawnAim0); let dir3, starId=null;
   if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)
     let minDeg=lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT());
@@ -7587,7 +7702,7 @@ function spawnTarget(opts){
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
   if(_specialLive){ const kr=rnd(); const dl=CFG.deal.on;   // THE SKY DEALS THE NIGHT tilts the MIX and nothing else: the phase rule and every risen planet move these three thresholds, the SAME single draw decides the kind, and a planet can therefore never become a second rule. Raw boolean first — an off night reads the three base chances verbatim
     const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = ((dl&&_dealPairing)||(CFG.poly.on&&_polyPairing)) ? 0 : (kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0))); }   // gold + speed (3) + mover (4) — except a member of a dealt PAIR, which is pinned plain (1.1: pairs are pure volley material, and gold's goldDistMul would move it off the distance its own k was drawn for). The draw is still taken and simply discarded, so a pair member's spawn costs exactly what every other spawn costs. POLYRHYTHM PAIRS (wave 6) pins kind 0 for exactly the same reason and by exactly the same means: its two members' distances ARE the ratio, and gold would silently move one of them off the lead it was chosen for. Raw boolean first on both sides, so an off parcel reads one flag and stops, and with poly.on:false this ternary is character-for-character the wave-5 decision
-  tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; voiceTargetSound(snd, kind);
+  tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; if(through) through.material=TARGET_THROUGH_MAT[kind]; voiceTargetSound(snd, kind);
   let hp=1;   // MULTI-HIT TANK (kind 0, free-play): a plain orb can roll 2-3 hp — hit it on that many consecutive BEATS to pop it
   // THE POLY PIN EXCLUDES ALL TANK ELECTION (SPEC_SIXTY_AND_POLY 1.1 amendment F4). The pin shipped covering the KIND roll only, on the reading that a poly member could never meet a tank anyway — true on the shipped config (a pending fill election makes polyLive stand down) but NOT under tank.fillOnly:false or tide.on:false, where the legacy branch below rolls multiHitChance on every plain orb: at SENSEI's 0.34 that catches at least one member of ~56% of pairs, turns it AMBER with 2-3 hp, and then re-draws its distance through beatSpawnDist(maxLeadSixteenths) — a call the pin deliberately ignores (!maxK) — which would move that member clean off the lead the ratio chose for it. The pair would still LOOK like a pair and would no longer BE one. Both election paths are therefore gated on the pin now, and per the established pinning pattern the rolls are SPENT AND DISCARDED, so a pinned member's spawn costs exactly what every other spawn costs. EVERY REMAINING PATH THAT COULD MUTATE kind/hp/distance AFTER THE PIN, enumerated and closed: the kind roll (pinned 0 above) · the fill election (gated below, and unreachable while pairing anyway — polyLive returns false on _fillPend16>=0 — so this is the second lock on that door, at zero stream cost) · the legacy multiHit roll (gated below) · the tank's close re-draw and the tank reposition (both behind hp>1, now unreachable) · gold's goldDistMul, SPEED's life and MOVER's velocity (all behind kind, pinned 0). The ONE adjustment a pinned member still shares with every other Echo is the _spawnPos.y clamp into [2.2, ROOM_BY] — kind-independent, election-free, older than every parcel here, and part of the flight-time model's standing tolerance rather than anything the pair introduced.
   if(CFG.tank.fillOnly && CFG.tide.on){   // THE TANK IS A DRUM FILL: no random roll at all — the swell's fill bar already elected this orb, or nothing here is a tank
@@ -7624,7 +7739,7 @@ function spawnTarget(opts){
       if(_tankD==null){ hp=1; tg.fig=null; tg.fill16=-1; _beatSpawnK=k0; }   // no distance at all (the shot cannot return to eye height in a 4-sixteenth flight at this speed): abandon the tank, restore the honest k of the position this orb is keeping, and it lives on as a plain Echo. The figure draw above is already spent and stays spent — this is the active parcel's own night. _fillSpent8 latched at ELECTION time, so the swell does not try again: this is one silent swell without a fill, which is the whole point
     } }
   tg.hp=hp; tg.hpMax=hp;
-  if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
+  if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; if(through) through.material=TANK_THROUGH_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
     if(_tankD!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, _tankD); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
   if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);
     tg.expireAt=state.t+lifeF; tg.lifeBeatsEff=lifeF/spbF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves. lifeBeatsEff latches that stretched life in BEATS so the white→red→white ink law (orbRed) runs on the life this orb actually has: the trail is a clock, and a clock that says "fresh" through the four beats you can still play the figure in was lying

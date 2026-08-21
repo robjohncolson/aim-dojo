@@ -44,13 +44,13 @@ function shaderFingerprint(value) {
 }
 
 function productionFeatureFlags(source, moonline) {
-  const declarations = ["ML_MARK", "ML_TERRAIN", "ML_BITE"].map((name) => {
+  const declarations = ["ML_MARK", "ML_TERRAIN", "ML_BITE", "ML_WALLS", "ML_SAT"].map((name) => {
     const match = source.match(new RegExp(`const ${name}=([^;]+);`));
     assert.ok(match, `${name} production gate is extractable`);
     return `const ${name}=${match[1]};`;
   }).join("\n");
   const context = vm.createContext({ CFG: { moonline }, ML_NAVE: true });
-  vm.runInContext(`${declarations}\nthis.flags={mark:ML_MARK,terrain:ML_TERRAIN,bite:ML_BITE};`, context);
+  vm.runInContext(`${declarations}\nthis.flags={mark:ML_MARK,terrain:ML_TERRAIN,bite:ML_BITE,walls:ML_WALLS,sat:ML_SAT};`, context);
   return context.flags;
 }
 
@@ -61,11 +61,18 @@ function moonlineOptions(features = {}) {
     terrainOn: false,
     terrainAmp: 0,
     curveBite: 0,
+    wallsOn: false,
+    wallDissolve: 95,
+    wallGlow: 1,
+    wallSat: 0,
+    wallPalette: null,
     ...features,
   };
   if (Object.hasOwn(features, "mark")) options.markGlyph = !!features.mark;
   if (Object.hasOwn(features, "terrain")) { options.terrainOn = !!features.terrain; options.terrainAmp = features.terrain ? 1 : 0; }
   if (Object.hasOwn(features, "bite")) options.curveBite = features.bite ? 2.2 : 0;
+  if (Object.hasOwn(features, "walls")) options.wallsOn = !!features.walls;
+  if (Object.hasOwn(features, "wallSat")) options.wallSat = Number(features.wallSat);
   return options;
 }
 
@@ -85,9 +92,9 @@ function emitWave9RoadShaders(source = html, features = {}) {
   const flags = productionFeatureFlags(source, moonline);
   const low = !!features.low, horizonN = low ? 0 : 32;
   const context = vm.createContext({
-    Math, Number, Float32Array, Uint16Array, LOW: low, EYE: 4,
+    Math, Number, Float32Array, Uint16Array, LOW: low, EYE: 4, reduceMotion: !!features.reduceMotion,
     CFG: { road: { on: true, bandGlyphs: true, mercyBoost: 1.6 }, moonline },
-    ML_RIBBON: true, ML_NAVE: true, ML_MARK: flags.mark, ML_TERRAIN: flags.terrain, ML_BITE: flags.bite, ML_ARCH: false,
+    ML_RIBBON: true, ML_NAVE: true, ML_MARK: flags.mark, ML_TERRAIN: flags.terrain, ML_BITE: flags.bite, ML_WALLS: flags.walls, ML_SAT: flags.sat, ML_ARCH: false,
     ML_NAVE_STARS: 0, ML_NAVE_VEIL: 0, ML_DUST_N: features.dust ? 1 : 0, ROAD_GLYPH_PASS: false,
     ROAD_HALF_W: 7, ROAD_MPB: 27, ROAD_PLANE_W: 386, ROAD_PLANE_L: 1776, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
     ROAD_SLOTS: 23, ROAD_WAKE: 14, ROAD_TIER_W: [0.42, 0.58, 1, 1.24], ROAD_TIER_D: 33.16,
@@ -101,11 +108,12 @@ function emitWave9RoadShaders(source = html, features = {}) {
     ML_DUST_PX0: 1, ML_DUST_PX1: 6, ML_DUST_FAR0: 66.96, ML_DUST_FAR1: 108, ML_DUST_BEH_M: 27, ML_DUST_INK: 0.55,
     ROAD_MARK_W: (4.67 * 0.5 - 0.99 * 0.5) / 1.03, ROAD_MARK_T: 0.99 / (2 * ((4.67 * 0.5 - 0.99 * 0.5) / 1.03)), ROAD_MARK_G: 0.25 / ((4.67 * 0.5 - 0.99 * 0.5) / 1.03),
     ROAD_MARK_STONE_HONEY: 0.18, ROAD_MARK_TAPER0: 54, ROAD_MARK_TAPER1: 108,
+    ML_WALL_SAT_RAMP: 1, ML_WALL_SAT_PEAK_LIFT: 0.18,
     _roadG: (number) => (+number).toFixed(5), _roadBandBuf: new Uint8Array(23 * 4), _roadBase: {}, _roadInk: {}, _roadLaneCol: [{}, {}, {}, {}], _roadMark: {},
     roadBandTex: null, roadMat: null, roadMesh: null, roadSocket: null, roadSocketMat: null, roadDust: null, roadDustMat: null,
     _roadTerrainBase: new Vector2(), _roadHorizon: new Float32Array(horizonN * 4),
     roadGlyphTex: () => null, roadCourse: () => ({ terrainPhase: 0 }), roadTerrainGeometry: () => new BufferGeometry(),
-    buildRoadImpostor: () => {}, buildRoadArches: () => {}, buildNaveVault: () => {}, buildNaveVeil: () => {}, buildRoadDust: () => {},
+    buildRoadImpostor: () => {}, buildRoadArches: () => {}, buildRoadWalls: () => {}, buildNaveVault: () => {}, buildNaveVeil: () => {}, buildRoadDust: () => {},
     mulberry32: (seed) => { let value = seed; return () => { value |= 0; value = value + 0x6d2b79f5 | 0; let word = Math.imul(value ^ value >>> 15, 1 | value); word = word + Math.imul(word ^ word >>> 7, 61 | word) ^ word; return ((word ^ word >>> 14) >>> 0) / 4294967296; }; },
     THREE: { DataTexture, ShaderMaterial, PlaneGeometry, BufferGeometry, BufferAttribute, Mesh, Points, Vector2, Vector3, RGBAFormat: 1, NearestFilter: 2, ClampToEdgeWrapping: 3, AdditiveBlending: 4, NormalBlending: 5, CustomBlending: 6, AddEquation: 7, OneFactor: 8, OneMinusSrcAlphaFactor: 9 },
     scene: { add() {} },

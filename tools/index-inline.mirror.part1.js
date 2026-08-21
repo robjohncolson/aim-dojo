@@ -1028,7 +1028,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: markGlyph:false restores wave 9's full-width bands; terrainOn:false or terrainAmp:0 restores its flat shaders and two-triangle plane; curveBite:0 and curveHeading:0 restore tonight's old course exactly. leanBite is the tracking-drill share of that fourth harmonic (0..1): the full bend still draws, while the measured 0.25 default keeps p90 |roadLean| at 0.9904 versus Wave 9's 1.0000. Every earlier Wave 8/9 knob keeps its shipped meaning.
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1760,7 +1760,7 @@ function roadCourse(){
     w.push(om); p.push(rr()*6.283185307); a.push((baseBudget/ROAD_HARM)/Math.max(1e-6,m));
   }
   const biteP=rr()*6.283185307, terrainPhase=(seed/4294967296)*22;         // terrain changes with the SAME night seed without taking a second random draw or inventing a second authority
-  return (_roadCourse={a:a,w:w,p:p,bite:{a:biteA,w:biteW,p:biteP},terrainPhase:terrainPhase});
+  return (_roadCourse={a:a,w:w,p:p,bite:{a:biteA,w:biteW,p:biteP},terrainPhase:terrainPhase,seed:seed});   // Wave 11 exposes the ALREADY-COMPUTED authority to a second private mulberry stream; no course draw, order or value changes
 }
 function roadCourseX(b){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*Math.sin(c.w[i]*b+c.p[i]); if(c.bite.a) s+=c.bite.a*Math.sin(c.bite.w*b+c.bite.p); return s; }   // one CPU reader for the three old waves and the bounded fourth bite
 function roadCourseD(b,biteScale=1){ const c=_roadCourse||roadCourse(); let s=0; for(let i=0;i<c.a.length;i++) s+=c.a[i]*c.w[i]*Math.cos(c.w[i]*b+c.p[i]); if(c.bite.a) s+=biteScale*c.bite.a*c.bite.w*Math.cos(c.bite.w*b+c.bite.p); return s; }   // the matching analytic derivative: geometry/re-basing keeps the default full bite; only roadLean supplies its measured drill scalar
@@ -1927,6 +1927,8 @@ const ML_NAVE=ML_ARCH && !!(CFG.moonline && CFG.moonline.naveOn);         // WAV
 const ML_MARK=ML_NAVE && !!(CFG.moonline && CFG.moonline.markGlyph);      // PARCEL A, raw booleans first: false emits Wave 9's full-width honey-glass band text and never builds the socket pass
 const ML_TERRAIN=ML_NAVE && !!(CFG.moonline && CFG.moonline.terrainOn) && (+CFG.moonline.terrainAmp!==0);   // PARCEL B: either off spelling selects the old plane and every old shader string
 const ML_BITE=ML_NAVE && (+CFG.moonline.curveBite>0);                     // PARCEL C: zero never spends roadCourse's bend budget and never adds a shader uniform or term
+const ML_WALLS=ML_NAVE && !!(CFG.moonline && CFG.moonline.wallsOn) && (+CFG.moonline.wallDissolve>0);   // WAVE 11 MASTER, raw boolean first: false never reaches a wall/veil/through-glow builder and leaves the Wave 10 nave selected; wallDissolve:0 is the promised build silence
+const ML_SAT=ML_WALLS && ML_MARK && (+CFG.moonline.wallSat>0);             // SATURATED ON THE BEAT belongs to the Wave 11 master: wallsOn:false or wallDissolve:0 cannot leak one uniform or GLSL token; wallSat:0 still isolates Wave 10's resting fill while walls remain
 const ML_HEADING_KEEP=ML_NAVE?Math.max(0,Math.min(1,+CFG.moonline.curveHeading||0)):0;   // keep only a small fraction of tonight's tangent; zero is Wave 9's complete re-base
 const ML_LEAN_BITE=ML_BITE?Math.max(0,Math.min(1,+CFG.moonline.leanBite||0)):0;   // ROUND 3 R1: measured share of the fourth harmonic seen by the shipped course-following dolly; geometry always keeps 100%
 const ROAD_TERRAIN_A0=6, ROAD_TERRAIN_A1=2.4, ROAD_TERRAIN_A2=0.9, ROAD_TERRAIN_P0=22, ROAD_TERRAIN_P1=13, ROAD_TERRAIN_P2=10.5;   // metres and beats, locked by the elevation study
@@ -1958,6 +1960,7 @@ function roadTerrainGeometry(){
 const ROAD_MARK_W=(4.67*0.5-0.99*0.5)/1.03, ROAD_MARK_T=0.99/(2*ROAD_MARK_W), ROAD_MARK_G=0.25/ROAD_MARK_W;   // 4.67 m outer, 0.99 m stroke, 0.25 m groove — solved from the study's square-ended SDF rather than eyeballed
 const ROAD_MARK_STONE_HONEY=0.18;                                         // ROUND 2 R1: restore 18% of Wave 9's cell energy as UNSATURATED HONEY STONE, never lane hue — enough warmth to read as the loved street without resurrecting the coloured slab
 const ROAD_MARK_TAPER0=2*ROAD_MPB, ROAD_MARK_TAPER1=4*ROAD_MPB;           // ROUND 2 R2: keep the studied stretch through the near two cells, then ease it to 1× by cell four so cells 4–8 remain a string of marks with dark deck between them
+const ML_WALL_SAT_RAMP=1.0, ML_WALL_SAT_PEAK_LIFT=0.18;                   // one final approach beat to the PURE uL lane colour; the small energy lift is capped against RGB headroom in the shader so a 60 bpm mark keeps its carved shape
 function roadMarkShader(){ return [
   'float markSeg(vec2 p,vec2 a,vec2 z){ vec2 pa=p-a,ba=z-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); return length(pa-ba*h); }',
   'float markChev(vec2 p){ p.x=abs(p.x); return markSeg(p,vec2(0.0,0.62),vec2(1.0,-0.38)); }',
@@ -1977,6 +1980,13 @@ const ML_NAVE_VEIL=ML_NAVE&&!LOW?Math.max(0,Math.min(1,+CFG.moonline.naveVeil||0
 const ML_NAVE_SEG=LOW?18:40, ML_NAVE_SPRING=9.5, ML_NAVE_R1=7, ML_NAVE_R2=8.3, ML_NAVE_RM1=10, ML_NAVE_RM2=11.6;   // the user-locked Renaissance proportions; LOW spends fewer band quads and emits neither coffers nor inner glow
 const ML_NAVE_VAULT_SPAN=26, ML_NAVE_VAULT_BEHIND=1;                      // 702 m of painted ceiling with one beat behind the eye; the far fade ends before the ribbon, leaving its portal cone clean
 const ML_NAVE_BREATH=0.20;                                                // THE CANOPY'S QUIET BREATH: vault and veil share the ribbon's uBreath object but take only a fifth of its swell, enough to live with the gates without turning the star field or mercy curtain into a strobe
+const ML_WALL_DJ=7.3, ML_WALL_SPRING=12, ML_WALL_DA=7.3, ML_WALL_DB=5, ML_WALL_APEX=17;   // the locked tall-oblate door: jambs ±7.3, 12 m springline, 7.3×5 m crown, 17 m apex
+const ML_WALL_BAY_X=16.5, ML_WALL_BAY_Y0=-70, ML_WALL_BAY_Y1=21, ML_WALL_POWDER1=200, ML_WALL_POWDER_NOISE=22;   // the honest solid bay and the upright checkerboard law: solid radius comes from wallDissolve (95), powder is gone by 200
+const ML_WALL_X=ML_WALL_BAY_X+ML_WALL_POWDER1, ML_WALL_Y0=ML_WALL_BAY_Y0-ML_WALL_POWDER1, ML_WALL_Y1=ML_WALL_BAY_Y1+ML_WALL_POWDER1;
+const ML_WALL_RING_R1=10, ML_WALL_RING_R2=11.6, ML_WALL_PAL_N=512;
+const ML_WALL_LOW_N=7, ML_WALL_N=LOW?ML_WALL_LOW_N:ML_ARCH_N;             // LOW p90 bound: only the seven nearest slots (rear history through 4 bars ahead) receive geometry; the far four die under the existing dissolve horizon instead of paying the doorway SDF overdraw
+const ML_WALL_REAR0=-(ML_ARCH_BEHIND+ML_ARCH_EVERY), ML_WALL_REAR1=-ML_ARCH_BEHIND;   // the retiring rear wall spends its final bar crumbling from full at -8 beats to absent at the -12-beat recycle seam
+const ML_WALL_CHALK=[0xbf7486,0x6f91bc,0x789b6b,0xb99a49,0x8d70ac,0xc48465,0x6ea895];   // night-corrected rose, powder, sage, butter, lilac, peach, mint — chamber pigments, never lane colours
 const ML_DUST_MAX=400;                                                    // the hard cap SPEC §4 names, enforced on the CFG read below so no console typo can put 40000 motes on the road
 const ML_DUST_N=ML_RIBBON&&!LOW&&!reduceMotion?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform. WAVE 8.2 (Y1) ADDS reduceMotion TO THE SAME READ: the dust is now the SPACE STREAMING PAST YOU and nothing else — a standing volumetric field is not a quieter version of that cue, it is a fog of dots with no meaning left in it — so reduced motion switches it off exactly the way LOW does, at build time, and the ribbon, the arches and the crossbar tier carry the sixteenth on their own (SPEC_MOONLINE §1.2)
 /* THE DUST WAS SPENT WHERE THE EYE CANNOT RESOLVE IT (wave 8.1 — user first light: "I do not see any stardust coming").
@@ -2035,12 +2045,21 @@ const ML_DUST_M=0.30, ML_DUST_INK=0.55;                                   // a m
 const ML_DUST_PX0=1.0, ML_DUST_PX1=6.0;                                   // the mote's floor and ceiling in PIXELS (was an unnamed 1.0,4.0 in the shader). The cap is what the near field spends its budget on — 11 motes hold it at any instant; see the population arithmetic above
 const ML_DUST_FAR0=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB*0.62, ML_DUST_FAR1=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB, ML_DUST_BEH_M=ML_DUST_BEHIND*ROAD_MPB;   // both ends of the window are ramps, so a mote fades in where it wraps and fades out where it leaves — no popping at either seam. The rear ramp now does real work: it is behind you, and you can turn around and look at it
 let roadMesh=null, roadMat=null, roadSocket=null, roadSocketMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
-let roadArch=null, roadArchMat=null, roadArchAccent=null, roadArchAccentMat=null, roadVault=null, roadVaultMat=null, roadNaveVeil=null, roadNaveVeilMat=null, roadDust=null, roadDustMat=null;
+let roadArch=null, roadArchMat=null, roadArchAccent=null, roadArchAccentMat=null, roadVault=null, roadVaultMat=null, roadNaveVeil=null, roadNaveVeilMat=null, roadWall=null, roadWallMat=null, roadWallAccent=null, roadWallAccentMat=null, roadWallVeil=null, roadWallVeilMat=null, roadDust=null, roadDustMat=null;
 const _archKind=new Float32Array(ML_ARCH_N);                              // slot k's MERCY flag, rewritten once per BEAT into the very array the uniform points at — no allocation, no upload call of our own
 const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
 const _roadTerrainBase=new THREE.Vector2(0,0), _roadHorizon=new Float32Array(ROAD_TERRAIN_HN*4);   // one shared CPU horizon profile: [forward Y,X, backward Y,X] at each station; every terrain material borrows these exact uniform objects
 const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], _roadMark=new THREE.Color();   // the LANE's own four colours and the FILL's own amber — filled from WASD_HEX / TANK_COLOR in roadSync's one-time block, because both of those literals are declared further down the file and this parcel refuses to keep a second copy of either
+const _wallCol=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNext=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNight=new Uint32Array(ML_WALL_PAL_N); let _wallNightReady=false;
 const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};                         // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate
+function roadWallPalette(seed){
+  if(_wallNightReady) return _wallNight;
+  const over=CFG.moonline.wallPalette, src=Array.isArray(over)&&over.length?over:ML_WALL_CHALK, courseSeed=seed==null?(_roadCourse||roadCourse()).seed:seed, rr=mulberry32(courseSeed), n=Math.max(1,src.length); let prev=-1;
+  for(let i=0;i<ML_WALL_PAL_N;i++){ const a=Math.min(n-1,(rr()*n)|0), turn=Math.min(Math.max(0,n-2),(rr()*Math.max(1,n-1))|0), pick=(n>1&&a===prev)?(a+1+turn)%n:a; _wallNight[i]=Number(src[pick])>>>0; prev=pick; }   // two PRIVATE draws per chamber, always: adjacent repeats are stepped aside without making the stream data-dependent
+  if(n>1&&_wallNight[ML_WALL_PAL_N-1]===_wallNight[0]) for(let step=1;step<n;step++){ const c=Number(src[(prev+step)%n])>>>0; if(c!==_wallNight[0]&&c!==_wallNight[ML_WALL_PAL_N-2]){ _wallNight[ML_WALL_PAL_N-1]=c; break; } }   // the finite lookup is cyclic: bar 512 follows bar 511 too, repaired deterministically after every private draw is already spent
+  _wallNightReady=true; return _wallNight;
+}
+function roadWallPaletteAt(bar){ const p=roadWallPalette(); return p[((bar%ML_WALL_PAL_N)+ML_WALL_PAL_N)%ML_WALL_PAL_N]; }
 function roadTideAt(n){
   // THE SWELL AT BEAT n — onGrid's own tide expression, replayed on that beat's EIGHTH index. onGrid runs on Tone's '8n'
   // repeat from a Transport that teardownTransport resets to 0 alongside grid8, so the eighth whose audio sounds at heard
@@ -2263,166 +2282,166 @@ function roadImpSync(r){
   roadImpMat.uniforms.uApex.value=sl*ROAD_DRAW_M-x0;                       // …and leans to where that continuation vanishes (xa − xb, which is independent of ROAD_IMP_D — the algebra cancels)
   roadImpMat.uniforms.uAmt.value=amt;
 }
-function buildRoadArches(){
-  if(!ML_NAVE){
-  /* THE RAIL-SPLIT ARCHES, THE MERCY RING AND THE REFLECTIONS — ONE indexed mesh, ONE draw call, built ONCE (SPEC §4).
-     Every arch on screen, its crossing partner, both junction pairs, the mirrored pass below the road plane and the mercy
-     ring are the same 44 ribbon strips: the VERTEX shader places each station from tonight's course at its OWN beat, so
-     the gates are spline-mapped exactly as the ribbon is — they lean with the bends and their feet land on the rails to
-     the millimetre, with no geometry to rebuild and nothing to evaluate on the CPU. The attributes ARE the parameters:
-     position = (slot, t, side) and aMW = (mirror, ribbon-side). There is no vertex position in this buffer at all. */
-  const HW=_roadG(ROAD_HALF_W), SEG=ML_ARCH_SEG, NS=ML_ARCH_N*4, vc=NS*2*(SEG+1);
-  const pos=new Float32Array(vc*3), amw=new Float32Array(vc*2), idx=new Uint16Array(NS*SEG*6);
-  let v=0, ii=0;
-  for(let k=0;k<ML_ARCH_N;k++) for(let si=0;si<2;si++) for(let mi=0;mi<2;mi++){
-    const side=si?1:-1, mir=mi?-1:1, base=v;                             // side = which rail this strand leaves · mir = +1 the arch, −1 its mirror (a reflection, or the mercy ring's lower half)
-    for(let s=0;s<=SEG;s++){ const t=(s/SEG)*2-1;
-      for(let wi=0;wi<2;wi++){ pos[v*3]=k; pos[v*3+1]=t; pos[v*3+2]=side; amw[v*2]=mir; amw[v*2+1]=wi?1:-1; v++; } }
-    for(let s=0;s<SEG;s++){ const a=base+s*2; idx[ii++]=a; idx[ii++]=a+1; idx[ii++]=a+2; idx[ii++]=a+1; idx[ii++]=a+3; idx[ii++]=a+2; }
-  }
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  g.setAttribute('aMW', new THREE.BufferAttribute(amw,2));
-  g.setIndex(new THREE.BufferAttribute(idx,1));
-  const U=roadMat.uniforms, M=CFG.moonline;
-  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
-    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath,   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes — and wave 8.1's BREATH joins them on the same terms, so the gold cannot swell a frame before or after the ribbon it is grown from
-               uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)},
-               uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))},
-               uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind}, uCol:{value:new THREE.Color(ML_GOLD)} },
-    vertexShader:[
-      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
-      'attribute vec2 aMW; varying float vV,vNode,vAmt,vTh;',
-      'void main(){',
-      '  float t=position.y, side=position.z, mir=aMW.x, w=aMW.y;',
-      '  float b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x+'+_roadG(ML_ARCH_SPREAD)+'*t;',                    // THE STATION'S OWN BEAT: the bar line, plus a quarter-beat of branch either side. Distance IS time here too
-      '  float th=1.57079633*t, xl=side*'+HW+'*sin(th), yl=mir*uArchH*cos(th);',                                  // (xl/halfW)² + (yl/archHeightM)² = 1 EXACTLY: a true ellipse in the front view, a true semicircle at archHeightM 7
-      '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);',                                    // the RE-BASED centreline, the identical expression the ribbon's fragment shader evaluates — one course, now four readers
-      '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+';',
-      '  vec3 Pc=vec3(cx+xl, yl, -u);',
-      '  float d=length((viewMatrix*vec4(Pc,1.0)).xyz);',
-      '  float hw=clamp('+_roadG(ML_ARCH_PX)+'*d/'+_roadG(ML_FOCAL_PX)+','+_roadG(ML_ARCH_WMIN)+','+_roadG(ML_ARCH_WMAX)+');',   // constant on SCREEN, by the shipped optics — a beam near, a thread far
-      '  vec2 rad=normalize(vec2(xl,yl)+vec2(0.0,1e-4));',                                                        // the strip widens along the arc's own RADIUS, so "inner" and "outer" are properties of the ARCH and not of where the camera happens to be
-      '  gl_Position=projectionMatrix*viewMatrix*vec4(Pc+vec3(rad*(hw*w),0.0),1.0);',
-      '  float mercy=uK[int(position.x)];',                                                                       // this bar OPENS the mercy phase → the mirror half stops being a reflection and closes the circle
-      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',                       // the arches die exactly where the ribbon does — the same ramp, so there is no gate hanging over a road that has ended
-      '  float hlf=mix(1.0, mix(uReflect,1.0,mercy), step(mir,0.0));',                                            // reflectAlpha:0 silences every reflection and leaves the RING untouched: its lower half is not a reflection of anything
-      '  vV=w; vTh=th; vNode=smoothstep(0.86,1.0,abs(t));',                                                       // THE JUNCTION NODES, for free: the bright gold is the strand's own last 14%, which is exactly where it meets the rail
-      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf*(1.0+uBreath*'+_roadG(ML_ARCH_BREATH)+');',   // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon. THE BREATH rides here, per VERTEX, on the amount that already scales every fragment of this strand: 45% of the ribbon's swell, one multiply-add, and the discard below still rejects a dark slot before a single exp()
-      '}'
-    ].join('\n'),
-    // THE PRISM AND THE AURORA ARE NOT EMITTED ON LOW (ML_ARCH_RICH — the ROAD_GLYPH_PASS pattern): SPEC §4 asks for "plain
-    // arcs" there, and a uniform set to zero would still pay for both exp() on every fragment of every arch. What LOW draws
-    // is the gaussian core and its junction nodes, which is the arch's INFORMATION; the rest is its face.
-    fragmentShader:[
-      'uniform vec3 uCol; uniform float uArchPrism; varying float vV,vNode,vAmt,vTh;',
-      'void main(){',
-      '  if(vAmt<=0.003) discard;',                                                                               // cheapest rejection first: a faded slot, a silenced reflection or archGlow:0 never reaches a single exp()
-      '  float core=exp(-vV*vV*'+_roadG(ML_ARCH_CORE)+')*(1.0+'+_roadG(ML_ARCH_NODE)+'*vNode);',
-      '  vec3 col=uCol;'
-    ].concat(ML_ARCH_RICH?[
-      '  float o=max(vV,0.0), q=vV-('+_roadG(ML_ARCH_PRISM_AT)+');',                                              // o = the OUTER half of the strand · q = how far this fragment is from where the prismatic rim sits
-      '  float ie=exp(-q*q*'+_roadG(ML_ARCH_PRISM_K)+');',                                                        // …a thin rim just INSIDE the core. Its own statement on purpose: reading a name from earlier in the SAME declaration list is legal GLSL and is still the first thing a strict mobile compiler argues about
-      '  float aur=exp(-o*o*'+_roadG(ML_ARCH_AUR)+')*step(0.001,o)*0.34;',                                        // AURORA-SOFT OUTER: the bleed lives on the outside only, so the arch's inner edge stays a crisp opening you fly through
-      '  col=mix(col, vec3(0.58)+0.42*cos(vec3(vTh*2.4)+vec3(0.0,2.094,4.189)), clamp(uArchPrism*ie,0.0,1.0));',  // SLIGHTLY PRISMATIC: the rim's hue walks the spectrum along the arc's own angle, so the rainbow bends with the gate instead of sitting on it
-      '  float a=(core+aur+ie*0.30)*vAmt;'
-    ]:[
-      '  float a=core*vAmt;'
-    ]).concat([
-      '  if(a<=0.003) discard;',
-      '  gl_FragColor=vec4(col*a, a);',
-      '}'
-    ]).join('\n') });
-  roadArch=new THREE.Mesh(g, roadArchMat);
-  roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);   // −39: straight after the ribbon (−40) and still before every other transparent thing, with depthTest untouched — an opaque Echo occludes a gate exactly as it occludes the road under it
-    return;
-  }
-  /* THE NAVE — TWO DRAWS, ONE PARAMETRIC BUFFER, ZERO PER-FRAME CPU (SPEC_MOONLINE_NAVE §2–§3).
-     The normal-blended stone and the additive alabaster/gold overlay share this indexed geometry and every uniform object.
-     Attributes remain parameters, never world positions: slot + primitive coordinates are placed from the course spline in
-     the vertex shader. Shipped desktop submits 2 × 2,200 triangles in two arch calls; LOW submits 1 × 1,232 and never
-     builds the accent material, compiling out coffers, stone glow and sparkles. Vault and veil are separate +1 calls by contract. */
-  const SEG=ML_NAVE_SEG, p=[], kd=[], mr=[], uv=[], ix=[]; let nv=0;
-  function nq(k,kind,x0,x1,y0,y1,mir){ const b=nv, q=[[x0,y0,0,0],[x1,y0,1,0],[x1,y1,1,1],[x0,y1,0,1]]; for(let i=0;i<4;i++){ p.push(k,q[i][0],q[i][1]); kd.push(kind); mr.push(mir); uv.push(q[i][2],q[i][3]); nv++; } ix.push(b,b+1,b+2,b,b+2,b+3); }
-  function nb(k,mir){ const b=nv; for(let s=0;s<=SEG;s++){ const t=s/SEG; for(let r=0;r<2;r++){ p.push(k,t,r); kd.push(0); mr.push(mir); uv.push(t,r); nv++; } } for(let s=0;s<SEG;s++){ const a=b+s*2; ix.push(a,a+1,a+2,a+1,a+3,a+2); } }
-  for(let k=0;k<ML_ARCH_N;k++){
-    nb(k,1); nb(k,-1);
-    for(const side of [-1,1]) for(const mir of [1,-1]){ const xc=side*7.65; nq(k,1,xc-0.65,xc+0.65,0.02,8.65,mir); nq(k,2,xc-0.92,xc+0.92,0,0.9,mir); nq(k,3,xc-1.02,xc+1.02,8.65,9.5,mir); const xm=side*10.8; nq(k,4,xm-1.05,xm+1.05,0,1,mir); }
-    nq(k,5,0,0,0,0,1); nq(k,5,0,0,0,0,-1);
-    nq(k,10,-1,1,-1,1,1); nq(k,11,-1,1,-1,1,1);
-  }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(p,3)); g.setAttribute('aKind',new THREE.Float32BufferAttribute(kd,1)); g.setAttribute('aMir',new THREE.Float32BufferAttribute(mr,1)); g.setAttribute('aUV',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(ix);
-  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBite:U.uBite, uTerrain:U.uTerrain, uTerrainBase:U.uTerrainBase, uHorizon:U.uHorizon, uBreath:U.uBreath, uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };   // terrain, cached horizon and bite are the road's uniform OBJECTS, never copies; the old shader text simply does not name them when either switch is off
-  const naveVert=[
-    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
-    ...(ML_BITE?['uniform vec3 uBite;']:[]),
-    'attribute float aKind,aMir; attribute vec2 aUV; varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
-    ...(ML_TERRAIN?[roadTerrainShader()]:[]),
-    'void main(){',
-    '  float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
-    '  float xl=position.y, yl=position.z, th=0.0, show=1.0;',
-    '  if(aKind<0.5){ th=3.14159265*position.y; float r=mix(mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy),mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy),position.z); xl=r*cos(th); yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+r*sin(th); }',
-    '  else if(aKind<3.5){ show=1.0-mercy; }',
-    '  else if(aKind<4.5){ show=mercy; }',
-    '  else if(aKind<5.5){ float kt=aUV.y, r1=mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy), r2=mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy), kw=mix(0.55,0.78,kt); xl=(aUV.x-0.5)*2.0*kw; yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+mix(r1-0.55,r2+0.35,kt); }',
-    '  else if(aKind<10.5){ float sz=mix(2.05,2.20,mercy); xl=position.y*sz; yl=mix(18.65,14.45,mercy)+position.z*sz; }',
-    '  else { show=mercy; xl=position.y*7.0; yl=12.45+position.z*7.0; }',
-    '  if(aKind<9.5) yl*=aMir;',
-    (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
-    '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',
-    '  float refl=aMir>0.0?1.0:mix(0.50*exp(-abs(yl)/6.0),0.66*exp(-abs(yl)/26.0),mercy);',
-    ...(ML_TERRAIN?['  vTerrainVis=terrainVis(u,cx+xl,yl); yl+=cyAt(u);']:[]),
-    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+uBreath*'+_roadG(ML_ARCH_BREATH)+');',
-    '  gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,yl,-u+(aKind>9.5?0.12:0.0),1.0);',
-    '}'
-  ].join('\n');
-  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:true, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.NormalBlending, uniforms:NU, vertexShader:naveVert,
-    fragmentShader:[
-      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
-      'void main(){',
-      '  if(vShow<=0.004 || vFade<=0.004 || vKind>9.5'+(ML_TERRAIN?' || vTerrainVis<=0.004':'')+') discard;',
-      '  float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0;',
-      '  float crest=exp(-edge*edge*2.2);',
-      '  vec3 cool=vec3(0.725,0.753,0.800), warm=mix(vec3(0.957,0.937,0.902),vec3(1.0,0.980,0.940),crest);',
-      '  vec3 col=mix(cool,warm,0.38+0.62*crest); col=mix(col,vec3(1.0),crest*0.34);'
-    ].concat(ML_ARCH_RICH?[
-      '  float rec=0.0, lip=0.0;',
-      '  if(vKind<0.5){ float dth=abs(vTh-1.57079633), n=mix(10.0,12.0,vMercy), cell=(dth-0.11)/(1.46079633/n), fc=abs(fract(cell)-0.5)*2.0, rr=abs(vR-0.5)*2.0; rec=step(0.0,cell)*(1.0-smoothstep(0.42,0.78,fc))*(1.0-smoothstep(0.34,0.72,rr))*(1.0-smoothstep(120.0,250.0,vDist)); lip=smoothstep(0.05,0.24,rec)*(1.0-smoothstep(0.30,0.62,rec)); }',
-      '  vec3 recess=mix(vec3(0.565,0.605,0.675),warm,0.50); col=mix(col,recess,rec*0.396); col=mix(col,vec3(1.0,0.985,0.950),lip*0.06);'
-    ]:[]).concat([
-      '  float key=step(4.5,vKind)*step(vKind,5.5), gild=key*(0.25+0.20*vMercy)*(1.0-smoothstep(220.0,560.0,vDist)); col=mix(col,vec3(1.0,0.885,0.60),gild);',
-      '  gl_FragColor=vec4(col,clamp(0.97*vShow*vFade'+(ML_TERRAIN?'*vTerrainVis':'')+',0.0,0.995));',
-      '}'
-    ]).join('\n') });
-  if(ML_ARCH_RICH) roadArchAccentMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, uniforms:NU, vertexShader:naveVert,
-    fragmentShader:[
-      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
-      'void main(){',
-      '  if(vShow<=0.003 || vFade<=0.003'+(ML_TERRAIN?' || vTerrainVis<=0.003':'')+') discard;',
-      '  vec2 q=vUV*2.0-1.0; float a=0.0; vec3 col=vec3(1.0,0.824,0.478);',
-      '  if(vKind<9.5){'
-    ].concat(ML_ARCH_RICH?[
-      '    float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0, near=1.0-smoothstep(260.0,540.0,vDist); a=(0.035+0.075*exp(-edge*edge*2.0))*near*vShow*vFade; col=mix(vec3(1.0,0.86,0.66),vec3(1.0,0.965,0.90),exp(-edge*edge*2.0));'
-    ]:[
-      '    discard;'
-    ]).concat([
-      '  } else if(vKind<10.5){',
-      '    float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0), honey=exp(-r2*2.0), r4=exp(-abs(q.x)*18.0)*exp(-q.y*q.y*3.0)+exp(-abs(q.y)*18.0)*exp(-q.x*q.x*3.0);'
-    ]).concat(ML_ARCH_RICH?[
-      '    vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*20.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*20.0)*exp(-d.x*d.x*4.0); a=(core*1.20+r4*0.62+r8*0.46+honey*0.18)*vShow*sqrt(sqrt(max(vFade,0.0)));'
-    ]:[
-      '    a=(core+r4*0.30)*vShow*vFade;'
-    ]).concat([
-      '    col=mix(vec3(1.0,0.72,0.30),vec3(1.0,0.925,0.80),core);',
-      '  } else {',
-      '    float r=length(q), ang=atan(q.y,q.x), petR=0.24+0.10*(0.5+0.5*cos(10.0*ang)); float petals=(1.0-smoothstep(petR,petR+0.055,r))*smoothstep(0.055,0.12,r); float spoke=abs(fract((ang/6.28318531)*19.0+0.5)-0.5), rays=(1.0-smoothstep(0.0,0.12,spoke))*smoothstep(0.28,0.36,r)*(1.0-smoothstep(0.83,1.0,r))*(1.0-r); float heart=exp(-r*r*46.0); a=(heart+petals*0.70+rays*0.65)*vShow*vFade; col=mix(vec3(1.0,0.66,0.24),vec3(1.0,0.95,0.82),heart);',
-      '  }',
-      '  a*=0.72'+(ML_TERRAIN?'*vTerrainVis':'')+'; if(a<=0.003) discard; gl_FragColor=vec4(col,a);',
-      '}'
-    ]).join('\n') });
-  roadArch=new THREE.Mesh(g,roadArchMat); roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);
-  if(roadArchAccentMat){ roadArchAccent=new THREE.Mesh(g,roadArchAccentMat); roadArchAccent.frustumCulled=false; roadArchAccent.renderOrder=-37.8; roadArchAccent.visible=false; scene.add(roadArchAccent); }
-}
+                           
+               
+                                                                                                                       
+                                                                                                                          
+                                                                                                                        
+                                                                                                                        
+                                                                                                                       
+                                                                                                                      
+                                                                                 
+                                                                                              
+                
+                                                                               
+                                                                                                                                                                                                  
+                                                 
+                                                                                                                    
+                                                                                                                                       
+   
+                                     
+                                                               
+                                                          
+                                               
+                                           
+                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                       
+                                                                                                                                       
+                                                                                                                                                          
+                  
+                                                                                                                                                                
+                                                             
+                     
+                                                                   
+                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                            
+                                                 
+                                       
+                                                         
+                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                             
+                                                                                     
+                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+         
+                 
+                                                                                                                            
+                                                                                                                            
+                                                                                                          
+                    
+                                                                                      
+                     
+                                                                                                                                                                                                                             
+                                                                                                
+                        
+                           
+                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                
+                                          
+       
+                            
+               
+                                
+                                       
+         
+                     
+                                          
+                                                                                                                                                                                                                                                                                                   
+           
+   
+                                                                                                
+                                                                                                                           
+                                                                                                                           
+                                                                                                                      
+                                                                                                                                     
+                                                                    
+                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                           
+                               
+                      
+                                                                                                                                                                                                                                                  
+                                          
+                                               
+   
+                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                  
+                                                                                                                                         
+                                            
+                                                                                                                                                               
+                                             
+                   
+                                                                                              
+                                                              
+                                                                                                                                                                                                                                                                      
+                                              
+                                          
+                                                                                                                                                                                                                                                                                             
+                                                                                                                         
+                                                                         
+                                
+                                                                                                                                                                                                                                                       
+                                                                                                                          
+                                                                                           
+                                                                              
+                                                                                                                                                                                                                                  
+                                                                                            
+       
+               
+                                                                                                                                                                                                
+                    
+                                                                                                                 
+                     
+                                                                                                             
+                                                                   
+                                           
+                                                                                                            
+                                                                                     
+                           
+                                  
+                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                         
+                  
+                                                                                                                                                              
+                                                                                                      
+         
+                     
+                                                                                                                                                                                                                          
+                    
+                                                                                                                 
+                     
+                                                                                                
+                                                                           
+                        
+                           
+                                                                                                                                                                                                                                         
+       
+                    
+               
+                                 
+                                                                                                                                                                               
+                            
+                                                                                                                                                                                                                            
+       
+                                         
+               
+                                                                    
+                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+            
+                                                                                                     
+         
+                     
+                                                                                                                                              
+                                                                                                                                                                                                             
+ 
                           
                                                                                                                        
                                                                                                                                 
@@ -2483,6 +2502,86 @@ function buildRoadArches(){
                     
                                                                                                                                                                         
  
+                                         
+                                                                                                                                                                       
+                                          
+                                                                                                                                                      
+                                           
+                 
+                                                                                                   
+                                                                                                                                               
+                                                                                                                                                                                    
+                                            
+                                                                             
+                                                                                                                                                                                                                                                                                                               
+                                                           
+     
+               
+                                           
+                                                                                                                                                                                             
+            
+                                                                                                
+                                                                                                                                                                                                                              
+        
+                 
+                                                                                                                      
+                                    
+                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                            
+                         
+                                                                                                                                                             
+            
+                                                                                                                                                                                                                                                   
+                                                                                          
+     
+                                                                                                        
+                      
+     
+                                                                                     
+                                                                                      
+            
+                                                                                                 
+                                                                                        
+        
+                                            
+     
+               
+                          
+                                                                                                                                                                                                                                                                            
+                                                                                            
+                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                      
+                                                                                                                                                                                                   
+                                                                                                                                              
+                                                                                                                                        
+                               
+                                                                                               
+                                                                                          
+                                                                                                                                                                                             
+   
+                                                                                                                                                                                                                       
+                                                                                                                                                                             
+                  
+                                                                                                                                                                                  
+                                              
+                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+         
+                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                   
+                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                           
+   
+ 
                          
                                                                                                                           
                                                                                                                         
@@ -2537,12 +2636,14 @@ function buildRoadArches(){
                                                                                                                         
                                                                                                                            
                                                                                              
-                          
-                                                
+                                          
+                                                               
                                                                                                                                                                                                                               
                                                                        
-                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                               
                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                     
                                                             
                                                 
                                                               
@@ -2564,7 +2665,7 @@ function buildRoadArches(){
                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                             
+                                                                                                                                                                                                                                                 
                               
                                                                                                                                     
                                                     
@@ -2579,6 +2680,7 @@ function buildRoadArches(){
                                
                                                        
                                                   
+                                                     
                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                   
                                              
@@ -2624,6 +2726,7 @@ function buildRoadArches(){
                                                                                                                                                                                                   
                                                                                              
                                                                                                                                                                                                   
+                                                 
                      
                                                                                                                         
               
@@ -2636,11 +2739,16 @@ function buildRoadArches(){
                                                                                                                              
                                                                                                                                                
                                                                                                                                                               
-                                                
+                    
+                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                              
+                                                     
+                                                       
                                                
                                                                                                                         
                                                                                                                                                                                                 
-                                                                                                                                                                                                
+                                                                                                                                                                                                                           
                                                                                                                                                                                                       
                                                                                                                                                                                                                                       
                                                                                                                        
@@ -2668,11 +2776,11 @@ function buildRoadArches(){
                      
                                                                                                                
                                                                                           
-                                                                                                     
+                                                                                                                              
                                                                                              
                                                                                                                                           
                                                                                                                                                                                                                                                                                                             
-                                                                                                                   
+                                                                                                                                              
                                                                                                                                                                                         
                      
                                                                                                                                             
@@ -2741,9 +2849,9 @@ function buildRoadArches(){
                                                                                                                                                                                                                                                                                                                                                                                                       
                                               
                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                     
                                                                                                                                                                                              
-                                                                                                                                                        
+                                                                                                                                                                                           
                                                                                                                                                                                                                                    
      
                             
@@ -2811,6 +2919,9 @@ function buildRoadArches(){
                                                                                                                                                                                                                                                                                                                                          
                                        
                                                    
+                                       
+                                                   
+                                               
                                          
                                                
                                                                                                                                                                                                                                                                                       
@@ -2825,6 +2936,7 @@ function buildRoadArches(){
                                                   
                                                                                  
                             
+                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                               
                                  
                                                                                                                                                                                                                                                            
@@ -7422,11 +7534,14 @@ function buildRoadArches(){
                                                                     
                                                                                                                                                     
                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                             
                         
                             
                                                               
                                                                  
+                                                                                                                                                                                                                                                                                           
                                                                           
               
  
@@ -7542,7 +7657,7 @@ function buildRoadArches(){
                                
                 
                          
-                                                            
+                                                                                            
                                                         
                                                                                                                                                                                                    
                                                                  
@@ -7587,7 +7702,7 @@ function buildRoadArches(){
                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                    
+                                                                                                                                                                           
                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                       
@@ -7624,7 +7739,7 @@ function buildRoadArches(){
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
        
                         
-                                                                                                                                                                                                
+                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                    
                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
