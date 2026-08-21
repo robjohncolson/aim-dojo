@@ -954,6 +954,7 @@ const CFG = {
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01],   // THE FORTY FIX (wave 7, parcel R): the NOTE LANE now owns its own density ladder instead of borrowing the orb strobe's. It was one ladder on purpose (2026-06-23, "no separate difficulty system") and that was right while the tiers sat at bpm 80.8/134.0 — nobody ever reached them. THE SIXTY CAP moved the same thresholds to 36.0/50.0, so from ~37.5 bpm on the lane silently DOUBLED the required presses (and quadrupled them at 50) onto raw downbeats that collide with shot arrival — one demanded key per beat, the lane's whole contract, quietly stopped being true a third of the way up the mountain. Same SHAPE as beatQuantT (divs/2 = notes per beat), different thresholds: see wasdNoteDiv() for the crossing arithmetic. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched — this is a decoupling, not a retune.
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
+  ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   // THE SURVIVING EXPERT k-SET UNDER THE SIXTY CAP (parcel P, computed with the real solver in beatSpawnDist against the SHIPPED constants — projSpeed 28/projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28): the LIST DOES NOT CHANGE — infeasible k's have always dropped out by arithmetic, and they still do. AT EXACTLY 60 BPM (dT 1.00, s 72 m/s) against rangeMax the feasible set is {2, 3, 4, 6} at d = {9.00, 13.50, 17.99, 26.98} m; k=8/12/16 need 35.94/53.81/71.55 m and are out of reach. Over the WHOLE new live band 20..60 (far = rangeMax): k=2,3,4 are feasible throughout, k=6 enters at 40.1 bpm, k=8/12/16 never — the expert lead is therefore the SIX-sixteenth (3/8-beat) call, not the old 8..16. On a LAST QUARTER (farMul 1.3, band 10.4..36.4 m) the set at 60 shifts out to {3, 4, 6, 8}, which is the one night k=8 speaks at all. At the CLOSE end (state.range at rangeStart 11) only k=2 is ever feasible, at every tempo — so a night's k vocabulary genuinely opens as the distance shell marches out, which is what the shell was for.
@@ -1035,6 +1036,7 @@ const CFG = {
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
   projectile:true, projArc:true, projSpeed:24, projSpeedFast:60, projGravity:16.0, projRadius:0.30, projLife:14,   // projSpeed = LOW-tempo muzzle speed (lofted arc); projSpeedFast = MAX-tempo. projSpeedNow() lerps by diffT() so the bullet keeps pace with faster orbs → less lead at high BPM. raise projSpeedFast toward a flatter/laser arc; lower toward a constant slow lob. THE SIXTY CAP (parcel P) KEEPS BOTH ENDPOINTS AS SHIPPED, deliberately: projSpeedFast is BY DEFINITION the muzzle speed at full mastery, and 60 is now full mastery, so the arc plays at 72 m/s (SENSEI_PACK's value) at the cap — that is the defined expert state, not an accident of the old range. What DID change is that the endpoint is now actually reached: at bpm 60 the old law gave dT 0.263 -> 39.6 m/s, the new one gives dT 1.00 -> 72.0 m/s. FLAGGED FOR THE TUNING SESSION (SPEC_SIXTY_AND_POLY §5, together with grooveOpenSec[1] and bpmUp) — do NOT pre-tune it here; the cap changes the feel of everything and tuning before the wave lands would be wasted. projLife is a runaway SAFETY only (SPEC_SKY_LISTEN K1): shots end at GROUND or wall — 14s covers the tallest in-room loft (2·60/16 = 7.5s straight up); the old 2.6s killed high arcs mid-air. Flat-shot feel unchanged (they land well under 2.6s).
+  arcVoid:1,   // SPACE TRUTH V: raw flat kill-switch. 0 emits the shipped ribbon shader and restores the phantom-floor preview/rings; 1 extends and tail-fades only under moonlineVoid()
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:1.15, orbBlockPx:0, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. orbBlock* = an Echo the aim ray pierces (or whose disc covers the reticle) still wins combat under held-E. THE BLOCK IS THE ORB'S TRUE SILHOUETTE (SKY SPINE 1.4, 2026-07-26): pad 2.7 plus 52px of screen pad grew every Echo a 22-27° exclusion cone — far wider than the sphere you can see — so a live field shadowed 15.8% of the dome and cancelled 41.2% of the bearings a pick could have come from, silently. 1.15 is a thin skim margin on the real radius and the screen pad is GONE (0): shadow 1.45% of the dome, 8.6% of picks lost. You are refused when an Echo is genuinely in front of the star, never because one happens to be nearby. combatPx = VESTIGIAL (2026-07-26): the near-miss combat-priority clause died when star-bound spawns put Echoes ON the zodiac band and made held-E selection nearly impossible — and even at the old padding it could never fire below ~59.5bpm, because the orb's own padded disc (radius lerps radSlow 1.15 → 0.62 with diffT, so a slow night's orb is the BIGGEST one) already reads wider than 88px at every distance the beat-quantized band can hold down there; the clause only ever had room above that tempo, where the orb has shrunk and moved out. Kept as a named constant so the number that once meant something is not silently reused. THE SIXTY CAP (parcel P) does NOT revive it and changes nothing here: the clause's code was deleted (see the disc-covers-reticle test in the pick fn), so 88 is a dead literal whatever the tempo law says — the "~59.5bpm" above is a historical reading of the OLD diffT ramp and is not re-derived, because there is no longer any code for it to be a threshold of. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
@@ -8256,24 +8258,26 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                     
                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                               
    
  
                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                       
+                                                                                                                                                                     
                                                                                                                                              
                                                                                                                                                                         
                                                                                    
                                                                                                                              
                                                                                                                                                              
                                                                                                                                     
+                                                                                                                                        
                                                                                                                                                                                               
                                                                                                                  
                                                                                                                                                                                                                                  
                                                                                                                               
                    
-                                                                                           
+                                                                                                                                       
                            
                                              
                                                     
@@ -8289,9 +8293,12 @@ function roadImpSync(r){
                          
                                                                         
                                          
+                      
+                                                                                                                                                          
+              
                               
      
-             
+              
                                                                                                                                                                  
                          
                        
@@ -8300,8 +8307,10 @@ function roadImpSync(r){
                                                                                                                                                    
                                                          
                                                                                                                         
+                                                                                     
+                                             
                                       
-                                                                              
+                         
                                                          
                                                                         
      
@@ -8350,6 +8359,9 @@ function roadImpSync(r){
                                                                                                                         
                                                                  
                   
+                                              
+                                             
+                                                      
                                                                                                       
                     
                                                                                           
@@ -8364,8 +8376,17 @@ function roadImpSync(r){
    
              
                                         
-                                                
-                                                                             
+                                        
+              
+                                                         
+                                             
+                                                                                                                                                                   
+                                                                                                                                                                                          
+                                                                                  
+   
+                                                                                                   
+                                                   
+                                                        
                                                                                                 
                                                                                                    
                                                                             
@@ -8376,8 +8397,9 @@ function roadImpSync(r){
                                                           
                                                                                                            
                          
-                                                                                                                                                         
-                                                                                 
+                                                                                                                            
+                                                        
+                                                                                                                       
                                                            
                           
                                                                                                    
@@ -8544,6 +8566,8 @@ function roadImpSync(r){
                                                                             
  
                        
+                                                                                                                                                                               
+                                                                                                                                                                               
                                                                                                                                                                                                                   
                         
                                                       
@@ -8577,10 +8601,18 @@ function roadImpSync(r){
      
                                                                                                        
                                                                                                                                                                                                 
-                                                                                                                                                        
+                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                       
                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                      
+                                                                                                                                         
+                                                                                                                                                                                                    
+                                                                                                                                          
+                                                                                                                                                                       
+       
+                    
+                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                          
                           
                                                                                                                                                                                                                                                                                                                                                
                                                                                                             
@@ -10349,6 +10381,7 @@ function roadImpSync(r){
                      
                                                                                                                                                                                                         
                
+                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         

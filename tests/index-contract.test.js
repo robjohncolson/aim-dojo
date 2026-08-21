@@ -926,8 +926,8 @@ test("a void miss loses its floor ring and keeps its ballistic termination", () 
   // THE TREADMILL LAW: the gate is on the VISUAL, never on the y=0 termination that grades the miss.
   const terminate = html.match(/if\(pr\.life>=CFG\.projLife \|\| pr\.pos\.y<=0\.04[^\n]*\n/);
   assert.ok(terminate, "the projectile termination line is present");
-  assert.match(terminate[0], /if\(pr\.pos\.y<=0\.04\) spawnLandRing\(pr\.pos\.x, pr\.pos\.z\); onWhiff\(true\); retireProjectile\(i\); continue;/);
-  assert.doesNotMatch(terminate[0], /moonline|_mlBlend|roadLive/i);
+  assert.match(terminate[0], /if\(pr\.pos\.y<=0\.04 && \(!ML_ARC_VOID \|\| !moonlineVoid\(\)\)\) spawnLandRing\(pr\.pos\.x, pr\.pos\.z\); onWhiff\(true\); retireProjectile\(i\); continue;/);
+  assert.doesNotMatch(terminate[0].slice(0, terminate[0].indexOf("{")), /moonline|_mlBlend|roadLive/i);
 });
 
 test("the Temple sweeps both floor-ring pools, on every build", () => {

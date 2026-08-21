@@ -954,6 +954,7 @@
                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                             
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -1035,6 +1036,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                            
                                                                                             
@@ -8256,24 +8258,26 @@ function updateProjectiles(dt){
       if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
-    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff; a ground hit radiates a ring. GROUND/wall are the real ends — projLife is only the NaN/runaway safety (K1: high lofts fly their full arc to the floor)
+    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04 && (!ML_ARC_VOID || !moonlineVoid())) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff at the shipped instant; only the phantom-floor decoration stands down in the void. The bullet still retires at y<=0.04 by decision: moving that death would move gameplay
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
 const ARC_UPDATE_STEP=1/20, ARC_MAX=430, ARC_SAMP=30, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, RIB_HALF=GLOW?0.105:0.065;   // ribbon half-width (a hair wider so ROYGBIV bands read; GLOW: bolder key-art ribbon). ARC_MAX 430×(1/30s) ≈ 14.3s of plan integration — covers projLife so the PLAN reaches the ground exactly like the bullet (K1); flat shots still break out of the loop in <80 steps
 const RIB_OP_BASE=GLOW?0.62:0.48, RIB_OP_DAY=GLOW?0.28:0.35;   // ribbon opacity = base + day*bonus (GLOW: more present at night, same ceiling by day)
+const ML_ARC_VOID=!!CFG.arcVoid, ML_ARC_FAR=140;   // raw boolean first; the visual horizon is deliberately far enough to read as space while staying inside projLife
 let arcRibbon=null, arcLand=null, arcPulseA=null, arcPulseB=null, arcApex=null, arcAccum=ARC_UPDATE_STEP, arcLanded=false, _planLanded=false;
 let _arcApexY=0, _arcApexOn=false;   // apex height of the current shot's parabola — target height labels show ONLY for orbs sitting above it (you're under-arcing them)
 let _arcScroll=0;   // rainbow band scroll (muzzle → impact), advanced by projSpeed
 const _arcDir=new THREE.Vector3(), _arcPos=new THREE.Vector3(), _arcVel=new THREE.Vector3(), _arcLandPos=new THREE.Vector3(),
       _arcRight=new THREE.Vector3(), _arcI=new THREE.Vector3(), _arcM=new THREE.Vector3(), _arcV=new THREE.Vector3(); const _ARC_UP=new THREE.Vector3(0,1,0);
 const _arcPts=new Float32Array(ARC_SAMP*3), _ribTan=new THREE.Vector3(), _ribOff=new THREE.Vector3(), _ribToCam=new THREE.Vector3();
+const _arcTail={value:0};   // shared uniform object: the material borrows this exact object and updateArcPreview only writes its scalar
 const _arcRingGeo=(()=>{ const a=new Float32Array(17*3); for(let i=0;i<=16;i++){ const th=i/16*6.2831853; a[i*3]=Math.cos(th); a[i*3+2]=Math.sin(th); }   // unit ring in the XZ (floor) plane
   const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a,3)); return g; })();
 // Rainbow ribbon: bands run ACROSS the path (color constant on a cross-section), so stripes are ORTHOGONAL to a classic sky rainbow (which bands along the arc). Pattern scrolls muzzle→impact at a rate tied to projSpeedNow().
 const ARC_RAIN_VS='varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }';
 const ARC_RAIN_FS=[
-  'uniform float uScroll; uniform float uOpacity; uniform float uBands; varying vec2 vUv;',
+  'uniform float uScroll; uniform float uOpacity; uniform float uBands;'+(ML_ARC_VOID?' uniform float uTail;':'')+' varying vec2 vUv;',
   'vec3 roygbiv(float t){',
   '  float i=floor(clamp(t,0.0,0.999)*7.0);',
   '  if(i<0.5) return vec3(1.00,0.15,0.12);',   // R
@@ -8289,9 +8293,12 @@ const ARC_RAIN_FS=[
   '  vec3 c=roygbiv(t);',
   '  float edge=smoothstep(0.0,0.18,vUv.y)*smoothstep(1.0,0.82,vUv.y);',
   '  float a=uOpacity*(0.50+0.50*edge);',
+].concat(ML_ARC_VOID?[
+  '  a*=mix(1.0,1.0-smoothstep(0.72,1.0,vUv.x),uTail);',   // last 28% dissolves only when the shared uniform says this is the void; uTail=0 is exactly ×1
+]:[]).concat([
   '  gl_FragColor=vec4(c,a);',
   '}'
-].join('\n');
+]).join('\n');
 function makeArcGeo(maxPts){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPts*3),3)); return g; }
 function ensureArcObjs(){
   if(arcRibbon) return;
@@ -8300,8 +8307,10 @@ function ensureArcObjs(){
   const uv=new Float32Array(ARC_SAMP*2*2); for(let i=0;i<ARC_SAMP;i++){ const u=i/(ARC_SAMP-1); uv[i*4]=u; uv[i*4+1]=0; uv[i*4+2]=u; uv[i*4+3]=1; }
   rg.setAttribute('uv', new THREE.BufferAttribute(uv,2));
   const idx=[]; for(let i=0;i<ARC_SAMP-1;i++){ const aa=i*2; idx.push(aa,aa+1,aa+2, aa+1,aa+3,aa+2); } rg.setIndex(idx);
+  const arcUniforms={ uScroll:{value:0}, uOpacity:{value:0.55}, uBands:{value:6.0} };
+  if(ML_ARC_VOID) arcUniforms.uTail=_arcTail;
   const mat=new THREE.ShaderMaterial({
-    uniforms:{ uScroll:{value:0}, uOpacity:{value:0.55}, uBands:{value:6.0} },
+    uniforms:arcUniforms,
     vertexShader:ARC_RAIN_VS, fragmentShader:ARC_RAIN_FS,
     transparent:true, side:THREE.DoubleSide, depthWrite:false, fog:false
   });
@@ -8350,6 +8359,9 @@ function updateArcPreview(dt){                                                  
   if(!(CFG.projectile && CFG.projArc && state.running && !templeActive)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
   if(bonusActive){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
   ensureArcObjs();
+  const arcVoid=ML_ARC_VOID && moonlineVoid();
+  if(ML_ARC_VOID) _arcTail.value=arcVoid?1:0;
+  if(ML_ARC_VOID) arcRibbon.renderOrder=arcVoid?-41:0;
   // scroll ROYGBIV bands muzzle→impact every frame; speed scales with current projectile muzzle speed
   if(!reduceMotion){
     _arcScroll += dt * (projSpeedNow() * 0.085);   // faster bullets → faster stripe crawl
@@ -8364,8 +8376,17 @@ function updateArcPreview(dt){                                                  
   }
   arcAccum=0;
   const T=computeShotPlan(_arcM, _arcV);
-  sampleArc(_arcM, _arcV, T, ARC_SAMP, _arcPts);
-  const rp=arcRibbon.geometry.attributes.position.array, cam=camera.position;
+  const cam=camera.position; let TVis=T;
+  if(arcVoid){
+    const step=1/30, far2=ML_ARC_FAR*ML_ARC_FAR; let t=0;
+    _arcPos.copy(_arcM); _arcVel.copy(_arcV);
+    while(t<TVis){ const h=Math.min(step,TVis-t); _arcVel.x+=windX*h; _arcVel.y-=CFG.projGravity*h; _arcVel.z+=windZ*h; _arcPos.addScaledVector(_arcVel,h); t+=h; }
+    while(TVis<CFG.projLife){ const h=Math.min(step,CFG.projLife-TVis); _arcVel.x+=windX*h; _arcVel.y-=CFG.projGravity*h; _arcVel.z+=windZ*h; _arcPos.addScaledVector(_arcVel,h); TVis+=h;
+      const dx=_arcPos.x-cam.x, dz=_arcPos.z-cam.z; if(dx*dx+dz*dz>=far2) break; }
+  }
+  if(ML_ARC_VOID && arcRibbon.material.uniforms) arcRibbon.material.uniforms.uBands.value=6*TVis/T;
+  sampleArc(_arcM, _arcV, TVis, ARC_SAMP, _arcPts);
+  const rp=arcRibbon.geometry.attributes.position.array;
   for(let i=0;i<ARC_SAMP;i++){ const k=i*3, i0=Math.max(i-1,0)*3, i1=Math.min(i+1,ARC_SAMP-1)*3;
     _ribTan.set(_arcPts[i1]-_arcPts[i0], _arcPts[i1+1]-_arcPts[i0+1], _arcPts[i1+2]-_arcPts[i0+2]);
     _ribToCam.set(cam.x-_arcPts[k], cam.y-_arcPts[k+1], cam.z-_arcPts[k+2]);
@@ -8376,8 +8397,9 @@ function updateArcPreview(dt){                                                  
   arcRibbon.geometry.attributes.position.needsUpdate=true;
   if(arcRibbon.material.uniforms) arcRibbon.material.uniforms.uOpacity.value=RIB_OP_BASE+RIB_OP_DAY*dayAmt;
   arcRibbon.visible=true;
-  arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.95,0.95,0.95); arcLand.material.opacity=0.8+0.18*dayAmt; arcLand.visible=_planLanded;
-  arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z);
+  arcLand.position.set(_arcI.x, 0.03, _arcI.z); arcLand.scale.set(0.95,0.95,0.95); arcLand.material.opacity=0.8+0.18*dayAmt;
+  if(arcVoid){ arcLand.visible=false; arcLanded=false; }
+  else { arcLand.visible=_planLanded; arcLanded=_planLanded; if(_planLanded) _arcLandPos.set(_arcI.x, 0.03, _arcI.z); }
   const _g=CFG.projGravity, _tA=_arcV.y>0 ? _arcV.y/_g : 0;
   if(_tA>0.05 && arcApex){
     const apX=_arcM.x+_arcV.x*_tA, apY=_arcM.y+_arcV.y*_tA-0.5*_g*_tA*_tA, apZ=_arcM.z+_arcV.z*_tA;
@@ -8544,6 +8566,8 @@ function showWasdGlyph(key, spoiled, on, ghost, glow){   // ghost = this note is
   if(!wasdGlyphEl.classList.contains('on')) wasdGlyphEl.classList.add('on');
 }
 const HUD_CX=HUD_CSS/2;
+const ML_RING_ECHO=!!CFG.ringEcho, ML_RING_ECHO_T=0.30, ML_RING_IN=0.18;   // raw boolean first; echo seconds are capped again at capture time by 60% of the live note interval
+let _ringEchoAt=-1e9, _ringEchoR=0, _ringEchoKey=0, _ringEchoDur=0, _ringEchoMain=true;   // time + stored geometry/key: no note index exists here for an nd remap to resurrect
 function ARC(r){ hudCtx.beginPath(); hudCtx.arc(HUD_CX,HUD_CX,Math.max(0.5,r),0,Math.PI*2); hudCtx.stroke(); }   // hoisted out of drawWasdLane (was a fresh closure per frame; cx===cy===HUD_CSS/2 are constants)
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
@@ -8577,10 +8601,18 @@ function drawWasdLane(){
     }
     spoiled=(ci===_spoilNote); const hit=(ci===_hitNote); hitHeld=hit; letterKey=ckey; ghostNote=!main;
     if(showHud && !reduceMotion){ const half=pocketLive()?0.5:(0.5/nd), visualCue=pocketCueOn?0:cueI, off=spoiled?(_spoilOff-visualCue):(hit?(_hitOff-visualCue):(rawOff-visualCue)); let ra,al;
-      if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); }   // approaching: maxR -> Rin (2x faster; spans the half-interval)
+      if(off<=0){ const f=Math.min(1,-off/half); ra=Rin+f*span; al=0.35+0.65*(1-f); if(ML_RING_ECHO) al*=Math.max(0,Math.min(1,(1-f)/ML_RING_IN)); }   // approaching: maxR -> Rin; with parcel R on, the newborn max-radius ring condenses through the first 18% instead of popping in
       else { const f=Math.min(1,off/half), lateScale=pocketCueOn?Math.max(0,Math.min(1,Number.isFinite(CFG.pocketLateScale)?CFG.pocketLateScale:0.55)):0.55; ra=Rin+f*span*lateScale; al=Math.max(0,0.9*(1-f)); }   // receding + fading: the late window (you can still tap = BEHIND)
       if(spoiled) al=0.5;   // a spoiled note's circle freezes (grey, steady) so the wrong-key feedback is readable
-      if(hit){ al=1; const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color
+      if(ML_RING_ECHO && !hit){ const ea=Math.max(0,Math.min(1,1-(state.t-_ringEchoAt)/Math.max(0.001,_ringEchoDur)));
+        if(ea>0){ const eGhost=_ringEchoMain?1:0.45, eLw=_ringEchoMain?4.5:2.0, oR=Math.max(_ringEchoR,Rin), iR=Math.min(_ringEchoR,Rin);
+          hudCtx.globalAlpha=0.22*ea*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[_ringEchoKey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill();
+          hudCtx.globalAlpha=ea*0.5*eGhost*pocketMainAlpha; hudCtx.lineWidth=eLw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(_ringEchoR);
+          hudCtx.globalAlpha=Math.min(1,eGhost*ea*pocketMainAlpha*(1+0.35*dayAmt)); hudCtx.lineWidth=eLw; hudCtx.strokeStyle=WASD_COL[_ringEchoKey]; ARC(_ringEchoR); }
+      }
+      if(hit){ al=1;
+        if(ML_RING_ECHO){ _ringEchoAt=state.t; _ringEchoR=ra; _ringEchoKey=ckey; _ringEchoDur=Math.min(ML_RING_ECHO_T,0.6*(2*half)*60/Math.max(20,state.bpm)); _ringEchoMain=main; }
+        const oR=Math.max(ra,Rin), iR=Math.min(ra,Rin); hudCtx.globalAlpha=0.22*pocketMainAlpha; hudCtx.fillStyle=WASD_COL[ckey]; hudCtx.beginPath(); hudCtx.arc(cx,cy,oR,0,PI2,false); hudCtx.arc(cx,cy,iR,0,PI2,true); hudCtx.fill(); }   // CORRECT hit: freeze the circle + shade the timing gap (Rin..ra) in the key color, and keep its answer alive across the nearest-note handoff
       al*=pocketMainAlpha;
       const lw=main?4.5:2.0, ghost=main?1:0.45;   // DE-COERCION (parcel R): the in-between ring is a GHOST — thinner (2.0) and dimmed through its BACKING stroke too (0.45, was 0.55 on the ink only), so a bonus note never competes with the beat for the eye. MAIN path is byte-identical: ghost=1 leaves both alphas exactly as they were.
       hudCtx.globalAlpha=al*0.5*ghost; hudCtx.lineWidth=lw+3; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; ARC(ra);
@@ -9538,70 +9570,70 @@ function localPrefSnapshot(){
     wasd_tap_text:tap
   };
 }
-function applyCloudPrefsRow(row){
-  if(!row||typeof row!=='object') return;
-  let needsReload=false;
-  if(row.sky_time==='natural'||row.sky_time==='theatre'){
-    SKY_TIME=row.sky_time;
-    try{ localStorage.setItem('aimdojo.skyTime', SKY_TIME); }catch(e){}
-    try{ dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }catch(e){}
-  }
-  if(typeof row.wasd_hud==='boolean'){
-    try{ localStorage.setItem('aimdojo.wasdHud', row.wasd_hud?'1':'0'); }catch(e){}
-    applyWasdHudPref(row.wasd_hud);
-  }
-  if(typeof row.offset_ms==='number'&&isFinite(row.offset_ms)){
-    const ms=Math.max(-120,Math.min(320,Math.round(row.offset_ms)));
-    const next=ms/1000; if(next!==_userOffsetSec){ _userOffsetSec=next; rebasePocketMissTracking(); }
-    try{ localStorage.setItem('aimdojo.offsetMs', String(ms)); }catch(e){}
-  }
-  if(typeof row.low_rez==='boolean'){
-    try{ localStorage.setItem('aimdojo.lowRez', row.low_rez?'1':'0'); }catch(e){}
-    if(row.low_rez!==LOW && !LOW_FROM_URL) needsReload=true;
-  }
-  if(typeof row.display_name==='string'){
-    const n=row.display_name.trim().slice(0,24);
-    try{ localStorage.setItem('aimdojo.name', n); }catch(e){}
-    _playerName=n||('Guest-'+clientId().slice(-4));
-    try{ const ni=gid('nameInput'); if(ni&&document.activeElement!==ni) ni.value=n; }catch(e){}
-  }
-  if(row.dojo_sort==='peak_bpm'||row.dojo_sort==='runtime'){
-    dojoSort=row.dojo_sort;
-    try{ localStorage.setItem('aimdojo.dojosort', dojoSort); }catch(e){}
-  }
-  if(row.sky_mode==='decorative'||row.sky_mode==='clocked'||row.sky_mode==='clocked_chart'){
-    try{ localStorage.setItem('aimdojo.skyMode', row.sky_mode); }catch(e){}
-    if(row.sky_mode!==SKY_MODE && !SKY_MODE_FROM_URL) needsReload=true;
-  }
-  if(typeof row.sound_on==='boolean'){
-    soundOn=row.sound_on;
-    try{ localStorage.setItem('aimdojo.soundOn', soundOn?'1':'0'); }catch(e){}
-    try{ const m=gid('muteBtn'); if(m){ m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; } applyAudioState(); reconcileTargetSounds(); }catch(e){}
-  }
-  if(typeof row.wasd_tap_text==='boolean'){
-    CFG.wasdTapText=row.wasd_tap_text;
-    try{ localStorage.setItem('aimdojo.wasdTapText', row.wasd_tap_text?'1':'0'); }catch(e){}
-  }
-  try{ refreshSettings(); }catch(e){}
-  if(needsReload){ try{ location.reload(); }catch(e){} }
-}
-async function loadCloudPrefs(){
-  if(!_skyAuthClient||!_skyAuthSession||!_skyAuthSession.user) return;
-  try{
-    let res=await _skyAuthClient.from('aimdojo_prefs').select(CLOUD_PREF_SELECT).eq('user_id',_skyAuthSession.user.id).maybeSingle();
-    // v1 table without new columns: retry the original four so signed-in still works before migration SQL
-    if(res.error){
-      res=await _skyAuthClient.from('aimdojo_prefs').select('sky_time,wasd_hud,offset_ms,low_rez').eq('user_id',_skyAuthSession.user.id).maybeSingle();
-      if(res.error){ _cloudPrefsLoaded=true; return; }
-    }
-    if(res.data) applyCloudPrefsRow(res.data);
-    else {
-      const snap=localPrefSnapshot();
-      await _skyAuthClient.from('aimdojo_prefs').upsert({user_id:_skyAuthSession.user.id, ...snap, updated_at:new Date().toISOString()},{onConflict:'user_id'});
-    }
-  }catch(e){}
-  _cloudPrefsLoaded=true;
-}
+                                 
+                                         
+                        
+                                                         
+                          
+                                                                       
+                                                                           
+   
+                                      
+                                                                                   
+                                   
+   
+                                                               
+                                                                    
+                                                                                                     
+                                                                          
+   
+                                     
+                                                                                 
+                                                            
+   
+                                         
+                                                
+                                                             
+                                                   
+                                                                                               
+   
+                                                            
+                           
+                                                                        
+   
+                                                                                            
+                                                                           
+                                                                       
+   
+                                      
+                         
+                                                                              
+                                                                                                                                                                         
+   
+                                           
+                                      
+                                                                                            
+   
+                                     
+                                                        
+ 
+                                
+                                                                      
+      
+                                                                                                                                     
+                                                                                                          
+                  
+                                                                                                                                                       
+                                                      
+     
+                                              
+          
+                                     
+                                                                                                                                                                
+     
+             
+                         
+ 
                                   
                                                                       
                                                                           
@@ -10349,6 +10381,7 @@ async function loadCloudPrefs(){
                      
                                                                                                                                                                                                         
                
+                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
