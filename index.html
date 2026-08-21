@@ -755,7 +755,7 @@ window.JA={
   clickDesc:'発射 — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる（道場）', escDesc:'ポーズ / 再開',
   selectDesc:'照準下の空の対象に印をつける', templeEDesc:'印あり: 神殿に入る · 神殿内: 出る', templeFreeDesc:'神殿内: マウス解放（視点はそのまま）· HUD操作', templeTDesc:'神殿内: 空にたずねる（チャート保存が必要）',
   beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
-  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける', resumeWait:'すこしまって…',
+  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける', resumeWait:'すこしまって…', konamiToast:'月のせんせいは よそみ中 · PLAYで夜がひらく',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
@@ -10139,7 +10139,14 @@ function setGateReady(ready){
   if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
 }
 setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
-if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
+let _senseiAway=false, _konamiI=0;   // THE OLD CODE (user, 2026-08-21): ↑↑↓↓←→←→BA on the start card and Moon Sensei looks away — PLAY then opens the full night directly. A cheat, not a setting: per-visit, never persisted, no UI beyond one toast, so the "always trainer" law still holds for everyone who does not already know the way in
+const _KONAMI=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'];
+document.addEventListener('keydown',(e)=>{
+  if(_senseiAway || state.running || templeActive || !overlay || overlay.classList.contains('hidden') || isTypingTarget(e.target)) return;   // the code is spoken to the start card only
+  _konamiI=(e.code===_KONAMI[_konamiI])?_konamiI+1:(e.code===_KONAMI[0]?1:0);                                                               // a wrong key resets; a wrong key that is ↑ restarts the incantation
+  if(_konamiI>=_KONAMI.length){ _senseiAway=true; _konamiI=0; try{ showGhostToast('✦ '+T('konamiToast','MOON SENSEI LOOKS AWAY · PLAY opens the full night')); }catch(err){} }
+});
+if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(!_senseiAway); });   // always trainer → Full Night by graduation (no skip gate)
 function cancelLockRetry(){
   clearTimeout(_lockRetryT); _lockRetryT=null; _lockRetries=0; _lockReqPending=false;
   const resumeWait=T('resumeWait','ONE MOMENT…'); if(beginLabel && beginLabel.textContent===resumeWait) beginLabel.textContent=T('resume','RESUME'); else if(!beginLabel && beginBtn && beginBtn.textContent.indexOf(resumeWait)>=0) beginBtn.textContent='▶ '+T('resume','RESUME');

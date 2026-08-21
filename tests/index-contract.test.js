@@ -338,6 +338,12 @@ test("reverb construction fails soft without publishing a partial graph", () => 
   assert.match(html, /if\(!reverbInput && listener && !state\.running\)\{ try\{ buildReverb\(\); \}catch\(e\)\{\} \} else scheduleReverbBuild\(\);/);
 });
 
+test("the old code opens the full night and the trainer law holds without it", () => {
+  assert.match(html, /const _KONAMI=\['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'\];/);
+  assert.match(html, /beginAs\(!_senseiAway\)/, "the begin button consults the code's flag");
+  assert.doesNotMatch(html, /localStorage[^\n]*_senseiAway|_senseiAway[^\n]*localStorage/, "the cheat is never persisted");
+});
+
 test("Save my sky remains inside pause settings and outside PLAY controls", () => {
   const pauseBlock = html.match(/<div id="settingsBox"[^>]*>[\s\S]*?<\/div>\s*<!-- Always enter through Moonline training/);
   assert.ok(pauseBlock);
