@@ -1,4 +1,24 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-21 night)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-22)
+
+## -4. LATE 2026-08-21 (post-Enfilade): wave 11.1 + the incantation, all shipped and live
+- **Wave 11.1 — THE BREATH (`a8a668c`)**: the enfilade exhales toward mercy (the wall 2 bars out renders at
+  60 % dissolve; the 1-bar slot stays inside wave-11's absolute no-wall gap; inhale after mercy is instant)
+  and the walls hear play (uWallHit/uWallMiss road-clock stamps from the FLAWLESS/clank sites → chamber-local
+  warm ripple +12 %/1.5 beats and clank dim −10 %/half-beat). Bars-to-mercy is PACKED into uK as fractional
+  hundredths — a truth table test pins the decode for every reader. Review caught: reduced-motion locality
+  vs pinned stations (echo died forever after ~1 min), stamps surviving resetSession (phantom ripples), and
+  the fixture omitting accent/veil + duplicate switch-alone cases (the coupling-blindness pattern, 4th time).
+  Knobs wallExhale/wallEcho, each 0 → wave-11 byte-identical.
+- **THE OLD CODE, final form (`e9269e1`; earlier forms `5c03c63`/`7dfa1a7` superseded)**: W W S S A D A D ·
+  R-click · L-click, spoken MID-LESSON through live play (taps stay taps; the closing click fires AND
+  graduates via setTrainPhase(3)); the advancing right-click swallows its one skyFreeze toggle; honest
+  graduation teaches the secret for 2 s (showGhostToast slow variant), code-graduates are not re-taught
+  (_konamiGrad). Never persisted — contract-pinned in index-contract.test.js.
+- Suite is 219/219. The user's improvement menu (from the wave-11 debrief) still has open items: doorway
+  crossings as felt events (bloom+whoosh on bar lines), tide-ordered palette (warm→cool toward mercy), the
+  mercy chamber as a place (denser canopy, rose shedding petals).
+
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-21 night (superseded header))
 
 ## -3. THE VISUAL REDESIGN ARC (2026-08-20 → 21): waves 9–11, all shipped and live
 Three waves in ~36 h, all via the Codex dispatch loop (§-1 below), all user-directed through RENDERED STUDIES
