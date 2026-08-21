@@ -755,7 +755,7 @@ window.JA={
   clickDesc:'発射 — こだまが光るうちに届ける', freezeDesc:'空のノートを閉じる（道場）', escDesc:'ポーズ / 再開',
   selectDesc:'照準下の空の対象に印をつける', templeEDesc:'印あり: 神殿に入る · 神殿内: 出る', templeFreeDesc:'神殿内: マウス解放（視点はそのまま）· HUD操作', templeTDesc:'神殿内: 空にたずねる（チャート保存が必要）',
   beatCircleLabel:'ビートの輪', beatCircleOn:'ON ▸ タップでOFF', beatCircleOff:'OFF ▸ タップでON', beatCircleHintOn:'けいこの輪を表示', beatCircleHintOff:'けいこの輪を隠す',
-  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける', resumeWait:'すこしまって…', konamiToast:'月のせんせいは よそみ中 · PLAYで夜がひらく', konamiToastNow:'月のせんせいは よそみ中 · まんげつの夜へ',
+  modeQ:'夜が まっている', beginTrain:'はじめる — 月の糸をおしえて', resume:'つづける', resumeWait:'すこしまって…', konamiToastNow:'月のせんせいは よそみ中 · まんげつの夜へ', konamiTeach:'せんせいのひみつ · W W S S A D A D · 右 · 左 — つぎは じゅぎょうをとばせる',
   records:'きろく', share:'シェア', drum:'太鼓', send:'送る', sendAria:'リンクを送る', pauseAria:'ポーズ', muteAria:'音の切りかえ',
   resolution:'画質', offset:'音のずれ', calibrate:'タップから自動調整',
   skyNaturalOn:'NATURAL ▸ タップでTHEATRE', skyTheatreOn:'THEATRE ▸ タップでNATURAL', skyNaturalHint:'現在地の実時間の空 · フリーズなし', skyTheatreHint:'数分で空が一周 · 右クリックでフリーズ',
@@ -5762,6 +5762,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                            
                                                                           
+                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                          
    
  
@@ -10164,19 +10165,23 @@ function roadImpSync(r){
                                                                                                                                                            
  
                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                 
-                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                    
+                                                                               
                                           
-                                                                                                                                                               
-                                                                                                                                                                                                                                                                     
-                                                                                        
-                                                                                                                                                                                                                 
-                                                             
-                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                         
-   
+                                                          
+                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                  
         
-                                                                                                                                                                                           
+                                            
+                              
+                               
+                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                            
+                                                                                                              
+                      
+        
+                                                                                                                                                                                   
                            
                                                                                      
                                                                                                                                                                                                                                                                                     

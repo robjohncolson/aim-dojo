@@ -755,7 +755,7 @@
                                                                                 
                                                                                                                                                      
                                                                                                                                                 
-                                                                                                                                                                        
+                                                                                                                                                                                                  
                                                                                                           
                                                         
                                                                                                                                                          
@@ -5762,6 +5762,7 @@ function setTrainPhase(p){
     moonlineGraduate();   // THE VOID (wave 8, parcel T · SPEC §2): the room's floor dissolves from under the graduate and the Moonline is revealed beneath them, over the Temple's own floorDissolveSec. Called AFTER trainMode=false above, which is the flag moonlineOwns() reads; with the parcel off it is one boolean read and this phase change stays byte-identical
     showTrainCoach(T('coachGraduate','THE CHORUS REMEMBERS YOU · MOON SENSEI OPENS THE FULL NIGHT'), true);
     try{ showGhostToast('✦ '+T('fullNight','THE FULL NIGHT')); }catch(e){}
+    if(!_konamiGrad){ try{ setTimeout(()=>{ try{ showGhostToast('✦ '+T('konamiTeach','SENSEI\'S SECRET · W W S S A D A D · R · L — next visit, skip the lesson'), 2); }catch(e){} }, 1700); }catch(e){} }   // THE SECRET IS TAUGHT (user, 2026-08-21): two seconds, only to honest graduates — code-graduates already know it; the 2s hold rides showGhostToast's slow variant
     try{ setTimeout(()=>{ if(state.running&&pocketLive()){ pocketUpdateLawHud(); showGhostToast(typeof T==='function'?T('pocketToastOn','LAW · ON THE BEAT · freeze rewards center'):'LAW · ON THE BEAT · freeze rewards center'); } },1600); }catch(e){}
   }
 }
@@ -10164,19 +10165,23 @@ function cardFileName(){ const rec=cardToday(); return 'moon-chorus-'+((rec&&rec
                                                                                                                                                            
  
                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                 
-                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                    
+                                                                               
                                           
-                                                                                                                                                               
-                                                                                                                                                                                                                                                                     
-                                                                                        
-                                                                                                                                                                                                                 
-                                                             
-                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                         
-   
+                                                          
+                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                  
         
-                                                                                                                                                                                           
+                                            
+                              
+                               
+                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                            
+                                                                                                              
+                      
+        
+                                                                                                                                                                                   
                            
                                                                                      
                                                                                                                                                                                                                                                                                     

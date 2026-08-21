@@ -755,7 +755,7 @@
                                                                                 
                                                                                                                                                      
                                                                                                                                                 
-                                                                                                                                                                        
+                                                                                                                                                                                                  
                                                                                                           
                                                         
                                                                                                                                                          
@@ -5762,6 +5762,7 @@
                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                            
                                                                           
+                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                          
    
  
@@ -10164,19 +10165,23 @@ function setGateReady(ready){
   if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
 }
 setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
-let _senseiAway=false, _konamiI=0;   // THE OLD CODE (user, 2026-08-21): ↑↑↓↓←→←→BA on the start card and Moon Sensei looks away — PLAY then opens the full night directly. A cheat, not a setting: per-visit, never persisted, no UI beyond one toast, so the "always trainer" law still holds for everyone who does not already know the way in
-const _KONAMI=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'];
+let _konamiI=0, _konamiGrad=false;   // THE OLD CODE, second form (user, 2026-08-21): W W S S A D A D · R-click · L-click, spoken MID-LESSON through play itself — the taps stay taps, the final click genuinely fires, and Moon Sensei bows out through the game's own graduation. Never persisted; taught for two seconds to everyone who graduates honestly (see setTrainPhase), so the secret propagates the old way
+const _KONAMI=['KeyW','KeyW','KeyS','KeyS','KeyA','KeyD','KeyA','KeyD','MB2','MB0'];
+function _konamiLesson(){ return state.running && trainMode && !templeActive; }
 document.addEventListener('keydown',(e)=>{
-  const card=!state.running && overlay && !overlay.classList.contains('hidden');                                                             // the start card…
-  const lesson=state.running && trainMode && !templeActive;                                                                                 // …or MID-LESSON (user, 2026-08-21: "better yet, within the tutorial") — Sensei can be asked to look away while teaching
-  if((!card && !lesson) || (_senseiAway && !lesson) || isTypingTarget(e.target)) return;
-  _konamiI=(e.code===_KONAMI[_konamiI])?_konamiI+1:(e.code===_KONAMI[0]?1:0);                                                               // a wrong key resets; a wrong key that is ↑ restarts the incantation
-  if(_konamiI>=_KONAMI.length){ _senseiAway=true; _konamiI=0;
-    if(lesson){ e.preventDefault(); e.stopImmediatePropagation(); setTrainPhase(3); }                                                        // the closing A is the incantation's, not a lane tap — swallow it, and graduation is the game's own (setTrainPhase(3) = THE DISSOLVE)
-    try{ showGhostToast('✦ '+(lesson?T('konamiToastNow','MOON SENSEI LOOKS AWAY · THE FULL NIGHT'):T('konamiToast','MOON SENSEI LOOKS AWAY · PLAY opens the full night'))); }catch(err){}
-  }
+  if(!_konamiLesson() || isTypingTarget(e.target)) return;
+  if(e.code!=='KeyW'&&e.code!=='KeyA'&&e.code!=='KeyS'&&e.code!=='KeyD') return;                                                            // only the four verbs speak; every other key is silence, not a mistake
+  _konamiI=(e.code===_KONAMI[_konamiI])?_konamiI+1:(e.code===_KONAMI[0]?1:0);                                                               // a wrong verb resets; a wrong verb that is W restarts the incantation. NO preventDefault — the taps remain live play
 },true);
-if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(!_senseiAway); });   // always trainer → Full Night by graduation (no skip gate)
+document.addEventListener('mousedown',(e)=>{
+  if(!_konamiLesson()) return;
+  const want=_KONAMI[_konamiI];
+  if(e.button===2){ if(want==='MB2'){ _konamiI++; e.preventDefault(); e.stopImmediatePropagation(); } else _konamiI=0; return; }             // a right-click that ADVANCES the finished W-run is the incantation's — swallow its skyFreeze toggle; any other right-click is ordinary (and resets)
+  if(e.button===0){ if(want==='MB0'){ _konamiI=0; _konamiGrad=true; setTrainPhase(3);                                                        // the closing left-click COMPLETES the code AND fires — the shot is real (user: "left click shoots, but also enters the code")
+      try{ showGhostToast('✦ '+T('konamiToastNow','MOON SENSEI LOOKS AWAY · THE FULL NIGHT')); }catch(err){} }
+    else _konamiI=0; }
+},true);
+if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(true); });   // always trainer → Full Night by graduation (no skip gate)
 function cancelLockRetry(){
   clearTimeout(_lockRetryT); _lockRetryT=null; _lockRetries=0; _lockReqPending=false;
   const resumeWait=T('resumeWait','ONE MOMENT…'); if(beginLabel && beginLabel.textContent===resumeWait) beginLabel.textContent=T('resume','RESUME'); else if(!beginLabel && beginBtn && beginBtn.textContent.indexOf(resumeWait)>=0) beginBtn.textContent='▶ '+T('resume','RESUME');
