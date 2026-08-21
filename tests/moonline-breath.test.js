@@ -79,7 +79,7 @@ function emittedWallFamilyShaders(source, options, { low = false, reduced = fals
   };
   const context = vm.createContext({
     Math, Number, Float32Array, Uint16Array,
-    CFG: { moonline: options }, LOW: low, reduceMotion: reduced, ML_TERRAIN: true, ML_BITE: true, ML_WALL_STAR: false, ML_WALL_EXHALE: flags.exhale, ML_WALL_ECHO: flags.echo,
+    CFG: { moonline: options }, LOW: low, reduceMotion: reduced, ML_TERRAIN: true, ML_BITE: true, ML_WALL_STAR: false, ML_WALL_EXHALE: flags.exhale, ML_WALL_ECHO: flags.echo, ML_MERCY_INVERSE: false,
     ML_ARCH_N: 11, ML_WALL_N: low ? 7 : 11, ML_ARCH_BEHIND: 8, ML_ARCH_EVERY: 4, ML_WALL_REAR0: -12, ML_WALL_REAR1: -8, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864, ML_FOCAL_PX: 494.82,
     ML_WALL_X: 216.5, ML_WALL_Y0: -270, ML_WALL_Y1: 221, ML_WALL_APEX: 17, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_SPRING: 12, ML_WALL_DJ: 7.3, ML_WALL_DA: 7.3, ML_WALL_DB: 5,
     ML_WALL_BAY_X: 16.5, ML_WALL_BAY_Y0: -70, ML_WALL_BAY_Y1: 21, ML_WALL_POWDER1: 200, ML_WALL_POWDER_NOISE: 22,
@@ -139,9 +139,9 @@ test("Breath kill-switches independently preserve the frozen Wave 11 emission", 
 
 test("Breath exhale emits the 100/60/30 mercy approach and instant inhale law", () => {
   const colours = () => Array.from({ length: 7 }, () => ({ setHex() {} })), context = vm.createContext({
-    Math, Float32Array, ML_WALLS: true, ML_WALL_EXHALE: 1, ML_NAVE: true, ML_WALL_N: 7, ML_ARCH_N: 7, ML_ARCH_EVERY: 4, ML_ARCH_BEHIND: 12, LOW: false, reduceMotion: false,
+    Math, Float32Array, ML_WALLS: true, ML_WALL_EXHALE: 1, ML_MERCY_INVERSE: false, ML_NAVE: true, ML_WALL_N: 7, ML_ARCH_N: 7, ML_ARCH_EVERY: 4, ML_ARCH_BEHIND: 12, LOW: false, reduceMotion: false,
     CFG: { moonline: { naveStreetGold: 1, wallDissolve: 100, wallGlow: 1, dustGlow: 1 } }, _archKind: new Float32Array(7), _wallCol: colours(), _wallNext: colours(),
-    roadMat: { uniforms: { uNaveGold: null } }, roadArchMat: null, roadWallMat: { uniforms: { uArchN0: { value: 0 }, uWallDissolve: { value: 0 }, uWallGlow: { value: 0 } } }, roadDustMat: null,
+    roadMat: { uniforms: { uNaveGold: null } }, roadArchMat: null, roadWallMat: { uniforms: { uArchN0: { value: 0 }, uWallDissolve: { value: 0 }, uWallGlow: { value: 0 } } }, roadMercyInverse: null, roadDustMat: null,
     roadTideAt: (beat) => ({ m: beat === 0 ? 1 : 0 }), roadWallPaletteAt: () => 0,
   });
   vm.runInContext(`${extractFunction(html, "roadArchFill")}\nroadArchFill(0); this.kind=Array.from(_archKind);`, context);
@@ -251,7 +251,7 @@ test("Breath uK readers agree on kind and bars-to-mercy for every packed family 
     return output;
   };
   assertTruthTable(html);
-  const mutation = html.replace("step(0.5,kind)*step(kind,1.5)", "step(0.02,kind)*step(kind,1.5)");
+  const mutation = html.replaceAll("step(0.5,kind)*step(kind,1.5)", "step(0.02,kind)*step(kind,1.5)");
   assert.notEqual(mutation, html, "the reviewer's accent step-boundary mutation is constructible");
   assert.throws(() => assertTruthTable(mutation), assert.AssertionError, "the accent truth table kills packed walls misclassified as mercy");
 });

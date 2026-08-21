@@ -44,13 +44,13 @@ function shaderFingerprint(value) {
 }
 
 function productionFeatureFlags(source, moonline) {
-  const declarations = ["ML_MARK", "ML_TERRAIN", "ML_BITE", "ML_WALLS", "ML_WALL_EXHALE", "ML_WALL_ECHO", "ML_SAT"].map((name) => {
+  const declarations = ["ML_MARK", "ML_TERRAIN", "ML_BITE", "ML_WALLS", "ML_WALL_EXHALE", "ML_WALL_ECHO", "ML_MERCY_INVERSE", "ML_SAT"].map((name) => {
     const match = source.match(new RegExp(`const ${name}=([^;]+);`));
     assert.ok(match, `${name} production gate is extractable`);
     return `const ${name}=${match[1]};`;
   }).join("\n");
   const context = vm.createContext({ CFG: { moonline }, ML_NAVE: true });
-  vm.runInContext(`${declarations}\nthis.flags={mark:ML_MARK,terrain:ML_TERRAIN,bite:ML_BITE,walls:ML_WALLS,wallExhale:ML_WALL_EXHALE,wallEcho:ML_WALL_ECHO,sat:ML_SAT};`, context);
+  vm.runInContext(`${declarations}\nthis.flags={mark:ML_MARK,terrain:ML_TERRAIN,bite:ML_BITE,walls:ML_WALLS,wallExhale:ML_WALL_EXHALE,wallEcho:ML_WALL_ECHO,mercyInverse:ML_MERCY_INVERSE,sat:ML_SAT};`, context);
   return context.flags;
 }
 
@@ -66,6 +66,7 @@ function moonlineOptions(features = {}) {
     wallGlow: 1,
     wallExhale: 0,
     wallEcho: false,
+    mercyInverse: false,
     wallSat: 0,
     wallPalette: null,
     ...features,
@@ -76,6 +77,7 @@ function moonlineOptions(features = {}) {
   if (Object.hasOwn(features, "walls")) options.wallsOn = !!features.walls;
   if (Object.hasOwn(features, "wallExhale")) options.wallExhale = Number(features.wallExhale);
   if (Object.hasOwn(features, "wallEcho")) options.wallEcho = !!features.wallEcho;
+  if (Object.hasOwn(features, "mercyInverse")) options.mercyInverse = !!features.mercyInverse;
   if (Object.hasOwn(features, "wallSat")) options.wallSat = Number(features.wallSat);
   return options;
 }
@@ -88,7 +90,7 @@ function emitWave9RoadShaders(source = html, features = {}) {
   class PlaneGeometry {}
   class BufferGeometry { setAttribute() {} setIndex() {} }
   class BufferAttribute { constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; } }
-  class Mesh { constructor(geometry, material) { this.geometry = geometry; this.material = material; this.rotation = { x: 0 }; this.position = { y: 0 }; } }
+  class Mesh { constructor(geometry, material) { this.geometry = geometry; this.material = material; this.rotation = { x: 0 }; this.position = { y: 0 }; this.children = []; } add(child) { this.children.push(child); child.parent = this; } }
   class Vector2 { constructor(x = 0, y = 0) { this.x = x; this.y = y; } set(x, y) { this.x = x; this.y = y; } }
   class Vector3 {}
   class Points { constructor(geometry, material) { this.geometry = geometry; this.material = material; } }
@@ -98,7 +100,7 @@ function emitWave9RoadShaders(source = html, features = {}) {
   const context = vm.createContext({
     Math, Number, Float32Array, Uint16Array, LOW: low, EYE: 4, reduceMotion: !!features.reduceMotion,
     CFG: { road: { on: true, bandGlyphs: true, mercyBoost: 1.6 }, moonline },
-    ML_RIBBON: true, ML_NAVE: true, ML_MARK: flags.mark, ML_TERRAIN: flags.terrain, ML_BITE: flags.bite, ML_WALLS: flags.walls, ML_WALL_EXHALE: flags.wallExhale, ML_WALL_ECHO: flags.wallEcho, ML_SAT: flags.sat, ML_ARCH: false,
+    ML_RIBBON: true, ML_NAVE: true, ML_MARK: flags.mark, ML_TERRAIN: flags.terrain, ML_BITE: flags.bite, ML_WALLS: flags.walls, ML_WALL_EXHALE: flags.wallExhale, ML_WALL_ECHO: flags.wallEcho, ML_MERCY_INVERSE: flags.mercyInverse, ML_SAT: flags.sat, ML_ARCH: false,
     ML_NAVE_STARS: 0, ML_NAVE_VEIL: 0, ML_DUST_N: features.dust ? 1 : 0, ROAD_GLYPH_PASS: false,
     ROAD_HALF_W: 7, ROAD_MPB: 27, ROAD_PLANE_W: 386, ROAD_PLANE_L: 1776, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
     ROAD_SLOTS: 23, ROAD_WAKE: 14, ROAD_TIER_W: [0.42, 0.58, 1, 1.24], ROAD_TIER_D: 33.16,
@@ -114,7 +116,7 @@ function emitWave9RoadShaders(source = html, features = {}) {
     ROAD_MARK_STONE_HONEY: 0.18, ROAD_MARK_TAPER0: 54, ROAD_MARK_TAPER1: 108,
     ML_WALL_SAT_RAMP: 1, ML_WALL_SAT_PEAK_LIFT: 0.18,
     _roadG: (number) => (+number).toFixed(5), _roadBandBuf: new Uint8Array(23 * 4), _roadBase: {}, _roadInk: {}, _roadLaneCol: [{}, {}, {}, {}], _roadMark: {},
-    roadBandTex: null, roadMat: null, roadMesh: null, roadSocket: null, roadSocketMat: null, roadDust: null, roadDustMat: null,
+    roadBandTex: null, roadMat: null, roadMesh: null, roadMercyInverseDepth: null, roadMercyInverseDepthMat: null, roadSocket: null, roadSocketMat: null, roadDust: null, roadDustMat: null,
     _roadTerrainBase: new Vector2(), _roadHorizon: new Float32Array(horizonN * 4),
     roadGlyphTex: () => null, roadCourse: () => ({ terrainPhase: 0 }), roadTerrainGeometry: () => new BufferGeometry(),
     buildRoadImpostor: () => {}, buildRoadArches: () => {}, buildRoadWalls: () => {}, buildNaveVault: () => {}, buildNaveVeil: () => {}, buildRoadDust: () => {},
@@ -125,7 +127,7 @@ function emitWave9RoadShaders(source = html, features = {}) {
   const helpers = ["roadTerrainShader", "roadMarkShader"].concat(features.dust ? ["buildRoadDust"] : []).map((name) => extractFunction(source, name)).join("\n");
   new vm.Script(`${helpers}\n${match[0]}`, { filename: "buildRoad.wave9.vm.js" }).runInContext(context);
   const emitted = { roadVertex: context.roadMat.vertexShader, roadFragment: context.roadMat.fragmentShader };
-  if (features.live) Object.assign(emitted, { roadBlending: context.roadMat.blending, roadBlendEquation: context.roadMat.blendEquation, roadBlendSrc: context.roadMat.blendSrc, roadBlendDst: context.roadMat.blendDst, roadSocketFragment: context.roadSocketMat && context.roadSocketMat.fragmentShader, roadSocketDraw: !!context.roadSocket });
+  if (features.live) Object.assign(emitted, { roadBlending: context.roadMat.blending, roadBlendEquation: context.roadMat.blendEquation, roadBlendSrc: context.roadMat.blendSrc, roadBlendDst: context.roadMat.blendDst, roadSocketFragment: context.roadSocketMat && context.roadSocketMat.fragmentShader, roadSocketDraw: !!context.roadSocket, roadMesh: context.roadMesh, roadMaterial: context.roadMat, inverseDepth: context.roadMercyInverseDepth, inverseDepthMaterial: context.roadMercyInverseDepthMat });
   if (features.dust) emitted.roadDustVertex = context.roadDustMat && context.roadDustMat.vertexShader;
   return emitted;
 }

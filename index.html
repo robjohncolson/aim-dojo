@@ -1028,7 +1028,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0 and wallEcho:0 independently restore Wave 11's emitted text. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, mercyInverse:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0, wallEcho:0 and mercyInverse:0 independently restore their preceding shipped emissions. mercyInverse owns only the mercy marker: zero keeps the Wave 11.1 ring, rose and veil; one builds the inverse pane and crown star. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1930,6 +1930,7 @@ const ML_BITE=ML_NAVE && (+CFG.moonline.curveBite>0);                     // PAR
 const ML_WALLS=ML_NAVE && !!(CFG.moonline && CFG.moonline.wallsOn) && (+CFG.moonline.wallDissolve>0);
 const ML_WALL_EXHALE=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallExhale)?Math.max(0,Math.min(1,+CFG.moonline.wallExhale||0)):0;   // THE EXHALE, raw knob first: zero preserves Wave 11's uK values and emitted wall text exactly; a fractional live value scales the two named radius pull-ins without another uniform
 const ML_WALL_ECHO=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallEcho);   // THE ECHO, raw boolean first: false excludes both stamps, every echo varying, and all response maths from the wall program
+const ML_MERCY_INVERSE=ML_WALLS && !!(CFG.moonline && CFG.moonline.mercyInverse);   // THE INVERSE, raw boolean first: false emits the Wave 11.1 ring/rose/veil family byte-for-byte; true adds the shared-geometry filter and its late road-depth guard only at the mercy station
 const ML_WALL_STAR=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallStar);   // THE ONE STAR (user, 2026-08-21): the gold apex star over EVERY door read as wallpaper and was removed; false leaves the star to the MERCY gate alone (the accent point still exists per slot because mercy rotates through them — the shader gates it), true restores the rising string   // WAVE 11 MASTER, raw boolean first: false never reaches a wall/veil/through-glow builder and leaves the Wave 10 nave selected; wallDissolve:0 is the promised build silence
 const ML_SAT=ML_WALLS && ML_MARK && (+CFG.moonline.wallSat>0);             // SATURATED ON THE BEAT belongs to the Wave 11 master: wallsOn:false or wallDissolve:0 cannot leak one uniform or GLSL token; wallSat:0 still isolates Wave 10's resting fill while walls remain
 const ML_HEADING_KEEP=ML_NAVE?Math.max(0,Math.min(1,+CFG.moonline.curveHeading||0)):0;   // keep only a small fraction of tonight's tangent; zero is Wave 9's complete re-base
@@ -2049,8 +2050,8 @@ const ML_DUST_RAD=40, ML_DUST_VERT=25;                                    // THE
 const ML_DUST_M=0.30, ML_DUST_INK=0.55;                                   // a mote's world size, and the layer's base alpha. 0.30 m is 8.1's own mote, kept: gl_PointSize is 148.45/d, so a mote is ML_DUST_PX1 px inside 24.7 m, 4 px at 37.1 m, 2 px at 74.2 m and 1.37 px at the window's far edge — a grain at every distance the field is drawn at. (ML_DUST_Y and ML_DUST_LOFT retired with the road surface they measured off: a volumetric mote's height IS a coordinate, not an offset from a plane it no longer sits on.)
 const ML_DUST_PX0=1.0, ML_DUST_PX1=6.0;                                   // the mote's floor and ceiling in PIXELS (was an unnamed 1.0,4.0 in the shader). The cap is what the near field spends its budget on — 11 motes hold it at any instant; see the population arithmetic above
 const ML_DUST_FAR0=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB*0.62, ML_DUST_FAR1=(ML_DUST_SPAN-ML_DUST_BEHIND)*ROAD_MPB, ML_DUST_BEH_M=ML_DUST_BEHIND*ROAD_MPB;   // both ends of the window are ramps, so a mote fades in where it wraps and fades out where it leaves — no popping at either seam. The rear ramp now does real work: it is behind you, and you can turn around and look at it
-let roadMesh=null, roadMat=null, roadSocket=null, roadSocketMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
-let roadArch=null, roadArchMat=null, roadArchAccent=null, roadArchAccentMat=null, roadVault=null, roadVaultMat=null, roadNaveVeil=null, roadNaveVeilMat=null, roadWall=null, roadWallMat=null, roadWallAccent=null, roadWallAccentMat=null, roadWallVeil=null, roadWallVeilMat=null, roadDust=null, roadDustMat=null;
+let roadMesh=null, roadMat=null, roadMercyInverseDepth=null, roadMercyInverseDepthMat=null, roadSocket=null, roadSocketMat=null, _roadVis=false, _roadUp=false, _roadInkIdx=-1;
+let roadArch=null, roadArchMat=null, roadArchAccent=null, roadArchAccentMat=null, roadVault=null, roadVaultMat=null, roadNaveVeil=null, roadNaveVeilMat=null, roadWall=null, roadWallMat=null, roadMercyInverse=null, roadMercyInverseMat=null, roadWallAccent=null, roadWallAccentMat=null, roadWallVeil=null, roadWallVeilMat=null, roadDust=null, roadDustMat=null;
 const _archKind=new Float32Array(ML_ARCH_N);                              // slot k's MERCY flag, rewritten once per BEAT into the very array the uniform points at — no allocation, no upload call of our own
 const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
 const _roadTerrainBase=new THREE.Vector2(0,0), _roadHorizon=new Float32Array(ROAD_TERRAIN_HN*4);   // one shared CPU horizon profile: [forward Y,X, backward Y,X] at each station; every terrain material borrows these exact uniform objects
@@ -2530,10 +2531,10 @@ function roadWallFragmentShader(){ return [
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
   ]:[]),
   'void main(){',
-  '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
+  '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>'+(ML_MERCY_INVERSE?'0.5':'1.5')+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
-  '  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }',
+  ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
   '  if(d<0.0) discard;',
   '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
@@ -2561,8 +2562,29 @@ function roadWallFragmentShader(){ return [
   '  gl_FragColor=vec4(col*vWallFade,1.0);',
   '}'
 ].join('\n'); }
+function roadMercyInverseFragmentShader(){ return [
+  'uniform float uWallDissolve; varying vec2 vWallP; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(!LOW?[
+  'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
+  'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
+  ]:[]),
+  'void main(){',
+  '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind<0.5 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
+  '  float x=vWallP.x, y=vWallP.y;',
+  ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
+  '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
+  '  if(d<0.0) discard;',
+  '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
+  ...(!LOW?[
+  '  float powderNoise=wallVn(vec2(x,y)*0.9)*0.6+wallVn(vec2(x,y)*3.7)*0.4, powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r+(powderNoise-0.5)*'+_roadG(ML_WALL_POWDER_NOISE)+'); if(powder<wallVn(vec2(x,y)*5.3+19.1)) discard;'
+  ]:[
+  '  float powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r); if(powder<0.5) discard;'
+  ]),
+  '  gl_FragColor=vec4(1.0);',
+  '}'
+].join('\n'); }
 function buildRoadWalls(){
-  /* One depth-writing parametric quad family carries every wall and the full mercy ring; one Points family carries apex stars, jamb nodes and the powder-band sparks; one optional additive veil carries next-chamber colour. No side wall and no mirror geometry exist. */
+  /* One depth-writing parametric quad family carries every ordinary wall; the inverse switch reuses that geometry and vertex path for one non-depth-writing mercy filter draw. One Points family carries apex stars, jamb nodes and the powder-band sparks; one optional additive veil carries next-chamber colour. No side wall and no mirror geometry exist. */
   const pos=new Float32Array(ML_WALL_N*12), idx=new Uint16Array(ML_WALL_N*6); let po=0,io=0;
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
@@ -2570,6 +2592,14 @@ function buildRoadWalls(){
   const wallVS=roadWallVertexShader();
   roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
   roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
+  if(ML_MERCY_INVERSE){
+    roadMercyInverseMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneMinusDstColorFactor,blendDst:THREE.ZeroFactor,uniforms:WU,vertexShader:wallVS,fragmentShader:roadMercyInverseFragmentShader()});
+    roadMercyInverse=new THREE.Mesh(g,roadMercyInverseMat);
+    roadMercyInverse.frustumCulled=false;
+    roadMercyInverse.renderOrder=6;
+    roadMercyInverse.visible=false;
+    roadWall.add(roadMercyInverse);   // opaque cores have already populated dst; road dust is promoted to 7 below, so its accepted additive sparkle stays normal instead of being inverted
+  }
   const sparkN=LOW?8:16, pn=ML_WALL_N*(3+sparkN), pp=new Float32Array(pn*3), pm=new Float32Array(pn), ps=new Float32Array(pn); let pv=0;
   for(let k=0;k<ML_WALL_N;k++){
     const put=(x,y,m,s)=>{ pp[pv*3]=k; pp[pv*3+1]=x; pp[pv*3+2]=y; pm[pv]=m; ps[pv]=s; pv++; };
@@ -2583,16 +2613,16 @@ function buildRoadWalls(){
       ...(ML_BITE?['uniform vec3 uBite;']:[]),
       ...(ML_TERRAIN?[roadTerrainShader()]:[]),
       'void main(){ float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot, kind=uK[int(slot)]; vec3 ph=uW*b+uP,sc=sin(ph),co=cos(ph); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow), cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
-      '  float mercy=step(0.5,kind)*step(kind,1.5); if(aMode<0.5) y=mix(y,'+_roadG(ML_WALL_RING_R2+0.85)+',mercy); else if(aMode<1.5) x*=mix(1.0,'+_roadG(((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)/ML_WALL_DJ)+',mercy); vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x+sign(u)*0.12); float tv=1.0;'+(ML_TERRAIN?' tv=terrainVis(u,P.x,0.0); P.y+=cyAt(u);':'')+' vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
-      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)), retire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow), show=(1.0-step(1.5,kind))*mix(1.0,1.0-mercy,step(1.5,aMode)); '+(ML_WALL_STAR?'':'show*=mix(1.0,mercy,1.0-step(0.5,aMode)); ')+'vA=show*fade*retire*tv*(aMode<0.5?1.0:(aMode<1.5?0.58:0.38*(1.0-aSeed))); vMode=aMode; vMercy=mercy; vSeed=aSeed; gl_PointSize=vA<=0.003?0.0:clamp((aMode<0.5?1.15:(aMode<1.5?0.45:0.28))*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),2.0,aMode<1.5?56.0:10.0);',
+      (ML_MERCY_INVERSE?'  float mercy=step(0.5,kind)*step(kind,1.5); vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x+sign(u)*0.12); float tv=1.0;':'  float mercy=step(0.5,kind)*step(kind,1.5); if(aMode<0.5) y=mix(y,'+_roadG(ML_WALL_RING_R2+0.85)+',mercy); else if(aMode<1.5) x*=mix(1.0,'+_roadG(((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)/ML_WALL_DJ)+',mercy); vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x+sign(u)*0.12); float tv=1.0;')+(ML_TERRAIN?' tv=terrainVis(u,P.x,0.0); P.y+=cyAt(u);':'')+' vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
+      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)), retire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow), show=(1.0-step(1.5,kind))*mix(1.0,1.0-mercy,step(1.5,aMode)); '+(ML_MERCY_INVERSE?'show*=mix(1.0,1.0-mercy,step(0.5,aMode)); ':'')+(ML_WALL_STAR?'':'show*=mix(1.0,mercy,1.0-step(0.5,aMode)); ')+'vA=show*fade*retire*tv*(aMode<0.5?1.0:(aMode<1.5?0.58:0.38*(1.0-aSeed))); vMode=aMode; vMercy=mercy; vSeed=aSeed; gl_PointSize=vA<=0.003?0.0:clamp((aMode<0.5?1.15:(aMode<1.5?0.45:0.28))*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),2.0,aMode<1.5?56.0:10.0);',
       '}'
     ].join('\n'),
-    fragmentShader:'varying float vA,vMode,vMercy,vSeed; void main(){ if(vA<=0.003) discard; vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0),halo=0.20*exp(-r2*2.0),a=core+halo; if(vMode<0.5){ float r4=exp(-abs(q.x)*16.0)*exp(-q.y*q.y*3.2)+exp(-abs(q.y)*16.0)*exp(-q.x*q.x*3.2); vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*18.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*18.0)*exp(-d.x*d.x*4.0); float ang=atan(q.y,q.x),rose=(1.0-smoothstep(0.28,0.36,r2))*(0.55+0.45*cos(10.0*ang)); a+=mix(r4*0.62+r8*0.46,rose,vMercy); } a*=vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.70,0.30),vec3(1.0,0.925,0.80),core); gl_FragColor=vec4(c*a,a); }'});
-  roadWallAccent=new THREE.Points(pg,roadWallAccentMat); roadWallAccent.frustumCulled=false; roadWallAccent.renderOrder=-37.8; roadWallAccent.visible=false; scene.add(roadWallAccent);
+    fragmentShader:ML_MERCY_INVERSE?'varying float vA,vMode,vMercy,vSeed; void main(){ if(vA<=0.003) discard; vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0),halo=0.20*exp(-r2*2.0),a=core+halo; if(vMode<0.5){ float r4=exp(-abs(q.x)*16.0)*exp(-q.y*q.y*3.2)+exp(-abs(q.y)*16.0)*exp(-q.x*q.x*3.2); vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*18.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*18.0)*exp(-d.x*d.x*4.0); a+=r4*0.62+r8*0.46; } a*=vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.70,0.30),vec3(1.0,0.925,0.80),core); gl_FragColor=vec4(c*a,a); }':'varying float vA,vMode,vMercy,vSeed; void main(){ if(vA<=0.003) discard; vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0),halo=0.20*exp(-r2*2.0),a=core+halo; if(vMode<0.5){ float r4=exp(-abs(q.x)*16.0)*exp(-q.y*q.y*3.2)+exp(-abs(q.y)*16.0)*exp(-q.x*q.x*3.2); vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*18.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*18.0)*exp(-d.x*d.x*4.0); float ang=atan(q.y,q.x),rose=(1.0-smoothstep(0.28,0.36,r2))*(0.55+0.45*cos(10.0*ang)); a+=mix(r4*0.62+r8*0.46,rose,vMercy); } a*=vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.70,0.30),vec3(1.0,0.925,0.80),core); gl_FragColor=vec4(c*a,a); }'});
+  roadWallAccent=new THREE.Points(pg,roadWallAccentMat); roadWallAccent.frustumCulled=false; roadWallAccent.renderOrder=ML_MERCY_INVERSE?6.5:-37.8; roadWallAccent.visible=false; scene.add(roadWallAccent);   // the inverse pane draws at 6, then its retained crown star stays normal-coloured, then dust stays normal at 7; inverse-off keeps Wave 11.1's exact order
   if(!LOW){ const vp=new Float32Array(ML_WALL_N*12), vi=new Uint16Array(ML_WALL_N*6); let vo=0,vio=0; for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_RING_R2,-ML_WALL_RING_R2],[ML_WALL_RING_R2,ML_WALL_APEX],[-ML_WALL_RING_R2,ML_WALL_APEX],[-ML_WALL_RING_R2,-ML_WALL_RING_R2]]){ vp[vo++]=k; vp[vo++]=q[0]; vp[vo++]=q[1]; } vi[vio++]=b; vi[vio++]=b+1; vi[vio++]=b+2; vi[vio++]=b; vi[vio++]=b+2; vi[vio++]=b+3; }
     const vg=new THREE.BufferGeometry(); vg.setAttribute('position',new THREE.BufferAttribute(vp,3)); vg.setIndex(new THREE.BufferAttribute(vi,1));
     roadWallVeilMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,premultipliedAlpha:true,uniforms:WU,vertexShader:wallVS,
-      fragmentShader:'uniform float uWallGlow; varying vec2 vWallP; varying vec3 vWallNext; varying float vWallKind,vWallFade,vWallRetire'+(ML_TERRAIN?',vWallTerrain':'')+'; void main(){ if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard; float x=vWallP.x,y=vWallP.y,inside=0.0; if(vWallKind>0.5) inside=1.0-step('+_roadG(ML_WALL_RING_R1)+',length(vec2(x,y))); else if(y>=0.0){ if(y<'+_roadG(ML_WALL_SPRING)+') inside=1.0-step('+_roadG(ML_WALL_DJ)+',abs(x)); else inside=1.0-step(1.0,length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+'))); } if(inside<0.5) discard; float lat=1.0-smoothstep(0.72,1.0,abs(x)/'+_roadG(ML_WALL_RING_R1)+'), vert=0.22+0.78*smoothstep(-'+_roadG(ML_WALL_RING_R1)+','+_roadG(ML_WALL_APEX)+',y), a=inside*lat*vert*vWallFade*vWallRetire*uWallGlow*mix(0.14,0.22,step(0.5,vWallKind)); vec3 c=mix(vWallNext,vec3(1.0,0.93,0.78),0.25+0.45*step(0.5,vWallKind)); gl_FragColor=vec4(c*a,a); }'});
+      fragmentShader:ML_MERCY_INVERSE?'uniform float uWallGlow; varying vec2 vWallP; varying vec3 vWallNext; varying float vWallKind,vWallFade,vWallRetire'+(ML_TERRAIN?',vWallTerrain':'')+'; void main(){ if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>0.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard; float x=vWallP.x,y=vWallP.y,inside=0.0; if(y>=0.0){ if(y<'+_roadG(ML_WALL_SPRING)+') inside=1.0-step('+_roadG(ML_WALL_DJ)+',abs(x)); else inside=1.0-step(1.0,length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+'))); } if(inside<0.5) discard; float lat=1.0-smoothstep(0.72,1.0,abs(x)/'+_roadG(ML_WALL_RING_R1)+'), vert=0.22+0.78*smoothstep(-'+_roadG(ML_WALL_RING_R1)+','+_roadG(ML_WALL_APEX)+',y), a=inside*lat*vert*vWallFade*vWallRetire*uWallGlow*0.14; vec3 c=mix(vWallNext,vec3(1.0,0.93,0.78),0.25); gl_FragColor=vec4(c*a,a); }':'uniform float uWallGlow; varying vec2 vWallP; varying vec3 vWallNext; varying float vWallKind,vWallFade,vWallRetire'+(ML_TERRAIN?',vWallTerrain':'')+'; void main(){ if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard; float x=vWallP.x,y=vWallP.y,inside=0.0; if(vWallKind>0.5) inside=1.0-step('+_roadG(ML_WALL_RING_R1)+',length(vec2(x,y))); else if(y>=0.0){ if(y<'+_roadG(ML_WALL_SPRING)+') inside=1.0-step('+_roadG(ML_WALL_DJ)+',abs(x)); else inside=1.0-step(1.0,length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+'))); } if(inside<0.5) discard; float lat=1.0-smoothstep(0.72,1.0,abs(x)/'+_roadG(ML_WALL_RING_R1)+'), vert=0.22+0.78*smoothstep(-'+_roadG(ML_WALL_RING_R1)+','+_roadG(ML_WALL_APEX)+',y), a=inside*lat*vert*vWallFade*vWallRetire*uWallGlow*mix(0.14,0.22,step(0.5,vWallKind)); vec3 c=mix(vWallNext,vec3(1.0,0.93,0.78),0.25+0.45*step(0.5,vWallKind)); gl_FragColor=vec4(c*a,a); }'});
     roadWallVeil=new THREE.Mesh(vg,roadWallVeilMat); roadWallVeil.frustumCulled=false; roadWallVeil.renderOrder=-37.6; roadWallVeil.visible=false; scene.add(roadWallVeil);
   }
 }
@@ -2655,13 +2685,18 @@ function roadArchFill(n0){
   if(roadMat && roadMat.uniforms.uNaveGold) roadMat.uniforms.uNaveGold.value=ML_NAVE?Math.max(0,Math.min(1,+M.naveStreetGold||0)):0;   // ONE live palette object drives street and dust; 0 is the old fragment result exactly
   const b0=ML_ARCH_EVERY*Math.floor((n0-ML_ARCH_BEHIND)/ML_ARCH_EVERY);
   if(ML_WALLS){
-    const wallB0=reduceMotion?-ML_ARCH_BEHIND:b0;
+    const wallB0=reduceMotion?-ML_ARCH_BEHIND:b0; let mercyPaneVisible=false;
     for(let k=0;k<ML_WALL_N;k++){
       const b=wallB0+ML_ARCH_EVERY*k, here=roadTideAt(b).m===1, before1=roadTideAt(b+ML_ARCH_EVERY).m===1, before2=ML_WALL_EXHALE&&roadTideAt(b+2*ML_ARCH_EVERY).m===1, after1=roadTideAt(b-ML_ARCH_EVERY).m===1, after2=roadTideAt(b-2*ML_ARCH_EVERY).m===1;
+      if(ML_MERCY_INVERSE&&here) mercyPaneVisible=true;
       let kind=here?1:((before1||after1||after2)?2:0);                    // integer part is Wave 11's identity: 0 wall · 1 mercy ring · 2 no-wall span, still one bar before through two after
       if(ML_WALL_EXHALE) kind+=(before1?1:(before2?2:3))*0.01;           // fractional hundredths carry capped bars-to-mercy; even suppressed slots retain the honest radius input, and the first wall after mercy is full on its first downbeat
       _archKind[k]=kind;
       const bar=Math.floor(b/ML_ARCH_EVERY); _wallCol[k].setHex(roadWallPaletteAt(bar)); _wallNext[k].setHex(roadWallPaletteAt(bar+1));
+    }
+    if(ML_MERCY_INVERSE){
+      roadMercyInverse.visible=mercyPaneVisible;
+      roadMercyInverseDepth.visible=mercyPaneVisible;
     }
   }   // reduceMotion keys kind, exhale state and colour to the pinned station, so no standing wall can swap identity on a live bar
   else for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // the inherited ring authority remains the exact Wave 10 assignment when the wall master is off
@@ -2871,12 +2906,38 @@ function roadArchFill(n0){
   roadMesh.position.y=0.03;                                               // above every hidden floor layer (base 0 · checker 0.012 · halo 0.016 · lattice 0.02) — no z-fighting with the surfaces the kill-switch restores
   if(ML_TERRAIN) roadMesh.frustumCulled=false;                            // the CPU bounds describe the parameter strip, not the vertex shader's rolling Y lift
   roadMesh.renderOrder=ML_RIBBON?-40:-900;                                // THE VOID'S DEPTH ORDER: wave 7's −900 drew the road before the celestial shell (−50), which in a void with no floor writing depth painted straight over the ribbon. −40 puts it after the shell and before every other transparent thing; depthTest stays TRUE, so the opaque Echoes still occlude it exactly as they did
+  if(ML_MERCY_INVERSE){
+    roadMercyInverseDepthMat=new THREE.ShaderMaterial({transparent:true,colorWrite:false,depthWrite:true,depthTest:true,fog:false,uniforms:roadMat.uniforms,vertexShader:roadMat.vertexShader,
+      fragmentShader:[
+        ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
+        'uniform float uNow; uniform vec2 uBase; uniform vec3 uA,uW,uP; varying vec2 vXZ;'+(ML_TERRAIN?' varying float vTerrainVis;':''),
+        'void main(){',
+        '  float u=-vXZ.y, d=abs(u);',
+        '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',d); if(fade<=0.004) discard;',
+        ...(ML_TERRAIN ? ['  if(vTerrainVis<=0.004) discard;'] : []),
+        '  float b=uNow+u*'+INV+';',
+        (LOW ? ('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')
+             : ('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
+        '  float al=abs(vXZ.x-cx);',
+        '  float aa='+(LOW?'1.10':'0.25+d*0.0035')+';',
+        '  float rw=aa*1.6;',
+        '  float outer=1.0-smoothstep('+HW+'+rw*0.5,'+HW+'+rw*1.6,al); if(outer<=0.004) discard;',
+        '  gl_FragColor=vec4(1.0);',
+        '}'
+      ].join('\n')});
+    roadMercyInverseDepth=new THREE.Mesh(roadMesh.geometry,roadMercyInverseDepthMat);
+    roadMercyInverseDepth.frustumCulled=roadMesh.frustumCulled;
+    roadMercyInverseDepth.renderOrder=5.5;
+    roadMercyInverseDepth.visible=false;
+    roadMesh.add(roadMercyInverseDepth);
+  }
   roadMesh.visible=false; scene.add(roadMesh);
   if(ML_RIBBON&&!ML_TERRAIN) buildRoadImpostor();                         // a rolling horizon has no honest straight continuation; the old two-triangle plane retains its painted handoff byte-for-byte
   if(ML_WALLS) buildRoadWalls(); else if(ML_ARCH) buildRoadArches();       // WAVE 11 replaces the white arch family only while its raw master is on; the false arm is the exact Wave 10 builder call
   if(ML_NAVE_STARS>0) buildNaveVault();                                   // the painted gold vault: naveStars:0 crosses no builder and LOW arrives here with half the requested point buffer
   if(!ML_WALLS && ML_NAVE_VEIL>0) buildNaveVeil();                         // the wall family owns its next-colour door veil; the Wave 10 mercy sheet stays byte-identical on the false arm
   if(ML_DUST_N>0) buildRoadDust();                                        // …and the sixteenth carrier riding the surface. Not built at all on LOW, with archOn:false-style silence: ML_DUST_N is 0 there and this line never runs
+  if(ML_MERCY_INVERSE&&roadDust) roadDust.renderOrder=7;                  // the depth guard at 5.5 protects the nearer deck, the pane follows at 6, and additive dust at 7 stays normal-coloured; below-deck motes may fail against the accepted new deck depth
 })();
 function roadHideOldFloor(){
   // THE ROAD SUBSUMES THE OLD FLOOR: two floors on screen is two clocks. The checker, the night lattice and its halo go

@@ -1028,7 +1028,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -1930,6 +1930,7 @@
                                                                                                      
                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                             
                                                                                                                                                                               
@@ -2049,8 +2050,8 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                    
-                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                               
                                                                            
                                                                                                                                                                                                                                              
@@ -2530,10 +2531,10 @@
                                                                                                                                                                                                                               
         
                  
-                                                                                                                      
+                                                                                                                                                  
                                     
                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                             
                          
                                                                                                                                                              
@@ -2561,8 +2562,29 @@
                                             
      
                
+                                                   
+                                                                                                                                                  
+            
+                                                                                                
+                                                                                                                                                                                                                              
+        
+                 
+                                                                                                                                       
+                                    
+                                                                                                                                                                            
+                                                                                                                                                                                                                                                            
+                         
+                                                                                                                                                             
+            
+                                                                                                                                                                                                                                                  
+     
+                                                                                                       
+     
+                              
+     
+               
                           
-                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                  
                                                                                             
                                                                                                                                                                                                                                                                                                     
                                                                                                                                                 
@@ -2570,6 +2592,14 @@
                                       
                                                                                                                                                                                                    
                                                                                                                                               
+                       
+                                                                                                                                                                                                                                                                                                                                                   
+                                                           
+                                         
+                                   
+                                   
+                                                                                                                                                                                           
+   
                                                                                                                                         
                                
                                                                                                
@@ -2583,16 +2613,16 @@
                                               
                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
          
                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                    
                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                            
    
  
@@ -2655,13 +2685,18 @@
                                                                                                                                                                                                                               
                                                                        
                
-                                                 
+                                                                             
                                  
                                                                                                                                                                                                                                                              
+                                                       
                                                                                                                                                                                                
                                                                                                                                                                                                                                                 
                         
                                                                                                                                        
+     
+                         
+                                                
+                                                     
      
                                                                                                                                    
                                                                                                                                                                                                
@@ -2871,12 +2906,38 @@
                                                                                                                                                                                                                            
                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                       
+                       
+                                                                                                                                                                                              
+                      
+                                                    
+                                                                                                                                         
+                       
+                                      
+                                                                                                                 
+                                                                     
+                                    
+                                                                                                                               
+                                                                                                                                            
+                                    
+                                                       
+                             
+                                                                                                  
+                                    
+           
+                     
+                                                                                     
+                                                               
+                                          
+                                        
+                                        
+   
                                               
                                                                                                                                                                                                         
                                                                                                                                                                                                      
                                                                                                                                                                                              
                                                                                                                                                                                            
                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                
      
                             
                                                                                                                         
@@ -4635,52 +4696,52 @@
                                                                    
                                                                                                            
  
-                                       
-                                                                                                
-                                                          
-                                                         
-                                               
-                                                                                                      
-                                                                                                      
-                                                                           
-                                                                  
-                                                                                   
-                                                                                                                    
-                                                                        
-                                                                             
-                                                          
-                 
-                                                                                                                                                                             
-                                                                                                                                                   
-                                                                                                                                                                           
-                                                                                                                                                 
-                                                                                                                        
- 
-                                            
-                                                                                                                                                                             
- 
-                                 
-                                                                                                 
-                                 
-                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-                                                                                     
-                                                                                                                  
-                    
-                                                                                                                                                                                                                                   
-                                                                                             
-                                                                                                   
-                                                                                                 
-                                                 
-                                                                                  
-                   
-                                                                        
-                                            
-                      
-                               
-                                                     
-           
- 
+function templeAspectStudyData(record){
+  // Descriptive chip for a transit→natal chord: geometry + glossary on both ends (no DeepSeek).
+  if(!record||!record.transit||!record.natal) return null;
+  const G=_skyGlossary, t=record.transit, n=record.natal;
+  const tSign=t.sign||null, nSign=n.sign||null;
+  const tPick={kind:'body',id:t.id,meta:{name:t.label||t.id,glyph:t.glyph,sign:tSign,lon:t.lonJ2000}};
+  const nPick={kind:'body',id:n.id,meta:{name:n.label||n.id,glyph:n.glyph,sign:nSign,lon:n.lonJ2000}};
+  const tGloss=glossaryListenData(tPick), nGloss=glossaryListenData(nPick);
+  const aspectLabel=record.aspectLabel||record.aspectId||'aspect';
+  const title='Transit '+(t.label||t.id)+' '+aspectLabel+' natal '+(n.label||n.id);
+  let text='A symbolic contact between moving '+(t.label||t.id)+' and natal '+(n.label||n.id)+' ('+aspectLabel+').';
+  if(record.motionLabel) text+=' The aspect is '+record.motionLabel+'.';
+  if(isFinite(record.orbDeg)) text+=' Orb '+(+record.orbDeg).toFixed(1)+'°.';
+  text+=' Use it as a reflective lens, not a prediction.';
+  const parts=[];
+  if(tGloss&&tGloss.placement&&tGloss.placement.text) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:tGloss.placement.title, text:tGloss.placement.text});
+  else if(G&&G.planets[t.id]) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:G.planets[t.id].title, text:G.planets[t.id].text});
+  if(nGloss&&nGloss.placement&&nGloss.placement.text) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:nGloss.placement.title, text:nGloss.placement.text});
+  else if(G&&G.planets[n.id]) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:G.planets[n.id].title, text:G.planets[n.id].text});
+  return {type:'temple_aspect',placement:{status:'ready',title:title,text:text},personal:{available:false},parts:parts};
+}
+function mergePersonalListen(data,fallback){
+  if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
+}
+function ensureListenCardShell(){
+  // Card body stays pointer-events:none so aim is free; only the × dismiss control is clickable.
+  if(_lsn.card) return _lsn.card;
+  const d=document.createElement('div'); d.id='skyListenCard';
+  d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;padding-right:34px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
+  const x=document.createElement('button'); x.type='button'; x.id='skyListenDismiss';
+  x.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
+  x.textContent='×';
+  x.style.cssText='position:absolute;top:4px;right:4px;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--bone-dim);font:18px/28px var(--mono);cursor:pointer;pointer-events:auto;z-index:1;opacity:.85';
+  x.addEventListener('mouseenter',()=>{ x.style.color='var(--bone)'; x.style.opacity='1'; });
+  x.addEventListener('mouseleave',()=>{ x.style.color='var(--bone-dim)'; x.style.opacity='.85'; });
+  x.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); clearListen(true); });
+  // Don't let mousedown steal pointer-lock / aim
+  x.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); });
+  d.appendChild(x);
+  const body=document.createElement('div'); body.id='skyListenCardBody';
+  body.style.cssText='pointer-events:none;';
+  d.appendChild(body);
+  document.body.appendChild(d);
+  _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
+  return d;
+}
 function showListenCard(pick, data, skeleton){
   // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
   // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
@@ -7295,72 +7356,72 @@ function cardDateText(d){
   if(!isFinite(y) || !isFinite(m) || !isFinite(dd)) return '';
   return TF('cardDate','{d} {mon} {y}', {d:dd, mon:CARD_MON_EN[Math.max(1,Math.min(12,m))-1], m:m, y:y});
 }
-function cardBand(g,W,cy,bw,bh,rec){
-  // TONIGHT'S SKY, laid out flat: x is the star's own ecliptic longitude (the band opens at 0°, the head of Aries,
-  // where the zodiac has always started) and y its latitude. The positions come out of the SAME buffer the dome is
-  // drawing — read back to lon/lat rather than re-fetched or re-typed — so every star here is a real one at its real
-  // place, and the only liberty the card takes is that the sphere has been unrolled onto a page.
-  const fig=_stickFig; if(!fig || !fig.pGeo) return;   // no fixture (a decorative sky, or a fetch that never landed) → no band, and the rest of the card composes exactly as it would have
-  const x0=(W-bw)/2, half=bh/2;
-  const lonOf=(x,z)=>{ const a=Math.atan2(-z,x)*180/Math.PI; return ((a%360)+360)%360; };
-  const latOf=(x,y,z)=>{ const L=Math.sqrt(x*x+y*y+z*z); return L>1e-6?Math.asin(Math.max(-1,Math.min(1,y/L)))*180/Math.PI:0; };
-  const px=l=>x0+l/360*bw, py=t=>cy-Math.max(-1,Math.min(1,t/CARD_LAT_DEG))*half;
-  const lp=fig.lGeo?fig.lGeo.attributes.position:null;
-  if(lp){
-    g.strokeStyle='rgba(174,198,232,.20)'; g.lineWidth=1;   // the sticks, at the dome's own line colour and about its own weight
-    for(let i=0;i+1<lp.count;i+=2){
-      const l1=lonOf(lp.getX(i),lp.getZ(i)), l2=lonOf(lp.getX(i+1),lp.getZ(i+1));
-      if(Math.abs(l1-l2)>180) continue;   // THE SEAM at 0°: a figure straddling it keeps both its stars and loses one line, rather than drawing a stroke across the entire sky
-      g.beginPath();
-      g.moveTo(px(l1), py(latOf(lp.getX(i),lp.getY(i),lp.getZ(i))));
-      g.lineTo(px(l2), py(latOf(lp.getX(i+1),lp.getY(i+1),lp.getZ(i+1))));
-      g.stroke();
-    }
-  }
-  const tonight=Object.create(null);
-  for(const s of rec.stars) tonight[s]=true;
-  const pp=fig.pGeo.attributes.position, ids=(CFG.stars.on&&_starLitIds)?_starLitIds:null;   // raw boolean first: with the lit sky off nothing is lit, so the band draws the plain constellations and no halo
-  for(let i=0;i<pp.count;i++){
-    const X=px(lonOf(pp.getX(i),pp.getZ(i))), Y=py(latOf(pp.getX(i),pp.getY(i),pp.getZ(i)));
-    const id=ids?ids[i]:'', lv=id?(_starLit[id]|0):0;
-    const r=lv>0?(1.5+0.45*lv):1.1, a=lv>0?Math.min(1,0.40+0.12*lv):0.16;   // a lit star is brighter AND wider, the same two channels the dome gives it — an unlit one is still there, faintly, because the sky is not a checklist
-    g.beginPath(); g.arc(X,Y,r,0,6.2831853); g.fillStyle='rgba(198,216,246,'+a.toFixed(3)+')'; g.fill();
-    if(id && tonight[id]){ g.beginPath(); g.arc(X,Y,r+3.6,0,6.2831853); g.strokeStyle='rgba(226,238,255,.55)'; g.lineWidth=1; g.stroke(); }   // TONIGHT's own: one thin ring, so a card with nothing new on it simply has no rings and looks like every other night's sky
-  }
-}
-function cardCompose(g,W,H,rec){
-  // The composition, top to bottom: the mark · the moon that was up · the night's name · your sky · your glyph · the
-  // date. Moonlight monochrome throughout, and a still image by nature — there is nothing here for reduceMotion to
-  // turn off, because nothing here ever moves.
-  g.clearRect(0,0,W,H);
-  const bg=g.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#080b12'); bg.addColorStop(0.55,'#05070c'); bg.addColorStop(1,'#04060a');
-  g.fillStyle=bg; g.fillRect(0,0,W,H);
-  g.strokeStyle='rgba(198,216,246,.14)'; g.lineWidth=1; g.strokeRect(Math.round(W*0.035)+0.5, Math.round(H*0.023)+0.5, Math.round(W*0.93), Math.round(H*0.954));
-  g.textAlign='center'; g.textBaseline='middle';
-  try{ g.letterSpacing='0.16em'; }catch(e){}   // the menus' own tracking where the canvas supports it; ignored, harmlessly, where it does not
-  g.fillStyle='rgba(198,216,246,.50)'; g.font=Math.round(W*0.032)+'px '+CARD_FONT;
-  g.fillText('✦', W/2, H*0.072);
-  const pr=W*0.062, pyC=H*0.145;
-  g.beginPath(); g.arc(W/2,pyC,pr,0,6.2831853); g.strokeStyle='rgba(198,216,246,.34)'; g.lineWidth=1; g.stroke();
-  if(rec.phase>=0) phasesDrawDisc(g,W/2,pyC,pr,rec.phase);   // the Temple ring's OWN moon shape, for the bucket that was actually overhead (a pure drawing call — it opens no file, so it belongs to no parcel's kill-switch)
-  if(rec.rule>=0){ g.fillStyle='rgba(198,216,246,.80)'; g.font=Math.round(W*0.030)+'px '+CARD_FONT; g.fillText(T('dealRule'+rec.rule, DEAL_RULE_EN[rec.rule]), W/2, H*0.228, W*0.86); }   // wave 4's own words for the night, in whichever language the page is in
-  cardBand(g,W,H*0.325,W*0.88,H*0.115,rec);
-  const R=W*0.30;
-  bowGlyphPaint(g, rec.hits, W/2, H*0.635, R, rec.hb>0?rec.hb:(60/Math.max(20,state.bpm))*500, 1, 0, R/224);   // THE Bow's glyph, at full brightness and undrifted (a card is the held moment, not the dissolve). dotK = R over the ceremony's own 224px radius, so the dots keep the weight they have on the big canvas
-  g.fillStyle='rgba(198,216,246,.42)'; g.font=Math.round(W*0.022)+'px '+CARD_FONT;
-  g.fillText(cardDateText(rec.d), W/2, H*0.945, W*0.8);
-}
-function cardPaint(){
-  const rec=cardFresh(); if(!rec) return;   // a record that has aged out CLOSES the view (M2) rather than leaving a blank wrapper standing — the paint is the last place the date could still be wrong
-  const cv=cardCanvasEl(); if(!cv) return;
-  const N=CFG.nightCard, W=Math.max(240,N.w|0), H=Math.max(240,N.h|0);
-  if(cv.width!==W) cv.width=W;
-  if(cv.height!==H) cv.height=H;
-  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
-  try{ cardCompose(g,W,H,rec); }catch(e){}   // a card that cannot be composed leaves the view standing and says nothing — this path is never allowed to throw into the page
-}
-function cardFileName(){ const rec=cardToday(); return 'moon-chorus-'+((rec&&rec.d)||'night')+'.png'; }
+                                    
+                                                                                                                   
+                                                                                                                   
+                                                                                                                     
+                                                                                                 
+                                                                                                                                                                                           
+                               
+                                                                                         
+                                                                                                                                
+                                                                                 
+                                                      
+         
+                                                                                                                                 
+                                   
+                                                                                 
+                                                                                                                                                                               
+                    
+                                                                    
+                                                                          
+                 
+     
+   
+                                    
+                                            
+                                                                                                                                                                                                              
+                              
+                                                                                            
+                                                     
+                                                                                                                                                                                                                                   
+                                                                                                        
+                                                                                                                                                                                                                                                                          
+   
+ 
+                                
+                                                                                                                     
+                                                                                                                   
+                                               
+                       
+                                           
+                                                                                              
+                                      
+                                                                                                                                                                
+                                                
+                                                                                                                                              
+                                                                                  
+                                
+                                
+                                                                                                                 
+                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                   
+                                           
+                 
+                                                                                                                                                                                                                                                                                                                         
+                                                                                  
+                                                       
+ 
+                     
+                                                                                                                                                                                                       
+                                          
+                                                                      
+                              
+                                
+                                                                    
+                                                                                                                                                                            
+ 
+                                                                                                       
                             
                                                                                                                        
                                                                                                                   

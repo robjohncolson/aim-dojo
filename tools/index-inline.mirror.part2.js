@@ -1028,7 +1028,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -1930,6 +1930,7 @@
                                                                                                      
                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                             
                                                                                                                                                                               
@@ -2049,8 +2050,8 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                    
-                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                               
                                                                            
                                                                                                                                                                                                                                              
@@ -2530,10 +2531,10 @@ function roadWallFragmentShader(){ return [
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
   ]:[]),
   'void main(){',
-  '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
+  '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>'+(ML_MERCY_INVERSE?'0.5':'1.5')+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
-  '  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }',
+  ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
   '  if(d<0.0) discard;',
   '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
@@ -2561,8 +2562,29 @@ function roadWallFragmentShader(){ return [
   '  gl_FragColor=vec4(col*vWallFade,1.0);',
   '}'
 ].join('\n'); }
+function roadMercyInverseFragmentShader(){ return [
+  'uniform float uWallDissolve; varying vec2 vWallP; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(!LOW?[
+  'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
+  'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
+  ]:[]),
+  'void main(){',
+  '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind<0.5 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
+  '  float x=vWallP.x, y=vWallP.y;',
+  ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
+  '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
+  '  if(d<0.0) discard;',
+  '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
+  ...(!LOW?[
+  '  float powderNoise=wallVn(vec2(x,y)*0.9)*0.6+wallVn(vec2(x,y)*3.7)*0.4, powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r+(powderNoise-0.5)*'+_roadG(ML_WALL_POWDER_NOISE)+'); if(powder<wallVn(vec2(x,y)*5.3+19.1)) discard;'
+  ]:[
+  '  float powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r); if(powder<0.5) discard;'
+  ]),
+  '  gl_FragColor=vec4(1.0);',
+  '}'
+].join('\n'); }
 function buildRoadWalls(){
-  /* One depth-writing parametric quad family carries every wall and the full mercy ring; one Points family carries apex stars, jamb nodes and the powder-band sparks; one optional additive veil carries next-chamber colour. No side wall and no mirror geometry exist. */
+  /* One depth-writing parametric quad family carries every ordinary wall; the inverse switch reuses that geometry and vertex path for one non-depth-writing mercy filter draw. One Points family carries apex stars, jamb nodes and the powder-band sparks; one optional additive veil carries next-chamber colour. No side wall and no mirror geometry exist. */
   const pos=new Float32Array(ML_WALL_N*12), idx=new Uint16Array(ML_WALL_N*6); let po=0,io=0;
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
@@ -2570,6 +2592,14 @@ function buildRoadWalls(){
   const wallVS=roadWallVertexShader();
   roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
   roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
+  if(ML_MERCY_INVERSE){
+    roadMercyInverseMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneMinusDstColorFactor,blendDst:THREE.ZeroFactor,uniforms:WU,vertexShader:wallVS,fragmentShader:roadMercyInverseFragmentShader()});
+    roadMercyInverse=new THREE.Mesh(g,roadMercyInverseMat);
+    roadMercyInverse.frustumCulled=false;
+    roadMercyInverse.renderOrder=6;
+    roadMercyInverse.visible=false;
+    roadWall.add(roadMercyInverse);   // opaque cores have already populated dst; road dust is promoted to 7 below, so its accepted additive sparkle stays normal instead of being inverted
+  }
   const sparkN=LOW?8:16, pn=ML_WALL_N*(3+sparkN), pp=new Float32Array(pn*3), pm=new Float32Array(pn), ps=new Float32Array(pn); let pv=0;
   for(let k=0;k<ML_WALL_N;k++){
     const put=(x,y,m,s)=>{ pp[pv*3]=k; pp[pv*3+1]=x; pp[pv*3+2]=y; pm[pv]=m; ps[pv]=s; pv++; };
@@ -2583,16 +2613,16 @@ function buildRoadWalls(){
       ...(ML_BITE?['uniform vec3 uBite;']:[]),
       ...(ML_TERRAIN?[roadTerrainShader()]:[]),
       'void main(){ float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot, kind=uK[int(slot)]; vec3 ph=uW*b+uP,sc=sin(ph),co=cos(ph); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow), cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
-      '  float mercy=step(0.5,kind)*step(kind,1.5); if(aMode<0.5) y=mix(y,'+_roadG(ML_WALL_RING_R2+0.85)+',mercy); else if(aMode<1.5) x*=mix(1.0,'+_roadG(((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)/ML_WALL_DJ)+',mercy); vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x+sign(u)*0.12); float tv=1.0;'+(ML_TERRAIN?' tv=terrainVis(u,P.x,0.0); P.y+=cyAt(u);':'')+' vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
-      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)), retire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow), show=(1.0-step(1.5,kind))*mix(1.0,1.0-mercy,step(1.5,aMode)); '+(ML_WALL_STAR?'':'show*=mix(1.0,mercy,1.0-step(0.5,aMode)); ')+'vA=show*fade*retire*tv*(aMode<0.5?1.0:(aMode<1.5?0.58:0.38*(1.0-aSeed))); vMode=aMode; vMercy=mercy; vSeed=aSeed; gl_PointSize=vA<=0.003?0.0:clamp((aMode<0.5?1.15:(aMode<1.5?0.45:0.28))*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),2.0,aMode<1.5?56.0:10.0);',
+      (ML_MERCY_INVERSE?'  float mercy=step(0.5,kind)*step(kind,1.5); vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x+sign(u)*0.12); float tv=1.0;':'  float mercy=step(0.5,kind)*step(kind,1.5); if(aMode<0.5) y=mix(y,'+_roadG(ML_WALL_RING_R2+0.85)+',mercy); else if(aMode<1.5) x*=mix(1.0,'+_roadG(((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)/ML_WALL_DJ)+',mercy); vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x+sign(u)*0.12); float tv=1.0;')+(ML_TERRAIN?' tv=terrainVis(u,P.x,0.0); P.y+=cyAt(u);':'')+' vec4 mv=viewMatrix*vec4(P,1.0); gl_Position=projectionMatrix*mv;',
+      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)), retire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow), show=(1.0-step(1.5,kind))*mix(1.0,1.0-mercy,step(1.5,aMode)); '+(ML_MERCY_INVERSE?'show*=mix(1.0,1.0-mercy,step(0.5,aMode)); ':'')+(ML_WALL_STAR?'':'show*=mix(1.0,mercy,1.0-step(0.5,aMode)); ')+'vA=show*fade*retire*tv*(aMode<0.5?1.0:(aMode<1.5?0.58:0.38*(1.0-aSeed))); vMode=aMode; vMercy=mercy; vSeed=aSeed; gl_PointSize=vA<=0.003?0.0:clamp((aMode<0.5?1.15:(aMode<1.5?0.45:0.28))*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),2.0,aMode<1.5?56.0:10.0);',
       '}'
     ].join('\n'),
-    fragmentShader:'varying float vA,vMode,vMercy,vSeed; void main(){ if(vA<=0.003) discard; vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0),halo=0.20*exp(-r2*2.0),a=core+halo; if(vMode<0.5){ float r4=exp(-abs(q.x)*16.0)*exp(-q.y*q.y*3.2)+exp(-abs(q.y)*16.0)*exp(-q.x*q.x*3.2); vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*18.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*18.0)*exp(-d.x*d.x*4.0); float ang=atan(q.y,q.x),rose=(1.0-smoothstep(0.28,0.36,r2))*(0.55+0.45*cos(10.0*ang)); a+=mix(r4*0.62+r8*0.46,rose,vMercy); } a*=vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.70,0.30),vec3(1.0,0.925,0.80),core); gl_FragColor=vec4(c*a,a); }'});
-  roadWallAccent=new THREE.Points(pg,roadWallAccentMat); roadWallAccent.frustumCulled=false; roadWallAccent.renderOrder=-37.8; roadWallAccent.visible=false; scene.add(roadWallAccent);
+    fragmentShader:ML_MERCY_INVERSE?'varying float vA,vMode,vMercy,vSeed; void main(){ if(vA<=0.003) discard; vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0),halo=0.20*exp(-r2*2.0),a=core+halo; if(vMode<0.5){ float r4=exp(-abs(q.x)*16.0)*exp(-q.y*q.y*3.2)+exp(-abs(q.y)*16.0)*exp(-q.x*q.x*3.2); vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*18.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*18.0)*exp(-d.x*d.x*4.0); a+=r4*0.62+r8*0.46; } a*=vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.70,0.30),vec3(1.0,0.925,0.80),core); gl_FragColor=vec4(c*a,a); }':'varying float vA,vMode,vMercy,vSeed; void main(){ if(vA<=0.003) discard; vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0),halo=0.20*exp(-r2*2.0),a=core+halo; if(vMode<0.5){ float r4=exp(-abs(q.x)*16.0)*exp(-q.y*q.y*3.2)+exp(-abs(q.y)*16.0)*exp(-q.x*q.x*3.2); vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*18.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*18.0)*exp(-d.x*d.x*4.0); float ang=atan(q.y,q.x),rose=(1.0-smoothstep(0.28,0.36,r2))*(0.55+0.45*cos(10.0*ang)); a+=mix(r4*0.62+r8*0.46,rose,vMercy); } a*=vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.70,0.30),vec3(1.0,0.925,0.80),core); gl_FragColor=vec4(c*a,a); }'});
+  roadWallAccent=new THREE.Points(pg,roadWallAccentMat); roadWallAccent.frustumCulled=false; roadWallAccent.renderOrder=ML_MERCY_INVERSE?6.5:-37.8; roadWallAccent.visible=false; scene.add(roadWallAccent);   // the inverse pane draws at 6, then its retained crown star stays normal-coloured, then dust stays normal at 7; inverse-off keeps Wave 11.1's exact order
   if(!LOW){ const vp=new Float32Array(ML_WALL_N*12), vi=new Uint16Array(ML_WALL_N*6); let vo=0,vio=0; for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_RING_R2,-ML_WALL_RING_R2],[ML_WALL_RING_R2,ML_WALL_APEX],[-ML_WALL_RING_R2,ML_WALL_APEX],[-ML_WALL_RING_R2,-ML_WALL_RING_R2]]){ vp[vo++]=k; vp[vo++]=q[0]; vp[vo++]=q[1]; } vi[vio++]=b; vi[vio++]=b+1; vi[vio++]=b+2; vi[vio++]=b; vi[vio++]=b+2; vi[vio++]=b+3; }
     const vg=new THREE.BufferGeometry(); vg.setAttribute('position',new THREE.BufferAttribute(vp,3)); vg.setIndex(new THREE.BufferAttribute(vi,1));
     roadWallVeilMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,premultipliedAlpha:true,uniforms:WU,vertexShader:wallVS,
-      fragmentShader:'uniform float uWallGlow; varying vec2 vWallP; varying vec3 vWallNext; varying float vWallKind,vWallFade,vWallRetire'+(ML_TERRAIN?',vWallTerrain':'')+'; void main(){ if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard; float x=vWallP.x,y=vWallP.y,inside=0.0; if(vWallKind>0.5) inside=1.0-step('+_roadG(ML_WALL_RING_R1)+',length(vec2(x,y))); else if(y>=0.0){ if(y<'+_roadG(ML_WALL_SPRING)+') inside=1.0-step('+_roadG(ML_WALL_DJ)+',abs(x)); else inside=1.0-step(1.0,length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+'))); } if(inside<0.5) discard; float lat=1.0-smoothstep(0.72,1.0,abs(x)/'+_roadG(ML_WALL_RING_R1)+'), vert=0.22+0.78*smoothstep(-'+_roadG(ML_WALL_RING_R1)+','+_roadG(ML_WALL_APEX)+',y), a=inside*lat*vert*vWallFade*vWallRetire*uWallGlow*mix(0.14,0.22,step(0.5,vWallKind)); vec3 c=mix(vWallNext,vec3(1.0,0.93,0.78),0.25+0.45*step(0.5,vWallKind)); gl_FragColor=vec4(c*a,a); }'});
+      fragmentShader:ML_MERCY_INVERSE?'uniform float uWallGlow; varying vec2 vWallP; varying vec3 vWallNext; varying float vWallKind,vWallFade,vWallRetire'+(ML_TERRAIN?',vWallTerrain':'')+'; void main(){ if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>0.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard; float x=vWallP.x,y=vWallP.y,inside=0.0; if(y>=0.0){ if(y<'+_roadG(ML_WALL_SPRING)+') inside=1.0-step('+_roadG(ML_WALL_DJ)+',abs(x)); else inside=1.0-step(1.0,length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+'))); } if(inside<0.5) discard; float lat=1.0-smoothstep(0.72,1.0,abs(x)/'+_roadG(ML_WALL_RING_R1)+'), vert=0.22+0.78*smoothstep(-'+_roadG(ML_WALL_RING_R1)+','+_roadG(ML_WALL_APEX)+',y), a=inside*lat*vert*vWallFade*vWallRetire*uWallGlow*0.14; vec3 c=mix(vWallNext,vec3(1.0,0.93,0.78),0.25); gl_FragColor=vec4(c*a,a); }':'uniform float uWallGlow; varying vec2 vWallP; varying vec3 vWallNext; varying float vWallKind,vWallFade,vWallRetire'+(ML_TERRAIN?',vWallTerrain':'')+'; void main(){ if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard; float x=vWallP.x,y=vWallP.y,inside=0.0; if(vWallKind>0.5) inside=1.0-step('+_roadG(ML_WALL_RING_R1)+',length(vec2(x,y))); else if(y>=0.0){ if(y<'+_roadG(ML_WALL_SPRING)+') inside=1.0-step('+_roadG(ML_WALL_DJ)+',abs(x)); else inside=1.0-step(1.0,length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+'))); } if(inside<0.5) discard; float lat=1.0-smoothstep(0.72,1.0,abs(x)/'+_roadG(ML_WALL_RING_R1)+'), vert=0.22+0.78*smoothstep(-'+_roadG(ML_WALL_RING_R1)+','+_roadG(ML_WALL_APEX)+',y), a=inside*lat*vert*vWallFade*vWallRetire*uWallGlow*mix(0.14,0.22,step(0.5,vWallKind)); vec3 c=mix(vWallNext,vec3(1.0,0.93,0.78),0.25+0.45*step(0.5,vWallKind)); gl_FragColor=vec4(c*a,a); }'});
     roadWallVeil=new THREE.Mesh(vg,roadWallVeilMat); roadWallVeil.frustumCulled=false; roadWallVeil.renderOrder=-37.6; roadWallVeil.visible=false; scene.add(roadWallVeil);
   }
 }
@@ -2655,13 +2685,18 @@ function roadArchFill(n0){
   if(roadMat && roadMat.uniforms.uNaveGold) roadMat.uniforms.uNaveGold.value=ML_NAVE?Math.max(0,Math.min(1,+M.naveStreetGold||0)):0;   // ONE live palette object drives street and dust; 0 is the old fragment result exactly
   const b0=ML_ARCH_EVERY*Math.floor((n0-ML_ARCH_BEHIND)/ML_ARCH_EVERY);
   if(ML_WALLS){
-    const wallB0=reduceMotion?-ML_ARCH_BEHIND:b0;
+    const wallB0=reduceMotion?-ML_ARCH_BEHIND:b0; let mercyPaneVisible=false;
     for(let k=0;k<ML_WALL_N;k++){
       const b=wallB0+ML_ARCH_EVERY*k, here=roadTideAt(b).m===1, before1=roadTideAt(b+ML_ARCH_EVERY).m===1, before2=ML_WALL_EXHALE&&roadTideAt(b+2*ML_ARCH_EVERY).m===1, after1=roadTideAt(b-ML_ARCH_EVERY).m===1, after2=roadTideAt(b-2*ML_ARCH_EVERY).m===1;
+      if(ML_MERCY_INVERSE&&here) mercyPaneVisible=true;
       let kind=here?1:((before1||after1||after2)?2:0);                    // integer part is Wave 11's identity: 0 wall · 1 mercy ring · 2 no-wall span, still one bar before through two after
       if(ML_WALL_EXHALE) kind+=(before1?1:(before2?2:3))*0.01;           // fractional hundredths carry capped bars-to-mercy; even suppressed slots retain the honest radius input, and the first wall after mercy is full on its first downbeat
       _archKind[k]=kind;
       const bar=Math.floor(b/ML_ARCH_EVERY); _wallCol[k].setHex(roadWallPaletteAt(bar)); _wallNext[k].setHex(roadWallPaletteAt(bar+1));
+    }
+    if(ML_MERCY_INVERSE){
+      roadMercyInverse.visible=mercyPaneVisible;
+      roadMercyInverseDepth.visible=mercyPaneVisible;
     }
   }   // reduceMotion keys kind, exhale state and colour to the pinned station, so no standing wall can swap identity on a live bar
   else for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // the inherited ring authority remains the exact Wave 10 assignment when the wall master is off
@@ -2871,12 +2906,38 @@ function roadArchFill(n0){
   roadMesh.position.y=0.03;                                               // above every hidden floor layer (base 0 · checker 0.012 · halo 0.016 · lattice 0.02) — no z-fighting with the surfaces the kill-switch restores
   if(ML_TERRAIN) roadMesh.frustumCulled=false;                            // the CPU bounds describe the parameter strip, not the vertex shader's rolling Y lift
   roadMesh.renderOrder=ML_RIBBON?-40:-900;                                // THE VOID'S DEPTH ORDER: wave 7's −900 drew the road before the celestial shell (−50), which in a void with no floor writing depth painted straight over the ribbon. −40 puts it after the shell and before every other transparent thing; depthTest stays TRUE, so the opaque Echoes still occlude it exactly as they did
+  if(ML_MERCY_INVERSE){
+    roadMercyInverseDepthMat=new THREE.ShaderMaterial({transparent:true,colorWrite:false,depthWrite:true,depthTest:true,fog:false,uniforms:roadMat.uniforms,vertexShader:roadMat.vertexShader,
+      fragmentShader:[
+        ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
+        'uniform float uNow; uniform vec2 uBase; uniform vec3 uA,uW,uP; varying vec2 vXZ;'+(ML_TERRAIN?' varying float vTerrainVis;':''),
+        'void main(){',
+        '  float u=-vXZ.y, d=abs(u);',
+        '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',d); if(fade<=0.004) discard;',
+        ...(ML_TERRAIN ? ['  if(vTerrainVis<=0.004) discard;'] : []),
+        '  float b=uNow+u*'+INV+';',
+        (LOW ? ('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')
+             : ('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
+        '  float al=abs(vXZ.x-cx);',
+        '  float aa='+(LOW?'1.10':'0.25+d*0.0035')+';',
+        '  float rw=aa*1.6;',
+        '  float outer=1.0-smoothstep('+HW+'+rw*0.5,'+HW+'+rw*1.6,al); if(outer<=0.004) discard;',
+        '  gl_FragColor=vec4(1.0);',
+        '}'
+      ].join('\n')});
+    roadMercyInverseDepth=new THREE.Mesh(roadMesh.geometry,roadMercyInverseDepthMat);
+    roadMercyInverseDepth.frustumCulled=roadMesh.frustumCulled;
+    roadMercyInverseDepth.renderOrder=5.5;
+    roadMercyInverseDepth.visible=false;
+    roadMesh.add(roadMercyInverseDepth);
+  }
   roadMesh.visible=false; scene.add(roadMesh);
   if(ML_RIBBON&&!ML_TERRAIN) buildRoadImpostor();                         // a rolling horizon has no honest straight continuation; the old two-triangle plane retains its painted handoff byte-for-byte
   if(ML_WALLS) buildRoadWalls(); else if(ML_ARCH) buildRoadArches();       // WAVE 11 replaces the white arch family only while its raw master is on; the false arm is the exact Wave 10 builder call
   if(ML_NAVE_STARS>0) buildNaveVault();                                   // the painted gold vault: naveStars:0 crosses no builder and LOW arrives here with half the requested point buffer
   if(!ML_WALLS && ML_NAVE_VEIL>0) buildNaveVeil();                         // the wall family owns its next-colour door veil; the Wave 10 mercy sheet stays byte-identical on the false arm
   if(ML_DUST_N>0) buildRoadDust();                                        // …and the sixteenth carrier riding the surface. Not built at all on LOW, with archOn:false-style silence: ML_DUST_N is 0 there and this line never runs
+  if(ML_MERCY_INVERSE&&roadDust) roadDust.renderOrder=7;                  // the depth guard at 5.5 protects the nearer deck, the pane follows at 6, and additive dust at 7 stays normal-coloured; below-deck motes may fail against the accepted new deck depth
 })();
 function roadHideOldFloor(){
   // THE ROAD SUBSUMES THE OLD FLOOR: two floors on screen is two clocks. The checker, the night lattice and its halo go
@@ -4635,52 +4696,52 @@ function glossaryListenData(pick){
   else if(!text){ const one=P||S; title=one.title; text=one.text; }
   return {type:'sky_glossary',placement:{status:'ready',title:title,text:text},personal:{available:false}};
 }
-function templeAspectStudyData(record){
-  // Descriptive chip for a transit→natal chord: geometry + glossary on both ends (no DeepSeek).
-  if(!record||!record.transit||!record.natal) return null;
-  const G=_skyGlossary, t=record.transit, n=record.natal;
-  const tSign=t.sign||null, nSign=n.sign||null;
-  const tPick={kind:'body',id:t.id,meta:{name:t.label||t.id,glyph:t.glyph,sign:tSign,lon:t.lonJ2000}};
-  const nPick={kind:'body',id:n.id,meta:{name:n.label||n.id,glyph:n.glyph,sign:nSign,lon:n.lonJ2000}};
-  const tGloss=glossaryListenData(tPick), nGloss=glossaryListenData(nPick);
-  const aspectLabel=record.aspectLabel||record.aspectId||'aspect';
-  const title='Transit '+(t.label||t.id)+' '+aspectLabel+' natal '+(n.label||n.id);
-  let text='A symbolic contact between moving '+(t.label||t.id)+' and natal '+(n.label||n.id)+' ('+aspectLabel+').';
-  if(record.motionLabel) text+=' The aspect is '+record.motionLabel+'.';
-  if(isFinite(record.orbDeg)) text+=' Orb '+(+record.orbDeg).toFixed(1)+'°.';
-  text+=' Use it as a reflective lens, not a prediction.';
-  const parts=[];
-  if(tGloss&&tGloss.placement&&tGloss.placement.text) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:tGloss.placement.title, text:tGloss.placement.text});
-  else if(G&&G.planets[t.id]) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:G.planets[t.id].title, text:G.planets[t.id].text});
-  if(nGloss&&nGloss.placement&&nGloss.placement.text) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:nGloss.placement.title, text:nGloss.placement.text});
-  else if(G&&G.planets[n.id]) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:G.planets[n.id].title, text:G.planets[n.id].text});
-  return {type:'temple_aspect',placement:{status:'ready',title:title,text:text},personal:{available:false},parts:parts};
-}
-function mergePersonalListen(data,fallback){
-  if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
-}
-function ensureListenCardShell(){
-  // Card body stays pointer-events:none so aim is free; only the × dismiss control is clickable.
-  if(_lsn.card) return _lsn.card;
-  const d=document.createElement('div'); d.id='skyListenCard';
-  d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;padding-right:34px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
-  const x=document.createElement('button'); x.type='button'; x.id='skyListenDismiss';
-  x.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
-  x.textContent='×';
-  x.style.cssText='position:absolute;top:4px;right:4px;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--bone-dim);font:18px/28px var(--mono);cursor:pointer;pointer-events:auto;z-index:1;opacity:.85';
-  x.addEventListener('mouseenter',()=>{ x.style.color='var(--bone)'; x.style.opacity='1'; });
-  x.addEventListener('mouseleave',()=>{ x.style.color='var(--bone-dim)'; x.style.opacity='.85'; });
-  x.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); clearListen(true); });
-  // Don't let mousedown steal pointer-lock / aim
-  x.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); });
-  d.appendChild(x);
-  const body=document.createElement('div'); body.id='skyListenCardBody';
-  body.style.cssText='pointer-events:none;';
-  d.appendChild(body);
-  document.body.appendChild(d);
-  _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
-  return d;
-}
+                                       
+                                                                                                
+                                                          
+                                                         
+                                               
+                                                                                                      
+                                                                                                      
+                                                                           
+                                                                  
+                                                                                   
+                                                                                                                    
+                                                                        
+                                                                             
+                                                          
+                 
+                                                                                                                                                                             
+                                                                                                                                                   
+                                                                                                                                                                           
+                                                                                                                                                 
+                                                                                                                        
+ 
+                                            
+                                                                                                                                                                             
+ 
+                                 
+                                                                                                 
+                                 
+                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                     
+                                                                                                                  
+                    
+                                                                                                                                                                                                                                   
+                                                                                             
+                                                                                                   
+                                                                                                 
+                                                 
+                                                                                  
+                   
+                                                                        
+                                            
+                      
+                               
+                                                     
+           
+ 
                                               
                                                                                                      
                                                                                                                     

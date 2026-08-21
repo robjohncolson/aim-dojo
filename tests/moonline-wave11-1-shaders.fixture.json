@@ -1,0 +1,46 @@
+{
+  "offOff": {
+    "roadVertex": { "chars": 1223, "sha256": "3e1513af4f57db710d3966efcb6029348b6f80febb918f283a6557412276d680" },
+    "roadFragment": { "chars": 5737, "sha256": "a6bc7130bf7af7832c50c260adfb5bf4d04efc145639ed13ccbe86a2fdfd4f37" },
+    "roadSocketFragment": null,
+    "wallVertex": { "chars": 1013, "sha256": "bf2f453fb623438112139837edd0cdf3fa4ea15d9cfbf7277d26db9878427cd2" },
+    "wallFragment": { "chars": 1902, "sha256": "29c51402bfa5906444898dc1400684e01fed5cd22b09a3563f2b2c106dbe43de" },
+    "wallAccentVertex": { "chars": 1291, "sha256": "52d696b1c6db694d59fe6666604b4e3073c7df358bd57322268b76315f0e3e06" },
+    "wallAccentFragment": { "chars": 678, "sha256": "a54b05db3735fb39d767d28aeaf8feaef24b1d66690454cbb342f59222e27356" },
+    "wallVeilVertex": { "chars": 1013, "sha256": "bf2f453fb623438112139837edd0cdf3fa4ea15d9cfbf7277d26db9878427cd2" },
+    "wallVeilFragment": { "chars": 786, "sha256": "bae94ee9e3ee05484648952d40a18a6ff4a191f414488d566bfb9c17b21ee14c" }
+  },
+  "exhaleOnly": {
+    "roadVertex": { "chars": 1223, "sha256": "3e1513af4f57db710d3966efcb6029348b6f80febb918f283a6557412276d680" },
+    "roadFragment": { "chars": 5737, "sha256": "a6bc7130bf7af7832c50c260adfb5bf4d04efc145639ed13ccbe86a2fdfd4f37" },
+    "roadSocketFragment": null,
+    "wallVertex": { "chars": 1013, "sha256": "bf2f453fb623438112139837edd0cdf3fa4ea15d9cfbf7277d26db9878427cd2" },
+    "wallFragment": { "chars": 2136, "sha256": "ea0938059993777e76512bc06ec246261347b929839196e5b37fcf443c3d2542" },
+    "wallAccentVertex": { "chars": 1291, "sha256": "52d696b1c6db694d59fe6666604b4e3073c7df358bd57322268b76315f0e3e06" },
+    "wallAccentFragment": { "chars": 678, "sha256": "a54b05db3735fb39d767d28aeaf8feaef24b1d66690454cbb342f59222e27356" },
+    "wallVeilVertex": { "chars": 1013, "sha256": "bf2f453fb623438112139837edd0cdf3fa4ea15d9cfbf7277d26db9878427cd2" },
+    "wallVeilFragment": { "chars": 786, "sha256": "bae94ee9e3ee05484648952d40a18a6ff4a191f414488d566bfb9c17b21ee14c" }
+  },
+  "echoOnly": {
+    "roadVertex": { "chars": 1223, "sha256": "3e1513af4f57db710d3966efcb6029348b6f80febb918f283a6557412276d680" },
+    "roadFragment": { "chars": 5737, "sha256": "a6bc7130bf7af7832c50c260adfb5bf4d04efc145639ed13ccbe86a2fdfd4f37" },
+    "roadSocketFragment": null,
+    "wallVertex": { "chars": 1120, "sha256": "54d2b91d4c201f12c3706766306632e3d7be6e596d0d9d364d73602d5a61f9ba" },
+    "wallFragment": { "chars": 2521, "sha256": "15b4b7ba0721f21a0849a613dbd29af73a929107bed94b05481f919206b39377" },
+    "wallAccentVertex": { "chars": 1291, "sha256": "52d696b1c6db694d59fe6666604b4e3073c7df358bd57322268b76315f0e3e06" },
+    "wallAccentFragment": { "chars": 678, "sha256": "a54b05db3735fb39d767d28aeaf8feaef24b1d66690454cbb342f59222e27356" },
+    "wallVeilVertex": { "chars": 1120, "sha256": "54d2b91d4c201f12c3706766306632e3d7be6e596d0d9d364d73602d5a61f9ba" },
+    "wallVeilFragment": { "chars": 786, "sha256": "bae94ee9e3ee05484648952d40a18a6ff4a191f414488d566bfb9c17b21ee14c" }
+  },
+  "bothOn": {
+    "roadVertex": { "chars": 1223, "sha256": "3e1513af4f57db710d3966efcb6029348b6f80febb918f283a6557412276d680" },
+    "roadFragment": { "chars": 5737, "sha256": "a6bc7130bf7af7832c50c260adfb5bf4d04efc145639ed13ccbe86a2fdfd4f37" },
+    "roadSocketFragment": null,
+    "wallVertex": { "chars": 1120, "sha256": "54d2b91d4c201f12c3706766306632e3d7be6e596d0d9d364d73602d5a61f9ba" },
+    "wallFragment": { "chars": 2755, "sha256": "ec7f846ecaa068234085051878dbe5d7ce69664208d5d7ba0d405675bb844c0f" },
+    "wallAccentVertex": { "chars": 1291, "sha256": "52d696b1c6db694d59fe6666604b4e3073c7df358bd57322268b76315f0e3e06" },
+    "wallAccentFragment": { "chars": 678, "sha256": "a54b05db3735fb39d767d28aeaf8feaef24b1d66690454cbb342f59222e27356" },
+    "wallVeilVertex": { "chars": 1120, "sha256": "54d2b91d4c201f12c3706766306632e3d7be6e596d0d9d364d73602d5a61f9ba" },
+    "wallVeilFragment": { "chars": 786, "sha256": "bae94ee9e3ee05484648952d40a18a6ff4a191f414488d566bfb9c17b21ee14c" }
+  }
+}
