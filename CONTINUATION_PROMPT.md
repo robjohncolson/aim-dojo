@@ -1,5 +1,27 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-22)
 
+## -6. 2026-08-22: wave 12 — SPACE TRUTH (`5962b82`), shipped and live
+- **Parcel R — THE CONFIRM CROSSFADE**: the beat circle's correct-hit confirm used to vanish at the note
+  midpoint in the same frame the next ring was born at full radius (user: "snaps back to a predetermined
+  radius"). Now the confirm ECHOES past the flip (0.30 s capped at 0.6× interval, keyed on time + stored
+  radius — nd-remap- and reset-proof) while the fresh ring condenses in over its first 18 % (ML_RING_IN).
+  Frame-captured proof in harness/hud-{on,off}-sheet.png. ringEcho:0 → shipped draw path verbatim.
+- **Parcel V — THE ARC BELIEVES THE VOID**: computeShotPlan still ended the aim parabola at the deleted
+  floor (y<=0.04) and decorated the phantom point. Under moonlineVoid() the ribbon now continues to
+  ML_ARC_FAR (140 m) with a 28 % tail dissolve (build-time uTail arm), landing ring + pulse rings stand
+  down, uBands scales with the extension so the ROYGBIV period stays shipped, and the ribbon draws at
+  renderOrder −41 in the void so the falling tail sits BENEATH live road cues. computeShotPlan byte-
+  identical (SHA-pinned test) — aim/bullets/whiff timing untouched. Dojo/Temple/trainer-lesson keep
+  their honest ground. arcVoid:0 → shipped shader byte-for-byte.
+- **Review lessons (reviewer now 8/8)**: round 1 broke the SHIPPED in-void suppression inside
+  spawnLandRing by rewiring its gate (restored — real missed shots already had no void ring: check HEAD
+  before "adding" a suppression); implementer's "7 constructed, 7 killed" was FALSE — the review
+  constructed 8 more survivors (frozen-solver hash, reduceMotion arm, spoiled-echo, pocket ring,
+  allocation, pause/Temple lifecycle, uBands period, named-const inlining). Verify mutation claims.
+- 242/242 tests. Probes: harness/ring-probe4.mjs (in-page HUD canvas frame recorder — full screenshots
+  are too slow on SwiftShader to resolve sub-second HUD behaviour; record every rAF into canvas copies
+  and pick nearest-to-target frames), arc-probe.mjs (state flags + full frame).
+
 ## -5. 2026-08-21 EVENING: wave 11.2 — THE INVERSE (`f1ad43b`), shipped and live
 - **The mercy wall is now a colour-inversion pane**: ring/rose/veil retire behind flat knob `mercyInverse:1`;
   one non-depth-writing draw reuses the sibling walls' exact doorway silhouette, face = pure `1-dst` via
