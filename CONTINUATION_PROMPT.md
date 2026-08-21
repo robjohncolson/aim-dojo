@@ -1,5 +1,27 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-22)
 
+## -5. 2026-08-21 EVENING: wave 11.2 — THE INVERSE (`f1ad43b`), shipped and live
+- **The mercy wall is now a colour-inversion pane**: ring/rose/veil retire behind flat knob `mercyInverse:1`;
+  one non-depth-writing draw reuses the sibling walls' exact doorway silhouette, face = pure `1-dst` via
+  CustomBlending (OneMinusDstColorFactor/ZeroFactor, white fragment, binary discard edges ONLY — inversion
+  cannot alpha-fade). Night → paper-white with black stars; the next chamber's chalk shows as its own
+  negative (green→plum); the doorway is the only true-colour view, wearing a crimson corona (the mint door
+  glow inverting around it). Crown star stays true gold at order 6.5 over the pane's 6; dust promoted to 7.
+- **The round-2 lesson (reviewer 6/6)**: my renders caught the pane inverting the FOREGROUND (road/cues
+  nearer than it — road never writes depth, pane draws later) — a Lane Law breach during the final peak
+  bar. Fix: a depth-only road-deck guard (child of roadMesh, exact road vertex shader + shared
+  roadMat.uniforms, colorWrite:false depthWrite:true, order 5.5, built AND visible only with a live mercy
+  pane). Foreground true, everything genuinely behind the filter inverted. Target CORES were already safe
+  by law (opaque MeshBasicMaterial writes depth); their additive fringe is guarded by the same prepass.
+- 227/227 tests; 7 constructed mutants killed (all-reader uK table, one-object pane lifecycle true→false,
+  numeric crown apex, representation-independent lane-literal scan across all changed GLSL, target-depth
+  contract, prepass structure, footprint spelling-sync). `mercyInverse:0` → wave-11.1 byte-identical
+  (new frozen fixture moonline-wave11-1-shaders.fixture.json, verified against shipped `e9269e1`), and
+  wallsOn:false still → wave 10. LOW perf, pane staged visible: median +0.5 ms, p90 +3.6 ms (mercy window
+  only; +0 submissions otherwise). Probe: `harness/inverse-probe.mjs` (uK pin + forced pane visibility).
+- Improvement menu still open: doorway crossings as felt events (bloom+whoosh on bar lines), tide-ordered
+  palette (warm→cool toward mercy). The mercy-chamber-as-place item is PARTLY superseded by the pane.
+
 ## -4. LATE 2026-08-21 (post-Enfilade): wave 11.1 + the incantation, all shipped and live
 - **Wave 11.1 — THE BREATH (`a8a668c`)**: the enfilade exhales toward mercy (the wall 2 bars out renders at
   60 % dissolve; the 1-bar slot stays inside wave-11's absolute no-wall gap; inhale after mercy is instant)
