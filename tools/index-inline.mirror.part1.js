@@ -1028,7 +1028,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0 and wallEcho:0 independently restore Wave 11's emitted text. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1928,6 +1928,8 @@ const ML_MARK=ML_NAVE && !!(CFG.moonline && CFG.moonline.markGlyph);      // PAR
 const ML_TERRAIN=ML_NAVE && !!(CFG.moonline && CFG.moonline.terrainOn) && (+CFG.moonline.terrainAmp!==0);   // PARCEL B: either off spelling selects the old plane and every old shader string
 const ML_BITE=ML_NAVE && (+CFG.moonline.curveBite>0);                     // PARCEL C: zero never spends roadCourse's bend budget and never adds a shader uniform or term
 const ML_WALLS=ML_NAVE && !!(CFG.moonline && CFG.moonline.wallsOn) && (+CFG.moonline.wallDissolve>0);
+const ML_WALL_EXHALE=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallExhale)?Math.max(0,Math.min(1,+CFG.moonline.wallExhale||0)):0;   // THE EXHALE, raw knob first: zero preserves Wave 11's uK values and emitted wall text exactly; a fractional live value scales the two named radius pull-ins without another uniform
+const ML_WALL_ECHO=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallEcho);   // THE ECHO, raw boolean first: false excludes both stamps, every echo varying, and all response maths from the wall program
 const ML_WALL_STAR=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallStar);   // THE ONE STAR (user, 2026-08-21): the gold apex star over EVERY door read as wallpaper and was removed; false leaves the star to the MERCY gate alone (the accent point still exists per slot because mercy rotates through them — the shader gates it), true restores the rising string   // WAVE 11 MASTER, raw boolean first: false never reaches a wall/veil/through-glow builder and leaves the Wave 10 nave selected; wallDissolve:0 is the promised build silence
 const ML_SAT=ML_WALLS && ML_MARK && (+CFG.moonline.wallSat>0);             // SATURATED ON THE BEAT belongs to the Wave 11 master: wallsOn:false or wallDissolve:0 cannot leak one uniform or GLSL token; wallSat:0 still isolates Wave 10's resting fill while walls remain
 const ML_HEADING_KEEP=ML_NAVE?Math.max(0,Math.min(1,+CFG.moonline.curveHeading||0)):0;   // keep only a small fraction of tonight's tangent; zero is Wave 9's complete re-base
@@ -1988,6 +1990,8 @@ const ML_WALL_RING_R1=10, ML_WALL_RING_R2=11.6, ML_WALL_PAL_N=512;
 const ML_WALL_LOW_N=7, ML_WALL_N=LOW?ML_WALL_LOW_N:ML_ARCH_N;             // LOW p90 bound: only the seven nearest slots (rear history through 4 bars ahead) receive geometry; the far four die under the existing dissolve horizon instead of paying the doorway SDF overdraw
 const ML_WALL_REAR0=-(ML_ARCH_BEHIND+ML_ARCH_EVERY), ML_WALL_REAR1=-ML_ARCH_BEHIND;   // the retiring rear wall spends its final bar crumbling from full at -8 beats to absent at the -12-beat recycle seam
 const ML_WALL_CHALK=[0xbf7486,0x6f91bc,0x789b6b,0xb99a49,0x8d70ac,0xc48465,0x6ea895];   // night-corrected rose, powder, sage, butter, lilac, peach, mint — chamber pigments, never lane colours
+const ML_WALL_EXHALE2=0.60, ML_WALL_EXHALE1=0.30;                         // two bars out the powder reaches 40% inward; one bar out it reaches 70% — the mercy gap itself remains Wave 11's no-wall span
+const ML_WALL_ECHO_LIFT=0.12, ML_WALL_ECHO_BEATS=1.5, ML_WALL_ECHO_WIDTH=8, ML_WALL_ECHO_SPEED=ML_ARCH_EVERY*ROAD_MPB, ML_WALL_ECHO_DIM=0.10, ML_WALL_ECHO_DIM_BEATS=0.5, ML_WALL_ECHO_STILL_BEATS=1;   // one chamber per beat, an eight-metre warm-white front, bounded lift, and the clank's half-beat wince
 const ML_DUST_MAX=400;                                                    // the hard cap SPEC §4 names, enforced on the CFG read below so no console typo can put 40000 motes on the road
 const ML_DUST_N=ML_RIBBON&&!LOW&&!reduceMotion?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform. WAVE 8.2 (Y1) ADDS reduceMotion TO THE SAME READ: the dust is now the SPACE STREAMING PAST YOU and nothing else — a standing volumetric field is not a quieter version of that cue, it is a fog of dots with no meaning left in it — so reduced motion switches it off exactly the way LOW does, at build time, and the ribbon, the arches and the crossbar tier carry the sixteenth on their own (SPEC_MOONLINE §1.2)
 /* THE DUST WAS SPENT WHERE THE EYE CANNOT RESOLVE IT (wave 8.1 — user first light: "I do not see any stardust coming").
@@ -2052,6 +2056,7 @@ const _roadBase=new THREE.Vector2(0,0), _roadInk=new THREE.Color(0x33b39e);
 const _roadTerrainBase=new THREE.Vector2(0,0), _roadHorizon=new Float32Array(ROAD_TERRAIN_HN*4);   // one shared CPU horizon profile: [forward Y,X, backward Y,X] at each station; every terrain material borrows these exact uniform objects
 const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], _roadMark=new THREE.Color();   // the LANE's own four colours and the FILL's own amber — filled from WASD_HEX / TANK_COLOR in roadSync's one-time block, because both of those literals are declared further down the file and this parcel refuses to keep a second copy of either
 const _wallCol=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNext=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNight=new Uint32Array(ML_WALL_PAL_N); let _wallNightReady=false;
+const _wallHit={value:-1e9}, _wallMiss={value:-1e9};                     // shared uniform OBJECTS: gameplay writes only these stamps; every wall-family material that names one borrows this exact pair
 const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};                         // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate
 function roadWallPalette(seed){
   if(_wallNightReady) return _wallNight;
@@ -2504,9 +2509,9 @@ function roadImpSync(r){
                                                                                                                                                                         
  
                                          
-                                                                                                                                                                       
+                                                                                                                                                                                                                    
                                           
-                                                                                                                                                      
+                                                                                                                                                                                                 
                                            
                  
                                                                                                    
@@ -2514,12 +2519,12 @@ function roadImpSync(r){
                                                                                                                                                                                     
                                             
                                                                              
-                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                            
      
                
                                            
-                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                   
             
                                                                                                 
                                                                                                                                                                                                                               
@@ -2532,11 +2537,12 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                             
                          
                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                   
             
-                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                         
                                                                                           
      
-                                                                                                        
+                                                                                                                                              
                       
      
                                                                                      
@@ -2544,6 +2550,13 @@ function roadImpSync(r){
             
                                                                                                  
                                                                                         
+        
+                    
+                                                                                                                                                                                                  
+            
+                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                               
+       
         
                                             
      
@@ -2553,7 +2566,7 @@ function roadImpSync(r){
                                                                                             
                                                                                                                                                                                                                                                                                                     
                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                       
                                                                                                                                                                                                    
                                                                                                                                               
@@ -2641,7 +2654,16 @@ function roadImpSync(r){
                                                                
                                                                                                                                                                                                                               
                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+               
+                                                 
+                                 
+                                                                                                                                                                                                                                                             
+                                                                                                                                                                                               
+                                                                                                                                                                                                                                                
+                        
+                                                                                                                                       
+     
+                                                                                                                                   
                                                                                                                                                                                                
                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                      
@@ -2658,6 +2680,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                    
                                                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                            
                                                                                                      
                                                                                               
@@ -2750,7 +2773,7 @@ function roadImpSync(r){
                                                                                                                         
                                                                                                                                                                                                 
                                                                                                                                                                                                                            
-                                                                                                                                                                                                      
+                                                                                                                                                                                                     
                                                                                                                                                                                                                                       
                                                                                                                        
                                                                                                                       
@@ -2782,7 +2805,7 @@ function roadImpSync(r){
                                                                                                                                           
                                                                                                                                                                                                                                                                                                             
                                                                                                                                               
-                                                                                                                                                                                        
+                                                                                                                                                                                           
                      
                                                                                                                                             
                                                                                                        
@@ -2830,7 +2853,7 @@ function roadImpSync(r){
                                                                                                                                  
                                                                                                                                                                                                        
                                                                                                                                                                                                 
-                                                                                                                                                                                                      
+                                                                                                                                                                                                     
                                                                                                                                                                                                              
                                                                                                                            
                                                                                                                       
@@ -2960,7 +2983,7 @@ function roadImpSync(r){
    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                               
                                                                                                                                                                                                                     
    
@@ -7831,6 +7854,7 @@ function roadImpSync(r){
                                                                            
                                                                                                                  
    
+                                                                                                                                                                                                                                  
                                                                                                                                                                                                
                       
                                                                                                                                                    
@@ -7891,6 +7915,7 @@ function roadImpSync(r){
                                                                
                     
                                        
+                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                  
                     
                                                                             
@@ -10261,6 +10286,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                        
                       
                                                                                                                                                                                                   
                                                                                                                                                       

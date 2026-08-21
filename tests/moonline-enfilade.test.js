@@ -60,13 +60,13 @@ function productionFlags(options) {
 }
 
 function wallOptions(overrides = {}) {
-  return { markGlyph: true, terrainOn: true, terrainAmp: 1, curveBite: 2.2, wallsOn: true, wallDissolve: 95, wallGlow: 1, wallSat: 1, wallPalette: null, ...overrides };
+  return { markGlyph: true, terrainOn: true, terrainAmp: 1, curveBite: 2.2, wallsOn: true, wallDissolve: 95, wallGlow: 1, wallExhale: 0, wallEcho: false, wallSat: 1, wallPalette: null, ...overrides };
 }
 
 function emittedWallFragment(options = wallOptions()) {
   if (!productionFlags(options).walls) return null;
   const context = vm.createContext({
-    LOW: false, ML_TERRAIN: true, ML_WALL_STAR: false, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_SPRING: 12, ML_WALL_DJ: 7.3, ML_WALL_DA: 7.3, ML_WALL_DB: 5,
+    LOW: false, reduceMotion: false, ML_TERRAIN: true, ML_WALL_STAR: false, ML_WALL_EXHALE: 0, ML_WALL_ECHO: false, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_SPRING: 12, ML_WALL_DJ: 7.3, ML_WALL_DA: 7.3, ML_WALL_DB: 5,
     ML_WALL_BAY_X: 16.5, ML_WALL_BAY_Y0: -70, ML_WALL_BAY_Y1: 21, ML_WALL_POWDER1: 200, ML_WALL_POWDER_NOISE: 22,
     _roadG: (number) => (+number).toFixed(5),
   });
@@ -113,7 +113,7 @@ test("Enfilade palette uses the course date-phase seed and a private stream", ()
     Math, Number, Date: FixedDate, Float32Array, Uint16Array, Uint32Array,
     CFG: { road: { bandGlyphs: true, mercyBoost: 1.6 }, moonline: { curveBite: 2.2, wallPalette: palette, wallDissolve: 95, wallGlow: 1 } }, moonPhaseBucket: () => phase, mulberry32,
     rnd: () => { shared.spawnCalls += 1; return 0.25; }, shared,
-    ROAD_DRAW: 32, ROAD_HARM: 3, ROAD_BEND_M: 181, ROAD_ALPHA: 0.55, ROAD_WAKE: 14, ROAD_GLYPH_PASS: false, ML_HEADING_KEEP: 0.2, ML_BITE: false, ML_TERRAIN: false, ML_WALLS: true, ML_WALL_STAR: false, ML_RIBBON: true, LOW: false, reduceMotion: false,
+    ROAD_DRAW: 32, ROAD_HARM: 3, ROAD_BEND_M: 181, ROAD_ALPHA: 0.55, ROAD_WAKE: 14, ROAD_GLYPH_PASS: false, ML_HEADING_KEEP: 0.2, ML_BITE: false, ML_TERRAIN: false, ML_WALLS: true, ML_WALL_EXHALE: 0, ML_WALL_ECHO: false, ML_WALL_STAR: false, ML_RIBBON: true, LOW: false, reduceMotion: false,
     ML_ARCH_N: 11, ML_WALL_N: 11, ML_ARCH_BEHIND: 8, ML_ARCH_EVERY: 4, ML_WALL_REAR0: -12, ML_WALL_REAR1: -8, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864, ROAD_FAR: 894, ROAD_FAR_ROOM: 260, ML_FOCAL_PX: 494.82,
     ML_WALL_DJ: 7.3, ML_WALL_SPRING: 12, ML_WALL_DA: 7.3, ML_WALL_DB: 5, ML_WALL_APEX: 17, ML_WALL_BAY_X: 16.5, ML_WALL_BAY_Y0: -70, ML_WALL_BAY_Y1: 21,
     ML_WALL_POWDER1: 200, ML_WALL_POWDER_NOISE: 22, ML_WALL_X: 216.5, ML_WALL_Y0: -270, ML_WALL_Y1: 221, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_PAL_N: 512,
@@ -185,7 +185,7 @@ test("Enfilade saturation reaches the pure lane exactly on the beat", () => {
 
 test("Enfilade rear slots crumble before recycle and reduced-motion identities stay pinned", () => {
   const vertexContext = vm.createContext({
-    ML_ARCH_N: 11, ML_ARCH_EVERY: 4, ML_BITE: false, ML_TERRAIN: false, ML_WALL_REAR0: -12, ML_WALL_REAR1: -8, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
+    ML_ARCH_N: 11, ML_ARCH_EVERY: 4, ML_BITE: false, ML_TERRAIN: false, ML_WALL_EXHALE: 0, ML_WALL_ECHO: false, reduceMotion: false, ML_WALL_REAR0: -12, ML_WALL_REAR1: -8, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
     _roadG: (number) => (+number).toFixed(5),
   });
   vm.runInContext(`${extractFunction(html, "roadWallVertexShader")}\nthis.shader=roadWallVertexShader();`, vertexContext);
@@ -197,7 +197,7 @@ test("Enfilade rear slots crumble before recycle and reduced-motion identities s
   const identities = (reduced) => {
     const colours = () => Array.from({ length: 11 }, () => ({ value: null, setHex(value) { this.value = value; } })), wallCol = colours(), wallNext = colours();
     const context = vm.createContext({
-      Math, Number, Float32Array, ML_WALLS: true, ML_NAVE: true, ML_WALL_N: 7, ML_ARCH_N: 11, ML_ARCH_EVERY: 4, ML_ARCH_BEHIND: 8, LOW: false, reduceMotion: reduced,
+      Math, Number, Float32Array, ML_WALLS: true, ML_WALL_EXHALE: 0, ML_WALL_ECHO: false, ML_NAVE: true, ML_WALL_N: 7, ML_ARCH_N: 11, ML_ARCH_EVERY: 4, ML_ARCH_BEHIND: 8, LOW: false, reduceMotion: reduced,
       CFG: { moonline: { naveStreetGold: 1, wallDissolve: 95, wallGlow: 1, dustGlow: 1 } }, _archKind: new Float32Array(11), _wallCol: wallCol, _wallNext: wallNext,
       roadMat: { uniforms: { uNaveGold: null } }, roadArchMat: null, roadWallMat: { uniforms: { uArchN0: { value: 0 }, uWallDissolve: { value: 0 }, uWallGlow: { value: 0 } } }, roadDustMat: null,
       roadTideAt: (beat) => ({ m: ((Math.floor(beat / 4) % 7) + 7) % 7 === 2 ? 1 : 0 }), roadWallPaletteAt: (bar) => bar + 1000,

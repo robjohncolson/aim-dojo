@@ -1028,7 +1028,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -1928,6 +1928,8 @@
                                                                                                                                                                                               
                                                                                                                                                                          
                                                                                                      
+                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                             
                                                                                                                                                                               
@@ -1988,6 +1990,8 @@
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                            
                                                                                                                                                                                                 
+                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                         
@@ -2052,6 +2056,7 @@
                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                           
+                                                                                                                                                                                                        
                                                                                                                                                                           
                                
                                         
@@ -2504,9 +2509,9 @@ function buildNaveVeil(){
   roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
 function roadWallVertexShader(){ return [
-  'uniform float uNow,uArchN0,uWallSeed; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
+  'uniform float uNow,uArchN0,uWallSeed'+(ML_WALL_ECHO&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
   ...(ML_BITE?['uniform vec3 uBite;']:[]),
-  'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(ML_TERRAIN?[roadTerrainShader()]:[]),
   'void main(){',
   '  float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
@@ -2514,12 +2519,12 @@ function roadWallVertexShader(){ return [
   '  float cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
   '  vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x);',
   ...(ML_TERRAIN?['  vWallTerrain=terrainVis(u,P.x,0.0); P.y+=cyAt(u);']:[]),
-  '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);',
+  '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);'+(ML_WALL_ECHO?' vWallClock='+(reduceMotion?'uPulse':'uNow')+'; vWallLocal=1.0-step(1.5,abs(floor(b/'+_roadG(ML_ARCH_EVERY)+')-floor(uNow/'+_roadG(ML_ARCH_EVERY)+')));':''),   // echo AGE follows reduced-motion's live uPulse clock, but LOCALITY follows pinned uNow so the standing chamber remains able to answer at any later beat
   '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
   '}'
 ].join('\n'); }
 function roadWallFragmentShader(){ return [
-  'uniform float uWallDissolve,uWallGlow; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  'uniform float uWallDissolve,uWallGlow'+(ML_WALL_ECHO?',uWallHit,uWallMiss':'')+'; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(!LOW?[
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
@@ -2532,11 +2537,12 @@ function roadWallFragmentShader(){ return [
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
   '  if(d<0.0) discard;',
   '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
+  ...(ML_WALL_EXHALE?['  float wallBars=floor(fract(vWallKind)*100.0+0.5), exhaleRadius=mix('+_roadG(ML_WALL_EXHALE1)+','+_roadG(ML_WALL_EXHALE2)+',step(1.5,wallBars)); exhaleRadius=mix(exhaleRadius,1.0,step(2.5,wallBars)); float wallDissolve=mix(uWallDissolve,uWallDissolve*exhaleRadius,'+_roadG(ML_WALL_EXHALE)+');']:[]),
   ...(!LOW?[
-  '  float powderNoise=wallVn(vec2(x,y)*0.9)*0.6+wallVn(vec2(x,y)*3.7)*0.4, powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r+(powderNoise-0.5)*'+_roadG(ML_WALL_POWDER_NOISE)+'); if(powder<wallVn(vec2(x,y)*5.3+19.1)) discard;',
+  '  float powderNoise=wallVn(vec2(x,y)*0.9)*0.6+wallVn(vec2(x,y)*3.7)*0.4, powder=1.0-smoothstep('+(ML_WALL_EXHALE?'wallDissolve':'uWallDissolve')+','+_roadG(ML_WALL_POWDER1)+',r+(powderNoise-0.5)*'+_roadG(ML_WALL_POWDER_NOISE)+'); if(powder<wallVn(vec2(x,y)*5.3+19.1)) discard;',
   '  float grain=(wallVn(vec2(x,y)*1.6)-0.5)*0.04+(wallVn(vec2(x,y)*0.21+7.3)-0.5)*0.045;'
   ]:[
-  '  float powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r); if(powder<0.5) discard;',
+  '  float powder=1.0-smoothstep('+(ML_WALL_EXHALE?'wallDissolve':'uWallDissolve')+','+_roadG(ML_WALL_POWDER1)+',r); if(powder<0.5) discard;',
   '  float grain=0.0;'
   ]),
   '  float grad=mix(0.42,0.97,smoothstep(0.0,18.5,y)); if(y<0.0) grad*=exp(y*0.05);',
@@ -2544,6 +2550,13 @@ function roadWallFragmentShader(){ return [
   ...(!LOW?[
   '  float rim=1.0-smoothstep(0.02,2.6,d); col=mix(col,vec3(1.0,0.97,0.90),rim*0.30*uWallGlow);',
   '  float nextGlow=exp(-max(d-0.05,0.0)*0.50); col+=vWallNext*nextGlow*0.22*uWallGlow;'
+  ]:[]),
+  ...(ML_WALL_ECHO?[
+  '  float missAge=vWallClock-uWallMiss, missEcho=(1.0-smoothstep(0.0,'+_roadG(ML_WALL_ECHO_DIM_BEATS)+',missAge))*step(0.0,missAge)*vWallLocal; col*=1.0-'+_roadG(ML_WALL_ECHO_DIM)+'*missEcho;',
+  ...(!LOW?[
+  '  float hitAge=vWallClock-uWallHit, hitEcho=(1.0-smoothstep(0.0,'+_roadG(reduceMotion?ML_WALL_ECHO_STILL_BEATS:ML_WALL_ECHO_BEATS)+',hitAge))*step(0.0,hitAge)*vWallLocal'+(reduceMotion?'':'*(1.0-smoothstep('+_roadG(ML_WALL_ECHO_WIDTH*0.5)+','+_roadG(ML_WALL_ECHO_WIDTH)+',abs(max(0.0,abs(x)-'+_roadG(ML_WALL_DJ)+')-hitAge*'+_roadG(ML_WALL_ECHO_SPEED)+')))')+';',
+  '  vec3 echoWarm=vec3(1.0,0.97,0.90); float wallLum=dot(col,vec3(0.2126,0.7152,0.0722)), echoWarmLum=dot(echoWarm,vec3(0.2126,0.7152,0.0722)); float echoLift=min(wallLum*'+_roadG(ML_WALL_ECHO_LIFT)+'*hitEcho,max(0.0,(1.0-wallLum)/echoWarmLum)); col+=echoWarm*echoLift;'
+  ]:[])
   ]:[]),
   '  gl_FragColor=vec4(col*vWallFade,1.0);',
   '}'
@@ -2553,7 +2566,7 @@ function buildRoadWalls(){
   const pos=new Float32Array(ML_WALL_N*12), idx=new Uint16Array(ML_WALL_N*6); let po=0,io=0;
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
-  const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)}};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; construction cannot freeze yesterday before graduation
+  const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_WALL_ECHO&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; the echo pair and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
   const wallVS=roadWallVertexShader();
   roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
   roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
@@ -2641,7 +2654,16 @@ function roadArchFill(n0){
   const AU=(roadWallMat||roadArchMat).uniforms, M=CFG.moonline;
   if(roadMat && roadMat.uniforms.uNaveGold) roadMat.uniforms.uNaveGold.value=ML_NAVE?Math.max(0,Math.min(1,+M.naveStreetGold||0)):0;   // ONE live palette object drives street and dust; 0 is the old fragment result exactly
   const b0=ML_ARCH_EVERY*Math.floor((n0-ML_ARCH_BEHIND)/ML_ARCH_EVERY);
-  if(ML_WALLS){ const wallB0=reduceMotion?-ML_ARCH_BEHIND:b0; for(let k=0;k<ML_WALL_N;k++){ const b=wallB0+ML_ARCH_EVERY*k; _archKind[k]=(roadTideAt(b).m===1)?1:0; if(!_archKind[k]&&(roadTideAt(b+ML_ARCH_EVERY).m===1||roadTideAt(b-ML_ARCH_EVERY).m===1||roadTideAt(b-2*ML_ARCH_EVERY).m===1)) _archKind[k]=2; const bar=Math.floor(b/ML_ARCH_EVERY); _wallCol[k].setHex(roadWallPaletteAt(bar)); _wallNext[k].setHex(roadWallPaletteAt(bar+1)); } }   // kind 2 clears one bar before through two after the ring; reduceMotion keys kind and colour to the pinned station, so no standing wall can swap identity on a live bar
+  if(ML_WALLS){
+    const wallB0=reduceMotion?-ML_ARCH_BEHIND:b0;
+    for(let k=0;k<ML_WALL_N;k++){
+      const b=wallB0+ML_ARCH_EVERY*k, here=roadTideAt(b).m===1, before1=roadTideAt(b+ML_ARCH_EVERY).m===1, before2=ML_WALL_EXHALE&&roadTideAt(b+2*ML_ARCH_EVERY).m===1, after1=roadTideAt(b-ML_ARCH_EVERY).m===1, after2=roadTideAt(b-2*ML_ARCH_EVERY).m===1;
+      let kind=here?1:((before1||after1||after2)?2:0);                    // integer part is Wave 11's identity: 0 wall · 1 mercy ring · 2 no-wall span, still one bar before through two after
+      if(ML_WALL_EXHALE) kind+=(before1?1:(before2?2:3))*0.01;           // fractional hundredths carry capped bars-to-mercy; even suppressed slots retain the honest radius input, and the first wall after mercy is full on its first downbeat
+      _archKind[k]=kind;
+      const bar=Math.floor(b/ML_ARCH_EVERY); _wallCol[k].setHex(roadWallPaletteAt(bar)); _wallNext[k].setHex(roadWallPaletteAt(bar+1));
+    }
+  }   // reduceMotion keys kind, exhale state and colour to the pinned station, so no standing wall can swap identity on a live bar
   else for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // the inherited ring authority remains the exact Wave 10 assignment when the wall master is off
   AU.uArchN0.value=reduceMotion?-ML_ARCH_BEHIND:b0;                       // reduceMotion: the gates STAND STILL as a ruler of the coming bars while the mercy table scrolls through them — exactly how uBeat0 scrolls the band table under a standing ribbon
   if(ML_WALLS){ AU.uWallDissolve.value=Math.max(1,Math.min(199,+M.wallDissolve||95)); AU.uWallGlow.value=LOW?0:Math.max(0,+M.wallGlow||0); if(roadDustMat) roadDustMat.uniforms.uDustGlow.value=Math.max(0,+M.dustGlow||0); return; }
@@ -2658,6 +2680,7 @@ function roadArchFill(n0){
   const HW=_roadG(ROAD_HALF_W), INV=_roadG(1/ROAD_MPB), SL=_roadG(ROAD_SLOTS), WK=_roadG(ROAD_WAKE), ISL=_roadG(1/ROAD_SLOTS);   // INV: metres → beats. ROAD_MPB IS ROAD_BAND_M with moonline.on:false, so this literal is the one wave 7 compiled
   const LWC=_roadG(ROAD_LINE_PX/(EYE*(180/Math.PI)*(1080/95)));           // metres of crossbar thickness per d² — the constant-pixel law, from the same optics ROAD_TIER_D came from
   const TIER=(rate,k)=>_roadG(ROAD_TIER_W[k])+'*(1.0-smoothstep('+_roadG(ROAD_TIER_D*Math.pow(2,k))+','+_roadG(ROAD_TIER_D*Math.pow(2,k+1))+',d))*xb(b*'+_roadG(rate)+',min('+_roadG(ROAD_LINE_MAX)+',lwm*'+_roadG(rate/ROAD_MPB)+'))';   // ONE crossbar tier: its weight × its distance window × the line itself. Rate 16 = the sixteenth carrier, 4 = the quarter, 1 = the "1", 0.25 = the bar
+  const PULSE=reduceMotion&&ML_WALL_ECHO?'(abs(fract(uPulse+0.5)-0.5)<0.12?1.0:0.0)':'uPulse';   // echo reuses this existing shared object as the live road clock only on the standing path; every road pulse reconstructs its shipped binary envelope with WebGL1-safe arithmetic
   roadBandTex=new THREE.DataTexture(_roadBandBuf, ROAD_SLOTS, 1, THREE.RGBAFormat);   // THE MEANING's band table: 23 texels, one per visible beat. NEAREST + ClampToEdge + no mips = the bytes arrive exactly as written, and a dynamic index into it is free where a uniform array would have cost a loop
   roadBandTex.magFilter=roadBandTex.minFilter=THREE.NearestFilter; roadBandTex.generateMipmaps=false;
   roadBandTex.wrapS=roadBandTex.wrapT=THREE.ClampToEdgeWrapping; roadBandTex.needsUpdate=true;
@@ -2742,7 +2765,7 @@ function roadArchFill(n0){
       '  float markWall='+(LOW?'0.72':'0.58+0.72*(1.0-smoothstep(0.45,-0.15,dFdy(markD)/max(fwidth(markD),1e-5)))')+', markLead=markGroove*markDet*markWall;',
       ...(ML_SAT ? [
       ...(reduceMotion ? [] : ['  float markPhase=floor(b)-uNow;']),
-      '  float markSat='+(reduceMotion?'uPulse':'(1.0-smoothstep(0.0,'+_roadG(ML_WALL_SAT_RAMP)+',max(markPhase,0.0)))*smoothstep(-0.25,0.0,markPhase)')+'*clamp(uWallSat,0.0,1.0)*ahead;',   // one CELL envelope: every fragment shares floor(b); the band edge, not its centre, is the audible beat. Standing geometry takes the already-established uPulse beat instead of retaining a spatial gradient
+      '  float markSat='+(reduceMotion?PULSE:'(1.0-smoothstep(0.0,'+_roadG(ML_WALL_SAT_RAMP)+',max(markPhase,0.0)))*smoothstep(-0.25,0.0,markPhase)')+'*clamp(uWallSat,0.0,1.0)*ahead;',   // one CELL envelope: every fragment shares floor(b); the band edge, not its centre, is the audible beat. Standing geometry takes the already-established pulse envelope instead of retaining a spatial gradient
       '  vec3 markCol=mix(lc,lanePure,min(1.0,markSat)); float markLift=min('+_roadG(ML_WALL_SAT_PEAK_LIFT)+'*markSat,max(0.0,1.0-max(max(markCol.r,markCol.g),markCol.b)));',
       '  vec3 col=mix(uInk,markCol,mixL*markInside);'
       ] : ['  vec3 col=mix(uInk,lc,mixL*markInside);'])
@@ -2750,7 +2773,7 @@ function roadArchFill(n0){
       '  float ink='+_roadG(ROAD_CELL_INK)+'*fillA*lum*inner+'+_roadG(ROAD_GRID_INK)+'*g+'+_roadG(ROAD_RAIL_INK)+'*rail'
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
       ...(ML_MARK ? ['  ink+='+_roadG(ROAD_CELL_INK)+'*((markFill+0.18*min(1.0,mercy)*fillA)-fillA)*lum*inner; ink*=1.0-0.88*markCut; ink+=markFill*(0.36+0.68*markCore'+(ML_SAT?'+markLift':'')+')+markLead*0.24;'] : []),
-      '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner;',                 // reduceMotion only: the cells pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
+      '  ink+='+_roadG(ROAD_INK_PULSE)+'*'+PULSE+'*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner;',             // reduceMotion only: the cells pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
       '  col=mix(col, uMark, min(1.0, gb*markE));',                                                       // THE FILL'S GATES: the tank's own amber on the beats its figure still owes — "3, 4, 1" rolling in, riding the "1" crossbar
       // ---- the lane's GLYPH, mid-cell — NOT EMITTED ON ANY TIER UNDER THE RIBBON (ROAD_GLYPH_PASS, index.html:1748).
       //      SPEC_MOONLINE §1's cue contract: the Moonline's road is COLOUR-ONLY and the required LETTER lives at the
@@ -2782,7 +2805,7 @@ function roadArchFill(n0){
       ...(ML_MARK ? ['  nave+=mix(ng,nw,0.55)*('+_roadG(ROAD_CELL_INK)+'*fillA*lum*inner*1.35*'+_roadG(ROAD_MARK_STONE_HONEY)+');'] : []),
       '  nave+=cell*('+_roadG(ROAD_CELL_INK)+'*'+(ML_MARK?'markFill':'fillA')+'*lum*inner*1.35)+ng*('+_roadG(ROAD_GRID_INK)+'*g*0.86+'+_roadG(ROAD_RAIL_INK)+'*rail*1.20)+nw*(barN*0.32+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d)))'+(ML_MARK?'+nw*(min(1.0,mercy)*fillA*lum*inner*0.20)':'')+';',
       ...(ML_MARK ? ['  nave*=1.0-0.88*markCut; nave+=cell*markFill*(0.72+0.64*markCore'+(ML_SAT?'+markLift':'')+')+ng*markLead*0.44;'] : []),
-      '  nave+=nh*(pool*0.055+foot*0.10)*inner+nw*'+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner; nave*=1.0+uBreath; nave=mix(nave,uMark,min(1.0,gb*markE));',
+      '  nave+=nh*(pool*0.055+foot*0.10)*inner+nw*'+_roadG(ROAD_INK_PULSE)+'*'+PULSE+'*(d<'+_roadG(ROAD_MPB)+'?1.0:0.4)*inner; nave*=1.0+uBreath; nave=mix(nave,uMark,min(1.0,gb*markE));',
       ...(ML_MARK ? [
       '  float roadA=outer*fade*uAmt'+(ML_TERRAIN?'*vTerrainVis':'')+', socketA=0.85*markCut*fade*outer'+(ML_TERRAIN?'*vTerrainVis':'')+';',
       '  gl_FragColor=vec4(mix(col*ink,nave,uNaveGold)*roadA+vec3(0.004,0.003,0.002)*socketA,socketA);'
@@ -2830,7 +2853,7 @@ function roadArchFill(n0){
       '  float ink=mix('+_roadG(ROAD_INK_BASE)+','+_roadG(ROAD_INK_BODY)+',has)*lum+'+_roadG(ROAD_INK_EDGE)+'*edge*(1.0+rel*0.6)'
         +(LOW?'':'+'+_roadG(ROAD_INK_RAIL)+'*smoothstep('+HW+'-aa*3.0,'+HW+',lat)')                       // the two rails: the ribbon's own boundary, and what makes the bend readable eight beats out
         +'+'+_roadG(ROAD_INK_NOW)+'*(1.0-smoothstep(0.0,1.2,d));',                                        // THE NOW-LINE: a thin bright rule at the feet — the beat, exact to the grading clock
-      '  ink+='+_roadG(ROAD_INK_PULSE)+'*uPulse*(d<'+_roadG(ROAD_BAND_M)+'?1.0:0.4);',                    // reduceMotion only: the bands pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
+      '  ink+='+_roadG(ROAD_INK_PULSE)+'*'+PULSE+'*(d<'+_roadG(ROAD_BAND_M)+'?1.0:0.4);',                // reduceMotion only: the bands pulse IN PLACE (uPulse is pinned to 0 on the scrolling path)
       '  col=mix(col, uMark, min(1.0, edge*markE));',                                                     // THE FILL'S GATES: the tank's own amber on the beats its figure still owes — "3, 4, 1" rolling in
       // ---- the lane's GLYPH, mid-band: fract(b)=0.5 is where the lane's main note grades, so the letter reaches the feet
       //      exactly when its key is due. Stretched down the road (ROAD_GLYPH_L : ROAD_GLYPH_W) like pavement text so
@@ -2960,7 +2983,7 @@ function roadSync(){
   }
   if(ML_RIBBON) U.uBreath.value=roadBreath(r);                            // THE BREATH (wave 8.1), written BEFORE the reduceMotion fork so the standing road is never left holding a stale swell: roadBreath's own gate yields 0 there (see its comment — the pre-wave-7 wash was off under reduced motion in free play, and so is this). One float, no allocation, and the whole line is behind the build-time switch, so moonline.on:false does not even make the call
   if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
-    U.uPulse.value=(Math.abs(r-Math.round(r))<0.12)?1:0;                  // …and the bands PULSE IN PLACE on the heard beat, by the same discrete law the trainer's reduced-motion floor flash uses (index.html:7302). Zero motion, all information — and still the one clock, since r is the very same latency-corrected beat the scrolling path scrolls by
+    U.uPulse.value=ML_WALL_ECHO?r:((Math.abs(r-Math.round(r))<0.12)?1:0); // …and the bands PULSE IN PLACE on the heard beat. Echo-on reuses this existing object for raw r so its static glow can age; the emitted road shader reconstructs this exact binary law, while echo-off keeps the shipped write
     roadImpSync(0);                                                       // the impostor reads the SAME pinned clock the geometry does, so the painted horizon is frozen with the standing ribbon — static, not merely slower
     return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
   }
@@ -4658,76 +4681,76 @@ function ensureListenCardShell(){
   _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
   return d;
 }
-function showListenCard(pick, data, skeleton){
-  // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
-  // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
-  const card=ensureListenCardShell();
-  const body=_lsn.cardBody||card;
-  if(_lsn.cardBody) body.textContent=''; else card.textContent='';
-  // Re-ensure dismiss button if we wiped card text (legacy path)
-  if(!_lsn.cardBody){ _lsn.card=null; ensureListenCardShell(); return showListenCard(pick,data,skeleton); }
-  card.style.display='block';
-  if(_lsn.dismissBtn){
-    _lsn.dismissBtn.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
-    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','R-CLICK or X to close'):'R-CLICK or X to close';
-  }
-  // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
-  if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
-  const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
-  const signGlyph=signMeta?signMeta.glyph:(SKY_SIGN_GLYPHS[signId]||'');
-  const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
-  const A=data&&data.placement, P=data&&data.personal;
-  // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
-  const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
-  // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
-  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
-  if(skeleton){
-    _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
-    _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
-                                      : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
-    _lsnLine(body, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
-  }
-  // YOUR CHART appears only after the optional personal desk actually returns content; a natal pack alone never displaces or nags over the glossary.
-  if(hasPersonal){
-    _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
-    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
-    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
-    if(P.text) _lsnLine(body, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
-    if(Array.isArray(P.highlights) && P.highlights.length){
-      _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
-      for(const h of P.highlights.slice(0,3)){
-        if(!h) continue;
-        const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
-        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
-        else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
-        if(h.text) _lsnLine(body,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
-        else if(!h.title) _lsnLine(body,seal,'color:var(--bone-dim);');
-      }
-    }
-  }
-  // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
-  _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
-  _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
-                                    : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
-  if(A && (A.title||A.text)){
-    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
-    if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
-  } else if(pick.kind==='body') _lsnLine(body, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
-  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
-    for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
-    for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
-    if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
-    if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
-  }
-  if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
-  _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
-  _lsnLine(body, T('skyListenDismissHint','R-CLICK or X to close · empty sky also works'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
-}
-function paintStudySurface(pick, data, skeleton){
-  // Temple owns investigation chrome; legacy dojo Listen card only when explicitly re-enabled.
-  if(templeActive) fillTempleStudy(pick, data, skeleton);
-  else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
-}
+                                              
+                                                                                                     
+                                                                                                                    
+                                     
+                                 
+                                                                  
+                                                                 
+                                                                                                           
+                             
+                      
+                                                                                                                                  
+                                                                                                                          
+   
+                                                                                                                 
+                                                      
+                                                                                                                                                       
+                                                                        
+                                                                                                                                   
+                                                      
+                                                                                                               
+                                                                                                                                                
+                                                                                                         
+                                                                                                                     
+               
+                                                    
+                                                                                                                                                 
+                                                                                              
+                                                                                     
+   
+                                                                                                                                                     
+                  
+                                                        
+                                                            
+                                                                                                                                                                                                                            
+                                                                                                 
+                                                           
+                                                                              
+                                              
+                        
+                                                                                                                                                                       
+                                                                                                                                                     
+                                                                                    
+                                                                                                  
+                                                                       
+       
+     
+   
+                                                                                                            
+                                                                                     
+                                                                                                                                               
+                                                                                            
+                             
+                                                                                              
+                                                                                                      
+                                                                                                                                                             
+                                                                                                                  
+                                                                                                                
+                                                                                        
+                                                                                       
+                                                                                                                               
+   
+                                                                                                                                                                 
+                                                                                                                                                
+                                                                                                                                                                                     
+ 
+                                                 
+                                                                                               
+                                                         
+                                                                               
+ 
                                                                                                                                             
                                                                                                                                                   
                              
@@ -7831,6 +7854,7 @@ function paintStudySurface(pick, data, skeleton){
                                                                            
                                                                                                                  
    
+                                                                                                                                                                                                                                  
                                                                                                                                                                                                
                       
                                                                                                                                                    
@@ -7891,6 +7915,7 @@ function paintStudySurface(pick, data, skeleton){
                                                                
                     
                                        
+                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                  
                     
                                                                             
@@ -10261,6 +10286,7 @@ function paintStudySurface(pick, data, skeleton){
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                        
                       
                                                                                                                                                                                                   
                                                                                                                                                       
