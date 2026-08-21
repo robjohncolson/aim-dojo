@@ -66,7 +66,7 @@ function wallOptions(overrides = {}) {
 function emittedWallFragment(options = wallOptions()) {
   if (!productionFlags(options).walls) return null;
   const context = vm.createContext({
-    LOW: false, ML_TERRAIN: true, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_SPRING: 12, ML_WALL_DJ: 7.3, ML_WALL_DA: 7.3, ML_WALL_DB: 5,
+    LOW: false, ML_TERRAIN: true, ML_WALL_STAR: false, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_SPRING: 12, ML_WALL_DJ: 7.3, ML_WALL_DA: 7.3, ML_WALL_DB: 5,
     ML_WALL_BAY_X: 16.5, ML_WALL_BAY_Y0: -70, ML_WALL_BAY_Y1: 21, ML_WALL_POWDER1: 200, ML_WALL_POWDER_NOISE: 22,
     _roadG: (number) => (+number).toFixed(5),
   });
@@ -113,7 +113,7 @@ test("Enfilade palette uses the course date-phase seed and a private stream", ()
     Math, Number, Date: FixedDate, Float32Array, Uint16Array, Uint32Array,
     CFG: { road: { bandGlyphs: true, mercyBoost: 1.6 }, moonline: { curveBite: 2.2, wallPalette: palette, wallDissolve: 95, wallGlow: 1 } }, moonPhaseBucket: () => phase, mulberry32,
     rnd: () => { shared.spawnCalls += 1; return 0.25; }, shared,
-    ROAD_DRAW: 32, ROAD_HARM: 3, ROAD_BEND_M: 181, ROAD_ALPHA: 0.55, ROAD_WAKE: 14, ROAD_GLYPH_PASS: false, ML_HEADING_KEEP: 0.2, ML_BITE: false, ML_TERRAIN: false, ML_WALLS: true, ML_RIBBON: true, LOW: false, reduceMotion: false,
+    ROAD_DRAW: 32, ROAD_HARM: 3, ROAD_BEND_M: 181, ROAD_ALPHA: 0.55, ROAD_WAKE: 14, ROAD_GLYPH_PASS: false, ML_HEADING_KEEP: 0.2, ML_BITE: false, ML_TERRAIN: false, ML_WALLS: true, ML_WALL_STAR: false, ML_RIBBON: true, LOW: false, reduceMotion: false,
     ML_ARCH_N: 11, ML_WALL_N: 11, ML_ARCH_BEHIND: 8, ML_ARCH_EVERY: 4, ML_WALL_REAR0: -12, ML_WALL_REAR1: -8, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864, ROAD_FAR: 894, ROAD_FAR_ROOM: 260, ML_FOCAL_PX: 494.82,
     ML_WALL_DJ: 7.3, ML_WALL_SPRING: 12, ML_WALL_DA: 7.3, ML_WALL_DB: 5, ML_WALL_APEX: 17, ML_WALL_BAY_X: 16.5, ML_WALL_BAY_Y0: -70, ML_WALL_BAY_Y1: 21,
     ML_WALL_POWDER1: 200, ML_WALL_POWDER_NOISE: 22, ML_WALL_X: 216.5, ML_WALL_Y0: -270, ML_WALL_Y1: 221, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_PAL_N: 512,
