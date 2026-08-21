@@ -1,4 +1,36 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-19 evening)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-21 night)
+
+## -3. THE VISUAL REDESIGN ARC (2026-08-20 → 21): waves 9–11, all shipped and live
+Three waves in ~36 h, all via the Codex dispatch loop (§-1 below), all user-directed through RENDERED STUDIES
+(the loop that works: build 2-3 standalone Three.js studies in the scratchpad, screenshot at the GAME camera
+(eye 4 m, FOV 95), let the user pick/refine, only then spec + build). Studies live under scratchpad/studies*/.
+- **Wave 9 — THE NAVE (`5802a0f`)**: white lit-stone round coffered arches (SERENE study), gold-star vault
+  canopy, honey-glass street behind `naveStreetGold`. The review caught a LANE-SWAP BLOCKER (spec listed hues
+  in non-lane order; W painted green). LAW SINCE: lane colours derive ONLY from uL0..uL3 ← _roadLaneCol ←
+  WASD_HEX (0=W cyan, 1=A green, 2=S gold, 3=D pink); chain tests in `f435805`; NO lane-colour literal ever.
+- **Wave 10 — THE TERRAIN (`047deab`)**: carved chevron marks replace the full-width lane bands (dark socket
+  under them — gold-on-gold vanishes without it), re-based elevation (deck always at the feet; only curvature
+  reads; crests cost lookahead — user accepted the trade knowingly, `terrainAmp` dials it), 7-beat/2.2 m curve
+  harmonic (+20 % tangent kept). `leanBite:0.25` keeps the tracking drill's p90 lean within 1 % of wave 9 —
+  the dolly moving the aim is DELIBERATE shipped design; the review misread it as a violation. Perf lesson:
+  the dark socket re-submitted the whole ribbon; diagnose by FOUR-VARIANT measurement, never one-variable.
+- **Wave 11 — THE ENFILADE (`992e75f`)**: pastel chalk walls the road PIERCES (up/down/sideways, solid ~95 m,
+  powder-dissolve by ~200), tall oblate doorways with veduta light, night-seeded chamber palette (private rng
+  stream off roadCourse's key, lazily seeded at first live sync), NO side walls (Echoes spawn 360°), glow-
+  through pass for walled orbs (GreaterDepth, scope documented as accepted), mercy = no wall one bar before
+  → two after the ring, chevrons SATURATE TO PURE LANE COLOUR exactly at the audible band-edge (floor(b)−uNow
+  — per-fragment keying peaked half a beat late; review caught it). LOW station cap 7 fixed p90 73→34 ms.
+  Kill-switches: `wallsOn:false` → wave-10 byte-identical (frozen fixture, each switch tested ALONE).
+- Recurring review lesson: the frozen-fixture test has missed a coupling in EVERY wave (gate not including the
+  master switch); test each kill-switch ALONE, and construct the surviving mutation.
+- Harness facts: make-harness.py injects __dbg (now exposes CFG/materials/glob eval); server PORT 8771 (8765
+  was stolen by another session's server — check what you're actually serving); Codex's sandbox has NEVER been
+  able to render or bind ports — the dispatcher renders, Codex must not claim frames it didn't make.
+- Debugging law from the study rounds: when patches provably apply but pixels don't change, stop theorizing
+  and do PER-OBJECT ELIMINATION (hide scene children, measure pixels). The culprit was exp(-y) diverging below
+  the deck — the HALF-SPACE HAZARD is now named in specs and audited per wave.
+
+# (superseded) CONTINUATION_PROMPT — Moon Chorus / aim-dojo (2026-08-19 evening)
 
 > Supersedes the 2026-07-08 handoff (`git show 4e145b8:CONTINUATION_PROMPT.md`). Durable design record: memory `aim-dojo-unified-vision.md`. Deploy facts: memory `aim-dojo-deploy-infra`. HEAD at handoff: **d906ccf** on `main`, working tree clean, live at **aim-dojo.vercel.app** (push to `main` auto-deploys in seconds).
 
