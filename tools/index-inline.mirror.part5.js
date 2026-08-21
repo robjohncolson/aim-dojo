@@ -755,7 +755,7 @@
                                                                                 
                                                                                                                                                      
                                                                                                                                                 
-                                                                                                                               
+                                                                                                                                                                        
                                                                                                           
                                                         
                                                                                                                                                          
@@ -10142,10 +10142,15 @@ setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first e
 let _senseiAway=false, _konamiI=0;   // THE OLD CODE (user, 2026-08-21): ↑↑↓↓←→←→BA on the start card and Moon Sensei looks away — PLAY then opens the full night directly. A cheat, not a setting: per-visit, never persisted, no UI beyond one toast, so the "always trainer" law still holds for everyone who does not already know the way in
 const _KONAMI=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'];
 document.addEventListener('keydown',(e)=>{
-  if(_senseiAway || state.running || templeActive || !overlay || overlay.classList.contains('hidden') || isTypingTarget(e.target)) return;   // the code is spoken to the start card only
+  const card=!state.running && overlay && !overlay.classList.contains('hidden');                                                             // the start card…
+  const lesson=state.running && trainMode && !templeActive;                                                                                 // …or MID-LESSON (user, 2026-08-21: "better yet, within the tutorial") — Sensei can be asked to look away while teaching
+  if((!card && !lesson) || (_senseiAway && !lesson) || isTypingTarget(e.target)) return;
   _konamiI=(e.code===_KONAMI[_konamiI])?_konamiI+1:(e.code===_KONAMI[0]?1:0);                                                               // a wrong key resets; a wrong key that is ↑ restarts the incantation
-  if(_konamiI>=_KONAMI.length){ _senseiAway=true; _konamiI=0; try{ showGhostToast('✦ '+T('konamiToast','MOON SENSEI LOOKS AWAY · PLAY opens the full night')); }catch(err){} }
-});
+  if(_konamiI>=_KONAMI.length){ _senseiAway=true; _konamiI=0;
+    if(lesson){ e.preventDefault(); e.stopImmediatePropagation(); setTrainPhase(3); }                                                        // the closing A is the incantation's, not a lane tap — swallow it, and graduation is the game's own (setTrainPhase(3) = THE DISSOLVE)
+    try{ showGhostToast('✦ '+(lesson?T('konamiToastNow','MOON SENSEI LOOKS AWAY · THE FULL NIGHT'):T('konamiToast','MOON SENSEI LOOKS AWAY · PLAY opens the full night'))); }catch(err){}
+  }
+},true);
 if(beginTrainBtn) beginTrainBtn.addEventListener('click', ()=>{ if(beginTrainBtn.disabled) return; beginAs(!_senseiAway); });   // always trainer → Full Night by graduation (no skip gate)
 function cancelLockRetry(){
   clearTimeout(_lockRetryT); _lockRetryT=null; _lockRetries=0; _lockReqPending=false;
