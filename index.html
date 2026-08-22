@@ -955,6 +955,8 @@ const CFG = {
   wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01],   // THE FORTY FIX (wave 7, parcel R): the NOTE LANE now owns its own density ladder instead of borrowing the orb strobe's. It was one ladder on purpose (2026-06-23, "no separate difficulty system") and that was right while the tiers sat at bpm 80.8/134.0 — nobody ever reached them. THE SIXTY CAP moved the same thresholds to 36.0/50.0, so from ~37.5 bpm on the lane silently DOUBLED the required presses (and quadrupled them at 50) onto raw downbeats that collide with shot arrival — one demanded key per beat, the lane's whole contract, quietly stopped being true a third of the way up the mountain. Same SHAPE as beatQuantT (divs/2 = notes per beat), different thresholds: see wasdNoteDiv() for the crossing arithmetic. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched — this is a decoupling, not a retune.
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
+  ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
+  ghostSeat:1,   // NIGHT GHOSTS S: raw flat kill-switch. 0 allocates and draws no echo-seat object; 1 may load one validated prior-night artifact into the separate +90 m Veiled Choir
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   // THE SURVIVING EXPERT k-SET UNDER THE SIXTY CAP (parcel P, computed with the real solver in beatSpawnDist against the SHIPPED constants — projSpeed 28/projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28): the LIST DOES NOT CHANGE — infeasible k's have always dropped out by arithmetic, and they still do. AT EXACTLY 60 BPM (dT 1.00, s 72 m/s) against rangeMax the feasible set is {2, 3, 4, 6} at d = {9.00, 13.50, 17.99, 26.98} m; k=8/12/16 need 35.94/53.81/71.55 m and are out of reach. Over the WHOLE new live band 20..60 (far = rangeMax): k=2,3,4 are feasible throughout, k=6 enters at 40.1 bpm, k=8/12/16 never — the expert lead is therefore the SIX-sixteenth (3/8-beat) call, not the old 8..16. On a LAST QUARTER (farMul 1.3, band 10.4..36.4 m) the set at 60 shifts out to {3, 4, 6, 8}, which is the one night k=8 speaks at all. At the CLOSE end (state.range at rangeStart 11) only k=2 is ever feasible, at every tempo — so a night's k vocabulary genuinely opens as the distance shell marches out, which is what the shell was for.
@@ -6745,6 +6747,7 @@ function bowReset(){
   _bow.stage=BOW.IDLE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false; _bow.dots=false;
 }
 function bowFinish(){
+  if(GH_RECORD) ghostRecordFinalize();   // NIGHT GHOSTS: the completed Bow is the only save boundary; false starts and ordinary pauses never reach storage
   bowReset();   // tempo, canvas, coach and the spawn gate are all back BEFORE the exit — the pause card inherits a clean session
   state.needsReset=true;   // a COMPLETED Bow is a session boundary, not a pause: the same flag the fresh-start path reads (enterRunning), so the next entry runs resetSession() — t, hits, streak, the tick, the Mandala ledger and the adaptive tempo all back to CFG.startBpm. Without it the "next run" silently continued this night. An ESC-pause / grace-cancel goes through bowReset alone and never sets it
   if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(e){ exitRunning(); } }   // pointerlockchange → exitRunning → the existing start/pause overlay (touch/pad runs never held a lock, so they exit directly)
@@ -7839,6 +7842,7 @@ function spawnTarget(opts){
   if(CFG.sing.on) singTargetSound(snd, kind, _beatSpawnK, true);   // ORBS SING THEIR DISTANCE: pitch this orb's hum from its FINAL k (the tank's close re-draw above already landed) and let its first gate-open call out. Raw boolean first so the parcel off costs one read and no call.
   tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
+  if(GH_RECORD) ghostRecordSpawn(tg);   // NIGHT GHOSTS: a write-only tap after every spawn decision and RNG draw is final; the recorder returns nothing and no gameplay value can flow back
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }
 function reconcileTargetSounds(){
@@ -7877,6 +7881,7 @@ function changeBpm(delta,up){
   // untouched, and it is the RUN's peak only: the dojo board's stored legacy >60 rows are history and are never re-clamped.
   const prev=state.bpm; state.bpm=Math.max(CFG.minBpm,Math.min(CFG.maxBpm,state.bpm+delta));
   if(state.bpm===prev) return; sinceAdjust=0; state.maxBpm=Math.max(state.maxBpm,state.bpm);
+  if(GH_RECORD) ghostRecordBpm(state.bpm);   // NIGHT GHOSTS: the recorder observes the one committed tempo write; no tempo consumer reads it back
   if(toneReady){ try{ Tone.Transport.bpm.rampTo(state.bpm,0.3); }catch(e){} }
   renderPrimary(up,true); sfx(up?'levelUp':'levelDown');
 }
@@ -7903,7 +7908,7 @@ function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb'
   if(h>state.maxHitHeight) state.maxHitHeight=h;
   if(el.hitFlash){ setText(el.hitFlash, '◎ '+fmtDist(dist)+'   ▲ '+fmtDist(h)); el.hitFlash.classList.remove('show'); void el.hitFlash.offsetWidth; el.hitFlash.classList.add('show'); }
 }   // (the far/high/streak "★ NEW RECORD" flash was removed — records are now just time + BPM, which are end-of-run, not per-hit)
-function gradeRhythmHit(tg, point, atT, atBpm){
+function gradeRhythmHit(tg, point, atT, atBpm, fireRow){
   const wasTrain=trainMode;   // 1.1 amendment (wave 5a review, H1): THE MODE THIS ARRIVAL BELONGS TO, latched before a single line of trainer bookkeeping runs. noteTrainOrb below can graduate the run mid-function (setTrainPhase(3) sets trainMode=false), so every post-graduation-only consumer further down would read `false` for the very hit that was still a LESSON — and two of them write to localStorage. Latched here, the graduating orb is a trainer orb for the whole of its own grading, exactly like the seven before it
   if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
   const beats=(atT - tg.born)/(60/(atBpm!=null?atBpm:state.bpm));               // grade against the tempo at commit time too (it can step mid-flight in free-play)
@@ -7916,8 +7921,10 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.kind===2){                                                          // DECOY: never scores — the hit IS the penalty (streak break + a wasted shot). Skip the grade path entirely; h/score untouched.
     state.streak=0; pushReaction(beats); pushEvent(false);
     showTiming(T('decoy','NOT A VOICE'),T('decoySub','let it pass'),'off');
+    if(GH_RECORD) ghostRecordTargetOutcome(tg,1,fireRow);
     popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); padRumble(70,0.9); killTarget(tg, false); return;
   }
+  if(GH_RECORD) ghostRecordTargetOutcome(tg,1,fireRow);   // NIGHT GHOSTS: the arrival writes its compact outcome and launch-owned fire row only; grading never reads the ledger
   if(ML_WALL_ECHO&&gradeIdx===0) _wallHit.value=reduceMotion?roadMat.uniforms.uPulse.value:roadMat.uniforms.uNow.value;   // THE ECHO: one FLAWLESS stamp in the road's already-written clock, never a new judgement or clock read
   if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
   else state.streak=0;
@@ -7967,7 +7974,7 @@ function missCamKick(strong){   // subtle FOV only — trauma carries the rest
   if(reduceMotion) return;
   missKickDur=strong?0.12:0.08; missKickT=missKickDur;
 }
-function clankShot(tg, point, soft){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
+function clankShot(tg, point, soft, fireRow){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
   // SOFT THUD (spec 1.2 amendment T3): soft=true is the DRUM FILL's off-figure landing, and it is the ONE clank that
   // charges nothing. A stated figure is an offer, and declining it is already free (onExpire's neutral branch) — but the
   // shipped code charged you a shot, broke your streak and fed pushEvent(false) into the adaptive-accuracy window and the
@@ -7977,6 +7984,7 @@ function clankShot(tg, point, soft){   // OFF-beat shield hit — clearer than a
   // your own silence — because that feedback is how you find the sixteenth. Only the LEDGER is spared. Every other caller
   // passes two arguments, so soft is undefined there and this is byte-identical to the shipped clank.
   if(!soft){ state.shots++; state.streak=0; pushEvent(false); }
+  if(GH_RECORD) ghostRecordClank(tg,fireRow);   // NIGHT GHOSTS: write-only arrival tap; the target stays pending and its launch-owned fire row stays false
   flashReticleBad();
   playClankSfx(); missGrooveDuck(true);
   if(ML_WALL_ECHO) _wallMiss.value=reduceMotion?roadMat.uniforms.uPulse.value:roadMat.uniforms.uNow.value;   // THE ECHO: every audible clank writes the paired road-clock stamp; gameplay never reads it back
@@ -7989,18 +7997,19 @@ function clankShot(tg, point, soft){   // OFF-beat shield hit — clearer than a
   try{ padRumble(28, 0.4); }catch(e){}
 }
 /* ===== MULTI-HIT TANK: a bigger AMBER orb that takes 2-3 ON-BEAT hits — "keep hitting the big one on the beat." Each hit chips it (a note walks UP + the shell pops + the count ticks down) as pure PROGRESS; the last hit pops it (scored like a normal orb, amber burst). Off-beat landings clank. Simple + rhythmic — no sub-figure. ===== */
-function handleTankHit(tg, point){
+function handleTankHit(tg, point, fireRow){
   if(CFG.tank.fillOnly && tg.fill16>=0){   // THE TANK IS A DRUM FILL: this orb answers to its FIGURE, not the whole beat — its notes sit on the whole beats INSIDE the fill bar (3 and 4), where orbOpen does open but the count does not. Raw boolean first so the parcel off costs one read and no call
     const i=tg.hpMax-tg.hp, j=fillOpen(tg);   // i = the first gate still owed, j = the gate this arrival actually landed in (spec 1.2, T2)
-    if(j<0){ clankShot(tg, point, true); return; }   // off every remaining sixteenth → a SOFT thud: the sound and the spark, none of the ledger (T3)
+    if(j<0){ clankShot(tg, point, true, fireRow); return; }   // off every remaining sixteenth → a SOFT thud: the sound and the spark, none of the ledger (T3)
     tg.hp-=(j-i+1);   // CONSUME i..j: the gate you landed AND every gate you let pass on the way to it. A dropped note costs you its NOTE (the walk below skips those steps) and never the fill, so the tank can no longer dead-lock, and the mercy downbeat — the last gate, always — always finishes it whatever came before
   }
-  else if(!orbOpen()){ clankShot(tg, point); return; }      // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
+  else if(!orbOpen()){ clankShot(tg, point, false, fireRow); return; }      // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
   else tg.hp--;
+  if(GH_RECORD) ghostRecordMarkFire(fireRow,true);                         // NIGHT GHOSTS: every landed tank note owns its launch, including nonlethal chips
   if(tg.hp<=0){   // last hit → KILL with extra juice (kick + octave sparkle on the lead voice). A SKIP can never reach here early: hp<=0 needs j-i+1 >= hpMax-i, i.e. j >= hpMax-1, and j indexes a figure of exactly hpMax gates — so the killing blow is ALWAYS the last gate, the mercy downbeat, and the tonic below is always the note that is due
     if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit, kf=(tg.fill16>=0)?fillNote(tg.hpMax, tg.hpMax-1):PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)];   // THE FILL lands its last note on the TONIC — and it lands it on the mercy downbeat, where wave 1's pad bloom is already breathing, so the finale pop and the exhale are one event (alignment, not a new sound)
       if(kick) kick.triggerAttackRelease('C1','8n',Tone.now(),0.95); if(v){ v.triggerAttackRelease(kf, '8n', t, 0.9); v.triggerAttackRelease(kf*2, '16n', t+0.05, 0.55); } }catch(e){} }
-    gradeRhythmHit(tg, point); return;
+    gradeRhythmHit(tg, point, undefined, undefined, fireRow); return;
   }
   tankChip(tg);                                             // not the last → chip (pure progress: no score/streak/shots)
 }
@@ -8024,7 +8033,9 @@ function onWhiff(){
   if(!reduceMotion){ addTrauma(CFG.hitTrauma*0.18); missCamKick(false); }
   try{ padRumble(16, 0.25); }catch(e){}
 }
-function onExpire(tg){ if(tg.kind===2){ removeTarget(tg); return; }
+function onExpire(tg){
+  if(GH_RECORD) ghostRecordTargetOutcome(tg,0);   // NIGHT GHOSTS: every real target arrival is counted before the existing quiet/penalty branches diverge
+  if(tg.kind===2){ removeTarget(tg); return; }
   if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly
   removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
   playWhiffSfx(); missGrooveDuck(false);
@@ -8039,7 +8050,9 @@ function fire(){
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
   if(_skySelectHeld && skyListenTry()){ _skySelectUsed=true; return; }   // held E explicitly owns sky selection; an Echo under the reticle still falls through to combat. CONSUMED ON SUCCESS ONLY (1.4): the gesture is spent by a Listen that actually happened, never by one that was refused — a blocked held-E fire is an ordinary shot AND leaves the E-release free to enter the temple on a mark you already own, instead of burning the whole press because an orb drifted through the reticle
   if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
-  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
+  addRecoil();
+  const fireRow=GH_RECORD?ghostRecordFire(ghostRoadTime(),yaw,pitch):null;
+  spawnProjectile(fireRow);   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
 canvas.addEventListener('mousedown', e=>{
   if(e.button===0){
@@ -8081,6 +8094,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
     }catch(e){} }
   }
   else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample. INVARIANT (parcel R): a well-timed MAIN press can never be claimed against an adjacent ghost because w <= full*0.5 strictly (verified at bpm 50/60: 0.24<0.30, 0.20<0.25) — if wasdWindow/wasdWindowFrac are ever retuned past that bound, gate this _wasdCombo=0 on `main` or ghosts regain the power to break the combo
+  if(GH_RECORD) ghostRecordTap(k,k===ckey?_tapAcc:-1);   // NIGHT GHOSTS: accepted note claims write the pressed lane plus the grade already decided above; the lane never consults the ledger
 }
 function isTypingTarget(t){ return !!(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))); }
 document.addEventListener('keydown', e=>{ const t=e.target; if(isTypingTarget(t)) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane
@@ -8226,18 +8240,18 @@ function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter i
     }
   }catch(e){}
 }
-function spawnProjectile(){
-  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
+function spawnProjectile(fireRow){
+  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireRow:null, life:0, mesh:null, charged:false};
   const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
   playFireLaunch(_T);
-  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
+  pr.fireRow=fireRow; pr.life=0;                                  // the opaque recorder row is carried only to credit this launch; gameplay never reads it
   // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
   if(projectiles.length>64){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest (raised 40→64 with K1's full-length lofts: fire-quant × a 7.5s max arc can hold ~45 live shots legitimately)
 }
-function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
-function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
+function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; projectilePool.push(pr); }
+function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
 function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
   const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
   let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
@@ -8254,10 +8268,10 @@ function updateProjectiles(dt){
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
-      if(hit.hpMax>1){ handleTankHit(hit, pr.pos); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
-      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(hit.hpMax>1){ handleTankHit(hit, pr.pos, pr.fireRow); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
+      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos, false, pr.fireRow); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
-      gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
+      gradeRhythmHit(hit, pr.pos, undefined, undefined, pr.fireRow); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm); fireRow only identifies the recorder row and never enters grading
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04 && (!ML_ARC_VOID || !moonlineVoid())) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff at the shipped instant; only the phantom-floor decoration stands down in the void. The bullet still retires at y<=0.04 by decision: moving that death would move gameplay
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
@@ -8749,6 +8763,380 @@ function updateFlock(dt){
     g.mesh.scale.multiplyScalar(gShrink); g.mesh.rotation.x+=g.spin*dt; g.mesh.rotation.y+=g.spin*0.6*dt;
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt)*dens);
   }
+}
+
+/* ================= NIGHT GHOSTS — THE VEILED CHOIR (wave 13, phase 0a) =================
+   The recorder is a sink: existing gameplay events may write compact facts into it, and no gameplay decision reads one
+   back. The seat is a different arm again: it reads one validated storage artifact and owns every object it draws. The
+   player's road, walls, uK array, materials, uniforms, draw order and RNG streams are never written by either arm. */
+const GH_RECORD=!!CFG.ghostRecord;                                        // raw boolean first: false means no tap call, ledger allocation or storage access
+const GH_SEAT=!!CFG.ghostSeat;                                            // raw boolean first: false means no storage read, scene allocation, frame call or draw
+const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
+const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_MAX_BYTES=100000;
+const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','taps','fires'];
+const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
+let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadLast=0;
+function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
+function ghostRoadReset(){ _ghostRoadLast=0; }
+function ghostRoadTime(){
+  let raw=_ghostRoadLast;
+  try{
+    const heard=Tone.Transport.seconds-audioLat();
+    if(Number.isFinite(heard)) raw=Math.max(0,heard);
+  }catch(e){}
+  if(raw<_ghostRoadLast) raw=_ghostRoadLast;
+  _ghostRoadLast=ghostTime(raw); return _ghostRoadLast;
+}
+function ghostAimYaw(value){
+  let n=Number.isFinite(+value)?+value:0;
+  n=((n+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;
+  return Math.max(-GH_AIM_YAW_MAX,Math.min(GH_AIM_YAW_MAX,Math.round(n*10000)/10000));
+}
+function ghostAimPitch(value){ const n=Number.isFinite(+value)?+value:0; return Math.max(-GH_AIM_PITCH_MAX,Math.min(GH_AIM_PITCH_MAX,Math.round(n*10000)/10000)); }
+function ghostDropOldest(array,cap){ if(array.length>=cap) array.shift(); }
+function ghostRecordArm(){
+  if(!GH_RECORD || trainMode || templeActive) return;                     // decision: only a main-play reset may allocate a recording
+  ghostRoadReset();
+  _ghostRecord={v:GH_VERSION,date:'',moonBucket:-1,bpm0:state.bpm,dur:0,bpmCurve:[[0,state.bpm]],targets:[],taps:[],fires:[]};
+  _ghostRecordTargets=new WeakMap(); _ghostRecordSeq=0; _ghostRecordArrivals=0;
+}
+function ghostRecordSpawn(tg){
+  const r=_ghostRecord; if(!r || !tg || !tg.mesh) return;
+  const p=tg.mesh.position, az=Math.atan2(p.x-PLAYER_POS.x,p.z-PLAYER_POS.z), lane=((Math.floor((az+Math.PI)*2/Math.PI)%4)+4)%4;
+  const now=ghostRoadTime(), arrival=ghostTime(now+Math.max(0,(+tg.expireAt||0)-state.t));
+  const row=[now,lane,_ghostRecordSeq++,arrival,-1,null];
+  ghostDropOldest(r.targets,GH_CAP_TARGETS); r.targets.push(row); _ghostRecordTargets.set(tg,row);
+}
+function ghostRecordMarkFire(row,hit){
+  if(!_ghostRecord || !row) return;
+  row[3]=hit?1:0;
+}
+function ghostRecordTargetOutcome(tg,outcome,fireRow){
+  const r=_ghostRecord, rows=_ghostRecordTargets; if(!r || !rows) return;
+  const row=rows.get(tg); if(!row || row[4]===0 || row[4]===1) return;
+  if(outcome){
+    const now=ghostRoadTime();
+    row[3]=ghostTime(now+Math.max(0,(+tg.expireAt||0)-state.t));
+    row[4]=1; row[5]=now;
+  }else{
+    row[4]=0; row[5]=null;
+  }
+  _ghostRecordArrivals++;
+  if(outcome && fireRow) ghostRecordMarkFire(fireRow,true);
+}
+function ghostRecordClank(tg,fireRow){
+  const rows=_ghostRecordTargets; if(!_ghostRecord || !rows) return;
+  const row=rows.get(tg); if(row && row[4]===-1) row[4]=2;                 // transient recorder-only state; finalize resolves an unfinished clank to expiry
+  if(fireRow) ghostRecordMarkFire(fireRow,false);
+}
+function ghostRecordTap(lane,grade){
+  const r=_ghostRecord; if(!r) return;
+  ghostDropOldest(r.taps,GH_CAP_TAPS); r.taps.push([ghostRoadTime(),Math.max(0,Math.min(3,lane|0)),Math.max(-1,Math.min(100,Math.round(+grade||0)))]);
+}
+function ghostRecordFire(t,aimYaw,aimPitch){
+  const r=_ghostRecord; if(!r) return null;
+  const row=[ghostTime(t),ghostAimYaw(aimYaw),ghostAimPitch(aimPitch),0];
+  ghostDropOldest(r.fires,GH_CAP_FIRES); r.fires.push(row); return row;
+}
+function ghostRecordBpm(bpm){
+  const r=_ghostRecord; if(!r) return;
+  const at=ghostRoadTime(), value=Math.round(Math.max(1,+bpm||1)*100)/100, last=r.bpmCurve[r.bpmCurve.length-1];
+  if(last && last[1]===value) return;
+  ghostDropOldest(r.bpmCurve,GH_CAP_BPM); r.bpmCurve.push([at,value]);
+}
+function ghostRecordTrim(r){
+  let json=JSON.stringify(r);
+  while(json.length>GH_MAX_BYTES){
+    let family=null, first=Infinity;
+    for(const name of ['bpmCurve','targets','taps','fires']){ const a=r[name]; if(a.length && a[0][0]<first){ first=a[0][0]; family=a; } }
+    if(!family) break;
+    family.shift(); json=JSON.stringify(r);
+  }
+  return json;
+}
+function ghostRecordFinalize(){
+  if(!GH_RECORD) return;                                                   // decision: the false arm cannot reach Date or storage even if called directly
+  const r=_ghostRecord; _ghostRecord=null; _ghostRecordTargets=null;
+  if(!r) return;
+  try{
+    r.dur=ghostRoadTime();
+    if(_ghostRecordArrivals<16 || r.dur<60) return;                         // decision: a false start never overwrites the last worthy night
+    r.date=phasesToday(); r.moonBucket=moonPhaseBucket();
+    if(r.moonBucket<0 || r.moonBucket>7) return;                            // decision: an unreadable sky cannot overwrite the last transport-valid night
+    for(const row of r.targets) if(row[4]!==0 && row[4]!==1){ row[4]=0; row[5]=null; }
+    const json=ghostRecordTrim(r);
+    if(!ghostArtifactValid(r)) return;
+    localStorage.setItem(GH_STORE_KEY,json);
+  }catch(e){}
+}
+
+function ghostArtifactValid(value){
+  if(!value || typeof value!=='object') return null;
+  const keys=Object.keys(value);
+  if(keys.length!==GH_V1_KEYS.length) return null;
+  for(const key of keys) if(GH_V1_KEYS.indexOf(key)<0) return null;
+  if(value.v!==GH_VERSION || !realCivilDate(value.date)) return null;
+  if(!Number.isInteger(value.moonBucket) || value.moonBucket<0 || value.moonBucket>7 || !Number.isFinite(value.bpm0) || value.bpm0<1 || value.bpm0>400 || !Number.isFinite(value.dur) || value.dur<60 || value.dur>86400) return null;
+  if(!Array.isArray(value.bpmCurve) || !Array.isArray(value.targets) || !Array.isArray(value.taps) || !Array.isArray(value.fires)) return null;
+  if(value.bpmCurve.length>GH_CAP_BPM || value.targets.length>GH_CAP_TARGETS || value.taps.length>GH_CAP_TAPS || value.fires.length>GH_CAP_FIRES) return null;
+  let prior=-1;
+  for(const row of value.bpmCurve){ if(!Array.isArray(row)||row.length!==2||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isFinite(row[1])||row[1]<1||row[1]>400) return null; prior=row[0]; }
+  prior=-1; let priorSlot=-1;
+  for(const row of value.targets){
+    if(!Array.isArray(row)||row.length!==6||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isInteger(row[1])||row[1]<0||row[1]>3||!Number.isSafeInteger(row[2])||row[2]<=priorSlot||!Number.isFinite(row[3])||row[3]<row[0]||row[3]>value.dur+60||(row[4]!==0&&row[4]!==1)) return null;
+    if(row[4]===1 && (!Number.isFinite(row[5])||row[5]<row[0]||row[5]>row[3]||row[5]>value.dur)) return null;
+    if(row[4]===0 && row[5]!==null) return null;
+    prior=row[0]; priorSlot=row[2];
+  }
+  prior=-1;
+  for(const row of value.taps){ if(!Array.isArray(row)||row.length!==3||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isInteger(row[1])||row[1]<0||row[1]>3||!Number.isInteger(row[2])||row[2]<-1||row[2]>100) return null; prior=row[0]; }
+  prior=-1;
+  for(const row of value.fires){ if(!Array.isArray(row)||row.length!==4||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isFinite(row[1])||Math.abs(row[1])>GH_AIM_YAW_MAX||!Number.isFinite(row[2])||Math.abs(row[2])>GH_AIM_PITCH_MAX||(row[3]!==0&&row[3]!==1)) return null; prior=row[0]; }
+  return value;
+}
+function ghostSeatRead(){
+  if(!GH_SEAT) return null;                                                 // decision: the seat-off build never opens storage
+  let raw=''; try{ raw=localStorage.getItem(GH_STORE_KEY)||''; }catch(e){ return null; }
+  if(!raw || raw.length>GH_MAX_BYTES) return null;
+  try{ return ghostArtifactValid(JSON.parse(raw)); }catch(e){ return null; }
+}
+
+const GH_SEAT_X=90, GH_MOON_BLUE=0x9fc2ec, GH_WHITE=0xffffff;
+const GH_ROAD_HALF=7, GH_ROAD_AHEAD=180, GH_ROAD_BEHIND=20, GH_ROAD_BEATS=12;
+const GH_WALL_SOLID=24, GH_WALL_POWDER=38, GH_WALL_Y0=-24, GH_WALL_Y1=21, GH_WALL_N=7;
+const GH_LOW_TARGET_MAX=24, GH_HIGH_TARGET_MAX=48, GH_LOW_BURST_MAX=0, GH_HIGH_BURST_MAX=24;
+const GH_TARGET_MAX=LOW?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=LOW?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
+const GH_TARGET_FAR=108, GH_TARGET_NEAR=8, GH_TARGET_Y=2.2, GH_TARGET_FADE=0.35, GH_BEACON_LEAD=1.5;
+const GH_LANE_STEP=3.2, GH_LANE_MIX=0.56, GH_WALL_ALPHA=0.55, GH_WALL_SHADE_MIN=0.48, GH_BURST_LIFE=1.2;
+const GH_PALETTE_MOON_MIX=0.58, GH_ROAD_DECK_MOON_MIX=0.18, GH_ROAD_GOLD_MOON_MIX=0.38, GH_AVATAR_MOON_MIX=0.28;
+const GH_ROAD_DECK_ALPHA=0.12, GH_ROAD_RULE_ALPHA=0.72, GH_TARGET_ALPHA=0.82, GH_BURST_ALPHA=0.70;
+const GH_AVATAR_BODY_ALPHA=0.62, GH_AVATAR_HALO_ALPHA=0.34, GH_AVATAR_BOW_ALPHA=0.72, GH_AVATAR_YAW_SIGN=1;
+const GH_AVATAR_BOW_WIDTH=0.14, GH_AVATAR_BOW_HEIGHT=0.18, GH_AVATAR_BOW_LENGTH=2.4;
+const GH_BEACON_ALPHA=0.78, GH_BEACON_WIDTH=1.6, GH_BEACON_HEIGHT=40, GH_BEACON_RING_RADIUS=1.05, GH_BEACON_RING_TUBE=0.10, GH_BEACON_HALO_RADIUS=2.6;
+const GH_TARGET_SCALE=0.72, GH_TARGET_GROW_SEC=0.22, GH_BEACON_BREATH_MIN=0.86, GH_BEACON_BREATH_SWING=0.14, GH_BEACON_BREATH_HZ=2.1;
+const GH_BURST_SCALE=0.34, GH_BURST_SCALE_MIN=0.25;
+function ghostSeatReveal(now,n0,kinds){
+  if(!kinds || !kinds.length || !Number.isFinite(now) || !Number.isFinite(n0)) return 0;
+  let slot=0;
+  for(let k=0;k<kinds.length;k++){ if(n0+ML_ARCH_EVERY*k<=now+1e-5) slot=k; else break; }
+  const packed=+kinds[slot]||0, kind=Math.floor(packed+1e-5), bars=Math.floor((packed-kind)*100+0.5);
+  if(kind===1) return 1;
+  if(kind===2) return bars===1?0.7:1;
+  if(bars===1) return 0.7;
+  if(bars===2) return 0.35;
+  return 0;
+}
+let _ghostSeatRecord=null, _ghostSeatRoot=null, _ghostBeaconRoot=null, _ghostRoad=null, _ghostWalls=null, _ghostTargets=null, _ghostBursts=null, _ghostAvatar=null, _ghostAvatarBody=null, _ghostAvatarHalo=null, _ghostAvatarBow=null, _ghostBeaconCols=null, _ghostBeaconRings=null;
+let _ghVis=null, _ghBeat=null, _ghBeacon=null, _ghMoon=null, _ghWhite=null, _ghRoadDeck=null, _ghRoadGold=null, _ghAvatarCol=null, _ghPalette=null, _ghNightChalk=null, _ghLane=null;
+let _ghTargetCursor=0, _ghHitCursor=0, _ghFireCursor=0, _ghBpmCursor=0, _ghBurstNext=0, _ghLastTime=0;
+let _ghActiveTargets=null, _ghHitRows=null, _ghBeatPrefix=null, _ghBurstPool=null, _ghCounts=null;
+let _ghMatrix=null, _ghPos=null, _ghScale=null, _ghIdentity=null, _ghBurstQuat=null, _ghRingQuat=null, _ghXAxis=null, _ghColor=null;
+function ghostNightSeed(record){
+  const date=record.date, key=(+date.slice(0,4)*10000+(+date.slice(5,7))*100+(+date.slice(8,10)))|0;
+  return (key^Math.imul(record.moonBucket+1,0x9e3779b9))>>>0;
+}
+function ghostNightPalette(record,out){
+  const over=CFG.moonline&&CFG.moonline.wallPalette, src=Array.isArray(over)&&over.length?over:ML_WALL_CHALK, rr=mulberry32(ghostNightSeed(record)), n=Math.max(1,src.length); let prev=-1;
+  for(let i=0;i<out.length;i++){
+    const a=Math.min(n-1,(rr()*n)|0), turn=Math.min(Math.max(0,n-2),(rr()*Math.max(1,n-1))|0), pick=(n>1&&a===prev)?(a+1+turn)%n:a;
+    out[i]=Number(src[pick])>>>0; prev=pick;
+  }
+  return out;
+}
+function ghostHashUnit(value){ value=Math.imul((value|0)^0x7feb352d,0x846ca68b); value=Math.imul(value^(value>>>16),0x45d9f3b); return ((value^(value>>>15))>>>0)/4294967296; }
+function ghostLaneColor(lane,out){ return out.copy(_ghLane[Math.max(0,Math.min(3,lane|0))]); }
+function ghostSeatPalette(record){
+  if(!_ghPalette || !_ghNightChalk) return;
+  ghostNightPalette(record,_ghNightChalk);
+  for(let i=0;i<_ghPalette.length;i++) _ghPalette[i].setHex(_ghNightChalk[i]).lerp(_ghMoon,GH_PALETTE_MOON_MIX);
+  _ghRoadDeck.copy(_ghPalette[0]).lerp(_ghMoon,GH_ROAD_DECK_MOON_MIX);
+  _ghRoadGold.setHex(ML_GOLD).lerp(_ghMoon,GH_ROAD_GOLD_MOON_MIX);
+  _ghAvatarCol.copy(_ghMoon).lerp(_ghWhite,GH_AVATAR_MOON_MIX);
+}
+function ghostGeometry(data){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(data.p,3));
+  if(data.tone) g.setAttribute('aTone',new THREE.Float32BufferAttribute(data.tone,1));
+  if(data.scroll) g.setAttribute('aScroll',new THREE.Float32BufferAttribute(data.scroll,1));
+  if(data.anchor) g.setAttribute('aAnchor',new THREE.Float32BufferAttribute(data.anchor,1));
+  if(data.pal) g.setAttribute('aPal',new THREE.Float32BufferAttribute(data.pal,1));
+  if(data.seed) g.setAttribute('aSeed',new THREE.Float32BufferAttribute(data.seed,1));
+  g.setIndex(data.i); return g;
+}
+function ghostQuad(data,a,b,c,d,tone,scroll,anchor,pal,seed){
+  const base=data.p.length/3;
+  for(const q of [a,b,c,d]){ data.p.push(q[0],q[1],q[2]); if(data.tone) data.tone.push(tone||0); if(data.scroll) data.scroll.push(scroll||0); if(data.anchor) data.anchor.push(anchor||0); if(data.pal) data.pal.push(pal||0); if(data.seed) data.seed.push(seed||0); }
+  data.i.push(base,base+1,base+2,base,base+2,base+3);
+}
+function ghostRoadGeometry(){
+  const d={p:[],tone:[],scroll:[],anchor:[],i:[]}, x0=GH_SEAT_X-GH_ROAD_HALF, x1=GH_SEAT_X+GH_ROAD_HALF, z0=-GH_ROAD_AHEAD, z1=GH_ROAD_BEHIND;
+  if(!LOW) ghostQuad(d,[x0,0.02,z1],[x0,0.02,z0],[x1,0.02,z0],[x1,0.02,z1],0,0,0,0,0);
+  for(const x of [x0,x1]) ghostQuad(d,[x-0.08,0.08,z1],[x-0.08,0.08,z0],[x+0.08,0.08,z0],[x+0.08,0.08,z1],1,0,0,0,0);
+  for(const x of [x0,x1]) for(const y of [1.8,3.6]) ghostQuad(d,[x-0.06,y-0.06,z1],[x-0.06,y-0.06,z0],[x+0.06,y+0.06,z0],[x+0.06,y+0.06,z1],1,0,0,0,0);
+  for(let beat=0;beat<GH_ROAD_BEATS;beat++) ghostQuad(d,[x0,0.10,-0.08],[x0,0.10,0.08],[x1,0.10,0.08],[x1,0.10,-0.08],1,1,beat,0,0);
+  return ghostGeometry(d);
+}
+function ghostWallGeometry(){
+  const d={p:[],anchor:[],pal:[],seed:[],i:[]};
+  for(let k=0;k<GH_WALL_N;k++) ghostQuad(d,[-GH_WALL_POWDER,GH_WALL_Y0,0],[-GH_WALL_POWDER,GH_WALL_Y1,0],[GH_WALL_POWDER,GH_WALL_Y1,0],[GH_WALL_POWDER,GH_WALL_Y0,0],0,0,k*ML_ARCH_EVERY,k%5,k*0.173);
+  return ghostGeometry(d);
+}
+function ghostRoadMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uDeck:{value:_ghRoadDeck},uGold:{value:_ghRoadGold}},vertexShader:[
+  'uniform float uBeat; attribute float aTone,aScroll,aAnchor; varying float vTone;',
+  'void main(){ vec3 P=position; if(aScroll>0.5){ float b=mod(aAnchor-uBeat+1.0,'+_roadG(GH_ROAD_BEATS)+')-1.0; P.z=-b*'+_roadG(ROAD_MPB)+'+position.z; } vTone=aTone; gl_Position=projectionMatrix*modelViewMatrix*vec4(P,1.0); }'
+  ].join('\n'),fragmentShader:'uniform float uVis; uniform vec3 uDeck,uGold; varying float vTone; void main(){ float a=mix('+_roadG(GH_ROAD_DECK_ALPHA)+','+_roadG(GH_ROAD_RULE_ALPHA)+',step(0.5,vTone))*uVis; if(a<=0.003) discard; vec3 c=mix(uDeck,uGold,step(0.5,vTone)); gl_FragColor=vec4(c,a); }'}); }
+function ghostWallMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uPal:{value:_ghPalette}},vertexShader:[
+  'uniform float uBeat; uniform vec3 uPal[5]; attribute float aAnchor,aPal,aSeed; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
+  'void main(){ float b=mod(aAnchor-uBeat+4.0,'+_roadG(GH_WALL_N*ML_ARCH_EVERY)+')-4.0; vec3 P=vec3('+_roadG(GH_SEAT_X)+'+position.x,position.y,-b*'+_roadG(ROAD_MPB)+'); vP=position.xy; vCol=uPal[int(aPal)]; vSeed=aSeed; gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0); }'
+  ].join('\n'),fragmentShader:[
+  'uniform float uVis; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
+  'float ghHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vSeed)*43758.5453); }',
+  'float ghNoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=ghHash(i),b=ghHash(i+vec2(1.0,0.0)),c=ghHash(i+vec2(0.0,1.0)),d=ghHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
+  'void main(){ float x=vP.x,y=vP.y,d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; } if(d<0.0) discard; float seam=1.0-smoothstep('+_roadG(GH_WALL_SOLID)+','+_roadG(GH_WALL_POWDER)+',abs(x)); if(seam<ghNoise(vP*2.7+9.1)) discard; float grad=mix('+_roadG(GH_WALL_SHADE_MIN)+',1.0,smoothstep('+_roadG(GH_WALL_Y0)+','+_roadG(GH_WALL_Y1)+',y)); float a='+_roadG(GH_WALL_ALPHA)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol*grad,a); }'
+  ].join('\n')}); }
+function ghostInstanceMaterial(alpha,visibility){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility},vertexShader:'varying vec3 vCol; void main(){ vCol=instanceColor; gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; varying vec3 vCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol,a); }'}); }
+function ghostAvatarMaterial(alpha){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uCol:{value:_ghAvatarCol}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
+function ghostSeatBuild(record){
+  if(_ghostSeatRoot) return;
+  _ghVis={value:0}; _ghBeat={value:0}; _ghBeacon={value:0};
+  _ghMoon=new THREE.Color(GH_MOON_BLUE); _ghWhite=new THREE.Color(GH_WHITE); _ghRoadDeck=new THREE.Color(); _ghRoadGold=new THREE.Color(); _ghAvatarCol=new THREE.Color(); _ghPalette=Array.from({length:5},()=>new THREE.Color()); _ghNightChalk=new Uint32Array(_ghPalette.length); _ghLane=Array.from({length:WASD_COL.length},(_unused,lane)=>new THREE.Color().setStyle(WASD_COL[lane]).lerp(_ghMoon,GH_LANE_MIX));
+  _ghActiveTargets=[]; _ghHitRows=[]; _ghBeatPrefix=[]; _ghCounts={targets:0,beacons:0};
+  _ghMatrix=new THREE.Matrix4(); _ghPos=new THREE.Vector3(); _ghScale=new THREE.Vector3(); _ghIdentity=new THREE.Quaternion(); _ghBurstQuat=new THREE.Quaternion(); _ghRingQuat=new THREE.Quaternion(); _ghXAxis=new THREE.Vector3(1,0,0); _ghColor=new THREE.Color();
+  _ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group(); scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);
+  ghostSeatPalette(record);
+  _ghostRoad=new THREE.Mesh(ghostRoadGeometry(),ghostRoadMaterial()); _ghostRoad.frustumCulled=false; _ghostRoad.renderOrder=-30; _ghostSeatRoot.add(_ghostRoad);
+  if(!LOW){ _ghostWalls=new THREE.Mesh(ghostWallGeometry(),ghostWallMaterial()); _ghostWalls.frustumCulled=false; _ghostWalls.renderOrder=-31; _ghostSeatRoot.add(_ghostWalls); }
+  const targetMat=ghostInstanceMaterial(GH_TARGET_ALPHA,_ghVis);
+  _ghostTargets=new THREE.InstancedMesh(TARGET_CORE_GEO,targetMat,GH_TARGET_MAX); _ghostTargets.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostTargets.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_TARGET_MAX*3),3); _ghostTargets.count=0; _ghostTargets.frustumCulled=false; _ghostTargets.renderOrder=1.2; _ghostSeatRoot.add(_ghostTargets);
+  _ghostAvatar=new THREE.Group(); _ghostAvatar.position.set(GH_SEAT_X,1.7,0); _ghostSeatRoot.add(_ghostAvatar);
+  _ghostAvatarBody=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostAvatarMaterial(GH_AVATAR_BODY_ALPHA)); _ghostAvatarBody.position.y=1.55; _ghostAvatar.add(_ghostAvatarBody);
+  _ghostAvatarHalo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostAvatarMaterial(GH_AVATAR_HALO_ALPHA)); _ghostAvatarHalo.position.y=3.25; _ghostAvatarHalo.scale.setScalar(1.35); _ghostAvatar.add(_ghostAvatarHalo);
+  _ghostAvatarBow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostAvatarMaterial(GH_AVATAR_BOW_ALPHA)); _ghostAvatarBow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); _ghostAvatar.add(_ghostAvatarBow);
+  const beaconMat=ghostInstanceMaterial(GH_BEACON_ALPHA,_ghBeacon), colGeo=new THREE.BoxGeometry(GH_BEACON_WIDTH,GH_BEACON_HEIGHT,GH_BEACON_WIDTH), ringGeo=new THREE.TorusGeometry(GH_BEACON_RING_RADIUS,GH_BEACON_RING_TUBE,LOW?5:8,LOW?12:20);
+  _ghostBeaconCols=new THREE.InstancedMesh(colGeo,beaconMat,GH_BEACON_MAX); _ghostBeaconCols.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconCols.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_MAX*3),3); _ghostBeaconCols.count=0; _ghostBeaconCols.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconCols);
+  _ghostBeaconRings=new THREE.InstancedMesh(ringGeo,beaconMat,GH_BEACON_RING_MAX); _ghostBeaconRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconRings.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_RING_MAX*3),3); _ghostBeaconRings.count=0; _ghostBeaconRings.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconRings);
+  _ghRingQuat.setFromAxisAngle(_ghXAxis,Math.PI*0.5);
+  if(!LOW){
+    _ghostBursts=new THREE.InstancedMesh(_flockGeo,ghostInstanceMaterial(GH_BURST_ALPHA,_ghVis),GH_BURST_MAX); _ghostBursts.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBursts.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BURST_MAX*3),3); _ghostBursts.count=0; _ghostBursts.frustumCulled=false; _ghostBursts.renderOrder=1.4; _ghostSeatRoot.add(_ghostBursts);
+    _ghBurstPool=Array.from({length:GH_BURST_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,spin:0}));
+  }
+  ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
+}
+function ghostSeatPrepare(record){
+  _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghLastTime=0; _ghActiveTargets.length=0; _ghHitRows.length=0; _ghBeatPrefix.length=0;
+  for(const row of record.targets) if(row[4]===1) _ghHitRows.push(row);
+  _ghHitRows.sort((a,b)=>a[5]-b[5]);
+  const curve=record.bpmCurve;
+  if(curve.length){
+    _ghBeatPrefix[0]=curve[0][0]*record.bpm0/60;
+    for(let i=1;i<curve.length;i++) _ghBeatPrefix[i]=_ghBeatPrefix[i-1]+(curve[i][0]-curve[i-1][0])*curve[i-1][1]/60;
+  }
+  if(_ghBurstPool) for(const bird of _ghBurstPool) bird.on=false;
+  if(_ghostTargets) _ghostTargets.count=0;
+  if(_ghostBursts) _ghostBursts.count=0;
+  ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
+}
+function ghostSeatReset(){
+  if(!GH_SEAT) return;
+  ghostRoadReset();
+  const record=trainMode||templeActive?null:ghostSeatRead(); _ghostSeatRecord=record;
+  if(!record){ if(_ghVis) _ghVis.value=0; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
+  ghostSeatBuild(record); ghostSeatPalette(record); ghostSeatPrepare(record);
+}
+function ghostSeatBeatAt(t){
+  const record=_ghostSeatRecord, curve=record&&record.bpmCurve;
+  if(!record) return 0;
+  if(!curve.length) return t*record.bpm0/60;
+  if(t<curve[0][0]) return t*record.bpm0/60;
+  while(_ghBpmCursor+1<curve.length && curve[_ghBpmCursor+1][0]<=t) _ghBpmCursor++;
+  const row=curve[_ghBpmCursor]; return _ghBeatPrefix[_ghBpmCursor]+Math.max(0,t-row[0])*row[1]/60;
+}
+function ghostTargetPosition(row,t,out){
+  const span=Math.max(0.001,row[3]-row[0]), u=Math.max(0,Math.min(1,(t-row[0])/span));
+  out.set(GH_SEAT_X+(row[1]-1.5)*GH_LANE_STEP,GH_TARGET_Y,-GH_TARGET_FAR+(GH_TARGET_FAR-GH_TARGET_NEAR)*u); return out;
+}
+function ghostBurstSpawn(row){
+  if(!_ghBurstPool || !row) return;
+  ghostTargetPosition(row,row[5],_ghPos);
+  for(let i=0;i<3;i++){
+    const bird=_ghBurstPool[_ghBurstNext++%GH_BURST_MAX], seed=(row[2]+1)*131+i*977, a=ghostHashUnit(seed)*Math.PI*2, lift=ghostHashUnit(seed+31);
+    bird.on=true; bird.born=row[5]; bird.lane=row[1]; bird.x=_ghPos.x; bird.y=_ghPos.y; bird.z=_ghPos.z; bird.vx=Math.cos(a)*(1.4+lift*1.8); bird.vy=1.0+lift*2.0; bird.vz=Math.sin(a)*(1.4+lift*1.8); bird.spin=(ghostHashUnit(seed+71)-0.5)*4;
+  }
+}
+function ghostSeatAdvance(t){
+  const record=_ghostSeatRecord;
+  if(!record) return;
+  if(t<_ghLastTime){ ghostSeatPrepare(record); }
+  while(_ghTargetCursor<record.targets.length && record.targets[_ghTargetCursor][0]<=t){
+    if(_ghActiveTargets.length>=GH_TARGET_MAX) _ghActiveTargets.shift();
+    _ghActiveTargets.push(record.targets[_ghTargetCursor++]);
+  }
+  while(_ghHitCursor<_ghHitRows.length && _ghHitRows[_ghHitCursor][5]<=t){ ghostBurstSpawn(_ghHitRows[_ghHitCursor]); _ghHitCursor++; }
+  while(_ghFireCursor<record.fires.length && record.fires[_ghFireCursor][0]<=t){ const fire=record.fires[_ghFireCursor++]; _ghostAvatar.rotation.set(fire[2],GH_AVATAR_YAW_SIGN*fire[1],0,'YXZ'); }
+  _ghLastTime=t;
+}
+function ghostSeatUpdateTargets(t,open){
+  let targetN=0, beaconN=0, ringN=0;
+  for(let i=_ghActiveTargets.length-1;i>=0;i--){
+    const row=_ghActiveTargets[i], hit=row[4]===1, end=hit?row[5]:row[3]+GH_TARGET_FADE;
+    if(t>end){ const last=_ghActiveTargets.pop(); if(i<_ghActiveTargets.length) _ghActiveTargets[i]=last; continue; }
+    ghostTargetPosition(row,Math.min(t,row[3]),_ghPos);
+    if(open && t<(hit?row[5]:row[3]) && targetN<GH_TARGET_MAX){
+      const grow=Math.max(0.2,Math.min(1,(t-row[0])/GH_TARGET_GROW_SEC)); _ghScale.setScalar(GH_TARGET_SCALE*grow); _ghMatrix.compose(_ghPos,_ghIdentity,_ghScale); _ghostTargets.setMatrixAt(targetN,_ghMatrix); _ghostTargets.setColorAt(targetN,ghostLaneColor(row[1],_ghColor)); targetN++;
+    }
+    if(!hit && t>=row[3]-GH_BEACON_LEAD && t<=row[3]+GH_TARGET_FADE && beaconN<GH_BEACON_MAX){
+      const fade=t<=row[3]?1:Math.max(0,1-(t-row[3])/GH_TARGET_FADE), breath=reduceMotion?1:(GH_BEACON_BREATH_MIN+GH_BEACON_BREATH_SWING*Math.sin(t*GH_BEACON_BREATH_HZ));
+      _ghScale.set(1,Math.max(0.02,fade*breath),1); _ghPos.y=GH_BEACON_HEIGHT*0.5; _ghMatrix.compose(_ghPos,_ghIdentity,_ghScale); _ghostBeaconCols.setMatrixAt(beaconN,_ghMatrix); _ghostBeaconCols.setColorAt(beaconN,ghostLaneColor(row[1],_ghColor));
+      ghostTargetPosition(row,Math.min(t,row[3]),_ghPos); _ghScale.setScalar(Math.max(0.02,fade)); _ghMatrix.compose(_ghPos,_ghRingQuat,_ghScale); _ghostBeaconRings.setMatrixAt(ringN,_ghMatrix); _ghostBeaconRings.setColorAt(ringN,_ghWhite); beaconN++;
+      _ghPos.y=GH_BEACON_HEIGHT; _ghScale.setScalar(Math.max(0.02,fade*GH_BEACON_HALO_RADIUS/GH_BEACON_RING_RADIUS)); _ghMatrix.compose(_ghPos,_ghRingQuat,_ghScale); _ghostBeaconRings.setMatrixAt(ringN+1,_ghMatrix); _ghostBeaconRings.setColorAt(ringN+1,_ghWhite); ringN+=2;
+    }
+  }
+  _ghostTargets.count=targetN; _ghostBeaconCols.count=beaconN; _ghostBeaconRings.count=ringN;
+  if(targetN){ _ghostTargets.instanceMatrix.needsUpdate=true; _ghostTargets.instanceColor.needsUpdate=true; }
+  if(beaconN){ _ghostBeaconCols.instanceMatrix.needsUpdate=true; _ghostBeaconCols.instanceColor.needsUpdate=true; _ghostBeaconRings.instanceMatrix.needsUpdate=true; _ghostBeaconRings.instanceColor.needsUpdate=true; }
+  _ghCounts.targets=targetN; _ghCounts.beacons=beaconN; return _ghCounts;
+}
+function ghostSeatUpdateBursts(t,open){
+  if(!_ghBurstPool || !_ghostBursts) return 0;
+  let count=0;
+  for(const bird of _ghBurstPool){
+    if(!bird.on) continue;
+    const age=t-bird.born; if(age<0 || age>GH_BURST_LIFE){ bird.on=false; continue; }
+    if(!open) continue;
+    const travel=reduceMotion?0:age, fade=1-age/GH_BURST_LIFE;
+    _ghPos.set(bird.x+bird.vx*travel,bird.y+bird.vy*travel,bird.z+bird.vz*travel); _ghBurstQuat.setFromAxisAngle(SPAWN_UP,bird.spin*travel); _ghScale.setScalar(GH_BURST_SCALE*(reduceMotion?1:Math.max(GH_BURST_SCALE_MIN,fade))); _ghMatrix.compose(_ghPos,_ghBurstQuat,_ghScale); _ghostBursts.setMatrixAt(count,_ghMatrix); _ghostBursts.setColorAt(count,ghostLaneColor(bird.lane,_ghColor)); count++;
+  }
+  _ghostBursts.count=count;
+  if(count){ _ghostBursts.instanceMatrix.needsUpdate=true; _ghostBursts.instanceColor.needsUpdate=true; }
+  return count;
+}
+function ghostSeatApplyVisibility(v,targetCount,burstCount){
+  const open=!!(_ghostSeatRecord && state.running && !templeActive && !trainMode && v>0);
+  if(_ghVis) _ghVis.value=open?v:0;
+  if(_ghostSeatRoot) _ghostSeatRoot.visible=open;
+  if(_ghostRoad) _ghostRoad.visible=open;
+  if(_ghostWalls) _ghostWalls.visible=open;
+  if(_ghostAvatar) _ghostAvatar.visible=open;
+  if(_ghostAvatarBody) _ghostAvatarBody.visible=open;
+  if(_ghostAvatarHalo) _ghostAvatarHalo.visible=open;
+  if(_ghostAvatarBow) _ghostAvatarBow.visible=open;
+  if(_ghostTargets) _ghostTargets.visible=open&&targetCount>0;
+  if(_ghostBursts) _ghostBursts.visible=open&&burstCount>0;
+}
+function ghostSeatBeaconVisibility(count){
+  const on=!!(_ghostSeatRecord && state.running && !templeActive && !trainMode && count>0);
+  if(_ghBeacon) _ghBeacon.value=on?1:0;
+  if(_ghostBeaconRoot) _ghostBeaconRoot.visible=on;
+  if(_ghostBeaconCols) _ghostBeaconCols.visible=on;
+  if(_ghostBeaconRings) _ghostBeaconRings.visible=on;
+}
+function ghostSeatUpdate(dt){
+  if(!GH_SEAT || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
+  const t=Math.min(ghostRoadTime(),_ghostSeatRecord.dur), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
+  const v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
+  ghostSeatAdvance(t); _ghBeat.value=ghostSeatBeatAt(t);
+  const counts=ghostSeatUpdateTargets(t,v>0), bursts=ghostSeatUpdateBursts(t,v>0);
+  ghostSeatApplyVisibility(v,counts.targets,bursts); ghostSeatBeaconVisibility(t<=_ghostSeatRecord.dur+GH_TARGET_FADE?counts.beacons:0);
 }
 /* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
    THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
@@ -9304,6 +9692,7 @@ function animate(frameNow){
   try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
   try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
   try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
+  if(GH_SEAT) try{ ghostSeatUpdate(dt); }catch(e){ if(!ghostSeatUpdate._e){ ghostSeatUpdate._e=1; console.error('ghostSeatUpdate',e); } }   // NIGHT GHOSTS: the separate scene family reads the road's already-written clock/uK authority after roadSync; solo road and walls are never written
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
   try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
@@ -10395,6 +10784,8 @@ function resetSession(){
   if(!trainMode) state.range=CFG.rangeStart;   // train phases set their own range; don't clobber
   else if(trainPhase===0) state.range=CFG.rangeStart;
   _specialLive=specialOrbsLive();   // latch AFTER config (train → false; full → true)
+  if(GH_SEAT) ghostSeatReset();   // NIGHT GHOSTS: load and rewind the prior echo only for the separate seat arm; the recorder is not an input
+  if(GH_RECORD) ghostRecordArm();   // NIGHT GHOSTS: main-play-only, post-reset allocation; the false arm returns before allocating or touching storage
   ensureRhythm();
   renderPrimary(false,false);
 }

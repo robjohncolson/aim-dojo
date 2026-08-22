@@ -955,6 +955,8 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                              
+                                                                                                                                                                                                            
+                                                                                                                                                                                       
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -6745,6 +6747,7 @@
                                                                                                   
  
                      
+                                                                                                                                                           
                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                             
@@ -7839,6 +7842,7 @@ function spawnTarget(opts){
   if(CFG.sing.on) singTargetSound(snd, kind, _beatSpawnK, true);   // ORBS SING THEIR DISTANCE: pitch this orb's hum from its FINAL k (the tank's close re-draw above already landed) and let its first gate-open call out. Raw boolean first so the parcel off costs one read and no call.
   tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
+  if(GH_RECORD) ghostRecordSpawn(tg);   // NIGHT GHOSTS: a write-only tap after every spawn decision and RNG draw is final; the recorder returns nothing and no gameplay value can flow back
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }
 function reconcileTargetSounds(){
@@ -7877,6 +7881,7 @@ function changeBpm(delta,up){
   // untouched, and it is the RUN's peak only: the dojo board's stored legacy >60 rows are history and are never re-clamped.
   const prev=state.bpm; state.bpm=Math.max(CFG.minBpm,Math.min(CFG.maxBpm,state.bpm+delta));
   if(state.bpm===prev) return; sinceAdjust=0; state.maxBpm=Math.max(state.maxBpm,state.bpm);
+  if(GH_RECORD) ghostRecordBpm(state.bpm);   // NIGHT GHOSTS: the recorder observes the one committed tempo write; no tempo consumer reads it back
   if(toneReady){ try{ Tone.Transport.bpm.rampTo(state.bpm,0.3); }catch(e){} }
   renderPrimary(up,true); sfx(up?'levelUp':'levelDown');
 }
@@ -7903,7 +7908,7 @@ function recordHit(tg){   // on every successful (non-decoy) hit: flash the orb'
   if(h>state.maxHitHeight) state.maxHitHeight=h;
   if(el.hitFlash){ setText(el.hitFlash, '◎ '+fmtDist(dist)+'   ▲ '+fmtDist(h)); el.hitFlash.classList.remove('show'); void el.hitFlash.offsetWidth; el.hitFlash.classList.add('show'); }
 }   // (the far/high/streak "★ NEW RECORD" flash was removed — records are now just time + BPM, which are end-of-run, not per-hit)
-function gradeRhythmHit(tg, point, atT, atBpm){
+function gradeRhythmHit(tg, point, atT, atBpm, fireRow){
   const wasTrain=trainMode;   // 1.1 amendment (wave 5a review, H1): THE MODE THIS ARRIVAL BELONGS TO, latched before a single line of trainer bookkeeping runs. noteTrainOrb below can graduate the run mid-function (setTrainPhase(3) sets trainMode=false), so every post-graduation-only consumer further down would read `false` for the very hit that was still a LESSON — and two of them write to localStorage. Latched here, the graduating orb is a trainer orb for the whole of its own grading, exactly like the seven before it
   if(tg.dead) return; tg.dead=true; state.shots++; if(atT==null) atT=state.t;   // atT = commit time: now for hit-scan, fire-time for a projectile (so "fire on the beat" still grades the click, not the arrival)
   const beats=(atT - tg.born)/(60/(atBpm!=null?atBpm:state.bpm));               // grade against the tempo at commit time too (it can step mid-flight in free-play)
@@ -7916,8 +7921,10 @@ function gradeRhythmHit(tg, point, atT, atBpm){
   if(tg.kind===2){                                                          // DECOY: never scores — the hit IS the penalty (streak break + a wasted shot). Skip the grade path entirely; h/score untouched.
     state.streak=0; pushReaction(beats); pushEvent(false);
     showTiming(T('decoy','NOT A VOICE'),T('decoySub','let it pass'),'off');
+    if(GH_RECORD) ghostRecordTargetOutcome(tg,1,fireRow);
     popHitMarker(); addTrauma(CFG.hitTrauma*0.5); sfx('whiff'); padRumble(70,0.9); killTarget(tg, false); return;
   }
+  if(GH_RECORD) ghostRecordTargetOutcome(tg,1,fireRow);   // NIGHT GHOSTS: the arrival writes its compact outcome and launch-owned fire row only; grading never reads the ledger
   if(ML_WALL_ECHO&&gradeIdx===0) _wallHit.value=reduceMotion?roadMat.uniforms.uPulse.value:roadMat.uniforms.uNow.value;   // THE ECHO: one FLAWLESS stamp in the road's already-written clock, never a new judgement or clock read
   if(good){ const sc=kindScore(tg, atT); state.hits+=sc; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak); }   // GOLD = goldScore kills (gold/speed/mover multipliers)
   else state.streak=0;
@@ -7967,7 +7974,7 @@ function missCamKick(strong){   // subtle FOV only — trauma carries the rest
   if(reduceMotion) return;
   missKickDur=strong?0.12:0.08; missKickT=missKickDur;
 }
-function clankShot(tg, point, soft){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
+function clankShot(tg, point, soft, fireRow){   // OFF-beat shield hit — clearer than a whiff, but not a full juice pile-up
   // SOFT THUD (spec 1.2 amendment T3): soft=true is the DRUM FILL's off-figure landing, and it is the ONE clank that
   // charges nothing. A stated figure is an offer, and declining it is already free (onExpire's neutral branch) — but the
   // shipped code charged you a shot, broke your streak and fed pushEvent(false) into the adaptive-accuracy window and the
@@ -7977,6 +7984,7 @@ function clankShot(tg, point, soft){   // OFF-beat shield hit — clearer than a
   // your own silence — because that feedback is how you find the sixteenth. Only the LEDGER is spared. Every other caller
   // passes two arguments, so soft is undefined there and this is byte-identical to the shipped clank.
   if(!soft){ state.shots++; state.streak=0; pushEvent(false); }
+  if(GH_RECORD) ghostRecordClank(tg,fireRow);   // NIGHT GHOSTS: write-only arrival tap; the target stays pending and its launch-owned fire row stays false
   flashReticleBad();
   playClankSfx(); missGrooveDuck(true);
   if(ML_WALL_ECHO) _wallMiss.value=reduceMotion?roadMat.uniforms.uPulse.value:roadMat.uniforms.uNow.value;   // THE ECHO: every audible clank writes the paired road-clock stamp; gameplay never reads it back
@@ -7989,18 +7997,19 @@ function clankShot(tg, point, soft){   // OFF-beat shield hit — clearer than a
   try{ padRumble(28, 0.4); }catch(e){}
 }
 /* ===== MULTI-HIT TANK: a bigger AMBER orb that takes 2-3 ON-BEAT hits — "keep hitting the big one on the beat." Each hit chips it (a note walks UP + the shell pops + the count ticks down) as pure PROGRESS; the last hit pops it (scored like a normal orb, amber burst). Off-beat landings clank. Simple + rhythmic — no sub-figure. ===== */
-function handleTankHit(tg, point){
+function handleTankHit(tg, point, fireRow){
   if(CFG.tank.fillOnly && tg.fill16>=0){   // THE TANK IS A DRUM FILL: this orb answers to its FIGURE, not the whole beat — its notes sit on the whole beats INSIDE the fill bar (3 and 4), where orbOpen does open but the count does not. Raw boolean first so the parcel off costs one read and no call
     const i=tg.hpMax-tg.hp, j=fillOpen(tg);   // i = the first gate still owed, j = the gate this arrival actually landed in (spec 1.2, T2)
-    if(j<0){ clankShot(tg, point, true); return; }   // off every remaining sixteenth → a SOFT thud: the sound and the spark, none of the ledger (T3)
+    if(j<0){ clankShot(tg, point, true, fireRow); return; }   // off every remaining sixteenth → a SOFT thud: the sound and the spark, none of the ledger (T3)
     tg.hp-=(j-i+1);   // CONSUME i..j: the gate you landed AND every gate you let pass on the way to it. A dropped note costs you its NOTE (the walk below skips those steps) and never the fill, so the tank can no longer dead-lock, and the mercy downbeat — the last gate, always — always finishes it whatever came before
   }
-  else if(!orbOpen()){ clankShot(tg, point); return; }      // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
+  else if(!orbOpen()){ clankShot(tg, point, false, fireRow); return; }      // TANK: killable ON THE MAIN BEAT, exactly like every other orb (same clock as the WASD-on-the-'and' flow) — hit it on successive beats; off-beat clanks
   else tg.hp--;
+  if(GH_RECORD) ghostRecordMarkFire(fireRow,true);                         // NIGHT GHOSTS: every landed tank note owns its launch, including nonlethal chips
   if(tg.hp<=0){   // last hit → KILL with extra juice (kick + octave sparkle on the lead voice). A SKIP can never reach here early: hp<=0 needs j-i+1 >= hpMax-i, i.e. j >= hpMax-1, and j indexes a figure of exactly hpMax gates — so the killing blow is ALWAYS the last gate, the mercy downbeat, and the tonic below is always the note that is due
     if(soundOn && toneReady){ try{ const t=beatSnap(), v=lead||synthHit, kf=(tg.fill16>=0)?fillNote(tg.hpMax, tg.hpMax-1):PENTA[Math.min(PENTA.length-1, 3+tg.hpMax)];   // THE FILL lands its last note on the TONIC — and it lands it on the mercy downbeat, where wave 1's pad bloom is already breathing, so the finale pop and the exhale are one event (alignment, not a new sound)
       if(kick) kick.triggerAttackRelease('C1','8n',Tone.now(),0.95); if(v){ v.triggerAttackRelease(kf, '8n', t, 0.9); v.triggerAttackRelease(kf*2, '16n', t+0.05, 0.55); } }catch(e){} }
-    gradeRhythmHit(tg, point); return;
+    gradeRhythmHit(tg, point, undefined, undefined, fireRow); return;
   }
   tankChip(tg);                                             // not the last → chip (pure progress: no score/streak/shots)
 }
@@ -8024,7 +8033,9 @@ function onWhiff(){
   if(!reduceMotion){ addTrauma(CFG.hitTrauma*0.18); missCamKick(false); }
   try{ padRumble(16, 0.25); }catch(e){}
 }
-function onExpire(tg){ if(tg.kind===2){ removeTarget(tg); return; }
+function onExpire(tg){
+  if(GH_RECORD) ghostRecordTargetOutcome(tg,0);   // NIGHT GHOSTS: every real target arrival is counted before the existing quiet/penalty branches diverge
+  if(tg.kind===2){ removeTarget(tg); return; }
   if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly
   removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
   playWhiffSfx(); missGrooveDuck(false);
@@ -8039,7 +8050,9 @@ function fire(){
   if(bonusActive) return;   // RAIL-FLICK BONUS: a flick launches no projectile — locks are confirmed by an on-beat WASD/pad tap (see flickLockPress)
   if(_skySelectHeld && skyListenTry()){ _skySelectUsed=true; return; }   // held E explicitly owns sky selection; an Echo under the reticle still falls through to combat. CONSUMED ON SUCCESS ONLY (1.4): the gesture is spent by a Listen that actually happened, never by one that was refused — a blocked held-E fire is an ordinary shot AND leaves the E-release free to enter the temple on a mark you already own, instead of burning the whole press because an orb drifted through the reticle
   if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
-  addRecoil(); spawnProjectile();   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
+  addRecoil();
+  const fireRow=GH_RECORD?ghostRecordFire(ghostRoadTime(),yaw,pitch):null;
+  spawnProjectile(fireRow);   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows.
 }
 canvas.addEventListener('mousedown', e=>{
   if(e.button===0){
@@ -8081,6 +8094,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
     }catch(e){} }
   }
   else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample. INVARIANT (parcel R): a well-timed MAIN press can never be claimed against an adjacent ghost because w <= full*0.5 strictly (verified at bpm 50/60: 0.24<0.30, 0.20<0.25) — if wasdWindow/wasdWindowFrac are ever retuned past that bound, gate this _wasdCombo=0 on `main` or ghosts regain the power to break the combo
+  if(GH_RECORD) ghostRecordTap(k,k===ckey?_tapAcc:-1);   // NIGHT GHOSTS: accepted note claims write the pressed lane plus the grade already decided above; the lane never consults the ledger
 }
 function isTypingTarget(t){ return !!(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))); }
 document.addEventListener('keydown', e=>{ const t=e.target; if(isTypingTarget(t)) return; if(e.repeat) return; const k=_WASD_CODE[e.code]; if(k===undefined) return; learnWasdGlyph(k,e.key); wasdLanePress(k); });   // keyboard W/A/S/D -> physical lanes; form typing must never train/fire a lane
@@ -8226,18 +8240,18 @@ function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter i
     }
   }catch(e){}
 }
-function spawnProjectile(){
-  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireT:0, fireBpm:0, life:0, mesh:null, charged:false};
+function spawnProjectile(fireRow){
+  const pr=projectilePool.pop() || {pos:new THREE.Vector3(), vel:new THREE.Vector3(), fireRow:null, life:0, mesh:null, charged:false};
   const _T=computeShotPlan(pr.pos, pr.vel);   // launch from the bottom-right muzzle along the SAME parabola the dashed arc shows; _T = flight time
   playFireLaunch(_T);
-  pr.fireT=state.t; pr.fireBpm=state.bpm; pr.life=0;                 // fire tempo/time (retained for reference; the kill is graded at IMPACT now)
+  pr.fireRow=fireRow; pr.life=0;                                  // the opaque recorder row is carried only to credit this launch; gameplay never reads it
   // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
   if(projectiles.length>64){ onWhiff(true); retireProjectile(0); }                        // hard cap against rapid-fire spam — count the dropped shot as a miss so accuracy stays honest (raised 40→64 with K1's full-length lofts: fire-quant × a 7.5s max arc can hold ~45 live shots legitimately)
 }
-function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); }
-function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
+function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; projectilePool.push(pr); }
+function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
 function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
   const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
   let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
@@ -8254,10 +8268,10 @@ function updateProjectiles(dt){
     for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
-      if(hit.hpMax>1){ handleTankHit(hit, pr.pos); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
-      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(hit.hpMax>1){ handleTankHit(hit, pr.pos, pr.fireRow); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
+      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos, false, pr.fireRow); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
-      gradeRhythmHit(hit, pr.pos); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm) — the kill happened when the bullet connected on the beat
+      gradeRhythmHit(hit, pr.pos, undefined, undefined, pr.fireRow); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm); fireRow only identifies the recorder row and never enters grading
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04 && (!ML_ARC_VOID || !moonlineVoid())) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(true); retireProjectile(i); continue; }   // missed → whiff at the shipped instant; only the phantom-floor decoration stands down in the void. The bullet still retires at y<=0.04 by decision: moving that death would move gameplay
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
@@ -8750,6 +8764,380 @@ function updateFlock(dt){
     g.mesh.material.opacity=Math.max(0,0.26*(1-gt)*dens);
   }
 }
+
+/* ================= NIGHT GHOSTS — THE VEILED CHOIR (wave 13, phase 0a) =================
+   The recorder is a sink: existing gameplay events may write compact facts into it, and no gameplay decision reads one
+   back. The seat is a different arm again: it reads one validated storage artifact and owns every object it draws. The
+   player's road, walls, uK array, materials, uniforms, draw order and RNG streams are never written by either arm. */
+const GH_RECORD=!!CFG.ghostRecord;                                        // raw boolean first: false means no tap call, ledger allocation or storage access
+const GH_SEAT=!!CFG.ghostSeat;                                            // raw boolean first: false means no storage read, scene allocation, frame call or draw
+const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
+const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_MAX_BYTES=100000;
+const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','taps','fires'];
+const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
+let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadLast=0;
+function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
+function ghostRoadReset(){ _ghostRoadLast=0; }
+function ghostRoadTime(){
+  let raw=_ghostRoadLast;
+  try{
+    const heard=Tone.Transport.seconds-audioLat();
+    if(Number.isFinite(heard)) raw=Math.max(0,heard);
+  }catch(e){}
+  if(raw<_ghostRoadLast) raw=_ghostRoadLast;
+  _ghostRoadLast=ghostTime(raw); return _ghostRoadLast;
+}
+function ghostAimYaw(value){
+  let n=Number.isFinite(+value)?+value:0;
+  n=((n+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;
+  return Math.max(-GH_AIM_YAW_MAX,Math.min(GH_AIM_YAW_MAX,Math.round(n*10000)/10000));
+}
+function ghostAimPitch(value){ const n=Number.isFinite(+value)?+value:0; return Math.max(-GH_AIM_PITCH_MAX,Math.min(GH_AIM_PITCH_MAX,Math.round(n*10000)/10000)); }
+function ghostDropOldest(array,cap){ if(array.length>=cap) array.shift(); }
+function ghostRecordArm(){
+  if(!GH_RECORD || trainMode || templeActive) return;                     // decision: only a main-play reset may allocate a recording
+  ghostRoadReset();
+  _ghostRecord={v:GH_VERSION,date:'',moonBucket:-1,bpm0:state.bpm,dur:0,bpmCurve:[[0,state.bpm]],targets:[],taps:[],fires:[]};
+  _ghostRecordTargets=new WeakMap(); _ghostRecordSeq=0; _ghostRecordArrivals=0;
+}
+function ghostRecordSpawn(tg){
+  const r=_ghostRecord; if(!r || !tg || !tg.mesh) return;
+  const p=tg.mesh.position, az=Math.atan2(p.x-PLAYER_POS.x,p.z-PLAYER_POS.z), lane=((Math.floor((az+Math.PI)*2/Math.PI)%4)+4)%4;
+  const now=ghostRoadTime(), arrival=ghostTime(now+Math.max(0,(+tg.expireAt||0)-state.t));
+  const row=[now,lane,_ghostRecordSeq++,arrival,-1,null];
+  ghostDropOldest(r.targets,GH_CAP_TARGETS); r.targets.push(row); _ghostRecordTargets.set(tg,row);
+}
+function ghostRecordMarkFire(row,hit){
+  if(!_ghostRecord || !row) return;
+  row[3]=hit?1:0;
+}
+function ghostRecordTargetOutcome(tg,outcome,fireRow){
+  const r=_ghostRecord, rows=_ghostRecordTargets; if(!r || !rows) return;
+  const row=rows.get(tg); if(!row || row[4]===0 || row[4]===1) return;
+  if(outcome){
+    const now=ghostRoadTime();
+    row[3]=ghostTime(now+Math.max(0,(+tg.expireAt||0)-state.t));
+    row[4]=1; row[5]=now;
+  }else{
+    row[4]=0; row[5]=null;
+  }
+  _ghostRecordArrivals++;
+  if(outcome && fireRow) ghostRecordMarkFire(fireRow,true);
+}
+function ghostRecordClank(tg,fireRow){
+  const rows=_ghostRecordTargets; if(!_ghostRecord || !rows) return;
+  const row=rows.get(tg); if(row && row[4]===-1) row[4]=2;                 // transient recorder-only state; finalize resolves an unfinished clank to expiry
+  if(fireRow) ghostRecordMarkFire(fireRow,false);
+}
+function ghostRecordTap(lane,grade){
+  const r=_ghostRecord; if(!r) return;
+  ghostDropOldest(r.taps,GH_CAP_TAPS); r.taps.push([ghostRoadTime(),Math.max(0,Math.min(3,lane|0)),Math.max(-1,Math.min(100,Math.round(+grade||0)))]);
+}
+function ghostRecordFire(t,aimYaw,aimPitch){
+  const r=_ghostRecord; if(!r) return null;
+  const row=[ghostTime(t),ghostAimYaw(aimYaw),ghostAimPitch(aimPitch),0];
+  ghostDropOldest(r.fires,GH_CAP_FIRES); r.fires.push(row); return row;
+}
+function ghostRecordBpm(bpm){
+  const r=_ghostRecord; if(!r) return;
+  const at=ghostRoadTime(), value=Math.round(Math.max(1,+bpm||1)*100)/100, last=r.bpmCurve[r.bpmCurve.length-1];
+  if(last && last[1]===value) return;
+  ghostDropOldest(r.bpmCurve,GH_CAP_BPM); r.bpmCurve.push([at,value]);
+}
+function ghostRecordTrim(r){
+  let json=JSON.stringify(r);
+  while(json.length>GH_MAX_BYTES){
+    let family=null, first=Infinity;
+    for(const name of ['bpmCurve','targets','taps','fires']){ const a=r[name]; if(a.length && a[0][0]<first){ first=a[0][0]; family=a; } }
+    if(!family) break;
+    family.shift(); json=JSON.stringify(r);
+  }
+  return json;
+}
+function ghostRecordFinalize(){
+  if(!GH_RECORD) return;                                                   // decision: the false arm cannot reach Date or storage even if called directly
+  const r=_ghostRecord; _ghostRecord=null; _ghostRecordTargets=null;
+  if(!r) return;
+  try{
+    r.dur=ghostRoadTime();
+    if(_ghostRecordArrivals<16 || r.dur<60) return;                         // decision: a false start never overwrites the last worthy night
+    r.date=phasesToday(); r.moonBucket=moonPhaseBucket();
+    if(r.moonBucket<0 || r.moonBucket>7) return;                            // decision: an unreadable sky cannot overwrite the last transport-valid night
+    for(const row of r.targets) if(row[4]!==0 && row[4]!==1){ row[4]=0; row[5]=null; }
+    const json=ghostRecordTrim(r);
+    if(!ghostArtifactValid(r)) return;
+    localStorage.setItem(GH_STORE_KEY,json);
+  }catch(e){}
+}
+
+function ghostArtifactValid(value){
+  if(!value || typeof value!=='object') return null;
+  const keys=Object.keys(value);
+  if(keys.length!==GH_V1_KEYS.length) return null;
+  for(const key of keys) if(GH_V1_KEYS.indexOf(key)<0) return null;
+  if(value.v!==GH_VERSION || !realCivilDate(value.date)) return null;
+  if(!Number.isInteger(value.moonBucket) || value.moonBucket<0 || value.moonBucket>7 || !Number.isFinite(value.bpm0) || value.bpm0<1 || value.bpm0>400 || !Number.isFinite(value.dur) || value.dur<60 || value.dur>86400) return null;
+  if(!Array.isArray(value.bpmCurve) || !Array.isArray(value.targets) || !Array.isArray(value.taps) || !Array.isArray(value.fires)) return null;
+  if(value.bpmCurve.length>GH_CAP_BPM || value.targets.length>GH_CAP_TARGETS || value.taps.length>GH_CAP_TAPS || value.fires.length>GH_CAP_FIRES) return null;
+  let prior=-1;
+  for(const row of value.bpmCurve){ if(!Array.isArray(row)||row.length!==2||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isFinite(row[1])||row[1]<1||row[1]>400) return null; prior=row[0]; }
+  prior=-1; let priorSlot=-1;
+  for(const row of value.targets){
+    if(!Array.isArray(row)||row.length!==6||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isInteger(row[1])||row[1]<0||row[1]>3||!Number.isSafeInteger(row[2])||row[2]<=priorSlot||!Number.isFinite(row[3])||row[3]<row[0]||row[3]>value.dur+60||(row[4]!==0&&row[4]!==1)) return null;
+    if(row[4]===1 && (!Number.isFinite(row[5])||row[5]<row[0]||row[5]>row[3]||row[5]>value.dur)) return null;
+    if(row[4]===0 && row[5]!==null) return null;
+    prior=row[0]; priorSlot=row[2];
+  }
+  prior=-1;
+  for(const row of value.taps){ if(!Array.isArray(row)||row.length!==3||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isInteger(row[1])||row[1]<0||row[1]>3||!Number.isInteger(row[2])||row[2]<-1||row[2]>100) return null; prior=row[0]; }
+  prior=-1;
+  for(const row of value.fires){ if(!Array.isArray(row)||row.length!==4||!Number.isFinite(row[0])||row[0]<prior||row[0]<0||row[0]>value.dur||!Number.isFinite(row[1])||Math.abs(row[1])>GH_AIM_YAW_MAX||!Number.isFinite(row[2])||Math.abs(row[2])>GH_AIM_PITCH_MAX||(row[3]!==0&&row[3]!==1)) return null; prior=row[0]; }
+  return value;
+}
+function ghostSeatRead(){
+  if(!GH_SEAT) return null;                                                 // decision: the seat-off build never opens storage
+  let raw=''; try{ raw=localStorage.getItem(GH_STORE_KEY)||''; }catch(e){ return null; }
+  if(!raw || raw.length>GH_MAX_BYTES) return null;
+  try{ return ghostArtifactValid(JSON.parse(raw)); }catch(e){ return null; }
+}
+
+const GH_SEAT_X=90, GH_MOON_BLUE=0x9fc2ec, GH_WHITE=0xffffff;
+const GH_ROAD_HALF=7, GH_ROAD_AHEAD=180, GH_ROAD_BEHIND=20, GH_ROAD_BEATS=12;
+const GH_WALL_SOLID=24, GH_WALL_POWDER=38, GH_WALL_Y0=-24, GH_WALL_Y1=21, GH_WALL_N=7;
+const GH_LOW_TARGET_MAX=24, GH_HIGH_TARGET_MAX=48, GH_LOW_BURST_MAX=0, GH_HIGH_BURST_MAX=24;
+const GH_TARGET_MAX=LOW?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=LOW?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
+const GH_TARGET_FAR=108, GH_TARGET_NEAR=8, GH_TARGET_Y=2.2, GH_TARGET_FADE=0.35, GH_BEACON_LEAD=1.5;
+const GH_LANE_STEP=3.2, GH_LANE_MIX=0.56, GH_WALL_ALPHA=0.55, GH_WALL_SHADE_MIN=0.48, GH_BURST_LIFE=1.2;
+const GH_PALETTE_MOON_MIX=0.58, GH_ROAD_DECK_MOON_MIX=0.18, GH_ROAD_GOLD_MOON_MIX=0.38, GH_AVATAR_MOON_MIX=0.28;
+const GH_ROAD_DECK_ALPHA=0.12, GH_ROAD_RULE_ALPHA=0.72, GH_TARGET_ALPHA=0.82, GH_BURST_ALPHA=0.70;
+const GH_AVATAR_BODY_ALPHA=0.62, GH_AVATAR_HALO_ALPHA=0.34, GH_AVATAR_BOW_ALPHA=0.72, GH_AVATAR_YAW_SIGN=1;
+const GH_AVATAR_BOW_WIDTH=0.14, GH_AVATAR_BOW_HEIGHT=0.18, GH_AVATAR_BOW_LENGTH=2.4;
+const GH_BEACON_ALPHA=0.78, GH_BEACON_WIDTH=1.6, GH_BEACON_HEIGHT=40, GH_BEACON_RING_RADIUS=1.05, GH_BEACON_RING_TUBE=0.10, GH_BEACON_HALO_RADIUS=2.6;
+const GH_TARGET_SCALE=0.72, GH_TARGET_GROW_SEC=0.22, GH_BEACON_BREATH_MIN=0.86, GH_BEACON_BREATH_SWING=0.14, GH_BEACON_BREATH_HZ=2.1;
+const GH_BURST_SCALE=0.34, GH_BURST_SCALE_MIN=0.25;
+function ghostSeatReveal(now,n0,kinds){
+  if(!kinds || !kinds.length || !Number.isFinite(now) || !Number.isFinite(n0)) return 0;
+  let slot=0;
+  for(let k=0;k<kinds.length;k++){ if(n0+ML_ARCH_EVERY*k<=now+1e-5) slot=k; else break; }
+  const packed=+kinds[slot]||0, kind=Math.floor(packed+1e-5), bars=Math.floor((packed-kind)*100+0.5);
+  if(kind===1) return 1;
+  if(kind===2) return bars===1?0.7:1;
+  if(bars===1) return 0.7;
+  if(bars===2) return 0.35;
+  return 0;
+}
+let _ghostSeatRecord=null, _ghostSeatRoot=null, _ghostBeaconRoot=null, _ghostRoad=null, _ghostWalls=null, _ghostTargets=null, _ghostBursts=null, _ghostAvatar=null, _ghostAvatarBody=null, _ghostAvatarHalo=null, _ghostAvatarBow=null, _ghostBeaconCols=null, _ghostBeaconRings=null;
+let _ghVis=null, _ghBeat=null, _ghBeacon=null, _ghMoon=null, _ghWhite=null, _ghRoadDeck=null, _ghRoadGold=null, _ghAvatarCol=null, _ghPalette=null, _ghNightChalk=null, _ghLane=null;
+let _ghTargetCursor=0, _ghHitCursor=0, _ghFireCursor=0, _ghBpmCursor=0, _ghBurstNext=0, _ghLastTime=0;
+let _ghActiveTargets=null, _ghHitRows=null, _ghBeatPrefix=null, _ghBurstPool=null, _ghCounts=null;
+let _ghMatrix=null, _ghPos=null, _ghScale=null, _ghIdentity=null, _ghBurstQuat=null, _ghRingQuat=null, _ghXAxis=null, _ghColor=null;
+function ghostNightSeed(record){
+  const date=record.date, key=(+date.slice(0,4)*10000+(+date.slice(5,7))*100+(+date.slice(8,10)))|0;
+  return (key^Math.imul(record.moonBucket+1,0x9e3779b9))>>>0;
+}
+function ghostNightPalette(record,out){
+  const over=CFG.moonline&&CFG.moonline.wallPalette, src=Array.isArray(over)&&over.length?over:ML_WALL_CHALK, rr=mulberry32(ghostNightSeed(record)), n=Math.max(1,src.length); let prev=-1;
+  for(let i=0;i<out.length;i++){
+    const a=Math.min(n-1,(rr()*n)|0), turn=Math.min(Math.max(0,n-2),(rr()*Math.max(1,n-1))|0), pick=(n>1&&a===prev)?(a+1+turn)%n:a;
+    out[i]=Number(src[pick])>>>0; prev=pick;
+  }
+  return out;
+}
+function ghostHashUnit(value){ value=Math.imul((value|0)^0x7feb352d,0x846ca68b); value=Math.imul(value^(value>>>16),0x45d9f3b); return ((value^(value>>>15))>>>0)/4294967296; }
+function ghostLaneColor(lane,out){ return out.copy(_ghLane[Math.max(0,Math.min(3,lane|0))]); }
+function ghostSeatPalette(record){
+  if(!_ghPalette || !_ghNightChalk) return;
+  ghostNightPalette(record,_ghNightChalk);
+  for(let i=0;i<_ghPalette.length;i++) _ghPalette[i].setHex(_ghNightChalk[i]).lerp(_ghMoon,GH_PALETTE_MOON_MIX);
+  _ghRoadDeck.copy(_ghPalette[0]).lerp(_ghMoon,GH_ROAD_DECK_MOON_MIX);
+  _ghRoadGold.setHex(ML_GOLD).lerp(_ghMoon,GH_ROAD_GOLD_MOON_MIX);
+  _ghAvatarCol.copy(_ghMoon).lerp(_ghWhite,GH_AVATAR_MOON_MIX);
+}
+function ghostGeometry(data){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(data.p,3));
+  if(data.tone) g.setAttribute('aTone',new THREE.Float32BufferAttribute(data.tone,1));
+  if(data.scroll) g.setAttribute('aScroll',new THREE.Float32BufferAttribute(data.scroll,1));
+  if(data.anchor) g.setAttribute('aAnchor',new THREE.Float32BufferAttribute(data.anchor,1));
+  if(data.pal) g.setAttribute('aPal',new THREE.Float32BufferAttribute(data.pal,1));
+  if(data.seed) g.setAttribute('aSeed',new THREE.Float32BufferAttribute(data.seed,1));
+  g.setIndex(data.i); return g;
+}
+function ghostQuad(data,a,b,c,d,tone,scroll,anchor,pal,seed){
+  const base=data.p.length/3;
+  for(const q of [a,b,c,d]){ data.p.push(q[0],q[1],q[2]); if(data.tone) data.tone.push(tone||0); if(data.scroll) data.scroll.push(scroll||0); if(data.anchor) data.anchor.push(anchor||0); if(data.pal) data.pal.push(pal||0); if(data.seed) data.seed.push(seed||0); }
+  data.i.push(base,base+1,base+2,base,base+2,base+3);
+}
+function ghostRoadGeometry(){
+  const d={p:[],tone:[],scroll:[],anchor:[],i:[]}, x0=GH_SEAT_X-GH_ROAD_HALF, x1=GH_SEAT_X+GH_ROAD_HALF, z0=-GH_ROAD_AHEAD, z1=GH_ROAD_BEHIND;
+  if(!LOW) ghostQuad(d,[x0,0.02,z1],[x0,0.02,z0],[x1,0.02,z0],[x1,0.02,z1],0,0,0,0,0);
+  for(const x of [x0,x1]) ghostQuad(d,[x-0.08,0.08,z1],[x-0.08,0.08,z0],[x+0.08,0.08,z0],[x+0.08,0.08,z1],1,0,0,0,0);
+  for(const x of [x0,x1]) for(const y of [1.8,3.6]) ghostQuad(d,[x-0.06,y-0.06,z1],[x-0.06,y-0.06,z0],[x+0.06,y+0.06,z0],[x+0.06,y+0.06,z1],1,0,0,0,0);
+  for(let beat=0;beat<GH_ROAD_BEATS;beat++) ghostQuad(d,[x0,0.10,-0.08],[x0,0.10,0.08],[x1,0.10,0.08],[x1,0.10,-0.08],1,1,beat,0,0);
+  return ghostGeometry(d);
+}
+function ghostWallGeometry(){
+  const d={p:[],anchor:[],pal:[],seed:[],i:[]};
+  for(let k=0;k<GH_WALL_N;k++) ghostQuad(d,[-GH_WALL_POWDER,GH_WALL_Y0,0],[-GH_WALL_POWDER,GH_WALL_Y1,0],[GH_WALL_POWDER,GH_WALL_Y1,0],[GH_WALL_POWDER,GH_WALL_Y0,0],0,0,k*ML_ARCH_EVERY,k%5,k*0.173);
+  return ghostGeometry(d);
+}
+function ghostRoadMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uDeck:{value:_ghRoadDeck},uGold:{value:_ghRoadGold}},vertexShader:[
+  'uniform float uBeat; attribute float aTone,aScroll,aAnchor; varying float vTone;',
+  'void main(){ vec3 P=position; if(aScroll>0.5){ float b=mod(aAnchor-uBeat+1.0,'+_roadG(GH_ROAD_BEATS)+')-1.0; P.z=-b*'+_roadG(ROAD_MPB)+'+position.z; } vTone=aTone; gl_Position=projectionMatrix*modelViewMatrix*vec4(P,1.0); }'
+  ].join('\n'),fragmentShader:'uniform float uVis; uniform vec3 uDeck,uGold; varying float vTone; void main(){ float a=mix('+_roadG(GH_ROAD_DECK_ALPHA)+','+_roadG(GH_ROAD_RULE_ALPHA)+',step(0.5,vTone))*uVis; if(a<=0.003) discard; vec3 c=mix(uDeck,uGold,step(0.5,vTone)); gl_FragColor=vec4(c,a); }'}); }
+function ghostWallMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uPal:{value:_ghPalette}},vertexShader:[
+  'uniform float uBeat; uniform vec3 uPal[5]; attribute float aAnchor,aPal,aSeed; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
+  'void main(){ float b=mod(aAnchor-uBeat+4.0,'+_roadG(GH_WALL_N*ML_ARCH_EVERY)+')-4.0; vec3 P=vec3('+_roadG(GH_SEAT_X)+'+position.x,position.y,-b*'+_roadG(ROAD_MPB)+'); vP=position.xy; vCol=uPal[int(aPal)]; vSeed=aSeed; gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0); }'
+  ].join('\n'),fragmentShader:[
+  'uniform float uVis; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
+  'float ghHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vSeed)*43758.5453); }',
+  'float ghNoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=ghHash(i),b=ghHash(i+vec2(1.0,0.0)),c=ghHash(i+vec2(0.0,1.0)),d=ghHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
+  'void main(){ float x=vP.x,y=vP.y,d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; } if(d<0.0) discard; float seam=1.0-smoothstep('+_roadG(GH_WALL_SOLID)+','+_roadG(GH_WALL_POWDER)+',abs(x)); if(seam<ghNoise(vP*2.7+9.1)) discard; float grad=mix('+_roadG(GH_WALL_SHADE_MIN)+',1.0,smoothstep('+_roadG(GH_WALL_Y0)+','+_roadG(GH_WALL_Y1)+',y)); float a='+_roadG(GH_WALL_ALPHA)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol*grad,a); }'
+  ].join('\n')}); }
+function ghostInstanceMaterial(alpha,visibility){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility},vertexShader:'varying vec3 vCol; void main(){ vCol=instanceColor; gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; varying vec3 vCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol,a); }'}); }
+function ghostAvatarMaterial(alpha){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uCol:{value:_ghAvatarCol}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
+function ghostSeatBuild(record){
+  if(_ghostSeatRoot) return;
+  _ghVis={value:0}; _ghBeat={value:0}; _ghBeacon={value:0};
+  _ghMoon=new THREE.Color(GH_MOON_BLUE); _ghWhite=new THREE.Color(GH_WHITE); _ghRoadDeck=new THREE.Color(); _ghRoadGold=new THREE.Color(); _ghAvatarCol=new THREE.Color(); _ghPalette=Array.from({length:5},()=>new THREE.Color()); _ghNightChalk=new Uint32Array(_ghPalette.length); _ghLane=Array.from({length:WASD_COL.length},(_unused,lane)=>new THREE.Color().setStyle(WASD_COL[lane]).lerp(_ghMoon,GH_LANE_MIX));
+  _ghActiveTargets=[]; _ghHitRows=[]; _ghBeatPrefix=[]; _ghCounts={targets:0,beacons:0};
+  _ghMatrix=new THREE.Matrix4(); _ghPos=new THREE.Vector3(); _ghScale=new THREE.Vector3(); _ghIdentity=new THREE.Quaternion(); _ghBurstQuat=new THREE.Quaternion(); _ghRingQuat=new THREE.Quaternion(); _ghXAxis=new THREE.Vector3(1,0,0); _ghColor=new THREE.Color();
+  _ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group(); scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);
+  ghostSeatPalette(record);
+  _ghostRoad=new THREE.Mesh(ghostRoadGeometry(),ghostRoadMaterial()); _ghostRoad.frustumCulled=false; _ghostRoad.renderOrder=-30; _ghostSeatRoot.add(_ghostRoad);
+  if(!LOW){ _ghostWalls=new THREE.Mesh(ghostWallGeometry(),ghostWallMaterial()); _ghostWalls.frustumCulled=false; _ghostWalls.renderOrder=-31; _ghostSeatRoot.add(_ghostWalls); }
+  const targetMat=ghostInstanceMaterial(GH_TARGET_ALPHA,_ghVis);
+  _ghostTargets=new THREE.InstancedMesh(TARGET_CORE_GEO,targetMat,GH_TARGET_MAX); _ghostTargets.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostTargets.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_TARGET_MAX*3),3); _ghostTargets.count=0; _ghostTargets.frustumCulled=false; _ghostTargets.renderOrder=1.2; _ghostSeatRoot.add(_ghostTargets);
+  _ghostAvatar=new THREE.Group(); _ghostAvatar.position.set(GH_SEAT_X,1.7,0); _ghostSeatRoot.add(_ghostAvatar);
+  _ghostAvatarBody=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostAvatarMaterial(GH_AVATAR_BODY_ALPHA)); _ghostAvatarBody.position.y=1.55; _ghostAvatar.add(_ghostAvatarBody);
+  _ghostAvatarHalo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostAvatarMaterial(GH_AVATAR_HALO_ALPHA)); _ghostAvatarHalo.position.y=3.25; _ghostAvatarHalo.scale.setScalar(1.35); _ghostAvatar.add(_ghostAvatarHalo);
+  _ghostAvatarBow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostAvatarMaterial(GH_AVATAR_BOW_ALPHA)); _ghostAvatarBow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); _ghostAvatar.add(_ghostAvatarBow);
+  const beaconMat=ghostInstanceMaterial(GH_BEACON_ALPHA,_ghBeacon), colGeo=new THREE.BoxGeometry(GH_BEACON_WIDTH,GH_BEACON_HEIGHT,GH_BEACON_WIDTH), ringGeo=new THREE.TorusGeometry(GH_BEACON_RING_RADIUS,GH_BEACON_RING_TUBE,LOW?5:8,LOW?12:20);
+  _ghostBeaconCols=new THREE.InstancedMesh(colGeo,beaconMat,GH_BEACON_MAX); _ghostBeaconCols.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconCols.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_MAX*3),3); _ghostBeaconCols.count=0; _ghostBeaconCols.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconCols);
+  _ghostBeaconRings=new THREE.InstancedMesh(ringGeo,beaconMat,GH_BEACON_RING_MAX); _ghostBeaconRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconRings.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_RING_MAX*3),3); _ghostBeaconRings.count=0; _ghostBeaconRings.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconRings);
+  _ghRingQuat.setFromAxisAngle(_ghXAxis,Math.PI*0.5);
+  if(!LOW){
+    _ghostBursts=new THREE.InstancedMesh(_flockGeo,ghostInstanceMaterial(GH_BURST_ALPHA,_ghVis),GH_BURST_MAX); _ghostBursts.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBursts.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BURST_MAX*3),3); _ghostBursts.count=0; _ghostBursts.frustumCulled=false; _ghostBursts.renderOrder=1.4; _ghostSeatRoot.add(_ghostBursts);
+    _ghBurstPool=Array.from({length:GH_BURST_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,spin:0}));
+  }
+  ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
+}
+function ghostSeatPrepare(record){
+  _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghLastTime=0; _ghActiveTargets.length=0; _ghHitRows.length=0; _ghBeatPrefix.length=0;
+  for(const row of record.targets) if(row[4]===1) _ghHitRows.push(row);
+  _ghHitRows.sort((a,b)=>a[5]-b[5]);
+  const curve=record.bpmCurve;
+  if(curve.length){
+    _ghBeatPrefix[0]=curve[0][0]*record.bpm0/60;
+    for(let i=1;i<curve.length;i++) _ghBeatPrefix[i]=_ghBeatPrefix[i-1]+(curve[i][0]-curve[i-1][0])*curve[i-1][1]/60;
+  }
+  if(_ghBurstPool) for(const bird of _ghBurstPool) bird.on=false;
+  if(_ghostTargets) _ghostTargets.count=0;
+  if(_ghostBursts) _ghostBursts.count=0;
+  ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
+}
+function ghostSeatReset(){
+  if(!GH_SEAT) return;
+  ghostRoadReset();
+  const record=trainMode||templeActive?null:ghostSeatRead(); _ghostSeatRecord=record;
+  if(!record){ if(_ghVis) _ghVis.value=0; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
+  ghostSeatBuild(record); ghostSeatPalette(record); ghostSeatPrepare(record);
+}
+function ghostSeatBeatAt(t){
+  const record=_ghostSeatRecord, curve=record&&record.bpmCurve;
+  if(!record) return 0;
+  if(!curve.length) return t*record.bpm0/60;
+  if(t<curve[0][0]) return t*record.bpm0/60;
+  while(_ghBpmCursor+1<curve.length && curve[_ghBpmCursor+1][0]<=t) _ghBpmCursor++;
+  const row=curve[_ghBpmCursor]; return _ghBeatPrefix[_ghBpmCursor]+Math.max(0,t-row[0])*row[1]/60;
+}
+function ghostTargetPosition(row,t,out){
+  const span=Math.max(0.001,row[3]-row[0]), u=Math.max(0,Math.min(1,(t-row[0])/span));
+  out.set(GH_SEAT_X+(row[1]-1.5)*GH_LANE_STEP,GH_TARGET_Y,-GH_TARGET_FAR+(GH_TARGET_FAR-GH_TARGET_NEAR)*u); return out;
+}
+function ghostBurstSpawn(row){
+  if(!_ghBurstPool || !row) return;
+  ghostTargetPosition(row,row[5],_ghPos);
+  for(let i=0;i<3;i++){
+    const bird=_ghBurstPool[_ghBurstNext++%GH_BURST_MAX], seed=(row[2]+1)*131+i*977, a=ghostHashUnit(seed)*Math.PI*2, lift=ghostHashUnit(seed+31);
+    bird.on=true; bird.born=row[5]; bird.lane=row[1]; bird.x=_ghPos.x; bird.y=_ghPos.y; bird.z=_ghPos.z; bird.vx=Math.cos(a)*(1.4+lift*1.8); bird.vy=1.0+lift*2.0; bird.vz=Math.sin(a)*(1.4+lift*1.8); bird.spin=(ghostHashUnit(seed+71)-0.5)*4;
+  }
+}
+function ghostSeatAdvance(t){
+  const record=_ghostSeatRecord;
+  if(!record) return;
+  if(t<_ghLastTime){ ghostSeatPrepare(record); }
+  while(_ghTargetCursor<record.targets.length && record.targets[_ghTargetCursor][0]<=t){
+    if(_ghActiveTargets.length>=GH_TARGET_MAX) _ghActiveTargets.shift();
+    _ghActiveTargets.push(record.targets[_ghTargetCursor++]);
+  }
+  while(_ghHitCursor<_ghHitRows.length && _ghHitRows[_ghHitCursor][5]<=t){ ghostBurstSpawn(_ghHitRows[_ghHitCursor]); _ghHitCursor++; }
+  while(_ghFireCursor<record.fires.length && record.fires[_ghFireCursor][0]<=t){ const fire=record.fires[_ghFireCursor++]; _ghostAvatar.rotation.set(fire[2],GH_AVATAR_YAW_SIGN*fire[1],0,'YXZ'); }
+  _ghLastTime=t;
+}
+function ghostSeatUpdateTargets(t,open){
+  let targetN=0, beaconN=0, ringN=0;
+  for(let i=_ghActiveTargets.length-1;i>=0;i--){
+    const row=_ghActiveTargets[i], hit=row[4]===1, end=hit?row[5]:row[3]+GH_TARGET_FADE;
+    if(t>end){ const last=_ghActiveTargets.pop(); if(i<_ghActiveTargets.length) _ghActiveTargets[i]=last; continue; }
+    ghostTargetPosition(row,Math.min(t,row[3]),_ghPos);
+    if(open && t<(hit?row[5]:row[3]) && targetN<GH_TARGET_MAX){
+      const grow=Math.max(0.2,Math.min(1,(t-row[0])/GH_TARGET_GROW_SEC)); _ghScale.setScalar(GH_TARGET_SCALE*grow); _ghMatrix.compose(_ghPos,_ghIdentity,_ghScale); _ghostTargets.setMatrixAt(targetN,_ghMatrix); _ghostTargets.setColorAt(targetN,ghostLaneColor(row[1],_ghColor)); targetN++;
+    }
+    if(!hit && t>=row[3]-GH_BEACON_LEAD && t<=row[3]+GH_TARGET_FADE && beaconN<GH_BEACON_MAX){
+      const fade=t<=row[3]?1:Math.max(0,1-(t-row[3])/GH_TARGET_FADE), breath=reduceMotion?1:(GH_BEACON_BREATH_MIN+GH_BEACON_BREATH_SWING*Math.sin(t*GH_BEACON_BREATH_HZ));
+      _ghScale.set(1,Math.max(0.02,fade*breath),1); _ghPos.y=GH_BEACON_HEIGHT*0.5; _ghMatrix.compose(_ghPos,_ghIdentity,_ghScale); _ghostBeaconCols.setMatrixAt(beaconN,_ghMatrix); _ghostBeaconCols.setColorAt(beaconN,ghostLaneColor(row[1],_ghColor));
+      ghostTargetPosition(row,Math.min(t,row[3]),_ghPos); _ghScale.setScalar(Math.max(0.02,fade)); _ghMatrix.compose(_ghPos,_ghRingQuat,_ghScale); _ghostBeaconRings.setMatrixAt(ringN,_ghMatrix); _ghostBeaconRings.setColorAt(ringN,_ghWhite); beaconN++;
+      _ghPos.y=GH_BEACON_HEIGHT; _ghScale.setScalar(Math.max(0.02,fade*GH_BEACON_HALO_RADIUS/GH_BEACON_RING_RADIUS)); _ghMatrix.compose(_ghPos,_ghRingQuat,_ghScale); _ghostBeaconRings.setMatrixAt(ringN+1,_ghMatrix); _ghostBeaconRings.setColorAt(ringN+1,_ghWhite); ringN+=2;
+    }
+  }
+  _ghostTargets.count=targetN; _ghostBeaconCols.count=beaconN; _ghostBeaconRings.count=ringN;
+  if(targetN){ _ghostTargets.instanceMatrix.needsUpdate=true; _ghostTargets.instanceColor.needsUpdate=true; }
+  if(beaconN){ _ghostBeaconCols.instanceMatrix.needsUpdate=true; _ghostBeaconCols.instanceColor.needsUpdate=true; _ghostBeaconRings.instanceMatrix.needsUpdate=true; _ghostBeaconRings.instanceColor.needsUpdate=true; }
+  _ghCounts.targets=targetN; _ghCounts.beacons=beaconN; return _ghCounts;
+}
+function ghostSeatUpdateBursts(t,open){
+  if(!_ghBurstPool || !_ghostBursts) return 0;
+  let count=0;
+  for(const bird of _ghBurstPool){
+    if(!bird.on) continue;
+    const age=t-bird.born; if(age<0 || age>GH_BURST_LIFE){ bird.on=false; continue; }
+    if(!open) continue;
+    const travel=reduceMotion?0:age, fade=1-age/GH_BURST_LIFE;
+    _ghPos.set(bird.x+bird.vx*travel,bird.y+bird.vy*travel,bird.z+bird.vz*travel); _ghBurstQuat.setFromAxisAngle(SPAWN_UP,bird.spin*travel); _ghScale.setScalar(GH_BURST_SCALE*(reduceMotion?1:Math.max(GH_BURST_SCALE_MIN,fade))); _ghMatrix.compose(_ghPos,_ghBurstQuat,_ghScale); _ghostBursts.setMatrixAt(count,_ghMatrix); _ghostBursts.setColorAt(count,ghostLaneColor(bird.lane,_ghColor)); count++;
+  }
+  _ghostBursts.count=count;
+  if(count){ _ghostBursts.instanceMatrix.needsUpdate=true; _ghostBursts.instanceColor.needsUpdate=true; }
+  return count;
+}
+function ghostSeatApplyVisibility(v,targetCount,burstCount){
+  const open=!!(_ghostSeatRecord && state.running && !templeActive && !trainMode && v>0);
+  if(_ghVis) _ghVis.value=open?v:0;
+  if(_ghostSeatRoot) _ghostSeatRoot.visible=open;
+  if(_ghostRoad) _ghostRoad.visible=open;
+  if(_ghostWalls) _ghostWalls.visible=open;
+  if(_ghostAvatar) _ghostAvatar.visible=open;
+  if(_ghostAvatarBody) _ghostAvatarBody.visible=open;
+  if(_ghostAvatarHalo) _ghostAvatarHalo.visible=open;
+  if(_ghostAvatarBow) _ghostAvatarBow.visible=open;
+  if(_ghostTargets) _ghostTargets.visible=open&&targetCount>0;
+  if(_ghostBursts) _ghostBursts.visible=open&&burstCount>0;
+}
+function ghostSeatBeaconVisibility(count){
+  const on=!!(_ghostSeatRecord && state.running && !templeActive && !trainMode && count>0);
+  if(_ghBeacon) _ghBeacon.value=on?1:0;
+  if(_ghostBeaconRoot) _ghostBeaconRoot.visible=on;
+  if(_ghostBeaconCols) _ghostBeaconCols.visible=on;
+  if(_ghostBeaconRings) _ghostBeaconRings.visible=on;
+}
+function ghostSeatUpdate(dt){
+  if(!GH_SEAT || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
+  const t=Math.min(ghostRoadTime(),_ghostSeatRecord.dur), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
+  const v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
+  ghostSeatAdvance(t); _ghBeat.value=ghostSeatBeatAt(t);
+  const counts=ghostSeatUpdateTargets(t,v>0), bursts=ghostSeatUpdateBursts(t,v>0);
+  ghostSeatApplyVisibility(v,counts.targets,bursts); ghostSeatBeaconVisibility(t<=_ghostSeatRecord.dur+GH_TARGET_FADE?counts.beacons:0);
+}
 /* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
    THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
    report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
@@ -9079,497 +9467,498 @@ const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDAT
 const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
 let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
 const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
-function animate(frameNow){
-  requestAnimationFrame(animate);
-  if(document.hidden){ clock.getDelta(); return; }
-  if(frameNow==null) frameNow=performance.now();
-  if(!state.running && explosions.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
-  if(!state.running) lastIdleFrame=frameNow;
-  _audioFrame++;   // AUDIO AUTOMATION DIET: one listener push per frame, however many times the camera's children get walked
-  const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
-  if(_trainCoachT>0){
-    _trainCoachT-=dt;
-    if(_trainCoachT<=0){
-      _trainCoachT=0;
-      if(trainCoachEl && _trainCoachEphemeral){ trainCoachEl.classList.remove('on'); trainCoachEl.textContent=''; _trainCoachEphemeral=false; }   // hide graduation copy; training tips (_trainCoachT=0, persistent) stay
-    }
-  }
-  if(CFG.bow.on) bowClock(dt);   // THE BOW: holster clock while idle, ceremony clock once committed. The kill-switch is read HERE so bow.on:false costs one boolean per frame and not a call (bowClock's own guards stay as defense in depth).
-  pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
-  updateRenderQuality(dt);
-  if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
-    fpsAccum+=dt; if(fpsAccum>=0.25){ fpsAccum=0; setText(fpsEl, Math.round(fpsEMA)+' fps · dpr '+renderer.getPixelRatio().toFixed(2)); if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on'); } }
+                           
+                                 
+                                                  
+                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                            
+                                                                                                                             
+                                                                                                                                                
+                     
+                     
+                        
+                     
+                                                                                                                                                                                                                          
+     
+   
+                                                                                                                                                                                                                                               
+                                                                            
+                          
+                                                                                                                             
+                                                                                                                                                                                                          
 
-  // camera = aim base + recoil kick + trauma shake (all decay back to the true aim)
-  const rf=Math.exp(-dt*CFG.recoilReturn); recoilPitch*=rf; recoilYaw*=rf;
-  let shP=0, shY=0, shR=0, shX=0, shPY=0, shZ=0;
-  if(trauma>0){
-    trauma=Math.max(0, trauma - dt*CFG.traumaDecay);
-    const s=trauma*trauma;
-    if(s>0){
-      shP=(Math.random()*2-1)*CFG.shakeAng*s; shY=(Math.random()*2-1)*CFG.shakeAng*s; shR=(Math.random()*2-1)*CFG.shakeRoll*s;
-      shX=(Math.random()*2-1)*CFG.shakePos*s; shPY=(Math.random()*2-1)*CFG.shakePos*s; shZ=(Math.random()*2-1)*CFG.shakePos*s;
-    }
-  }
-  let _dollyY=0, _dollyP=0, _dollyR=0;                         // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump. _dollyR is THE STAR ROAD's bank and is identically 0 on every other path.
-  if(CFG.dolly && !reduceMotion && !templeActive){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul()*(CFG.tide.on?tideMul(CFG.tide.dollyLo):1);   // TIDES: the view wanders hardest at the crest and calms into the mercy bar. Kill-switch read first → tide.on:false is one boolean, no call, no tide read
-    if(roadLive()){   // COURSE-DRIVEN BANKING (SPEC_STAR_ROAD §3, decision 3): the noise IS the course now. roadLean() is the road's heading ROAD_TURN_LEAD beats out, normalised to ±1 — so the camera swings with the river and you counter-steer a bend you could READ eight beats ago, instead of counter-steering a lissajous nobody can anticipate. Raw kill-switch first inside roadLive(): road.on:false and both branches below are the ones that shipped, evaluated on exactly the arguments they always were. Every surrounding law is inherited untouched (CFG.dolly · dollyStrengthMul's dollyStrength × skill ramp · the tide's dollyLo breathing · reduceMotion and templeActive skip the whole block), and the yaw BUDGET is unchanged: the noise paths' harmonic coefficients sum to exactly 1.00, so their peak was dollyYawDeg × _dm — precisely what the clamped course term reaches. PITCH is deliberately 0 here: a ribbon that bends in the plane has no vertical fact to state, and a vertical wander with nothing to say is decoration, which this road does not do.
-      const _ln=roadLean(roadBeatNow());                      // the SAME clock the road is drawn on, so the lean and the bend under it can never disagree. Frozen with the Transport (paused, or the start card) exactly as the noise dolly was frozen with state.t — so there is no jump at the downbeat; the difference is that the resting tilt is not 0 but the bend the card is already showing you
-      _dollyY=-CFG.dollyYawDeg*D*_dm*_ln;                      // the river bends toward world +X (to the right of the road's own travel) → the view is carried right, which is negative yaw under 'YXZ'
-      _dollyR=-ROAD_BANK_DEG*D*_dm*_ln;                        // …and the camera LEANS INTO it, head tilting the same way. Bounded at 3.25° (60 bpm, full strength) — under the shipped trauma roll's 3.44° on the same axis — and it cannot touch the shot: camera.rotation is 'YXZ' (R = Ry·Rx·Rz) and Rz leaves the local −Z axis fixed, so camera.getWorldDirection(), the only thing computeShotPlan reads, is identically independent of roll
-    } else if(CFG.dollyHuman){   // SENSEI: irregular multi-harmonic wander + slow envelope — tracks like a strafing opponent, not a perfect machine orbit
-      const e=0.72+0.28*Math.sin(_t*0.19+0.5);
-      _dollyY=CFG.dollyYawDeg*D*_dm*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
-      _dollyP=CFG.dollyPitchDeg*D*_dm*e*(0.48*Math.sin(_t*_w*0.69+1.2)+0.28*Math.sin(_t*_w*1.88+0.4)+0.24*Math.sin(_t*_w*0.37+2.6));
-    } else {
-      _dollyY=CFG.dollyYawDeg*D*_dm*(0.62*Math.sin(_t*_w)+0.38*Math.sin(_t*_w*1.73+1.3));
-      _dollyP=CFG.dollyPitchDeg*D*_dm*(0.62*Math.sin(_t*_w*0.83+0.7)+0.38*Math.sin(_t*_w*1.31+2.1));
-    }
-  }
-  camera.rotation.set(pitch+recoilPitch+shP+_dollyP, yaw+recoilYaw+shY+_dollyY, shR+_dollyR, 'YXZ');   // THE STAR ROAD's bank rides the roll slot the trauma shake already owns; _dollyR is 0 on every path but the road's, so `shR+0` is the shipped value at every other site and under road.on:false
-  camera.position.set(shX, EYE+shPY, shZ);
-  camera.updateMatrixWorld(); camera.matrixWorldInverse.copy(camera.matrixWorld).invert();   // the pose is final for this frame here, so refresh matrixWorld + its inverse ONCE (exactly what renderer.render does at the end of the frame anyway) — projectPointScope / updateAssist / the remote reticles then read camera.matrixWorldInverse instead of each re-inverting a 4×4 through camera.worldToLocal (perf audit 2026-08-18)
-  if(clutchT>0){                                               // clutch FOV punch: a quick zoom-in that eases out. Purely visual — does NOT touch dt or the beat clock.
-    clutchT=Math.max(0, clutchT-dt);
-    const a=clutchDur*0.14, tIn=clutchDur-clutchT;             // short attack, then ease-out
-    const env=tIn<a ? tIn/a : Math.max(0, clutchT/(clutchDur-a));
-    camera.fov=camFovBase - CFG.clutchZoom*env; camera.updateProjectionMatrix();
-    if(clutchT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }   // restore exactly when the punch ends
-  } else if(missKickT>0){                                      // miss flinch: gentle FOV widen (was 5.5° — too shouty with trauma)
-    missKickT=Math.max(0, missKickT-dt);
-    const a=missKickDur*0.25, tIn=missKickDur-missKickT;
-    const env=tIn<a ? tIn/a : Math.max(0, missKickT/(missKickDur-a));
-    camera.fov=camFovBase + 2.2*env; camera.updateProjectionMatrix();
-    if(missKickT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }
-  }
+                                                                                    
+                                                                          
+                                                
+               
+                                                    
+                          
+            
+                                                                                                                              
+                                                                                                                              
+     
+   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                          
+                                              
+                                                                                                                                                       
+                                                                                                                                    
+            
+                                                                                         
+                                                                                                    
+     
+   
+                                                                                                                                                                                                                                                                                                        
+                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                        
+                                    
+                                                                                             
+                                                                 
+                                                                                
+                                                                                                                      
+                                                                                                                                   
+                                        
+                                                        
+                                                                     
+                                                                     
+                                                                               
+   
 
-  if(state.running && !templeActive){
-    state.t+=dt;
-    let _fb=NaN; const frameBeat=()=>{ if(_fb!==_fb){ _fb=0; try{ _fb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} } return _fb; };   // ONE transport read per frame for the two consumers below (perf audit 2026-08-18): Tone's `Transport.ticks` getter walks the state timeline with allocations on every read, and the vuln glow + the strobe grid asked it twice for one value. Lazy, so a build with both consumers off gains no read; the sample is the same render quantum either way. Input grading (fire/keydown) never comes through here.
-    _fillAmt=-1;   // THE FILL'S OWN PULSE rests at "nothing is asking" every frame and is re-earned inside the vuln branch below, so a build with the vuln mechanic off (or reduced motion on top of it) can never read a stale amount off a previous frame
-    if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
-      let hb=frameBeat();
-      const _bps=60/Math.max(20,state.bpm), _lat=audioLat(); hb-=_lat/_bps;   // heard timeline (reported latency + user offset) → the glow matches the audible beat
-      // Open window peaks on the audible 1 by default (grooveFireEarlyBeat:0). Optional early shift is CFG-only — never coupled to WASD pocket push/layback.
-      const _early=Math.max(0,Math.min(0.45, CFG.grooveFireEarlyBeat!=null?CFG.grooveFireEarlyBeat:0));
-      const _ideal=_early>0?(Math.round(hb+_early)-_early):Math.round(hb);
-      const _offSec=Math.abs(hb-_ideal)*_bps, _winSec=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();   // seconds off the open peak vs skill-tightened band
-      _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
-      // SMOKY open lens: lower peak opacity than a neon flare; shell scale inflate (below) carries the "bubble" read
-      const _floor=CFG.openShellOpacityFloor!=null?CFG.openShellOpacityFloor:0.04;
-      const _peak=CFG.openShellOpacityPeak!=null?CFG.openShellOpacityPeak:0.42;
-      const _so=_openAmt>0?Math.min(_peak, (_floor+(_peak-_floor)*_openAmt)*(CFG.openGlowBoost||1)):_floor;
-      TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
-      // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2 amendment T4). The shipped tank wore the FIELD's whole-beat glow, so
-      // the one orb that answers to a count of gates lit up identically on gates it still needed and gates it had already
-      // spent — the middle gate of the 3-figure was, visually, dark: nothing on screen said "again, now". blinkWin was the
-      // knob for exactly this cue and had been dead since the tank became a fill. Now the (at most one) live fill tank
-      // overrides this material with its OWN amount, shaped by the same law from the distance to the gate it still needs.
-      // With T1's whole-beat gates the two clocks mostly agree — which is the point: they agree on the beats the tank wants
-      // and part company on the beats it does not, so the count reads honestly off the shell. TANK_SHELL_MAT is shared, but
-      // fillOnly guarantees at most one tank alive, and with fillOnly:false _fillAmt is -1 forever and this line never runs.
-      _fillAmt = CFG.tank.fillOnly ? fillGlowAmt() : -1;
-      if(_fillAmt>=0) TANK_SHELL_MAT.opacity = _fillAmt>0 ? Math.min(_peak, (_floor+(_peak-_floor)*_fillAmt)*(CFG.openGlowBoost||1)) : _floor;   // the identical opacity law as _so above, on the fill's clock instead of the beat's
-    } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
-    try{ updatePocketMisses(); }catch(e){}   // unconditional on target presence: close overdue main events before this frame's field work
-    if(targets.length){
-      const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
-      // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
-      const wantStrobe=(CFG.beatQuant && toneReady);   // beat-quantized motion: the orb HOLDS, then STEPS on the beat grid
-      const strobe=wantStrobe && Tone.Transport.state==='started';
-      let doSnap=true, moveStep=dt, doJuke=false;
-      if(wantStrobe && !strobe){ doSnap=false; }               // transport not ticking yet (e.g. the brief window after a resume) → HOLD, don't revert to per-frame scatter
-      else if(strobe){
-        const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/2 → 1/4 → 1/8 beat as skill (diffT) rises
-        _snapInterval=(60/Math.max(20,state.bpm))/spb;   // seconds between strobe steps → scales the WASD hit window
-        let beats=frameBeat();   // same audio clock as the spawn scheduler (onGrid) → in the daily, strobe steps + spawns share one timeline (seeded-fair, fps-tolerant)
-        const qi=Math.floor(beats*spb);
-        doSnap = qi!==_quantIdx;
-        if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
-        const _jb=Math.floor(beats - (CFG.grooveGroove?CFG.grooveFreezePhase:0)); if(CFG.grooveGroove && CFG.grooveJuke && _jb!==_jukeIdx){ doJuke=true; _jukeIdx=_jb; }   // JUKE on the "and" (off-beat) → the orb then glides predictably into the on-beat open window (a fair timed lead)
-      }
-      if(bonusActive){ doSnap=false; doJuke=false; }         // RAIL-FLICK BONUS: HOLD the field (orbs freeze) while the flick mode runs. _quantIdx/_quantT already advanced in the strobe block above, so on unfreeze the next snap is a small step (no teleport, no beat-clock desync).
-      const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
-      const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
-      const _tideW=CFG.tide.on?tideMul(CFG.tide.brownianLo):1;   // TIDES: wander cap + juke sharpness breathe with the swell (kill-switch first → literally ×1, no call, with the parcel off). grooveGlideSpeed is NOT scaled — the leadable glide is the sacred loop
-      const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())*_tideW), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
-      if(doSnap){
-        if(CFG.wasdRhythm && strobe){ const nd=wasdNoteDiv();   // THE FORTY FIX: the lane's OWN ladder (wasdNoteDiv) — no longer half the orb-jump rate, so the strobe can deepen to 1/8 at 50 bpm without conscripting the fingers
-          syncWasdResolutionGrid(nd);
-          const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
-          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; _wasdCombo=0; }   // DE-COERCION (parcel R): only a MAIN leaving unresolved costs damping AND combo. A skipped in-between note is a declined invitation, so it cannot zero _wasdCombo — pressing once per beat is a clean run at every tempo. (Rolling main misses still come from the all-pocket sweep.)
-            if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
-        } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _resolved.clear(); }
-        const _raw=wasdMul(); _mulEff = _raw<_mulEff ? _raw : Math.min(_raw, _mulEff+0.35); }   // asymmetric envelope: calm lands INSTANTLY, punishment ramps +0.35/snap (a miss wakes the field over ~3 snaps instead of one full-amplitude jump-scare)
-      for(let i=targets.length-1;i>=0;i--){
-        const tg=targets[i];
-        if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
-        // Soft lens bubble: grow the shell while open (smoke/glass rim), not brighter neon
-        const _sh=tg.mesh.userData.shell;
-        if(_sh){
-          const base=CFG.openShellScale!=null?CFG.openShellScale:1.55, peak=CFG.openShellScalePeak!=null?CFG.openShellScalePeak:1.92;
-          const a=(CFG.grooveGroove&&CFG.grooveVuln)?((_fillAmt>=0 && tg.fill16>=0)?_fillAmt:_openAmt):0;   // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2, T4): the bubble inflates with the same amount its opacity was just shaped from, so the tank's shell reads as ONE cue and not a light arguing with a size. _fillAmt is -1 on every frame of a fillOnly:false build and tg.fill16 is -1 on every orb that is not the fill, so this is _openAmt verbatim for everything else
-          const pulse=a>0?(base+(peak-base)*a*(0.94+0.06*Math.sin(state.t*9+(tg.idx||0)))):base;
-          _sh.scale.setScalar(pulse);
-        }
-        const p=tg.mesh.position;
-        if(doSnap){ const mul=_mulEff;                  // strobe step scaled by the enveloped WASD freeze: 1=full move, 0=frozen (falls instantly on a clean tap, rises clipped after a break)
-          if(brownianStep){                                  // brownian wander
-            const bj=brownianStep*mul;   // jitter scaled by accuracy too → a clean hit calms the velocity, not just the position (over a streak the field truly settles)
-            tg.vel.x+=(Math.random()*2-1)*bj; tg.vel.y+=(Math.random()*2-1)*bj*0.6; tg.vel.z+=(Math.random()*2-1)*bj;
-            tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
-            const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>velCap2){ const f=velCap/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
-          }
-          if(doJuke){ let _ha=Math.atan2(tg.vel.z, tg.vel.x); if(!(tg.vel.x||tg.vel.z)) _ha=Math.random()*6.283; _ha+=(Math.random()*2-1)*CFG.grooveJukeDeg*_tideW*0.017453293; tg.vel.x=Math.cos(_ha)*CFG.grooveGlideSpeed; tg.vel.z=Math.sin(_ha)*CFG.grooveGlideSpeed; }   // beat JUKE: CUT the heading ±grooveJukeDeg and set a steady glide speed → a visible dart you must re-lead each beat
-          const ms=moveStep*mul;   // accuracy-scaled displacement: the better you time the beat, the less the field drifts this step
-          p.x+=tg.vel.x*ms; p.y+=tg.vel.y*ms; p.z+=tg.vel.z*ms;
-          if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
-            if(p.x<-ROOM_BX){ p.x=-2*ROOM_BX-p.x; tg.vel.x=Math.abs(tg.vel.x); } else if(p.x>ROOM_BX){ p.x=2*ROOM_BX-p.x; tg.vel.x=-Math.abs(tg.vel.x); }
-            if(p.z<-ROOM_BZ){ p.z=-2*ROOM_BZ-p.z; tg.vel.z=Math.abs(tg.vel.z); } else if(p.z>ROOM_BZ){ p.z=2*ROOM_BZ-p.z; tg.vel.z=-Math.abs(tg.vel.z); }
-            if(p.y<2.2){ p.y=4.4-p.y; tg.vel.y=Math.abs(tg.vel.y); } else if(p.y>ROOM_BY){ p.y=2*ROOM_BY-p.y; tg.vel.y=-Math.abs(tg.vel.y); }
-          }else{
-            if(p.x<-ROOM_BX||p.x>ROOM_BX) tg.vel.x*=-1; if(p.z<-ROOM_BZ||p.z>ROOM_BZ) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM_BY) tg.vel.y*=-1;
-          }
-        }
-        if(tg.snd){
-          if(CFG.targetPulse && tg.snd.gateGain && _actx){ tg.gatePhase=(tg.gatePhase+_gateRate)%CFG.targetPulsePeriod; const go=tg.gatePhase<CFG.targetPulseOn; if(go!==tg.gOn){ tg.gOn=go; tg.snd.gateGain.gain.setTargetAtTime(go?1:0.0001, _actx.currentTime, go?0.016:0.08); } }   // eased open on this target's 16th (was 5ms -- spitty), longer release into its rest
-          tg.sndAccum+=dt; if(tg.sndAccum>=TARGET_AUDIO_STEP){ tg.sndAccum=0; const dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d2=dx*dx+dy*dy+dz*dz;
-          const db=Math.max(0,Math.min(TARGET_AUDIO_BUCKETS, Math.round((d2-TARGET_AUDIO_NEAR2)*TARGET_AUDIO_BUCKET_SCALE)));
-          if(db!==tg.snd.dBucket){ tg.snd.dBucket=db; const d=Math.sqrt(d2), t=(d-6)/22; tg.snd.lowpass.frequency.value=lerp(7000,1200,t); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,t); }
-        } }
-        if(bonusActive) tg.expireAt+=dt;                     // RAIL-FLICK BONUS: hold every orb's life clock during the freeze so nothing expires mid-bonus (and each resumes with full remaining life on unfreeze)
-        else if(state.t>=tg.expireAt){ dropTarget(tg); onExpire(tg); }
-      }
-    }
-    if(reticleBadT>0){ reticleBadT-=dt; if(reticleBadT<=0) el.reticle.classList.remove('bad'); }
-  }
+                                     
+                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                             
+                         
+                                                                                                                                                                    
+                                                                                                                                                             
+                                                                                                       
+                                                                          
+                                                                                                                                                                                      
+                                                             
+                                                                                                                     
+                                                                                  
+                                                                               
+                                                                                                           
+                                                                                                                                                                                  
+                                                                                                                         
+                                                                                                                          
+                                                                                                                           
+                                                                                                                       
+                                                                                                                          
+                                                                                                                            
+                                                                                                                            
+                                                                                                                             
+                                                        
+                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                          
+                       
+                                                                                                                                                                                                                                              
+                                                                                                                                            
+                                                                                                                           
+                                                                  
+                                                 
+                                                                                                                                                                            
+                      
+                                                                                                                                                       
+                                                                                                                     
+                                                                                                                                                                         
+                                       
+                                
+                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                             
+       
+                                                                                                                                                                                                                                                                                         
+                                                                                                             
+                                                                                    
+                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                           
+                 
+                                                                                                                                                                                                                                    
+                                     
+                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                     
+                                                                                     
+                                                                                                                                                                                                                                                         
+                                           
+                            
+                                                                                                                                                                         
+                                                                                           
+                                         
+                
+                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+                                                                                                
+                                     
+         
+                                 
+                                                                                                                                                                                               
+                                                                               
+                                                                                                                                                                         
+                                                                                                                     
+                                                                                   
+                                                                                                                                                                        
+           
+                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                     
+                                                               
+                                                                                                                                                                                                                 
+                                                                                                                                                         
+                                                                                                                                                         
+                                                                                                                                             
+                
+                                                                                                                                          
+           
+         
+                   
+                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                        
+                                                                                                                             
+                                                                                                                                                                                                     
+           
+                                                                                                                                                                                                                    
+                                                                      
+       
+     
+                                                                                                
+   
 
-  // explosions (shards fly out + a flash); run regardless so they finish across a pause
-  for(let i=explosions.length-1;i>=0;i--){
-    const e=explosions[i]; const edt=dt*(e.slow||1); e.age+=edt; const k=e.age/e.life;   // edt: a clutch burst (slow<1) ages in slow-mo — localized, never the master clock
-    if(e.geo){ const arr=e.geo.attributes.position.array;
-      const drag=Math.max(0,1-1.6*edt);
-      for(let j=0;j<e.vels.length;j+=3){ e.vels[j+1]-=9.8*edt*0.5; e.vels[j]*=drag; e.vels[j+1]*=drag; e.vels[j+2]*=drag; arr[j]+=e.vels[j]*edt; arr[j+1]+=e.vels[j+1]*edt; arr[j+2]+=e.vels[j+2]*edt; }
-      e.geo.attributes.position.needsUpdate=true; e.mat.opacity=Math.max(0,1-k);
-    }
-    const fk=Math.min(1,e.age/0.18); e.flash.scale.setScalar(e.flashBase*(1+fk*2.4)); e.flash.material.opacity=Math.max(0,0.95*(1-fk));
-    if(e.age>=e.life){ if(e.shards) releaseShards(e.shards); releaseFlash(e.flash); swapRemove(explosions,i); e.shards=e.pts=e.geo=e.mat=e.vels=e.flash=null; explosionRecordPool.push(e); }
-  }
+                                                                                        
+                                          
+                                                                                                                                                                            
+                                                         
+                                       
+                                                                                                                                                                                                        
+                                                                                
+     
+                                                                                                                                       
+                                                                                                                                                                                            
+   
 
-  if(clutchRingT>0 && clutchRing){                              // clutch shockwave: a camera-facing ring expanding out of the impact
-    clutchRingT=Math.max(0, clutchRingT-dt);
-    const u=1-clutchRingT/clutchRingDur, r=0.6+u*7.0;
-    clutchRing.position.copy(_clutchRingPos); clutchRing.scale.set(r,r,r); clutchRing.lookAt(camera.position);
-    clutchRing.material.opacity=Math.max(0,1-u)*0.9; clutchRing.visible=true;
-  } else if(clutchRing && clutchRing.visible){ clutchRing.visible=false; }
-  if(comboGlowEl && !reduceMotion){                             // combo color-lift: warm vignette rides the streak (rise fast / fall slow)
-    const gt=(state.running ? Math.min(1, state.streak/CFG.glowStreakFull) : 0);
-    glowI += (gt-glowI)*(1-Math.exp(-dt*(gt>glowI?CFG.glowRiseK:CFG.glowFallK)));
-    const op=CFG.comboGlow ? glowI*CFG.glowMax : 0;
-    if(comboGlowEl._op===undefined || Math.abs(comboGlowEl._op-op)>0.004){ comboGlowEl.style.opacity=op.toFixed(3); comboGlowEl._op=op; }
-  }
-  // Slow sky/light uniforms do not need a 60Hz CPU update; gameplay rendering stays per-frame.
-  skyT += dt; skyAccum += dt; starAccum += dt;
-  if(starAccum>=STAR_UPDATE_STEP){ updateStars(skyT); starAccum=0; }
-  if(skyAccum>=SKY_UPDATE_STEP){ updateSky(skyAccum); skyAccum=0; }
-  if(state.running && !templeActive && activeRingCount>0){
-    const spb=60/state.bpm;
-    // THE ROOM'S FURNITURE EXITS WITH THE ROOM (wave 8, G1b). Gating emitRing above stops NEW rings, but a ring lives
-    // RING_LIFE=7 beats, so the ones the TRAINER lit are still expanding when setTrainPhase(3) pulls the floor out from
-    // under them. This retires them on the FLOOR'S OWN TIMELINE: _mlBlend is the graduation dissolve and nothing else —
-    // it SNAPS everywhere else — so a player who skipped the trainer finds mlFade already 0 on frame one (nothing to
-    // fade, since nothing was ever emitted), a Temple visit cannot re-fade anything, and the ONE ramp there is is the
-    // one the floor leaves on. No second duration: this is floorDissolveSec through the blend that already reads it,
-    // stepped in the same updateSky call two lines above so the rings and the sky can never disagree by a frame.
-    // Outside the void mlFade is exactly 1, and `x*1` is a bit-identical double, so the trainer's rings and every
-    // moonline.on:false ring keep the shipped opacity to the last bit. VISUAL ONLY — no gameplay quantity is read here.
-    const mlFade=moonlineVoid()?Math.max(0,1-_mlBlend):1;
-    if(mlFade<=0) clearRings();
-    else for(const r of RING_POOL){
-      if(!r.active) continue;
-      const ageB=(state.t-r.t0)/spb;
-      if(ageB>=RING_LIFE){ r.active=false; r.mesh.visible=false; r.rq=0; r.op=-1; activeRingCount=Math.max(0,activeRingCount-1); continue; }
-      const Rq=Math.max(RING_CELL, Math.round((ageB*RING_SPEED)/RING_CELL)*RING_CELL);  // quantize: snap out to the next grid line
-      if(r.rq!==Rq){ r.rq=Rq; r.mesh.scale.set(Rq,1,Rq); }
-      const op=Math.max(0, Math.round(r.intensity*(1-ageB/RING_LIFE)*mlFade*RING_OP_SCALE));
-      if(r.op!==op){ r.op=op; r.mesh.material.opacity=op/RING_OP_SCALE; }
-    }
-  } else clearRings();
-  updateAssist(dt);
-  updateTrail(dt);
-  if(CFG.projectile) try{ if(state.running&&!templeActive) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
-  else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
-  try{ if(state.running&&!templeActive) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
-  try{ updateTanks(dt); }catch(e){ if(!updateTanks._e){ updateTanks._e=1; console.error('updateTanks',e); } }   // MULTI-HIT TANK: the per-chip shell pop
-  try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
-  try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
-  try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
-  try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
-  try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
-  try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
-  try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
-  try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
-  if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
-  if(state.running && !templeActive && rtCh) broadcastAim();  // temple investigation stays out of the dojo reticle channel
-  if(rtCh || remotes.size) updateRemotes(dt);   // draw live reticles only when realtime state exists
-  renderer.render(scene,camera);
-}
-// NOTE: animate() is kicked off at the very end of the IIFE (after all module-scope const/let exist) — see bootstrap below.
-window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH; camera.updateProjectionMatrix(); renderer.setSize(viewW,viewH); sizeRefl(); });
+                                                                                                                                     
+                                            
+                                                     
+                                                                                                              
+                                                                             
+                                                                          
+                                                                                                                                           
+                                                                                
+                                                                                 
+                                                   
+                                                                                                                                         
+   
+                                                                                               
+                                              
+                                                                    
+                                                                   
+                                                          
+                           
+                                                                                                                      
+                                                                                                                        
+                                                                                                                        
+                                                                                                                     
+                                                                                                                      
+                                                                                                                     
+                                                                                                                 
+                                                                                                                  
+                                                                                                                        
+                                                         
+                               
+                                   
+                             
+                                    
+                                                                                                                                            
+                                                                                                                                   
+                                                          
+                                                                                            
+                                                                         
+     
+                      
+                   
+                  
+                                                                                                                                                                                        
+                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                         
+                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                       
+                                                                                                                                                                                                                 
+                                                                                                                                                                                                                 
+                                                                                                                                                                              
+                                                                                                                                
+                                                                                                                                                                        
+                                                                                                                           
+                                                                                                     
+                                
+ 
+                                                                                                                            
+                                                                                                                                                                 
 
-/* ========================= OVERLAY ========================= */
-const overlay=gid('overlay'), beginBtn=gid('beginBtn'), beginLabel=gid('beginLabel');
-const WARM_CARD=true;   // WARM CARD experiment: platinum-warm bone on the start/pause card only (CSS #overlay.warm). false = the original cool bone everywhere. Eye-judged — flip and reload
-if(WARM_CARD && overlay) overlay.classList.add('warm');
-const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
-const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
-/* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
-const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), skyMotionToggle=gid('skyMotionToggle'), skyMotionRow=gid('skyMotionRow'), beatCircleToggle=gid('beatCircleToggle'), beatCircleRow=gid('beatCircleRow'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
-const observerUi={
-  root:gid('observerLocation'), mode:gid('observerLocationMode'), status:gid('observerLocationStatus'),
-  geo:gid('observerGeoButton'), lat:gid('observerLat'), lon:gid('observerLon'), save:gid('observerSave')
-};
-let _observerGeoState='idle', _observerGeoSeq=0, _observerFormDirty=false, _observerNotice='';
-let _observerGeoTriedSession=(function(){ try{ return !!(OBSERVER_PREFS&&OBSERVER_PREFS.hasGeoTried(localStorage)); }catch(e){ return false; } })();
-function observerDegrees(value,positive,negative){
-  const number=Math.abs(value), shown=number.toFixed(4).replace(/(?:\.0+|(?:(\.\d*?)0+))$/,'$1');
-  return shown+'°'+(value<0?negative:positive);
-}
-function observerStatusText(){
-  if(_observerGeoState==='locating') return T('observerLocating','FINDING YOUR LOCATION…');
-  if(_observerNotice) return _observerNotice;   // surface invalid/manual storage failures even when an older valid observer remains active
-  if(_skyObserver){
-    const source=_skyObserver.source==='manual'?T('observerManualSource','MANUAL')
-      : _skyObserver.source==='geo'?T('observerGeoSource','DEVICE'):T('observerDefaultSource','APPROX');
-    return source+' · '+observerDegrees(_skyObserver.lat,'N','S')+' '+observerDegrees(_skyObserver.lon,'E','W');
-  }
-  if(SKY_TIME==='theatre') return T('observerTheatreMode','OPTIONAL · USED ONLY IN NATURAL');
-  if(_observerGeoState==='failed') return T('observerGeoFailed','LOCATION UNAVAILABLE · ENTER LAT/LON');
-  return T('observerSetPrompt','SET LOCATION FOR TRUE SKY');
-}
-function renderObserverSettings(){
-  const decorative=SKY_MODE==='decorative';
-  if(observerUi.root){ observerUi.root.hidden=decorative; if(decorative) return; }
-  if(observerUi.mode) observerUi.mode.textContent=SKY_TIME==='theatre'
-    ? T('observerTheatreMode','OPTIONAL · USED ONLY IN NATURAL')
-    : T('observerNaturalMode','NATURAL · LOCAL HORIZON');
-  if(observerUi.geo) observerUi.geo.disabled=_observerGeoState==='locating';
-  if(!_observerFormDirty && _skyObserver && document.activeElement!==observerUi.lat && document.activeElement!==observerUi.lon){
-    if(observerUi.lat) observerUi.lat.value=String(_skyObserver.lat);
-    if(observerUi.lon) observerUi.lon.value=String(_skyObserver.lon);
-  }
-  if(observerUi.status){
-    observerUi.status.textContent=observerStatusText();
-    observerUi.status.classList.toggle('prompt',!_skyObserver&&SKY_TIME==='natural');
-  }
-}
-function persistSkyObserver(lat,lon,source){
-  if(!OBSERVER_PREFS) throw new Error('Observer preferences unavailable');
-  _skyObserver=OBSERVER_PREFS.saveObserver(localStorage,{lat:lat,lon:lon,source:source,updatedAt:Date.now()});
-  return _skyObserver;
-}
-function saveManualObserver(){
-  if(!OBSERVER_PREFS) return;
-  const lat=OBSERVER_PREFS.coordinate(observerUi.lat&&observerUi.lat.value,-90,90);
-  const lon=OBSERVER_PREFS.coordinate(observerUi.lon&&observerUi.lon.value,-180,180);
-  const invalid=T('observerManualInvalid','ENTER LAT −90…90 AND LON −180…180');
-  if(observerUi.lat) observerUi.lat.setCustomValidity(lat===null?invalid:'');
-  if(observerUi.lon) observerUi.lon.setCustomValidity(lon===null?invalid:'');
-  if(lat===null||lon===null){
-    _observerNotice=invalid; renderObserverSettings();
-    const first=lat===null?observerUi.lat:observerUi.lon; if(first) try{ first.reportValidity(); }catch(e){}
-    return;
-  }
-  ++_observerGeoSeq;   // a pending automatic lookup must never overwrite an explicit manual save
-  try{
-    persistSkyObserver(lat,lon,'manual'); _observerGeoState='idle'; _observerNotice=''; _observerFormDirty=false;
-  }catch(e){ _observerNotice=T('observerSaveFailed','LOCATION COULD NOT BE SAVED'); }
-  renderObserverSettings();
-}
-function requestObserverGeolocation(explicit){
-  explicit=explicit===true;
-  if(_observerGeoState==='locating') return;
-  if(!explicit && (_skyObserver||_observerGeoTriedSession)) return;
-  _observerGeoTriedSession=true;
-  try{ if(OBSERVER_PREFS) OBSERVER_PREFS.markGeoTried(localStorage); }catch(e){}
-  if(!navigator.geolocation||typeof navigator.geolocation.getCurrentPosition!=='function'){
-    _observerGeoState='failed'; _observerNotice=''; renderObserverSettings(); return;
-  }
-  const seq=++_observerGeoSeq;
-  _observerGeoState='locating'; _observerNotice=''; renderObserverSettings();
-  navigator.geolocation.getCurrentPosition(position=>{
-    if(seq!==_observerGeoSeq) return;
-    // Manual wins over the one-shot boot lookup. A deliberate USE MY LOCATION click may replace it.
-    if(!explicit&&_skyObserver&&_skyObserver.source==='manual'){ _observerGeoState='idle'; renderObserverSettings(); return; }
-    const coords=position&&position.coords;
-    const lat=OBSERVER_PREFS&&OBSERVER_PREFS.coordinate(coords&&coords.latitude,-90,90);
-    const lon=OBSERVER_PREFS&&OBSERVER_PREFS.coordinate(coords&&coords.longitude,-180,180);
-    try{
-      if(lat===null||lon===null) throw new RangeError('Invalid device coordinates');
-      persistSkyObserver(lat,lon,'geo'); _observerGeoState='idle'; _observerFormDirty=false;
-      if(observerUi.lat) observerUi.lat.setCustomValidity(''); if(observerUi.lon) observerUi.lon.setCustomValidity('');
-    }catch(e){ _observerGeoState='failed'; }
-    renderObserverSettings();
-  },()=>{
-    if(seq!==_observerGeoSeq) return;
-    _observerGeoState='failed'; _observerNotice=''; renderObserverSettings();
-  },{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
-}
-function setSettingsTab(tab){
-  if(!settingsBox) return;
-  const id=String(tab||'play');
-  settingsBox.querySelectorAll('.settings-tab').forEach(btn=>{
-    const on=btn.getAttribute('data-tab')===id;
-    btn.classList.toggle('on',on); btn.setAttribute('aria-selected',on?'true':'false');
-  });
-  settingsBox.querySelectorAll('.settings-panel').forEach(panel=>{
-    const on=panel.getAttribute('data-tab')===id;
-    panel.classList.toggle('on',on); if(on) panel.removeAttribute('hidden'); else panel.setAttribute('hidden','');
-  });
-  try{
-    requestAnimationFrame(()=>{
-      const ov=gid('overlay'), panel=settingsBox.querySelector('.settings-panel.on');
-      if(!ov||ov.classList.contains('hidden')||!panel) return;
-      panel.scrollIntoView({block:'nearest',inline:'nearest',behavior:reduceMotion?'auto':'smooth'});
-    });
-  }catch(e){}
-}
-function wireSettingsTabs(){
-  if(!settingsBox||settingsBox._tabsWired) return;
-  settingsBox._tabsWired=true;
-  settingsBox.querySelectorAll('.settings-tab').forEach(btn=>{
-    btn.addEventListener('click',()=>{ setSettingsTab(btn.getAttribute('data-tab')||'play'); });
-  });
-  setSettingsTab('play');
-}
-function wirePauseScrollOnExpand(){
-  // Keep expanded settings reachable inside the overlay scroller (tabs + any remaining details)
-  if(!settingsBox||settingsBox._scrollWired) return;
-  settingsBox._scrollWired=true;
-  settingsBox.querySelectorAll('details').forEach(d=>{
-    d.addEventListener('toggle',()=>{
-      if(!d.open) return;
-      try{
-        requestAnimationFrame(()=>{
-          const ov=gid('overlay'); if(!ov||ov.classList.contains('hidden')) return;
-          d.scrollIntoView({block:'nearest',inline:'nearest',behavior:reduceMotion?'auto':'smooth'});
-        });
-      }catch(e){}
-    });
-  });
-}
-function refreshSettings(){
-  if(!settingsBox) return;
-  wireSettingsTabs();
-  wirePauseScrollOnExpand();
-  const ps=gid('playSettingsSummary'), ss=gid('skySettingsSummary'), cs=gid('chartSettingsSummary'), hs=gid('helpSettingsSummary');
-  if(ps) ps.textContent=T('playSettingsSummary','PLAY');
-  if(ss) ss.textContent=T('skySettingsSummary','SKY');
-  if(cs) cs.textContent=T('chartSettingsSummary','CHART');
-  if(hs) hs.textContent=T('helpSettingsSummary','HELP');
-  if(resToggle){ const pref=(function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();
-    resToggle.textContent = LOW ? T('resLow','LOW ▸ tap for HIGH') : T('resHigh','HIGH ▸ tap for LOW');   // actual mode this session
-    resToggle.title = pref==='1' ? T('resForcedLow','forced LOW (saved)') : pref==='0' ? T('resForcedHigh','forced HIGH (saved)') : (LOW ? T('resAutoLow','auto → LOW') : T('resAutoHigh','auto → HIGH'));
-  }
-  // SKY MOTION: only meaningful on clocked* (constellation sphere). Decorative uses the old art day cycle.
-  if(skyMotionRow) skyMotionRow.style.display=(SKY_MODE==='decorative')?'none':'flex';
-  if(skyMotionToggle && SKY_MODE!=='decorative'){
-    skyMotionToggle.textContent = SKY_TIME==='theatre' ? T('skyTheatreOn','THEATRE ▸ tap for NATURAL') : T('skyNaturalOn','NATURAL ▸ tap for THEATRE');
-    skyMotionToggle.title = SKY_TIME==='theatre' ? T('skyTheatreHint','full sky spins ~every few minutes · R-CLICK freezes') : T('skyNaturalHint','wall-clock local sky · no freeze');
-  }
-  renderObserverSettings();
-  if(beatCircleToggle){
-    const on=!!CFG.wasdHud;
-    beatCircleToggle.textContent = on ? T('beatCircleOn','ON ▸ tap for OFF') : T('beatCircleOff','OFF ▸ tap for ON');
-    beatCircleToggle.title = on ? T('beatCircleHintOn','training-style beat circle visible') : T('beatCircleHintOff','training-style beat circle hidden');
-  }
-  if(beatCircleRow) beatCircleRow.style.display=MOBILE?'none':'flex';
-  const ms=Math.round(_userOffsetSec*1000);
-  if(offSlider) offSlider.value=ms;
-  if(offVal) offVal.textContent=ms+' ms';
-  if(calibHint){
-    // Only show calibration coaching when there is something useful to say (cuts pause noise)
-    if(_tapOffN>=6){ calibHint.textContent=TF('calibReady','{n} taps logged — tap to auto-set',{n:_tapOffN}); calibHint.style.minHeight='14px'; }
-    else { calibHint.textContent=''; calibHint.style.minHeight='0'; }
-  }
-}
-if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is construction-time (MSAA + DPR) → persist + reload. Strip ?low/?hi so URL flags can't override the saved choice.
-  e.preventDefault(); e.stopPropagation();
-  const wantLow = !LOW;
-  try{ localStorage.setItem('aimdojo.lowRez', wantLow ? '1' : '0'); }catch(err){}
-  try{ queueCloudPrefs({low_rez:wantLow}); }catch(err){}
-  try{
-    const u=new URL(location.href);
-    const raw=(u.search||'').replace(/^\?/,'').split('&').filter(p=>{ const k=p.split('=')[0]; return p && k!=='low' && k!=='hi'; });
-    const search=raw.length?('?'+raw.join('&')):'';
-    const hash=(u.hash||'').replace(/([#&])(low|hi)\b/g,'$1').replace(/#&+/g,'#').replace(/#$/,'');
-    const next=u.pathname+search+hash;
-    if(next===location.pathname+location.search+location.hash) location.reload();
-    else location.replace(next);   // navigation reloads with clean URL; localStorage preference wins
-  }catch(err){ location.reload(); }
-});
-if(skyMotionToggle) skyMotionToggle.addEventListener('click', (e)=>{   // live toggle — no reload; reseed phase so NATURAL snaps to wall clock and THEATRE starts from "now"
-  e.preventDefault(); e.stopPropagation();
-  if(SKY_MODE==='decorative') return;
-  SKY_TIME = (SKY_TIME==='theatre') ? 'natural' : 'theatre';
-  try{ localStorage.setItem('aimdojo.skyTime', SKY_TIME); }catch(err){}
-  try{ dayPhase=clockedDayPhase(Date.now()); skyFrozen=false; }catch(err){}
-  refreshSettings();
-  if(SKY_TIME==='natural') requestObserverGeolocation(false);
-  queueCloudPrefs({sky_time:SKY_TIME});
-});
-if(observerUi.geo) observerUi.geo.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); requestObserverGeolocation(true); });
-if(observerUi.save) observerUi.save.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); saveManualObserver(); });
-for(const input of [observerUi.lat,observerUi.lon]) if(input) input.addEventListener('input',()=>{
-  _observerFormDirty=true; _observerNotice=''; input.setCustomValidity(''); if(_observerGeoState==='failed') _observerGeoState='idle'; renderObserverSettings();
-});
-if(beatCircleToggle) beatCircleToggle.addEventListener('click', (e)=>{
-  e.preventDefault(); e.stopPropagation();
-  if(MOBILE) return;
-  const next=!CFG.wasdHud; CFG.wasdHud=next;
-  try{ localStorage.setItem('aimdojo.wasdHud', next?'1':'0'); }catch(err){}
-  refreshSettings();
-  queueCloudPrefs({wasd_hud:next});
-  try{ showGhostToast(next?T('beatCircleHintOn','BEAT CIRCLE ON'):T('beatCircleHintOff','BEAT CIRCLE OFF')); }catch(err){}
-});
-if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)), next=ms/1000; if(next!==_userOffsetSec){ _userOffsetSec=next; rebasePocketMissTracking(); } if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame; pocket miss tracking rebases so a paused edit cannot back-fill a fake event
-if(offSlider) offSlider.addEventListener('change', ()=>{ queueCloudPrefs({offset_ms:Math.round(_userOffsetSec*1000)}); });
-if(calibBtn) calibBtn.addEventListener('click', ()=>{
-  if(_tapOffN<6){ if(calibHint) calibHint.textContent=T('calibNotEnough','not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'); return; }
-  const avg=_tapOffSum/_tapOffN, nextOffset=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg)); if(nextOffset!==_userOffsetSec){ _userOffsetSec=nextOffset; rebasePocketMissTracking(); }   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
-  const ms=Math.round(_userOffsetSec*1000); if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
-  try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){}
-  try{ queueCloudPrefs({offset_ms:ms}); }catch(e){}
-  if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
-  _tapOffSum=0; _tapOffN=0;
-});
+                                                                 
+                                                                                     
+                                                                                                                                                                                             
+                                                       
+                                                                                                             
+                                                                            
+                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                 
+                  
+                                                                                                       
+                                                                                                        
+  
+                                                                                              
+                                                                                                                                                    
+                                                  
+                                                                                                 
+                                               
+ 
+                              
+                                                                                           
+                                                                                                                                           
+                   
+                                                                                  
+                                                                                                        
+                                                                                                                
+   
+                                                                                             
+                                                                                                        
+                                                            
+ 
+                                  
+                                           
+                                                                                  
+                                                                      
+                                                                
+                                                         
+                                                                            
+                                                                                                                                
+                                                                     
+                                                                     
+   
+                        
+                                                       
+                                                                                     
+   
+ 
+                                            
+                                                                          
+                                                                                                              
+                      
+ 
+                              
+                             
+                                                                                   
+                                                                                     
+                                                                               
+                                                                             
+                                                                             
+                             
+                                                      
+                                                                                                            
+           
+   
+                                                                                                 
+      
+                                                                                                                 
+                                                                                     
+                           
+ 
+                                              
+                           
+                                            
+                                                                   
+                                
+                                                                                
+                                                                                           
+                                                                                     
+   
+                              
+                                                                             
+                                                      
+                                     
+                                                                                                    
+                                                                                                                              
+                                           
+                                                                                        
+                                                                                           
+        
+                                                                                    
+                                                                                            
+                                                                                                                       
+                                            
+                             
+         
+                                     
+                                                                             
+                                                               
+ 
+                             
+                          
+                               
+                                                              
+                                               
+                                                                                       
+     
+                                                                  
+                                                 
+                                                                                                                  
+     
+      
+                               
+                                                                                     
+                                                              
+                                                                                                     
+       
+             
+ 
+                            
+                                                  
+                              
+                                                              
+                                                                                                
+     
+                         
+ 
+                                   
+                                                                                                
+                                                    
+                                
+                                                      
+                                     
+                         
+          
+                                   
+                                                                                   
+                                                                                                     
+           
+                 
+       
+     
+ 
+                           
+                          
+                     
+                            
+                                                                                                                                   
+                                                        
+                                                      
+                                                          
+                                                        
+                                                                                                                            
+                                                                                                                                     
+                                                                                                                                                                                                          
+   
+                                                                                                           
+                                                                                      
+                                                 
+                                                                                                                                                       
+                                                                                                                                                                                      
+   
+                           
+                       
+                           
+                                                                                                                     
+                                                                                                                                                          
+   
+                                                                     
+                                           
+                                   
+                                         
+                
+                                                                                              
+                                                                                                                                                 
+                                                                     
+   
+ 
+                                                                                                                                                                                           
+                                          
+                       
+                                                                                 
+                                                        
+      
+                                   
+                                                                                                                                     
+                                                   
+                                                                                                   
+                                      
+                                                                                 
+                                                                                                     
+                                   
+   
+                                                                                                                                                                            
+                                          
+                                     
+                                                            
+                                                                       
+                                                                           
+                    
+                                                             
+                                       
+   
+                                                                                                                                              
+                                                                                                                                    
+                                                                                                  
+                                                                                                                                                                
+   
+                                                                      
+                                          
+                    
+                                            
+                                                                           
+                    
+                                   
+                                                                                                                          
+   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                          
+                                                     
+                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                   
+                                                                                                                     
+                                                                
+                                                   
+                                                                                                                                                                           
+                           
+   
 
-/* ===== CLOUD PREFS (optional, signed-in only): Supabase aimdojo_prefs supersedes localStorage =====
-   Non-sensitive play prefs only — never birth data. Fail closed if the table/columns are missing.
-   Columns (v1+v2): sky_time, wasd_hud, offset_ms, low_rez, display_name, dojo_sort, sky_mode, sound_on, wasd_tap_text */
-const CLOUD_PREF_SELECT='sky_time,wasd_hud,offset_ms,low_rez,display_name,dojo_sort,sky_mode,sound_on,wasd_tap_text';
-let _cloudPrefsTimer=null, _cloudPrefsPending=null, _cloudPrefsLoaded=false;
-function localPrefSnapshot(){
-  let low=null, wasd=null, name='', sort=null, mode=null, tap=null;
-  try{ low=localStorage.getItem('aimdojo.lowRez'); }catch(e){}
-  try{ wasd=localStorage.getItem('aimdojo.wasdHud'); }catch(e){}
-  try{ name=(localStorage.getItem('aimdojo.name')||'').trim().slice(0,24); }catch(e){}
-  try{ const s=localStorage.getItem('aimdojo.dojosort'); if(s==='peak_bpm'||s==='runtime') sort=s; }catch(e){}
-  try{ const m=localStorage.getItem('aimdojo.skyMode'); if(m==='decorative'||m==='clocked'||m==='clocked_chart') mode=m; }catch(e){}
-  try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') tap=true; else if(t==='0') tap=false; }catch(e){}
-  const off=Math.round(_userOffsetSec*1000);
-  return {
-    sky_time:(SKY_TIME==='natural'||SKY_TIME==='theatre')?SKY_TIME:null,
-    wasd_hud:wasd==='1'?true:(wasd==='0'?false:null),
-    offset_ms:isFinite(off)?off:null,
-    low_rez:low==='1'?true:(low==='0'?false:null),
-    display_name:name||null,
-    dojo_sort:sort,
-    sky_mode:mode||((SKY_MODE==='decorative'||SKY_MODE==='clocked'||SKY_MODE==='clocked_chart')?SKY_MODE:null),
-    sound_on:!!soundOn,
-    wasd_tap_text:tap
-  };
-}
+                                                                                                     
+                                                                                                  
+                                                                                                                         
+                                                                                                                     
+                                                                            
+                             
+                                                                   
+                                                              
+                                                                
+                                                                                      
+                                                                                                              
+                                                                                                                                    
+                                                                                                                         
+                                            
+          
+                                                                        
+                                                     
+                                     
+                                                  
+                            
+                   
+                                                                                                               
+                       
+                     
+    
+ 
                                  
                                          
                         
@@ -10395,6 +10784,8 @@ function localPrefSnapshot(){
                                                                                                  
                                                      
                                                                                       
+                                                                                                                                              
+                                                                                                                                                       
                  
                              
  

@@ -1,0 +1,10 @@
+{
+  "high": {
+    "chars": 19422,
+    "sha256": "a83fbd7431ca849c93cdb7e8696813dc3fb2c156a2283c50807179e23550c7e0"
+  },
+  "low": {
+    "chars": 14390,
+    "sha256": "9e90ecf8534cf35083dfb15f048fbc5bee7d7c4841e9f6dff9340c6c314a2dc6"
+  }
+}

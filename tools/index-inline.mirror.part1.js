@@ -955,6 +955,8 @@ const CFG = {
   wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01],   // THE FORTY FIX (wave 7, parcel R): the NOTE LANE now owns its own density ladder instead of borrowing the orb strobe's. It was one ladder on purpose (2026-06-23, "no separate difficulty system") and that was right while the tiers sat at bpm 80.8/134.0 — nobody ever reached them. THE SIXTY CAP moved the same thresholds to 36.0/50.0, so from ~37.5 bpm on the lane silently DOUBLED the required presses (and quadrupled them at 50) onto raw downbeats that collide with shot arrival — one demanded key per beat, the lane's whole contract, quietly stopped being true a third of the way up the mountain. Same SHAPE as beatQuantT (divs/2 = notes per beat), different thresholds: see wasdNoteDiv() for the crossing arithmetic. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched — this is a decoupling, not a retune.
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
+  ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
+  ghostSeat:1,   // NIGHT GHOSTS S: raw flat kill-switch. 0 allocates and draws no echo-seat object; 1 may load one validated prior-night artifact into the separate +90 m Veiled Choir
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   // THE SURVIVING EXPERT k-SET UNDER THE SIXTY CAP (parcel P, computed with the real solver in beatSpawnDist against the SHIPPED constants — projSpeed 28/projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28): the LIST DOES NOT CHANGE — infeasible k's have always dropped out by arithmetic, and they still do. AT EXACTLY 60 BPM (dT 1.00, s 72 m/s) against rangeMax the feasible set is {2, 3, 4, 6} at d = {9.00, 13.50, 17.99, 26.98} m; k=8/12/16 need 35.94/53.81/71.55 m and are out of reach. Over the WHOLE new live band 20..60 (far = rangeMax): k=2,3,4 are feasible throughout, k=6 enters at 40.1 bpm, k=8/12/16 never — the expert lead is therefore the SIX-sixteenth (3/8-beat) call, not the old 8..16. On a LAST QUARTER (farMul 1.3, band 10.4..36.4 m) the set at 60 shifts out to {3, 4, 6, 8}, which is the one night k=8 speaks at all. At the CLOSE end (state.range at rangeStart 11) only k=2 is ever feasible, at every tempo — so a night's k vocabulary genuinely opens as the distance shell marches out, which is what the shell was for.
@@ -6745,6 +6747,7 @@ function roadImpSync(r){
                                                                                                   
  
                      
+                                                                                                                                                           
                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                             
@@ -7839,6 +7842,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                    
+                                                                                                                                                                                            
  
                                                                                                           
                                  
@@ -7877,6 +7881,7 @@ function roadImpSync(r){
                                                                                                                             
                                                                                             
                                                                                             
+                                                                                                                                                  
                                                                              
                                                         
  
@@ -7903,7 +7908,7 @@ function roadImpSync(r){
                                                 
                                                                                                                                                                                         
                                                                                                                                   
-                                               
+                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                   
                                                                                                                                                                    
@@ -7916,8 +7921,10 @@ function roadImpSync(r){
                                                                                                                                                                                                             
                                                           
                                                                            
+                                                         
                                                                                                                  
    
+                                                                                                                                                                                
                                                                                                                                                                                                                                   
                                                                                                                                                                                                
                       
@@ -7967,7 +7974,7 @@ function roadImpSync(r){
                           
                                                       
  
-                                                                                                                  
+                                                                                                                           
                                                                                                                      
                                                                                                                          
                                                                                                                           
@@ -7977,6 +7984,7 @@ function roadImpSync(r){
                                                                                                                           
                                                                                                       
                                                                
+                                                                                                                                                           
                     
                                        
                                                                                                                                                                                                               
@@ -7989,18 +7997,19 @@ function roadImpSync(r){
                                       
  
                                                                                                                                                                                                                                                                                                                                                   
-                                  
+                                           
                                                                                                                                                                                                                                                                                                           
                                                                                                                                            
-                                                                                                                                                     
+                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                
    
-                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                     
                
+                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                         
-                                      
+                                                                     
    
                                                                                                                          
  
@@ -8024,7 +8033,9 @@ function roadImpSync(r){
                                                                          
                                        
  
-                                                                   
+                      
+                                                                                                                                                          
+                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                
                                         
@@ -8039,7 +8050,9 @@ function roadImpSync(r){
                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                             
+              
+                                                                          
+                                                                                                                                                                                                                                                                                                                       
  
                                          
                    
@@ -8081,6 +8094,7 @@ function roadImpSync(r){
                  
    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                              
  
                                                                                                                
                                                                                                                                                                                                                                                                                                      
@@ -8226,18 +8240,18 @@ function roadImpSync(r){
      
              
  
-                           
-                                                                                                                                            
+                                  
+                                                                                                                                      
                                                                                                                                                    
                      
-                                                                                                                                                  
+                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                  
                        
                                                                                                                                                                                                                                                                                                       
  
-                                                                                                                                          
-                                                                                                                                                                                   
+                                                                                                                                                           
+                                                                                                                                                                                                    
                                                                                                                                                                                                      
                                                                  
                                                                  
@@ -8254,10 +8268,10 @@ function roadImpSync(r){
                                                                                             
                                                                                  
             
-                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                     
-                                                                                                                                                                                                    
+                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                               
    
@@ -8749,6 +8763,380 @@ function roadImpSync(r){
                                                                                                          
                                                          
    
+ 
+
+                                                                                          
+                                                                                                                       
+                                                                                                                       
+                                                                                                                      
+                                                                                                                                                            
+                                                                                                                                                                 
+                                                 
+                                                                                                    
+                                                                                            
+                                                           
+                                                                                                             
+                                                                                
+                                              
+                         
+                         
+      
+                                                  
+                                                     
+             
+                                            
+                                                       
+ 
+                            
+                                         
+                                                            
+                                                                                      
+ 
+                                                                                                                                                                   
+                                                                           
+                          
+                                                                                                                                      
+                   
+                                                                                                                              
+                                                                               
+ 
+                              
+                                                         
+                                                                                                                                
+                                                                                          
+                                                         
+                                                                                                  
+ 
+                                      
+                                   
+                 
+ 
+                                                      
+                                                                         
+                                                                      
+              
+                              
+                                                                
+                         
+        
+                          
+   
+                         
+                                                           
+ 
+                                      
+                                                                    
+                                                                                                                                                            
+                                                 
+ 
+                                    
+                                      
+                                                                                                                                                      
+ 
+                                            
+                                           
+                                                                         
+                                                                       
+ 
+                             
+                                      
+                                                                                                                
+                                     
+                                                                      
+ 
+                            
+                             
+                                  
+                                    
+                                                                                                                                          
+                      
+                                           
+   
+              
+ 
+                               
+                                                                                                                                                          
+                                                                    
+                
+      
+                          
+                                                                                                                                             
+                                                         
+                                                                                                                                                          
+                                                                                      
+                                  
+                                      
+                                            
+             
+ 
+
+                                   
+                                                    
+                                
+                                                  
+                                                                   
+                                                                     
+                                                                                                                                                                                                                                      
+                                                                                                                                               
+                                                                                                                                                              
+               
+                                                                                                                                                                                                                            
+                             
+                                  
+                                                                                                                                                                                                                                                                                                                     
+                                                                                                             
+                                                
+                                   
+   
+           
+                                                                                                                                                                                                                                                                         
+           
+                                                                                                                                                                                                                                                                                                                           
+               
+ 
+                         
+                                                                                                                               
+                                                                                        
+                                                  
+                                                                            
+ 
+
+                                                             
+                                                                             
+                                                                                      
+                                                                                            
+                                                                                                                                                                       
+                                                                                                    
+                                                                                                        
+                                                                                                                
+                                                                                                  
+                                                                                                           
+                                                                                    
+                                                                                                                                                      
+                                                                                                                                     
+                                                   
+                                       
+                                                                                        
+             
+                                                                                         
+                                                                                                     
+                        
+                                     
+                          
+                           
+           
+ 
+                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                     
+                                                                                                      
+                                                                                                  
+                                                                                                                                    
+                                
+                                                                                                    
+                                                             
+ 
+                                       
+                                                                                                                                                                                           
+                                
+                                                                                                                                   
+                                            
+   
+             
+ 
+                                                                                                                                                                               
+                                                                                              
+                                  
+                                           
+                                          
+                                                                                                                
+                                                                      
+                                                                  
+                                                               
+ 
+                             
+                                     
+                                                                        
+                                                                                      
+                                                                                            
+                                                                                            
+                                                                                   
+                                                                                      
+                               
+ 
+                                                             
+                             
+                                                                                                                                                                                                                                                                       
+                                                     
+ 
+                             
+                                                                                                                                              
+                                                                                      
+                                                                                                                     
+                                                                                                                                                       
+                                                                                                                                    
+                          
+ 
+                             
+                                               
+                                                                                                                                                                                                      
+                          
+ 
+                                                                                                                                                                                                                                                                             
+                                                                                     
+                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                 
+                                                                                                                                            
+                                                                                                                                                                                                                                                                                    
+                               
+                                                                                 
+                                                                                          
+                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                
+                            
+                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                        
+                                                                                                                                                                                                                                                                      
+                                                                                                                               
+                           
+                                                                                                                                                                 
+                                                                                                                                                                                 
+                                                                
+                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                               
+                                                                                                                                                                                     
+                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                              
+                                                     
+           
+                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                    
+   
+                                                                
+ 
+                                  
+                                                                                                                                                                            
+                                                                       
+                                    
+                              
+                   
+                                                
+                                                                                                                     
+   
+                                                                 
+                                          
+                                        
+                                                                
+ 
+                          
+                      
+                   
+                                                                                     
+                                                                                                                  
+                                                                             
+ 
+                            
+                                                               
+                       
+                                            
+                                            
+                                                                                   
+                                                                                                   
+ 
+                                        
+                                                                                      
+                                                                                                                       
+ 
+                              
+                                   
+                                         
+                       
+                                                                                                                                                  
+                                                                                                                                                                                                                                                
+   
+ 
+                             
+                                
+                     
+                                                
+                                                                                        
+                                                                        
+                                                             
+   
+                                                                                                                                       
+                                                                                                                                                                                                   
+                
+ 
+                                        
+                                    
+                                                
+                                                                                        
+                                                                                                                     
+                                                       
+                                                               
+                                                                                                                                                                                                                                                                                               
+     
+                                                                                              
+                                                                                                                                                                          
+                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                 
+     
+   
+                                                                                             
+                                                                                                             
+                                                                                                                                                                                                                        
+                                                                         
+ 
+                                       
+                                              
+              
+                                  
+                          
+                                                                                     
+                       
+                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                           
+   
+                           
+                                                                                                         
+               
+ 
+                                                            
+                                                                                         
+                                   
+                                                 
+                                         
+                                           
+                                             
+                                                     
+                                                     
+                                                   
+                                                              
+                                                           
+ 
+                                          
+                                                                                           
+                                       
+                                                   
+                                                   
+                                                     
+ 
+                             
+                                                                                                                                                                               
+                                                                                                                                                                             
+                                                                                                                                  
+                                                        
+                                                                                  
+                                                                                                                                        
  
                                                                                                                                                                
                                                                                                                             
@@ -9304,6 +9692,7 @@ function roadImpSync(r){
                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                        
                                                                                                                                                                                                                  
                                                                                                                                                                                                                  
@@ -10395,6 +10784,8 @@ function roadImpSync(r){
                                                                                                  
                                                      
                                                                                       
+                                                                                                                                              
+                                                                                                                                                       
                  
                              
  

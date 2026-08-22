@@ -955,6 +955,8 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                              
+                                                                                                                                                                                                            
+                                                                                                                                                                                       
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -6745,6 +6747,7 @@ function bowReset(){
   _bow.stage=BOW.IDLE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false; _bow.dots=false;
 }
 function bowFinish(){
+  if(GH_RECORD) ghostRecordFinalize();   // NIGHT GHOSTS: the completed Bow is the only save boundary; false starts and ordinary pauses never reach storage
   bowReset();   // tempo, canvas, coach and the spawn gate are all back BEFORE the exit — the pause card inherits a clean session
   state.needsReset=true;   // a COMPLETED Bow is a session boundary, not a pause: the same flag the fresh-start path reads (enterRunning), so the next entry runs resetSession() — t, hits, streak, the tick, the Mandala ledger and the adaptive tempo all back to CFG.startBpm. Without it the "next run" silently continued this night. An ESC-pause / grace-cancel goes through bowReset alone and never sets it
   if(document.pointerLockElement===canvas){ try{ document.exitPointerLock(); }catch(e){ exitRunning(); } }   // pointerlockchange → exitRunning → the existing start/pause overlay (touch/pad runs never held a lock, so they exit directly)
@@ -7839,6 +7842,7 @@ function cardDateText(d){
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                    
+                                                                                                                                                                                            
  
                                                                                                           
                                  
@@ -7877,6 +7881,7 @@ function cardDateText(d){
                                                                                                                             
                                                                                             
                                                                                             
+                                                                                                                                                  
                                                                              
                                                         
  
@@ -7903,7 +7908,7 @@ function cardDateText(d){
                                                 
                                                                                                                                                                                         
                                                                                                                                   
-                                               
+                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                   
                                                                                                                                                                    
@@ -7916,8 +7921,10 @@ function cardDateText(d){
                                                                                                                                                                                                             
                                                           
                                                                            
+                                                         
                                                                                                                  
    
+                                                                                                                                                                                
                                                                                                                                                                                                                                   
                                                                                                                                                                                                
                       
@@ -7967,7 +7974,7 @@ function cardDateText(d){
                           
                                                       
  
-                                                                                                                  
+                                                                                                                           
                                                                                                                      
                                                                                                                          
                                                                                                                           
@@ -7977,6 +7984,7 @@ function cardDateText(d){
                                                                                                                           
                                                                                                       
                                                                
+                                                                                                                                                           
                     
                                        
                                                                                                                                                                                                               
@@ -7989,18 +7997,19 @@ function cardDateText(d){
                                       
  
                                                                                                                                                                                                                                                                                                                                                   
-                                  
+                                           
                                                                                                                                                                                                                                                                                                           
                                                                                                                                            
-                                                                                                                                                     
+                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                
    
-                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                     
                
+                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                         
-                                      
+                                                                     
    
                                                                                                                          
  
@@ -8024,7 +8033,9 @@ function cardDateText(d){
                                                                          
                                        
  
-                                                                   
+                      
+                                                                                                                                                          
+                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                
                                         
@@ -8039,7 +8050,9 @@ function cardDateText(d){
                                                                                                                                                      
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                             
+              
+                                                                          
+                                                                                                                                                                                                                                                                                                                       
  
                                          
                    
@@ -8081,6 +8094,7 @@ function cardDateText(d){
                  
    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                              
  
                                                                                                                
                                                                                                                                                                                                                                                                                                      
@@ -8226,18 +8240,18 @@ function cardDateText(d){
      
              
  
-                           
-                                                                                                                                            
+                                  
+                                                                                                                                      
                                                                                                                                                    
                      
-                                                                                                                                                  
+                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                  
                        
                                                                                                                                                                                                                                                                                                       
  
-                                                                                                                                          
-                                                                                                                                                                                   
+                                                                                                                                                           
+                                                                                                                                                                                                    
                                                                                                                                                                                                      
                                                                  
                                                                  
@@ -8254,10 +8268,10 @@ function cardDateText(d){
                                                                                             
                                                                                  
             
-                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                     
-                                                                                                                                                                                                    
+                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                               
    
@@ -8749,6 +8763,380 @@ function cardDateText(d){
                                                                                                          
                                                          
    
+ 
+
+                                                                                          
+                                                                                                                       
+                                                                                                                       
+                                                                                                                      
+                                                                                                                                                            
+                                                                                                                                                                 
+                                                 
+                                                                                                    
+                                                                                            
+                                                           
+                                                                                                             
+                                                                                
+                                              
+                         
+                         
+      
+                                                  
+                                                     
+             
+                                            
+                                                       
+ 
+                            
+                                         
+                                                            
+                                                                                      
+ 
+                                                                                                                                                                   
+                                                                           
+                          
+                                                                                                                                      
+                   
+                                                                                                                              
+                                                                               
+ 
+                              
+                                                         
+                                                                                                                                
+                                                                                          
+                                                         
+                                                                                                  
+ 
+                                      
+                                   
+                 
+ 
+                                                      
+                                                                         
+                                                                      
+              
+                              
+                                                                
+                         
+        
+                          
+   
+                         
+                                                           
+ 
+                                      
+                                                                    
+                                                                                                                                                            
+                                                 
+ 
+                                    
+                                      
+                                                                                                                                                      
+ 
+                                            
+                                           
+                                                                         
+                                                                       
+ 
+                             
+                                      
+                                                                                                                
+                                     
+                                                                      
+ 
+                            
+                             
+                                  
+                                    
+                                                                                                                                          
+                      
+                                           
+   
+              
+ 
+                               
+                                                                                                                                                          
+                                                                    
+                
+      
+                          
+                                                                                                                                             
+                                                         
+                                                                                                                                                          
+                                                                                      
+                                  
+                                      
+                                            
+             
+ 
+
+                                   
+                                                    
+                                
+                                                  
+                                                                   
+                                                                     
+                                                                                                                                                                                                                                      
+                                                                                                                                               
+                                                                                                                                                              
+               
+                                                                                                                                                                                                                            
+                             
+                                  
+                                                                                                                                                                                                                                                                                                                     
+                                                                                                             
+                                                
+                                   
+   
+           
+                                                                                                                                                                                                                                                                         
+           
+                                                                                                                                                                                                                                                                                                                           
+               
+ 
+                         
+                                                                                                                               
+                                                                                        
+                                                  
+                                                                            
+ 
+
+                                                             
+                                                                             
+                                                                                      
+                                                                                            
+                                                                                                                                                                       
+                                                                                                    
+                                                                                                        
+                                                                                                                
+                                                                                                  
+                                                                                                           
+                                                                                    
+                                                                                                                                                      
+                                                                                                                                     
+                                                   
+                                       
+                                                                                        
+             
+                                                                                         
+                                                                                                     
+                        
+                                     
+                          
+                           
+           
+ 
+                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                     
+                                                                                                      
+                                                                                                  
+                                                                                                                                    
+                                
+                                                                                                    
+                                                             
+ 
+                                       
+                                                                                                                                                                                           
+                                
+                                                                                                                                   
+                                            
+   
+             
+ 
+                                                                                                                                                                               
+                                                                                              
+                                  
+                                           
+                                          
+                                                                                                                
+                                                                      
+                                                                  
+                                                               
+ 
+                             
+                                     
+                                                                        
+                                                                                      
+                                                                                            
+                                                                                            
+                                                                                   
+                                                                                      
+                               
+ 
+                                                             
+                             
+                                                                                                                                                                                                                                                                       
+                                                     
+ 
+                             
+                                                                                                                                              
+                                                                                      
+                                                                                                                     
+                                                                                                                                                       
+                                                                                                                                    
+                          
+ 
+                             
+                                               
+                                                                                                                                                                                                      
+                          
+ 
+                                                                                                                                                                                                                                                                             
+                                                                                     
+                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                 
+                                                                                                                                            
+                                                                                                                                                                                                                                                                                    
+                               
+                                                                                 
+                                                                                          
+                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                
+                            
+                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                        
+                                                                                                                                                                                                                                                                      
+                                                                                                                               
+                           
+                                                                                                                                                                 
+                                                                                                                                                                                 
+                                                                
+                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                               
+                                                                                                                                                                                     
+                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                              
+                                                     
+           
+                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                    
+   
+                                                                
+ 
+                                  
+                                                                                                                                                                            
+                                                                       
+                                    
+                              
+                   
+                                                
+                                                                                                                     
+   
+                                                                 
+                                          
+                                        
+                                                                
+ 
+                          
+                      
+                   
+                                                                                     
+                                                                                                                  
+                                                                             
+ 
+                            
+                                                               
+                       
+                                            
+                                            
+                                                                                   
+                                                                                                   
+ 
+                                        
+                                                                                      
+                                                                                                                       
+ 
+                              
+                                   
+                                         
+                       
+                                                                                                                                                  
+                                                                                                                                                                                                                                                
+   
+ 
+                             
+                                
+                     
+                                                
+                                                                                        
+                                                                        
+                                                             
+   
+                                                                                                                                       
+                                                                                                                                                                                                   
+                
+ 
+                                        
+                                    
+                                                
+                                                                                        
+                                                                                                                     
+                                                       
+                                                               
+                                                                                                                                                                                                                                                                                               
+     
+                                                                                              
+                                                                                                                                                                          
+                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                 
+     
+   
+                                                                                             
+                                                                                                             
+                                                                                                                                                                                                                        
+                                                                         
+ 
+                                       
+                                              
+              
+                                  
+                          
+                                                                                     
+                       
+                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                           
+   
+                           
+                                                                                                         
+               
+ 
+                                                            
+                                                                                         
+                                   
+                                                 
+                                         
+                                           
+                                             
+                                                     
+                                                     
+                                                   
+                                                              
+                                                           
+ 
+                                          
+                                                                                           
+                                       
+                                                   
+                                                   
+                                                     
+ 
+                             
+                                                                                                                                                                               
+                                                                                                                                                                             
+                                                                                                                                  
+                                                        
+                                                                                  
+                                                                                                                                        
  
                                                                                                                                                                
                                                                                                                             
@@ -9304,6 +9692,7 @@ function cardDateText(d){
                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                        
                                                                                                                                                                                                                  
                                                                                                                                                                                                                  
@@ -10395,6 +10784,8 @@ function cardDateText(d){
                                                                                                  
                                                      
                                                                                       
+                                                                                                                                              
+                                                                                                                                                       
                  
                              
  
