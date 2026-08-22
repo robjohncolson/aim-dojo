@@ -804,6 +804,7 @@
                                                          
                                         
                                                                                           
+                                             
                                                                                                                      
                                                                                                                                                                           
                                                                                                                                                                         
@@ -957,6 +958,7 @@
                                                                                                                                                                                                              
                                                                                                                                                                                                             
                                                                                                                                                                                        
+                                                                                                                                                                                                                        
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -7067,8 +7069,8 @@ function realCivilDate(s){
   // because new Date(50,0,1) is 1950 — correct, since this build only ever writes phasesToday().
   if(typeof s!=='string' || !PHASES_DATE_RE.test(s)) return false;
   const y=+s.slice(0,4), m=+s.slice(5,7), d=+s.slice(8,10);
-  const t=new Date(y, m-1, d);
-  return t.getFullYear()===y && t.getMonth()===m-1 && t.getDate()===d;
+  const t=new Date(Date.UTC(y, m-1, d));   // UTC calendar, not local: a visitor whose timezone once SKIPPED a civil day (Pacific/Apia, 2011-12-30) must not have that Gregorian date rejected — the Ghost Relay's server mirror validates the same way (relay review finding 8)
+  return t.getUTCFullYear()===y && t.getUTCMonth()===m-1 && t.getUTCDate()===d;
 }
 function phasesLoad(){
   if(_phasesLoaded) return; _phasesLoaded=true;
@@ -8027,8 +8029,10 @@ function cardDateText(d){
                                                                                                                                                                                                                                                                                                                                                                                         
    
  
-                   
-                                                  
+                       
+                
+                                                                                                                                                                                                   
+                                   
                                                            
                                                                          
                                        
@@ -8052,7 +8056,8 @@ function cardDateText(d){
                                                                                                                                                                                                                                                                                                                                                                                                        
               
                                                                           
-                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                  
  
                                          
                    
@@ -8240,18 +8245,19 @@ function cardDateText(d){
      
              
  
-                                  
-                                                                                                                                      
-                                                                                                                                                   
+                                          
+                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                               
                      
-                                                                                                                                                           
+                                
+                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                  
                        
-                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                   
  
-                                                                                                                                                           
-                                                                                                                                                                                                    
+                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                      
                                                                  
                                                                  
@@ -8263,16 +8269,29 @@ function cardDateText(d){
                                
                                            
                             
+                           
+                                                                                             
+                                                                                                                                                                                                             
+          
                                                                                                                                                                                                                             
+     
                  
-                                                                                            
-                                                                                 
+                           
+                                                                                
+                                                           
+                                      
+       
+          
+                                                                                              
+                                                                                   
+     
             
                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                     
                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                               
    
  
@@ -8343,9 +8362,10 @@ function cardDateText(d){
                                                                                                        
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                   
                                     
-                                                                                 
+                                                                        
+                                                                              
                                                                  
                                                                                                                                                                                                                                 
                                                                                              
@@ -8369,16 +8389,30 @@ function cardDateText(d){
                                                                                                      
                                                                                                 
  
+                                   
+                                                                                                          
+                                                 
+                                                                
+                                                    
+                                            
+                                                                                
+                                                                                        
+                                                                
+                                                                                                   
+   
+                                                                                                
+ 
                                                                                                                                                                 
                                                                                                                         
                                                                  
                   
+                                                        
                                               
                                              
                                                       
                                                                                                       
                     
-                                                                                          
+                                                                                                                                                                        
                                                                                          
    
                                                                                  
@@ -8389,7 +8423,7 @@ function cardDateText(d){
            
    
              
-                                        
+                                                                                                 
                                         
               
                                                          
@@ -8771,11 +8805,14 @@ function cardDateText(d){
                                                                                                                       
                                                                                                                                                             
                                                                                                                                                                  
+                                                                                                                                                                         
                                                  
-                                                                                                    
+                                                                                                                    
                                                                                             
+                                       
                                                            
                                                                                                              
+                                                                               
                                                                                 
                                               
                          
@@ -8844,13 +8881,14 @@ function cardDateText(d){
                                      
                                                                       
  
-                            
-                             
+                                 
+                                                                     
+                                   
                                   
                                     
                                                                                                                                           
                       
-                                           
+                                                 
    
               
  
@@ -8864,8 +8902,10 @@ function cardDateText(d){
                                                          
                                                                                                                                                           
                                                                                       
-                                  
+                                                         
+                                       
                                       
+                                                                                                                                                                          
                                             
              
  
@@ -8894,11 +8934,42 @@ function cardDateText(d){
                                                                                                                                                                                                                                                                                                                            
                
  
+                                   
+                                                                    
+               
+                          
+                                                                                                                                                                                     
+                 
+   
+               
+ 
+                                  
+                                                    
+                                
+                                                       
+                                                                        
+                                              
+                                                                  
+               
+ 
                          
                                                                                                                                
+                                                                       
                                                                                         
                                                   
-                                                                            
+      
+                                                                  
+                             
+                                                                                                                                                         
+                                           
+                             
+                                                                      
+                           
+ 
+                             
+                                                                              
+                            
+                                                                                               
  
 
                                                              
@@ -8906,7 +8977,7 @@ function cardDateText(d){
                                                                                       
                                                                                             
                                                                                                                                                                        
-                                                                                                    
+                                                                                                                      
                                                                                                         
                                                                                                                 
                                                                                                   
@@ -8915,6 +8986,13 @@ function cardDateText(d){
                                                                                                                                                       
                                                                                                                                      
                                                    
+                                                                                                                                              
+                                                                     
+                                                                                               
+                                                                                                 
+                                                                                                                                                        
+                                                                                                                                                                                                                           
+                                                                                                                                                   
                                        
                                                                                         
              
@@ -8927,10 +9005,11 @@ function cardDateText(d){
            
  
                                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                     
+                                                                                                                                                                                                        
                                                                                                       
-                                                                                                  
-                                                                                                                                    
+                                                                                                                                          
+                                                                                                                                                                                                                                                            
+                   
                                 
                                                                                                     
                                                              
@@ -9002,6 +9081,12 @@ function cardDateText(d){
                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                         
                                                                                                                                                                                                                                                                       
+              
+                                                                           
+                                                                                                                                             
+                                                                                                                                                                                      
+                                                                                                                               
+   
                                                                                                                                
                            
                                                                                                                                                                  
@@ -9013,17 +9098,19 @@ function cardDateText(d){
                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                        
                                                      
            
                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                     
    
                                                                 
+                                                                                                                                                                                                                                
+                                                                             
  
                                   
-                                                                                                                                                                            
+                                                                                                                                                                                            
                                                                        
                                     
                               
@@ -9032,6 +9119,10 @@ function cardDateText(d){
                                                                                                                      
    
                                                                  
+              
+                                                                       
+                          
+   
                                           
                                         
                                                                 
@@ -9039,6 +9130,10 @@ function cardDateText(d){
                           
                       
                    
+              
+                                              
+                      
+   
                                                                                      
                                                                                                                   
                                                                              
@@ -9055,12 +9150,84 @@ function cardDateText(d){
                                                                                       
                                                                                                                        
  
+                                    
+                               
+                                                                                                                   
+                                                         
+                                                                           
+                                                                                                                           
+                              
+                                                                                                                                                
+                                  
+ 
+                                
+                                                                                                                                                     
+ 
+                                         
+                                                                         
+                                   
+                                     
+                                                                
+                                                     
+                                                                                                                           
+                                    
+                                             
+                                                
+   
+                           
+                                                       
+                                                              
+                                                          
+                                                                                                 
+                      
+ 
+                              
+                                                
+                                                                                                                            
+                       
+ 
+                                    
+                                           
+                                    
+                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                              
+   
+ 
+                               
+                                                                                     
+                             
+                                                                                                                
+                                              
+                   
+                                                                  
+                                                                                                                                             
+   
+                                                                 
+              
+ 
+                                    
+                                                                                              
+                                                                                                                                                                       
+                        
+                                                                                
+                                                             
+                                                        
+                                                        
+                                                                                                             
+                                                                                                                                                                            
+                                                           
+                                       
+                  
+                                                                                       
+                            
+             
+ 
                               
                                    
                                          
                        
                                                                                                                                                   
-                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
    
  
                              
@@ -9075,20 +9242,36 @@ function cardDateText(d){
                                                                                                                                                                                                    
                 
  
-                                        
+                                                
+                                                  
+                                                       
                                     
                                                 
-                                                                                        
+                                                                                                                                                        
                                                                                                                      
                                                        
-                                                               
+                                                                          
                                                                                                                                                                                                                                                                                                
      
-                                                                                              
+                                                                                                     
                                                                                                                                                                           
                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                  
+     
+   
+                              
+                                      
+                              
+                                   
+                                                                       
+                                                                                                                       
+                                     
+                                                                                                                                                                                                                                                                                                                    
+       
+                                        
+                                                                                                                                                                                                                                                                           
+       
      
    
                                                                                              
@@ -9096,15 +9279,15 @@ function cardDateText(d){
                                                                                                                                                                                                                         
                                                                          
  
-                                       
+                                               
                                               
               
                                   
                           
-                                                                                     
+                                                                                                                                                                               
                        
-                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                               
    
                            
                                                                                                          
@@ -9132,10 +9315,10 @@ function cardDateText(d){
  
                              
                                                                                                                                                                                
-                                                                                                                                                                             
+                                                                                                                                                                                          
                                                                                                                                   
                                                         
-                                                                                  
+                                                                                              
                                                                                                                                         
  
                                                                                                                                                                
@@ -9233,7 +9416,7 @@ function cardDateText(d){
                                                                                                                                                                                              
                                                                                                                                                                                               
  
-                                                                                                                                                                     
+                                                                                                                                                                                                        
                                                                                                                                                           
                                                                                                                                                                      
                                                                                                     
@@ -9243,15 +9426,19 @@ function cardDateText(d){
                                                                                                                                                                                                                                  
                                                                      
                                                                                                                                                                                                                  
-                                                                  
+                                                   
+                                                                                                                                                                  
+                                             
+ 
                          
                                                                                                                      
                                                                                                                                                                        
                                                                  
                                                              
                                                                   
-                                                                                                                                           
-                                                                                                                             
+                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                
+                                                                           
                                                                             
                                  
                                                                                                                                                   
@@ -10898,14 +11085,15 @@ function cardDateText(d){
                                                                                                                     
                                                                                                     
                                                                                                                      
-                                                                                                                   
+                                                                                                                                      
                                                                                                                  
                                                                                                                       
                                                                                                                   
                                                                      
                                              
-                                                                                                                                                                        
-                                                           
+                                                  
+                                                                                                                                                                                
+                                                               
                                                                                          
  
                                                                                                                            

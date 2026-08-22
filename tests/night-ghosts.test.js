@@ -62,10 +62,10 @@ function testRealCivilDate(value) {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
-function runGhost(source, { record = false, seat = false, low = false, extra = {}, body = "" } = {}) {
+function runGhost(source, { record = false, seat = false, gift = false, low = false, extra = {}, body = "" } = {}) {
   const context = vm.createContext({
     Math, Number, JSON, WeakMap, Float32Array, Uint16Array,
-    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, moonline: {} }, LOW: low,
+    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, moonline: {} }, LOW: low,
     state: { t: 0, bpm: 60, running: true }, trainMode: false, templeActive: false, reduceMotion: false,
     Tone: { Transport: { seconds: 0 } }, audioLat: () => 0, PITCH_LIMIT: 88 * Math.PI / 180,
     PLAYER_POS: { x: 0, z: 0 }, ML_ARCH_EVERY: 4, ROAD_MPB: 27,
@@ -73,6 +73,7 @@ function runGhost(source, { record = false, seat = false, low = false, extra = {
     WASD_COL: ["lane-w", "lane-a", "lane-s", "lane-d"], ML_WALL_CHALK: [1, 2, 3, 4, 5], ML_GOLD: 6,
     phasesToday: () => "2026-08-22", moonPhaseBucket: () => 4, realCivilDate: testRealCivilDate, mulberry32: testMulberry32,
     roadWallMat: null, roadArchMat: null, scene: { add() {} }, TARGET_CORE_GEO: {}, _flockGeo: {}, SPAWN_UP: {},
+    runIdle() {}, renderer: { compile() {} },
     _roadG: (number) => (+number).toFixed(5),
     localStorage: { getItem: () => null, setItem() {} },
     ...extra,
@@ -105,16 +106,16 @@ function emissionFingerprint(source, low) {
   return { chars: serialized.length, sha256: crypto.createHash("sha256").update(serialized).digest("hex") };
 }
 
-function withGhostFlags(source, record, seat) {
-  return source.replace(/ghostRecord:[01]/, `ghostRecord:${record ? 1 : 0}`).replace(/ghostSeat:[01]/, `ghostSeat:${seat ? 1 : 0}`);
+function withGhostFlags(source, record, seat, gift) {
+  return source.replace(/ghostRecord:[01]/, `ghostRecord:${record ? 1 : 0}`).replace(/ghostSeat:[01]/, `ghostSeat:${seat ? 1 : 0}`).replace(/ghostGift:[01]/, `ghostGift:${gift ? 1 : 0}`);
 }
 
-test("MY emitted road and wall family stays on its frozen bytes in all four flag combinations", () => {
+test("MY emitted road and wall family stays on its frozen bytes in all eight flag combinations", () => {
   const assertContract = (source) => {
-    for (const record of [false, true]) for (const seat of [false, true]) {
-      const variant = withGhostFlags(source, record, seat);
-      assert.deepEqual(emissionFingerprint(variant, false), emissionFixture.high, `HIGH remains frozen at record=${+record}, seat=${+seat}`);
-      assert.deepEqual(emissionFingerprint(variant, true), emissionFixture.low, `LOW remains frozen at record=${+record}, seat=${+seat}`);
+    for (const record of [false, true]) for (const seat of [false, true]) for (const gift of [false, true]) {
+      const variant = withGhostFlags(source, record, seat, gift);
+      assert.deepEqual(emissionFingerprint(variant, false), emissionFixture.high, `HIGH remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}`);
+      assert.deepEqual(emissionFingerprint(variant, true), emissionFixture.low, `LOW remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}`);
     }
   };
   assertContract(html);
@@ -204,7 +205,7 @@ test("equal-time launches keep opposite outcomes on their own opaque rows", () =
     assert.doesNotMatch(extractFunction(source, "ghostRecordMarkFire"), /fires\[|row\[0\]|for\(/, "fire credit performs no timestamp lookup");
     assert.match(extractFunction(source, "fire"), /spawnProjectile\(fireRow\)/);
     assert.match(extractFunction(source, "spawnProjectile"), /pr\.fireRow=fireRow/);
-    assert.equal((extractFunction(source, "updateProjectiles").match(/pr\.fireRow/g) || []).length, 3);
+    assert.equal((extractFunction(source, "updateProjectiles").match(/pr\.fireRow/g) || []).length, 4);
     assert.match(extractFunction(source, "retireProjectile"), /pr\.fireRow=null/);
     assert.match(extractFunction(source, "clearProjectiles"), /pr\.fireRow=null/);
   };
@@ -385,6 +386,23 @@ test("uK hundredths drive the exact reveal and v=0 suppresses every seat draw", 
   mutationMustFail(assertContract, mutation, "the visibility test kills the seat-draws-at-v=0 mutant");
 });
 
+test("lazy ghost-seat construction schedules one bounded idle shader re-warm after the build", () => {
+  const assertContract = (source) => {
+    const build = extractFunction(source, "ghostSeatBuild");
+    const calls = [...build.matchAll(/runIdle\(\(\)=>\{ try\{ renderer\.compile\(scene,camera\); \}catch\(e\)\{\} \},(\d+),(\d+)\);/g)];
+    assert.equal(calls.length, 1, "the completed lazy seat schedules exactly one renderer compile");
+    const visibilityAt = build.lastIndexOf("ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);");
+    assert.ok(visibilityAt >= 0 && calls[0].index > visibilityAt, "the re-warm is scheduled only after every seat object and effect exists");
+    const delay = Number(calls[0][1]), timeout = Number(calls[0][2]);
+    assert.ok(delay >= 100 && delay <= 500, `fallback delay ${delay} stays in the quiet opening`);
+    assert.ok(timeout >= 1000 && timeout <= 2500 && timeout > delay, `idle timeout ${timeout} is bounded beyond the fallback delay`);
+    assert.match(build.slice(visibilityAt, calls[0].index), /the game slows down when playing after a bit/, "the decision comment names the user's report");
+  };
+  assertContract(html);
+  const mutation = replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("  runIdle(()=>{ try{ renderer.compile(scene,camera); }catch(e){} },180,1800);\n", ""));
+  mutationMustFail(assertContract, mutation, "the lazy-seat warm contract kills removal of the scheduled compile");
+});
+
 test("every ghost lane tint comes from WASD_COL mixed toward the named moon blue", () => {
   const assertContract = (source) => {
     const block = ghostBlock(source), laneHex = source.match(/WASD_HEX=\[([^\]]+)\]/);
@@ -542,7 +560,7 @@ test("seat-off is allocation/storage silent and replay frame bodies stay on the 
     assert.doesNotMatch(ghostBlock(source), /PLAYER_POS(?:\.(?:set|copy|add|sub|multiply)\s*\(|\s*=|\.[xyz]\s*=|\[['"][xyz]['"]\]\s*=)/, "the seat never moves the player treadmill authority");
   };
   assertContract(html);
-  const mutation = replaceFunction(html, "ghostSeatUpdate", (fn) => fn.replace("const t=", "Date.now(); const t="));
+  const mutation = replaceFunction(html, "ghostSeatUpdate", (fn) => fn.replace("const roadT=", "Date.now(); const roadT="));
   mutationMustFail(assertContract, mutation, "the one-clock test kills a wall-clock frame read");
 });
 

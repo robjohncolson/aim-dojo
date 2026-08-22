@@ -47,6 +47,32 @@ test("every inline browser script parses", () => {
   });
 });
 
+test("realCivilDate validates Gregorian dates independently of the host time zone", () => {
+  class ApiaDate extends Date {
+    constructor(...parts) {
+      if (parts.length >= 3 && parts[0] === 2011 && parts[1] === 11 && parts[2] === 30) super(Date.UTC(2011, 11, 31));
+      else super(...parts);
+    }
+    static UTC(...parts) { return Date.UTC(...parts); }
+  }
+  const assertContract = (source) => {
+    const datePattern = source.match(/const PHASES_DATE_RE=\/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\/;/);
+    const dateGate = source.match(/function realCivilDate\(s\)\{[\s\S]*?\n\}/);
+    assert.ok(datePattern && dateGate, "the production civil-date gate is extractable");
+    const years = Array.from({ length: 100 }, (_unused, year) => `${String(year).padStart(4, "0")}-01-01`);
+    for (const [timezone, DateImpl] of [["ordinary", Date], ["Pacific/Apia skipped-day simulation", ApiaDate]]) {
+      const context = vm.createContext({ Date: DateImpl, years });
+      new vm.Script(`${datePattern[0]}\n${dateGate[0]}\nthis.result={skipped:realCivilDate('2011-12-30'),impossible:realCivilDate('2026-02-31'),early:years.map(realCivilDate)};`).runInContext(context);
+      assert.equal(context.result.skipped, true, `2011-12-30 is Gregorian-valid under ${timezone}`);
+      assert.equal(context.result.impossible, false, `February 31 is rejected under ${timezone}`);
+      assert.deepEqual(Array.from(context.result.early), Array(100).fill(false), `years 0000-0099 are rejected under ${timezone}`);
+    }
+  };
+  assertContract(html);
+  const localMutation = html.replace("new Date(Date.UTC(y, m-1, d))", "new Date(y, m-1, d)").replace("t.getUTCFullYear()===y && t.getUTCMonth()===m-1 && t.getUTCDate()===d", "t.getFullYear()===y && t.getMonth()===m-1 && t.getDate()===d");
+  assert.throws(() => assertContract(localMutation), assert.AssertionError, "the timezone oracle kills restoration of the local-midnight gate");
+});
+
 test("inline script comments cannot swallow trailing call statements", () => {
   const offenders = [];
   for (const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)) {
@@ -925,9 +951,12 @@ test("a void miss loses its floor ring and keeps its ballistic termination", () 
   assert.match(spawn[0], /^function spawnLandRing\(x,z\)\{\n  if\(moonlineVoid\(\)\) return;/);
 
   // THE TREADMILL LAW: the gate is on the VISUAL, never on the y=0 termination that grades the miss.
-  const terminate = html.match(/if\(pr\.life>=CFG\.projLife \|\| pr\.pos\.y<=0\.04[^\n]*\n/);
+  const update = html.match(/function updateProjectiles\(dt\)\{[\s\S]*?\n\}/);
+  assert.ok(update, "the projectile update is present");
+  const terminate = update[0].match(/const gift=!!\(GH_GIFT&&pr\.gift\);\n\s*if\(pr\.life>=CFG\.projLife \|\| pr\.pos\.y<=0\.04[^\n]*\n/);
   assert.ok(terminate, "the projectile termination line is present");
-  assert.match(terminate[0], /if\(pr\.pos\.y<=0\.04 && \(!ML_ARC_VOID \|\| !moonlineVoid\(\)\)\) spawnLandRing\(pr\.pos\.x, pr\.pos\.z\); onWhiff\(true\); retireProjectile\(i\); continue;/);
+  assert.match(terminate[0], /\(!gift && \(Math\.abs\(pr\.pos\.x\)>ROOM_HALF_W \|\| Math\.abs\(pr\.pos\.z\)>ROOM_HALF_D\)\)/);
+  assert.match(terminate[0], /if\(!gift && pr\.pos\.y<=0\.04 && \(!ML_ARC_VOID \|\| !moonlineVoid\(\)\)\) spawnLandRing\(pr\.pos\.x, pr\.pos\.z\); onWhiff\(gift\); retireProjectile\(i\); continue;/);
   assert.doesNotMatch(terminate[0].slice(0, terminate[0].indexOf("{")), /moonline|_mlBlend|roadLive/i);
 });
 

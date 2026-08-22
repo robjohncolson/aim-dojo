@@ -804,6 +804,7 @@ window.JA={
   bowDoneEyebrow:'この夜は おわり', bowNewNight:'はじめる — あたらしい夜',
   phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
   rememberLine:'{n}夜が めぐった · {star} が きみの席を まもっていた', rememberAlone:'道場は きみの場所を あけて まっていた',
+  ghostGiftMail:'きみは 手をのばした · {n}この音を つかまえた',
   rememberAnchortaurus:'アルデバラン', rememberAnchorleo:'レグルス', rememberAnchorvirgo:'スピカ', rememberAnchorscorpius:'アンタレス',
   rememberFigaries:'おひつじ', rememberFigtaurus:'おうし', rememberFiggemini:'ふたご', rememberFigcancer:'かに', rememberFigleo:'しし', rememberFigvirgo:'おとめ', rememberFiglibra:'てんびん',
   rememberFigscorpius:'さそり', rememberFigophiuchus:'へびつかい', rememberFigsagittarius:'いて', rememberFigcapricornus:'やぎ', rememberFigaquarius:'みずがめ', rememberFigpisces:'うお',
@@ -957,6 +958,7 @@ const CFG = {
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
   ghostSeat:1,   // NIGHT GHOSTS S: raw flat kill-switch. 0 allocates and draws no echo-seat object; 1 may load one validated prior-night artifact into the separate +90 m Veiled Choir
+  ghostGift:1,   // THE GIFT: raw flat kill-switch. 0 adds no flare candidate, projectile tag, catch state, wrapper/mail or threshold read; 1 lets a revealed prior-night flare receive one connection-only blessed shot
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   // THE SURVIVING EXPERT k-SET UNDER THE SIXTY CAP (parcel P, computed with the real solver in beatSpawnDist against the SHIPPED constants — projSpeed 28/projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28): the LIST DOES NOT CHANGE — infeasible k's have always dropped out by arithmetic, and they still do. AT EXACTLY 60 BPM (dT 1.00, s 72 m/s) against rangeMax the feasible set is {2, 3, 4, 6} at d = {9.00, 13.50, 17.99, 26.98} m; k=8/12/16 need 35.94/53.81/71.55 m and are out of reach. Over the WHOLE new live band 20..60 (far = rangeMax): k=2,3,4 are feasible throughout, k=6 enters at 40.1 bpm, k=8/12/16 never — the expert lead is therefore the SIX-sixteenth (3/8-beat) call, not the old 8..16. On a LAST QUARTER (farMul 1.3, band 10.4..36.4 m) the set at 60 shifts out to {3, 4, 6, 8}, which is the one night k=8 speaks at all. At the CLOSE end (state.range at rangeStart 11) only k=2 is ever feasible, at every tempo — so a night's k vocabulary genuinely opens as the distance shell marches out, which is what the shell was for.
@@ -7067,8 +7069,8 @@ function roadImpSync(r){
                                                                                                  
                                                                   
                                                            
-                              
-                                                                      
+                                                                                                                                                                                                                                                                                
+                                                                               
  
                       
                                                
@@ -8027,8 +8029,10 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                                                                                         
    
  
-                   
-                                                  
+                       
+                
+                                                                                                                                                                                                   
+                                   
                                                            
                                                                          
                                        
@@ -8052,7 +8056,8 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                                                                                                        
               
                                                                           
-                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                  
  
                                          
                    
@@ -8240,18 +8245,19 @@ function roadImpSync(r){
      
              
  
-                                  
-                                                                                                                                      
-                                                                                                                                                   
+                                          
+                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                               
                      
-                                                                                                                                                           
+                                
+                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                  
                        
-                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                   
  
-                                                                                                                                                           
-                                                                                                                                                                                                    
+                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                      
                                                                  
                                                                  
@@ -8263,16 +8269,29 @@ function roadImpSync(r){
                                
                                            
                             
+                           
+                                                                                             
+                                                                                                                                                                                                             
+          
                                                                                                                                                                                                                             
+     
                  
-                                                                                            
-                                                                                 
+                           
+                                                                                
+                                                           
+                                      
+       
+          
+                                                                                              
+                                                                                   
+     
             
                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                      
                                                                                                                                                                                     
                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                               
    
  
@@ -8343,9 +8362,10 @@ function roadImpSync(r){
                                                                                                        
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                   
                                     
-                                                                                 
+                                                                        
+                                                                              
                                                                  
                                                                                                                                                                                                                                 
                                                                                              
@@ -8369,16 +8389,30 @@ function roadImpSync(r){
                                                                                                      
                                                                                                 
  
+                                   
+                                                                                                          
+                                                 
+                                                                
+                                                    
+                                            
+                                                                                
+                                                                                        
+                                                                
+                                                                                                   
+   
+                                                                                                
+ 
                                                                                                                                                                 
                                                                                                                         
                                                                  
                   
+                                                        
                                               
                                              
                                                       
                                                                                                       
                     
-                                                                                          
+                                                                                                                                                                        
                                                                                          
    
                                                                                  
@@ -8389,7 +8423,7 @@ function roadImpSync(r){
            
    
              
-                                        
+                                                                                                 
                                         
               
                                                          
@@ -8771,11 +8805,14 @@ function roadImpSync(r){
                                                                                                                       
                                                                                                                                                             
                                                                                                                                                                  
+                                                                                                                                                                         
                                                  
-                                                                                                    
+                                                                                                                    
                                                                                             
+                                       
                                                            
                                                                                                              
+                                                                               
                                                                                 
                                               
                          
@@ -8844,13 +8881,14 @@ function roadImpSync(r){
                                      
                                                                       
  
-                            
-                             
+                                 
+                                                                     
+                                   
                                   
                                     
                                                                                                                                           
                       
-                                           
+                                                 
    
               
  
@@ -8864,8 +8902,10 @@ function roadImpSync(r){
                                                          
                                                                                                                                                           
                                                                                       
-                                  
+                                                         
+                                       
                                       
+                                                                                                                                                                          
                                             
              
  
@@ -8894,11 +8934,42 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                            
                
  
+                                   
+                                                                    
+               
+                          
+                                                                                                                                                                                     
+                 
+   
+               
+ 
+                                  
+                                                    
+                                
+                                                       
+                                                                        
+                                              
+                                                                  
+               
+ 
                          
                                                                                                                                
+                                                                       
                                                                                         
                                                   
-                                                                            
+      
+                                                                  
+                             
+                                                                                                                                                         
+                                           
+                             
+                                                                      
+                           
+ 
+                             
+                                                                              
+                            
+                                                                                               
  
 
                                                              
@@ -8906,7 +8977,7 @@ function roadImpSync(r){
                                                                                       
                                                                                             
                                                                                                                                                                        
-                                                                                                    
+                                                                                                                      
                                                                                                         
                                                                                                                 
                                                                                                   
@@ -8915,6 +8986,13 @@ function roadImpSync(r){
                                                                                                                                                       
                                                                                                                                      
                                                    
+                                                                                                                                              
+                                                                     
+                                                                                               
+                                                                                                 
+                                                                                                                                                        
+                                                                                                                                                                                                                           
+                                                                                                                                                   
                                        
                                                                                         
              
@@ -8927,10 +9005,11 @@ function roadImpSync(r){
            
  
                                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                     
+                                                                                                                                                                                                        
                                                                                                       
-                                                                                                  
-                                                                                                                                    
+                                                                                                                                          
+                                                                                                                                                                                                                                                            
+                   
                                 
                                                                                                     
                                                              
@@ -9002,6 +9081,12 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                         
                                                                                                                                                                                                                                                                       
+              
+                                                                           
+                                                                                                                                             
+                                                                                                                                                                                      
+                                                                                                                               
+   
                                                                                                                                
                            
                                                                                                                                                                  
@@ -9013,17 +9098,19 @@ function roadImpSync(r){
                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                        
                                                      
            
                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                     
    
                                                                 
+                                                                                                                                                                                                                                
+                                                                             
  
                                   
-                                                                                                                                                                            
+                                                                                                                                                                                            
                                                                        
                                     
                               
@@ -9032,6 +9119,10 @@ function roadImpSync(r){
                                                                                                                      
    
                                                                  
+              
+                                                                       
+                          
+   
                                           
                                         
                                                                 
@@ -9039,6 +9130,10 @@ function roadImpSync(r){
                           
                       
                    
+              
+                                              
+                      
+   
                                                                                      
                                                                                                                   
                                                                              
@@ -9055,12 +9150,84 @@ function roadImpSync(r){
                                                                                       
                                                                                                                        
  
+                                    
+                               
+                                                                                                                   
+                                                         
+                                                                           
+                                                                                                                           
+                              
+                                                                                                                                                
+                                  
+ 
+                                
+                                                                                                                                                     
+ 
+                                         
+                                                                         
+                                   
+                                     
+                                                                
+                                                     
+                                                                                                                           
+                                    
+                                             
+                                                
+   
+                           
+                                                       
+                                                              
+                                                          
+                                                                                                 
+                      
+ 
+                              
+                                                
+                                                                                                                            
+                       
+ 
+                                    
+                                           
+                                    
+                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                              
+   
+ 
+                               
+                                                                                     
+                             
+                                                                                                                
+                                              
+                   
+                                                                  
+                                                                                                                                             
+   
+                                                                 
+              
+ 
+                                    
+                                                                                              
+                                                                                                                                                                       
+                        
+                                                                                
+                                                             
+                                                        
+                                                        
+                                                                                                             
+                                                                                                                                                                            
+                                                           
+                                       
+                  
+                                                                                       
+                            
+             
+ 
                               
                                    
                                          
                        
                                                                                                                                                   
-                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
    
  
                              
@@ -9075,20 +9242,36 @@ function roadImpSync(r){
                                                                                                                                                                                                    
                 
  
-                                        
+                                                
+                                                  
+                                                       
                                     
                                                 
-                                                                                        
+                                                                                                                                                        
                                                                                                                      
                                                        
-                                                               
+                                                                          
                                                                                                                                                                                                                                                                                                
      
-                                                                                              
+                                                                                                     
                                                                                                                                                                           
                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                  
+     
+   
+                              
+                                      
+                              
+                                   
+                                                                       
+                                                                                                                       
+                                     
+                                                                                                                                                                                                                                                                                                                    
+       
+                                        
+                                                                                                                                                                                                                                                                           
+       
      
    
                                                                                              
@@ -9096,15 +9279,15 @@ function roadImpSync(r){
                                                                                                                                                                                                                         
                                                                          
  
-                                       
+                                               
                                               
               
                                   
                           
-                                                                                     
+                                                                                                                                                                               
                        
-                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                           
+                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                               
    
                            
                                                                                                          
@@ -9132,10 +9315,10 @@ function roadImpSync(r){
  
                              
                                                                                                                                                                                
-                                                                                                                                                                             
+                                                                                                                                                                                          
                                                                                                                                   
                                                         
-                                                                                  
+                                                                                              
                                                                                                                                         
  
                                                                                                                                                                
@@ -9233,7 +9416,7 @@ function roadImpSync(r){
                                                                                                                                                                                              
                                                                                                                                                                                               
  
-                                                                                                                                                                     
+                                                                                                                                                                                                        
                                                                                                                                                           
                                                                                                                                                                      
                                                                                                     
@@ -9243,15 +9426,19 @@ function roadImpSync(r){
                                                                                                                                                                                                                                  
                                                                      
                                                                                                                                                                                                                  
-                                                                  
+                                                   
+                                                                                                                                                                  
+                                             
+ 
                          
                                                                                                                      
                                                                                                                                                                        
                                                                  
                                                              
                                                                   
-                                                                                                                                           
-                                                                                                                             
+                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                
+                                                                           
                                                                             
                                  
                                                                                                                                                   
@@ -10898,14 +11085,15 @@ function roadImpSync(r){
                                                                                                                     
                                                                                                     
                                                                                                                      
-                                                                                                                   
+                                                                                                                                      
                                                                                                                  
                                                                                                                       
                                                                                                                   
                                                                      
                                              
-                                                                                                                                                                        
-                                                           
+                                                  
+                                                                                                                                                                                
+                                                               
                                                                                          
  
                                                                                                                            

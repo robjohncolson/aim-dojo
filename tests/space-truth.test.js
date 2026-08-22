@@ -248,6 +248,7 @@ function previewFrame({ arcSwitch, voidWorld }) {
     ARC_SAMP: 30,
     ARC_UPDATE_STEP: 1 / 20,
     CFG: { projArc: true, projGravity: 1, projectile: true, projLife: 14 },
+    GH_GIFT: false,
     ML_ARC_FAR: 140,
     ML_ARC_VOID: arcSwitch,
     Math,
@@ -315,6 +316,7 @@ function projectileFrame({ arcSwitch, voidWorld }) {
   const projectile = { life: 0, mesh: {}, pos: new Vec3(0, 0.05, 0), vel: new Vec3(0, -1, 0) };
   const context = vm.createContext({
     CFG: { projGravity: 0, projLife: 14, projRadius: 0.3 },
+    GH_GIFT: false,
     ML_ARC_VOID: arcSwitch,
     Math,
     ROOM_HALF_D: 100,
@@ -356,6 +358,7 @@ function realLandRingFrame({ arcSwitch, voidWorld }) {
   class LineBasicMaterial { constructor(options) { Object.assign(this, options); } }
   const context = vm.createContext({
     CFG: { projGravity: 0, projLife: 14, projRadius: 0.3 },
+    GH_GIFT: false,
     ML_ARC_VOID: arcSwitch,
     Math,
     ROOM_HALF_D: 100,
@@ -397,10 +400,10 @@ test("SPACE TRUTH knobs are flat, raw, independent, and cover off/R-only/V-only/
   }
 });
 
-test("computeShotPlan remains the frozen shipped solver", () => {
+test("computeShotPlan keeps the shipped solve with one explicit gift-speed input", () => {
   const source = extractFunction("computeShotPlan");
   const hash = crypto.createHash("sha256").update(source).digest("hex");
-  assert.equal(hash, "7f1e42d9b0af46883bd1a84441ad490e55e316fd50bfb153660e5cba76a31217");
+  assert.equal(hash, "9435bc79e35034b572695131365fd979b7b2795775d9843d840afd8eac300dca");
 });
 
 test("ML_RING_IN remains the named approach-condensation constant", () => {
@@ -606,7 +609,7 @@ test("V skips only the void land-ring call; onWhiff and retirement stay byte-ord
   assert.ok(voidFrame.projectile.pos.y <= 0.04, "the accepted phantom-plane bullet death remains");
   assert.match(extractFunction("spawnLandRing"), /if\(moonlineVoid\(\)\) return;/, "the shipped defense-in-depth visual arm is unconditional");
   const deathLine = extractFunction("updateProjectiles").split("\n").find((line) => line.includes("pr.life>=CFG.projLife"));
-  assert.match(deathLine, /spawnLandRing\([^;]+\); onWhiff\(true\); retireProjectile\(i\); continue;/, "grading and retirement remain on the same shipped clock and order");
+  assert.match(deathLine, /spawnLandRing\([^;]+\); onWhiff\(gift\); retireProjectile\(i\); continue;/, "grading and retirement remain on the same shipped clock and order");
 });
 
 test("arcVoid:0 real missed-shot rings retain the shipped void suppression", () => {
