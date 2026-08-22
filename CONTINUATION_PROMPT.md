@@ -1,5 +1,35 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-22)
 
+## -7. 2026-08-22: wave 13 — NIGHT GHOSTS phase 0a (`378c005`), shipped and live. MULTIPLAYER BEGINS.
+- **The chorus design (user-locked over a long brainstorm)**: sovereign parallel railways (own seed/tempo/
+  song/tide per player), seat spacing 90 m, Option B THE VEILED CHOIR — my walls byte-identical to solo
+  (fixture-enforced), the chorus revealed by MY mercy via the shipped uK bars-to-mercy authority
+  (v: 0 → 0.35 @2 bars → 0.7 @1 → 1.0 mercy). Always-visible exception: the lane-coloured lighthouse
+  BEACON over the parapet when a ghost drops a note. Behind the inverse pane the ghost renders in
+  negative — the spirits law, uniform (all ghost draws precede order 6). Studies: studies8/chorus
+  (walls-choice-sheet.png; the rejected "room makes room" narrowing taught us the walls are sacred).
+- **Phase 0a shipped**: every main-play night records itself (aimdojo.ghost.v1, localStorage, one slot,
+  finalize-if-worthy ≥16 arrivals/≥60 s, invalid can never replace valid) and last-night-you rides beside
+  you from your second night. Ghost wears last night's TRUE chalk (prior-night course seed + private
+  palette stream re-derived). One road clock (Tone.Transport.seconds − audioLat()) for record AND replay.
+  Knobs ghostRecord/ghostSeat, each 0 → solo byte-identical. LOW arm: beacon+road+targets+avatar only.
+- **FOUR review rounds (reviewer 9/9)**: R2 BLOCK×8 (two-clock, rewind/bpm0, palette drift, validation
+  gaps incl. invalid-overwrites-valid, tank-chip fires as misses, two surviving mutants, beacon/avatar);
+  R3 FIX×3 (divergent-clock hits voided the whole night via hitT>arrivalT — recompute arrival at
+  resolution; equal-time fire stamps credit wrong projectile — opaque row token; bow yaw MIRRORED —
+  GH_AVATAR_YAW_SIGN=+1 with an aim-direction oracle vs gameplay's x=−sin(yaw)). 262/262, 34 mutants.
+- **Ops lessons (memory updated)**: Codex's sandboxed gitnexus CLI HANGS indefinitely (8 h stall) — ban it
+  in briefs, dispatcher does impact via MCP; Monitors need log-size stall detection (15 min); one round
+  died on a Codex API network drop — just re-dispatch. Probe kit: ghost-probe2/ghost-beacon/ghost-yaw-
+  probe (staging: trainMode=false + ghostSeatReset() via glob, uK pin drives the reveal; artifact rule:
+  expired targets need hitT null; slots strictly increasing).
+- **Phase 0b (NEXT, designed and user-approved)**: Railway transport (the sidereal app at index.html:1044)
+  for other players' ghosts, longitude SEATING (sort key only — spacing stays 90 m), ±2 full seats +
+  silhouette line, ghost-filled empty seats ("live is a ghost with zero delay"), gift archery at the
+  flares (graded on CONNECTION not rhythm; only droppable notes giftable; mercy lends expert muzzle
+  speed), the MAIL (assists delivered into the recipient's next session), stranger identity = zodiac
+  sigil only. Perf note: reveal-open LOW +2.7 ms median (mercy-only); revisit if 0b widens the seat count.
+
 ## -6. 2026-08-22: wave 12 — SPACE TRUTH (`5962b82`), shipped and live
 - **Parcel R — THE CONFIRM CROSSFADE**: the beat circle's correct-hit confirm used to vanish at the note
   midpoint in the same frame the next ring was born at full radius (user: "snaps back to a predetermined
