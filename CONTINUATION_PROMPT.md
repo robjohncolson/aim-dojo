@@ -1,5 +1,35 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-22)
 
+## -9. 2026-08-22 NIGHT: wave 15 — THE VISITOR (`418eec1`) shipped+live. THE CHORUS IS OPEN.
+- **Shipped**: ghostShare:1 — worthy nights upload to the Ghost Relay (anon 32-hex token, X-Ghost-Token
+  header ONLY; lonBucket from TIMEZONE only); a nearby stranger's night seats at −90 (THE VISITOR — same
+  veil/reveal/beacon laws, its own seeded chalk, moon-phase-sigil identity); gifts generalize over both
+  seats; visitor catches batch to its mailbox; own mail arrives read-once at the threshold ('N of your
+  notes were caught · sigil') and each caught note RETURNS as a road-clocked shooting star at its beat
+  (GH_RETURN_MAX 16). RIDER: incantation = W W S S A D A D · L · SPACE (trackpad-true; MB2 arm deleted).
+- **THE FIND OF THE ARC (no-mocks e2e through the REAL doors)**: waves 13-14 shipped with the ghost
+  system UNREACHABLE — the only entry is beginAs(true) (trainer), graduation flips trainMode mid-session,
+  and the recorder/seat armed only at main-play RESET. Fixed: graduation IS main-play session start —
+  setTrainPhase(3) → ghostSessionStart() (seat → visitor/mail fetch → recorder), road clock based at
+  graduation, lesson still never records. PROVEN through the honest lifecycle on a quiet machine:
+  incantation → graduate → 214 s night → 19 arrivals → bow stores 2,962 B → reload → graduate →
+  own:true. LESSON FOR ALL FUTURE WAVES: the harness's trainMode=false staging BYPASSES the real
+  topology — every acceptance must also walk beginAs(true)→incantation→graduation at least once.
+- **Environment laws learned**: localhost harness CANNOT test relay network legs (CORS allows only
+  production origins — by design); production-origin e2e = puppeteer on aim-dojo.vercel.app with pure
+  input events (no __dbg there). The audio/road clock STARVES under machine load (road-time 0.2×-0.85×
+  real when load>5 or >15 zombie Chromes — `pkill -9 -f chrome` + wait before timing-sensitive probes).
+  A bad robot player suppresses spawns BY DESIGN (the tide); worthy nights need ~5-8 min blind play.
+- **Reviewer 12/12**: wave-15 round closed a real trust hole (bounded relay JSON — abort timer must
+  cover BODY consumption; byte ceilings BEFORE validation) + tz half-hour table (India/Newfoundland/
+  Kiribati) + isolation oracles + Space-only-at-step-10. Relay: header-only tokens deployed
+  (sidereal 313b234, live-smoked: body-token 422, header 200, read-once mail w/ sigil).
+- **In flight at handoff**: the production-origin e2e (prod-e2e.mjs — live site, blind 8-min night,
+  relay queried after for the fresh upload, night-2 screenshot). If it surfaces production issues,
+  fix-forward. NEXT candidates: visitor render polish pass (user judgment on -90 peripheral weight),
+  0d (±2 seats + silhouette line + ghost-filled chairs), the perf tuning session (gift LOW remeasure,
+  GH_GIFT_LEAD feel), SENSEI_PACK projSpeedFast=72 vs base 60 reconciliation.
+
 ## -8. 2026-08-22 LATE: wave 14 — THE GIFT (`ca6348d`) shipped+live · GHOST RELAY on branch · slowdown fixed
 - **THE GIFT (six rounds — the deepest wave yet)**: during my mercy the ghost's falling notes are catchable.
   Lock extends to flares (real targets outrank charity); gift shots fly GH_GIFT_SPEED=72 on the ROAD CLOCK,
