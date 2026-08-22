@@ -1,5 +1,37 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-22)
 
+## -8. 2026-08-22 LATE: wave 14 — THE GIFT (`ca6348d`) shipped+live · GHOST RELAY on branch · slowdown fixed
+- **THE GIFT (six rounds — the deepest wave yet)**: during my mercy the ghost's falling notes are catchable.
+  Lock extends to flares (real targets outrank charity); gift shots fly GH_GIFT_SPEED=72 on the ROAD CLOCK,
+  connection-graded only, and CAN NEVER HURT (punitive whiff taps suppressed, mutation-enforced); catch =
+  star-burst + beacon sigh + mail row; threshold speaks 'you reached back · N notes caught'. ghostGift:0 →
+  wave-13 byte-identical (8-combo fixture). LIVE ACCEPTANCE: 5 real catches in a 90 s storm at seat 90 m
+  (harness/gift-storm.mjs — the in-page hunter: aim the analytic loft at the led flare, fire whenever the
+  honest lock golds).
+- **The six lessons (probes + reviewer, now 10/10)**: gifts died at the OLD ±32 m room walls; a 1.5 s window
+  cannot fit a 1.4 s flight (GH_GIFT_LEAD=2.6, review-marched at 72); collisions must clamp to arrival;
+  rewind resurrected caught slots; 'projSpeedFast' is 60 in base CFG (72 only in SENSEI_PACK) — blessings
+  need their own named number; the LOCK must not promise post-arrival connections (honest-lock band test);
+  and the ROOT of every near-miss: projectiles integrate on 50 ms-CAPPED render dt while ghosts replay on
+  the uncapped road clock — ~11 m shear on slow frames. Gift flight now integrates on the road clock; the
+  numeric differential oracle (march vs faithful flight) pins the agreement forever.
+- **THE USER'S LIVE SLOWDOWN ('slows down when playing after a bit') — FIXED**: the lazily-built ghost seat
+  missed boot warmShaders; first reveal each night compiled ~6 programs mid-beat (3.5–11.8 s single frames
+  measured). ghostSeatBuild now schedules an idle renderer.compile re-warm; stall probe worst frame 181 ms.
+  Longevity probes (harness/longevity-probe.mjs, mercy-stall-probe.mjs — with KEEP-ALIVE taps/fires or the
+  bow ends the session and poisons the data) proved NO leak: heap/scene/draws/Tone timeline all flat.
+- **GHOST RELAY (sidereal repo ~/repos/sidereal, branch `ghost-relay` @712d60c, pushed, NOT merged)**: the
+  0c transport server — anonymous token upsert, lonBucket 0-23 fetch, mail w/ read-once + sigil-only
+  identity; hardened by a security review (8 findings: pre-parse body limits, Railway CIDR proxy trust +
+  IPv6 /64, storage quotas + secure_delete in a separate DB, SQL-side reads, tokens→headers + log
+  sanitization, mailbox ingress protection, id rotation, UTC date mirror). 96 relay tests; repo
+  regression-free (venv .venv-check; baseline = 5 SkyPack fixture fails + 1 env serve fail). MERGE TO MAIN
+  = RAILWAY DEPLOY — held for the user's explicit word. Game-side UTC realCivilDate fix shipped in wave 14.
+- **Next (0c client, after relay deploys)**: the visitor seat at −90 (multi-seat refactor of the singleton
+  _ghost* globals), upload-at-finalize + fetch-at-reset via the relay, gift/mail vs visitors, sigil render.
+  Perf note: one degraded-env sample showed gift-on LOW median +8-11 ms at a staged reveal (day's noise
+  band was that wide) — REMEASURE in a fresh environment during the tuning session.
+
 ## -7. 2026-08-22: wave 13 — NIGHT GHOSTS phase 0a (`378c005`), shipped and live. MULTIPLAYER BEGINS.
 - **The chorus design (user-locked over a long brainstorm)**: sovereign parallel railways (own seed/tempo/
   song/tide per player), seat spacing 90 m, Option B THE VEILED CHOIR — my walls byte-identical to solo
