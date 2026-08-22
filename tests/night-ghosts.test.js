@@ -106,16 +106,16 @@ function emissionFingerprint(source, low) {
   return { chars: serialized.length, sha256: crypto.createHash("sha256").update(serialized).digest("hex") };
 }
 
-function withGhostFlags(source, record, seat, gift) {
-  return source.replace(/ghostRecord:[01]/, `ghostRecord:${record ? 1 : 0}`).replace(/ghostSeat:[01]/, `ghostSeat:${seat ? 1 : 0}`).replace(/ghostGift:[01]/, `ghostGift:${gift ? 1 : 0}`);
+function withGhostFlags(source, record, seat, gift, share) {
+  return source.replace(/ghostRecord:[01]/, `ghostRecord:${record ? 1 : 0}`).replace(/ghostSeat:[01]/, `ghostSeat:${seat ? 1 : 0}`).replace(/ghostGift:[01]/, `ghostGift:${gift ? 1 : 0}`).replace(/ghostShare:[01]/, `ghostShare:${share ? 1 : 0}`);
 }
 
-test("MY emitted road and wall family stays on its frozen bytes in all eight flag combinations", () => {
+test("MY emitted road and wall family stays on its frozen bytes in all sixteen ghost flag combinations", () => {
   const assertContract = (source) => {
-    for (const record of [false, true]) for (const seat of [false, true]) for (const gift of [false, true]) {
-      const variant = withGhostFlags(source, record, seat, gift);
-      assert.deepEqual(emissionFingerprint(variant, false), emissionFixture.high, `HIGH remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}`);
-      assert.deepEqual(emissionFingerprint(variant, true), emissionFixture.low, `LOW remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}`);
+    for (const record of [false, true]) for (const seat of [false, true]) for (const gift of [false, true]) for (const share of [false, true]) {
+      const variant = withGhostFlags(source, record, seat, gift, share);
+      assert.deepEqual(emissionFingerprint(variant, false), emissionFixture.high, `HIGH remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}, share=${+share}`);
+      assert.deepEqual(emissionFingerprint(variant, true), emissionFixture.low, `LOW remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}, share=${+share}`);
     }
   };
   assertContract(html);
@@ -263,6 +263,42 @@ test("ghostRecord off allocates no ledger and cannot touch localStorage", () => 
   mutationMustFail(assertContract, mutation, "the record-off test kills a pre-gate localStorage touch");
 });
 
+test("the recorder stays lesson-silent and measures a worthy night from graduation", () => {
+  const assertContract = (source) => {
+    let stored = "";
+    const context = runGhost(source, {
+      extra: {
+        CFG: { ghostRecord: 1, ghostSeat: 0, ghostGift: 0, ghostShare: 0, moonline: {}, rangeStart: 11 },
+        state: { t: 20, bpm: 60, running: true, range: 10 }, trainMode: true, trainPhase: 2, trainWasd: 0, trainOrbs: 7,
+        applySenseiFull() {}, resetPocketState() {}, specialOrbsLive: () => true, _specialLive: false, moonlineGraduate() {},
+        showTrainCoach() {}, T: (_key, fallback) => fallback, showGhostToast() {}, _konamiGrad: true,
+        setTimeout: () => 1, pocketLive: () => false, pocketUpdateLawHud() {},
+        localStorage: { getItem: () => null, setItem: (_key, value) => { stored = value; } },
+      },
+      body: `
+        ${extractFunction(source, "setTrainPhase")}
+        const liveRecordArm=ghostRecordArm; let recordArmCalls=0;
+        ghostRecordArm=()=>{ recordArmCalls++; return liveRecordArm(); };
+        Tone.Transport.seconds=20; ghostSessionStart(); liveRecordArm(); this.lesson={armed:!!_ghostRecord,calls:recordArmCalls};
+        Tone.Transport.seconds=30; setTrainPhase(3); this.graduated={armed:!!_ghostRecord,calls:recordArmCalls,base:_ghostRoadBase};
+        for(let i=1;i<=16;i++){ Tone.Transport.seconds=30+i; state.t=i; const tg={mesh:{position:{x:0,z:-10}},expireAt:i+1}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
+        Tone.Transport.seconds=90; ghostRecordFinalize();
+      `,
+    });
+    assert.deepEqual(JSON.parse(JSON.stringify(context.lesson)), { armed: false, calls: 0 });
+    assert.deepEqual(JSON.parse(JSON.stringify(context.graduated)), { armed: true, calls: 1, base: 30 });
+    const artifact = JSON.parse(stored);
+    assert.equal(artifact.dur, 60, "lesson Transport time is excluded from the worthy Full Night");
+    assert.deepEqual(artifact.bpmCurve, [[0, 60]]);
+    assert.equal(artifact.targets.length, 16);
+  };
+  assertContract(html);
+  let mutation = replaceFunction(html, "ghostRoadTime", (fn) => fn.replace("Tone.Transport.seconds-audioLat()-_ghostRoadBase", "Tone.Transport.seconds-audioLat()"));
+  mutationMustFail(assertContract, mutation, "the duration oracle kills an absolute-Transport road clock");
+  mutation = replaceFunction(html, "ghostRecordArm", (fn) => fn.replace("trainMode || ", ""));
+  mutationMustFail(assertContract, mutation, "the lesson oracle kills a recorder that arms during training");
+});
+
 test("either false-start threshold preserves the prior worthy night", () => {
   const assertContract = (source) => {
     const falseStart = (arrivals, duration) => {
@@ -350,14 +386,15 @@ test("event taps are complete sinks and a recorder-to-gameplay cross-wire is rej
       ["wasdLanePress", /if\(GH_RECORD\) ghostRecordTap\(k,k===ckey\?_tapAcc:-1\);/g, 1],
       ["changeBpm", /if\(GH_RECORD\) ghostRecordBpm\(state\.bpm\);/g, 1],
       ["bowFinish", /if\(GH_RECORD\) ghostRecordFinalize\(\);/g, 1],
-      ["resetSession", /if\(GH_RECORD\) ghostRecordArm\(\);/g, 1],
+      ["ghostSessionStart", /if\(GH_RECORD\) ghostRecordArm\(\);/g, 1],
     ];
     for (const [name, pattern, count] of expected) assert.equal((extractFunction(source, name).match(pattern) || []).length, count, `${name} owns its exact tap count`);
-    assert.match(extractFunction(source, "resetSession"), /if\(GH_SEAT\) ghostSeatReset\(\);/);
+    assert.match(extractFunction(source, "ghostSessionStart"), /if\(GH_SEAT\) ghostSeatReset\(\);/);
+    assert.match(extractFunction(source, "resetSession"), /ghostSessionStart\(\);/);
     assert.match(extractFunction(source, "animate"), /if\(GH_SEAT\) try\{ ghostSeatUpdate\(dt\); \}catch/);
     const approved = /if\(GH_RECORD\) ghostRecord(?:Spawn|TargetOutcome|Clank|MarkFire|Fire|Tap|Bpm|Finalize|Arm)\([^;\n]*\);/g;
     for (const name of ["spawnTarget", "gradeRhythmHit", "clankShot", "handleTankHit", "onExpire", "fire", "wasdLanePress", "changeBpm", "bowFinish", "resetSession", "computeShotPlan", "spawnProjectile", "updateProjectiles", "updateArcPreview", "scopeLockTarget", "updateScope", "maybeAdjust"]) {
-      const stripped = extractFunction(source, name).replace(approved, "").replace(/const fireRow=GH_RECORD\?ghostRecordFire\(ghostRoadTime\(\),yaw,pitch\):null;/g, "").replace(/if\(GH_SEAT\) ghostSeatReset\(\);/g, "");
+      const stripped = extractFunction(source, name).replace(approved, "").replace(/const fireRow=GH_RECORD\?ghostRecordFire\(ghostRoadTime\(\),yaw,pitch\):null;/g, "").replace(/ghostSessionStart\(\);/g, "");
       assert.doesNotMatch(stripped, /\b(?:GH_RECORD|GH_SEAT|ghostRecord\w*|ghostSeat\w*|_ghostRecord\w*|_ghostSeat\w*)\b/, `${name} cannot read Night Ghost state back`);
     }
     assert.doesNotMatch(ghostBlock(source), /\b(?:rnd|Math\.random)\s*\(/, "the renderer and recorder own no gameplay RNG draw");

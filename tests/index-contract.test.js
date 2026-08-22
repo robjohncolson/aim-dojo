@@ -365,13 +365,95 @@ test("reverb construction fails soft without publishing a partial graph", () => 
   assert.match(html, /if\(!reverbInput && listener && !state\.running\)\{ try\{ buildReverb\(\); \}catch\(e\)\{\} \} else scheduleReverbBuild\(\);/);
 });
 
-test("the old code is spoken through play and taught to honest graduates", () => {
-  assert.match(html, /const _KONAMI=\['KeyW','KeyW','KeyS','KeyS','KeyA','KeyD','KeyA','KeyD','MB2','MB0'\];/);
-  assert.match(html, /beginAs\(true\); \}\);   \/\/ always trai/, "the begin button is unconditional again — the code lives mid-lesson only");
-  assert.match(html, /_konamiGrad=true; setTrainPhase\(3\)/, "the closing left-click graduates through the game's own dissolve");
-  assert.match(html, /if\(!_konamiGrad\)\{[^\n]*konamiTeach/, "honest graduation teaches the secret; code graduation does not");
-  assert.match(html, /konamiTeach[^\n]*\), 2\)/, "the secret holds for two seconds via the slow-toast variant");
-  assert.doesNotMatch(html, /localStorage[^\n]*_konami|_konami[^\n]*localStorage/, "the cheat is never persisted");
+test("the trackpad-safe old code pins the exact sequence, handlers, copy, and rider mutants", () => {
+  const exactCode = "const _KONAMI=['KeyW','KeyW','KeyS','KeyS','KeyA','KeyD','KeyA','KeyD','MB0','Space'];";
+  const handlerBlock = (source) => {
+    const start = source.indexOf("const _KONAMI=");
+    const keyStart = source.indexOf("document.addEventListener('keydown',(e)=>{", start);
+    const keyEnd = source.indexOf("\n},true);", keyStart) + "\n},true);".length;
+    const mouseStart = source.indexOf("document.addEventListener('mousedown',(e)=>{", keyEnd);
+    const mouseEnd = source.indexOf("\n},true);", mouseStart) + "\n},true);".length;
+    assert.ok(start >= 0 && keyStart > start && keyEnd > keyStart && mouseStart >= keyEnd && mouseEnd > mouseStart, "both pinned capture handlers are extractable");
+    return { key: source.slice(keyStart, keyEnd), mouse: source.slice(mouseStart, mouseEnd) };
+  };
+  const assertContract = (source) => {
+    assert.ok(source.includes(exactCode), "the exact trackpad sequence is pinned");
+    const handlers = handlerBlock(source);
+    assert.match(handlers.key, /const want=_KONAMI\[_konamiI\]/);
+    assert.match(handlers.key, /if\(e\.code==='Space'\)\{/);
+    assert.match(handlers.key, /if\(want==='Space'\)\{ _konamiI=0; _konamiGrad=true; e\.preventDefault\(\); setTrainPhase\(3\);/);
+    assert.match(handlers.mouse, /if\(!_konamiLesson\(\) \|\| e\.button!==0\) return;/);
+    assert.match(handlers.mouse, /if\(_KONAMI\[_konamiI\]==='MB0'\) _konamiI\+\+;\s+else _konamiI=0;/);
+    assert.doesNotMatch(handlers.mouse, /MB2|button===2|preventDefault|stopImmediatePropagation|toggleSkyFreeze/, "right-click has no surviving capture or sky-freeze swallow arm");
+    assert.match(source, /beginAs\(true\); \}\);   \/\/ always trai/, "the begin button is unconditional again — the code lives mid-lesson only");
+    assert.match(source, /konamiTeach:'せんせいのひみつ · W W S S A D A D · 左 · スペース — つぎは じゅぎょうをとばせる'/);
+    assert.match(source, /konamiTeach','SENSEI\\'S SECRET · W W S S A D A D · L · SPACE — next visit, skip the lesson'/);
+    assert.match(source, /konamiToastNow:'月のせんせいは よそみ中 · まんげつの夜へ'/);
+    assert.match(handlers.key, /T\('konamiToastNow','MOON SENSEI LOOKS AWAY · THE FULL NIGHT'\)/);
+    assert.match(source, /if\(!_konamiGrad\)\{[^\n]*konamiTeach/, "honest graduation teaches the secret; code graduation does not");
+    assert.match(source, /konamiTeach[^\n]*\), 2\)/, "the secret holds for two seconds via the slow-toast variant");
+    assert.doesNotMatch(source, /localStorage[^\n]*_konami|_konami[^\n]*localStorage/, "the cheat is never persisted");
+  };
+  assertContract(html);
+
+  const liveHandlers = handlerBlock(html);
+  const mb2Survivor = html
+    .replace(exactCode, "const _KONAMI=['KeyW','KeyW','KeyS','KeyS','KeyA','KeyD','KeyA','KeyD','MB2','MB0'];")
+    .replace(liveHandlers.mouse, liveHandlers.mouse.replace(
+      "  if(!_konamiLesson() || e.button!==0) return;",
+      "  if(!_konamiLesson()) return;\n  if(e.button===2){ _konamiI++; e.preventDefault(); e.stopImmediatePropagation(); return; }",
+    ));
+  assert.notEqual(mb2Survivor, html, "the MB2-survivor mutant is constructible");
+  assert.throws(() => assertContract(mb2Survivor), assert.AssertionError, "the pinned sequence and handler shape kill the MB2 survivor");
+
+  const spaceNotCompleting = html.replace(liveHandlers.key, liveHandlers.key.replace(" e.preventDefault(); setTrainPhase(3);", " e.preventDefault();"));
+  assert.notEqual(spaceNotCompleting, html, "the Space-not-completing mutant is constructible");
+  assert.throws(() => assertContract(spaceNotCompleting), assert.AssertionError, "the key-handler contract kills Space without graduation");
+});
+
+test("the trackpad-safe old code keeps the shot live and completes only on Space", () => {
+  const prefix = ['KeyW','KeyW','KeyS','KeyS','KeyA','KeyD','KeyA','KeyD'];
+  const runPrefix = (source, count, click = false) => {
+    const start = source.indexOf("let _konamiI=0, _konamiGrad=false;");
+    const end = source.indexOf("if(beginTrainBtn) beginTrainBtn.addEventListener", start);
+    assert.ok(start >= 0 && end > start, "the complete incantation listener block is extractable");
+    const listeners = {}, calls = { phases: [], toasts: [], fires: 0, keyPrevents: 0, mousePrevents: 0, mouseStops: 0 };
+    const context = vm.createContext({
+      state: { running: true }, trainMode: true, templeActive: false,
+      document: { addEventListener(name, handler) { listeners[name] = handler; } },
+      isTypingTarget: () => false,
+      setTrainPhase(phase) { calls.phases.push(phase); },
+      showGhostToast(message) { calls.toasts.push(message); },
+      T: (_key, fallback) => fallback,
+    });
+    vm.runInContext(source.slice(start, end), context);
+    for (const code of prefix.slice(0, count)) listeners.keydown({ code, target: null, preventDefault() { calls.keyPrevents += 1; } });
+    if (click) {
+      const right = { button: 2, preventDefault() { calls.mousePrevents += 1; }, stopImmediatePropagation() { calls.mouseStops += 1; } };
+      listeners.mousedown(right);
+      const left = { button: 0, stopped: false, preventDefault() { calls.mousePrevents += 1; }, stopImmediatePropagation() { this.stopped = true; calls.mouseStops += 1; } };
+      listeners.mousedown(left); if (!left.stopped) calls.fires += 1;
+    }
+    listeners.keydown({ code: 'Space', target: null, preventDefault() { calls.keyPrevents += 1; } });
+    return calls;
+  };
+  const assertContract = (source) => {
+    for (const count of [0, 1, 3, 5, 8]) {
+      const calls = runPrefix(source, count);
+      assert.deepEqual(calls.phases, [], `Space cannot graduate after prefix ${count}`);
+      assert.deepEqual(calls.toasts, [], `Space cannot toast after prefix ${count}`);
+      assert.equal(calls.keyPrevents, 0, `Space is not consumed after prefix ${count}`);
+    }
+    const complete = runPrefix(source, 8, true);
+    assert.deepEqual({ phases: complete.phases, toasts: complete.toasts, keyPrevents: complete.keyPrevents }, { phases: [3], toasts: ['✦ MOON SENSEI LOOKS AWAY · THE FULL NIGHT'], keyPrevents: 1 }, "only the complete ten-step sequence graduates, toasts, and consumes Space");
+    assert.deepEqual({ fires: complete.fires, mousePrevents: complete.mousePrevents, mouseStops: complete.mouseStops }, { fires: 1, mousePrevents: 0, mouseStops: 0 }, "the L-click propagates to the live canvas shot and right-click remains untouched");
+  };
+  assertContract(html);
+  const progress = "_konamiI=(e.code===_KONAMI[_konamiI])?_konamiI+1:(e.code===_KONAMI[0]?1:0);";
+  const mutation = html.replace(progress, `${progress}\n  if(_konamiI===3) setTrainPhase(3);`);
+  assert.notEqual(mutation, html, "the third-step graduation mutant is constructible");
+  assert.throws(() => assertContract(mutation), assert.AssertionError, "partial-prefix Space coverage kills injected setTrainPhase(3)");
+  assert.doesNotThrow(() => assertContract(html), "the complete sequence passes reverted");
 });
 
 test("Save my sky remains inside pause settings and outside PLAY controls", () => {

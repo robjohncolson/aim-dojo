@@ -755,7 +755,7 @@
                                                                                 
                                                                                                                                                      
                                                                                                                                                 
-                                                                                                                                                                                                  
+                                                                                                                                                                                                     
                                                                                                           
                                                         
                                                                                                                                                          
@@ -805,6 +805,8 @@
                                         
                                                                                           
                                              
+                                                     
+                                               
                                                                                                                      
                                                                                                                                                                           
                                                                                                                                                                         
@@ -959,6 +961,7 @@
                                                                                                                                                                                                             
                                                                                                                                                                                        
                                                                                                                                                                                                                         
+                                                                                                                                                                                                                    
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -5827,9 +5830,10 @@
                                                                                                             
                                                       
                                                                                                                                                                                                                                                                                                                                                                            
+                        
                                                                                                            
                                                                           
-                                                                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                          
    
  
@@ -6750,6 +6754,7 @@
  
                      
                                                                                                                                                            
+                                                                                                                                                                
                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                             
@@ -8806,19 +8811,35 @@ function updateFlock(dt){
 const GH_RECORD=!!CFG.ghostRecord;                                        // raw boolean first: false means no tap call, ledger allocation or storage access
 const GH_SEAT=!!CFG.ghostSeat;                                            // raw boolean first: false means no storage read, scene allocation, frame call or draw
 const GH_GIFT=!!CFG.ghostGift;                                            // raw boolean first: false means no flare lock, blessed tag, catch state, wrapper or mail line
+const GH_SHARE=!!CFG.ghostShare;                                          // raw boolean first: false means no token, relay call, visitor/mail/star allocation or added frame path
 const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
 const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_CAP_MAIL=64, GH_MAX_BYTES=100000;
 const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','taps','fires'];
 const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
-let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadLast=0;
+const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
+const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=1;
+const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_MAIL_RESPONSE_MAX=256;
+const GH_VISITOR_X=-90, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
+const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
+const GH_GHOST_PATH='/api/ghost', GH_GHOSTS_PATH='/api/ghosts', GH_MAIL_PATH='/api/ghost-mail';
+let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0;
 let _ghostGiftMail=null, _ghostGiftGreetingCount=0, _ghostGiftMailSpoken=false;
+let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoch=-1;
+let _ghostSeats=null, _ghostOwnSeat=null, _ghostVisitorSeat=null, _ghostSeatRows=null, _ghostSeatBusy=false, _ghostGiftHitT=0;
+let _ghostReturnPool=null, _ghostReturnCount=0, _ghostReturnSig=-1, _ghostReturnSpoken=false;
 function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
-function ghostRoadReset(){ _ghostRoadLast=0; }
+function ghostRoadReset(){
+  _ghostRoadBase=0; _ghostRoadLast=0;
+  try{
+    const heard=Tone.Transport.seconds-audioLat();
+    if(Number.isFinite(heard)) _ghostRoadBase=ghostTime(heard);
+  }catch(e){}
+}
 function ghostRoadTime(){
   let raw=_ghostRoadLast;
   try{
-    const heard=Tone.Transport.seconds-audioLat();
+    const heard=Tone.Transport.seconds-audioLat()-_ghostRoadBase;
     if(Number.isFinite(heard)) raw=Math.max(0,heard);
   }catch(e){}
   if(raw<_ghostRoadLast) raw=_ghostRoadLast;
@@ -8831,6 +8852,90 @@ function ghostAimYaw(value){
 }
 function ghostAimPitch(value){ const n=Number.isFinite(+value)?+value:0; return Math.max(-GH_AIM_PITCH_MAX,Math.min(GH_AIM_PITCH_MAX,Math.round(n*10000)/10000)); }
 function ghostDropOldest(array,cap){ if(array.length>=cap) array.shift(); }
+function ghostTokenValid(value){ return typeof value==='string' && value.length===GH_TOKEN_HEX && /^[0-9a-f]+$/.test(value); }
+function ghostToken(){
+  if(!GH_SHARE) return '';                                                  // the off arm cannot even read the bearer slot
+  if(ghostTokenValid(_ghostToken)) return _ghostToken;
+  let prior=''; try{ prior=localStorage.getItem(GH_TOKEN_KEY)||''; }catch(e){ return ''; }
+  if(ghostTokenValid(prior)) return _ghostToken=prior;
+  try{
+    const c=globalThis.crypto; if(!c || typeof c.getRandomValues!=='function') return '';
+    const bytes=new Uint8Array(GH_TOKEN_BYTES); c.getRandomValues(bytes); let token='';
+    for(let i=0;i<bytes.length;i++) token+=bytes[i].toString(16).padStart(2,'0');
+    if(!ghostTokenValid(token)) return '';
+    localStorage.setItem(GH_TOKEN_KEY,token); _ghostToken=token; return token;
+  }catch(e){ return ''; }
+}
+function ghostLonBucket(offsetMinutes){
+  // Privacy decision: the relay gets the timezone's coarse UTC offset only. Geolocation and the observer longitude never enter this path.
+  let offset=Number(offsetMinutes);
+  if(!Number.isFinite(offset)) try{ offset=new Date().getTimezoneOffset(); }catch(e){ offset=0; }
+  const hour=Math.round(-offset/GH_MINUTES_PER_HOUR);
+  return ((hour+GH_LON_SHIFT)%GH_LON_BUCKETS+GH_LON_BUCKETS)%GH_LON_BUCKETS;
+}
+function ghostRelayUrl(path){
+  if(!GH_SHARE) return '';
+  const raw=CFG.skyDay&&typeof CFG.skyDay.api==='string'?CFG.skyDay.api.replace(/\/+$/,''):'';
+  return raw && /^https?:\/\//i.test(raw)?raw+path:'';
+}
+function ghostRelayHeaders(token,json){ const headers={'X-Ghost-Token':token}; if(json) headers['Content-Type']='application/json'; return headers; }
+async function ghostRelayFetch(path,init,consume){
+  if(!GH_SHARE || typeof fetch!=='function') return null;
+  const url=ghostRelayUrl(path); if(!url) return null;
+  const ctl=typeof AbortController!=='undefined'?new AbortController():null;
+  let timer=null;
+  const timeout=new Promise(resolve=>{ timer=setTimeout(()=>{ if(ctl) ctl.abort(); resolve(null); },GH_FETCH_TIMEOUT_MS); });
+  const request=(async()=>{ try{ const response=await fetch(url,ctl?Object.assign({},init||{},{signal:ctl.signal}):(init||{})); return typeof consume==='function'?await consume(response):response; }catch(e){ return null; } })();
+  try{ return await Promise.race([request,timeout]); }finally{ clearTimeout(timer); }
+}
+function ghostUtf8Bytes(text){
+  let bytes=0;
+  for(let i=0;i<text.length;i++){
+    const code=text.charCodeAt(i);
+    if(code<0x80) bytes++;
+    else if(code<0x800) bytes+=2;
+    else if(code>=0xd800 && code<=0xdbff && i+1<text.length && text.charCodeAt(i+1)>=0xdc00 && text.charCodeAt(i+1)<=0xdfff){ bytes+=4; i++; }
+    else bytes+=3;
+  }
+  return bytes;
+}
+function ghostSerializedBytes(value){ try{ return ghostUtf8Bytes(JSON.stringify(value)); }catch(e){ return GH_MAX_BYTES+1; } }
+async function ghostRelayJson(path,init){
+  return ghostRelayFetch(path,init,async response=>{
+    if(!response || !response.ok) return null;
+    const declared=response.headers&&typeof response.headers.get==='function'?response.headers.get('content-length'):null;
+    if(declared!==null && declared!==''){
+      const bytes=Number(declared);
+      if(!Number.isSafeInteger(bytes) || bytes<0 || bytes>GH_MAX_BYTES) return null;
+    }
+    let text='';
+    if(response.body && typeof response.body.getReader==='function' && typeof TextDecoder!=='undefined'){
+      const reader=response.body.getReader(), decoder=new TextDecoder(), pieces=[]; let bytes=0;
+      for(;;){
+        const part=await reader.read(); if(part.done) break;
+        if(!part.value || !Number.isSafeInteger(part.value.byteLength)) return null;
+        bytes+=part.value.byteLength; if(bytes>GH_MAX_BYTES){ try{ reader.cancel(); }catch(e){} return null; }
+        pieces.push(decoder.decode(part.value,{stream:true}));
+      }
+      pieces.push(decoder.decode()); text=pieces.join('');
+    }else{
+      if(typeof response.text!=='function') return null;
+      text=await response.text(); if(typeof text!=='string' || ghostUtf8Bytes(text)>GH_MAX_BYTES) return null;
+    }
+    const value=JSON.parse(text); return ghostSerializedBytes(value)<=GH_MAX_BYTES?value:null;
+  });
+}
+async function ghostUploadAttempt(token,bucket,artifact){
+  const response=await ghostRelayFetch(GH_GHOST_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({lonBucket:bucket,artifact:artifact})});
+  return !!(response&&response.ok);
+}
+function ghostUploadRetry(token,bucket,artifact){ ghostUploadAttempt(token,bucket,artifact).catch(()=>{}); }
+function ghostShareUpload(artifact){
+  if(!GH_SHARE || !artifact) return;
+  const token=ghostToken(); if(!token) return;
+  const bucket=ghostLonBucket();
+  ghostUploadAttempt(token,bucket,artifact).then(ok=>{ if(!ok) setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); },()=>{ setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); });
+}
 function ghostRecordArm(){
   if(!GH_RECORD || trainMode || templeActive) return;                     // decision: only a main-play reset may allocate a recording
   ghostRoadReset();
@@ -8907,6 +9012,7 @@ function ghostRecordFinalize(){
     if(!ghostArtifactValid(r)) return;
     if(GH_GIFT && !ghostWrapperValid({ghost:r,mail})) return;                // decision: mail shares the recording's fail-soft boundary and can never cost a worthy night
     localStorage.setItem(GH_STORE_KEY,json);
+    if(GH_SHARE) ghostShareUpload(r);                                        // courtesy copy starts only after the worthy local night is safely stored; it is never awaited
   }catch(e){}
 }
 
@@ -8967,6 +9073,7 @@ function ghostSeatRead(){
   }catch(e){ return null; }
 }
 function ghostGiftMailLine(){
+  if(GH_SHARE && _ghostReturnCount>0) return ghostVisitorMailLine();
   if(!GH_GIFT || _ghostGiftMailSpoken || _ghostGiftGreetingCount<1) return '';
   _ghostGiftMailSpoken=true;
   return TF('ghostGiftMail','you reached back · {n} notes caught',{n:_ghostGiftGreetingCount});
@@ -9009,7 +9116,194 @@ let _ghVis=null, _ghBeat=null, _ghBeacon=null, _ghMoon=null, _ghWhite=null, _ghC
 let _ghTargetCursor=0, _ghHitCursor=0, _ghFireCursor=0, _ghBpmCursor=0, _ghBurstNext=0, _ghLastTime=0;
 let _ghActiveTargets=null, _ghHitRows=null, _ghBeatPrefix=null, _ghBurstPool=null, _ghCatchPool=null, _ghCaughtSlots=null, _ghCounts=null;
 let _ghMatrix=null, _ghPos=null, _ghScale=null, _ghIdentity=null, _ghBurstQuat=null, _ghRingQuat=null, _ghXAxis=null, _ghColor=null, _ghGiftPos=null, _ghGiftVel=null, _ghGiftImpactPos=null, _ghGiftPrevPos=null, _ghGiftProxy=null, _ghGiftLockedRow=null;
-let _ghCatchNext=0;
+let _ghCatchNext=0, _ghGiftRoadT=0, _ghGiftReveal=0, _ghSeatX=GH_SEAT_X;
+function ghostSeatCapture(seat){
+  seat.x=_ghSeatX; seat.record=_ghostSeatRecord; seat.seatRoot=_ghostSeatRoot; seat.beaconRoot=_ghostBeaconRoot; seat.road=_ghostRoad; seat.walls=_ghostWalls; seat.targets=_ghostTargets; seat.bursts=_ghostBursts; seat.avatar=_ghostAvatar; seat.avatarBody=_ghostAvatarBody; seat.avatarHalo=_ghostAvatarHalo; seat.avatarBow=_ghostAvatarBow; seat.beaconCols=_ghostBeaconCols; seat.beaconRings=_ghostBeaconRings;
+  seat.vis=_ghVis; seat.beat=_ghBeat; seat.beacon=_ghBeacon; seat.moon=_ghMoon; seat.white=_ghWhite; seat.catchWarm=_ghCatchWarm; seat.roadDeck=_ghRoadDeck; seat.roadGold=_ghRoadGold; seat.avatarCol=_ghAvatarCol; seat.palette=_ghPalette; seat.nightChalk=_ghNightChalk; seat.lane=_ghLane;
+  seat.targetCursor=_ghTargetCursor; seat.hitCursor=_ghHitCursor; seat.fireCursor=_ghFireCursor; seat.bpmCursor=_ghBpmCursor; seat.burstNext=_ghBurstNext; seat.lastTime=_ghLastTime; seat.activeTargets=_ghActiveTargets; seat.hitRows=_ghHitRows; seat.beatPrefix=_ghBeatPrefix; seat.burstPool=_ghBurstPool; seat.catchPool=_ghCatchPool; seat.caughtSlots=_ghCaughtSlots; seat.counts=_ghCounts;
+  seat.matrix=_ghMatrix; seat.pos=_ghPos; seat.scale=_ghScale; seat.identity=_ghIdentity; seat.burstQuat=_ghBurstQuat; seat.ringQuat=_ghRingQuat; seat.xAxis=_ghXAxis; seat.color=_ghColor; seat.giftPos=_ghGiftPos; seat.giftVel=_ghGiftVel; seat.giftImpactPos=_ghGiftImpactPos; seat.giftPrevPos=_ghGiftPrevPos; seat.giftProxy=_ghGiftProxy; seat.catchNext=_ghCatchNext; seat.giftRoadT=_ghGiftRoadT; seat.giftReveal=_ghGiftReveal; seat.mail=_ghostGiftMail;
+  return seat;
+}
+function ghostSeatInstall(seat){
+  _ghSeatX=seat.x; _ghostSeatRecord=seat.record; _ghostSeatRoot=seat.seatRoot; _ghostBeaconRoot=seat.beaconRoot; _ghostRoad=seat.road; _ghostWalls=seat.walls; _ghostTargets=seat.targets; _ghostBursts=seat.bursts; _ghostAvatar=seat.avatar; _ghostAvatarBody=seat.avatarBody; _ghostAvatarHalo=seat.avatarHalo; _ghostAvatarBow=seat.avatarBow; _ghostBeaconCols=seat.beaconCols; _ghostBeaconRings=seat.beaconRings;
+  _ghVis=seat.vis; _ghBeat=seat.beat; _ghBeacon=seat.beacon; _ghMoon=seat.moon; _ghWhite=seat.white; _ghCatchWarm=seat.catchWarm; _ghRoadDeck=seat.roadDeck; _ghRoadGold=seat.roadGold; _ghAvatarCol=seat.avatarCol; _ghPalette=seat.palette; _ghNightChalk=seat.nightChalk; _ghLane=seat.lane;
+  _ghTargetCursor=seat.targetCursor; _ghHitCursor=seat.hitCursor; _ghFireCursor=seat.fireCursor; _ghBpmCursor=seat.bpmCursor; _ghBurstNext=seat.burstNext; _ghLastTime=seat.lastTime; _ghActiveTargets=seat.activeTargets; _ghHitRows=seat.hitRows; _ghBeatPrefix=seat.beatPrefix; _ghBurstPool=seat.burstPool; _ghCatchPool=seat.catchPool; _ghCaughtSlots=seat.caughtSlots; _ghCounts=seat.counts;
+  _ghMatrix=seat.matrix; _ghPos=seat.pos; _ghScale=seat.scale; _ghIdentity=seat.identity; _ghBurstQuat=seat.burstQuat; _ghRingQuat=seat.ringQuat; _ghXAxis=seat.xAxis; _ghColor=seat.color; _ghGiftPos=seat.giftPos; _ghGiftVel=seat.giftVel; _ghGiftImpactPos=seat.giftImpactPos; _ghGiftPrevPos=seat.giftPrevPos; _ghGiftProxy=seat.giftProxy; _ghCatchNext=seat.catchNext; _ghGiftRoadT=seat.giftRoadT; _ghGiftReveal=seat.giftReveal; _ghostGiftMail=seat.mail;
+}
+function ghostSeatClear(x){
+  _ghSeatX=x; _ghostSeatRecord=null; _ghostSeatRoot=null; _ghostBeaconRoot=null; _ghostRoad=null; _ghostWalls=null; _ghostTargets=null; _ghostBursts=null; _ghostAvatar=null; _ghostAvatarBody=null; _ghostAvatarHalo=null; _ghostAvatarBow=null; _ghostBeaconCols=null; _ghostBeaconRings=null;
+  _ghVis=null; _ghBeat=null; _ghBeacon=null; _ghMoon=null; _ghWhite=null; _ghCatchWarm=null; _ghRoadDeck=null; _ghRoadGold=null; _ghAvatarCol=null; _ghPalette=null; _ghNightChalk=null; _ghLane=null;
+  _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghLastTime=0; _ghActiveTargets=null; _ghHitRows=null; _ghBeatPrefix=null; _ghBurstPool=null; _ghCatchPool=null; _ghCaughtSlots=null; _ghCounts=null;
+  _ghMatrix=null; _ghPos=null; _ghScale=null; _ghIdentity=null; _ghBurstQuat=null; _ghRingQuat=null; _ghXAxis=null; _ghColor=null; _ghGiftPos=null; _ghGiftVel=null; _ghGiftImpactPos=null; _ghGiftPrevPos=null; _ghGiftProxy=null; _ghCatchNext=0; _ghGiftRoadT=0; _ghGiftReveal=0; _ghostGiftMail=null;
+}
+function ghostSeatRememberRows(seat){ if(!_ghostSeatRows || !seat || !seat.record) return; for(const row of seat.record.targets) _ghostSeatRows.set(row,seat); }
+function ghostMoonSigil(bucket){
+  if(!Number.isInteger(bucket) || bucket<0 || bucket>7) return '';
+  const at=bucket*GH_SIGIL_CODE_UNITS; return GH_MOON_SIGILS.slice(at,at+GH_SIGIL_CODE_UNITS);
+}
+function ghostVisitorMailLine(){
+  if(!GH_SHARE || _ghostReturnSpoken || _ghostReturnCount<1) return '';
+  const sigil=ghostMoonSigil(_ghostReturnSig); if(!sigil) return '';
+  _ghostReturnSpoken=true;
+  return TF('ghostVisitorMail','{n} of your notes were caught · {sigil}',{n:_ghostReturnCount,sigil:sigil});
+}
+function ghostVisitorLine(){
+  const seat=GH_SHARE?_ghostVisitorSeat:null;
+  if(!seat || seat.spoken || !seat.record) return '';
+  const sigil=ghostMoonSigil(seat.sig); if(!sigil) return '';
+  seat.spoken=true;
+  return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigil});
+}
+function ghostReturnMailValid(value){
+  if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
+  for(const row of value) if(!Array.isArray(row) || row.length!==GH_MAIL_ROW_SIZE || !Number.isFinite(row[0]) || row[0]<0 || !Number.isInteger(row[1]) || row[1]<0 || row[1]>3 || !ghostMoonSigil(row[2])) return null;
+  return value;
+}
+function ghostReturnEnsure(){
+  if(_ghostReturnPool) return;
+  const pool=[];
+  try{
+    for(let i=0;i<GH_RETURN_MAX;i++){
+      const data=new Float32Array(6), geometry=new THREE.BufferGeometry(), attribute=new THREE.Float32BufferAttribute(data,3);
+      geometry.setAttribute('position',attribute);
+      const material=new THREE.LineBasicMaterial({color:WASD_COL[0],transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:true});
+      const mesh=new THREE.Line(geometry,material); mesh.visible=false; mesh.frustumCulled=false; mesh.renderOrder=GH_RETURN_ORDER; scene.add(mesh);
+      pool.push({mesh:mesh,data:data,attribute:attribute,at:0,lane:0,spent:true});
+    }
+    _ghostReturnPool=pool;
+  }catch(e){ for(const star of pool){ star.mesh.visible=false; try{ scene.remove(star.mesh); }catch(_e){} } }
+}
+function ghostReturnReset(){
+  _ghostReturnCount=0; _ghostReturnSig=-1; _ghostReturnSpoken=false;
+  if(_ghostReturnPool) for(const star of _ghostReturnPool){ star.spent=true; star.mesh.visible=false; }
+}
+function ghostReturnSchedule(rows){
+  if(!GH_SHARE || !rows || !rows.length) return;
+  ghostReturnEnsure(); if(!_ghostReturnPool) return;
+  const now=ghostRoadTime(), ownDur=_ghostOwnSeat&&_ghostOwnSeat.record?_ghostOwnSeat.record.dur:0, period=ownDur>0?ownDur:GH_RETURN_PERIOD, count=Math.min(GH_RETURN_MAX,rows.length);
+  for(let i=0;i<_ghostReturnPool.length;i++){
+    const star=_ghostReturnPool[i];
+    if(i>=count){ star.spent=true; star.mesh.visible=false; continue; }
+    const row=rows[i]; let at=ghostTime(row[0]%period); while(at<now) at+=period;
+    star.at=at; star.lane=row[1]; star.spent=false; star.mesh.visible=false; star.mesh.material.color.setStyle(WASD_COL[star.lane]);
+  }
+}
+function ghostReturnUpdate(){
+  if(!GH_SHARE || !_ghostReturnPool) return;
+  if(!state.running || templeActive || trainMode){ for(const star of _ghostReturnPool) star.mesh.visible=false; return; }
+  const now=ghostRoadTime();
+  for(const star of _ghostReturnPool){
+    if(star.spent) continue;
+    const start=reduceMotion?star.at:star.at-GH_RETURN_LIFE, finish=star.at+(reduceMotion?GH_RETURN_GLINT:GH_RETURN_FADE);
+    if(now<start){ star.mesh.visible=false; continue; }
+    if(now>finish){ star.spent=true; star.mesh.visible=false; continue; }
+    const laneX=(star.lane-1.5)*GH_LANE_STEP, data=star.data;
+    if(reduceMotion){
+      data[0]=laneX; data[1]=GH_RETURN_Y-GH_RETURN_TAIL; data[2]=GH_RETURN_ROAD_Z; data[3]=laneX; data[4]=GH_RETURN_Y+GH_RETURN_TAIL; data[5]=GH_RETURN_ROAD_Z;
+      star.mesh.material.opacity=Math.max(0,1-(now-star.at)/GH_RETURN_GLINT);
+    }else{
+      const u=Math.max(0,Math.min(1,(now-start)/GH_RETURN_LIFE)), tail=Math.max(0,u-GH_RETURN_TAIL);
+      data[0]=laneX; data[1]=GH_RETURN_SKY_Y+(GH_RETURN_Y-GH_RETURN_SKY_Y)*tail; data[2]=GH_RETURN_SKY_Z+(GH_RETURN_ROAD_Z-GH_RETURN_SKY_Z)*tail;
+      data[3]=laneX; data[4]=GH_RETURN_SKY_Y+(GH_RETURN_Y-GH_RETURN_SKY_Y)*u; data[5]=GH_RETURN_SKY_Z+(GH_RETURN_ROAD_Z-GH_RETURN_SKY_Z)*u;
+      star.mesh.material.opacity=now<=star.at?1:Math.max(0,1-(now-star.at)/GH_RETURN_FADE);
+    }
+    star.attribute.needsUpdate=true; star.mesh.visible=true;
+  }
+}
+function ghostVisitorAccept(epoch,id,record){
+  if(!GH_SHARE || epoch!==_ghostShareEpoch || !ghostTokenValid(id) || !ghostArtifactValid(record)) return;
+  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat);
+  let accepted=false;
+  try{
+    if(!_ghostVisitorSeat){ ghostSeatClear(GH_VISITOR_X); _ghostVisitorSeat=ghostSeatCapture({}); }
+    else ghostSeatInstall(_ghostVisitorSeat);
+    _ghostSeatRecord=record; _ghostGiftMail=GH_GIFT?[]:null;
+    if(_ghCaughtSlots) _ghCaughtSlots.clear();
+    if(!_ghostSeatRoot) ghostSeatBuild(record); else { ghostSeatPalette(record); ghostSeatPrepare(record); }
+    _ghostVisitorSeat.id=id; _ghostVisitorSeat.sig=record.moonBucket; _ghostVisitorSeat.spoken=false; _ghostVisitorSeat.visitor=true; ghostSeatCapture(_ghostVisitorSeat); ghostSeatRememberRows(_ghostVisitorSeat); accepted=true;
+  }catch(e){
+    if(_ghostVisitorSeat){ try{ _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); ghostSeatCapture(_ghostVisitorSeat); }catch(_e){} }
+  }finally{ if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  if(!accepted) return;
+  if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT&&_ghostOwnSeat) _ghostSeats.push(_ghostOwnSeat); _ghostSeats.push(_ghostVisitorSeat);
+}
+async function ghostVisitorFetch(epoch,token,bucket){
+  const path=GH_GHOSTS_PATH+'?lon='+bucket+'&n='+GH_VISITOR_COUNT, body=await ghostRelayJson(path,{headers:ghostRelayHeaders(token,false)});
+  if(epoch!==_ghostShareEpoch || !body || !Array.isArray(body.ghosts) || !body.ghosts.length) return;
+  const item=body.ghosts[0]; if(!item || !ghostTokenValid(item.id) || ghostSerializedBytes(item.artifact)>GH_MAX_BYTES) return;
+  const record=ghostArtifactValid(item.artifact); if(!record) return;
+  ghostVisitorAccept(epoch,item.id,record);
+}
+async function ghostMailFetch(epoch,token){
+  // Read-once is intentional ephemerality: the relay clears this mailbox before it answers, so a crash after this boundary loses the notes and no client cache tries to resurrect them.
+  const body=await ghostRelayJson(GH_MAIL_PATH,{headers:ghostRelayHeaders(token,false)});
+  if(!body || ghostSerializedBytes(body)>GH_MAX_BYTES) return;
+  const rows=body&&ghostReturnMailValid(body.catches); if(epoch!==_ghostShareEpoch || !rows || !rows.length) return;
+  _ghostReturnCount=rows.length; _ghostReturnSig=rows[0][2]; ghostReturnSchedule(rows);
+}
+function ghostShareReset(){
+  if(!GH_SHARE) return;
+  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=ghostLonBucket(); ghostReturnReset(); _ghostSeatRows=new WeakMap();
+  if(!_ghostOwnSeat) _ghostOwnSeat={visitor:false,id:'',sig:-1,spoken:true}; ghostSeatCapture(_ghostOwnSeat); ghostSeatRememberRows(_ghostOwnSeat);
+  if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT) _ghostSeats.push(_ghostOwnSeat);
+  if(_ghostVisitorSeat){
+    try{ ghostSeatInstall(_ghostVisitorSeat); _ghostSeatRecord=null; _ghostGiftMail=GH_GIFT?[]:null; if(_ghCaughtSlots) _ghCaughtSlots.clear(); ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); _ghostVisitorSeat.id=''; _ghostVisitorSeat.sig=-1; _ghostVisitorSeat.spoken=false; ghostSeatCapture(_ghostVisitorSeat); }
+    catch(e){}
+    finally{ ghostSeatInstall(_ghostOwnSeat); }
+  }
+  const token=ghostToken(); if(!token) return;
+  const epoch=_ghostShareEpoch, bucket=_ghostShareBucket;
+  ghostVisitorFetch(epoch,token,bucket).catch(()=>{}); ghostMailFetch(epoch,token).catch(()=>{});
+}
+async function ghostMailAttempt(token,toId,catches){
+  const response=await ghostRelayFetch(GH_MAIL_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({toId:toId,catches:catches})});
+  return !!(response&&response.ok);
+}
+function ghostShareFinalize(){
+  if(!GH_SHARE || _ghostShareSentEpoch===_ghostShareEpoch) return;
+  const seat=_ghostVisitorSeat, catches=seat&&seat.mail;
+  if(!seat || !seat.id || !Array.isArray(catches) || !catches.length) return;
+  const token=ghostToken(); if(!token) return;
+  _ghostShareSentEpoch=_ghostShareEpoch; ghostMailAttempt(token,seat.id,catches).catch(()=>{});
+}
+function ghostSeatsUpdate(dt){
+  if(!_ghostSeats || !_ghostSeats.length) return;
+  _ghostSeatBusy=true;
+  try{ for(const seat of _ghostSeats){ ghostSeatInstall(seat); ghostSeatUpdate(dt); ghostSeatCapture(seat); } }
+  finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+}
+function ghostGiftLockSeats(aim,minDot){
+  if(!_ghostSeats || !_ghostSeats.length) return null;
+  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat);
+  let best=null, bestSeat=null, bestDot=minDot;
+  _ghostSeatBusy=true;
+  try{
+    for(const seat of _ghostSeats){
+      ghostSeatInstall(seat); const candidate=ghostGiftLockTarget(aim,minDot); ghostSeatCapture(seat);
+      if(!candidate) continue;
+      const p=candidate.mesh.position, dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d=Math.hypot(dx,dy,dz), dot=d>0?(dx*aim.x+dy*aim.y+dz*aim.z)/d:minDot;
+      if(dot>bestDot){ bestDot=dot; best=candidate; bestSeat=seat; }
+    }
+  }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  if(bestSeat && best._ghostGiftRow) _ghostSeatRows.set(best._ghostGiftRow,bestSeat);
+  return best;
+}
+function ghostGiftSeatPlan(seat){
+  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat); ghostSeatInstall(seat); _ghostSeatBusy=true;
+  let speed=null; try{ speed=ghostGiftPlanSpeed(); ghostSeatCapture(seat); }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  return speed;
+}
+function ghostGiftSeatProjectileHit(seat,pr){
+  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat); ghostSeatInstall(seat); _ghostSeatBusy=true;
+  let hit=false; try{ hit=ghostGiftProjectileHit(pr); _ghostGiftHitT=_ghGiftRoadT; ghostSeatCapture(seat); }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  _ghGiftRoadT=_ghostGiftHitT;
+  return hit;
+}
+function ghostGiftSeatCatch(seat,row,t){
+  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat); ghostSeatInstall(seat); _ghostSeatBusy=true;
+  let caught=false; try{ caught=ghostGiftCatch(row,t); ghostSeatCapture(seat); }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  return caught;
+}
 function ghostNightSeed(record){
   const date=record.date, key=(+date.slice(0,4)*10000+(+date.slice(5,7))*100+(+date.slice(8,10)))|0;
   return (key^Math.imul(record.moonBucket+1,0x9e3779b9))>>>0;
@@ -9048,7 +9342,7 @@ function ghostQuad(data,a,b,c,d,tone,scroll,anchor,pal,seed){
   data.i.push(base,base+1,base+2,base,base+2,base+3);
 }
 function ghostRoadGeometry(){
-  const d={p:[],tone:[],scroll:[],anchor:[],i:[]}, x0=GH_SEAT_X-GH_ROAD_HALF, x1=GH_SEAT_X+GH_ROAD_HALF, z0=-GH_ROAD_AHEAD, z1=GH_ROAD_BEHIND;
+  const d={p:[],tone:[],scroll:[],anchor:[],i:[]}, x0=_ghSeatX-GH_ROAD_HALF, x1=_ghSeatX+GH_ROAD_HALF, z0=-GH_ROAD_AHEAD, z1=GH_ROAD_BEHIND;
   if(!LOW) ghostQuad(d,[x0,0.02,z1],[x0,0.02,z0],[x1,0.02,z0],[x1,0.02,z1],0,0,0,0,0);
   for(const x of [x0,x1]) ghostQuad(d,[x-0.08,0.08,z1],[x-0.08,0.08,z0],[x+0.08,0.08,z0],[x+0.08,0.08,z1],1,0,0,0,0);
   for(const x of [x0,x1]) for(const y of [1.8,3.6]) ghostQuad(d,[x-0.06,y-0.06,z1],[x-0.06,y-0.06,z0],[x+0.06,y+0.06,z0],[x+0.06,y+0.06,z1],1,0,0,0,0);
@@ -9066,7 +9360,7 @@ function ghostRoadMaterial(){ return new THREE.ShaderMaterial({transparent:true,
   ].join('\n'),fragmentShader:'uniform float uVis; uniform vec3 uDeck,uGold; varying float vTone; void main(){ float a=mix('+_roadG(GH_ROAD_DECK_ALPHA)+','+_roadG(GH_ROAD_RULE_ALPHA)+',step(0.5,vTone))*uVis; if(a<=0.003) discard; vec3 c=mix(uDeck,uGold,step(0.5,vTone)); gl_FragColor=vec4(c,a); }'}); }
 function ghostWallMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uPal:{value:_ghPalette}},vertexShader:[
   'uniform float uBeat; uniform vec3 uPal[5]; attribute float aAnchor,aPal,aSeed; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
-  'void main(){ float b=mod(aAnchor-uBeat+4.0,'+_roadG(GH_WALL_N*ML_ARCH_EVERY)+')-4.0; vec3 P=vec3('+_roadG(GH_SEAT_X)+'+position.x,position.y,-b*'+_roadG(ROAD_MPB)+'); vP=position.xy; vCol=uPal[int(aPal)]; vSeed=aSeed; gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0); }'
+  'void main(){ float b=mod(aAnchor-uBeat+4.0,'+_roadG(GH_WALL_N*ML_ARCH_EVERY)+')-4.0; vec3 P=vec3('+_roadG(_ghSeatX)+'+position.x,position.y,-b*'+_roadG(ROAD_MPB)+'); vP=position.xy; vCol=uPal[int(aPal)]; vSeed=aSeed; gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0); }'
   ].join('\n'),fragmentShader:[
   'uniform float uVis; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
   'float ghHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vSeed)*43758.5453); }',
@@ -9093,7 +9387,7 @@ function ghostSeatBuild(record){
   if(!LOW){ _ghostWalls=new THREE.Mesh(ghostWallGeometry(),ghostWallMaterial()); _ghostWalls.frustumCulled=false; _ghostWalls.renderOrder=-31; _ghostSeatRoot.add(_ghostWalls); }
   const targetMat=ghostInstanceMaterial(GH_TARGET_ALPHA,_ghVis);
   _ghostTargets=new THREE.InstancedMesh(TARGET_CORE_GEO,targetMat,GH_TARGET_MAX); _ghostTargets.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostTargets.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_TARGET_MAX*3),3); _ghostTargets.count=0; _ghostTargets.frustumCulled=false; _ghostTargets.renderOrder=1.2; _ghostSeatRoot.add(_ghostTargets);
-  _ghostAvatar=new THREE.Group(); _ghostAvatar.position.set(GH_SEAT_X,1.7,0); _ghostSeatRoot.add(_ghostAvatar);
+  _ghostAvatar=new THREE.Group(); _ghostAvatar.position.set(_ghSeatX,1.7,0); _ghostSeatRoot.add(_ghostAvatar);
   _ghostAvatarBody=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostAvatarMaterial(GH_AVATAR_BODY_ALPHA)); _ghostAvatarBody.position.y=1.55; _ghostAvatar.add(_ghostAvatarBody);
   _ghostAvatarHalo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostAvatarMaterial(GH_AVATAR_HALO_ALPHA)); _ghostAvatarHalo.position.y=3.25; _ghostAvatarHalo.scale.setScalar(1.35); _ghostAvatar.add(_ghostAvatarHalo);
   _ghostAvatarBow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostAvatarMaterial(GH_AVATAR_BOW_ALPHA)); _ghostAvatarBow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); _ghostAvatar.add(_ghostAvatarBow);
@@ -9138,6 +9432,13 @@ function ghostSeatReset(){
   if(!record){ if(_ghVis) _ghVis.value=0; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
   ghostSeatBuild(record); ghostSeatPalette(record); ghostSeatPrepare(record);
 }
+function ghostSessionStart(){
+  // Session-topology decision: graduation is today's real main-play door; resetSession keeps this same arm site for any future direct Full Night entry.
+  if((!GH_RECORD&&!GH_SEAT&&!GH_SHARE) || trainMode || templeActive) return;
+  if(GH_SEAT) ghostSeatReset();
+  if(GH_SHARE) ghostShareReset();
+  if(GH_RECORD) ghostRecordArm();
+}
 function ghostSeatBeatAt(t){
   const record=_ghostSeatRecord, curve=record&&record.bpmCurve;
   if(!record) return 0;
@@ -9148,9 +9449,8 @@ function ghostSeatBeatAt(t){
 }
 function ghostTargetPosition(row,t,out){
   const span=Math.max(0.001,row[3]-row[0]), u=Math.max(0,Math.min(1,(t-row[0])/span));
-  out.set(GH_SEAT_X+(row[1]-1.5)*GH_LANE_STEP,GH_TARGET_Y,-GH_TARGET_FAR+(GH_TARGET_FAR-GH_TARGET_NEAR)*u); return out;
+  out.set(_ghSeatX+(row[1]-1.5)*GH_LANE_STEP,GH_TARGET_Y,-GH_TARGET_FAR+(GH_TARGET_FAR-GH_TARGET_NEAR)*u); return out;
 }
-let _ghGiftRoadT=0, _ghGiftReveal=0;
 function ghostGiftSync(priorT){
   if(!GH_GIFT || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode) return false;
   const roadT=ghostRoadTime(), endT=_ghostSeatRecord.dur;
@@ -9164,6 +9464,7 @@ function ghostGiftable(row,t,v){
   return !!(GH_GIFT && row && row[4]===0 && v>=GH_GIFT_V && t>=row[3]-GH_GIFT_LEAD && t<=row[3] && (!_ghCaughtSlots || !_ghCaughtSlots.has(row[2])));
 }
 function ghostGiftLockTarget(aim,minDot){
+  if(GH_SHARE && !_ghostSeatBusy) return ghostGiftLockSeats(aim,minDot);
   if(!ghostGiftSync() || !_ghGiftProxy || !_ghActiveTargets) return null;
   let bestRow=null, bestDot=minDot;
   for(const row of _ghActiveTargets){
@@ -9182,6 +9483,7 @@ function ghostGiftLockTarget(aim,minDot){
   return _ghGiftProxy;
 }
 function ghostGiftPlanSpeed(){
+  if(GH_SHARE && !_ghostSeatBusy && _ghGiftLockedRow){ const seat=_ghostSeatRows&&_ghostSeatRows.get(_ghGiftLockedRow); if(seat) return ghostGiftSeatPlan(seat); }
   if(!GH_GIFT || !_ghGiftLockedRow) return null;
   if(!ghostGiftSync() || !ghostGiftable(_ghGiftLockedRow,_ghGiftRoadT,_ghGiftReveal)){ _ghGiftLockedRow=null; return null; }
   return GH_GIFT_SPEED;
@@ -9194,6 +9496,7 @@ function ghostCatchBurst(row,t,pos){
   }
 }
 function ghostGiftCatch(row,t){
+  if(GH_SHARE && !_ghostSeatBusy){ const seat=_ghostSeatRows&&_ghostSeatRows.get(row); if(seat) return ghostGiftSeatCatch(seat,row,t); }
   if(!GH_GIFT || !row || !_ghCaughtSlots || _ghCaughtSlots.has(row[2])) return false;
   _ghCaughtSlots.add(row[2]);
   if(_ghostGiftMail){ ghostDropOldest(_ghostGiftMail,GH_CAP_MAIL); _ghostGiftMail.push([ghostTime(t),row[1]]); }
@@ -9206,6 +9509,7 @@ function ghostGiftCatch(row,t){
   return true;
 }
 function ghostGiftProjectileHit(pr){
+  if(GH_SHARE && !_ghostSeatBusy && pr){ const seat=_ghostSeatRows&&_ghostSeatRows.get(pr.giftRow); if(seat) return ghostGiftSeatProjectileHit(seat,pr); }
   if(!GH_GIFT || !pr || !pr.gift || !pr.giftRow || !ghostGiftSync(pr.giftRoadT)) return false;
   const currentT=_ghGiftRoadT, priorT=Number.isFinite(pr.giftRoadT)?Math.min(currentT,pr.giftRoadT):currentT, arrivalT=pr.giftRow[3], endT=Math.min(currentT,arrivalT);
   pr.giftRoadT=currentT;
@@ -9314,7 +9618,9 @@ function ghostSeatBeaconVisibility(count){
   if(_ghostBeaconRings) _ghostBeaconRings.visible=on;
 }
 function ghostSeatUpdate(dt){
-  if(!GH_SEAT || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
+  if(GH_SHARE && !_ghostSeatBusy){ ghostSeatsUpdate(dt); return; }
+  const seatOn=GH_SEAT || (GH_SHARE&&_ghostSeatBusy&&_ghSeatX===GH_VISITOR_X);
+  if(!seatOn || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
   const roadT=ghostRoadTime(), t=Math.min(roadT,_ghostSeatRecord.dur), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
   const v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
   ghostSeatAdvance(t); _ghBeat.value=ghostSeatBeatAt(t);
@@ -9420,240 +9726,240 @@ function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','dec
 function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
   _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
-function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
-  for(const tg of targets){ if(tg.dead) continue;
-    if(tight && (tg._flickLocked || tg.kind===2)) continue;   // flick can't re-lock a locked orb, and you never flick-lock a decoy
-    _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included in the normal path -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
-    const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d;
-    if(tight){ if(dot>=Math.cos(Math.atan2(tg.radius*tg.sc*CFG.flickBonus.coneMul, d)) && dot>bestDot){ bestDot=dot; best=tg; } }   // dot >= cos(angular radius) == the crosshair is inside the orb's silhouette
-    else if(dot>bestDot){ bestDot=dot; best=tg; } }
-  if(best || tight || !GH_GIFT) return best;                               // decision: any real candidate outranks charity; flick remains a real-target-only verb
-  return ghostGiftLockTarget(_scAim,bestDot);
-}
-function updateScope(dt){
-  if(!(CFG.projectile && CFG.scope && state.running && !templeActive)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
-  if(bonusActive){ hideScope(); scopeAccum=SCOPE_STEP; return; }   // RAIL-FLICK BONUS: updateFlickBonus owns lockBoxEl (the gold "lockable now" mark) during the bonus
-  scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
-  const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
-  const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
-  const giftCandidate=!!(GH_GIFT&&tg.gift), flight=giftCandidate?computeShotPlan(_scM,_scV,GH_GIFT_SPEED):computeShotPlan(_scM, _scV);   // the actual shot plan for the current aim; the normal arm keeps its shipped two-argument solve, while a flare gets the launch's exact speed
-  const locked=giftCandidate?simGiftShotHits(_scM,_scV,flight,tg):simShotHits(_scM, _scV, flight, tg);           // does that real shot's path connect with the (moving) target?
-  if(GH_GIFT) _ghGiftLockedRow=locked&&giftCandidate?tg._ghostGiftRow:null;
-  // seeking → LOCK reticle around the target, sized to its on-screen radius
-  const ts=projectPointScope(Tt);
-  if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
-    lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
-    setVar(lockBoxEl,'--lx', ts[0]+'px'); setVar(lockBoxEl,'--ly', ts[1]+'px');
-    const isDecoy=tg.kind===2, lk=locked && !isDecoy; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', lk);   // decoy -> red AVOID box, never the gold LOCK
-    if(lk && flight>0 && !reduceMotion){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast. reduced-motion -> steady box (no breathe)
-    else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
-  else { lockBoxEl.classList.remove('on','lock','decoy'); _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); }
-  // deviation edge tints: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits) — the red glow on the screen edge to aim toward
-  if(ts[2] && _scVMissOn && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one). edge tints are a functional aim cue -> shown under reduced-motion too; only the conveyor SCROLL is motion (frozen in updateEdgeTints)
-    const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
-    const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
-    driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
-  } else { hideEdgeTints(); }
-}
-/* ========================= RAIL-FLICK BONUS (#4) =========================
-   Earned by a FLAWLESS on-beat kill on a hot streak. Orb MOTION freezes (the beat clock keeps
-   ticking — we never touch dt/Tone.Transport); aiming becomes pure FLICK (crosshair literally ON
-   an orb, no lead). Tap ANY WASD / pad-face ON the beat to LOCK the pointed orb; each lock extends
-   the window. When it ends the locked orbs detonate in a one-per-beat cascade, each a scored bonus
-   kill. Trains FLICK — the complement to the core LEAD skill. No auto-aim. */
-function currentRawBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b; }   // raw whole-beat clock (no groove phase-shift) — drives the window countdown + cascade cadence
-function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
-  if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
-  if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
-  if(state.t-_bonusLast<CFG.flickBonus.cooldown) return;                           // keep it a treat, not a strobe (mirrors clutch)
-  try{ updatePocketMisses(); }catch(e){}                                           // close the normal-input frontier immediately before bonus takes ownership
-  bonusActive=true; _bonusResolving=false; _bonusJustArmed=true; bonusLocks.length=0;   // _bonusJustArmed → updateFlickBonus clears in-flight projectiles NEXT (safely, after updateProjectiles' loop this frame)
-  _bonusGrace=CFG.flickBonus.graceMisses;
-  _bonusEntryBeat=currentRawBeat(); bonusEndsBeat=_bonusEntryBeat+CFG.flickBonus.baseBeats;
-  if(soundOn && toneReady){ try{ const t=beatSnap(); if(lead){ lead.triggerAttackRelease(PENTA[4],'8n',t,0.7); lead.triggerAttackRelease(PENTA[6],'8n',t+0.06,0.6); } if(chordSynth) chordSynth.triggerAttackRelease([PENTA[0],PENTA[2],PENTA[4]],'4n',t,0.4); }catch(e){} }   // a rising two-note "mode on" flourish + an open chord
-}
-function abortFlickBonus(){   // pause / reset: drop the mode with NO cascade payoff — un-flag locked orbs, unfreeze the field (they resume with full life)
-  if(!bonusActive) return;
-  try{ updatePocketMisses(); }catch(e){}   // freeze pocket progress through the final pre-pause center before clearing bonusActive
-  for(const tg of bonusLocks) if(tg) tg._flickLocked=false;
-  bonusLocks.length=0; bonusActive=false; _bonusResolving=false; _bonusJustArmed=false;
-  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-}
-function flickLockPress(){   // a WASD/pad-face tap DURING the bonus: on-beat AND crosshair on an orb = LOCK; anything else = a missed attempt (one grace, then the cascade rolls)
-  if(_bonusResolving) return;                                                      // cascade already rolling — taps do nothing
-  const tg=scopeLockTarget(true);                                                  // tight, size-aware cone; skips already-locked orbs + decoys
-  if(tg && orbOpen()){                                                             // ON the beat (orb glowing) AND the crosshair is literally on an orb
-    tg._flickLocked=true; bonusLocks.push(tg);
-    bonusEndsBeat=Math.min(_bonusEntryBeat+CFG.flickBonus.capBeats, bonusEndsBeat+CFG.flickBonus.extendBeats);   // each lock buys +extendBeats, capped at capBeats from entry
-    if(soundOn && toneReady){ try{ const s=Math.min(bonusLocks.length-1,PENTA.length-1); if(lead) lead.triggerAttackRelease(PENTA[s],'16n',beatSnap(),0.72); if(tick) tick.triggerAttackRelease(1568,'32n',Tone.now(),0.6); }catch(e){} }   // lock chime climbs the pentatonic with each lock
-    if(!reduceMotion) popHitMarker();
-  } else {                                                                         // whiffed flick (no orb under the crosshair) or off-beat tap = a missed attempt
-    if(_bonusGrace>0){ _bonusGrace--; flashReticleBad(); if(soundOn&&toneReady) sfx('offbeat'); }   // one forgiven fumble so entering with nothing centered doesn't instantly end the mode
-    else startFlickResolve(currentRawBeat());                                      // no-lock resolves exit through endFlickBonus, which advances the frozen pocket frontier first
-  }
-}
-function startFlickResolve(atBeat){
-  _bonusResolving=true; _bonusCascadeBeat=Math.floor(atBeat)+1;                     // first detonation on the next whole beat
-  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-  if(!bonusLocks.length) endFlickBonus();                                           // nothing locked → just exit (no cascade, streak intact)
-}
-function endFlickBonus(){
-  if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
-  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
-  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-}
-function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
-  if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
-  tg.dead=true; tg._flickLocked=false;
-  const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
-  recordHit(tg);
-  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
-  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
-}
-function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
-  const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
-  if(!ts[2]){ if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); return; }
-  const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
-  lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
-  lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px'); lockBoxEl.style.setProperty('--pulse','1');
-  lockBoxEl.classList.add('on','lock'); lockBoxEl.classList.remove('decoy');
-}
-function updateFlickBonus(dt){
-  if(!bonusActive) return;
-  if(_bonusJustArmed){ _bonusJustArmed=false; clearProjectiles(); }                 // deferred: clear in-flight shots AFTER updateProjectiles' loop this frame (clearing mid-loop would corrupt its index)
-  const beat=currentRawBeat();
-  if(!_bonusResolving){                                                             // LOCK PHASE: preview the lockable orb + count the window down (in whole beats)
-    const tg=scopeLockTarget(true);
-    if(tg) showFlickBox(tg); else if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-    if(beat>=bonusEndsBeat) startFlickResolve(beat);
-  } else {                                                                          // RESOLVE PHASE: detonate one locked orb per beat, then unfreeze
-    if(beat>=_bonusCascadeBeat){
-      if(bonusLocks.length){ resolveFlickLock(bonusLocks.shift()); _bonusCascadeBeat=Math.floor(beat)+1; }
-      else endFlickBonus();
-    }
-  }
-}
-/* ---- wind HUD (free-play prototype): an arrow rotated to the wind direction RELATIVE TO YOUR VIEW + the strength ---- */
-const windHudEl=gid('windHud'), windArrowEl=windHudEl&&windHudEl.querySelector('.wh-arrow'), windMagEl=windHudEl&&windHudEl.querySelector('.wh-mag'), _windFwd=new THREE.Vector3();
-function updateWindHud(){
-  if(!windHudEl) return;
-  if(!(state.running && (windX||windZ))){ if(windHudEl.classList.contains('on')) windHudEl.classList.remove('on'); return; }
-  camera.getWorldDirection(_windFwd); const fl=Math.hypot(_windFwd.x,_windFwd.z)||1, dfx=_windFwd.x/fl, dfz=_windFwd.z/fl;   // horizontal forward
-  const wFwd=windX*dfx+windZ*dfz, wRight=windX*(-dfz)+windZ*dfx, ang=Math.atan2(wRight,wFwd)*RAD2DEG;   // wind vs view: 0=downrange (arrow up), + = pushes right (screen-right = (-fz,fx))
-  setStyle(windArrowEl,'transform','rotate('+ang.toFixed(0)+'deg)');
-  setText(windMagEl, Math.hypot(windX,windZ).toFixed(2));
-  if(!windHudEl.classList.contains('on')) windHudEl.classList.add('on');
-}
+                                                                                                                                                                                                                                                                      
+                                                 
+                                                                                                                                   
+                                                                                                                                                                                                                                 
+                                                                     
+                                                                                                                                                                                                                 
+                                                   
+                                                                                                                                                                  
+                                             
+ 
+                         
+                                                                                                                     
+                                                                                                                                                                       
+                                                                 
+                                                             
+                                                                  
+                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                
+                                                                           
+                                                                            
+                                 
+                                                                                                                                                  
+                                                                    
+                                                                               
+                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                  
+                                                                         
+                                                                                                                      
+                                                                                                                                                               
+                                                                                                                                                                                                                                            
+                                                                                                            
+                                                                                                                                                             
+                                                                                                                                                    
+                             
+ 
+                                                                            
+                                                                                              
+                                                                                                 
+                                                                                                   
+                                                                                                   
+                                                                              
+                                                                                                                                                                                                             
+                                                                                                                                                                      
+                                                                                                                                                 
+                                                                                                             
+                                                                                                                                    
+                                                                                                                                                              
+                                                                                                                                                                                                                  
+                                         
+                                                                                           
+                                                                                                                                                                                                                                                                                                                                      
+ 
+                                                                                                                                                           
+                          
+                                                                                                                                   
+                                                           
+                                                                                       
+                                                                
+ 
+                                                                                                                                                                                  
+                                                                                                                               
+                                                                                                                                                
+                                                                                                                                                        
+                                              
+                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                              
+                                     
+                                                                                                                                                                   
+                                                                                                                                                                                           
+                                                                                                                                                                                  
+   
+ 
+                                   
+                                                                                                                              
+                                                                
+                                                                                                                                             
+ 
+                         
+                                                                                                                                                                       
+                                                                                                                                                                       
+                                                                
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                         
+                                      
+                                                                                                                                           
+                
+                                                                                                            
+                                                                                                                                                                                                                                           
+ 
+                                                                                                                              
+                                                                                       
+                                                                                      
+                                                                                                                                       
+                                                                  
+                                                                                                                                               
+                                                                            
+ 
+                              
+                          
+                                                                                                                                                                                                           
+                              
+                                                                                                                                                                    
+                                   
+                                                                                                
+                                                    
+                                                                                                                                                     
+                                
+                                                                                                          
+                           
+     
+   
+ 
+                                                                                                                           
+                                                                                                                                                                                   
+                         
+                        
+                                                                                                                            
+                                                                                                                                                  
+                                                                                                                                                                                           
+                                                                    
+                                                         
+                                                                        
+ 
 
-/* ========================= HUD ========================= */
-function gid(id){ return document.getElementById(id); }
-const el={ speedVal:gid('speedVal'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
-  reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
-el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
-function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
-function setClassName(node, value){ if(node._className!==value){ node.className=value; node._className=value; } }
-function setVar(node, name, value){ const key='_var_'+name; if(node[key]!==value){ node.style.setProperty(name, value); node[key]=value; } }   // change-guarded CSS custom property write (the --tx/--ty/--lx/--ly reticle anchors: skipped while neither the camera nor the orb moved)
-function setStyle(node, prop, value){ const key='_style_'+prop; if(node[key]!==value){ node.style[prop]=value; node[key]=value; } }
+                                                             
+                                                       
+                                                                                          
+                                                                                                   
+                                                                                                                                                                          
+                                                                                                                         
+                                                                                                                 
+                                                                                                                                                                                                                                                                                        
+                                                                                                                                   
 
-let primaryKey='';
-function renderPrimary(up, flash){
-  const v=Math.round(state.bpm), key=''+v;
-  if(key!==primaryKey){ el.speedVal.innerHTML=v+'<span class="x">bpm</span>'; primaryKey=key; }
-  if(flash && !reduceMotion){ el.speedVal.classList.remove('up','down'); void el.speedVal.offsetWidth; el.speedVal.classList.add(up?'up':'down'); }
-}
-function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('fire'); void el.hitmark.offsetWidth; el.hitmark.classList.add('fire'); }
-let reticleBadT=0;
-function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
-let _spoilShown=false;
-function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
-  const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
-  let spoil=false;
-  if(active && _spoilNote>=0){ const nd=wasdNoteDiv(); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
-  if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
-}
-function showTiming(grade, sub, cls, pathTxt, pathCls){
-  if(!el.timing) return;
-  el.timing.classList.remove('show','perfect','good','off'); void el.timing.offsetWidth;
-  if(el.timingG) el.timingG.textContent=grade; if(el.timingS) el.timingS.textContent=sub||'';
-  const pe=el.timingP;
-  if(pe){ pe.textContent=pathTxt||''; pe.className='p '+(pathCls||''); pe.style.display=pathTxt?'':'none'; }
-  el.timing.classList.add(cls||'good','show');
-}
-function pulseBeat(downbeat){
-  if(reduceMotion) return;
-  el.reticle.classList.add('beat'); setTimeout(()=>el.reticle.classList.remove('beat'),100);
-  if(downbeat && el.beatRing){ el.beatRing.classList.remove('pulse'); void el.beatRing.offsetWidth; el.beatRing.classList.add('pulse'); }
-}
+                  
+                                  
+                                          
+                                                                                               
+                                                                                                                                                   
+ 
+                                                                                                                                                       
+                  
+                                                                                
+                      
+                                                                                                                                                                                                                                                              
+                                                                                                                                               
+                  
+                                                                                                                                                                                                                                                        
+                                                                                            
+ 
+                                                       
+                        
+                                                                                        
+                                                                                             
+                      
+                                                                                                            
+                                              
+ 
+                             
+                          
+                                                                                            
+                                                                                                                                         
+ 
 
-/* ========================= ASSIST ARROWS ========================= */
-const assistWrap=gid('assist'); const arrowPool=[];
-const _assistLocal=new THREE.Vector3(), _assistNdc=new THREE.Vector3();
-const ASSIST_NEAR2=64, ASSIST_FAR2=1156, ASSIST_FADE=0.65/(ASSIST_FAR2-ASSIST_NEAR2);
-const ASSIST_UPDATE_STEP=1/30; let assistAccum=ASSIST_UPDATE_STEP, assistShown=0;
-function getArrow(i){ while(arrowPool.length<=i){ const a=document.createElement('div'); a.className='arrow'; a.innerHTML='<span></span>'; a._shown=false; a._color=''; a._opacity=-1; a._sx=a._sy=a._ang=999999; assistWrap.appendChild(a); arrowPool.push(a);} return arrowPool[i]; }
-function hideAssistFrom(start){ for(let j=start;j<assistShown;j++){ const a=arrowPool[j]; if(a && a._shown){ a.style.display='none'; a._shown=false; } } assistShown=start; }
-function updateAssist(dt){
-  if(!CFG.audioAssist || !state.running || !targets.length){ hideAssistFrom(0); assistAccum=ASSIST_UPDATE_STEP; return; }
-  assistAccum+=dt; if(assistAccum<ASSIST_UPDATE_STEP) return; assistAccum=0;
-  const cx=viewCX, cy=viewCY; let idx=0;
-  for(const tg of targets){
-    if(tg.dead) continue;
-    _assistLocal.copy(tg.mesh.position).applyMatrix4(camera.matrixWorldInverse); const behind=_assistLocal.z>0;
-    _assistNdc.copy(_assistLocal).applyMatrix4(camera.projectionMatrix); let x=_assistNdc.x,y=_assistNdc.y;
-    if(!behind && Math.abs(x)<=1 && Math.abs(y)<=1) continue;
-    if(behind){ x=-x; y=-y; }
-    const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.86/Math.max(ax,ay); x*=s; y*=s;
-    const ap=tg.mesh.position, cp=camera.position, adx=ap.x-cp.x, ady=ap.y-cp.y, adz=ap.z-cp.z;
-    const sx=cx+x*cx, sy=cy-y*cy, ang=Math.atan2(-y,x), d2=adx*adx+ady*ady+adz*adz;
-    const a=getArrow(idx++); if(!a._shown){ a.style.display='block'; a._shown=true; }
-    const sxr=Math.round(sx), syr=Math.round(sy), ar=Math.round(ang*100)/100;
-    if(a._sx!==sxr || a._sy!==syr || a._ang!==ar){ a._sx=sxr; a._sy=syr; a._ang=ar; a.style.transform='translate('+sxr+'px,'+syr+'px) rotate('+ar+'rad)'; }
-    const color='var(--plasma)';   // both near + far direction arrows orange (distance still reads via opacity below)
-    if(a._color!==color){ a.style.setProperty('--c', color); a._color=color; }
-    const opacity=Math.round(Math.max(0.5,Math.min(1,1-(d2-ASSIST_NEAR2)*ASSIST_FADE))*1000)/1000;
-    if(a._opacity!==opacity){ a.style.opacity=opacity; a._opacity=opacity; }
-  }
-  hideAssistFrom(idx); if(idx>assistShown) assistShown=idx;
-}
+                                                                       
+                                                   
+                                                                       
+                                                                                     
+                                                                                 
+                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                             
+                          
+                                                                                                                         
+                                                                            
+                                        
+                           
+                         
+                                                                                                               
+                                                                                                           
+                                                             
+                             
+                                                                                         
+                                                                                               
+                                                                                   
+                                                                                     
+                                                                             
+                                                                                                                                                           
+                                                                                                                      
+                                                                              
+                                                                                                  
+                                                                            
+   
+                                                           
+ 
 
-/* ========================= AIM TRAIL (3D, per target) ========================= */
-// Each target paints its OWN trail: when it spawns the crosshair starts drawing on an invisible sphere; the
-// line ripens white→red toward the optimal click time, then detaches and fades for a moment after the orb
-// dies. Path score per orb = great-circle angle to where you started ÷ angle actually travelled.
-const TRAIL_MAX=90;   // max samples per pooled trail line (the returning-voice line uses 2)
-const trailMeshPool=[];   // additive depth-test-free THREE.Line pool — today only the returning-voice line (starFlyStep) rides it; the per-orb aim trail that once shared it was retired 2026-08-18 (it had been silently dead since e172584 swallowed its spawn line into a comment)
-function setAimDir(out, p, y){
-  if(p==null && y==null){
-    if(aimDirty){ const cp=Math.cos(pitch); _aimDirCache.set(-Math.sin(yaw)*cp, Math.sin(pitch), -Math.cos(yaw)*cp); aimDirty=false; }
-    return out.copy(_aimDirCache);
-  }
-  p=p==null?pitch:p; y=y==null?yaw:y; const cp=Math.cos(p); return out.set(-Math.sin(y)*cp, Math.sin(p), -Math.cos(y)*cp);
-}
-function newTrailMesh(){
-  let m=trailMeshPool.pop();
-  if(!m){
-    const geo=new THREE.BufferGeometry();
-    const pos=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
-    const col=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
-    geo.setAttribute('position', pos); geo.setAttribute('color', col);
-    m=new THREE.Line(geo, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false, linewidth:2}));
-    m.frustumCulled=false; m.renderOrder=999;
-  }
-  m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); m.visible=false; m.position.copy(PLAYER_POS); scene.add(m); return m;
-}
-function releaseTrailMesh(m){
-  m.visible=false; m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); scene.remove(m); trailMeshPool.push(m);
-}
-function updateTrail(dt){   // the per-orb aim trail is gone; the name stays because the returning voices still ride the trail pool from here (one boolean, one call, every frame)
-  if(CFG.stars.on && (_starFly.length || _starPend.length || _starDebt.length)) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes
-}
+                                                                                    
+                                                                                                            
+                                                                                                          
+                                                                                                 
+                                                                                            
+                                                                                                                                                                                                                                                                                      
+                              
+                         
+                                                                                                                                      
+                                  
+   
+                                                                                                                          
+ 
+                        
+                            
+         
+                                         
+                                                                                                          
+                                                                                                          
+                                                                      
+                                                                                                                                                                                                     
+                                             
+   
+                                                                                                                                                 
+ 
+                             
+                                                                                                                                    
+ 
+                                                                                                                                                                                  
+                                                                                                                                                                                        
+ 
 
-/* ========================= LOOP ========================= */
-const clock=new THREE.Clock();
-const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30;
-const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
-let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
-const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
+                                                              
+                              
+                                                                                                                                                           
+                                                                                                                              
+                                                                             
+                                                                                                                                                                                                                          
                            
                                  
                                                   
@@ -9880,6 +10186,8 @@ const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash
                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                       
+                                                                                                                                                
                                                                                                                                                                                        
                                                                                                                                                                                                                  
                                                                                                                                                                                                                  
@@ -10835,20 +11143,24 @@ const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash
  
                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                    
+                                                                                      
                                                                                
                                           
                                                           
+                               
+                       
+                                                                                           
+                                                                                                              
+                    
+           
+   
                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                   
         
                                             
-                              
-                               
-                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                            
-                                                                                                              
-                      
+                                              
+                                           
+                  
         
                                                                                                                                                                                    
                            
@@ -10971,8 +11283,7 @@ const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash
                                                                                                  
                                                      
                                                                                       
-                                                                                                                                              
-                                                                                                                                                       
+                      
                  
                              
  
@@ -11085,15 +11396,18 @@ const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash
                                                                                                                     
                                                                                                     
                                                                                                                      
-                                                                                                                                      
+                                                                                                                                                
                                                                                                                  
                                                                                                                       
                                                                                                                   
                                                                      
                                              
+                                                      
                                                   
-                                                                                                                                                                                
-                                                               
+                                                          
+                                                                                                                                                                                                     
+                                                              
+                           
                                                                                          
  
                                                                                                                            
