@@ -1,5 +1,16 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-23)
 
+## -12. 2026-08-23 LATE: wave 18 — THE CARD WITHOUT THE FREEZE (`2e885b0`) live · FIRST REAL NIGHT ON THE WIRE
+- ★ THE USER'S FIRST REAL NIGHT landed on the relay: bucket 21, 2026-08-23, 162 s, 16 targets/58 taps/25
+  fires, 2,426 B — the honest lifecycle proven by a human. The chorus has its first voice.
+- Their 'nearly froze at the end' = the night card's synchronous capture at the bow (A/B: 10.3 s worst
+  frame with card on, 87 ms off). Fixed: capture schedules at overlay-open, paints in idle, encodes via
+  async toBlob; copy/download ride the Blob. Acceptance: 103 ms worst frame, card on. 302/302.
+- NOTE: the card requires a SCORING night (wave-5a summary law) — a no-hit robot night earns no card;
+  verify card UX with the user's next real night (open the pause card → NIGHT CARD button → the card).
+- USER IS CLEARED TO INVITE FRIENDS. Friend brief: desktop + mouse/trackpad, just the link, 7-step
+  lesson, incantation W W S S A D A D · L · SPACE, anonymity structural (sigil-only strangers).
+
 ## -11. 2026-08-23: wave 17 — A WORTHY NIGHT (`648c646`) + relay ease (`5301864`), both live
 - Worthiness eased user-calibrated: GH_WORTHY_ARRIVALS=8, GH_WORTHY_DUR=45; relay mirror eased FIRST and
   live-smoked (50s→200, 44s→422) — deploy ORDER law: relay before client whenever the mirror moves.
