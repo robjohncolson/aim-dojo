@@ -1,5 +1,14 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-23)
 
+## -11. 2026-08-23: wave 17 — A WORTHY NIGHT (`648c646`) + relay ease (`5301864`), both live
+- Worthiness eased user-calibrated: GH_WORTHY_ARRIVALS=8, GH_WORTHY_DUR=45; relay mirror eased FIRST and
+  live-smoked (50s→200, 44s→422) — deploy ORDER law: relay before client whenever the mirror moves.
+- Legacy Supabase realtime channel fail-quiets on one latch (dead 401 credentials were retry-hammering);
+  healthy path byte-preserved. Reviewer 14/14. 298/298.
+- STILL OPEN: the user's first real night on the wire (only 4 smokes + 2 ease-probes on the relay). Their
+  console showed [0,'9aff99'] = token minted, night unstored (old bar). With 8/45 live a casual minute
+  banks. Next: user plays → scan relay (non-2338/2000-ish artifacts = real) → celebrate → friends invited.
+
 ## -10. 2026-08-23: wave 16 — THE BRISK LESSON (`b846d7f`) shipped+live
 - Trainer gates halved AGAIN (user-locked; they kept the every-night tutorial over a skip gate — 'sometimes
   the tutorial is refreshing'): 3/2/2, TRAIN_NEED_TOTAL 7. Ghost finalize-on-page-departure: pagehide +
