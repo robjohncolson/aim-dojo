@@ -1038,7 +1038,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
@@ -6726,7 +6726,6 @@
                                                                                      
                                                                                                                                                                                                                                                          
                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                         
  
                        
@@ -7260,8 +7259,9 @@
                                                                                                                      
                                                                                                                 
                                                                                                                    
-                                                                                                                      
-                                                                                                                 
+                                                                                                                     
+                                                                                                                       
+                                                                                                                                          
                                                                                            
                                                                                                                     
                                                                                                                    
@@ -7278,6 +7278,8 @@
                                                                                                                                                        
                                                                                                                                                                                                                       
             
+                   
+                                                
                                                                                                                                                        
                       
                                                                                                                        
@@ -7321,8 +7323,8 @@
                                                                            
  
                     
-                                                                                                              
-                                                                                                  
+                                                                                                                    
+                                                                                           
                                                                                                                                                                        
                                                                                                                               
                                                                                            
@@ -7333,12 +7335,17 @@
                    
                                                                                                                                                                                     
                                                                                                                                                                                                            
+                 
+                    
+                                                            
+                                                             
  
                                                                                                                                                                                                                              
                      
                                                                                                                     
                                                                                                                       
                                                             
+                 
               
  
                      
@@ -7352,13 +7359,14 @@
  
                      
                                                                                                                      
-                                                                  
+                                                                                      
                                              
                                                                                                               
-                                
-                                                                                                    
+                                 
+                                  
+                                                                                            
  
-                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                        
                                                                                                              
                                                                                     
                          
@@ -7435,44 +7443,61 @@ function cardPaint(){
 }
 function cardFileName(){ const rec=cardToday(); return 'moon-chorus-'+((rec&&rec.d)||'night')+'.png'; }
 function cardDownload(blob){
-  // The fallback AND an action in its own right: the card leaves as a file. A browser that refuses either half of this
-  // (no object URLs, a blocked download) simply says so on the card's own status line and leaves the view intact.
-  if(!cardFresh()) return;   // re-checked HERE too (M2), because this is also the async landing of cardCopy's toBlob: midnight can turn between the click and the blob, and last night's picture does not leave the house dated today
-  const cv=cardCanvasEl(); if(!cv) return;
+  // The card leaves as the Blob captured after the Bow. A browser that refuses object URLs or the download simply says
+  // so on the card's own status line and leaves the view intact.
+  if(!cardFresh()) return;
+  blob=blob||_cardBlob;
+  if(!blob || !window.URL || typeof URL.createObjectURL!=='function'){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); return; }
+  let a=null, u='';
   try{
-    const a=document.createElement('a'); a.download=cardFileName(); a.rel='noopener'; a.style.display='none';
-    let u='';
-    if(blob && window.URL && URL.createObjectURL){ u=URL.createObjectURL(blob); a.href=u; }
-    else a.href=cv.toDataURL('image/png');
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);   // in the document for the click: a detached anchor is ignored by some browsers, and this one is display:none for the two frames it exists
-    if(u) setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(e){} }, 4000);
+    a=document.createElement('a'); a.download=cardFileName(); a.rel='noopener'; a.style.display='none';
+    u=URL.createObjectURL(blob); a.href=u;
+    setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(e){} }, 4000);
+    document.body.appendChild(a);
+    try{ a.click(); }finally{ if(a.parentNode) a.parentNode.removeChild(a); }
     cardNote(T('cardSaved','CARD SAVED')+' ✓');
   }catch(e){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); }
 }
 function cardCopy(){
-  // Clipboard first, download second — the same two-step the share modal's COPY already takes, in image form. Every
-  // failure lands on the download, and the download's own failure lands on one quiet line. Nothing throws.
-  if(!cardFresh()) return;   // the date is re-checked before the export (M2): a view held open across midnight takes itself down instead of copying a night that is over
-  const cv=cardCanvasEl(); if(!cv) return;
+  // Clipboard first, download second — both consume the Blob captured after the Bow, so sharing never repaints or
+  // re-encodes the card. Every failure lands on the download, and its own failure lands on one quiet line.
+  if(!cardFresh()) return;
+  const b=_cardBlob; if(!b) return;
   cardNote('');
-  if(!cv.toBlob){ cardDownload(null); return; }
+  if(!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)){ cardDownload(b); return; }
   try{
-    cv.toBlob(b=>{
-      if(!cardFresh()) return;   // the async landing re-checks (M2 round 2): midnight can pass DURING blob encoding — the stale surface takes itself down instead of copying a night that is over
-      if(!b){ cardDownload(null); return; }
-      if(!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)){ cardDownload(b); return; }   // an older browser, or a page without the permission: the card still leaves, as a file
-      try{ navigator.clipboard.write([new ClipboardItem({'image/png':b})]).then(()=>cardNote(T('cardCopied','CARD COPIED')+' ✓'), ()=>cardDownload(b)); }
-      catch(e){ cardDownload(b); }
-    },'image/png');
-  }catch(e){ cardDownload(null); }
+    navigator.clipboard.write([new ClipboardItem({'image/png':b})]).then(()=>cardNote(T('cardCopied','CARD COPIED')+' ✓'), ()=>cardDownload(b));
+  }catch(e){ cardDownload(b); }
+}
+function cardCaptureSchedule(){
+  if(!CFG.nightCard.on || _cardCaptureQueued) return;
+  const rec=cardFresh(); if(!rec) return;
+  if(_cardBlob){ cardOffer(); return; }
+  if(state.running || (state.started&&!state.needsReset)) return;
+  const seq=_cardCaptureSeq;
+  _cardCaptureQueued=true;
+  runIdle(()=>{
+    if(seq!==_cardCaptureSeq){ _cardCaptureQueued=false; cardCaptureSchedule(); return; }
+    if(state.running || (state.started&&!state.needsReset) || cardFresh()!==rec){ _cardCaptureQueued=false; return; }
+    const cv=cardCanvasEl(); if(!cv || typeof cv.toBlob!=='function'){ _cardCaptureQueued=false; return; }
+    cardPaint();
+    try{
+      cv.toBlob(blob=>{
+        _cardCaptureQueued=false;
+        if(seq!==_cardCaptureSeq){ cardCaptureSchedule(); return; }
+        if(!blob || cardFresh()!==rec) return;
+        _cardBlob=blob;
+        cardOffer();
+      },'image/png');
+    }catch(e){ _cardCaptureQueued=false; }
+  },120,1800);
 }
 (function(){
   if(!CFG.nightCard.on) return;   // raw boolean FIRST: with the parcel off no listener exists, no element is read, no file is opened, and the button stays exactly as the markup left it — display:none, forever
   const b=gid('nightCardBtn'); if(!b) return;
   b.addEventListener('click', ()=>{ _cardOpen?cardClose():cardOpen(); });
   const c=gid('nightCardCopy'); if(c) c.addEventListener('click', cardCopy);
-  const d=gid('nightCardDownload'); if(d) d.addEventListener('click', ()=>{ const cv=cardCanvasEl(); if(cv&&cv.toBlob){ try{ cv.toBlob(bl=>cardDownload(bl),'image/png'); return; }catch(e){} } cardDownload(null); });
-  cardOffer();   // a reload during a night that already bowed finds its card again: the offer is a property of the night, not of the page life
+  const d=gid('nightCardDownload'); if(d) d.addEventListener('click', ()=>{ cardDownload(_cardBlob); });
 })();
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
@@ -9739,8 +9764,8 @@ function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-c
   const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
 }
 function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } if(GH_GIFT) _ghGiftLockedRow=null; _pulsePhase=0; hideEdgeTints(); }
-                                                                                                                                                          
-                                                                                                                                                                     
+function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
+  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
                                                                                                     
                                                                                                                                                                                                                                                                       
                                                  
@@ -11591,7 +11616,10 @@ function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','dec
                                                                                                                                   
                                                                                                                                      
                                      
-                                                                                                                                                                                                                                                                                                              
+                       
+                                    
+                          
+   
                           
                                                                                                                              
                                 
@@ -11644,6 +11672,7 @@ function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','dec
                            
                                                                                                                                                                                                    
                                                                                                                                                                   
+                                           
                                                                                                                                                                                                                                               
                                                                                        
                                                                                                                          

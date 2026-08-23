@@ -1038,7 +1038,7 @@ const CFG = {
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
   moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, mercyInverse:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0, wallEcho:0 and mercyInverse:0 independently restore their preceding shipped emissions. mercyInverse owns only the mercy marker: zero keeps the Wave 11.1 ring, rose and veil; one builds the inverse pane and crown star. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
-  nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
+  nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured after the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -6726,7 +6726,6 @@ function bowEnterHold(){
   _bow.endAt=_bow.t+tail+(B.senseiSec||0); _bow.senseiAt=_bow.endAt-(B.senseiSec||0);
   if(toneReady && soundOn && pad && CHORD_TRIAD){ try{ pad.triggerAttackRelease(CHORD_TRIAD[0], tail+0.5, Tone.now(), 0.16); }catch(e){} }   // the resolution: ONE held pad note on the tonic, ringing under the glyph. onGrid has nothing left to play.
   if(_bow.dots){ const cv=bowCanvasEl(); if(cv) cv.style.display='block'; }   // no dots → the canvas never even shows
-  if(CFG.nightCard.on) cardSave();   // NIGHT CARDS: the night's summary is taken HERE, at the moment the glyph is struck — the ledger is final (spawns stopped a stage ago, the field is empty, nothing more can grade) and the card is the glyph you are about to be shown. Raw boolean first: with the parcel off nothing is captured and storage is never opened
   if(CFG.chorus.on) chorusBow(_bow.endAt-_bow.t);   // THE STANDING CHORUS holds under the Mandala for exactly this stage — the night's last sound is the sky it filled. Raw boolean first; a hitless Bow still gets it (the stems are the collection's, not this run's)
 }
 function bowUpdate(dt){
@@ -7260,8 +7259,9 @@ function rememberWitness(){
    phasesDrawDisc — the Temple ring's own shape. The band is the REAL fixture the dome is drawing right now (the same
    vertex buffer, read back to ecliptic lon/lat and laid out flat), so a star on the card is a star you can walk
    outside and find. The rule is wave 4's own sentence fragment. This parcel's only new drawing is the composition.
-   CAPTURE is one write per Bow, at the moment the glyph is struck, overwritten every night — the card is ephemeral by
-   design, because the SKY is the permanent record and this is only how tonight leaves the house. A hitless night
+   CAPTURE is one write per completed Bow, after the session has landed on its report card, overwritten every night —
+   the paint is queued for browser idle and its PNG is encoded asynchronously, so neither task belongs to the ceremony.
+   The card is ephemeral by design, because the SKY is the permanent record and this is only how tonight leaves the house. A hitless night
    writes nothing at all (a glyph with no dots is not a card any more than it is a ritual).
    STORAGE IS UNTRUSTED (wave-3/4/5a discipline): the loader is a validator — a plain non-array object at v===1, a d
    that is literally YYYY-MM-DD (the memory layer's one date grammar), buckets admitted only in 0..7, hits admitted
@@ -7278,6 +7278,8 @@ let _cardLoaded=false;   // the file is opened at most once per page life, by wh
 let _cardOpen=false;     // the view is showing — so a second Bow tonight repaints what is already on screen instead of leaving last night's picture up
 const _cardStars=[];     // ids brightened THIS RUN, in the order the sky took them — the halo list, cleared by resetSession exactly like the Mandala's own ledger, and never persisted except inside one night's card
 let _cardCv;
+let _cardBlob=null;
+let _cardCaptureQueued=false, _cardCaptureSeq=0;
 function cardCanvasEl(){ if(_cardCv===undefined) _cardCv=(typeof document!=='undefined')?document.getElementById('nightCardCv'):null; return _cardCv; }
 function cardStar(id){
   // Called from starLitGain, the ONE accretion path. First-come and deduped: a star that rises three levels tonight is
@@ -7321,8 +7323,8 @@ function cardLoad(){
   _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
 }
 function cardSave(){
-  // ONE write per Bow. Not throttled and not accreted: a night produces exactly one of these, and it REPLACES
-  // yesterday's outright — the card is the only thing in this game that is deliberately not kept.
+  // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
+  // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
   if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor bows: defence in depth (bowLive already gates the ceremony itself)
   const n=_bowHits.length; if(!n) return;   // a hitless night leaves no card at all — no write, no button, nothing to explain
   const cap=Math.max(1,CFG.nightCard.maxDots|0), from=Math.max(0,n-cap), pairs=[], hits=[];
@@ -7333,12 +7335,17 @@ function cardSave(){
   _cardLoaded=true;
   _card={ d:rec.d, phase:rec.phase, rule:rec.rule, hb:rec.hb, hits:hits, stars:stars };   // in memory FIRST: a full or blocked quota still offers this page the card it just earned
   try{ localStorage.setItem(CARD_KEY, JSON.stringify(rec)); }catch(e){}   // a lost write costs tonight's card and nothing else — the stars, the stamp and the records were all banked by their own parcels
+  _cardBlob=null;
+  _cardCaptureSeq++;
+  const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  const w=gid('nightCardWrap'); if(w) w.style.display='none';
 }
 function cardToday(){ cardLoad(); return (_card && _card.d===phasesToday()) ? _card : null; }   // yesterday's card is GONE: the same local civil calendar the stamp, the greeting and the deal's freshness gate turn over on
 function cardStale(){
   // The night turned over while a surface was still up: take the WHOLE offer down. The button first, so nothing can
   // re-open what is gone, then the view — a wrapper with nothing paintable in it is not something to leave on screen.
   const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  _cardBlob=null;
   cardClose();
 }
 function cardFresh(){
@@ -7352,13 +7359,14 @@ function cardFresh(){
 }
 function cardOffer(){
   // The whole offer: one button in the chrome row that already holds RECORDS and SHARE, shown only while tonight has
-  // something to show. Never a toast, never a badge, never a nag.
+  // something captured and ready to share. Never a toast, never a badge, never a nag.
   const b=gid('nightCardBtn'); if(!b) return;
   const rec=cardFresh();       // a card that has aged out of today takes its own button and view down with it
-  b.style.display=rec?'':'none';
-  if(rec && _cardOpen) cardPaint();   // a second Bow tonight repaints the view that is already open
+  const ready=!!(rec&&_cardBlob);
+  b.style.display=ready?'':'none';
+  if(_cardOpen){ const w=gid('nightCardWrap'); if(w) w.style.display=ready?'block':'none'; }
 }
-function cardOpen(){ if(!cardFresh()) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); cardPaint(); }   // the gate FIRST (M2): a stale button refuses to open and hides itself instead
+function cardOpen(){ if(!cardFresh() || !_cardBlob) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); }   // the date gate stays FIRST (M2); the ready Blob means the idle painter has already filled this canvas
 function cardClose(){ const w=gid('nightCardWrap'); if(!w) return; _cardOpen=false; w.style.display='none'; }
 function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||''; }
 function cardDateText(d){
@@ -7435,44 +7443,61 @@ function cardPaint(){
 }
 function cardFileName(){ const rec=cardToday(); return 'moon-chorus-'+((rec&&rec.d)||'night')+'.png'; }
 function cardDownload(blob){
-  // The fallback AND an action in its own right: the card leaves as a file. A browser that refuses either half of this
-  // (no object URLs, a blocked download) simply says so on the card's own status line and leaves the view intact.
-  if(!cardFresh()) return;   // re-checked HERE too (M2), because this is also the async landing of cardCopy's toBlob: midnight can turn between the click and the blob, and last night's picture does not leave the house dated today
-  const cv=cardCanvasEl(); if(!cv) return;
+  // The card leaves as the Blob captured after the Bow. A browser that refuses object URLs or the download simply says
+  // so on the card's own status line and leaves the view intact.
+  if(!cardFresh()) return;
+  blob=blob||_cardBlob;
+  if(!blob || !window.URL || typeof URL.createObjectURL!=='function'){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); return; }
+  let a=null, u='';
   try{
-    const a=document.createElement('a'); a.download=cardFileName(); a.rel='noopener'; a.style.display='none';
-    let u='';
-    if(blob && window.URL && URL.createObjectURL){ u=URL.createObjectURL(blob); a.href=u; }
-    else a.href=cv.toDataURL('image/png');
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);   // in the document for the click: a detached anchor is ignored by some browsers, and this one is display:none for the two frames it exists
-    if(u) setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(e){} }, 4000);
+    a=document.createElement('a'); a.download=cardFileName(); a.rel='noopener'; a.style.display='none';
+    u=URL.createObjectURL(blob); a.href=u;
+    setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(e){} }, 4000);
+    document.body.appendChild(a);
+    try{ a.click(); }finally{ if(a.parentNode) a.parentNode.removeChild(a); }
     cardNote(T('cardSaved','CARD SAVED')+' ✓');
   }catch(e){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); }
 }
 function cardCopy(){
-  // Clipboard first, download second — the same two-step the share modal's COPY already takes, in image form. Every
-  // failure lands on the download, and the download's own failure lands on one quiet line. Nothing throws.
-  if(!cardFresh()) return;   // the date is re-checked before the export (M2): a view held open across midnight takes itself down instead of copying a night that is over
-  const cv=cardCanvasEl(); if(!cv) return;
+  // Clipboard first, download second — both consume the Blob captured after the Bow, so sharing never repaints or
+  // re-encodes the card. Every failure lands on the download, and its own failure lands on one quiet line.
+  if(!cardFresh()) return;
+  const b=_cardBlob; if(!b) return;
   cardNote('');
-  if(!cv.toBlob){ cardDownload(null); return; }
+  if(!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)){ cardDownload(b); return; }
   try{
-    cv.toBlob(b=>{
-      if(!cardFresh()) return;   // the async landing re-checks (M2 round 2): midnight can pass DURING blob encoding — the stale surface takes itself down instead of copying a night that is over
-      if(!b){ cardDownload(null); return; }
-      if(!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)){ cardDownload(b); return; }   // an older browser, or a page without the permission: the card still leaves, as a file
-      try{ navigator.clipboard.write([new ClipboardItem({'image/png':b})]).then(()=>cardNote(T('cardCopied','CARD COPIED')+' ✓'), ()=>cardDownload(b)); }
-      catch(e){ cardDownload(b); }
-    },'image/png');
-  }catch(e){ cardDownload(null); }
+    navigator.clipboard.write([new ClipboardItem({'image/png':b})]).then(()=>cardNote(T('cardCopied','CARD COPIED')+' ✓'), ()=>cardDownload(b));
+  }catch(e){ cardDownload(b); }
+}
+function cardCaptureSchedule(){
+  if(!CFG.nightCard.on || _cardCaptureQueued) return;
+  const rec=cardFresh(); if(!rec) return;
+  if(_cardBlob){ cardOffer(); return; }
+  if(state.running || (state.started&&!state.needsReset)) return;
+  const seq=_cardCaptureSeq;
+  _cardCaptureQueued=true;
+  runIdle(()=>{
+    if(seq!==_cardCaptureSeq){ _cardCaptureQueued=false; cardCaptureSchedule(); return; }
+    if(state.running || (state.started&&!state.needsReset) || cardFresh()!==rec){ _cardCaptureQueued=false; return; }
+    const cv=cardCanvasEl(); if(!cv || typeof cv.toBlob!=='function'){ _cardCaptureQueued=false; return; }
+    cardPaint();
+    try{
+      cv.toBlob(blob=>{
+        _cardCaptureQueued=false;
+        if(seq!==_cardCaptureSeq){ cardCaptureSchedule(); return; }
+        if(!blob || cardFresh()!==rec) return;
+        _cardBlob=blob;
+        cardOffer();
+      },'image/png');
+    }catch(e){ _cardCaptureQueued=false; }
+  },120,1800);
 }
 (function(){
   if(!CFG.nightCard.on) return;   // raw boolean FIRST: with the parcel off no listener exists, no element is read, no file is opened, and the button stays exactly as the markup left it — display:none, forever
   const b=gid('nightCardBtn'); if(!b) return;
   b.addEventListener('click', ()=>{ _cardOpen?cardClose():cardOpen(); });
   const c=gid('nightCardCopy'); if(c) c.addEventListener('click', cardCopy);
-  const d=gid('nightCardDownload'); if(d) d.addEventListener('click', ()=>{ const cv=cardCanvasEl(); if(cv&&cv.toBlob){ try{ cv.toBlob(bl=>cardDownload(bl),'image/png'); return; }catch(e){} } cardDownload(null); });
-  cardOffer();   // a reload during a night that already bowed finds its card again: the offer is a property of the night, not of the page life
+  const d=gid('nightCardDownload'); if(d) d.addEventListener('click', ()=>{ cardDownload(_cardBlob); });
 })();
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
@@ -11591,7 +11616,10 @@ function showPause(){
     '<div class="chip"><div class="ck">'+T('chipFinal','BPM')+'</div><div class="cv amber">'+Math.round(state.bpm)+'</div></div>'+
     '<div class="chip"><div class="ck">'+T('chipPeak','PEAK')+'</div><div class="cv green">'+Math.round(state.maxBpm)+'</div></div>';
   overlay.classList.remove('hidden');
-  if(CFG.nightCard.on) cardOffer();   // NIGHT CARDS: the card is offered on the surface the Bow already lands on — one small button in the existing chrome row, and only while TONIGHT's summary exists. No toast announces it. Raw boolean first: with the parcel off this card is byte-identical to today's
+  if(CFG.nightCard.on){
+    if(state.needsReset) cardSave();
+    cardCaptureSchedule();
+  }
   fetchSkyBriefForPause();
   // run-end breath: after a real hold, the song exhales once more (soft pad/root) — marks the session without a new UI panel
   if(state.t>=25) themeBreath();
@@ -11644,6 +11672,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; try{ localStorag
 renderPrimary(false,false);
 animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
 const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.requestIdleCallback(fn,{timeout:timeout||delay||1000}); else setTimeout(fn,delay||0); };
+if(CFG.nightCard.on) cardCaptureSchedule();
 if(SKY_MODE!=='decorative'&&SKY_TIME==='natural'&&!hasSkyObserver()) runIdle(()=>{ requestObserverGeolocation(false); },420,1800);   // one persisted, nonblocking attempt; denial falls back to the manual pause fields and never blocks play
 if(SKY_MODE==='decorative') runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
 else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick figures REPLACE the random starfield (v2 D4)

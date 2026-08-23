@@ -1038,7 +1038,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
@@ -6726,7 +6726,6 @@ function bowEnterHold(){
   _bow.endAt=_bow.t+tail+(B.senseiSec||0); _bow.senseiAt=_bow.endAt-(B.senseiSec||0);
   if(toneReady && soundOn && pad && CHORD_TRIAD){ try{ pad.triggerAttackRelease(CHORD_TRIAD[0], tail+0.5, Tone.now(), 0.16); }catch(e){} }   // the resolution: ONE held pad note on the tonic, ringing under the glyph. onGrid has nothing left to play.
   if(_bow.dots){ const cv=bowCanvasEl(); if(cv) cv.style.display='block'; }   // no dots → the canvas never even shows
-  if(CFG.nightCard.on) cardSave();   // NIGHT CARDS: the night's summary is taken HERE, at the moment the glyph is struck — the ledger is final (spawns stopped a stage ago, the field is empty, nothing more can grade) and the card is the glyph you are about to be shown. Raw boolean first: with the parcel off nothing is captured and storage is never opened
   if(CFG.chorus.on) chorusBow(_bow.endAt-_bow.t);   // THE STANDING CHORUS holds under the Mandala for exactly this stage — the night's last sound is the sky it filled. Raw boolean first; a hitless Bow still gets it (the stems are the collection's, not this run's)
 }
 function bowUpdate(dt){
@@ -7260,8 +7259,9 @@ function rememberWitness(){
    phasesDrawDisc — the Temple ring's own shape. The band is the REAL fixture the dome is drawing right now (the same
    vertex buffer, read back to ecliptic lon/lat and laid out flat), so a star on the card is a star you can walk
    outside and find. The rule is wave 4's own sentence fragment. This parcel's only new drawing is the composition.
-   CAPTURE is one write per Bow, at the moment the glyph is struck, overwritten every night — the card is ephemeral by
-   design, because the SKY is the permanent record and this is only how tonight leaves the house. A hitless night
+   CAPTURE is one write per completed Bow, after the session has landed on its report card, overwritten every night —
+   the paint is queued for browser idle and its PNG is encoded asynchronously, so neither task belongs to the ceremony.
+   The card is ephemeral by design, because the SKY is the permanent record and this is only how tonight leaves the house. A hitless night
    writes nothing at all (a glyph with no dots is not a card any more than it is a ritual).
    STORAGE IS UNTRUSTED (wave-3/4/5a discipline): the loader is a validator — a plain non-array object at v===1, a d
    that is literally YYYY-MM-DD (the memory layer's one date grammar), buckets admitted only in 0..7, hits admitted
@@ -7278,6 +7278,8 @@ let _cardLoaded=false;   // the file is opened at most once per page life, by wh
 let _cardOpen=false;     // the view is showing — so a second Bow tonight repaints what is already on screen instead of leaving last night's picture up
 const _cardStars=[];     // ids brightened THIS RUN, in the order the sky took them — the halo list, cleared by resetSession exactly like the Mandala's own ledger, and never persisted except inside one night's card
 let _cardCv;
+let _cardBlob=null;
+let _cardCaptureQueued=false, _cardCaptureSeq=0;
 function cardCanvasEl(){ if(_cardCv===undefined) _cardCv=(typeof document!=='undefined')?document.getElementById('nightCardCv'):null; return _cardCv; }
 function cardStar(id){
   // Called from starLitGain, the ONE accretion path. First-come and deduped: a star that rises three levels tonight is
@@ -7321,8 +7323,8 @@ function cardLoad(){
   _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
 }
 function cardSave(){
-  // ONE write per Bow. Not throttled and not accreted: a night produces exactly one of these, and it REPLACES
-  // yesterday's outright — the card is the only thing in this game that is deliberately not kept.
+  // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
+  // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
   if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor bows: defence in depth (bowLive already gates the ceremony itself)
   const n=_bowHits.length; if(!n) return;   // a hitless night leaves no card at all — no write, no button, nothing to explain
   const cap=Math.max(1,CFG.nightCard.maxDots|0), from=Math.max(0,n-cap), pairs=[], hits=[];
@@ -7333,12 +7335,17 @@ function cardSave(){
   _cardLoaded=true;
   _card={ d:rec.d, phase:rec.phase, rule:rec.rule, hb:rec.hb, hits:hits, stars:stars };   // in memory FIRST: a full or blocked quota still offers this page the card it just earned
   try{ localStorage.setItem(CARD_KEY, JSON.stringify(rec)); }catch(e){}   // a lost write costs tonight's card and nothing else — the stars, the stamp and the records were all banked by their own parcels
+  _cardBlob=null;
+  _cardCaptureSeq++;
+  const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  const w=gid('nightCardWrap'); if(w) w.style.display='none';
 }
 function cardToday(){ cardLoad(); return (_card && _card.d===phasesToday()) ? _card : null; }   // yesterday's card is GONE: the same local civil calendar the stamp, the greeting and the deal's freshness gate turn over on
 function cardStale(){
   // The night turned over while a surface was still up: take the WHOLE offer down. The button first, so nothing can
   // re-open what is gone, then the view — a wrapper with nothing paintable in it is not something to leave on screen.
   const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  _cardBlob=null;
   cardClose();
 }
 function cardFresh(){
@@ -7352,13 +7359,14 @@ function cardFresh(){
 }
 function cardOffer(){
   // The whole offer: one button in the chrome row that already holds RECORDS and SHARE, shown only while tonight has
-  // something to show. Never a toast, never a badge, never a nag.
+  // something captured and ready to share. Never a toast, never a badge, never a nag.
   const b=gid('nightCardBtn'); if(!b) return;
   const rec=cardFresh();       // a card that has aged out of today takes its own button and view down with it
-  b.style.display=rec?'':'none';
-  if(rec && _cardOpen) cardPaint();   // a second Bow tonight repaints the view that is already open
+  const ready=!!(rec&&_cardBlob);
+  b.style.display=ready?'':'none';
+  if(_cardOpen){ const w=gid('nightCardWrap'); if(w) w.style.display=ready?'block':'none'; }
 }
-function cardOpen(){ if(!cardFresh()) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); cardPaint(); }   // the gate FIRST (M2): a stale button refuses to open and hides itself instead
+function cardOpen(){ if(!cardFresh() || !_cardBlob) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); }   // the date gate stays FIRST (M2); the ready Blob means the idle painter has already filled this canvas
 function cardClose(){ const w=gid('nightCardWrap'); if(!w) return; _cardOpen=false; w.style.display='none'; }
 function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||''; }
 function cardDateText(d){
@@ -7436,43 +7444,60 @@ function cardDateText(d){
                                                                                                        
                             
                                                                                                                        
-                                                                                                                  
-                                                                                                                                                                                                                                      
-                                          
+                                                                 
+                          
+                       
+                                                                                                                                   
+                   
       
-                                                                                                             
-             
-                                                                                           
+                                                                                                       
                                           
-                                                                                                                                                                                                                       
+                                                                       
+                                 
                                                                              
                                                
                                                                  
  
                     
-                                                                                                                    
+                                                                                                                  
                                                                                                            
-                                                                                                                                                                         
-                                          
+                          
+                                   
                
-                                               
+                                                                                                             
       
-                  
-                                                                                                                                                                                                  
-                                           
-                                                                                                                                                                                                           
-                                                                                                                                                         
-                                  
-                   
-                                  
+                                                                                                                                                
+                               
+ 
+                               
+                                                     
+                                         
+                                       
+                                                                 
+                            
+                          
+               
+                                                                                         
+                                                                                                                     
+                                                                                                          
+                
+        
+                       
+                                 
+                                                                   
+                                              
+                       
+                    
+                     
+                                          
+              
  
             
                                                                                                                                                                                                                  
                                              
                                                                          
                                                                             
-                                                                                                                                                                                                                       
-                                                                                                                                               
+                                                                                                        
      
                       
                                                         
@@ -11591,7 +11616,10 @@ function cardDateText(d){
                                                                                                                                   
                                                                                                                                      
                                      
-                                                                                                                                                                                                                                                                                                              
+                       
+                                    
+                          
+   
                           
                                                                                                                              
                                 
@@ -11644,6 +11672,7 @@ function cardDateText(d){
                            
                                                                                                                                                                                                    
                                                                                                                                                                   
+                                           
                                                                                                                                                                                                                                               
                                                                                        
                                                                                                                          

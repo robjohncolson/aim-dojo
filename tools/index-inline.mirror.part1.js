@@ -1038,7 +1038,7 @@ const CFG = {
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
   moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, mercyInverse:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0, wallEcho:0 and mercyInverse:0 independently restore their preceding shipped emissions. mercyInverse owns only the mercy marker: zero keeps the Wave 11.1 ring, rose and veil; one builds the inverse pane and crown star. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
-  nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured at the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
+  nightCard:{ on:true, maxDots:60, w:720, h:1080 },   // on:false → nothing is captured after the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
   sensei:{ on:true, minSamples:8, biasMs:25, freshHours:48, weightSwells:2, weightMul:2.5 },   // minSamples = arrivals a lead bin needs before it is allowed to say anything (8 — under that a bad breath is noise, not a habit) · biasMs = how far the bin's MEAN signed error must sit off the beat to be worth naming (25 ms — below the game's own open window, so it names a lean, not a miss) · freshHours = how long one observation drills and how long it blocks its own repeat (48 = exactly "two nights running") · weightSwells = how many opening tide swells carry the bias before the night goes neutral (0 = observe but never drill; with TIDES off there are no swells, so nothing drills) · weightMul = how much heavier a weak-bin k is in that one pick (1 = no bias at all)
   // projectile (ballistic gravity arc) — ARC is the ONLY fire mode now (railgun hit-scan + the projSeg toggle were removed). CFG.projectile stays true as a vestigial constant the arc/scope gates still read.
@@ -6726,7 +6726,6 @@ function roadImpSync(r){
                                                                                      
                                                                                                                                                                                                                                                          
                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                         
  
                        
@@ -7260,8 +7259,9 @@ function roadImpSync(r){
                                                                                                                      
                                                                                                                 
                                                                                                                    
-                                                                                                                      
-                                                                                                                 
+                                                                                                                     
+                                                                                                                       
+                                                                                                                                          
                                                                                            
                                                                                                                     
                                                                                                                    
@@ -7278,6 +7278,8 @@ function roadImpSync(r){
                                                                                                                                                        
                                                                                                                                                                                                                       
             
+                   
+                                                
                                                                                                                                                        
                       
                                                                                                                        
@@ -7321,8 +7323,8 @@ function roadImpSync(r){
                                                                            
  
                     
-                                                                                                              
-                                                                                                  
+                                                                                                                    
+                                                                                           
                                                                                                                                                                        
                                                                                                                               
                                                                                            
@@ -7333,12 +7335,17 @@ function roadImpSync(r){
                    
                                                                                                                                                                                     
                                                                                                                                                                                                            
+                 
+                    
+                                                            
+                                                             
  
                                                                                                                                                                                                                              
                      
                                                                                                                     
                                                                                                                       
                                                             
+                 
               
  
                      
@@ -7352,13 +7359,14 @@ function roadImpSync(r){
  
                      
                                                                                                                      
-                                                                  
+                                                                                      
                                              
                                                                                                               
-                                
-                                                                                                    
+                                 
+                                  
+                                                                                            
  
-                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                        
                                                                                                              
                                                                                     
                          
@@ -7436,43 +7444,60 @@ function roadImpSync(r){
                                                                                                        
                             
                                                                                                                        
-                                                                                                                  
-                                                                                                                                                                                                                                      
-                                          
+                                                                 
+                          
+                       
+                                                                                                                                   
+                   
       
-                                                                                                             
-             
-                                                                                           
+                                                                                                       
                                           
-                                                                                                                                                                                                                       
+                                                                       
+                                 
                                                                              
                                                
                                                                  
  
                     
-                                                                                                                    
+                                                                                                                  
                                                                                                            
-                                                                                                                                                                         
-                                          
+                          
+                                   
                
-                                               
+                                                                                                             
       
-                  
-                                                                                                                                                                                                  
-                                           
-                                                                                                                                                                                                           
-                                                                                                                                                         
-                                  
-                   
-                                  
+                                                                                                                                                
+                               
+ 
+                               
+                                                     
+                                         
+                                       
+                                                                 
+                            
+                          
+               
+                                                                                         
+                                                                                                                     
+                                                                                                          
+                
+        
+                       
+                                 
+                                                                   
+                                              
+                       
+                    
+                     
+                                          
+              
  
             
                                                                                                                                                                                                                  
                                              
                                                                          
                                                                             
-                                                                                                                                                                                                                       
-                                                                                                                                               
+                                                                                                        
      
                       
                                                         
@@ -11591,7 +11616,10 @@ function roadImpSync(r){
                                                                                                                                   
                                                                                                                                      
                                      
-                                                                                                                                                                                                                                                                                                              
+                       
+                                    
+                          
+   
                           
                                                                                                                              
                                 
@@ -11644,6 +11672,7 @@ function roadImpSync(r){
                            
                                                                                                                                                                                                    
                                                                                                                                                                   
+                                           
                                                                                                                                                                                                                                               
                                                                                        
                                                                                                                          
