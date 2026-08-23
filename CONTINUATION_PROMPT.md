@@ -1,4 +1,16 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-22)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-23)
+
+## -10. 2026-08-23: wave 16 — THE BRISK LESSON (`b846d7f`) shipped+live
+- Trainer gates halved AGAIN (user-locked; they kept the every-night tutorial over a skip gate — 'sometimes
+  the tutorial is refreshing'): 3/2/2, TRAIN_NEED_TOTAL 7. Ghost finalize-on-page-departure: pagehide +
+  persisted:false ONLY (review blockers, 13/13: visibilitychange finalize would have killed nights on
+  tab-switch; unconditional keepalive silently dropped >64KiB uploads even at the bow — envelope
+  serialized once, keepalive only under the budget, bow uploads ordinary fetch). 297/297.
+- STILL OPEN: the user has NOT yet landed a real night on the relay (only the 4 smoke ghosts, buckets 5-8,
+  2338 B each). Next session: after the user plays post-wave-16, query the relay (scan lon 0-23 via
+  X-Ghost-Token header; a non-2338-byte artifact = their first real night) and CELEBRATE it; then their
+  second night should seat their own ghost + a smoke visitor. Overnight Codex API drops repeatedly wedge
+  runs (~02:00 JST) — kill + continuation-dispatch is routine; see the codex-dispatch-procedure memory.
 
 ## -9. 2026-08-22 NIGHT: wave 15 — THE VISITOR (`418eec1`) shipped+live. THE CHORUS IS OPEN.
 - **Shipped**: ghostShare:1 — worthy nights upload to the Ghost Relay (anon 32-hex token, X-Ghost-Token
