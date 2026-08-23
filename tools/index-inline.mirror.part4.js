@@ -8813,6 +8813,7 @@ const GH_SEAT=!!CFG.ghostSeat;                                            // raw
 const GH_GIFT=!!CFG.ghostGift;                                            // raw boolean first: false means no flare lock, blessed tag, catch state, wrapper or mail line
 const GH_SHARE=!!CFG.ghostShare;                                          // raw boolean first: false means no token, relay call, visitor/mail/star allocation or added frame path
 const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
+const GH_WORTHY_ARRIVALS=8, GH_WORTHY_DUR=45;
 const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_CAP_MAIL=64, GH_MAX_BYTES=100000;
 const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','taps','fires'];
 const GH_WRAPPER_KEYS=['ghost','mail'];
@@ -9007,7 +9008,8 @@ function ghostRecordFinalize(pageExit){
   if(!r) return;
   try{
     r.dur=ghostRoadTime();
-    if(_ghostRecordArrivals<16 || r.dur<60) return;                         // decision: a false start never overwrites the last worthy night
+    // Real-play decision: the creator's genuine post-graduation night fell short of the old tide-paced 16/60 bar; catch seconds-long accidents without taxing real short nights.
+    if(_ghostRecordArrivals<GH_WORTHY_ARRIVALS || r.dur<GH_WORTHY_DUR) return;
     r.date=phasesToday(); r.moonBucket=moonPhaseBucket();
     if(r.moonBucket<0 || r.moonBucket>7) return;                            // decision: an unreadable sky cannot overwrite the last transport-valid night
     for(const row of r.targets) if(row[4]!==0 && row[4]!==1){ row[4]=0; row[5]=null; }
@@ -9036,7 +9038,7 @@ function ghostArtifactValid(value){
   if(keys.length!==GH_V1_KEYS.length) return null;
   for(const key of keys) if(GH_V1_KEYS.indexOf(key)<0) return null;
   if(value.v!==GH_VERSION || !realCivilDate(value.date)) return null;
-  if(!Number.isInteger(value.moonBucket) || value.moonBucket<0 || value.moonBucket>7 || !Number.isFinite(value.bpm0) || value.bpm0<1 || value.bpm0>400 || !Number.isFinite(value.dur) || value.dur<60 || value.dur>86400) return null;
+  if(!Number.isInteger(value.moonBucket) || value.moonBucket<0 || value.moonBucket>7 || !Number.isFinite(value.bpm0) || value.bpm0<1 || value.bpm0>400 || !Number.isFinite(value.dur) || value.dur<GH_WORTHY_DUR || value.dur>86400) return null;
   if(!Array.isArray(value.bpmCurve) || !Array.isArray(value.targets) || !Array.isArray(value.taps) || !Array.isArray(value.fires)) return null;
   if(value.bpmCurve.length>GH_CAP_BPM || value.targets.length>GH_CAP_TARGETS || value.taps.length>GH_CAP_TAPS || value.fires.length>GH_CAP_FIRES) return null;
   let prior=-1;
@@ -11337,23 +11339,36 @@ function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','dec
                                                                                                   
  
                                                                                                                              
-                                                    
+                                                                    
                                                                                                                
                                                                                                                                                                                                                                                
                                                                                                                                                                                
-                        
                                       
+                      
+                
+                             
+                                                                                                                                                                      
+                                                                                                                                                                                                                                                  
+                                                                                                                  
+ 
+                        
+                                                  
+              
       
-                                                                                                                                                                                
+                                                                                                                                                                          
                                                                                                   
                                                      
                                                                                                      
                                                                                                                             
                                                                                                                                         
-                                                                                                                                     
-                         
+                                    
+                          
+                                                                                                              
+                                                                                                                                                                           
+       
+                                                     
  
-                                                                                                                                                        
+                                                                                                                                                                                                                    
                                                                                                                    
                                                                                                                                                                                                                           
                                                                   

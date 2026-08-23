@@ -434,7 +434,7 @@ function finalizedGift(source, gift = true) {
     gift, record: true,
     extra: { localStorage: { getItem: () => null, setItem: (_key, value) => { stored = value; } } },
     body: `
-      ghostRecordArm(); _ghostRecordArrivals=16;
+      ghostRecordArm(); _ghostRecordArrivals=GH_WORTHY_ARRIVALS;
       _ghostRecord.bpmCurve=Array.from({length:200},(_x,i)=>[i*0.3,60+i/100]);
       _ghostRecord.targets=Array.from({length:1200},(_x,i)=>[i*0.04,i%4,i,i*0.04+0.02,0,null]);
       _ghostRecord.taps=Array.from({length:2400},(_x,i)=>[i*0.025,i%4,100]);

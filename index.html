@@ -8813,6 +8813,7 @@ const GH_SEAT=!!CFG.ghostSeat;                                            // raw
 const GH_GIFT=!!CFG.ghostGift;                                            // raw boolean first: false means no flare lock, blessed tag, catch state, wrapper or mail line
 const GH_SHARE=!!CFG.ghostShare;                                          // raw boolean first: false means no token, relay call, visitor/mail/star allocation or added frame path
 const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
+const GH_WORTHY_ARRIVALS=8, GH_WORTHY_DUR=45;
 const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_CAP_MAIL=64, GH_MAX_BYTES=100000;
 const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','taps','fires'];
 const GH_WRAPPER_KEYS=['ghost','mail'];
@@ -9007,7 +9008,8 @@ function ghostRecordFinalize(pageExit){
   if(!r) return;
   try{
     r.dur=ghostRoadTime();
-    if(_ghostRecordArrivals<16 || r.dur<60) return;                         // decision: a false start never overwrites the last worthy night
+    // Real-play decision: the creator's genuine post-graduation night fell short of the old tide-paced 16/60 bar; catch seconds-long accidents without taxing real short nights.
+    if(_ghostRecordArrivals<GH_WORTHY_ARRIVALS || r.dur<GH_WORTHY_DUR) return;
     r.date=phasesToday(); r.moonBucket=moonPhaseBucket();
     if(r.moonBucket<0 || r.moonBucket>7) return;                            // decision: an unreadable sky cannot overwrite the last transport-valid night
     for(const row of r.targets) if(row[4]!==0 && row[4]!==1){ row[4]=0; row[5]=null; }
@@ -9036,7 +9038,7 @@ function ghostArtifactValid(value){
   if(keys.length!==GH_V1_KEYS.length) return null;
   for(const key of keys) if(GH_V1_KEYS.indexOf(key)<0) return null;
   if(value.v!==GH_VERSION || !realCivilDate(value.date)) return null;
-  if(!Number.isInteger(value.moonBucket) || value.moonBucket<0 || value.moonBucket>7 || !Number.isFinite(value.bpm0) || value.bpm0<1 || value.bpm0>400 || !Number.isFinite(value.dur) || value.dur<60 || value.dur>86400) return null;
+  if(!Number.isInteger(value.moonBucket) || value.moonBucket<0 || value.moonBucket>7 || !Number.isFinite(value.bpm0) || value.bpm0<1 || value.bpm0>400 || !Number.isFinite(value.dur) || value.dur<GH_WORTHY_DUR || value.dur>86400) return null;
   if(!Array.isArray(value.bpmCurve) || !Array.isArray(value.targets) || !Array.isArray(value.taps) || !Array.isArray(value.fires)) return null;
   if(value.bpmCurve.length>GH_CAP_BPM || value.targets.length>GH_CAP_TARGETS || value.taps.length>GH_CAP_TAPS || value.fires.length>GH_CAP_FIRES) return null;
   let prior=-1;
@@ -11337,23 +11339,36 @@ function projectDir(dir){
   _projectScreen[0]=viewCX + x*viewCX; _projectScreen[1]=viewCY - y*viewCY; return _projectScreen;
 }
 /* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
-let rtCh=null, lastBcast=0; const remotes=new Map();
+let rtCh=null, rtFailed=false, lastBcast=0; const remotes=new Map();
 function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
 function showPresence(){ const el=gid('presence'); if(el){ el.classList.remove('on'); el.textContent=''; } }   // DEPRECATED: the "N in the dojo" count is hidden (realtime presence + opponent reticles still work; just no on-screen counter)
 function newRemoteEl(){ const d=document.createElement('div'); d.className='liveRet'; d._shown=false; d._name=''; d._sx=d._sy=999999; document.body.appendChild(d); return d; }
+function realtimeFailQuiet(sb,reason){
+  if(rtFailed) return;
+  rtFailed=true;
+  const dead=rtCh; rtCh=null;
+  // Decision: this legacy courtesy channel gets one page-life attempt; dead or 401 credentials must not turn its private reconnect loop into permanent console noise.
+  try{ const removal=dead&&sb&&typeof sb.removeChannel==='function'?sb.removeChannel(dead):(dead&&typeof dead.unsubscribe==='function'?dead.unsubscribe():null); if(removal&&typeof removal.catch==='function') removal.catch(()=>{}); }catch(e){}
+  try{ console.warn('Aim Dojo realtime disabled for this page ('+(reason||'connection failure')+').'); }catch(e){}
+}
 function initRealtime(){
-  if(rtCh || !window.supabase) return;
+  if(rtCh || rtFailed || !window.supabase) return;
+  let sb=null;
   try{
-    const sb=window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{params:{eventsPerSecond:14}}});
+    sb=window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{params:{eventsPerSecond:14}}});
     rtCh=sb.channel('aimdojo-room', {config:{presence:{key:clientId()}, broadcast:{self:false}}});
     rtCh.on('presence',{event:'sync'}, showPresence);
     rtCh.on('broadcast',{event:'aim'}, ({payload})=>{ if(!payload || payload.id===clientId()) return;
       let r=remotes.get(payload.id); if(!r){ if(remotes.size>=10) return; r={el:newRemoteEl()}; remotes.set(payload.id,r); }
       r.y=payload.y; r.p=payload.p; r.name=payload.n; r.k=payload.k|0; r.s=payload.s|0; r.c=payload.c?1:0; r.last=performance.now(); });
-    rtCh.subscribe(async (st)=>{ if(st==='SUBSCRIBED'){ try{ await rtCh.track({name:playerName()}); }catch(e){} showPresence(); } });
-  }catch(e){ rtCh=null; }
+    rtCh.subscribe(async (st,err)=>{
+      if(rtFailed) return;
+      if(st==='SUBSCRIBED'){ try{ await rtCh.track({name:playerName()}); }catch(e){} showPresence(); return; }
+      if(st==='CHANNEL_ERROR' || st==='TIMED_OUT' || st==='CLOSED' || (err && (Number(err.status)===401 || Number(err.statusCode)===401))) realtimeFailQuiet(sb,st||'401');
+    });
+  }catch(e){ realtimeFailQuiet(sb,'setup failure'); }
 }
-function loadRealtimeClient(){ if(rtCh) return; if(window.supabase) initRealtime(); else loadScriptOnce(SUPABASE_JS).then(initRealtime).catch(()=>{}); }
+function loadRealtimeClient(){ if(rtCh || rtFailed) return; if(window.supabase) initRealtime(); else loadScriptOnce(SUPABASE_JS).then(initRealtime).catch(()=>{ realtimeFailQuiet(null,'client load failure'); }); }
 function broadcastAim(){ if(!rtCh) return; const now=performance.now(); if(now-lastBcast<85) return; lastBcast=now;
   try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch, k:state.hits, s:state.streak}}); }catch(e){} }   // k/s ride the existing aim send (presence + opponent reticles)
 const REMOTE_UPDATE_STEP=1/30; let remoteAccum=REMOTE_UPDATE_STEP;

@@ -8813,6 +8813,7 @@
                                                                                                                                                                          
                                                                                                                                                                                   
                                                  
+                                             
                                                                                                                     
                                                                                             
                                        
@@ -9007,7 +9008,8 @@
                 
       
                           
-                                                                                                                                             
+                                                                                                                                                                                 
+                                                                              
                                                          
                                                                                                                                                           
                                                                                       
@@ -9036,7 +9038,7 @@
                                                   
                                                                    
                                                                      
-                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                 
                                                                                                                                                
                                                                                                                                                               
                
@@ -11337,23 +11339,36 @@ function projectDir(dir){
   _projectScreen[0]=viewCX + x*viewCX; _projectScreen[1]=viewCY - y*viewCY; return _projectScreen;
 }
 /* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
-let rtCh=null, lastBcast=0; const remotes=new Map();
+let rtCh=null, rtFailed=false, lastBcast=0; const remotes=new Map();
 function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
 function showPresence(){ const el=gid('presence'); if(el){ el.classList.remove('on'); el.textContent=''; } }   // DEPRECATED: the "N in the dojo" count is hidden (realtime presence + opponent reticles still work; just no on-screen counter)
 function newRemoteEl(){ const d=document.createElement('div'); d.className='liveRet'; d._shown=false; d._name=''; d._sx=d._sy=999999; document.body.appendChild(d); return d; }
+function realtimeFailQuiet(sb,reason){
+  if(rtFailed) return;
+  rtFailed=true;
+  const dead=rtCh; rtCh=null;
+  // Decision: this legacy courtesy channel gets one page-life attempt; dead or 401 credentials must not turn its private reconnect loop into permanent console noise.
+  try{ const removal=dead&&sb&&typeof sb.removeChannel==='function'?sb.removeChannel(dead):(dead&&typeof dead.unsubscribe==='function'?dead.unsubscribe():null); if(removal&&typeof removal.catch==='function') removal.catch(()=>{}); }catch(e){}
+  try{ console.warn('Aim Dojo realtime disabled for this page ('+(reason||'connection failure')+').'); }catch(e){}
+}
 function initRealtime(){
-  if(rtCh || !window.supabase) return;
+  if(rtCh || rtFailed || !window.supabase) return;
+  let sb=null;
   try{
-    const sb=window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{params:{eventsPerSecond:14}}});
+    sb=window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{params:{eventsPerSecond:14}}});
     rtCh=sb.channel('aimdojo-room', {config:{presence:{key:clientId()}, broadcast:{self:false}}});
     rtCh.on('presence',{event:'sync'}, showPresence);
     rtCh.on('broadcast',{event:'aim'}, ({payload})=>{ if(!payload || payload.id===clientId()) return;
       let r=remotes.get(payload.id); if(!r){ if(remotes.size>=10) return; r={el:newRemoteEl()}; remotes.set(payload.id,r); }
       r.y=payload.y; r.p=payload.p; r.name=payload.n; r.k=payload.k|0; r.s=payload.s|0; r.c=payload.c?1:0; r.last=performance.now(); });
-    rtCh.subscribe(async (st)=>{ if(st==='SUBSCRIBED'){ try{ await rtCh.track({name:playerName()}); }catch(e){} showPresence(); } });
-  }catch(e){ rtCh=null; }
+    rtCh.subscribe(async (st,err)=>{
+      if(rtFailed) return;
+      if(st==='SUBSCRIBED'){ try{ await rtCh.track({name:playerName()}); }catch(e){} showPresence(); return; }
+      if(st==='CHANNEL_ERROR' || st==='TIMED_OUT' || st==='CLOSED' || (err && (Number(err.status)===401 || Number(err.statusCode)===401))) realtimeFailQuiet(sb,st||'401');
+    });
+  }catch(e){ realtimeFailQuiet(sb,'setup failure'); }
 }
-function loadRealtimeClient(){ if(rtCh) return; if(window.supabase) initRealtime(); else loadScriptOnce(SUPABASE_JS).then(initRealtime).catch(()=>{}); }
+function loadRealtimeClient(){ if(rtCh || rtFailed) return; if(window.supabase) initRealtime(); else loadScriptOnce(SUPABASE_JS).then(initRealtime).catch(()=>{ realtimeFailQuiet(null,'client load failure'); }); }
 function broadcastAim(){ if(!rtCh) return; const now=performance.now(); if(now-lastBcast<85) return; lastBcast=now;
   try{ rtCh.send({type:'broadcast', event:'aim', payload:{id:clientId(), n:playerName(), y:yaw, p:pitch, k:state.hits, s:state.streak}}); }catch(e){} }   // k/s ride the existing aim send (presence + opponent reticles)
 const REMOTE_UPDATE_STEP=1/30; let remoteAccum=REMOTE_UPDATE_STEP;

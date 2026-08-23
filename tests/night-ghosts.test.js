@@ -131,19 +131,19 @@ test("the v1 recorder emits the locked bounded artifact and drop-oldest caps", (
       extra: { localStorage: { getItem: () => null, setItem: (_key, value) => { stored = value; } } },
       body: `
         ghostRecordArm();
-        for(let i=0;i<1205;i++){ const tg={mesh:{position:{x:(i%4)-1.5,z:-12}},expireAt:2}; ghostRecordSpawn(tg); if(i<16) ghostRecordTargetOutcome(tg,i%2); }
+        for(let i=0;i<1205;i++){ const tg={mesh:{position:{x:(i%4)-1.5,z:-12}},expireAt:2}; ghostRecordSpawn(tg); if(i<8) ghostRecordTargetOutcome(tg,i%2); }
         for(let i=0;i<2405;i++) ghostRecordTap(i%4,100);
         for(let i=0;i<1205;i++) ghostRecordFire(ghostRoadTime(),0,0);
         for(let i=0;i<205;i++) ghostRecordBpm(40+i);
         this.preCaps={bpm:_ghostRecord.bpmCurve.length,targets:_ghostRecord.targets.length,taps:_ghostRecord.taps.length,fires:_ghostRecord.fires.length};
-        Tone.Transport.seconds=64; ghostRecordFinalize();
+        Tone.Transport.seconds=45; ghostRecordFinalize();
       `,
     });
     assert.deepEqual({ ...context.preCaps }, { bpm: 200, targets: 1200, taps: 2400, fires: 1200 });
     assert.ok(stored.length > 0 && stored.length <= 100000, "a worthy artifact is stored below the serialized cap");
     const artifact = JSON.parse(stored);
     assert.deepEqual(Object.keys(artifact), ["v", "date", "moonBucket", "bpm0", "dur", "bpmCurve", "targets", "taps", "fires"]);
-    assert.equal(artifact.v, 1); assert.equal(artifact.date, "2026-08-22"); assert.equal(artifact.moonBucket, 4); assert.equal(artifact.dur, 64);
+    assert.equal(artifact.v, 1); assert.equal(artifact.date, "2026-08-22"); assert.equal(artifact.moonBucket, 4); assert.equal(artifact.dur, 45);
     assert.equal(runGhost(source, { body: `this.valid=!!ghostArtifactValid(${JSON.stringify(artifact)});` }).valid, true);
     const delayed = runGhost(source, { record: true, body: `
       ghostRecordArm(); const tg={mesh:{position:{x:0,z:-10}},expireAt:4}; ghostRecordSpawn(tg);
@@ -171,8 +171,8 @@ test("a divergent road clock recomputes arrival before recording the hit", () =>
         state.t=2; Tone.Transport.seconds=10;
         const fireRow=ghostRecordFire(ghostRoadTime(),0,0); ghostRecordTargetOutcome(hit,1,fireRow);
         state.t=10;
-        for(let i=1;i<16;i++){ const miss={mesh:{position:{x:0,z:-10}},expireAt:10}; ghostRecordSpawn(miss); ghostRecordTargetOutcome(miss,0); }
-        Tone.Transport.seconds=64; ghostRecordFinalize();
+        for(let i=1;i<8;i++){ const miss={mesh:{position:{x:0,z:-10}},expireAt:10}; ghostRecordSpawn(miss); ghostRecordTargetOutcome(miss,0); }
+        Tone.Transport.seconds=45; ghostRecordFinalize();
       `,
     });
     assert.ok(stored, "the divergent-clock hit cannot invalidate the completed night");
@@ -232,8 +232,8 @@ test("every rhythm-gated tank impact marks its own fire stamp before chip or fin
         const soundOn=false,toneReady=false,kick=null,lead=null,synthHit=null,PENTA=[1],GH_UNUSED=0;
         ghostRecordArm(); const tank={mesh:{position:{x:0,z:-10}},expireAt:10,hpMax:3,hp:3,fill16:-1}; ghostRecordSpawn(tank);
         for(let second=1;second<=3;second++){ Tone.Transport.seconds=second; const fireRow=ghostRecordFire(ghostRoadTime(),0,0); handleTankHit(tank,{},fireRow); }
-        for(let i=0;i<15;i++){ Tone.Transport.seconds=4+i; const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
-        Tone.Transport.seconds=64; ghostRecordFinalize();
+        for(let i=0;i<7;i++){ Tone.Transport.seconds=4+i; const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
+        Tone.Transport.seconds=45; ghostRecordFinalize();
       `,
     });
     const artifact = JSON.parse(stored);
@@ -281,16 +281,16 @@ test("the recorder stays lesson-silent and measures a worthy night from graduati
         ghostRecordArm=()=>{ recordArmCalls++; return liveRecordArm(); };
         Tone.Transport.seconds=20; ghostSessionStart(); liveRecordArm(); this.lesson={armed:!!_ghostRecord,calls:recordArmCalls};
         Tone.Transport.seconds=30; setTrainPhase(3); this.graduated={armed:!!_ghostRecord,calls:recordArmCalls,base:_ghostRoadBase};
-        for(let i=1;i<=16;i++){ Tone.Transport.seconds=30+i; state.t=i; const tg={mesh:{position:{x:0,z:-10}},expireAt:i+1}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
-        Tone.Transport.seconds=90; ghostRecordFinalize();
+        for(let i=1;i<=8;i++){ Tone.Transport.seconds=30+i; state.t=i; const tg={mesh:{position:{x:0,z:-10}},expireAt:i+1}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
+        Tone.Transport.seconds=75; ghostRecordFinalize();
       `,
     });
     assert.deepEqual(JSON.parse(JSON.stringify(context.lesson)), { armed: false, calls: 0 });
     assert.deepEqual(JSON.parse(JSON.stringify(context.graduated)), { armed: true, calls: 1, base: 30 });
     const artifact = JSON.parse(stored);
-    assert.equal(artifact.dur, 60, "lesson Transport time is excluded from the worthy Full Night");
+    assert.equal(artifact.dur, 45, "lesson Transport time is excluded from the worthy Full Night");
     assert.deepEqual(artifact.bpmCurve, [[0, 60]]);
-    assert.equal(artifact.targets.length, 16);
+    assert.equal(artifact.targets.length, 8);
   };
   assertContract(html);
   let mutation = replaceFunction(html, "ghostRoadTime", (fn) => fn.replace("Tone.Transport.seconds-audioLat()-_ghostRoadBase", "Tone.Transport.seconds-audioLat()"));
@@ -301,7 +301,7 @@ test("the recorder stays lesson-silent and measures a worthy night from graduati
 
 test("either false-start threshold preserves the prior worthy night", () => {
   const assertContract = (source) => {
-    const falseStart = (arrivals, duration) => {
+    const attempt = (arrivals, duration) => {
       let writes = 0, slot = "REAL-NIGHT";
       runGhost(source, {
         record: true,
@@ -312,14 +312,17 @@ test("either false-start threshold preserves the prior worthy night", () => {
           Tone.Transport.seconds=${duration}; ghostRecordFinalize();
         `,
       });
-      return { writes, slot };
+      return { writes, preserved: slot === "REAL-NIGHT" };
     };
-    assert.deepEqual(falseStart(15, 100), { writes: 0, slot: "REAL-NIGHT" });
-    assert.deepEqual(falseStart(16, 59), { writes: 0, slot: "REAL-NIGHT" });
+    assert.deepEqual(attempt(7, 45), { writes: 0, preserved: true }, "seven arrivals cannot replace the prior night");
+    assert.deepEqual(attempt(8, 44), { writes: 0, preserved: true }, "44 seconds cannot replace the prior night");
+    assert.deepEqual(attempt(8, 45), { writes: 1, preserved: false }, "eight arrivals at 45 seconds store the calibrated worthy night");
   };
   assertContract(html);
-  const mutation = html.replace("_ghostRecordArrivals<16 || r.dur<60", "_ghostRecordArrivals<16 && r.dur<60");
-  mutationMustFail(assertContract, mutation, "the threshold test kills the false-start overwrite mutant");
+  mutationMustFail(assertContract, html.replace("GH_WORTHY_ARRIVALS=8", "GH_WORTHY_ARRIVALS=7"), "the threshold oracle kills a seven-arrival survivor");
+  mutationMustFail(assertContract, html.replace("GH_WORTHY_ARRIVALS=8", "GH_WORTHY_ARRIVALS=9"), "the threshold oracle kills rejection of the exact eight-arrival bound");
+  mutationMustFail(assertContract, html.replace("GH_WORTHY_DUR=45", "GH_WORTHY_DUR=44"), "the threshold oracle kills a 44-second survivor");
+  mutationMustFail(assertContract, html.replace("GH_WORTHY_DUR=45", "GH_WORTHY_DUR=46"), "the threshold oracle kills rejection of the exact 45-second bound");
 });
 
 test("visibility hide, BFCache restore, resumed play, and Bow preserve the whole night", () => {
@@ -345,14 +348,14 @@ test("visibility hide, BFCache restore, resumed play, and Bow preserve the whole
       `,
     });
     assert.equal(listeners.pagehide.length, 1); assert.equal(listeners.visibilitychange.length, 0, "tab visibility never owns a terminal recorder action");
-    assert.deepEqual(Array.from(context.record(16, 0)), Array.from({ length: 16 }, (_unused, index) => index)); context.setSeconds(64);
+    assert.deepEqual(Array.from(context.record(8, 0)), Array.from({ length: 8 }, (_unused, index) => index)); context.setSeconds(45);
     documentTarget.hidden = true; for (const handler of listeners.visibilitychange) handler();
     listeners.pagehide[0]({ persisted: true });
-    assert.deepEqual({ ...context.counts() }, { finalizeCalls: 0, finalized: false, targets: 16 }, "a hidden or BFCache-bound tab keeps the recorder alive");
+    assert.deepEqual({ ...context.counts() }, { finalizeCalls: 0, finalized: false, targets: 8 }, "a hidden or BFCache-bound tab keeps the recorder alive");
     documentTarget.hidden = false;
-    assert.deepEqual(Array.from(context.record(4, 16)), [16, 17, 18, 19], "play after restore appends to the same ledger"); context.setSeconds(72); context.bowFinalize();
+    assert.deepEqual(Array.from(context.record(4, 8)), [8, 9, 10, 11], "play after restore appends to the same ledger"); context.setSeconds(53); context.bowFinalize();
     const artifact = JSON.parse(stored);
-    assert.equal(writes, 1); assert.equal(artifact.dur, 72); assert.deepEqual(artifact.targets.map(row => row[2]), Array.from({ length: 20 }, (_unused, index) => index), "Bow stores the prefix and resumed play as one whole night");
+    assert.equal(writes, 1); assert.equal(artifact.dur, 53); assert.deepEqual(artifact.targets.map(row => row[2]), Array.from({ length: 12 }, (_unused, index) => index), "Bow stores the prefix and resumed play as one whole night");
     assert.deepEqual({ ...context.counts() }, { finalizeCalls: 1, finalized: true, targets: null });
     assert.match(extractFunction(source, "ghostRecordFinalizeOnce"), /try\{ ghostRecordFinalize\(pageExit===true\); \}catch\(e\)\{\}/, "the once boundary forwards page-exit intent fail-soft");
     assert.match(extractFunction(source, "bowFinish"), /if\(GH_RECORD\) ghostRecordFinalizeOnce\(\);/, "the Bow remains the primary ordinary finalize tap");
@@ -376,7 +379,7 @@ test("an unworthy night finalized by pagehide preserves the prior stored night",
       },
       body: `
         ghostRecordArm();
-        for(let i=0;i<15;i++){ const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
+        for(let i=0;i<7;i++){ const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
         Tone.Transport.seconds=100;
         this.recordState=()=>({active:!!_ghostRecord,finalized:_ghostRecordFinalized});
       `,
@@ -388,7 +391,7 @@ test("an unworthy night finalized by pagehide preserves the prior stored night",
     assert.deepEqual({ ...context.recordState(), writes, slot }, { active: false, finalized: true, writes: 0, slot: "REAL-NIGHT" });
   };
   assertContract(html);
-  const mutation = html.replace("_ghostRecordArrivals<16 || r.dur<60", "_ghostRecordArrivals<16 && r.dur<60");
+  const mutation = html.replace("_ghostRecordArrivals<GH_WORTHY_ARRIVALS || r.dur<GH_WORTHY_DUR", "_ghostRecordArrivals<GH_WORTHY_ARRIVALS && r.dur<GH_WORTHY_DUR");
   mutationMustFail(assertContract, mutation, "the pagehide oracle kills an unworthy-night overwrite survivor");
 });
 
@@ -417,8 +420,8 @@ test("finalization validates inside its fail-soft boundary before replacing a wo
         extra: { phasesToday, localStorage: { getItem: () => slot, setItem: (_key, value) => { writes += 1; slot = value; } } },
         body: `
           ghostRecordArm();
-          for(let i=0;i<16;i++){ const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
-          Tone.Transport.seconds=64; ghostRecordFinalize();
+          for(let i=0;i<8;i++){ const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
+          Tone.Transport.seconds=45; ghostRecordFinalize();
         `,
       }));
       return { writes, slot };
@@ -433,7 +436,7 @@ test("finalization validates inside its fail-soft boundary before replacing a wo
 test("the v1 validator is transport-complete for keys, civil date, slots, arrival order, and aim", () => {
   const assertContract = (source) => {
     const context = runGhost(source, { body: `
-      const base={v:1,date:'2026-08-22',moonBucket:4,bpm0:60,dur:60,bpmCurve:[[0,60]],targets:[],taps:[],fires:[]};
+      const base={v:1,date:'2026-08-22',moonBucket:4,bpm0:60,dur:45,bpmCurve:[[0,60]],targets:[],taps:[],fires:[]};
       this.good=ghostArtifactValid(base);
       this.badCap=ghostArtifactValid({...base,targets:Array.from({length:1201},(_x,i)=>[0,0,i,1,0,null])});
       this.badOrder=ghostArtifactValid({...base,taps:[[2,0,90],[1,1,90]]});
@@ -446,9 +449,10 @@ test("the v1 validator is transport-complete for keys, civil date, slots, arriva
       this.badLateHit=ghostArtifactValid({...base,targets:[[0,0,0,2,1,3]]});
       this.badYaw=ghostArtifactValid({...base,fires:[[1,Math.PI+0.01,0,0]]});
       this.badPitch=ghostArtifactValid({...base,fires:[[1,0,PITCH_LIMIT+0.01,0]]});
+      this.badShort=ghostArtifactValid({...base,dur:44});
     ` });
     assert.ok(context.good);
-    for (const key of ["badCap", "badOrder", "badHit", "badVersion", "badDate", "badExtra", "badDuplicateSlot", "badUnsafeSlot", "badLateHit", "badYaw", "badPitch"]) assert.equal(context[key], null, `${key} is rejected`);
+    for (const key of ["badCap", "badOrder", "badHit", "badVersion", "badDate", "badExtra", "badDuplicateSlot", "badUnsafeSlot", "badLateHit", "badYaw", "badPitch", "badShort"]) assert.equal(context[key], null, `${key} is rejected`);
   };
   assertContract(html);
   mutationMustFail(assertContract, html.replace("GH_CAP_TARGETS=1200", "GH_CAP_TARGETS=1201"), "the validator test kills an expanded transport cap");
