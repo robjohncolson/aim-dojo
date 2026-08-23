@@ -5731,8 +5731,8 @@
                                                                                      
                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                  
                                                                                                                                   
                                                             
                                                                                                             
@@ -6753,7 +6753,7 @@
                                                                                                   
  
                      
-                                                                                                                                                           
+                                                                                                                                                                                               
                                                                                                                                                                 
                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                     
@@ -8819,11 +8819,11 @@
                                                            
                                                                             
                                                                                      
-                                                                                   
+                                                                                                              
                                                                                                                                                                                                                                                      
                                                                                    
                                                                                                
-                                                                                                                               
+                                                                                                                                                           
                                                                                
                                                                                      
                                                                                                                               
@@ -8925,22 +8925,26 @@
                                                                                               
      
  
-                                                         
-                                                                                                                                                                      
+                                                                  
+                                                                  
+                                                                             
+                                                                                                                                                                     
+                                                                                       
+                                                           
                                    
  
                                                                                                             
-                                    
+                                             
                                     
                                               
                                 
-                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                            
  
                           
                                                                                                                                       
                    
                                                                                                                               
-                                                                               
+                                                                                                            
  
                               
                                                          
@@ -8997,7 +9001,7 @@
    
               
  
-                               
+                                       
                                                                                                                                                           
                                                                     
                 
@@ -9012,8 +9016,18 @@
                                       
                                                                                                                                                                           
                                             
-                                                                                                                                                                            
+                                                                                                                                                                             
              
+ 
+                                           
+                                                 
+                             
+                                                        
+ 
+                                             
+                                             
+                                                                       
+     
  
 
                                    
@@ -9723,9 +9737,9 @@
                                                                                                                                                                                               
  
                                                                                                                                                                                                         
-                                                                                                                                                          
-                                                                                                                                                                     
-                                                                                                    
+function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
+  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
+function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
 function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
   for(const tg of targets){ if(tg.dead) continue;
     if(tight && (tg._flickLocked || tg.kind===2)) continue;   // flick can't re-lock a locked orb, and you never flick-lock a decoy

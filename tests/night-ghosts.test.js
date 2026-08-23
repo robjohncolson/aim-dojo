@@ -259,7 +259,7 @@ test("ghostRecord off allocates no ledger and cannot touch localStorage", () => 
     assert.equal(touches, 0); assert.equal(context.recordState.record, null); assert.equal(context.recordState.targets, null);
   };
   assertContract(html);
-  const mutation = html.replace("function ghostRecordFinalize(){", "function ghostRecordFinalize(){ localStorage.getItem(GH_STORE_KEY);");
+  const mutation = replaceFunction(html, "ghostRecordFinalize", (fn) => fn.replace("  if(!GH_RECORD) return;", "  localStorage.getItem(GH_STORE_KEY);\n  if(!GH_RECORD) return;"));
   mutationMustFail(assertContract, mutation, "the record-off test kills a pre-gate localStorage touch");
 });
 
@@ -320,6 +320,92 @@ test("either false-start threshold preserves the prior worthy night", () => {
   assertContract(html);
   const mutation = html.replace("_ghostRecordArrivals<16 || r.dur<60", "_ghostRecordArrivals<16 && r.dur<60");
   mutationMustFail(assertContract, mutation, "the threshold test kills the false-start overwrite mutant");
+});
+
+test("visibility hide, BFCache restore, resumed play, and Bow preserve the whole night", () => {
+  const assertContract = (source) => {
+    const listeners = { pagehide: [], visibilitychange: [] };
+    const windowTarget = { addEventListener(type, handler) { listeners[type].push(handler); } };
+    const documentTarget = { hidden: false, addEventListener(type, handler) { listeners[type].push(handler); } };
+    let writes = 0, stored = "";
+    const context = runGhost(source, {
+      record: true,
+      extra: {
+        window: windowTarget, document: documentTarget,
+        localStorage: { getItem: () => null, setItem: (_key, value) => { writes += 1; stored = value; } },
+      },
+      body: `
+        ghostRecordArm();
+        const liveFinalize=ghostRecordFinalize; let finalizeCalls=0;
+        ghostRecordFinalize=pageExit=>{ finalizeCalls++; return liveFinalize(pageExit); };
+        this.record=(count,start)=>{ for(let i=0;i<count;i++){ const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); } return _ghostRecord.targets.slice(start).map(row=>row[2]); };
+        this.setSeconds=value=>{ Tone.Transport.seconds=value; };
+        this.bowFinalize=()=>ghostRecordFinalizeOnce();
+        this.counts=()=>({finalizeCalls,finalized:_ghostRecordFinalized,targets:_ghostRecord&&_ghostRecord.targets.length});
+      `,
+    });
+    assert.equal(listeners.pagehide.length, 1); assert.equal(listeners.visibilitychange.length, 0, "tab visibility never owns a terminal recorder action");
+    assert.deepEqual(Array.from(context.record(16, 0)), Array.from({ length: 16 }, (_unused, index) => index)); context.setSeconds(64);
+    documentTarget.hidden = true; for (const handler of listeners.visibilitychange) handler();
+    listeners.pagehide[0]({ persisted: true });
+    assert.deepEqual({ ...context.counts() }, { finalizeCalls: 0, finalized: false, targets: 16 }, "a hidden or BFCache-bound tab keeps the recorder alive");
+    documentTarget.hidden = false;
+    assert.deepEqual(Array.from(context.record(4, 16)), [16, 17, 18, 19], "play after restore appends to the same ledger"); context.setSeconds(72); context.bowFinalize();
+    const artifact = JSON.parse(stored);
+    assert.equal(writes, 1); assert.equal(artifact.dur, 72); assert.deepEqual(artifact.targets.map(row => row[2]), Array.from({ length: 20 }, (_unused, index) => index), "Bow stores the prefix and resumed play as one whole night");
+    assert.deepEqual({ ...context.counts() }, { finalizeCalls: 1, finalized: true, targets: null });
+    assert.match(extractFunction(source, "ghostRecordFinalizeOnce"), /try\{ ghostRecordFinalize\(pageExit===true\); \}catch\(e\)\{\}/, "the once boundary forwards page-exit intent fail-soft");
+    assert.match(extractFunction(source, "bowFinish"), /if\(GH_RECORD\) ghostRecordFinalizeOnce\(\);/, "the Bow remains the primary ordinary finalize tap");
+  };
+  assertContract(html);
+  const mutation = html.replace("  window.addEventListener('pagehide',event=>{\n", "  document.addEventListener('visibilitychange',()=>{ if(document.hidden) ghostRecordFinalizeOnce(true); });\n  window.addEventListener('pagehide',event=>{\n");
+  mutationMustFail(assertContract, mutation, "the hide/restore/play/Bow oracle kills a visibilitychange-finalizes survivor");
+  assertContract(html);
+});
+
+test("an unworthy night finalized by pagehide preserves the prior stored night", () => {
+  const assertContract = (source) => {
+    const listeners = { pagehide: [] };
+    let writes = 0, slot = "REAL-NIGHT";
+    const context = runGhost(source, {
+      record: true,
+      extra: {
+        window: { addEventListener(type, handler) { if(type === "pagehide") listeners.pagehide.push(handler); } },
+        document: { hidden: false, addEventListener() {} },
+        localStorage: { getItem: () => slot, setItem: (_key, value) => { writes += 1; slot = value; } },
+      },
+      body: `
+        ghostRecordArm();
+        for(let i=0;i<15;i++){ const tg={mesh:{position:{x:0,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
+        Tone.Transport.seconds=100;
+        this.recordState=()=>({active:!!_ghostRecord,finalized:_ghostRecordFinalized});
+      `,
+    });
+    assert.equal(listeners.pagehide.length, 1);
+    listeners.pagehide[0]({ persisted: true }); listeners.pagehide[0]({});
+    assert.deepEqual({ ...context.recordState(), writes, slot }, { active: true, finalized: false, writes: 0, slot: "REAL-NIGHT" }, "only an explicit persisted:false may consume the recorder");
+    listeners.pagehide[0]({ persisted: false });
+    assert.deepEqual({ ...context.recordState(), writes, slot }, { active: false, finalized: true, writes: 0, slot: "REAL-NIGHT" });
+  };
+  assertContract(html);
+  const mutation = html.replace("_ghostRecordArrivals<16 || r.dur<60", "_ghostRecordArrivals<16 && r.dur<60");
+  mutationMustFail(assertContract, mutation, "the pagehide oracle kills an unworthy-night overwrite survivor");
+});
+
+test("ghostRecord:0 wires no page lifecycle listeners", () => {
+  const assertContract = (source) => {
+    const wired = [];
+    runGhost(source, {
+      extra: {
+        window: { addEventListener(type) { wired.push(["window", type]); } },
+        document: { hidden: false, addEventListener(type) { wired.push(["document", type]); } },
+      },
+    });
+    assert.deepEqual(wired, []);
+  };
+  assertContract(html);
+  const mutation = html.replace("if(GH_RECORD && typeof window!=='undefined')", "if(typeof window!=='undefined')");
+  mutationMustFail(assertContract, mutation, "the ghostRecord:0 oracle kills unconditional lifecycle wiring");
 });
 
 test("finalization validates inside its fail-soft boundary before replacing a worthy night", () => {
@@ -385,14 +471,14 @@ test("event taps are complete sinks and a recorder-to-gameplay cross-wire is rej
       ["fire", /const fireRow=GH_RECORD\?ghostRecordFire\(ghostRoadTime\(\),yaw,pitch\):null;/g, 1],
       ["wasdLanePress", /if\(GH_RECORD\) ghostRecordTap\(k,k===ckey\?_tapAcc:-1\);/g, 1],
       ["changeBpm", /if\(GH_RECORD\) ghostRecordBpm\(state\.bpm\);/g, 1],
-      ["bowFinish", /if\(GH_RECORD\) ghostRecordFinalize\(\);/g, 1],
+      ["bowFinish", /if\(GH_RECORD\) ghostRecordFinalizeOnce\(\);/g, 1],
       ["ghostSessionStart", /if\(GH_RECORD\) ghostRecordArm\(\);/g, 1],
     ];
     for (const [name, pattern, count] of expected) assert.equal((extractFunction(source, name).match(pattern) || []).length, count, `${name} owns its exact tap count`);
     assert.match(extractFunction(source, "ghostSessionStart"), /if\(GH_SEAT\) ghostSeatReset\(\);/);
     assert.match(extractFunction(source, "resetSession"), /ghostSessionStart\(\);/);
     assert.match(extractFunction(source, "animate"), /if\(GH_SEAT\) try\{ ghostSeatUpdate\(dt\); \}catch/);
-    const approved = /if\(GH_RECORD\) ghostRecord(?:Spawn|TargetOutcome|Clank|MarkFire|Fire|Tap|Bpm|Finalize|Arm)\([^;\n]*\);/g;
+    const approved = /if\(GH_RECORD\) ghostRecord(?:Spawn|TargetOutcome|Clank|MarkFire|Fire|Tap|Bpm|FinalizeOnce|Finalize|Arm)\([^;\n]*\);/g;
     for (const name of ["spawnTarget", "gradeRhythmHit", "clankShot", "handleTankHit", "onExpire", "fire", "wasdLanePress", "changeBpm", "bowFinish", "resetSession", "computeShotPlan", "spawnProjectile", "updateProjectiles", "updateArcPreview", "scopeLockTarget", "updateScope", "maybeAdjust"]) {
       const stripped = extractFunction(source, name).replace(approved, "").replace(/const fireRow=GH_RECORD\?ghostRecordFire\(ghostRoadTime\(\),yaw,pitch\):null;/g, "").replace(/ghostSessionStart\(\);/g, "");
       assert.doesNotMatch(stripped, /\b(?:GH_RECORD|GH_SEAT|ghostRecord\w*|ghostSeat\w*|_ghostRecord\w*|_ghostSeat\w*)\b/, `${name} cannot read Night Ghost state back`);

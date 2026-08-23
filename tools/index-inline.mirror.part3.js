@@ -5731,8 +5731,8 @@ for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SE
    Phase 3: graduate mid-run into full SENSEI (dolly + normal windows + specials). */
 const BEAT_SPAWN_SIXTEENTHS_FULL=CFG.beatSpawnSixteenths.slice();
 // SING_K_LO/SING_K_HI lived here: the endpoints of the LINEAR k→degree map, taken from the full list so a degree meant the same thing at every stage of a night. Both are gone with that map (1.1 amendment F3) — singDegree now ranks k inside the LIVE feasible set, which is read from CFG.beatSpawnSixteenths at the moment it is asked, so there is no endpoint to pin. BEAT_SPAWN_SIXTEENTHS_FULL stays: the trainer still restores the full list from it on graduation.
-const TRAIN_NEED_WASD=6, TRAIN_NEED_ORB1=3, TRAIN_NEED_ORB2=4;   // THE TRAINER, HALVED (wave 8.2, Y4 — user-locked from the Moonline playtest: PACING ONLY, not one word of the lesson changed). Every phase gate this trainer has, cut in half and ROUNDED UP so a phase can never need 0: WASD steps 12 → 6 · phase-1 voices 5 → ceil(2.5) = 3 · phase-2 far voices 8 → 4. There are no others — the phases advance on these three counts and on nothing else (no timer, no duration gate, no accuracy quota beyond noteTrainWasd's own acc<40 filter, which is a QUALITY gate on what counts as a step and not a length). A whole trainer is 6+3+4 = 13 qualifying events where it was 12+5+8 = 25, i.e. 52% — the extra 2% is the ceil on ORB1, which is the rounding rule doing exactly what it is for. Phase 2's live range ramp reads TRAIN_NEED_ORB2 as its own denominator, so it still reaches TRAIN_RANGE_FAR exactly at graduation, in 4 kills instead of 8, by construction rather than by a second number
-const TRAIN_NEED_TOTAL=TRAIN_NEED_WASD+TRAIN_NEED_ORB1+TRAIN_NEED_ORB2;   // 13 — named so a test can pin the halving as one fact instead of three, and so the next tuning pass can see the whole trainer's length in one place
+const TRAIN_NEED_WASD=3, TRAIN_NEED_ORB1=2, TRAIN_NEED_ORB2=2;   // THE BRISK LESSON, HALVED AGAIN (wave 16 — user-locked 2026-08-23 after choosing a shorter refresher over a skip gate: PACING ONLY, not one word of the lesson changed). This is the SECOND halving, applied in wave-8.2 style to the gates that were live after that pass and ROUNDED UP: WASD steps 6 → 3 · phase-1 voices 3 → ceil(1.5) = 2 · phase-2 far voices 4 → 2. There are still no other graduation requirements — these three counts alone advance the phases (no timer, no duration gate, and noteTrainWasd's acc<40 rejection remains the quality law for what earns a step, not an added length gate). A whole refresher is now 3+2+2 = 7 qualifying events where the first halving left 6+3+4 = 13; the odd ORB1 gate is exactly why the rounding rule exists. Phase 2's live range ramp still reads TRAIN_NEED_ORB2 as its own denominator, so the second qualifying far voice makes t=2/2=1 and reaches TRAIN_RANGE_FAR exactly at graduation by construction, never by a duplicate literal
+const TRAIN_NEED_TOTAL=TRAIN_NEED_WASD+TRAIN_NEED_ORB1+TRAIN_NEED_ORB2;   // 7 — named so a test pins the second halving as one fact and the whole refresher stays visible to the next pacing pass
 const TRAIN_RANGE_NEAR=9, TRAIN_RANGE_FAR=20;   // phase-2 live range ramp endpoints (trainer-only; full dojo range law untouched)
 let trainMode=false, trainPhase=0, trainWasd=0, trainOrbs=0;
 let gateChosen=false;   // true after TRAIN/FULL (or resume path); pad START must not bypass the binary gate
@@ -6753,7 +6753,7 @@ function bowReset(){
   _bow.stage=BOW.IDLE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false; _bow.dots=false;
 }
 function bowFinish(){
-  if(GH_RECORD) ghostRecordFinalize();   // NIGHT GHOSTS: the completed Bow is the only save boundary; false starts and ordinary pauses never reach storage
+  if(GH_RECORD) ghostRecordFinalizeOnce();   // NIGHT GHOSTS: the completed Bow stays the primary save boundary; only a last-time pagehide is the fail-soft backup, through the same once latch
   if(GH_SHARE) ghostShareFinalize();   // THE VISITOR: the one caught-note batch leaves from the same completed-session boundary; it is never retried or awaited
   bowReset();   // tempo, canvas, coach and the spawn gate are all back BEFORE the exit — the pause card inherits a clean session
   state.needsReset=true;   // a COMPLETED Bow is a session boundary, not a pause: the same flag the fresh-start path reads (enterRunning), so the next entry runs resetSession() — t, hits, streak, the tick, the Mandala ledger and the adaptive tempo all back to CFG.startBpm. Without it the "next run" silently continued this night. An ESC-pause / grace-cancel goes through bowReset alone and never sets it
@@ -8819,11 +8819,11 @@ function cardDateText(d){
                                                            
                                                                             
                                                                                      
-                                                                                   
+                                                                                                              
                                                                                                                                                                                                                                                      
                                                                                    
                                                                                                
-                                                                                                                               
+                                                                                                                                                           
                                                                                
                                                                                      
                                                                                                                               
@@ -8925,22 +8925,26 @@ function cardDateText(d){
                                                                                               
      
  
-                                                         
-                                                                                                                                                                      
+                                                                  
+                                                                  
+                                                                             
+                                                                                                                                                                     
+                                                                                       
+                                                           
                                    
  
                                                                                                             
-                                    
+                                             
                                     
                                               
                                 
-                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                            
  
                           
                                                                                                                                       
                    
                                                                                                                               
-                                                                               
+                                                                                                            
  
                               
                                                          
@@ -8997,7 +9001,7 @@ function cardDateText(d){
    
               
  
-                               
+                                       
                                                                                                                                                           
                                                                     
                 
@@ -9012,8 +9016,18 @@ function cardDateText(d){
                                       
                                                                                                                                                                           
                                             
-                                                                                                                                                                            
+                                                                                                                                                                             
              
+ 
+                                           
+                                                 
+                             
+                                                        
+ 
+                                             
+                                             
+                                                                       
+     
  
 
                                    

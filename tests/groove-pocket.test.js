@@ -2001,17 +2001,17 @@ test("BEAT CIRCLE: default ON, and a stored preference still wins in BOTH direct
   assert.equal((html.match(/localStorage\.setItem\('aimdojo\.wasdHud'/g) || []).length, 2, "two writers, both of them the player");
 });
 
-test("THE TRAINER, HALVED: every phase gate cut in half, rounded up, teaching untouched (Y4, 8.2)", () => {
+test("THE BRISK LESSON: every phase gate halved again, rounded up, teaching untouched (wave 16)", () => {
   const on = vm.createContext({});
   vm.runInContext(html.split("\n").filter((l) => /^const TRAIN_NEED_/.test(l.trim())).map((l) => l.trim()).join("\n"), on);
   const got = (name) => vm.runInContext(name, on);
   // Old -> new, with the rounding rule applied to the OLD number rather than trusted.
-  for (const [name, was] of [["TRAIN_NEED_WASD", 12], ["TRAIN_NEED_ORB1", 5], ["TRAIN_NEED_ORB2", 8]]) {
+  for (const [name, was] of [["TRAIN_NEED_WASD", 6], ["TRAIN_NEED_ORB1", 3], ["TRAIN_NEED_ORB2", 4]]) {
     assert.equal(got(name), Math.ceil(was / 2), `${name} ${was} -> ${Math.ceil(was / 2)} (half, rounded UP)`);
     assert.ok(got(name) >= 1, `${name} can never be 0 - a phase you pass by existing is not a phase`);
   }
-  assert.equal(got("TRAIN_NEED_TOTAL"), 13, "a whole trainer is 13 qualifying events where it was 25");
-  assert.equal((13 / 25 * 100).toFixed(0), "52", "...52%, the extra 2% being the ceil on ORB1");
+  assert.equal(got("TRAIN_NEED_TOTAL"), 7, "a whole refresher is 7 qualifying events where the first halving left 13");
+  assert.equal(got("TRAIN_NEED_ORB1"), 2, "the odd 3-gate rounds ceil(1.5) upward");
   // PACING ONLY. The phases still advance on these three counts and on nothing else - no timer, no duration gate.
   const wasdGate = extractFunction("noteTrainWasd"), orbGate = extractFunction("noteTrainOrb");
   assert.match(wasdGate, /if\(trainWasd>=TRAIN_NEED_WASD\) setTrainPhase\(1\);/, "phase 0 -> 1 on the count, as before");
@@ -2020,7 +2020,7 @@ test("THE TRAINER, HALVED: every phase gate cut in half, rounded up, teaching un
   for (const src of [wasdGate, orbGate])
     assert.doesNotMatch(src, /state\.t|Date\.now|performance\.now|dt\b/, "no phase has a duration gate to halve");
   // The phase-2 range ramp reads TRAIN_NEED_ORB2 as its own denominator, so it still reaches TRAIN_RANGE_FAR exactly at
-  // graduation - in 4 kills instead of 8, by construction rather than by a second number.
+  // graduation - in 2 kills instead of 4, by construction rather than by a second number.
   assert.match(orbGate, /const t=Math\.min\(1, trainOrbs\/TRAIN_NEED_ORB2\);/, "the ramp is tied to the phase, not to a literal");
   assert.match(orbGate, /state\.range=TRAIN_RANGE_NEAR \+ t\*\(TRAIN_RANGE_FAR-TRAIN_RANGE_NEAR\);/);
   // ...and the coach lines still read the constants, so the counter a player sees can never disagree with the gate.

@@ -5731,8 +5731,8 @@
                                                                                      
                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                  
                                                                                                                                   
                                                             
                                                                                                             
@@ -6753,7 +6753,7 @@
                                                                                                   
  
                      
-                                                                                                                                                           
+                                                                                                                                                                                               
                                                                                                                                                                 
                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                     
@@ -8819,11 +8819,11 @@ const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
 const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
 const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=1;
-const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_MAIL_RESPONSE_MAX=256;
+const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256;
 const GH_VISITOR_X=-90, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
 const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
 const GH_GHOST_PATH='/api/ghost', GH_GHOSTS_PATH='/api/ghosts', GH_MAIL_PATH='/api/ghost-mail';
-let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0;
+let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0, _ghostRecordFinalized=true;
 let _ghostGiftMail=null, _ghostGiftGreetingCount=0, _ghostGiftMailSpoken=false;
 let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoch=-1;
 let _ghostSeats=null, _ghostOwnSeat=null, _ghostVisitorSeat=null, _ghostSeatRows=null, _ghostSeatBusy=false, _ghostGiftHitT=0;
@@ -8925,22 +8925,26 @@ async function ghostRelayJson(path,init){
     const value=JSON.parse(text); return ghostSerializedBytes(value)<=GH_MAX_BYTES?value:null;
   });
 }
-async function ghostUploadAttempt(token,bucket,artifact){
-  const response=await ghostRelayFetch(GH_GHOST_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({lonBucket:bucket,artifact:artifact})});
+async function ghostUploadAttempt(token,bucket,artifact,pageExit){
+  const body=JSON.stringify({lonBucket:bucket,artifact:artifact});
+  const init={method:'POST',headers:ghostRelayHeaders(token,true),body:body};
+  // An oversized page-exit body deliberately uses ordinary best-effort fetch: keepalive would be rejected, while a normal Bow must never inherit unload constraints.
+  if(pageExit===true && ghostUtf8Bytes(body)<=GH_KEEPALIVE_BUDGET) init.keepalive=true;
+  const response=await ghostRelayFetch(GH_GHOST_PATH,init);
   return !!(response&&response.ok);
 }
 function ghostUploadRetry(token,bucket,artifact){ ghostUploadAttempt(token,bucket,artifact).catch(()=>{}); }
-function ghostShareUpload(artifact){
+function ghostShareUpload(artifact,pageExit){
   if(!GH_SHARE || !artifact) return;
   const token=ghostToken(); if(!token) return;
   const bucket=ghostLonBucket();
-  ghostUploadAttempt(token,bucket,artifact).then(ok=>{ if(!ok) setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); },()=>{ setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); });
+  ghostUploadAttempt(token,bucket,artifact,pageExit===true).then(ok=>{ if(!ok) setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); },()=>{ setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); });
 }
 function ghostRecordArm(){
   if(!GH_RECORD || trainMode || templeActive) return;                     // decision: only a main-play reset may allocate a recording
   ghostRoadReset();
   _ghostRecord={v:GH_VERSION,date:'',moonBucket:-1,bpm0:state.bpm,dur:0,bpmCurve:[[0,state.bpm]],targets:[],taps:[],fires:[]};
-  _ghostRecordTargets=new WeakMap(); _ghostRecordSeq=0; _ghostRecordArrivals=0;
+  _ghostRecordTargets=new WeakMap(); _ghostRecordSeq=0; _ghostRecordArrivals=0; _ghostRecordFinalized=false;
 }
 function ghostRecordSpawn(tg){
   const r=_ghostRecord; if(!r || !tg || !tg.mesh) return;
@@ -8997,7 +9001,7 @@ function ghostRecordTrim(r,mail){
   }
   return json;
 }
-function ghostRecordFinalize(){
+function ghostRecordFinalize(pageExit){
   if(!GH_RECORD) return;                                                   // decision: the false arm cannot reach Date or storage even if called directly
   const r=_ghostRecord; _ghostRecord=null; _ghostRecordTargets=null;
   if(!r) return;
@@ -9012,8 +9016,18 @@ function ghostRecordFinalize(){
     if(!ghostArtifactValid(r)) return;
     if(GH_GIFT && !ghostWrapperValid({ghost:r,mail})) return;                // decision: mail shares the recording's fail-soft boundary and can never cost a worthy night
     localStorage.setItem(GH_STORE_KEY,json);
-    if(GH_SHARE) ghostShareUpload(r);                                        // courtesy copy starts only after the worthy local night is safely stored; it is never awaited
+    if(GH_SHARE) ghostShareUpload(r,pageExit===true);                         // courtesy copy starts only after the worthy local night is safely stored; it is never awaited
   }catch(e){}
+}
+function ghostRecordFinalizeOnce(pageExit){
+  if(!GH_RECORD || _ghostRecordFinalized) return;
+  _ghostRecordFinalized=true;
+  try{ ghostRecordFinalize(pageExit===true); }catch(e){}
+}
+if(GH_RECORD && typeof window!=='undefined'){
+  window.addEventListener('pagehide',event=>{
+    if(event && event.persisted===false) ghostRecordFinalizeOnce(true);
+  });
 }
 
 function ghostArtifactValid(value){
@@ -9723,9 +9737,9 @@ function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-c
   const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
 }
 function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } if(GH_GIFT) _ghGiftLockedRow=null; _pulsePhase=0; hideEdgeTints(); }
-function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
-  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
-function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
+                                                                                                                                                          
+                                                                                                                                                                     
+                                                                                                    
                                                                                                                                                                                                                                                                       
                                                  
                                                                                                                                    

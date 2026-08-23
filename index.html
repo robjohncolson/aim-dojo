@@ -5731,8 +5731,8 @@ for(const k of Object.keys(SENSEI_PACK)) CFG[k]=Array.isArray(SENSEI_PACK[k])?SE
    Phase 3: graduate mid-run into full SENSEI (dolly + normal windows + specials). */
 const BEAT_SPAWN_SIXTEENTHS_FULL=CFG.beatSpawnSixteenths.slice();
 // SING_K_LO/SING_K_HI lived here: the endpoints of the LINEAR k→degree map, taken from the full list so a degree meant the same thing at every stage of a night. Both are gone with that map (1.1 amendment F3) — singDegree now ranks k inside the LIVE feasible set, which is read from CFG.beatSpawnSixteenths at the moment it is asked, so there is no endpoint to pin. BEAT_SPAWN_SIXTEENTHS_FULL stays: the trainer still restores the full list from it on graduation.
-const TRAIN_NEED_WASD=6, TRAIN_NEED_ORB1=3, TRAIN_NEED_ORB2=4;   // THE TRAINER, HALVED (wave 8.2, Y4 — user-locked from the Moonline playtest: PACING ONLY, not one word of the lesson changed). Every phase gate this trainer has, cut in half and ROUNDED UP so a phase can never need 0: WASD steps 12 → 6 · phase-1 voices 5 → ceil(2.5) = 3 · phase-2 far voices 8 → 4. There are no others — the phases advance on these three counts and on nothing else (no timer, no duration gate, no accuracy quota beyond noteTrainWasd's own acc<40 filter, which is a QUALITY gate on what counts as a step and not a length). A whole trainer is 6+3+4 = 13 qualifying events where it was 12+5+8 = 25, i.e. 52% — the extra 2% is the ceil on ORB1, which is the rounding rule doing exactly what it is for. Phase 2's live range ramp reads TRAIN_NEED_ORB2 as its own denominator, so it still reaches TRAIN_RANGE_FAR exactly at graduation, in 4 kills instead of 8, by construction rather than by a second number
-const TRAIN_NEED_TOTAL=TRAIN_NEED_WASD+TRAIN_NEED_ORB1+TRAIN_NEED_ORB2;   // 13 — named so a test can pin the halving as one fact instead of three, and so the next tuning pass can see the whole trainer's length in one place
+const TRAIN_NEED_WASD=3, TRAIN_NEED_ORB1=2, TRAIN_NEED_ORB2=2;   // THE BRISK LESSON, HALVED AGAIN (wave 16 — user-locked 2026-08-23 after choosing a shorter refresher over a skip gate: PACING ONLY, not one word of the lesson changed). This is the SECOND halving, applied in wave-8.2 style to the gates that were live after that pass and ROUNDED UP: WASD steps 6 → 3 · phase-1 voices 3 → ceil(1.5) = 2 · phase-2 far voices 4 → 2. There are still no other graduation requirements — these three counts alone advance the phases (no timer, no duration gate, and noteTrainWasd's acc<40 rejection remains the quality law for what earns a step, not an added length gate). A whole refresher is now 3+2+2 = 7 qualifying events where the first halving left 6+3+4 = 13; the odd ORB1 gate is exactly why the rounding rule exists. Phase 2's live range ramp still reads TRAIN_NEED_ORB2 as its own denominator, so the second qualifying far voice makes t=2/2=1 and reaches TRAIN_RANGE_FAR exactly at graduation by construction, never by a duplicate literal
+const TRAIN_NEED_TOTAL=TRAIN_NEED_WASD+TRAIN_NEED_ORB1+TRAIN_NEED_ORB2;   // 7 — named so a test pins the second halving as one fact and the whole refresher stays visible to the next pacing pass
 const TRAIN_RANGE_NEAR=9, TRAIN_RANGE_FAR=20;   // phase-2 live range ramp endpoints (trainer-only; full dojo range law untouched)
 let trainMode=false, trainPhase=0, trainWasd=0, trainOrbs=0;
 let gateChosen=false;   // true after TRAIN/FULL (or resume path); pad START must not bypass the binary gate
@@ -6753,7 +6753,7 @@ function bowReset(){
   _bow.stage=BOW.IDLE; _bow.t=0; _bow.idle=0; _bow.lined=false; _bow.bowed=false; _bow.dots=false;
 }
 function bowFinish(){
-  if(GH_RECORD) ghostRecordFinalize();   // NIGHT GHOSTS: the completed Bow is the only save boundary; false starts and ordinary pauses never reach storage
+  if(GH_RECORD) ghostRecordFinalizeOnce();   // NIGHT GHOSTS: the completed Bow stays the primary save boundary; only a last-time pagehide is the fail-soft backup, through the same once latch
   if(GH_SHARE) ghostShareFinalize();   // THE VISITOR: the one caught-note batch leaves from the same completed-session boundary; it is never retried or awaited
   bowReset();   // tempo, canvas, coach and the spawn gate are all back BEFORE the exit — the pause card inherits a clean session
   state.needsReset=true;   // a COMPLETED Bow is a session boundary, not a pause: the same flag the fresh-start path reads (enterRunning), so the next entry runs resetSession() — t, hits, streak, the tick, the Mandala ledger and the adaptive tempo all back to CFG.startBpm. Without it the "next run" silently continued this night. An ESC-pause / grace-cancel goes through bowReset alone and never sets it
@@ -8819,11 +8819,11 @@ const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
 const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
 const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=1;
-const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_MAIL_RESPONSE_MAX=256;
+const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256;
 const GH_VISITOR_X=-90, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
 const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
 const GH_GHOST_PATH='/api/ghost', GH_GHOSTS_PATH='/api/ghosts', GH_MAIL_PATH='/api/ghost-mail';
-let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0;
+let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0, _ghostRecordFinalized=true;
 let _ghostGiftMail=null, _ghostGiftGreetingCount=0, _ghostGiftMailSpoken=false;
 let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoch=-1;
 let _ghostSeats=null, _ghostOwnSeat=null, _ghostVisitorSeat=null, _ghostSeatRows=null, _ghostSeatBusy=false, _ghostGiftHitT=0;
@@ -8925,22 +8925,26 @@ async function ghostRelayJson(path,init){
     const value=JSON.parse(text); return ghostSerializedBytes(value)<=GH_MAX_BYTES?value:null;
   });
 }
-async function ghostUploadAttempt(token,bucket,artifact){
-  const response=await ghostRelayFetch(GH_GHOST_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({lonBucket:bucket,artifact:artifact})});
+async function ghostUploadAttempt(token,bucket,artifact,pageExit){
+  const body=JSON.stringify({lonBucket:bucket,artifact:artifact});
+  const init={method:'POST',headers:ghostRelayHeaders(token,true),body:body};
+  // An oversized page-exit body deliberately uses ordinary best-effort fetch: keepalive would be rejected, while a normal Bow must never inherit unload constraints.
+  if(pageExit===true && ghostUtf8Bytes(body)<=GH_KEEPALIVE_BUDGET) init.keepalive=true;
+  const response=await ghostRelayFetch(GH_GHOST_PATH,init);
   return !!(response&&response.ok);
 }
 function ghostUploadRetry(token,bucket,artifact){ ghostUploadAttempt(token,bucket,artifact).catch(()=>{}); }
-function ghostShareUpload(artifact){
+function ghostShareUpload(artifact,pageExit){
   if(!GH_SHARE || !artifact) return;
   const token=ghostToken(); if(!token) return;
   const bucket=ghostLonBucket();
-  ghostUploadAttempt(token,bucket,artifact).then(ok=>{ if(!ok) setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); },()=>{ setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); });
+  ghostUploadAttempt(token,bucket,artifact,pageExit===true).then(ok=>{ if(!ok) setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); },()=>{ setTimeout(()=>{ ghostUploadRetry(token,bucket,artifact); },GH_UPLOAD_RETRY_MS); });
 }
 function ghostRecordArm(){
   if(!GH_RECORD || trainMode || templeActive) return;                     // decision: only a main-play reset may allocate a recording
   ghostRoadReset();
   _ghostRecord={v:GH_VERSION,date:'',moonBucket:-1,bpm0:state.bpm,dur:0,bpmCurve:[[0,state.bpm]],targets:[],taps:[],fires:[]};
-  _ghostRecordTargets=new WeakMap(); _ghostRecordSeq=0; _ghostRecordArrivals=0;
+  _ghostRecordTargets=new WeakMap(); _ghostRecordSeq=0; _ghostRecordArrivals=0; _ghostRecordFinalized=false;
 }
 function ghostRecordSpawn(tg){
   const r=_ghostRecord; if(!r || !tg || !tg.mesh) return;
@@ -8997,7 +9001,7 @@ function ghostRecordTrim(r,mail){
   }
   return json;
 }
-function ghostRecordFinalize(){
+function ghostRecordFinalize(pageExit){
   if(!GH_RECORD) return;                                                   // decision: the false arm cannot reach Date or storage even if called directly
   const r=_ghostRecord; _ghostRecord=null; _ghostRecordTargets=null;
   if(!r) return;
@@ -9012,8 +9016,18 @@ function ghostRecordFinalize(){
     if(!ghostArtifactValid(r)) return;
     if(GH_GIFT && !ghostWrapperValid({ghost:r,mail})) return;                // decision: mail shares the recording's fail-soft boundary and can never cost a worthy night
     localStorage.setItem(GH_STORE_KEY,json);
-    if(GH_SHARE) ghostShareUpload(r);                                        // courtesy copy starts only after the worthy local night is safely stored; it is never awaited
+    if(GH_SHARE) ghostShareUpload(r,pageExit===true);                         // courtesy copy starts only after the worthy local night is safely stored; it is never awaited
   }catch(e){}
+}
+function ghostRecordFinalizeOnce(pageExit){
+  if(!GH_RECORD || _ghostRecordFinalized) return;
+  _ghostRecordFinalized=true;
+  try{ ghostRecordFinalize(pageExit===true); }catch(e){}
+}
+if(GH_RECORD && typeof window!=='undefined'){
+  window.addEventListener('pagehide',event=>{
+    if(event && event.persisted===false) ghostRecordFinalizeOnce(true);
+  });
 }
 
 function ghostArtifactValid(value){

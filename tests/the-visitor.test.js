@@ -335,15 +335,15 @@ test("Parcel U uploads the exact artifact fire-and-forget and performs one quiet
       extra: { calls, setTimeout(callback, ms) { timers.push({ callback, ms }); return timers.length; }, clearTimeout() {} },
       body: `
         _ghostToken='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; ghostLonBucket=()=>7;
-        ghostUploadAttempt=(token,bucket,value)=>{ calls.push({token,bucket,value}); return Promise.resolve(false); };
+        ghostUploadAttempt=(token,bucket,value,pageExit)=>{ calls.push({token,bucket,value,pageExit}); return Promise.resolve(false); };
         this.artifact=${JSON.stringify(artifact())}; this.calls=calls; this.result=ghostShareUpload(this.artifact);
       `,
     });
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(context.result, undefined); assert.equal(context.calls.length, 1); assert.equal(context.calls[0].value, context.artifact);
+    assert.equal(context.result, undefined); assert.equal(context.calls.length, 1); assert.equal(context.calls[0].value, context.artifact); assert.equal(context.calls[0].pageExit, false);
     assert.equal(timers.length, 1); assert.equal(timers[0].ms, 30000); timers[0].callback();
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(context.calls.length, 2); assert.equal(context.calls[1].value, context.artifact); assert.equal(timers.length, 1, "the retry cannot schedule a storm");
+    assert.equal(context.calls.length, 2); assert.equal(context.calls[1].value, context.artifact); assert.equal(context.calls[1].pageExit, undefined); assert.equal(timers.length, 1, "the retry cannot schedule a storm");
     const requests = [];
     const wire = runVisitor(source, {
       share: true, extra: { requests },
@@ -357,12 +357,93 @@ test("Parcel U uploads the exact artifact fire-and-forget and performs one quiet
     assert.deepEqual(JSON.parse(wire.requests[0].init.body), { lonBucket: 7, artifact: JSON.parse(JSON.stringify(wire.artifact)) });
     assert.equal(wire.requests[0].path, "/api/ghost"); assert.equal(wire.requests[0].init.method, "POST");
     const finalize = extractFunction(source, "ghostRecordFinalize");
-    assert.match(finalize, /localStorage\.setItem\(GH_STORE_KEY,json\);[\s\S]*if\(GH_SHARE\) ghostShareUpload\(r\);/);
+    assert.match(finalize, /localStorage\.setItem\(GH_STORE_KEY,json\);[\s\S]*if\(GH_SHARE\) ghostShareUpload\(r,pageExit===true\);/);
     assert.doesNotMatch(extractFunction(source, "ghostShareUpload"), /\bawait\b/);
   };
   await assertContract(html);
-  const mutation = replaceFunction(html, "ghostShareUpload", (fn) => fn.replace(/ghostUploadAttempt\(token,bucket,artifact\)\.then\([\s\S]*\);\n/, "  ghostUploadAttempt(token,bucket,artifact).catch(()=>{});\n"));
+  const mutation = replaceFunction(html, "ghostShareUpload", (fn) => fn.replace(/ghostUploadAttempt\(token,bucket,artifact,pageExit===true\)\.then\([\s\S]*\);\n/, "  ghostUploadAttempt(token,bucket,artifact,pageExit===true).catch(()=>{});\n"));
   await mutationMustFail(assertContract, mutation, "the upload oracle kills removal of the single delayed retry");
+});
+
+test("upload keepalive is page-exit-only at the exact UTF-8 envelope boundary", async () => {
+  const assertContract = async (source) => {
+    const boundaryArtifact = (budget) => {
+      const moon = "🌕", base = Buffer.byteLength(JSON.stringify({ lonBucket: 7, artifact: { padding: moon } }));
+      return { padding: moon + "x".repeat(budget - base) };
+    };
+    const atBudget = boundaryArtifact(65536), overBudget = boundaryArtifact(65537);
+    const requests = [];
+    const context = runVisitor(source, {
+      share: true,
+      extra: { requests, atBudget, overBudget },
+      body: `
+        ghostRelayFetch=(path,init)=>{ requests.push({path,init}); return Promise.resolve({ok:true}); };
+        this.sent=Promise.all([
+          ghostUploadAttempt('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',7,atBudget,true),
+          ghostUploadAttempt('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',7,overBudget,true),
+          ghostUploadAttempt('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',7,atBudget)
+        ]); this.requests=requests;
+      `,
+    });
+    assert.deepEqual(Array.from(await context.sent), [true, true, true]); assert.equal(context.requests.length, 3);
+    assert.deepEqual(context.requests.map(request => Buffer.byteLength(request.init.body)), [65536, 65537, 65536]);
+    assert.deepEqual(context.requests.map(request => request.init.keepalive), [true, undefined, undefined], "only a fitting last-time page exit opts into keepalive");
+    for (const request of context.requests) assert.equal(request.path, "/api/ghost");
+    const attempt = extractFunction(source, "ghostUploadAttempt");
+    assert.equal((attempt.match(/JSON\.stringify/g) || []).length, 1, "the exact envelope is serialized once");
+    assert.match(attempt, /ghostUtf8Bytes\(body\)<=GH_KEEPALIVE_BUDGET/); assert.match(ghostBlock(source), /GH_KEEPALIVE_BUDGET=65536/);
+
+    const sharedRequests = [], timers = [];
+    const shared = runVisitor(source, {
+      share: true,
+      extra: {
+        atBudget, sharedRequests, timers,
+        setTimeout(callback, ms) { timers.push({ callback, ms }); return timers.length; }, clearTimeout() {},
+      },
+      body: `
+        _ghostToken='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; ghostLonBucket=()=>7;
+        ghostRelayFetch=(path,init)=>{ sharedRequests.push({path,init}); return Promise.resolve(init.keepalive?null:{ok:true}); };
+        this.start=()=>ghostShareUpload(atBudget,true);
+      `,
+    });
+    shared.start(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(timers.length, 1); assert.equal(timers[0].ms, 30000); assert.equal(sharedRequests[0].init.keepalive, true, "the fitting exit request may meet an already-used shared budget");
+    timers[0].callback(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(sharedRequests.length, 2); assert.equal(sharedRequests[1].init.keepalive, undefined, "shared-budget rejection retries as an ordinary request when the page survives long enough");
+  };
+  await assertContract(html);
+  const mutation = replaceFunction(html, "ghostUploadAttempt", (fn) => fn.replace("if(pageExit===true && ghostUtf8Bytes(body)<=GH_KEEPALIVE_BUDGET) init.keepalive=true;", "init.keepalive=true;"));
+  await mutationMustFail(assertContract, mutation, "the boundary/Bow oracle kills an unconditional-keepalive survivor");
+});
+
+test("a capped Gift night's 99,556-byte envelope uploads at the ordinary Bow", async () => {
+  const requests = [];
+  let stored = "";
+  const context = runVisitor(html, {
+    record: true, gift: true, share: true,
+    extra: {
+      requests,
+      localStorage: { getItem: () => null, setItem: (_key, value) => { stored = value; } },
+    },
+    body: `
+      _ghostToken='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; ghostLonBucket=()=>7;
+      ghostRelayFetch=(path,init)=>{ requests.push({path,init}); return Promise.resolve({ok:true}); };
+      ghostRecordArm(); _ghostRecordArrivals=16;
+      _ghostRecord.bpmCurve=Array.from({length:200},(_x,i)=>[i*0.3,60+i/100]);
+      _ghostRecord.targets=Array.from({length:1200},(_x,i)=>[i*0.04,i%4,i,i*0.04+0.02,0,null]);
+      _ghostRecord.taps=Array.from({length:2400},(_x,i)=>[i*0.025,i%4,100]);
+      _ghostRecord.fires=Array.from({length:1200},(_x,i)=>[i*0.05,3.1415,-1.5358,0]);
+      _ghostGiftMail=Array.from({length:64},(_x,i)=>[i,i%4]);
+      Tone.Transport.seconds=64; ghostRecordFinalizeOnce();
+      this.requests=requests;
+    `,
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(Buffer.byteLength(stored), 99986, "the capped Gift wrapper fixture remains exact");
+  assert.equal(context.requests.length, 1); assert.equal(context.requests[0].path, "/api/ghost");
+  assert.equal(Buffer.byteLength(context.requests[0].init.body), 99556, "the upload envelope exceeds the keepalive budget but still leaves the Bow");
+  assert.equal(context.requests[0].init.keepalive, undefined, "ordinary Bow upload is never keepalive");
+  assert.match(extractFunction(html, "bowFinish"), /if\(GH_RECORD\) ghostRecordFinalizeOnce\(\);/);
 });
 
 function ownSeatSnapshot(source, { low, record, seat, gift, share }) {
