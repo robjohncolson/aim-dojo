@@ -1,4 +1,33 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-08-23)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-03)
+
+## -13. 2026-09-03: wave 19 — THE INVITATION (`530a46b` + `1694396`), committed on main, NOT pushed · the full menu is SPEC_THE_INVITATION.md
+- Session on the Windows machine (New York). Pull was blocked by the auto-generated GitNexus counts in CLAUDE/AGENTS.md
+  (discard + fast-forward). The realCivilDate oracle FAILED here (`5d7a48d`): it simulated Apia's skipped day with a
+  UTC midnight, which reads as the previous day on any host west of UTC — the mutant it exists to kill survived. LAW:
+  a timezone oracle is only an oracle if it holds on both sides of UTC; CI now runs on ubuntu AND windows.
+- **Wave 19 shipped (all behind flat knobs, 311/311, headless boot smoke clean):** A `calibSilent:1` — calibApply is
+  the one authority (button + silent path), fires once per page life at graduation or the first post-graduation
+  pause, only with NO stored/cloud offset, ≥12 taps, |mean| ≥ 12 ms, says nothing. B `nightCard.link:1` — shareLinkUrl()
+  hoisted (origin+path only), the host painted under the date; the SIGIL IS A TIMESTAMP (phase bucket shared by the
+  whole ~3.7-day window; the card already draws it as the moon disc) — never propose it as identity again. M — the
+  lesson leaves no record: submitDojo gates on trainMode; _gradSnap makes dur/kills count from graduation (state.t is
+  never reset mid-run). C tools/coldload.mjs · D tools/relay-scan.mjs (never touches mail; own night included via a
+  throwaway token) · N .github/workflows/tests.yml (parse + mirror-freshness gate + suite, two hosts).
+- **The relay is EMPTY** (10-day TTL: the 08-23 nights expired 09-02). The user's next night is again "the first".
+- **COLD LOAD, production, real GPU (--headful), 2 runs:** desktop T_play 2254 ms · 1318 KB · T_frame 402 ms · worst
+  83 ms. Friend profile (4× CPU, 10 Mbit/40 ms): T_play 6983 ms · 960 KB · T_frame 2713 ms · worst 933 ms — OVER the
+  4000/1500 budget. Headless SwiftShader is an upper bound only (8.4 s / 13.5 s — software shader compile). DECISION
+  RULE (spec C): execute P2 load scheduling (CODEX_PROMPT_PERF_LOAD_SCHEDULING.md: defer sky textures, planet maps, QR,
+  Supabase until after the lesson starts), re-measure with the tool; only then consider P4.
+- **Rulings the user still owes:** parcel H (past self by moon phase) bends the wave-8 "tonight-only self-ghost" law —
+  ships at ghostPhase:1 in the spec, flip to 0 if the ruling stands. Parcel E's silhouette line is REDUCED to real 4th
+  ghosts only; "ghost-filled empty chairs" retired (nothing fabricates presence).
+- Environment: puppeteer-core lives in the session scratchpad (COLDLOAD_MODULES=…/scratchpad/node_modules), Chrome at
+  the standard Windows path; the claude-in-chrome extension and browser-harness both needed a user click here — the
+  tool is the harness. resetSession impact reads HIGH in GitNexus (hub); the wave-19 edit there is one added assignment.
+- NEXT: push (Vercel → live), the user's real night (verify the card's link line + a friend's first night via
+  relay-scan), then wave 20 in spec order (E seats → G relay-first → H after the ruling → F tuning).
+
 
 ## -12. 2026-08-23 LATE: wave 18 — THE CARD WITHOUT THE FREEZE (`2e885b0`) live · FIRST REAL NIGHT ON THE WIRE
 - ★ THE USER'S FIRST REAL NIGHT landed on the relay: bucket 21, 2026-08-23, 162 s, 16 targets/58 taps/25

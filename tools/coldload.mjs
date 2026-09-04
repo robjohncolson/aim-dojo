@@ -58,7 +58,7 @@ async function oneRun(browser, url, profile) {
   const context = await browser.createBrowserContext();   // a fresh context = an empty cache: the friend's first visit
   const page = await context.newPage();
   const errors = [];
-  page.on("pageerror", (e) => errors.push("pageerror: " + String(e && e.message || e).slice(0, 200)));
+  page.on("pageerror", (e) => { const m = String(e && e.message || e); if (/pointer lock/i.test(m)) return; errors.push("pageerror: " + m.slice(0, 200)); });   // a synthetic click cannot take pointer lock (WrongDocumentError); the game's fallback enters unlocked and the card still hides — expected under automation, never a boot failure
   page.on("console", (m) => { if (m.type() === "error") errors.push("console.error: " + m.text().slice(0, 200)); });
   const cdp = await page.createCDPSession();
   await cdp.send("Network.enable");
@@ -104,7 +104,8 @@ if (isMain) {
   const puppeteer = loadPuppeteer();
   const chrome = args.chrome || CHROME_CANDIDATES.find((p) => { try { return fs.existsSync(p); } catch { return false; } });
   if (!chrome) { console.error("no Chrome found — pass --chrome <path>"); process.exit(2); }
-  const browser = await puppeteer.launch({ executablePath: chrome, headless: !args.headful, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required", "--no-first-run"] });
+  const gpuArgs = args.headful ? [] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];   // headless = SwiftShader (software GL compiles the boot shaders slowly — an upper bound); --headful = the machine's real GPU (the honest T_play)
+  const browser = await puppeteer.launch({ executablePath: chrome, headless: !args.headful, args: [...gpuArgs, "--autoplay-policy=no-user-gesture-required", "--no-first-run"] });
   let failed = false;
   try {
     for (const name of args.profiles) {
