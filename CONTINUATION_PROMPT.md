@@ -1,4 +1,54 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-03)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-03 late)
+
+## -14. 2026-09-03 LATE: THE GATE FIRST shipped (wave 19 complete) · HANDOFF FOR ANY AGENT (Codex included) — start here
+**State of main:** wave 19 of SPEC_THE_INVITATION.md is complete and pushed (parcels A/B/M `530a46b`, C/D/N `1694396`,
+C-load-scheduling THE GATE FIRST — see git log). Live at aim-dojo.vercel.app. Suite 315/315 (`node --test tests/*.test.js`).
+The user has NOT yet played a real night on wave 19 — that is the first thing to verify (card link line under the date;
+pause card's offset after the first pause; PLAY lights ~1.8 s on desktop).
+
+**THE GATE FIRST (this session's last parcel), what and why:** CPU-profiled production boot on a real Windows GPU: 2.0 s of
+the 3.8 s before PLAY was WebGLProgram linking — `warmShaders`' single synchronous `renderer.compile` at boot idle — and
+Tone's then-callback (the ONLY thing that enables PLAY) queued behind it and behind the belt/milky texture uploads. Now
+`gateFirst:1`: Tone `<link rel=preload>` in <head>; `_gateReady` resolves once in `setGateReady(true)`; `afterGate()`
+sequences sticks/belt, glossary, sky day, auth, skypack, boards and the warm behind it; `warmShadersStart` links program
+families per top-level scene child (lights in every chunk) across 40 ms idle slices and abandons the rest if PLAY beats it.
+`gateFirst:0` = wave-18 order verbatim. A/B (real GPU, local server, page-clock stamp, 3 runs): desktop PLAY-enabled
+5307 → 1803 ms; friend profile (4× CPU, 10 Mbit/40 ms) 6139 ms — STILL OVER the 4000 ms budget. What remains on the friend
+profile is PARSE of the 1.15 MB inline script (DCL 5–6.5 s at 4× CPU) — only P4 (HTML split, `CODEX_PROMPT_PERF_HTML_SPLIT.md`,
+HIGH risk: every contract test greps index.html) moves that.
+
+**Next lever, NOT taken (needs a reviewed round): ImageBitmap decode in `loadSkyTexture` (index.html ~3505).** texImage2D on
+HTMLImageElement sources costs 500–800 ms of main thread on the friend profile (milky 3072×1536 + 13 belt PNGs, decoded ON
+upload). `createImageBitmap`/`THREE.ImageBitmapLoader` moves the decode off-thread. GitNexus impact = CRITICAL (14
+dependents: enterSkyTemple, focusSkyTempleReticle, updateTempleOrbs, updateSky, ensureSignArtSlot, showTempleGlobe). Traps:
+ImageBitmap textures need `flipY=false` with the loader's `imageOrientation:'flipY'` (or the sky/globes render upside
+down); `_skyTexImageReady` (3503) reads `tex.image` completeness — a bitmap has width/height, no `complete`;
+`enhancePlanetTexture` (3577) drawImage's the image (works with a bitmap) and reads `naturalWidth||width` (works).
+Acceptance MUST be visual: headful screenshots of the menu sky, the Temple with a planet focused, and the belt, A/B against
+HEAD, pixel-compared. Knob `skyMaps.bitmapDecode`, 0 → TextureLoader path byte-identical (the temple-orbs test pins
+`_skyTexLoader.load(`). Also measured and NOT worth it: memoizing `deviceSkyTimezone` (its 200 ms is ICU's first-call
+init; impact CRITICAL for zero gain).
+
+**Tools shipped this session (all in tools/):** `coldload.mjs` — cold-cache boot meter, `--headful` = real GPU (headless
+SwiftShader is an upper bound only), T_play stamped by a MutationObserver inside the page, `--url` for a local A/B (serve
+the repo with `python -m http.server 8931` and `git show HEAD:index.html > head-index.html` for the baseline — delete it
+after, it must never be committed). `relay-scan.mjs` — lists relay nights (throwaway token → own night included; NEVER
+touches mail). puppeteer-core is NOT a dependency: `npm i puppeteer-core@23` in a scratch dir and point
+`COLDLOAD_MODULES` at its node_modules. Scratch probes worth regenerating: a CDP `Profiler` self-time-by-function run
+(`Profiler.setSamplingInterval 500`, aggregate `timeDeltas` per callFrame; `Jr` in three.min.js r128 = WebGLProgram) and
+a `Network.loadingFinished` waterfall split at T_play.
+
+**Codex-specific:** no GitNexus CLI in a sandbox (it hangs — memory codex-dispatch-procedure); the dispatcher does impact via
+MCP. Codex's sandbox cannot render or bind ports; the dispatcher runs coldload/screenshots. Every index.html edit →
+`node tools/extract-inline.mjs` → commit the mirrors with it (CI's mirror-freshness gate fails otherwise). Comment-swallow
+scanner: a `//` inside a regex literal reads as a comment — write `[/]{2}`. Windows: heredocs eat backslashes — patch via a
+node script file with exact-match anchors, never sed/heredoc.
+
+**Then wave 20 in spec order:** E three seats (client) → G relay half on a sidereal branch (tests, NO deploy — the user's
+push; relay before client) → F visitor alpha knob + gift LOW remeasure → H only after the user's ruling on the wave-8
+tonight-only law (ship at ghostPhase:0 if it stands). The relay is EMPTY (10-day TTL) — seed with a production-origin
+puppeteer night before testing seats.
+
 
 ## -13. 2026-09-03: wave 19 — THE INVITATION (`530a46b` + `1694396`), committed on main, NOT pushed · the full menu is SPEC_THE_INVITATION.md
 - Session on the Windows machine (New York). Pull was blocked by the auto-generated GitNexus counts in CLAUDE/AGENTS.md
