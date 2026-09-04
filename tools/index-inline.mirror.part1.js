@@ -1064,7 +1064,7 @@ const CFG = {
   skyListen:{ bodyPx:46, signPx:52, orbBlockPad:1.15, orbBlockPx:0, combatPx:88, lineSec:0.45, holdSec:45, apiMs:8000, api:'http://127.0.0.1:8742' },   // SKY LISTEN: body/sign px = sky pick only. orbBlock* = an Echo the aim ray pierces (or whose disc covers the reticle) still wins combat under held-E. THE BLOCK IS THE ORB'S TRUE SILHOUETTE (SKY SPINE 1.4, 2026-07-26): pad 2.7 plus 52px of screen pad grew every Echo a 22-27° exclusion cone — far wider than the sphere you can see — so a live field shadowed 15.8% of the dome and cancelled 41.2% of the bearings a pick could have come from, silently. 1.15 is a thin skim margin on the real radius and the screen pad is GONE (0): shadow 1.45% of the dome, 8.6% of picks lost. You are refused when an Echo is genuinely in front of the star, never because one happens to be nearby. combatPx = VESTIGIAL (2026-07-26): the near-miss combat-priority clause died when star-bound spawns put Echoes ON the zodiac band and made held-E selection nearly impossible — and even at the old padding it could never fire below ~59.5bpm, because the orb's own padded disc (radius lerps radSlow 1.15 → 0.62 with diffT, so a slow night's orb is the BIGGEST one) already reads wider than 88px at every distance the beat-quantized band can hold down there; the clause only ever had room above that tempo, where the orb has shrunk and moved out. Kept as a named constant so the number that once meant something is not silently reused. THE SIXTY CAP (parcel P) does NOT revive it and changes nothing here: the clause's code was deleted (see the disc-covers-reticle test in the pick fn), so 88 is a dead literal whatever the tempo law says — the "~59.5bpm" above is a historical reading of the OLD diffT ramp and is not re-derived, because there is no longer any code for it to be a threshold of. holdSec = auto-dismiss backup; player can also × the card or fire into empty sky.
   skyTemple:{enabled:true, enterKey:'KeyE', selectRequiresHold:true, floorDissolveSec:0.8, forceNaturalInTemple:true, maxAspectLines:24, aspectPickPx:18, aspectLineOpacity:0.42, aspectHighlightOpacity:0.65, legacyListenCard:false, ritualSpeech:false},
   skyChat:{enabled:true, openKey:'KeyT', maxMessageChars:500, pollMs:3000, pollMaxMs:90000},
-  skyMaps:{ enabled:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62, signArtLowMode:'off' },   // TEMPLE ORBS: milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). signArtLowMode (P5 F1): 'off'=glyph-only on LOW (default, sheds 13 additive planes) · 'always'=force belt on LOW. Flat literal — nested {} would break the CFG contract test regex.
+  skyMaps:{ enabled:true, bitmapDecode:true, milkyPath:'assets/sky/8k_stars_milky_way.jpg', shellRadius:400, dojoShell:false, dojoShellOpacity:0.35, templeShellOpacity:1, cloudDuck:1, globeEnabled:true, globeAngularDeg:15, spinRadPerSec:0.08, saturnRings:true, uranusRings:true, venusMap:'atmosphere', globeContrast:1.45, globeGamma:1.35, globeBrightness:0.72, signArtEnabled:true, signArtAlways:true, signArtOpacity:0.09, signArtRadiusPull:1.06, signArtSpanFill:0.62, signArtLowMode:'off' },   // TEMPLE ORBS: bitmapDecode:false restores the shipped TextureLoader path verbatim; true decodes off-thread where ImageBitmap exists. Milky + dimmed globe + rings + always-on zodiac art (opacity ~1/3 of prior 0.28; size ∝ Midpoint span). signArtLowMode (P5 F1): 'off'=glyph-only on LOW (default, sheds 13 additive planes) · 'always'=force belt on LOW. Flat literal — nested {} would break the CFG contract test regex.
   skyDay:{ api:'https://sidereal-production.up.railway.app', path:'/api/sky-day', timeoutMs:8000 },   // PUBLIC SKY (Railway): natal-free day pack for all Vercel players. Override with ?skyApi=… (persists aimdojo.skyApi).
   saveMySky:SIDEREAL_RUNTIME.saveMySky!==false,
   supabaseUrl:(typeof SIDEREAL_RUNTIME.supabaseUrl==='string'&&SIDEREAL_RUNTIME.supabaseUrl)||DEFAULT_SKY_SUPABASE_URL,
@@ -3550,6 +3550,7 @@ function roadImpSync(r){
                                                                                                                  
                                                                                                              
                                               
+                          
                                                                                                                             
                                                                                         
                            
@@ -3559,7 +3560,9 @@ function roadImpSync(r){
  
                                 
                            
-                                                                                                                                   
+                        
+                                                                                                                         
+                                       
  
                                                
                                                                   
@@ -3568,6 +3571,38 @@ function roadImpSync(r){
           
                                                            
                                                                                                 
+               
+   
+                                                                                                                   
+                                  
+                    
+                                                      
+        
+                                                                                                                                             
+                                     
+                 
+                                                 
+                                                            
+                                                                               
+                                   
+                                                                  
+          
+                  
+             
+                                                                         
+                                                               
+                                          
+                                                                                                      
+                                                 
+           
+              
+                                                                     
+                                                           
+                                      
+                                                                                        
+                                               
+                  
+     
                
    
                
@@ -3652,7 +3687,7 @@ function roadImpSync(r){
                                                                                            
                                 
                                          
-                                                                                                       
+                                                                                                                            
                                                 
                                          
                                                                                                                                                

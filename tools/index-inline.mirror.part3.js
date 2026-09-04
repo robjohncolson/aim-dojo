@@ -1064,7 +1064,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                            
                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                              
                                                
                                                                                                                        
@@ -3550,6 +3550,7 @@
                                                                                                                  
                                                                                                              
                                               
+                          
                                                                                                                             
                                                                                         
                            
@@ -3559,7 +3560,9 @@
  
                                 
                            
-                                                                                                                                   
+                        
+                                                                                                                         
+                                       
  
                                                
                                                                   
@@ -3568,6 +3571,38 @@
           
                                                            
                                                                                                 
+               
+   
+                                                                                                                   
+                                  
+                    
+                                                      
+        
+                                                                                                                                             
+                                     
+                 
+                                                 
+                                                            
+                                                                               
+                                   
+                                                                  
+          
+                  
+             
+                                                                         
+                                                               
+                                          
+                                                                                                      
+                                                 
+           
+              
+                                                                     
+                                                           
+                                      
+                                                                                        
+                                               
+                  
+     
                
    
                
@@ -3652,7 +3687,7 @@
                                                                                            
                                 
                                          
-                                                                                                       
+                                                                                                                            
                                                 
                                          
                                                                                                                                                
@@ -4701,23 +4736,23 @@
  
                                                                                                                                                                        
                                                                                                                                             
-                                                                                                                                                                    
-                   
-                                   
-                                                                                      
-                                                       
-                                                                                                                                                               
-                                                                                                                                               
-       
-                                      
-                                                                                                     
-                                                                                                                                                                   
-   
-                     
-                                                                                                     
-                                                                                               
-   
- 
+function goldFigure(signId){   // selected figure gold, the rest dimmed — pure vertex-colour rewrite, zero extra draw calls; additive blending makes darker = dimmer
+  restoreFigures();
+  if(!signId || !_stickFig) return;
+  const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
+  const S=SKY_CHART.stick, lb=new THREE.Color(S.lnCol);
+  _lsn.goldFig=fid;   // set BEFORE the paint so the lit-sky repaint below sees which figure is gold (nothing between here and the old assignment ever read it)
+  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: the identical dim+gold paint, with each star's own lit level riding through it
+  else{
+    const pb=new THREE.Color(S.ptCol);
+    _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
+  }
+  if(_stickFig.lGeo){
+    _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
+  }
+}
 function restoreFigures(){
   if(_lsn.goldFig==null || !_stickFig) return;
   _lsn.goldFig=null;   // cleared FIRST for the same reason goldFigure sets it first: starLitRepaint reads it to decide what "restored" means
@@ -7359,40 +7394,40 @@ function cardStar(id){
   if(_cardStars.indexOf(id)<0) _cardStars.push(id);
 }
 function cardInt(v,lo,hi){ return (typeof v==='number' && isFinite(v) && Math.floor(v)===v && v>=lo && v<=hi) ? v : null; }   // 1.1 amendment (M4): the senseiNum discipline for this envelope's integers — a TYPE test before a value test, and a fraction is a REJECTION rather than something to truncate. A null rejects the whole record at the call site, silently
-function cardLoad(){
-  if(_cardLoaded) return; _cardLoaded=true;
-  let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                       // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a night that left no card, silently
-  if(!realCivilDate(o.d)) return;                                                            // …and d is a REAL local civil date in the memory layer's one grammar (M5). A card with no honest date can never be shown to be tonight's, so it is not a card
-  // 1.1 amendment (wave 5a review, M4): STRICT ON THE WHOLE ENVELOPE. This used to be lenient in three ways at once —
-  // a missing or foreign hits/stars array coerced to empty and STILL offered a card, a fractional phase/rule/k was
-  // truncated into range, and a wild errMs or k was clamped. That is half-trust, and a half-trusted record is worse
-  // than none (senseiLoad's law): the picture would be honest about nothing. Now every field is checked and ANY
-  // failure drops the record entirely. Everything cardSave writes passes by construction: rounded errMs inside one
-  // beat, k straight out of the ledger (0 for the unquantized fallback — bowNote's own floor, so the floor here is 0
-  // and not 1), both lists capped at maxDots, -1 for a phase the sky would not name or a rule the deal never dealt.
-  const cap=Math.max(1,CFG.nightCard.maxDots|0);
-  const phase=cardInt(o.phase,-1,7), rule=cardInt(o.rule,-1,7);
-  if(phase==null || rule==null) return;                                                      // a bucket or the sky's own -1, and nothing between: -1 draws the empty outline and leaves the card wordless, which is honest for a night that was never named
-  if(typeof o.hb!=='number' || !isFinite(o.hb) || o.hb<0 || o.hb>10000) return;              // the half-beat the glyph's angles were measured against, in ms — 0 is this build's own "unknown" (the painter falls back to the live tempo), and anything outside a plausible tempo is not this build's write
-  if(!Array.isArray(o.hits) || o.hits.length>cap) return;                                    // the ledger is an ARRAY and it is already capped — an over-long one was not written here, and truncating it would be inventing which arrivals to keep
-  const hits=[];
-  for(const h of o.hits){
-    if(!Array.isArray(h) || h.length!==2) return;                                            // a pair, exactly: a nested object, a bare number, a triple — none of them is an arrival
-    const e=h[0], k=cardInt(h[1],0,999);
-    if(typeof e!=='number' || !isFinite(e) || e<-5000 || e>5000 || k==null) return;          // a null (what a NaN or an Infinity becomes the moment it is written), a numeric string, a fractional k: the whole night goes with any one of them
-    hits.push({errMs:e, k:k});                                                               // handed to bowGlyphPaint in the shape it takes live — validated, never clamped
-  }
-  if(!Array.isArray(o.stars) || o.stars.length>cap) return;
-  const stars=[];
-  for(const s of o.stars){
-    if(typeof s!=='string' || !STAR_ID_RE.test(s)) return;                                   // wave 3's OWN id grammar, reused: an id the lit sky would refuse cannot halo a star here either — and now it takes the record with it rather than being skipped
-    stars.push(s);
-  }
-  _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
-}
+                    
+                                           
+                                                                             
+                  
+                                                          
+                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                            
+                                                                                                                      
+                                                                                                                   
+                                                                                                                    
+                                                                                                                
+                                                                                                                   
+                                                                                                                     
+                                                                                                                    
+                                                
+                                                               
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                    
+                
+                         
+                                                                                                                                                                                      
+                                        
+                                                                                                                                                                                                                                                
+                                                                                                                                                                             
+   
+                                                           
+                 
+                          
+                                                                                                                                                                                                                                                              
+                  
+   
+                                                                           
+ 
                     
                                                                                                                     
                                                                                            

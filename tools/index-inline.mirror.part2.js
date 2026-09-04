@@ -1064,7 +1064,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                            
                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                              
                                                
                                                                                                                        
@@ -3550,6 +3550,7 @@ function applyNaturalSkyAttitude(utcMs){
    brightness is tuned via material.color, not colorspace. The globe is parented to `scene`, NOT _templeGroup, so
    _templeDisposeChildren() can never dispose the reused mesh. THREE-free table/paths live in sky-maps.js. */
 const _skyTexLoader=new THREE.TextureLoader();
+let _skyBitmapLoader=null;
 const _skyTexCache=Object.create(null);   // url -> THREE.Texture, shared + reused across focuses (never reloaded per focus)
 const _skyTexWaiters=Object.create(null); // url -> [onReady…] while a load is in flight
 function skyAssetUrl(path){
@@ -3559,7 +3560,9 @@ function skyAssetUrl(path){
 }
 function _skyTexImageReady(tex){
   const img=tex&&tex.image;
-  return !!(img&&((typeof img.complete==='boolean'?img.complete:true)&&(img.naturalWidth==null||img.naturalWidth>0||img.width>0)));
+  if(!img) return false;
+  if(typeof img.complete==='boolean') return !!(img.complete&&(img.naturalWidth==null||img.naturalWidth>0||img.width>0));
+  return !!(img.width>0&&img.height>0);
 }
 function loadSkyTexture(url, onReady, onError){
   if(!url){ if(onError) try{ onError(); }catch(e){} return null; }
@@ -3569,6 +3572,38 @@ function loadSkyTexture(url, onReady, onError){
     if(_skyTexImageReady(hit)){ if(onReady) onReady(hit); }
     else if(onReady){ (_skyTexWaiters[resolved]||(_skyTexWaiters[resolved]=[])).push(onReady); }
     return hit;
+  }
+  if(CFG.skyMaps.bitmapDecode&&typeof createImageBitmap==='function'&&typeof THREE.ImageBitmapLoader==='function'){
+    const tex=new THREE.Texture();
+    tex.flipY=false;
+    _skyTexCache[resolved]=tex; _skyTexCache[url]=tex;
+    try{
+      if(!_skyBitmapLoader) _skyBitmapLoader=new THREE.ImageBitmapLoader().setOptions({ imageOrientation:'flipY', premultiplyAlpha:'none' });
+      _skyBitmapLoader.load(resolved,
+        bitmap=>{
+          tex.image=bitmap; tex.needsUpdate=true;
+          _skyTexCache[resolved]=tex; _skyTexCache[url]=tex;
+          const wait=_skyTexWaiters[resolved]; delete _skyTexWaiters[resolved];
+          if(onReady) onReady(tex);
+          if(wait) for(const fn of wait) try{ fn(tex); }catch(e){}
+        },
+        undefined,
+        ()=>{
+          if(_skyTexCache[resolved]===tex) delete _skyTexCache[resolved];
+          if(_skyTexCache[url]===tex) delete _skyTexCache[url];
+          delete _skyTexWaiters[resolved];
+          try{ console.warn('[temple-orbs] bitmap failed, staying glyph-only:', resolved); }catch(e){}
+          if(onError) try{ onError(); }catch(e){}
+        });
+    }catch(e){
+      if(_skyTexCache[resolved]===tex) delete _skyTexCache[resolved];
+      if(_skyTexCache[url]===tex) delete _skyTexCache[url];
+      delete _skyTexWaiters[resolved];
+      try{ console.warn('[temple-orbs] bitmap loader threw:', resolved, e); }catch(_e){}
+      if(onError) try{ onError(); }catch(_e2){}
+      return null;
+    }
+    return tex;
   }
   let tex=null;
   try{
@@ -3652,7 +3687,7 @@ function enhancePlanetTexture(tex, bodyId, onReady){
     for(let i=0;i<d.length;i+=4){ d[i]=lut[d[i]]; d[i+1]=lut[d[i+1]]; d[i+2]=lut[d[i+2]]; }
     ctx.putImageData(idata,0,0);
     const out=new THREE.CanvasTexture(c);
-    out.wrapS=tex.wrapS; out.wrapT=tex.wrapT; out.minFilter=tex.minFilter; out.magFilter=tex.magFilter;
+    out.wrapS=tex.wrapS; out.wrapT=tex.wrapT; out.minFilter=tex.minFilter; out.magFilter=tex.magFilter; out.flipY=tex.flipY;
     out.needsUpdate=true; _skyTexCache[key]=out;
     if(onReady) onReady(out); return out;
   }catch(e){ try{ console.warn('[temple-orbs] contrast enhance failed, using raw map', e); }catch(_e){} if(onReady) onReady(tex); return tex; }
@@ -4701,23 +4736,23 @@ function restoreListenGlyphs(){
 }
 function hideListenGhost(){ if(!_lsn.ghost) return; const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=false; _lsn.ghost.visible=false; }
 function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(let i=i0;i<i1;i++){ a.setXYZ(i,r,g,b); } a.needsUpdate=true; }
-function goldFigure(signId){   // selected figure gold, the rest dimmed — pure vertex-colour rewrite, zero extra draw calls; additive blending makes darker = dimmer
-  restoreFigures();
-  if(!signId || !_stickFig) return;
-  const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
-  const S=SKY_CHART.stick, lb=new THREE.Color(S.lnCol);
-  _lsn.goldFig=fid;   // set BEFORE the paint so the lit-sky repaint below sees which figure is gold (nothing between here and the old assignment ever read it)
-  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: the identical dim+gold paint, with each star's own lit level riding through it
-  else{
-    const pb=new THREE.Color(S.ptCol);
-    _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
-    _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
-  }
-  if(_stickFig.lGeo){
-    _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
-    _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
-  }
-}
+                                                                                                                                                                    
+                   
+                                   
+                                                                                      
+                                                       
+                                                                                                                                                               
+                                                                                                                                               
+       
+                                      
+                                                                                                     
+                                                                                                                                                                   
+   
+                     
+                                                                                                     
+                                                                                               
+   
+ 
                           
                                               
                                                                                                                                              
