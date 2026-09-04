@@ -817,6 +817,8 @@
                                                                                                            
                                                                                                             
                                                                                                         
+                                                                          
+                                                                            
                                                                        
                                                                                                                                                                                                         
                                                                        
@@ -965,6 +967,7 @@
                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                      
                                                                                                                                                                                  
@@ -4451,7 +4454,7 @@ function starFlyRetire(f){   // THE CEREMONY ENDS, AND ONLY THE CEREMONY (1.3): 
   f.id=''; f.i=-1; _starFlyPool.push(f);
 }
 function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the moment the BEAT CLOCK has passed the gap it was stamped with, with a line if the ceremony has room and without one if it does not. Callable from a frame or from onGrid — whichever reaches the due first — and it costs two number reads when nothing is payable. THE ONE PLACE A LIVE RETURN IS PAID (1.3): every id that leaves either queue here leaves it GRANTED, so nothing downstream of this function owes a level and the freeze below can never delay one
-  if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
+  if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) if(starLitGain(_starDebt[k])===1) sensei2Speak('star'); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies; level 1 is the once-ever lesson, at this drain rather than teardown
   if(!_starPend.length || _starPend[0].due>hb) return;                    // the ring is stamped in queue order, so the oldest stamp is the earliest: not due at the front = nothing behind it is due either
   const spb=60/Math.max(20,state.bpm);
   let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting to leave stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
@@ -4459,7 +4462,7 @@ function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the 
   for(let k=0;k<_starPend.length;k++){
     const p=_starPend[k]; if(p.due>hb) break;                             // queued AFTER this gap arrived: its own gap is still ahead of it, and paying it early would put a tick inside a window
     n=k+1;
-    starLitGain(p.id);                                                    // THE TICK, HERE AND UNCONDITIONALLY (1.3). It used to ride on the flight record and land at starFlyRetire — which sits BELOW the open-window freeze, so a due return that drained into a flight had its level deferred until a gap frame actually arrived, and a pathological render cadence (or a stale-stuck starWinOpen) could hold it off forever even though the drain had run. The drain is the moment the beat clock says the return is owed, so the drain is where it is paid: every payable return ticks exactly once, right here, whether or not a line is ever built for it. Everything below this line is garnish
+    if(starLitGain(p.id)===1) sensei2Speak('star');                       // THE TICK, HERE AND UNCONDITIONALLY (1.3). It used to ride on the flight record and land at starFlyRetire — which sits BELOW the open-window freeze, so a due return that drained into a flight had its level deferred until a gap frame actually arrived, and a pathological render cadence (or a stale-stuck starWinOpen) could hold it off forever even though the drain had run. The drain is the moment the beat clock says the return is owed, so the drain is where it is paid: every payable return ticks exactly once, right here, whether or not a line is ever built for it. The return value only lets Sensei name a star's first light; everything below this line is garnish
     const i=_starLitIdx?_starLitIdx[p.id]:undefined;
     if(!(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX)){   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony (the level already landed above)
       const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
@@ -5796,6 +5799,28 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                        
                                      
  
+                                                                                 
+                                                                                                                                                                                                              
+                      
+                                                                
+                       
+                                                                                               
+                                      
+                                                                         
+                                                                                                                                                                                  
+                                                                                                                                           
+                                                                                                                                     
+              
+ 
+                            
+                                                                                                                                                       
+                                               
+                                      
+                                                                                                                  
+                                                                                             
+                                                                                         
+              
+ 
                                                                                                                                                                                  
                                                                            
  
@@ -6705,7 +6730,9 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                             
                                         
                                  
-                                                                                                                                                                                               
+                                                                                                                                                                                                 
+                                                                                                                                
+                                       
  
                      
                   
@@ -7597,7 +7624,7 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
    
                                                                                                                     
                                                                                                                        
-                                                                                                                                                  
+                                                                                                                                                                                                                                           
                               
                                                                                                                                 
                                                                                                                                                
@@ -7608,6 +7635,7 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                       
+                                                   
                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                          
                                                                                                                                
@@ -7934,6 +7962,7 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                    
+                                                                                                                                                   
                                                                                                                                                                                             
  
                                                                                                           

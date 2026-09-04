@@ -817,6 +817,8 @@ window.JA={
   senseiEarlynear:'ちかいこだまに リンクが はやくとどく · むこうから 来るのを まって', senseiLatenear:'ちかいこだまに リンクが おそくとどく · もう そこにいるよ',
   senseiEarlymid:'なかほどのこだまに リンクが はやくとどく · ひといき ためてから', senseiLatemid:'なかほどのこだまに リンクが おそくとどく · ひといき はやく 送って',
   senseiEarlyfar:'遠いこだまに リンクが はやくとどく · いきを させてあげて', senseiLatefar:'遠いこだまに リンクが おそくとどく · 遠い声は もっと先に 送って',
+  sensei2Mercy:'壁がひらく · なさけの一小節 · 息をして', sensei2Fill:'ドラムフィル · あわてず 言い切る',
+  sensei2Bow:'構えを解けば 礼になる · 夜はみずから終わる', sensei2Star:'声がかえった · あの星はもう きみのもの',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
@@ -965,6 +967,7 @@ const CFG = {
   ghostGift:1,   // THE GIFT: raw flat kill-switch. 0 adds no flare candidate, projectile tag, catch state, wrapper/mail or threshold read; 1 lets a revealed prior-night flare receive one connection-only blessed shot
   gateFirst:1,   // THE GATE FIRST (SPEC_THE_INVITATION C, load scheduling): raw flat kill-switch. 0 keeps the wave-18 boot order (one synchronous shader warm at idle, texture work racing the PLAY gate); 1 lights PLAY as soon as Tone is fetchable and sequences every heavy idle job — chunked shader warm, sticks/belt/milky textures, glossary, sky day, auth, boards — AFTER the gate
   calibSilent:1,   // THE SILENT CALIBRATION (SPEC_THE_INVITATION A): raw flat kill-switch. 0 never reads the accumulator outside the pause-card button; 1 folds a newcomer's measured tap residual into the offset once, wordlessly, at graduation or the first pause
+  sensei2:1,   // MOON SENSEI II (SPEC_THE_INVITATION K): raw flat kill-switch. 0 never opens aimdojo.sensei2 and never speaks; 1 lets each post-graduation night dynamic teach itself in one line, once ever
   ghostShare:1,   // THE CHORUS LINE: raw flat kill-switch. 0 mints no relay token, allocates no visitor/mail/star state and makes no relay request; 1 shares worthy nights and seats one validated stranger on LOW or up to three plus one honest silhouette on HIGH
   ghostPhase:0,   // THE MOON REMEMBERS YOU: dormant pending the tonight-only ruling. 0 never opens aimdojo.ghostPhase or seats a phase memory; 1 keeps one browser-only worthy night per moon bucket
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
@@ -4451,7 +4454,7 @@ function starFlyRetire(f){   // THE CEREMONY ENDS, AND ONLY THE CEREMONY (1.3): 
   f.id=''; f.i=-1; _starFlyPool.push(f);
 }
 function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the moment the BEAT CLOCK has passed the gap it was stamped with, with a line if the ceremony has room and without one if it does not. Callable from a frame or from onGrid — whichever reaches the due first — and it costs two number reads when nothing is payable. THE ONE PLACE A LIVE RETURN IS PAID (1.3): every id that leaves either queue here leaves it GRANTED, so nothing downstream of this function owes a level and the freeze below can never delay one
-  if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) starLitGain(_starDebt[k]); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies
+  if(_starDebt.length && _starDebtDue<=hb){ for(let k=0;k<_starDebt.length;k++) if(starLitGain(_starDebt[k])===1) sensei2Speak('star'); _starDebt.length=0; _starDebtDue=0; }   // the overflowed ones first: oldest debt, no line, paid before tonight's ceremonies; level 1 is the once-ever lesson, at this drain rather than teardown
   if(!_starPend.length || _starPend[0].due>hb) return;                    // the ring is stamped in queue order, so the oldest stamp is the earliest: not due at the front = nothing behind it is due either
   const spb=60/Math.max(20,state.bpm);
   let q=0; for(let k=0;k<_starFly.length;k++) if(_starFly[k].age<=0) q++;   // VOLLEY: voices still waiting to leave stagger a SIXTEENTH apart, so two returns read as two events, not one thick line
@@ -4459,7 +4462,7 @@ function starFlyDrain(hb){   // DUE RETURNS ONLY (1.2): a return ticks here the 
   for(let k=0;k<_starPend.length;k++){
     const p=_starPend[k]; if(p.due>hb) break;                             // queued AFTER this gap arrived: its own gap is still ahead of it, and paying it early would put a tick inside a window
     n=k+1;
-    starLitGain(p.id);                                                    // THE TICK, HERE AND UNCONDITIONALLY (1.3). It used to ride on the flight record and land at starFlyRetire — which sits BELOW the open-window freeze, so a due return that drained into a flight had its level deferred until a gap frame actually arrived, and a pathological render cadence (or a stale-stuck starWinOpen) could hold it off forever even though the drain had run. The drain is the moment the beat clock says the return is owed, so the drain is where it is paid: every payable return ticks exactly once, right here, whether or not a line is ever built for it. Everything below this line is garnish
+    if(starLitGain(p.id)===1) sensei2Speak('star');                       // THE TICK, HERE AND UNCONDITIONALLY (1.3). It used to ride on the flight record and land at starFlyRetire — which sits BELOW the open-window freeze, so a due return that drained into a flight had its level deferred until a gap frame actually arrived, and a pathological render cadence (or a stale-stuck starWinOpen) could hold it off forever even though the drain had run. The drain is the moment the beat clock says the return is owed, so the drain is where it is paid: every payable return ticks exactly once, right here, whether or not a line is ever built for it. The return value only lets Sensei name a star's first light; everything below this line is garnish
     const i=_starLitIdx?_starLitIdx[p.id]:undefined;
     if(!(reduceMotion || i===undefined || _starFly.length>=_STAR_FLY_MAX)){   // reduced motion · an id this fixture doesn't draw · the line cap: no ceremony (the level already landed above)
       const f=_starFlyPool.pop()||{id:'',i:-1,from:new THREE.Vector3(),wait:0,age:0,life:0,mesh:null};
@@ -5796,6 +5799,28 @@ function showTrainCoach(msg, ephemeral){
   // training tips stay on; graduation/ephemeral messages auto-hide after a few seconds
   _trainCoachT=msg?(ephemeral?5:0):0;
 }
+const SENSEI2_KEY='aimdojo.sensei2', SENSEI2_KINDS=['mercy','fill','bow','star'];
+const SENSEI2_EN={mercy:'THE WALL OPENS · MERCY · BREATHE',fill:"A DRUM FILL · STATE IT, DON'T FLURRY",bow:'HOLSTER TO BOW · THE NIGHT ENDS ON PURPOSE',star:'A VOICE CARRIED HOME · THAT STAR IS YOURS NOW'};
+let _sensei2Seen=null;
+function sensei2Empty(){ return {mercy:0,fill:0,bow:0,star:0}; }
+function sensei2Load(){
+  let raw=null; try{ raw=localStorage.getItem(SENSEI2_KEY); }catch(e){ return sensei2Empty(); }
+  if(raw==null) return sensei2Empty();
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return sensei2Empty(); }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1 || Object.keys(o).length!==2 || !o.seen || typeof o.seen!=='object' || Array.isArray(o.seen)) return sensei2Empty();
+  const keys=Object.keys(o.seen); if(keys.length!==SENSEI2_KINDS.length || keys.some(k=>SENSEI2_KINDS.indexOf(k)<0)) return sensei2Empty();
+  const seen=sensei2Empty(); for(const k of SENSEI2_KINDS){ const v=o.seen[k]; if(v!==0 && v!==1) return sensei2Empty(); seen[k]=v; }
+  return seen;
+}
+function sensei2Speak(kind){
+  if(!CFG.sensei2 || trainMode || templeActive || SENSEI2_KINDS.indexOf(kind)<0) return false;   // raw knob first: off means no storage touch, no line
+  if(!_sensei2Seen) _sensei2Seen=sensei2Load();
+  if(_sensei2Seen[kind]) return false;
+  _sensei2Seen[kind]=1;   // accrete in memory first: a blocked quota cannot repeat the line during this page life
+  try{ localStorage.setItem(SENSEI2_KEY,JSON.stringify({v:1,seen:_sensei2Seen})); }catch(e){}
+  showTrainCoach(T('sensei2'+kind[0].toUpperCase()+kind.slice(1),SENSEI2_EN[kind]),true);
+  return true;
+}
 function wasdBeatsHeard(){   // letter/floor cues must match input grading + orb glow (audioLat-corrected). Trainer uses this so Bluetooth/offset users see the pocket they hear.
   const bps=60/Math.max(20,state.bpm); return wasdBeats() - audioLat()/bps;
 }
@@ -6705,7 +6730,9 @@ function bowClock(dt){
   if(bowHolding()){ bowUpdate(dt); return; }
   if(!bowLive()){ _bow.idle=0; return; }
   const B=CFG.bow; _bow.idle+=dt;
-  if(_bow.idle>=Math.max((B.holsterBeats||0)*(60/Math.max(20,state.bpm)), B.holsterMinSec||0)) bowCommit();   // the SLOWER of the two clocks wins, so a slow night can't bow on a short breath
+  const threshold=Math.max((B.holsterBeats||0)*(60/Math.max(20,state.bpm)), B.holsterMinSec||0);   // one authority for the teaching breath and the actual Bow: the SLOWER of the two clocks wins
+  if(_bow.idle>=threshold*0.5) sensei2Speak('bow');   // halfway is still play: name the gesture before the Bow closes the night
+  if(_bow.idle>=threshold) bowCommit();
 }
 function bowCommit(){
   const B=CFG.bow;
@@ -7597,7 +7624,7 @@ function onGrid(time){
   }
   // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
   // chord walk, so the swell is locked to the arrangement without touching the Transport. Everything downstream READS.
-  let tideBloom=false, fillArm=-1;   // fillArm = the fill bar's downbeat (grid8) when THIS slot may elect the swell's one drum-fill tank, else -1
+  let tideBloom=false, fillArm=-1, wasMercy=tideMercy;   // fillArm = the fill bar's downbeat (grid8) when THIS slot may elect the swell's one drum-fill tank, else -1; wasMercy makes the teaching hook a transition, not a mercy-bar poll
   if(CFG.tide && CFG.tide.on){
     const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);
     const bar=Math.floor(grid8/8), cb=bar%cyc, f=(grid8%8)/8, down=(grid8%8)===0;   // cb = bar within the swell, f = fraction through that bar
@@ -7608,6 +7635,7 @@ function onGrid(time){
     if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; if(CFG.chorus.on) chorusShut(time); }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet). THE STANDING CHORUS's gate hard-closes on the SAME latch: the mercy chord's release would otherwise bleed 2.5 s of held slack into the swell, and "silent during combat" is meant literally — the rise's first beat sounds into a bus already ramped to nothing. Raw boolean first, and this is the tide's own boundary, not a second clock
     if(CFG.tank.fillOnly && cb===rise+peak-1 && (grid8%8)<4 && _fillSpent8!==bar*8) fillArm=bar*8;   // THE TANK IS A DRUM FILL: the swell's FINAL PEAK BAR (the bar before mercy) is the only window, and only its first half — an orb elected on beat 1 or 2 still has two full beats of lead before the figure's first note on the "4". _fillSpent8 makes it at most once per swell. Raw kill-switch first, and the bar index is the tide block's own (no second bar clock anywhere)
   } else { tideI=1; tideMercy=false; }
+  if(tideMercy && !wasMercy) sensei2Speak('mercy');
   const tideLift=(CFG.tide && CFG.tide.on) ? (CFG.tide.padPeakVel||0)*(tideBloom?1:tideI) : 0;   // velocity lift shaped by the swell; full on the mercy bloom. 0 with the parcel off → every trigger keeps its literal velocity
   const _acc=windowAccuracy(), accN=_acc==null?0:Math.max(0,Math.min(1,(_acc-CFG.grooveAccLo)/(CFG.grooveAccHi-CFG.grooveAccLo)));   // groove TARGET = composite of streak + click% + total hits (acc + hits persist through a miss, so it doesn't tank)
   const streakN=Math.min(1,state.streak/CFG.grooveStreakFull), hitsN=Math.min(1,state.hits/CFG.grooveHitsFull), gw=CFG.grooveW;
@@ -7934,6 +7962,7 @@ function spawnTarget(opts){
   if(CFG.sing.on) singTargetSound(snd, kind, _beatSpawnK, true);   // ORBS SING THEIR DISTANCE: pitch this orb's hum from its FINAL k (the tank's close re-draw above already landed) and let its first gate-open call out. Raw boolean first so the parcel off costs one read and no call.
   tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
+  if(tg.fill16>=0) sensei2Speak('fill');   // the tag survived every election/rescue gate: this is the first real fill spawn, not merely an attempt
   if(GH_RECORD) ghostRecordSpawn(tg);   // NIGHT GHOSTS: a write-only tap after every spawn decision and RNG draw is final; the recorder returns nothing and no gameplay value can flow back
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }

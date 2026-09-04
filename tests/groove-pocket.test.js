@@ -1957,9 +1957,9 @@ test("THE GOLDEN THREAD: a landed kill sends a pulse UP the thread, and the tick
     assert.doesNotMatch(src, /ML_TETH_|ML_GOLD|e0/, `${fn} knows nothing about the pulse`);
   }
   const drain = extractFunction("starFlyDrain");
-  assert.match(drain, /if\(_starDebt\.length && _starDebtDue<=hb\)\{ for\(let k=0;k<_starDebt\.length;k\+\+\) starLitGain\(_starDebt\[k\]\); _starDebt\.length=0; _starDebtDue=0; \}/, "the debt is still paid first");
+  assert.match(drain, /if\(_starDebt\.length && _starDebtDue<=hb\)\{ for\(let k=0;k<_starDebt\.length;k\+\+\) if\(starLitGain\(_starDebt\[k\]\)===1\) sensei2Speak\('star'\); _starDebt\.length=0; _starDebtDue=0; \}/, "the debt is still paid first, with the level return only observed by Sensei");
   assert.match(drain, /if\(!_starPend\.length \|\| _starPend\[0\]\.due>hb\) return;/, "the due gate is unchanged");
-  assert.match(drain, /starLitGain\(p\.id\);\s*\/\/ THE TICK, HERE AND UNCONDITIONALLY/, "the level is still PAID at the drain, above and outside any line-building");
+  assert.match(drain, /if\(starLitGain\(p\.id\)===1\) sensei2Speak\('star'\);\s*\/\/ THE TICK, HERE AND UNCONDITIONALLY/, "the level is still PAID at the drain, above and outside any line-building");
   assert.match(drain, /if\(!\(reduceMotion \|\| i===undefined \|\| _starFly\.length>=_STAR_FLY_MAX\)\)\{/, "...and reduced motion still builds NO flight record - the existing no-line path, unchanged");
   assert.match(step, /starFlyDrain\(starBeatNow\(\)\);/, "the tick still runs ahead of the open-window freeze");
   assert.match(step, /if\(open\) return;/, "...and the freeze is still below it");

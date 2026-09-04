@@ -817,6 +817,8 @@ window.JA={
   senseiEarlynear:'ちかいこだまに リンクが はやくとどく · むこうから 来るのを まって', senseiLatenear:'ちかいこだまに リンクが おそくとどく · もう そこにいるよ',
   senseiEarlymid:'なかほどのこだまに リンクが はやくとどく · ひといき ためてから', senseiLatemid:'なかほどのこだまに リンクが おそくとどく · ひといき はやく 送って',
   senseiEarlyfar:'遠いこだまに リンクが はやくとどく · いきを させてあげて', senseiLatefar:'遠いこだまに リンクが おそくとどく · 遠い声は もっと先に 送って',
+  sensei2Mercy:'壁がひらく · なさけの一小節 · 息をして', sensei2Fill:'ドラムフィル · あわてず 言い切る',
+  sensei2Bow:'構えを解けば 礼になる · 夜はみずから終わる', sensei2Star:'声がかえった · あの星はもう きみのもの',
   decoy:'声じゃない', decoySub:'そのまま見送って', faded:'きえた', fadedSub:'つぎの声を聞こう',
   tapPerfect:'ぴったり', tapAhead:'はやい ', tapBehind:'おそい ', skyFrozen:'空をとめた', skyResumed:'空がうごく', skyNaturalNoFreeze:'空はいまの時刻どおり', skyNoChart:'ほしの印はとどかない — 空は時をきざむ', skyMockChart:'ほしの印は みほん', lock:'ロック',
   skyListenDismiss:'空のノートを閉じる', skyListenDismissHint:'右クリック or X で閉じる',
@@ -965,6 +967,7 @@ const CFG = {
   ghostGift:1,   // THE GIFT: raw flat kill-switch. 0 adds no flare candidate, projectile tag, catch state, wrapper/mail or threshold read; 1 lets a revealed prior-night flare receive one connection-only blessed shot
   gateFirst:1,   // THE GATE FIRST (SPEC_THE_INVITATION C, load scheduling): raw flat kill-switch. 0 keeps the wave-18 boot order (one synchronous shader warm at idle, texture work racing the PLAY gate); 1 lights PLAY as soon as Tone is fetchable and sequences every heavy idle job — chunked shader warm, sticks/belt/milky textures, glossary, sky day, auth, boards — AFTER the gate
   calibSilent:1,   // THE SILENT CALIBRATION (SPEC_THE_INVITATION A): raw flat kill-switch. 0 never reads the accumulator outside the pause-card button; 1 folds a newcomer's measured tap residual into the offset once, wordlessly, at graduation or the first pause
+  sensei2:1,   // MOON SENSEI II (SPEC_THE_INVITATION K): raw flat kill-switch. 0 never opens aimdojo.sensei2 and never speaks; 1 lets each post-graduation night dynamic teach itself in one line, once ever
   ghostShare:1,   // THE CHORUS LINE: raw flat kill-switch. 0 mints no relay token, allocates no visitor/mail/star state and makes no relay request; 1 shares worthy nights and seats one validated stranger on LOW or up to three plus one honest silhouette on HIGH
   ghostPhase:0,   // THE MOON REMEMBERS YOU: dormant pending the tonight-only ruling. 0 never opens aimdojo.ghostPhase or seats a phase memory; 1 keeps one browser-only worthy night per moon bucket
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
@@ -4451,7 +4454,7 @@ function roadImpSync(r){
                                         
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                             
                                       
                                                                                                                                                                                                      
@@ -4459,7 +4462,7 @@ function roadImpSync(r){
                                       
                                                                                                                                                                                                   
           
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                     
                                                                                                                                                                                               
                                                                                                       
@@ -5796,6 +5799,28 @@ function roadImpSync(r){
                                                                                        
                                      
  
+                                                                                 
+                                                                                                                                                                                                              
+                      
+                                                                
+                       
+                                                                                               
+                                      
+                                                                         
+                                                                                                                                                                                  
+                                                                                                                                           
+                                                                                                                                     
+              
+ 
+                            
+                                                                                                                                                       
+                                               
+                                      
+                                                                                                                  
+                                                                                             
+                                                                                         
+              
+ 
                                                                                                                                                                                  
                                                                            
  
@@ -6705,7 +6730,9 @@ function roadImpSync(r){
                                             
                                         
                                  
-                                                                                                                                                                                               
+                                                                                                                                                                                                 
+                                                                                                                                
+                                       
  
                      
                   
@@ -7597,7 +7624,7 @@ function roadImpSync(r){
    
                                                                                                                     
                                                                                                                        
-                                                                                                                                                  
+                                                                                                                                                                                                                                           
                               
                                                                                                                                 
                                                                                                                                                
@@ -7608,6 +7635,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                       
+                                                   
                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                          
                                                                                                                                
@@ -7934,6 +7962,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                    
+                                                                                                                                                   
                                                                                                                                                                                             
  
                                                                                                           

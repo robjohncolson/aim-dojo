@@ -817,6 +817,8 @@
                                                                                                            
                                                                                                             
                                                                                                         
+                                                                          
+                                                                            
                                                                        
                                                                                                                                                                                                         
                                                                        
@@ -965,6 +967,7 @@
                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                      
                                                                                                                                                                                  
@@ -4451,7 +4454,7 @@
                                         
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                             
                                       
                                                                                                                                                                                                      
@@ -4459,7 +4462,7 @@
                                       
                                                                                                                                                                                                   
           
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                     
                                                                                                                                                                                               
                                                                                                       
@@ -5796,6 +5799,28 @@
                                                                                        
                                      
  
+                                                                                 
+                                                                                                                                                                                                              
+                      
+                                                                
+                       
+                                                                                               
+                                      
+                                                                         
+                                                                                                                                                                                  
+                                                                                                                                           
+                                                                                                                                     
+              
+ 
+                            
+                                                                                                                                                       
+                                               
+                                      
+                                                                                                                  
+                                                                                             
+                                                                                         
+              
+ 
                                                                                                                                                                                  
                                                                            
  
@@ -6705,7 +6730,9 @@
                                             
                                         
                                  
-                                                                                                                                                                                               
+                                                                                                                                                                                                 
+                                                                                                                                
+                                       
  
                      
                   
@@ -7342,40 +7369,40 @@
                                                    
  
                                                                                                                                                                                                                                                                                                                                                                          
-                    
-                                           
-                                                                             
-                  
-                                                          
-                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                            
-                                                                                                                      
-                                                                                                                   
-                                                                                                                    
-                                                                                                                
-                                                                                                                   
-                                                                                                                     
-                                                                                                                    
-                                                
-                                                               
-                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                    
-                
-                         
-                                                                                                                                                                                      
-                                        
-                                                                                                                                                                                                                                                
-                                                                                                                                                                             
-   
-                                                           
-                 
-                          
-                                                                                                                                                                                                                                                              
-                  
-   
-                                                                           
- 
+function cardLoad(){
+  if(_cardLoaded) return; _cardLoaded=true;
+  let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                       // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a night that left no card, silently
+  if(!realCivilDate(o.d)) return;                                                            // …and d is a REAL local civil date in the memory layer's one grammar (M5). A card with no honest date can never be shown to be tonight's, so it is not a card
+  // 1.1 amendment (wave 5a review, M4): STRICT ON THE WHOLE ENVELOPE. This used to be lenient in three ways at once —
+  // a missing or foreign hits/stars array coerced to empty and STILL offered a card, a fractional phase/rule/k was
+  // truncated into range, and a wild errMs or k was clamped. That is half-trust, and a half-trusted record is worse
+  // than none (senseiLoad's law): the picture would be honest about nothing. Now every field is checked and ANY
+  // failure drops the record entirely. Everything cardSave writes passes by construction: rounded errMs inside one
+  // beat, k straight out of the ledger (0 for the unquantized fallback — bowNote's own floor, so the floor here is 0
+  // and not 1), both lists capped at maxDots, -1 for a phase the sky would not name or a rule the deal never dealt.
+  const cap=Math.max(1,CFG.nightCard.maxDots|0);
+  const phase=cardInt(o.phase,-1,7), rule=cardInt(o.rule,-1,7);
+  if(phase==null || rule==null) return;                                                      // a bucket or the sky's own -1, and nothing between: -1 draws the empty outline and leaves the card wordless, which is honest for a night that was never named
+  if(typeof o.hb!=='number' || !isFinite(o.hb) || o.hb<0 || o.hb>10000) return;              // the half-beat the glyph's angles were measured against, in ms — 0 is this build's own "unknown" (the painter falls back to the live tempo), and anything outside a plausible tempo is not this build's write
+  if(!Array.isArray(o.hits) || o.hits.length>cap) return;                                    // the ledger is an ARRAY and it is already capped — an over-long one was not written here, and truncating it would be inventing which arrivals to keep
+  const hits=[];
+  for(const h of o.hits){
+    if(!Array.isArray(h) || h.length!==2) return;                                            // a pair, exactly: a nested object, a bare number, a triple — none of them is an arrival
+    const e=h[0], k=cardInt(h[1],0,999);
+    if(typeof e!=='number' || !isFinite(e) || e<-5000 || e>5000 || k==null) return;          // a null (what a NaN or an Infinity becomes the moment it is written), a numeric string, a fractional k: the whole night goes with any one of them
+    hits.push({errMs:e, k:k});                                                               // handed to bowGlyphPaint in the shape it takes live — validated, never clamped
+  }
+  if(!Array.isArray(o.stars) || o.stars.length>cap) return;
+  const stars=[];
+  for(const s of o.stars){
+    if(typeof s!=='string' || !STAR_ID_RE.test(s)) return;                                   // wave 3's OWN id grammar, reused: an id the lit sky would refuse cannot halo a star here either — and now it takes the record with it rather than being skipped
+    stars.push(s);
+  }
+  _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
+}
 function cardSave(){
   // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
   // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
@@ -7597,7 +7624,7 @@ function onGrid(time){
   }
   // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
   // chord walk, so the swell is locked to the arrangement without touching the Transport. Everything downstream READS.
-  let tideBloom=false, fillArm=-1;   // fillArm = the fill bar's downbeat (grid8) when THIS slot may elect the swell's one drum-fill tank, else -1
+  let tideBloom=false, fillArm=-1, wasMercy=tideMercy;   // fillArm = the fill bar's downbeat (grid8) when THIS slot may elect the swell's one drum-fill tank, else -1; wasMercy makes the teaching hook a transition, not a mercy-bar poll
   if(CFG.tide && CFG.tide.on){
     const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);
     const bar=Math.floor(grid8/8), cb=bar%cyc, f=(grid8%8)/8, down=(grid8%8)===0;   // cb = bar within the swell, f = fraction through that bar
@@ -7608,6 +7635,7 @@ function onGrid(time){
     if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; if(CFG.chorus.on) chorusShut(time); }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet). THE STANDING CHORUS's gate hard-closes on the SAME latch: the mercy chord's release would otherwise bleed 2.5 s of held slack into the swell, and "silent during combat" is meant literally — the rise's first beat sounds into a bus already ramped to nothing. Raw boolean first, and this is the tide's own boundary, not a second clock
     if(CFG.tank.fillOnly && cb===rise+peak-1 && (grid8%8)<4 && _fillSpent8!==bar*8) fillArm=bar*8;   // THE TANK IS A DRUM FILL: the swell's FINAL PEAK BAR (the bar before mercy) is the only window, and only its first half — an orb elected on beat 1 or 2 still has two full beats of lead before the figure's first note on the "4". _fillSpent8 makes it at most once per swell. Raw kill-switch first, and the bar index is the tide block's own (no second bar clock anywhere)
   } else { tideI=1; tideMercy=false; }
+  if(tideMercy && !wasMercy) sensei2Speak('mercy');
   const tideLift=(CFG.tide && CFG.tide.on) ? (CFG.tide.padPeakVel||0)*(tideBloom?1:tideI) : 0;   // velocity lift shaped by the swell; full on the mercy bloom. 0 with the parcel off → every trigger keeps its literal velocity
   const _acc=windowAccuracy(), accN=_acc==null?0:Math.max(0,Math.min(1,(_acc-CFG.grooveAccLo)/(CFG.grooveAccHi-CFG.grooveAccLo)));   // groove TARGET = composite of streak + click% + total hits (acc + hits persist through a miss, so it doesn't tank)
   const streakN=Math.min(1,state.streak/CFG.grooveStreakFull), hitsN=Math.min(1,state.hits/CFG.grooveHitsFull), gw=CFG.grooveW;
@@ -7934,6 +7962,7 @@ function spawnTarget(opts){
   if(CFG.sing.on) singTargetSound(snd, kind, _beatSpawnK, true);   // ORBS SING THEIR DISTANCE: pitch this orb's hum from its FINAL k (the tank's close re-draw above already landed) and let its first gate-open call out. Raw boolean first so the parcel off costs one read and no call.
   tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
+  if(tg.fill16>=0) sensei2Speak('fill');   // the tag survived every election/rescue gate: this is the first real fill spawn, not merely an attempt
   if(GH_RECORD) ghostRecordSpawn(tg);   // NIGHT GHOSTS: a write-only tap after every spawn decision and RNG draw is final; the recorder returns nothing and no gameplay value can flow back
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }
@@ -9726,49 +9755,49 @@ function ghostGiftCatch(row,t){
   ghostCatchBurst(row,t,_ghGiftImpactPos); _ghGiftLockedRow=null;
   return true;
 }
-function ghostGiftProjectileHit(pr){
-  if(GH_MULTI && !_ghostSeatBusy && pr){ const seat=_ghostSeatRows&&_ghostSeatRows.get(pr.giftRow); if(seat) return ghostGiftSeatProjectileHit(seat,pr); }
-  if(!GH_GIFT || !pr || !pr.gift || !pr.giftRow) return false;
-  if(!ghostGiftSync(pr.giftRoadT)){ if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.life)){ const cursor=pr.giftLaunchT+Math.max(0,pr.life); pr.giftRoadT=Number.isFinite(pr.giftRoadT)?Math.max(pr.giftRoadT,cursor):cursor; } return false; }
-  const currentT=_ghGiftRoadT, priorT=Number.isFinite(pr.giftRoadT)?Math.min(currentT,pr.giftRoadT):currentT, arrivalT=pr.giftRow[3], endT=Math.min(currentT,arrivalT);
-  pr.giftRoadT=currentT;
-  if(endT<priorT || !ghostGiftable(pr.giftRow,endT,_ghGiftReveal)) return false;
-  const rr2=GH_GIFT_R*GH_GIFT_R; let hit=false;
-  if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX)){
-    const first=Math.max(1,Math.floor(Math.max(0,priorT-pr.giftLaunchT)/GH_GIFT_STEP)+1), last=Math.floor(Math.max(0,endT-pr.giftLaunchT)/GH_GIFT_STEP+1e-9);
-    for(let n=first;n<=last;n++){ const t=n*GH_GIFT_STEP, k=0.5*t*(t+GH_GIFT_STEP); ghostTargetPosition(pr.giftRow,pr.giftLaunchT+t,_ghGiftImpactPos); const dx=pr.giftX+pr.giftVx*t+windX*k-_ghGiftImpactPos.x, dy=pr.giftY+pr.giftVy*t-CFG.projGravity*k-_ghGiftImpactPos.y, dz=pr.giftZ+pr.giftVz*t+windZ*k-_ghGiftImpactPos.z; if(dx*dx+dy*dy+dz*dz<=rr2){ hit=true; break; } }
-  }
-  if(!hit){
-    const span=currentT-priorT, uT=span>0?(endT-priorT)/span:0;
-    ghostTargetPosition(pr.giftRow,priorT,_ghGiftPrevPos); ghostTargetPosition(pr.giftRow,endT,_ghGiftImpactPos);
-    const px=_prev.x+(pr.pos.x-_prev.x)*uT, py=_prev.y+(pr.pos.y-_prev.y)*uT, pz=_prev.z+(pr.pos.z-_prev.z)*uT;
-    const ax=_prev.x-_ghGiftPrevPos.x, ay=_prev.y-_ghGiftPrevPos.y, az=_prev.z-_ghGiftPrevPos.z, bx=px-_ghGiftImpactPos.x, by=py-_ghGiftImpactPos.y, bz=pz-_ghGiftImpactPos.z;
-    const sx=bx-ax, sy=by-ay, sz=bz-az, l2=sx*sx+sy*sy+sz*sz; let u=l2>0?-(ax*sx+ay*sy+az*sz)/l2:0; u=u<0?0:u>1?1:u;
-    const dx=ax+sx*u, dy=ay+sy*u, dz=az+sz*u; hit=dx*dx+dy*dy+dz*dz<=rr2;
-  }
-  if(hit) _ghGiftRoadT=endT;
-  return hit;
-}
-function ghostBurstSpawn(row){
-  if(!_ghBurstPool || !row) return;
-  ghostTargetPosition(row,row[5],_ghPos);
-  for(let i=0;i<3;i++){
-    const bird=_ghBurstPool[_ghBurstNext++%GH_BURST_MAX], seed=(row[2]+1)*131+i*977, a=ghostHashUnit(seed)*Math.PI*2, lift=ghostHashUnit(seed+31);
-    bird.on=true; bird.catch=false; bird.core=false; bird.born=row[5]; bird.lane=row[1]; bird.x=_ghPos.x; bird.y=_ghPos.y; bird.z=_ghPos.z; bird.vx=Math.cos(a)*(1.4+lift*1.8); bird.vy=1.0+lift*2.0; bird.vz=Math.sin(a)*(1.4+lift*1.8); bird.spin=(ghostHashUnit(seed+71)-0.5)*4;
-  }
-}
-function ghostSeatAdvance(t){
-  const record=_ghostSeatRecord;
-  if(!record) return;
-  if(t<_ghLastTime){ ghostSeatPrepare(record); }
-  while(_ghTargetCursor<record.targets.length && record.targets[_ghTargetCursor][0]<=t){
-    if(_ghActiveTargets.length>=GH_TARGET_MAX) _ghActiveTargets.shift();
-    _ghActiveTargets.push(record.targets[_ghTargetCursor++]);
-  }
-  while(_ghHitCursor<_ghHitRows.length && _ghHitRows[_ghHitCursor][5]<=t){ ghostBurstSpawn(_ghHitRows[_ghHitCursor]); _ghHitCursor++; }
-  while(_ghFireCursor<record.fires.length && record.fires[_ghFireCursor][0]<=t){ const fire=record.fires[_ghFireCursor++]; _ghostAvatar.rotation.set(fire[2],GH_AVATAR_YAW_SIGN*fire[1],0,'YXZ'); }
-  _ghLastTime=t;
-}
+                                    
+                                                                                                                                                          
+                                                              
+                                                                                                                                                                                                                                                      
+                                                                                                                                                                       
+                        
+                                                                                
+                                               
+                                                                 
+                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                   
+   
+           
+                                                               
+                                                                                                                 
+                                                                                                               
+                                                                                                                                                                              
+                                                                                                                    
+                                                                         
+   
+                            
+             
+ 
+                              
+                                   
+                                         
+                       
+                                                                                                                                                  
+                                                                                                                                                                                                                                                                                   
+   
+ 
+                             
+                                
+                     
+                                                
+                                                                                        
+                                                                        
+                                                             
+   
+                                                                                                                                       
+                                                                                                                                                                                                   
+                
+ 
                                                 
                                                   
                                                        

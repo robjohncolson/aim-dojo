@@ -817,6 +817,8 @@
                                                                                                            
                                                                                                             
                                                                                                         
+                                                                          
+                                                                            
                                                                        
                                                                                                                                                                                                         
                                                                        
@@ -965,6 +967,7 @@
                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                      
                                                                                                                                                                                  
@@ -4451,7 +4454,7 @@
                                         
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                             
                                       
                                                                                                                                                                                                      
@@ -4459,7 +4462,7 @@
                                       
                                                                                                                                                                                                   
           
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                     
                                                                                                                                                                                               
                                                                                                       
@@ -5796,6 +5799,28 @@ function showTrainCoach(msg, ephemeral){
   // training tips stay on; graduation/ephemeral messages auto-hide after a few seconds
   _trainCoachT=msg?(ephemeral?5:0):0;
 }
+const SENSEI2_KEY='aimdojo.sensei2', SENSEI2_KINDS=['mercy','fill','bow','star'];
+const SENSEI2_EN={mercy:'THE WALL OPENS · MERCY · BREATHE',fill:"A DRUM FILL · STATE IT, DON'T FLURRY",bow:'HOLSTER TO BOW · THE NIGHT ENDS ON PURPOSE',star:'A VOICE CARRIED HOME · THAT STAR IS YOURS NOW'};
+let _sensei2Seen=null;
+function sensei2Empty(){ return {mercy:0,fill:0,bow:0,star:0}; }
+function sensei2Load(){
+  let raw=null; try{ raw=localStorage.getItem(SENSEI2_KEY); }catch(e){ return sensei2Empty(); }
+  if(raw==null) return sensei2Empty();
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return sensei2Empty(); }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1 || Object.keys(o).length!==2 || !o.seen || typeof o.seen!=='object' || Array.isArray(o.seen)) return sensei2Empty();
+  const keys=Object.keys(o.seen); if(keys.length!==SENSEI2_KINDS.length || keys.some(k=>SENSEI2_KINDS.indexOf(k)<0)) return sensei2Empty();
+  const seen=sensei2Empty(); for(const k of SENSEI2_KINDS){ const v=o.seen[k]; if(v!==0 && v!==1) return sensei2Empty(); seen[k]=v; }
+  return seen;
+}
+function sensei2Speak(kind){
+  if(!CFG.sensei2 || trainMode || templeActive || SENSEI2_KINDS.indexOf(kind)<0) return false;   // raw knob first: off means no storage touch, no line
+  if(!_sensei2Seen) _sensei2Seen=sensei2Load();
+  if(_sensei2Seen[kind]) return false;
+  _sensei2Seen[kind]=1;   // accrete in memory first: a blocked quota cannot repeat the line during this page life
+  try{ localStorage.setItem(SENSEI2_KEY,JSON.stringify({v:1,seen:_sensei2Seen})); }catch(e){}
+  showTrainCoach(T('sensei2'+kind[0].toUpperCase()+kind.slice(1),SENSEI2_EN[kind]),true);
+  return true;
+}
 function wasdBeatsHeard(){   // letter/floor cues must match input grading + orb glow (audioLat-corrected). Trainer uses this so Bluetooth/offset users see the pocket they hear.
   const bps=60/Math.max(20,state.bpm); return wasdBeats() - audioLat()/bps;
 }
@@ -6705,7 +6730,9 @@ function bowClock(dt){
   if(bowHolding()){ bowUpdate(dt); return; }
   if(!bowLive()){ _bow.idle=0; return; }
   const B=CFG.bow; _bow.idle+=dt;
-  if(_bow.idle>=Math.max((B.holsterBeats||0)*(60/Math.max(20,state.bpm)), B.holsterMinSec||0)) bowCommit();   // the SLOWER of the two clocks wins, so a slow night can't bow on a short breath
+  const threshold=Math.max((B.holsterBeats||0)*(60/Math.max(20,state.bpm)), B.holsterMinSec||0);   // one authority for the teaching breath and the actual Bow: the SLOWER of the two clocks wins
+  if(_bow.idle>=threshold*0.5) sensei2Speak('bow');   // halfway is still play: name the gesture before the Bow closes the night
+  if(_bow.idle>=threshold) bowCommit();
 }
 function bowCommit(){
   const B=CFG.bow;
@@ -7342,40 +7369,40 @@ function cardStar(id){
   if(_cardStars.indexOf(id)<0) _cardStars.push(id);
 }
 function cardInt(v,lo,hi){ return (typeof v==='number' && isFinite(v) && Math.floor(v)===v && v>=lo && v<=hi) ? v : null; }   // 1.1 amendment (M4): the senseiNum discipline for this envelope's integers — a TYPE test before a value test, and a fraction is a REJECTION rather than something to truncate. A null rejects the whole record at the call site, silently
-function cardLoad(){
-  if(_cardLoaded) return; _cardLoaded=true;
-  let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                       // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a night that left no card, silently
-  if(!realCivilDate(o.d)) return;                                                            // …and d is a REAL local civil date in the memory layer's one grammar (M5). A card with no honest date can never be shown to be tonight's, so it is not a card
-  // 1.1 amendment (wave 5a review, M4): STRICT ON THE WHOLE ENVELOPE. This used to be lenient in three ways at once —
-  // a missing or foreign hits/stars array coerced to empty and STILL offered a card, a fractional phase/rule/k was
-  // truncated into range, and a wild errMs or k was clamped. That is half-trust, and a half-trusted record is worse
-  // than none (senseiLoad's law): the picture would be honest about nothing. Now every field is checked and ANY
-  // failure drops the record entirely. Everything cardSave writes passes by construction: rounded errMs inside one
-  // beat, k straight out of the ledger (0 for the unquantized fallback — bowNote's own floor, so the floor here is 0
-  // and not 1), both lists capped at maxDots, -1 for a phase the sky would not name or a rule the deal never dealt.
-  const cap=Math.max(1,CFG.nightCard.maxDots|0);
-  const phase=cardInt(o.phase,-1,7), rule=cardInt(o.rule,-1,7);
-  if(phase==null || rule==null) return;                                                      // a bucket or the sky's own -1, and nothing between: -1 draws the empty outline and leaves the card wordless, which is honest for a night that was never named
-  if(typeof o.hb!=='number' || !isFinite(o.hb) || o.hb<0 || o.hb>10000) return;              // the half-beat the glyph's angles were measured against, in ms — 0 is this build's own "unknown" (the painter falls back to the live tempo), and anything outside a plausible tempo is not this build's write
-  if(!Array.isArray(o.hits) || o.hits.length>cap) return;                                    // the ledger is an ARRAY and it is already capped — an over-long one was not written here, and truncating it would be inventing which arrivals to keep
-  const hits=[];
-  for(const h of o.hits){
-    if(!Array.isArray(h) || h.length!==2) return;                                            // a pair, exactly: a nested object, a bare number, a triple — none of them is an arrival
-    const e=h[0], k=cardInt(h[1],0,999);
-    if(typeof e!=='number' || !isFinite(e) || e<-5000 || e>5000 || k==null) return;          // a null (what a NaN or an Infinity becomes the moment it is written), a numeric string, a fractional k: the whole night goes with any one of them
-    hits.push({errMs:e, k:k});                                                               // handed to bowGlyphPaint in the shape it takes live — validated, never clamped
-  }
-  if(!Array.isArray(o.stars) || o.stars.length>cap) return;
-  const stars=[];
-  for(const s of o.stars){
-    if(typeof s!=='string' || !STAR_ID_RE.test(s)) return;                                   // wave 3's OWN id grammar, reused: an id the lit sky would refuse cannot halo a star here either — and now it takes the record with it rather than being skipped
-    stars.push(s);
-  }
-  _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
-}
+                    
+                                           
+                                                                             
+                  
+                                                          
+                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                            
+                                                                                                                      
+                                                                                                                   
+                                                                                                                    
+                                                                                                                
+                                                                                                                   
+                                                                                                                     
+                                                                                                                    
+                                                
+                                                               
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                    
+                
+                         
+                                                                                                                                                                                      
+                                        
+                                                                                                                                                                                                                                                
+                                                                                                                                                                             
+   
+                                                           
+                 
+                          
+                                                                                                                                                                                                                                                              
+                  
+   
+                                                                           
+ 
                     
                                                                                                                     
                                                                                            
@@ -7597,7 +7624,7 @@ function cardLoad(){
    
                                                                                                                     
                                                                                                                        
-                                                                                                                                                  
+                                                                                                                                                                                                                                           
                               
                                                                                                                                 
                                                                                                                                                
@@ -7608,6 +7635,7 @@ function cardLoad(){
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                       
+                                                   
                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                          
                                                                                                                                
@@ -7934,6 +7962,7 @@ function cardLoad(){
                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                      
                                                                    
+                                                                                                                                                   
                                                                                                                                                                                             
  
                                                                                                           
