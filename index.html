@@ -1041,7 +1041,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, mercyInverse:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0, wallEcho:0 and mercyInverse:0 independently restore their preceding shipped emissions. mercyInverse owns only the mercy marker: zero keeps the Wave 11.1 ring, rose and veil; one builds the inverse pane and crown star. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, mercyInverse:1, doorCross:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0, wallEcho:0, mercyInverse:0 and doorCross:0 independently restore their preceding shipped emissions. mercyInverse owns only the mercy marker: zero keeps the Wave 11.1 ring, rose and veil; one builds the inverse pane and crown star. doorCross owns the bar-line bloom/whoosh and emits no shader token or audio node at zero. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080, link:1 },   // link:1 (SPEC_THE_INVITATION B) paints the site's host under the date — the card is the invitation; 0 → cardCompose byte-identical   // on:false → nothing is captured after the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -1945,6 +1945,7 @@ const ML_WALLS=ML_NAVE && !!(CFG.moonline && CFG.moonline.wallsOn) && (+CFG.moon
 const ML_WALL_EXHALE=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallExhale)?Math.max(0,Math.min(1,+CFG.moonline.wallExhale||0)):0;   // THE EXHALE, raw knob first: zero preserves Wave 11's uK values and emitted wall text exactly; a fractional live value scales the two named radius pull-ins without another uniform
 const ML_WALL_ECHO=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallEcho);   // THE ECHO, raw boolean first: false excludes both stamps, every echo varying, and all response maths from the wall program
 const ML_MERCY_INVERSE=ML_WALLS && !!(CFG.moonline && CFG.moonline.mercyInverse);   // THE INVERSE, raw boolean first: false emits the Wave 11.1 ring/rose/veil family byte-for-byte; true adds the shared-geometry filter and its late road-depth guard only at the mercy station
+const ML_DOOR_CROSS=ML_NAVE && !!(CFG.moonline && CFG.moonline.doorCross);   // THE DOORWAYS ARE EVENTS: a build-time child of the nave. False emits the complete Wave 18 arch/wall shader family byte-for-byte and never builds the dedicated whoosh voice; wallsOn:false still lets the white gate it restores answer on the same bar law
 const ML_WALL_STAR=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallStar);   // THE ONE STAR (user, 2026-08-21): the gold apex star over EVERY door read as wallpaper and was removed; false leaves the star to the MERCY gate alone (the accent point still exists per slot because mercy rotates through them — the shader gates it), true restores the rising string   // WAVE 11 MASTER, raw boolean first: false never reaches a wall/veil/through-glow builder and leaves the Wave 10 nave selected; wallDissolve:0 is the promised build silence
 const ML_SAT=ML_WALLS && ML_MARK && (+CFG.moonline.wallSat>0);             // SATURATED ON THE BEAT belongs to the Wave 11 master: wallsOn:false or wallDissolve:0 cannot leak one uniform or GLSL token; wallSat:0 still isolates Wave 10's resting fill while walls remain
 const ML_HEADING_KEEP=ML_NAVE?Math.max(0,Math.min(1,+CFG.moonline.curveHeading||0)):0;   // keep only a small fraction of tonight's tangent; zero is Wave 9's complete re-base
@@ -2007,6 +2008,7 @@ const ML_WALL_REAR0=-(ML_ARCH_BEHIND+ML_ARCH_EVERY), ML_WALL_REAR1=-ML_ARCH_BEHI
 const ML_WALL_CHALK=[0xbf7486,0x6f91bc,0x789b6b,0xb99a49,0x8d70ac,0xc48465,0x6ea895];   // night-corrected rose, powder, sage, butter, lilac, peach, mint — chamber pigments, never lane colours
 const ML_WALL_EXHALE2=0.60, ML_WALL_EXHALE1=0.30;                         // two bars out the powder reaches 40% inward; one bar out it reaches 70% — the mercy gap itself remains Wave 11's no-wall span
 const ML_WALL_ECHO_LIFT=0.12, ML_WALL_ECHO_BEATS=1.5, ML_WALL_ECHO_WIDTH=8, ML_WALL_ECHO_SPEED=ML_ARCH_EVERY*ROAD_MPB, ML_WALL_ECHO_DIM=0.10, ML_WALL_ECHO_DIM_BEATS=0.5, ML_WALL_ECHO_STILL_BEATS=1;   // one chamber per beat, an eight-metre warm-white front, bounded lift, and the clank's half-beat wince
+const ML_CROSS_LIFT=0.18, ML_CROSS_BEATS=1.0, DOOR_WHOOSH_DB=-26, DOOR_WHOOSH_SEC=0.22, DOOR_WHOOSH_HZ=[520,140];   // a doorway answers for one beat: its warm-white front gains 18% (a still 6% under reduced motion), while the tide-gated triangle falls through one quiet 220 ms sweep
 const ML_DUST_MAX=400;                                                    // the hard cap SPEC §4 names, enforced on the CFG read below so no console typo can put 40000 motes on the road
 const ML_DUST_N=ML_RIBBON&&!LOW&&!reduceMotion?Math.max(0,Math.min(ML_DUST_MAX,(+CFG.moonline.dustCount||0)|0)):0;   // …and LOW turns the dust off by BUILDING NONE OF IT (SPEC §4): no buffer, no material, no draw call, no uniform. WAVE 8.2 (Y1) ADDS reduceMotion TO THE SAME READ: the dust is now the SPACE STREAMING PAST YOU and nothing else — a standing volumetric field is not a quieter version of that cue, it is a fog of dots with no meaning left in it — so reduced motion switches it off exactly the way LOW does, at build time, and the ribbon, the arches and the crossbar tier carry the sixteenth on their own (SPEC_MOONLINE §1.2)
 /* THE DUST WAS SPENT WHERE THE EYE CANNOT RESOLVE IT (wave 8.1 — user first light: "I do not see any stardust coming").
@@ -2072,6 +2074,7 @@ const _roadTerrainBase=new THREE.Vector2(0,0), _roadHorizon=new Float32Array(ROA
 const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], _roadMark=new THREE.Color();   // the LANE's own four colours and the FILL's own amber — filled from WASD_HEX / TANK_COLOR in roadSync's one-time block, because both of those literals are declared further down the file and this parcel refuses to keep a second copy of either
 const _wallCol=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNext=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNight=new Uint32Array(ML_WALL_PAL_N); let _wallNightReady=false;
 const _wallHit={value:-1e9}, _wallMiss={value:-1e9};                     // shared uniform OBJECTS: gameplay writes only these stamps; every wall-family material that names one borrows this exact pair
+const _wallCross={value:-1e9};                                            // the third road-clock sink: one doorway stamp borrowed by both the wall and arch materials; no gameplay path reads it back
 const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};                         // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate
 function roadWallPalette(seed){
   if(_wallNightReady) return _wallNight;
@@ -2138,6 +2141,7 @@ function roadFillGates(){
 }
 const _roadWake=new Uint8Array(ROAD_WAKE);                                // THE WAKE ring: beat n's verdict at n mod ROAD_WAKE. 0 = never judged · 1 = landed · 2 = missed
 let _roadWakeTo=-1e9, _roadWakeFrom=1e9, _roadHitBeat=-1e9, _roadBeat0=NaN, _roadLastR=-1e9;
+let _roadBar0=NaN;                                                        // doorway latch: NaN seats the opening chamber silently; only a later absolute-bar change is a crossing
 /* THE PLAYABILITY EPOCH (v1.2 amendment — THE WAKE RECORDS ONLY JUDGED BEATS). The wake used to take its verdict from the state
    at the moment of WRITING, which conflated "no landed tap" with "MISSED" for beats the lane never judged at all: the trainer's
    lesson beats came back as post-graduation misses on the graduation frame's catch-up (W1), and the Bow's ceremony beats — input
@@ -2326,12 +2330,12 @@ function buildRoadArches(){
   g.setIndex(new THREE.BufferAttribute(idx,1));
   const U=roadMat.uniforms, M=CFG.moonline;
   roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
-    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath,   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes — and wave 8.1's BREATH joins them on the same terms, so the gold cannot swell a frame before or after the ribbon it is grown from
+    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}),   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes — and wave 8.1's BREATH joins them on the same terms, so the gold cannot swell a frame before or after the ribbon it is grown from. The doorway pair is emitted only on its own arm and borrows the same clock/stamp objects
                uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)},
                uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))},
                uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind}, uCol:{value:new THREE.Color(ML_GOLD)} },
     vertexShader:[
-      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
       'attribute vec2 aMW; varying float vV,vNode,vAmt,vTh;',
       'void main(){',
       '  float t=position.y, side=position.z, mir=aMW.x, w=aMW.y;',
@@ -2345,10 +2349,11 @@ function buildRoadArches(){
       '  vec2 rad=normalize(vec2(xl,yl)+vec2(0.0,1e-4));',                                                        // the strip widens along the arc's own RADIUS, so "inner" and "outer" are properties of the ARCH and not of where the camera happens to be
       '  gl_Position=projectionMatrix*viewMatrix*vec4(Pc+vec3(rad*(hw*w),0.0),1.0);',
       '  float mercy=uK[int(position.x)];',                                                                       // this bar OPENS the mercy phase → the mirror half stops being a reflection and closes the circle
+      ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, gateB=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x, crossLocal=step(0.0,uNow-gateB)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-gateB)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
       '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',                       // the arches die exactly where the ribbon does — the same ramp, so there is no gate hanging over a road that has ended
       '  float hlf=mix(1.0, mix(uReflect,1.0,mercy), step(mir,0.0));',                                            // reflectAlpha:0 silences every reflection and leaves the RING untouched: its lower half is not a reflection of anything
       '  vV=w; vTh=th; vNode=smoothstep(0.86,1.0,abs(t));',                                                       // THE JUNCTION NODES, for free: the bright gold is the strand's own last 14%, which is exactly where it meets the rail
-      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf*(1.0+uBreath*'+_roadG(ML_ARCH_BREATH)+');',   // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon. THE BREATH rides here, per VERTEX, on the amount that already scales every fragment of this strand: 45% of the ribbon's swell, one multiply-add, and the discard below still rejects a dark slot before a single exp()
+      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',   // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon. THE BREATH rides here, per VERTEX, on the amount that already scales every fragment of this strand: 45% of the ribbon's swell. A crossing adds its envelope INSIDE that same term, never replaces it; the off arm emits the prior expression character-for-character
       '}'
     ].join('\n'),
     // THE PRISM AND THE AURORA ARE NOT EMITTED ON LOW (ML_ARCH_RICH — the ROAD_GLYPH_PASS pattern): SPEC §4 asks for "plain
@@ -2392,14 +2397,15 @@ function buildRoadArches(){
     nq(k,10,-1,1,-1,1,1); nq(k,11,-1,1,-1,1,1);
   }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(p,3)); g.setAttribute('aKind',new THREE.Float32BufferAttribute(kd,1)); g.setAttribute('aMir',new THREE.Float32BufferAttribute(mr,1)); g.setAttribute('aUV',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(ix);
-  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBite:U.uBite, uTerrain:U.uTerrain, uTerrainBase:U.uTerrainBase, uHorizon:U.uHorizon, uBreath:U.uBreath, uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };   // terrain, cached horizon and bite are the road's uniform OBJECTS, never copies; the old shader text simply does not name them when either switch is off
+  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBite:U.uBite, uTerrain:U.uTerrain, uTerrainBase:U.uTerrainBase, uHorizon:U.uHorizon, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}), uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };   // terrain, cached horizon and bite are the road's uniform OBJECTS, never copies; the old shader text simply does not name them when either switch is off. Door-cross on borrows the same stamp and clock objects as the classic arch
   const naveVert=[
-    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
     ...(ML_BITE?['uniform vec3 uBite;']:[]),
     'attribute float aKind,aMir; attribute vec2 aUV; varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
     ...(ML_TERRAIN?[roadTerrainShader()]:[]),
     'void main(){',
     '  float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
+    ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, crossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
     '  float xl=position.y, yl=position.z, th=0.0, show=1.0;',
     '  if(aKind<0.5){ th=3.14159265*position.y; float r=mix(mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy),mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy),position.z); xl=r*cos(th); yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+r*sin(th); }',
     '  else if(aKind<3.5){ show=1.0-mercy; }',
@@ -2412,7 +2418,7 @@ function buildRoadArches(){
     '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',
     '  float refl=aMir>0.0?1.0:mix(0.50*exp(-abs(yl)/6.0),0.66*exp(-abs(yl)/26.0),mercy);',
     ...(ML_TERRAIN?['  vTerrainVis=terrainVis(u,cx+xl,yl); yl+=cyAt(u);']:[]),
-    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+uBreath*'+_roadG(ML_ARCH_BREATH)+');',
+    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',
     '  gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,yl,-u+(aKind>9.5?0.12:0.0),1.0);',
     '}'
   ].join('\n');
@@ -2524,9 +2530,9 @@ function buildNaveVeil(){
   roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
 function roadWallVertexShader(){ return [
-  'uniform float uNow,uArchN0,uWallSeed'+(ML_WALL_ECHO&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
+  'uniform float uNow,uArchN0,uWallSeed'+((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
   ...(ML_BITE?['uniform vec3 uBite;']:[]),
-  'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
+  'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(ML_TERRAIN?[roadTerrainShader()]:[]),
   'void main(){',
   '  float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
@@ -2534,12 +2540,12 @@ function roadWallVertexShader(){ return [
   '  float cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
   '  vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x);',
   ...(ML_TERRAIN?['  vWallTerrain=terrainVis(u,P.x,0.0); P.y+=cyAt(u);']:[]),
-  '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);'+(ML_WALL_ECHO?' vWallClock='+(reduceMotion?'uPulse':'uNow')+'; vWallLocal=1.0-step(1.5,abs(floor(b/'+_roadG(ML_ARCH_EVERY)+')-floor(uNow/'+_roadG(ML_ARCH_EVERY)+')));':''),   // echo AGE follows reduced-motion's live uPulse clock, but LOCALITY follows pinned uNow so the standing chamber remains able to answer at any later beat
+  '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);'+(ML_WALL_ECHO?' vWallClock='+(reduceMotion?'uPulse':'uNow')+'; vWallLocal=1.0-step(1.5,abs(floor(b/'+_roadG(ML_ARCH_EVERY)+')-floor(uNow/'+_roadG(ML_ARCH_EVERY)+')));':'')+(ML_DOOR_CROSS?((ML_WALL_ECHO?'':' vWallClock='+(reduceMotion?'uPulse':'uNow')+';')+' vWallCrossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b));') : ''),   // event AGE follows reduced-motion's live uPulse clock; echo locality keeps its three-chamber answer, while crossing locality selects only the doorway behind the eye for the chamber just entered (uNow stays pinned under reduced motion)
   '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
   '}'
 ].join('\n'); }
 function roadWallFragmentShader(){ return [
-  'uniform float uWallDissolve,uWallGlow'+(ML_WALL_ECHO?',uWallHit,uWallMiss':'')+'; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
+  'uniform float uWallDissolve,uWallGlow'+(ML_WALL_ECHO?',uWallHit,uWallMiss':'')+(ML_DOOR_CROSS?',uWallCross':'')+'; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(!LOW?[
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
@@ -2573,6 +2579,11 @@ function roadWallFragmentShader(){ return [
   '  vec3 echoWarm=vec3(1.0,0.97,0.90); float wallLum=dot(col,vec3(0.2126,0.7152,0.0722)), echoWarmLum=dot(echoWarm,vec3(0.2126,0.7152,0.0722)); float echoLift=min(wallLum*'+_roadG(ML_WALL_ECHO_LIFT)+'*hitEcho,max(0.0,(1.0-wallLum)/echoWarmLum)); col+=echoWarm*echoLift;'
   ]:[])
   ]:[]),
+  ...(ML_DOOR_CROSS?[
+  '  float crossAge=vWallClock-uWallCross, crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge);',
+  '  float crossFront='+(reduceMotion?'1.0':'1.0-smoothstep('+_roadG(ML_WALL_ECHO_WIDTH*0.5)+','+_roadG(ML_WALL_ECHO_WIDTH)+',abs(d-crossAge*'+_roadG(ML_WALL_ECHO_SPEED)+'))')+', crossEvent=crossEnv*crossFront*vWallCrossLocal*powder*step(0.0,y);',
+  '  vec3 crossWarm=vec3(1.0,0.97,0.90); float crossLum=dot(col,vec3(0.2126,0.7152,0.0722)), crossWarmLum=dot(crossWarm,vec3(0.2126,0.7152,0.0722)); float crossLift=min(crossLum*'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEvent,max(0.0,(1.0-crossLum)/crossWarmLum)); col+=crossWarm*crossLift;'
+  ]:[]),
   '  gl_FragColor=vec4(col*vWallFade,1.0);',
   '}'
 ].join('\n'); }
@@ -2602,7 +2613,7 @@ function buildRoadWalls(){
   const pos=new Float32Array(ML_WALL_N*12), idx=new Uint16Array(ML_WALL_N*6); let po=0,io=0;
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
-  const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_WALL_ECHO&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; the echo pair and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
+  const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_DOOR_CROSS?{uWallCross:_wallCross}:{}),...((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; every enabled event stamp and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
   const wallVS=roadWallVertexShader();
   roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
   roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
@@ -2729,7 +2740,7 @@ function roadArchFill(n0){
   const HW=_roadG(ROAD_HALF_W), INV=_roadG(1/ROAD_MPB), SL=_roadG(ROAD_SLOTS), WK=_roadG(ROAD_WAKE), ISL=_roadG(1/ROAD_SLOTS);   // INV: metres → beats. ROAD_MPB IS ROAD_BAND_M with moonline.on:false, so this literal is the one wave 7 compiled
   const LWC=_roadG(ROAD_LINE_PX/(EYE*(180/Math.PI)*(1080/95)));           // metres of crossbar thickness per d² — the constant-pixel law, from the same optics ROAD_TIER_D came from
   const TIER=(rate,k)=>_roadG(ROAD_TIER_W[k])+'*(1.0-smoothstep('+_roadG(ROAD_TIER_D*Math.pow(2,k))+','+_roadG(ROAD_TIER_D*Math.pow(2,k+1))+',d))*xb(b*'+_roadG(rate)+',min('+_roadG(ROAD_LINE_MAX)+',lwm*'+_roadG(rate/ROAD_MPB)+'))';   // ONE crossbar tier: its weight × its distance window × the line itself. Rate 16 = the sixteenth carrier, 4 = the quarter, 1 = the "1", 0.25 = the bar
-  const PULSE=reduceMotion&&ML_WALL_ECHO?'(abs(fract(uPulse+0.5)-0.5)<0.12?1.0:0.0)':'uPulse';   // echo reuses this existing shared object as the live road clock only on the standing path; every road pulse reconstructs its shipped binary envelope with WebGL1-safe arithmetic
+  const PULSE=reduceMotion&&(ML_WALL_ECHO||ML_DOOR_CROSS)?'(abs(fract(uPulse+0.5)-0.5)<0.12?1.0:0.0)':'uPulse';   // either standing wall event reuses this shared object as the live road clock; every road pulse reconstructs its shipped binary envelope with WebGL1-safe arithmetic
   roadBandTex=new THREE.DataTexture(_roadBandBuf, ROAD_SLOTS, 1, THREE.RGBAFormat);   // THE MEANING's band table: 23 texels, one per visible beat. NEAREST + ClampToEdge + no mips = the bytes arrive exactly as written, and a dynamic index into it is free where a uniform array would have cost a loop
   roadBandTex.magFilter=roadBandTex.minFilter=THREE.NearestFilter; roadBandTex.generateMipmaps=false;
   roadBandTex.wrapS=roadBandTex.wrapT=THREE.ClampToEdgeWrapping; roadBandTex.needsUpdate=true;
@@ -3008,6 +3019,25 @@ function roadBreath(r){
   if(!wasdBeatCueOn()) return 0;                                          // the shipped gate, whole — and the cheapest possible rest state: one call, and uBreath is written 0, so the shader's multiply is by exactly 1.0
   return beatSwell(Math.max(0,+CFG.moonline.breathMax||0), Math.abs(r-Math.round(r)));   // LIVE like archGlow and dustGlow (one property read, no allocation): breathMax is the knob the tuning session will actually turn, and turning it in a running console must show
 }
+function doorCross(bar){
+  // THE DOORWAY IS ONE EVENT, not a second clock: roadSync calls here only after its absolute bar latch advances and has
+  // already put this frame's one road read into the uniform clock. The visual stamp is a sink. Audio reconstructs the tide's
+  // cycle from this absolute bar without moving grid8, Transport, spawning, grading, or the private course/palette streams.
+  if(!ML_DOOR_CROSS || !roadLive() || trainMode || templeActive) return;
+  _wallCross.value=(reduceMotion?roadMat.uniforms.uPulse:roadMat.uniforms.uNow).value;
+  if(!soundOn || !toneReady || !doorWhoosh || !(CFG.tide && CFG.tide.on)) return;
+  const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), mercyN=Math.max(0,TD.mercyBars|0), cyc=rise+peak+mercyN;
+  if(!mercyN || !cyc) return;
+  const cb=((bar%cyc)+cyc)%cyc, mercy=roadTideAt(bar*ML_ARCH_EVERY).m===1, barsToMercy=((rise+peak-cb)%cyc+cyc)%cyc;
+  if(!mercy && barsToMercy>=3) return;
+  try{
+    const at=beatSnap(), velocity=barsToMercy===2?Math.pow(10,-6/20):1;
+    doorWhoosh.triggerAttackRelease(DOOR_WHOOSH_HZ[0],DOOR_WHOOSH_SEC,at,velocity);
+    doorWhoosh.frequency.cancelScheduledValues(at); doorWhoosh.frequency.setValueAtTime(DOOR_WHOOSH_HZ[0],at); doorWhoosh.frequency.linearRampToValueAtTime(DOOR_WHOOSH_HZ[1],at+DOOR_WHOOSH_SEC);
+    const tonic=mercy&&pad&&CHORD_TRIAD&&CHORD_TRIAD[0]&&CHORD_TRIAD[0][0];
+    if(tonic) pad.triggerAttackRelease(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
+  }catch(e){}
+}
 function roadSync(){
   if(!roadMesh) return;                                                   // road.on:false → never built → the frame costs one null read
   const live=roadLive();
@@ -3044,7 +3074,7 @@ function roadSync(){
   if(gridColIdx!==_roadInkIdx){ _roadInkIdx=gridColIdx; _roadInk.setHex(GRID_COLS[gridColIdx][0]); }   // the road inherits tonight's grid-colour roll: it REPLACES the lattice, so the nightly roll survives instead of going quiet with it. A read of an index that already exists — zero new draws
   const r=roadBeatNow();
   roadWakeLatch();                                                        // two integer reads: catch the lane's verdict while the note is still in focus (see roadWakeLatch)
-  if(r<_roadLastR-0.5) roadWakeReset();                                   // the clock went BACKWARDS: a new run (teardownTransport puts the Transport back to 0). The wake is this run's history, so it starts empty — and no gameplay reset site had to be touched to say so
+  if(r<_roadLastR-0.5){ roadWakeReset(); if(ML_DOOR_CROSS){ _roadBar0=NaN; _wallCross.value=-1e9; } }   // the clock went BACKWARDS: the wake and the run-local doorway event both retire before the new bar zero latches silently
   _roadLastR=r;
   roadJudgeStamp(r);                                                      // THE PLAYABILITY EPOCH (v1.2), stamped BEFORE any write: the Bow's ceremony (input rejected from BOW.LAST, Transport still advancing) closes the window here, so its beats — and only its beats — go NEUTRAL and the run's real wake survives to the Night Card (W2). A grace-cancel never reaches this line at all: GRACE still accepts input, so the predicate never flipped
   const n0=Math.floor(r);
@@ -3056,9 +3086,13 @@ function roadSync(){
     U.uGlyphOn.value=(CFG.road.bandGlyphs?1:0); U.uMercyB.value=Math.max(1,+CFG.road.mercyBoost||1);
     roadArchFill(n0);                                                     // ARCHES, RINGS, DUST (wave 8, parcel V): which bar lines are on screen and which one is the mercy bar — the only thing about the gates that a beat can change. Placed inside the SAME once-per-beat gate the band table uses, so the two can never disagree about the beat they describe, and it returns on its first null read with the parcel off
   }
+  if(ML_DOOR_CROSS){
+    const bar=Math.floor(r/ML_ARCH_EVERY);
+    if(bar!==_roadBar0){ const crossed=Number.isFinite(_roadBar0); _roadBar0=bar; if(crossed){ if(reduceMotion) U.uPulse.value=r; else U.uNow.value=r; doorCross(bar); } }   // one absolute-bar latch beside the beat gate. The opening chamber only seats the latch; a dropped frame can produce at most the one doorway actually entered now
+  }
   if(ML_RIBBON) U.uBreath.value=roadBreath(r);                            // THE BREATH (wave 8.1), written BEFORE the reduceMotion fork so the standing road is never left holding a stale swell: roadBreath's own gate yields 0 there (see its comment — the pre-wave-7 wash was off under reduced motion in free play, and so is this). One float, no allocation, and the whole line is behind the build-time switch, so moonline.on:false does not even make the call
   if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
-    U.uPulse.value=ML_WALL_ECHO?r:((Math.abs(r-Math.round(r))<0.12)?1:0); // …and the bands PULSE IN PLACE on the heard beat. Echo-on reuses this existing object for raw r so its static glow can age; the emitted road shader reconstructs this exact binary law, while echo-off keeps the shipped write
+    U.uPulse.value=(ML_WALL_ECHO||ML_DOOR_CROSS)?r:((Math.abs(r-Math.round(r))<0.12)?1:0); // …and the bands PULSE IN PLACE on the heard beat. Either wall event reuses this existing object for raw r so its static glow can age; the emitted road shader reconstructs this exact binary law, while both-off keeps the shipped write
     roadImpSync(0);                                                       // the impostor reads the SAME pinned clock the geometry does, so the painted horizon is frozen with the standing ribbon — static, not merely slower
     return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
   }
@@ -5645,6 +5679,7 @@ let reverbInput=null, reverbQueued=false;
 let kick=null, snare=null, hat=null, tick=null, tickVol=null, bass=null, arp=null, shotCue=null, tapSynth=null, pad=null, lead=null, leadLp=null, tune=null, drumBus=null, drumsBuilt=false; let grooveI=0;   // leadLp: the lead voice's OWN lowpass, held so THE LEAD INSTRUMENT can set its cutoff per kill note (same node buildDrums always made, never touched with voice.on:false). grooveI: smoothed groove intensity — builds with streak, strips slowly on a miss. tune = dedicated hook melody (separate from kill lead so monophonic hits never cut the phrase)
 let gridId=null, grid8=0, cd=0, restSlots=0, rhythmGeneration=0;   // invalidates Tone.Draw work queued across Temple/pause/session boundaries
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh, fireMuzzle=null, firePluck=null;
+let doorWhoosh=null;
 /* ========================= TUNE LIBRARY =========================
    Each THEME bundles the things the whole audio engine reads: a melodic SCALE (kills/tank/WASD-taps/tune all
    index it — the old PENTA), a chord PROGRESSION as sub-bass ROOTs + voice-led pad TRIADs (one chord per bar, cycled
@@ -6010,6 +6045,7 @@ function initAudio(){
     noiseFire=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.05,sustain:0}}).connect(new Tone.Volume(-16).toDestination());
     try{ chordSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.3,sustain:0.05,release:0.5}}).connect(new Tone.Volume(-13).toDestination()); }catch(e){ chordSynth=null; }
     try{ arcWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.012,decay:0.12,sustain:0.35,release:0.14}}).connect(new Tone.Volume(-22).toDestination()); }catch(e){ arcWhoosh=null; }   // ARC flight whoosh (quieter bed under the new muzzle; pitch from theme scale)
+    if(ML_DOOR_CROSS) try{ doorWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.13,sustain:0.18,release:0.06}}).connect(new Tone.Volume(DOOR_WHOOSH_DB).toDestination()); }catch(e){ doorWhoosh=null; }   // ONE build-time doorway voice: the per-crossing call only sweeps this shared triangle; the flat switch builds no node
     try{ fireMuzzle=new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.001,decay:0.04,sustain:0,release:0.02}}).connect(new Tone.Filter(1600,'lowpass').connect(new Tone.Volume(-13).toDestination())); }catch(e){ fireMuzzle=null; }   // soft muzzle thump (brown noise — not a harsh white crack)
     try{ firePluck=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.07,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination()); }catch(e){ firePluck=null; }   // in-key pluck so the launch sits with the song
     toneReady=true;

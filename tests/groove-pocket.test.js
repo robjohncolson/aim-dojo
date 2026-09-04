@@ -370,7 +370,7 @@ function loadWakeSandbox() {
 
 test("THE PLAYABILITY EPOCH: the driver above is roadSync's own order (v1.2)", () => {
   assert.match(html, /if\(!live\)\{ roadJudgeStamp\(_roadLastR\); return; \}/, "not-live shuts the window at the last beat the road saw");
-  assert.match(html, /if\(r<_roadLastR-0\.5\) roadWakeReset\(\);/, "a backwards clock still empties the ring first");
+  assert.match(html, /if\(r<_roadLastR-0\.5\)\{ roadWakeReset\(\);/, "a backwards clock still empties the ring first");
   assert.match(html, /_roadLastR=r;\s*\n\s*roadJudgeStamp\(r\);/, "…then the stamp, BEFORE any write");
   assert.match(html, /if\(Number\.isFinite\(_roadBeat0\)\) for\(let n=Math\.max\(_roadBeat0, n0-ROAD_WAKE\); n<n0; n\+\+\) roadWakeWrite\(n\);/, "…then the catch-up backfill");
   // The verdict is the BEAT'S OWN playability, never the write moment's - that conflation was the whole root cause.
@@ -1453,7 +1453,7 @@ test("THE MERCY RING: the only complete circle, and it can only land on a bar li
   assert.equal(hlf(0, 1, -1), 1, "...and the MERCY RING is untouched by it - its lower half is not a reflection of anything");
   assert.equal(hlf(0.18, 1, -1), 1, "the ring closes at full strength whatever reflectAlpha says");
   assert.match(html, /float hlf=mix\(1\.0, mix\(uReflect,1\.0,mercy\), step\(mir,0\.0\)\);/, "...which is exactly the line the vertex shader carries");
-  assert.match(html, /vAmt=uAmt\*uArchGlow\*mix\(fade,sqrt\(fade\),mercy\)\*mix\(1\.0,uMercyRB,mercy\)\*hlf\*\(1\.0\+uBreath\*/, "the ring is boosted AND fades as sqrt(fade), so it is legible from far out - and wave 8.1's breath rides the same amount");
+  assert.match(html, /vAmt=uAmt\*uArchGlow\*mix\(fade,sqrt\(fade\),mercy\)\*mix\(1\.0,uMercyRB,mercy\)\*hlf\*\(1\.0\+'\+\(ML_DOOR_CROSS\?/, "the ring is boosted AND fades as sqrt(fade), so it is legible from far out - and the gated breath term rides the same amount");
   // "half" is reserved in GLSL ES - the identifier had to be hlf, and nothing in either shader may use a reserved word.
   const archSrc = extractFunction("buildRoadArches").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");   // the EMITTED text only: the prose around it is allowed to say "half-width"
   for (const word of ["half", "fixed", "input", "output", "asm", "union", "template", "namespace"])
@@ -1852,9 +1852,9 @@ test("THE BREATH: the recovered curve, the road's own clock, and zero gameplay m
   // THE GATES RIDE IT at lower amplitude, on the ribbon's OWN uniform object - one uniform, no new pass, per VERTEX.
   assert.equal(loadRoadGeom(true, false).read("ML_ARCH_BREATH"), 0.45);
   assert.match(extractFunction("buildRoadArches"), /uP:U\.uP, uBreath:U\.uBreath,/, "the arches share the object, so they cannot be a frame out of step");
-  assert.match(html, /\*hlf\*\(1\.0\+uBreath\*'\+_roadG\(ML_ARCH_BREATH\)\+'\);/, "...at ML_ARCH_BREATH of the ribbon's swell, in the vertex shader where vAmt already lives");
+  assert.match(html, /\(ML_DOOR_CROSS\?'\(uBreath\+'\+_roadG\(reduceMotion\?0\.06:ML_CROSS_LIFT\)\+'\*crossEnv\)':'uBreath'\)\+'\*'\+_roadG\(ML_ARCH_BREATH\)\+'\);/, "...keeps the old uBreath arm and adds the crossing inside ML_ARCH_BREATH's existing vertex path");
   assert.equal(loadRoadGeom(true, false).read("_roadG(ML_ARCH_BREATH)"), "0.45000", "...emitted as a GLSL float literal, not an int");
-  assert.match(html, /uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath;/);
+  assert.match(html, /'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath'\+\(ML_DOOR_CROSS\?',uWallCross,uPulse':''\)\+';/);
 
   // ZERO GAMEPLAY MATH, and the TRAINER'S FLOOR IS UNTOUCHED: the two surfaces still cannot both run, and the floor path
   // is the same two lines it was before this wave.

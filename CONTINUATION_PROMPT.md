@@ -1,5 +1,42 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04)
 
+## -19. 2026-09-04: wave 21 Parcel I complete locally · THE DOORWAYS ARE EVENTS
+**Local-only state (not pushed or deployed):** `moonline.doorCross:1` gives the live main road one absolute-bar latch.
+The opening chamber seats silently; each later chamber crossing writes one shared `_wallCross` road-clock stamp, with
+rewinds retiring both the stamp and latch. Trainer and Temple paths remain excluded. The stamp is a pure visual sink:
+it has no RNG, spawn, grading, scoring, or palette consequence.
+
+Wall and restored white-nave arch materials borrow the same stamp. The wall carries a one-beat warm-white 0.18 lift
+outward from the doorway plane, bounded by its powder/dissolve tail and the above-deck half-space; the passed arch adds
+the same envelope inside its existing 45% breath term. Reduced motion uses the live `uPulse` road clock for a still 0.06
+one-beat lift while reconstructing the shipped binary road pulse in GLSL. `doorCross:0` emits the frozen Wave 18
+road+nave+wall shader family byte-for-byte and builds no doorway voice.
+
+One shared triangle voice falls 520→140 Hz over 0.22 s through a -26 dB trim at `beatSnap()`. Tide gating is exact:
+three or more bars out is silent, two bars out is -6 dB, one bar out is full, and the mercy doorway adds one active-theme
+tonic on the existing pad at `CFG.tide.padPeakVel`. Audio-off still leaves the visual event alive.
+
+**Evidence:** doorway + coupled road/nave/wall suites 83/83; full suite 326/326, including inline parse and
+comment-swallow. Eleven constructed mutants are killed across switch cross-wiring, below-deck/tail leakage, breath
+replacement, reduced-motion strength/clock, tide silence/gain/tonic, beat-vs-bar latching, opening-frame phantoms, and
+rewind state. The new frozen fixture fingerprints road, socket, nave, HIGH/LOW wall, inverse, accent, and veil shaders.
+Mirrors were regenerated twice with stable hashes. A local headless-Chrome/SwiftShader boot loaded the current page,
+enabled PLAY, hid the start card, and reported no page or shader error; only the expected local-origin sky-day CORS
+warning appeared (7.2 s PLAY / 1.8 s first frame are software-renderer diagnostics, not a performance acceptance).
+
+**Risk review:** every resolved pre-edit production impact was LOW (`CFG`, wall/arch shader builders, `roadSync`, and
+`initAudio`); the broadest test helper was MEDIUM, and the inline `buildRoad` IIFE plus anonymous legacy test callbacks
+were unresolvable/UNKNOWN and therefore reviewed directly. Final staged `detect_changes` is CRITICAL: 141 graph symbols,
+28 affected processes, 15 files. The real production fan-out is the reviewed `roadSync` caller (`animate`) and
+its three existing road processes plus `initAudio`'s two callers and three audio-start processes. The reported sky,
+card, and ghost processes are generated-mirror split-boundary attribution after the inline source grew; their raw
+`index.html` symbols are untouched. The staged set is 15 intended files including this handoff and all five mirrors;
+`state/` remains untracked and untouched.
+
+**Still owed before publication:** the user's relay deployment/live smokes from §-16 item 0 still precede the local
+Parcel G/H client commits; `ghostPhase:0` remains dormant. Audition the doorway whoosh level by ear before publication.
+Next code item is wave 21 Parcel J, THE TIDE ORDERS THE CHALK.
+
 ## -18. 2026-09-04: wave 20 Parcel H complete locally · THE MOON REMEMBERS YOU stays DORMANT
 **Local-only state (not pushed or deployed):** `ghostPhase:0` is the ruling boundary, so the shipped/default path never
 opens `aimdojo.ghostPhase`, allocates its seats, or adds its frame path. When explicitly enabled, every worthy finalized

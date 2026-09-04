@@ -18,9 +18,9 @@ function emitRoadArchShaders({ nave, low }) {
   class ShaderMaterial { constructor(options) { Object.assign(this, options); } }
   class Mesh { constructor(geometry, material) { this.geometry = geometry; this.material = material; } }
   class Color { constructor(value) { this.value = value; } }
-  const uniforms = { uNow: {}, uBase: {}, uA: {}, uW: {}, uP: {}, uBreath: {} };
+  const uniforms = { uNow: {}, uBase: {}, uA: {}, uW: {}, uP: {}, uBreath: {}, uPulse: {} };
   const context = vm.createContext({
-    ML_NAVE: nave, ML_BITE: false, ML_TERRAIN: false, LOW: low, ML_ARCH_RICH: !low, ML_ARCH_SEG: low ? 14 : 28, ML_NAVE_SEG: low ? 18 : 40,
+    ML_NAVE: nave, ML_BITE: false, ML_TERRAIN: false, ML_DOOR_CROSS: false, LOW: low, ML_ARCH_RICH: !low, ML_ARCH_SEG: low ? 14 : 28, ML_NAVE_SEG: low ? 18 : 40,
     ML_ARCH_N: 11, ML_ARCH_BEHIND: 8, ML_ARCH_EVERY: 4, ML_ARCH_SPREAD: 0.25,
     ROAD_HALF_W: 7, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
     ML_ARCH_PX: 3.2, ML_FOCAL_PX: (1080 / 2) / Math.tan(95 * Math.PI / 360), ML_ARCH_WMIN: 0.06, ML_ARCH_WMAX: 2.6,

@@ -1041,7 +1041,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -1945,6 +1945,7 @@
                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                             
                                                                                                                                                                               
@@ -2007,6 +2008,7 @@
                                                                                                                                                                                                 
                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                         
@@ -2072,6 +2074,7 @@
                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                           
                                                                                                                                                                                                         
+                                                                                                                                                                                                      
                                                                                                                                                                           
                                
                                         
@@ -2138,6 +2141,7 @@
  
                                                                                                                                                                            
                                                                                             
+                                                                                                                                                                                  
                                                                                                                                 
                                                                                                                                 
                                                                                                                                  
@@ -2326,12 +2330,12 @@ function buildRoadArches(){
   g.setIndex(new THREE.BufferAttribute(idx,1));
   const U=roadMat.uniforms, M=CFG.moonline;
   roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
-    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath,   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes — and wave 8.1's BREATH joins them on the same terms, so the gold cannot swell a frame before or after the ribbon it is grown from
+    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}),   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes — and wave 8.1's BREATH joins them on the same terms, so the gold cannot swell a frame before or after the ribbon it is grown from. The doorway pair is emitted only on its own arm and borrows the same clock/stamp objects
                uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)},
                uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))},
                uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind}, uCol:{value:new THREE.Color(ML_GOLD)} },
     vertexShader:[
-      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
       'attribute vec2 aMW; varying float vV,vNode,vAmt,vTh;',
       'void main(){',
       '  float t=position.y, side=position.z, mir=aMW.x, w=aMW.y;',
@@ -2345,10 +2349,11 @@ function buildRoadArches(){
       '  vec2 rad=normalize(vec2(xl,yl)+vec2(0.0,1e-4));',                                                        // the strip widens along the arc's own RADIUS, so "inner" and "outer" are properties of the ARCH and not of where the camera happens to be
       '  gl_Position=projectionMatrix*viewMatrix*vec4(Pc+vec3(rad*(hw*w),0.0),1.0);',
       '  float mercy=uK[int(position.x)];',                                                                       // this bar OPENS the mercy phase → the mirror half stops being a reflection and closes the circle
+      ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, gateB=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x, crossLocal=step(0.0,uNow-gateB)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-gateB)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
       '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',                       // the arches die exactly where the ribbon does — the same ramp, so there is no gate hanging over a road that has ended
       '  float hlf=mix(1.0, mix(uReflect,1.0,mercy), step(mir,0.0));',                                            // reflectAlpha:0 silences every reflection and leaves the RING untouched: its lower half is not a reflection of anything
       '  vV=w; vTh=th; vNode=smoothstep(0.86,1.0,abs(t));',                                                       // THE JUNCTION NODES, for free: the bright gold is the strand's own last 14%, which is exactly where it meets the rail
-      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf*(1.0+uBreath*'+_roadG(ML_ARCH_BREATH)+');',   // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon. THE BREATH rides here, per VERTEX, on the amount that already scales every fragment of this strand: 45% of the ribbon's swell, one multiply-add, and the discard below still rejects a dark slot before a single exp()
+      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',   // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon. THE BREATH rides here, per VERTEX, on the amount that already scales every fragment of this strand: 45% of the ribbon's swell. A crossing adds its envelope INSIDE that same term, never replaces it; the off arm emits the prior expression character-for-character
       '}'
     ].join('\n'),
     // THE PRISM AND THE AURORA ARE NOT EMITTED ON LOW (ML_ARCH_RICH — the ROAD_GLYPH_PASS pattern): SPEC §4 asks for "plain
@@ -2392,14 +2397,15 @@ function buildRoadArches(){
     nq(k,10,-1,1,-1,1,1); nq(k,11,-1,1,-1,1,1);
   }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(p,3)); g.setAttribute('aKind',new THREE.Float32BufferAttribute(kd,1)); g.setAttribute('aMir',new THREE.Float32BufferAttribute(mr,1)); g.setAttribute('aUV',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(ix);
-  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBite:U.uBite, uTerrain:U.uTerrain, uTerrainBase:U.uTerrainBase, uHorizon:U.uHorizon, uBreath:U.uBreath, uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };   // terrain, cached horizon and bite are the road's uniform OBJECTS, never copies; the old shader text simply does not name them when either switch is off
+  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBite:U.uBite, uTerrain:U.uTerrain, uTerrainBase:U.uTerrainBase, uHorizon:U.uHorizon, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}), uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };   // terrain, cached horizon and bite are the road's uniform OBJECTS, never copies; the old shader text simply does not name them when either switch is off. Door-cross on borrows the same stamp and clock objects as the classic arch
   const naveVert=[
-    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
     ...(ML_BITE?['uniform vec3 uBite;']:[]),
     'attribute float aKind,aMir; attribute vec2 aUV; varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
     ...(ML_TERRAIN?[roadTerrainShader()]:[]),
     'void main(){',
     '  float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
+    ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, crossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
     '  float xl=position.y, yl=position.z, th=0.0, show=1.0;',
     '  if(aKind<0.5){ th=3.14159265*position.y; float r=mix(mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy),mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy),position.z); xl=r*cos(th); yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+r*sin(th); }',
     '  else if(aKind<3.5){ show=1.0-mercy; }',
@@ -2412,7 +2418,7 @@ function buildRoadArches(){
     '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',
     '  float refl=aMir>0.0?1.0:mix(0.50*exp(-abs(yl)/6.0),0.66*exp(-abs(yl)/26.0),mercy);',
     ...(ML_TERRAIN?['  vTerrainVis=terrainVis(u,cx+xl,yl); yl+=cyAt(u);']:[]),
-    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+uBreath*'+_roadG(ML_ARCH_BREATH)+');',
+    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',
     '  gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,yl,-u+(aKind>9.5?0.12:0.0),1.0);',
     '}'
   ].join('\n');
@@ -2524,9 +2530,9 @@ function buildNaveVeil(){
   roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
 function roadWallVertexShader(){ return [
-  'uniform float uNow,uArchN0,uWallSeed'+(ML_WALL_ECHO&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
+  'uniform float uNow,uArchN0,uWallSeed'+((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
   ...(ML_BITE?['uniform vec3 uBite;']:[]),
-  'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
+  'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(ML_TERRAIN?[roadTerrainShader()]:[]),
   'void main(){',
   '  float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
@@ -2534,12 +2540,12 @@ function roadWallVertexShader(){ return [
   '  float cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
   '  vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x);',
   ...(ML_TERRAIN?['  vWallTerrain=terrainVis(u,P.x,0.0); P.y+=cyAt(u);']:[]),
-  '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);'+(ML_WALL_ECHO?' vWallClock='+(reduceMotion?'uPulse':'uNow')+'; vWallLocal=1.0-step(1.5,abs(floor(b/'+_roadG(ML_ARCH_EVERY)+')-floor(uNow/'+_roadG(ML_ARCH_EVERY)+')));':''),   // echo AGE follows reduced-motion's live uPulse clock, but LOCALITY follows pinned uNow so the standing chamber remains able to answer at any later beat
+  '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);'+(ML_WALL_ECHO?' vWallClock='+(reduceMotion?'uPulse':'uNow')+'; vWallLocal=1.0-step(1.5,abs(floor(b/'+_roadG(ML_ARCH_EVERY)+')-floor(uNow/'+_roadG(ML_ARCH_EVERY)+')));':'')+(ML_DOOR_CROSS?((ML_WALL_ECHO?'':' vWallClock='+(reduceMotion?'uPulse':'uNow')+';')+' vWallCrossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b));') : ''),   // event AGE follows reduced-motion's live uPulse clock; echo locality keeps its three-chamber answer, while crossing locality selects only the doorway behind the eye for the chamber just entered (uNow stays pinned under reduced motion)
   '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
   '}'
 ].join('\n'); }
 function roadWallFragmentShader(){ return [
-  'uniform float uWallDissolve,uWallGlow'+(ML_WALL_ECHO?',uWallHit,uWallMiss':'')+'; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
+  'uniform float uWallDissolve,uWallGlow'+(ML_WALL_ECHO?',uWallHit,uWallMiss':'')+(ML_DOOR_CROSS?',uWallCross':'')+'; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(!LOW?[
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
@@ -2573,6 +2579,11 @@ function roadWallFragmentShader(){ return [
   '  vec3 echoWarm=vec3(1.0,0.97,0.90); float wallLum=dot(col,vec3(0.2126,0.7152,0.0722)), echoWarmLum=dot(echoWarm,vec3(0.2126,0.7152,0.0722)); float echoLift=min(wallLum*'+_roadG(ML_WALL_ECHO_LIFT)+'*hitEcho,max(0.0,(1.0-wallLum)/echoWarmLum)); col+=echoWarm*echoLift;'
   ]:[])
   ]:[]),
+  ...(ML_DOOR_CROSS?[
+  '  float crossAge=vWallClock-uWallCross, crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge);',
+  '  float crossFront='+(reduceMotion?'1.0':'1.0-smoothstep('+_roadG(ML_WALL_ECHO_WIDTH*0.5)+','+_roadG(ML_WALL_ECHO_WIDTH)+',abs(d-crossAge*'+_roadG(ML_WALL_ECHO_SPEED)+'))')+', crossEvent=crossEnv*crossFront*vWallCrossLocal*powder*step(0.0,y);',
+  '  vec3 crossWarm=vec3(1.0,0.97,0.90); float crossLum=dot(col,vec3(0.2126,0.7152,0.0722)), crossWarmLum=dot(crossWarm,vec3(0.2126,0.7152,0.0722)); float crossLift=min(crossLum*'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEvent,max(0.0,(1.0-crossLum)/crossWarmLum)); col+=crossWarm*crossLift;'
+  ]:[]),
   '  gl_FragColor=vec4(col*vWallFade,1.0);',
   '}'
 ].join('\n'); }
@@ -2602,7 +2613,7 @@ function buildRoadWalls(){
   const pos=new Float32Array(ML_WALL_N*12), idx=new Uint16Array(ML_WALL_N*6); let po=0,io=0;
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
-  const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_WALL_ECHO&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; the echo pair and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
+  const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_DOOR_CROSS?{uWallCross:_wallCross}:{}),...((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; every enabled event stamp and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
   const wallVS=roadWallVertexShader();
   roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
   roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
@@ -2729,7 +2740,7 @@ function roadArchFill(n0){
   const HW=_roadG(ROAD_HALF_W), INV=_roadG(1/ROAD_MPB), SL=_roadG(ROAD_SLOTS), WK=_roadG(ROAD_WAKE), ISL=_roadG(1/ROAD_SLOTS);   // INV: metres → beats. ROAD_MPB IS ROAD_BAND_M with moonline.on:false, so this literal is the one wave 7 compiled
   const LWC=_roadG(ROAD_LINE_PX/(EYE*(180/Math.PI)*(1080/95)));           // metres of crossbar thickness per d² — the constant-pixel law, from the same optics ROAD_TIER_D came from
   const TIER=(rate,k)=>_roadG(ROAD_TIER_W[k])+'*(1.0-smoothstep('+_roadG(ROAD_TIER_D*Math.pow(2,k))+','+_roadG(ROAD_TIER_D*Math.pow(2,k+1))+',d))*xb(b*'+_roadG(rate)+',min('+_roadG(ROAD_LINE_MAX)+',lwm*'+_roadG(rate/ROAD_MPB)+'))';   // ONE crossbar tier: its weight × its distance window × the line itself. Rate 16 = the sixteenth carrier, 4 = the quarter, 1 = the "1", 0.25 = the bar
-  const PULSE=reduceMotion&&ML_WALL_ECHO?'(abs(fract(uPulse+0.5)-0.5)<0.12?1.0:0.0)':'uPulse';   // echo reuses this existing shared object as the live road clock only on the standing path; every road pulse reconstructs its shipped binary envelope with WebGL1-safe arithmetic
+  const PULSE=reduceMotion&&(ML_WALL_ECHO||ML_DOOR_CROSS)?'(abs(fract(uPulse+0.5)-0.5)<0.12?1.0:0.0)':'uPulse';   // either standing wall event reuses this shared object as the live road clock; every road pulse reconstructs its shipped binary envelope with WebGL1-safe arithmetic
   roadBandTex=new THREE.DataTexture(_roadBandBuf, ROAD_SLOTS, 1, THREE.RGBAFormat);   // THE MEANING's band table: 23 texels, one per visible beat. NEAREST + ClampToEdge + no mips = the bytes arrive exactly as written, and a dynamic index into it is free where a uniform array would have cost a loop
   roadBandTex.magFilter=roadBandTex.minFilter=THREE.NearestFilter; roadBandTex.generateMipmaps=false;
   roadBandTex.wrapS=roadBandTex.wrapT=THREE.ClampToEdgeWrapping; roadBandTex.needsUpdate=true;
@@ -3008,6 +3019,25 @@ function roadBreath(r){
   if(!wasdBeatCueOn()) return 0;                                          // the shipped gate, whole — and the cheapest possible rest state: one call, and uBreath is written 0, so the shader's multiply is by exactly 1.0
   return beatSwell(Math.max(0,+CFG.moonline.breathMax||0), Math.abs(r-Math.round(r)));   // LIVE like archGlow and dustGlow (one property read, no allocation): breathMax is the knob the tuning session will actually turn, and turning it in a running console must show
 }
+function doorCross(bar){
+  // THE DOORWAY IS ONE EVENT, not a second clock: roadSync calls here only after its absolute bar latch advances and has
+  // already put this frame's one road read into the uniform clock. The visual stamp is a sink. Audio reconstructs the tide's
+  // cycle from this absolute bar without moving grid8, Transport, spawning, grading, or the private course/palette streams.
+  if(!ML_DOOR_CROSS || !roadLive() || trainMode || templeActive) return;
+  _wallCross.value=(reduceMotion?roadMat.uniforms.uPulse:roadMat.uniforms.uNow).value;
+  if(!soundOn || !toneReady || !doorWhoosh || !(CFG.tide && CFG.tide.on)) return;
+  const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), mercyN=Math.max(0,TD.mercyBars|0), cyc=rise+peak+mercyN;
+  if(!mercyN || !cyc) return;
+  const cb=((bar%cyc)+cyc)%cyc, mercy=roadTideAt(bar*ML_ARCH_EVERY).m===1, barsToMercy=((rise+peak-cb)%cyc+cyc)%cyc;
+  if(!mercy && barsToMercy>=3) return;
+  try{
+    const at=beatSnap(), velocity=barsToMercy===2?Math.pow(10,-6/20):1;
+    doorWhoosh.triggerAttackRelease(DOOR_WHOOSH_HZ[0],DOOR_WHOOSH_SEC,at,velocity);
+    doorWhoosh.frequency.cancelScheduledValues(at); doorWhoosh.frequency.setValueAtTime(DOOR_WHOOSH_HZ[0],at); doorWhoosh.frequency.linearRampToValueAtTime(DOOR_WHOOSH_HZ[1],at+DOOR_WHOOSH_SEC);
+    const tonic=mercy&&pad&&CHORD_TRIAD&&CHORD_TRIAD[0]&&CHORD_TRIAD[0][0];
+    if(tonic) pad.triggerAttackRelease(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
+  }catch(e){}
+}
 function roadSync(){
   if(!roadMesh) return;                                                   // road.on:false → never built → the frame costs one null read
   const live=roadLive();
@@ -3044,7 +3074,7 @@ function roadSync(){
   if(gridColIdx!==_roadInkIdx){ _roadInkIdx=gridColIdx; _roadInk.setHex(GRID_COLS[gridColIdx][0]); }   // the road inherits tonight's grid-colour roll: it REPLACES the lattice, so the nightly roll survives instead of going quiet with it. A read of an index that already exists — zero new draws
   const r=roadBeatNow();
   roadWakeLatch();                                                        // two integer reads: catch the lane's verdict while the note is still in focus (see roadWakeLatch)
-  if(r<_roadLastR-0.5) roadWakeReset();                                   // the clock went BACKWARDS: a new run (teardownTransport puts the Transport back to 0). The wake is this run's history, so it starts empty — and no gameplay reset site had to be touched to say so
+  if(r<_roadLastR-0.5){ roadWakeReset(); if(ML_DOOR_CROSS){ _roadBar0=NaN; _wallCross.value=-1e9; } }   // the clock went BACKWARDS: the wake and the run-local doorway event both retire before the new bar zero latches silently
   _roadLastR=r;
   roadJudgeStamp(r);                                                      // THE PLAYABILITY EPOCH (v1.2), stamped BEFORE any write: the Bow's ceremony (input rejected from BOW.LAST, Transport still advancing) closes the window here, so its beats — and only its beats — go NEUTRAL and the run's real wake survives to the Night Card (W2). A grace-cancel never reaches this line at all: GRACE still accepts input, so the predicate never flipped
   const n0=Math.floor(r);
@@ -3056,9 +3086,13 @@ function roadSync(){
     U.uGlyphOn.value=(CFG.road.bandGlyphs?1:0); U.uMercyB.value=Math.max(1,+CFG.road.mercyBoost||1);
     roadArchFill(n0);                                                     // ARCHES, RINGS, DUST (wave 8, parcel V): which bar lines are on screen and which one is the mercy bar — the only thing about the gates that a beat can change. Placed inside the SAME once-per-beat gate the band table uses, so the two can never disagree about the beat they describe, and it returns on its first null read with the parcel off
   }
+  if(ML_DOOR_CROSS){
+    const bar=Math.floor(r/ML_ARCH_EVERY);
+    if(bar!==_roadBar0){ const crossed=Number.isFinite(_roadBar0); _roadBar0=bar; if(crossed){ if(reduceMotion) U.uPulse.value=r; else U.uNow.value=r; doorCross(bar); } }   // one absolute-bar latch beside the beat gate. The opening chamber only seats the latch; a dropped frame can produce at most the one doorway actually entered now
+  }
   if(ML_RIBBON) U.uBreath.value=roadBreath(r);                            // THE BREATH (wave 8.1), written BEFORE the reduceMotion fork so the standing road is never left holding a stale swell: roadBreath's own gate yields 0 there (see its comment — the pre-wave-7 wash was off under reduced motion in free play, and so is this). One float, no allocation, and the whole line is behind the build-time switch, so moonline.on:false does not even make the call
   if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
-    U.uPulse.value=ML_WALL_ECHO?r:((Math.abs(r-Math.round(r))<0.12)?1:0); // …and the bands PULSE IN PLACE on the heard beat. Echo-on reuses this existing object for raw r so its static glow can age; the emitted road shader reconstructs this exact binary law, while echo-off keeps the shipped write
+    U.uPulse.value=(ML_WALL_ECHO||ML_DOOR_CROSS)?r:((Math.abs(r-Math.round(r))<0.12)?1:0); // …and the bands PULSE IN PLACE on the heard beat. Either wall event reuses this existing object for raw r so its static glow can age; the emitted road shader reconstructs this exact binary law, while both-off keeps the shipped write
     roadImpSync(0);                                                       // the impostor reads the SAME pinned clock the geometry does, so the painted horizon is frozen with the standing ribbon — static, not merely slower
     return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
   }
@@ -4674,42 +4708,42 @@ function goldFigure(signId){   // selected figure gold, the rest dimmed — pure
     _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
   }
 }
-function restoreFigures(){
-  if(_lsn.goldFig==null || !_stickFig) return;
-  _lsn.goldFig=null;   // cleared FIRST for the same reason goldFigure sets it first: starLitRepaint reads it to decide what "restored" means
-  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: restore means back to the LIT baseline, not back to flat white — accretion is never painted away
-  else _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, 1,1,1);
-  if(_stickFig.lGeo) _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, 1,1,1);
-}
-function _lsnCap(s){ s=String(s); return s.charAt(0).toUpperCase()+s.slice(1); }
-function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if(style) d.style.cssText=style; d.textContent=txt; parent.appendChild(d); return d; }
-function _lsnClip(s, max){   // prefer end-of-sentence within max; avoid mid-word chops (Ophiuchus essays were dying mid-clause)
-  s=String(s==null?'':s).replace(/\s+/g,' ').trim(); if(!s) return '';
-  if(s.length<=max) return s;
-  const head=s.slice(0,max);
-  let cut=-1;
-  for(const re of [/[.!?…]["')\]]?\s/g, /;\s/g, /,\s/g]){ let m; while((m=re.exec(head))) cut=m.index+m[0].length; if(cut>Math.floor(max*0.45)) break; }
-  if(cut<Math.floor(max*0.45)){ const sp=head.lastIndexOf(' '); cut=sp>Math.floor(max*0.45)?sp:max; }
-  return s.slice(0,cut).trim()+(cut<s.length?'…':'');
-}
-function _lsnNatalId(){   // pack natal_id for personal transit block — meta first, then live pack fallback
-  if(_lsnMeta && typeof _lsnMeta.natalId==='string' && _lsnMeta.natalId) return _lsnMeta.natalId;
-  if(_skypack && typeof _skypack.natal_id==='string' && _skypack.natal_id) return _skypack.natal_id;
-  return null;
-}
-function _listenPersonalExpected(){ return !!(_personalListenExpected || _lsnNatalId()); }
-function glossaryListenData(pick){
-  const G=_skyGlossary; if(!G||!pick) return null; const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign);
-  const S=SKY_SIGN_SET[signId]?G.signs[signId]:null;
-  if(pick.kind==='sign') return S?{type:'sky_glossary',placement:{status:'ready',title:S.title,text:S.text},personal:{available:false}}:null;
-  const P=G.planets[pick.id], exact=S&&G.planet_in_sign[pick.id+':'+signId]; if(!P&&!S) return null;
-  let title=exact&&exact.title, text=exact&&exact.text;
-  if(!text && P && S){ const pk=Array.isArray(P.keywords)?P.keywords:[], sk=Array.isArray(S.keywords)?S.keywords:[];
-    title=P.title+' in '+S.title;
-    text=(pk.length>=2&&sk.length>=2)?(title+' traditionally joins '+pk[0]+' and '+pk[1]+' with '+sk[0]+' and '+sk[1]+'. It is a symbolic lens for reflection, not a fixed character claim or prediction.'):(P.text+' '+S.text); }
-  else if(!text){ const one=P||S; title=one.title; text=one.text; }
-  return {type:'sky_glossary',placement:{status:'ready',title:title,text:text},personal:{available:false}};
-}
+                          
+                                              
+                                                                                                                                             
+                                                                                                                                                                 
+                                                                                    
+                                                                                                  
+ 
+                                                                                
+                                                                                                                                                                    
+                                                                                                                                
+                                                                      
+                             
+                            
+             
+                                                                                                                                                        
+                                                                                                     
+                                                     
+ 
+                                                                                                           
+                                                                                                 
+                                                                                                    
+              
+ 
+                                                                                          
+                                  
+                                                                                                                                     
+                                                    
+                                                                                                                                             
+                                                                                                    
+                                                       
+                                                                                                                    
+                                 
+                                                                                                                                                                                                                                  
+                                                                   
+                                                                                                           
+ 
                                        
                                                                                                 
                                                           
@@ -5645,6 +5679,7 @@ function glossaryListenData(pick){
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                               
                                                                                                     
+                    
                                                                    
                                                                                                              
                                                                                                                      
@@ -6010,6 +6045,7 @@ function glossaryListenData(pick){
                                                                                                                                                      
                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                       
                    

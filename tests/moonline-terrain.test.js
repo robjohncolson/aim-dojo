@@ -44,13 +44,13 @@ function shaderFingerprint(value) {
 }
 
 function productionFeatureFlags(source, moonline) {
-  const declarations = ["ML_MARK", "ML_TERRAIN", "ML_BITE", "ML_WALLS", "ML_WALL_EXHALE", "ML_WALL_ECHO", "ML_MERCY_INVERSE", "ML_SAT"].map((name) => {
+  const declarations = ["ML_MARK", "ML_TERRAIN", "ML_BITE", "ML_WALLS", "ML_WALL_EXHALE", "ML_WALL_ECHO", "ML_MERCY_INVERSE", "ML_DOOR_CROSS", "ML_SAT"].map((name) => {
     const match = source.match(new RegExp(`const ${name}=([^;]+);`));
     assert.ok(match, `${name} production gate is extractable`);
     return `const ${name}=${match[1]};`;
   }).join("\n");
   const context = vm.createContext({ CFG: { moonline }, ML_NAVE: true });
-  vm.runInContext(`${declarations}\nthis.flags={mark:ML_MARK,terrain:ML_TERRAIN,bite:ML_BITE,walls:ML_WALLS,wallExhale:ML_WALL_EXHALE,wallEcho:ML_WALL_ECHO,mercyInverse:ML_MERCY_INVERSE,sat:ML_SAT};`, context);
+  vm.runInContext(`${declarations}\nthis.flags={mark:ML_MARK,terrain:ML_TERRAIN,bite:ML_BITE,walls:ML_WALLS,wallExhale:ML_WALL_EXHALE,wallEcho:ML_WALL_ECHO,mercyInverse:ML_MERCY_INVERSE,doorCross:ML_DOOR_CROSS,sat:ML_SAT};`, context);
   return context.flags;
 }
 
@@ -100,7 +100,7 @@ function emitWave9RoadShaders(source = html, features = {}) {
   const context = vm.createContext({
     Math, Number, Float32Array, Uint16Array, LOW: low, EYE: 4, reduceMotion: !!features.reduceMotion,
     CFG: { road: { on: true, bandGlyphs: true, mercyBoost: 1.6 }, moonline },
-    ML_RIBBON: true, ML_NAVE: true, ML_MARK: flags.mark, ML_TERRAIN: flags.terrain, ML_BITE: flags.bite, ML_WALLS: flags.walls, ML_WALL_EXHALE: flags.wallExhale, ML_WALL_ECHO: flags.wallEcho, ML_MERCY_INVERSE: flags.mercyInverse, ML_SAT: flags.sat, ML_ARCH: false,
+    ML_RIBBON: true, ML_NAVE: true, ML_MARK: flags.mark, ML_TERRAIN: flags.terrain, ML_BITE: flags.bite, ML_WALLS: flags.walls, ML_WALL_EXHALE: flags.wallExhale, ML_WALL_ECHO: flags.wallEcho, ML_MERCY_INVERSE: flags.mercyInverse, ML_DOOR_CROSS: flags.doorCross, ML_SAT: flags.sat, ML_ARCH: false,
     ML_NAVE_STARS: 0, ML_NAVE_VEIL: 0, ML_DUST_N: features.dust ? 1 : 0, ROAD_GLYPH_PASS: false,
     ROAD_HALF_W: 7, ROAD_MPB: 27, ROAD_PLANE_W: 386, ROAD_PLANE_L: 1776, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
     ROAD_SLOTS: 23, ROAD_WAKE: 14, ROAD_TIER_W: [0.42, 0.58, 1, 1.24], ROAD_TIER_D: 33.16,
@@ -139,15 +139,15 @@ function emitWave9NaveShaders(source = html, features = {}) {
   class BufferAttribute {}
   class ShaderMaterial { constructor(options) { Object.assign(this, options); } }
   class Mesh { constructor(geometry, material) { this.geometry = geometry; this.material = material; } }
-  const uniforms = { uNow: {}, uBase: {}, uA: {}, uW: {}, uP: {}, uBite: {}, uTerrain: {}, uBreath: {} };
+  const uniforms = { uNow: {}, uBase: {}, uA: {}, uW: {}, uP: {}, uBite: {}, uTerrain: {}, uBreath: {}, uPulse: {} };
   const moonline = moonlineOptions(features), flags = productionFeatureFlags(source, moonline);
   const context = vm.createContext({
-    Math, Number, Float32Array, Uint16Array, ML_NAVE: true, ML_BITE: flags.bite, ML_TERRAIN: flags.terrain, LOW: false, ML_ARCH_RICH: true, ML_ARCH_SEG: 28, ML_NAVE_SEG: 40,
+    Math, Number, Float32Array, Uint16Array, ML_NAVE: true, ML_BITE: flags.bite, ML_TERRAIN: flags.terrain, ML_DOOR_CROSS: flags.doorCross, LOW: false, reduceMotion: !!features.reduceMotion, ML_ARCH_RICH: true, ML_ARCH_SEG: 28, ML_NAVE_SEG: 40,
     ML_ARCH_N: 11, ML_ARCH_BEHIND: 8, ML_ARCH_EVERY: 4, ML_ARCH_SPREAD: 0.25, ROAD_HALF_W: 7, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864,
-    ML_ARCH_PX: 3.2, ML_FOCAL_PX: (1080 / 2) / Math.tan(95 * Math.PI / 360), ML_ARCH_WMIN: 0.06, ML_ARCH_WMAX: 2.6, ML_ARCH_BREATH: 0.45,
+    ML_ARCH_PX: 3.2, ML_FOCAL_PX: (1080 / 2) / Math.tan(95 * Math.PI / 360), ML_ARCH_WMIN: 0.06, ML_ARCH_WMAX: 2.6, ML_ARCH_BREATH: 0.45, ML_CROSS_LIFT: 0.18, ML_CROSS_BEATS: 1,
     ML_ARCH_CORE: 16, ML_ARCH_NODE: 2.2, ML_ARCH_PRISM_AT: -0.55, ML_ARCH_PRISM_K: 22, ML_ARCH_AUR: 2.4, ML_ARCH_INK: 0.62,
     ML_GOLD: 0xffeccc, ML_NAVE_VEIL: 0.45, ML_NAVE_SPRING: 9.5, ML_NAVE_R1: 7, ML_NAVE_R2: 8.3, ML_NAVE_RM1: 10, ML_NAVE_RM2: 11.6,
-    _roadG: (number) => (+number).toFixed(5), _archKind: new Float32Array(11), roadTerrainShader: () => "",
+    _roadG: (number) => (+number).toFixed(5), _archKind: new Float32Array(11), _wallCross: { value: -1e9 }, roadTerrainShader: () => "",
     roadMat: { uniforms }, roadArchMat: null, roadArch: null, roadArchAccentMat: null, roadArchAccent: null,
     CFG: { moonline: { ...moonline, archHeightM: 7, archGlow: 1, archPrism: 0.35, reflectAlpha: 0.18, mercyRingBoost: 1.9 } },
     THREE: { BufferGeometry, BufferAttribute, Float32BufferAttribute: BufferAttribute, ShaderMaterial, Mesh, DoubleSide: 1, AdditiveBlending: 2, NormalBlending: 3 }, scene: { add() {} },

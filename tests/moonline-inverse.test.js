@@ -54,14 +54,14 @@ function inverseOptions(overrides = {}) {
 }
 
 function inverseFlags(source, options) {
-  const names = ["ML_WALLS", "ML_WALL_EXHALE", "ML_WALL_ECHO", "ML_MERCY_INVERSE"];
+  const names = ["ML_WALLS", "ML_WALL_EXHALE", "ML_WALL_ECHO", "ML_MERCY_INVERSE", "ML_DOOR_CROSS"];
   const declarations = names.map((name) => {
     const match = source.match(new RegExp(`const ${name}=([^;]+);`));
     assert.ok(match, `${name} gate is extractable`);
     return `const ${name}=${match[1]};`;
   }).join("\n");
   const context = vm.createContext({ CFG: { moonline: options }, ML_NAVE: true, Math });
-  vm.runInContext(`${declarations}\nthis.flags={walls:ML_WALLS,exhale:ML_WALL_EXHALE,echo:ML_WALL_ECHO,inverse:ML_MERCY_INVERSE};`, context);
+  vm.runInContext(`${declarations}\nthis.flags={walls:ML_WALLS,exhale:ML_WALL_EXHALE,echo:ML_WALL_ECHO,inverse:ML_MERCY_INVERSE,doorCross:ML_DOOR_CROSS};`, context);
   return { ...context.flags };
 }
 
@@ -91,14 +91,14 @@ function emittedWallFamily(source, options, { low = false, reduced = false } = {
   }, sceneAdds = [];
   const context = vm.createContext({
     Math, Number, Float32Array, Uint16Array,
-    CFG: { moonline: options }, LOW: low, reduceMotion: reduced, ML_TERRAIN: true, ML_BITE: true, ML_WALL_STAR: false, ML_WALL_EXHALE: flags.exhale, ML_WALL_ECHO: flags.echo, ML_MERCY_INVERSE: flags.inverse,
+    CFG: { moonline: options }, LOW: low, reduceMotion: reduced, ML_TERRAIN: true, ML_BITE: true, ML_WALL_STAR: false, ML_WALL_EXHALE: flags.exhale, ML_WALL_ECHO: flags.echo, ML_DOOR_CROSS: flags.doorCross, ML_MERCY_INVERSE: flags.inverse,
     ML_ARCH_N: 11, ML_WALL_N: low ? 7 : 11, ML_ARCH_BEHIND: 8, ML_ARCH_EVERY: 4, ML_WALL_REAR0: -12, ML_WALL_REAR1: -8, ROAD_MPB: 27, ROAD_FADE0: 734.4, ROAD_FADE1: 864, ML_FOCAL_PX: 494.82,
     ML_WALL_X: 216.5, ML_WALL_Y0: -270, ML_WALL_Y1: 221, ML_WALL_APEX: 17, ML_WALL_RING_R1: 10, ML_WALL_RING_R2: 11.6, ML_WALL_SPRING: 12, ML_WALL_DJ: 7.3, ML_WALL_DA: 7.3, ML_WALL_DB: 5,
     ML_WALL_BAY_X: 16.5, ML_WALL_BAY_Y0: -70, ML_WALL_BAY_Y1: 21, ML_WALL_POWDER1: 200, ML_WALL_POWDER_NOISE: 22,
     ML_WALL_EXHALE2: numericConst(source, "ML_WALL_EXHALE2"), ML_WALL_EXHALE1: numericConst(source, "ML_WALL_EXHALE1"),
     ML_WALL_ECHO_LIFT: numericConst(source, "ML_WALL_ECHO_LIFT"), ML_WALL_ECHO_BEATS: numericConst(source, "ML_WALL_ECHO_BEATS"), ML_WALL_ECHO_WIDTH: numericConst(source, "ML_WALL_ECHO_WIDTH"),
-    ML_WALL_ECHO_SPEED: 108, ML_WALL_ECHO_DIM: numericConst(source, "ML_WALL_ECHO_DIM"), ML_WALL_ECHO_DIM_BEATS: numericConst(source, "ML_WALL_ECHO_DIM_BEATS"), ML_WALL_ECHO_STILL_BEATS: numericConst(source, "ML_WALL_ECHO_STILL_BEATS"),
-    _archKind: new Float32Array(11), _wallCol: Array.from({ length: 11 }, () => ({})), _wallNext: Array.from({ length: 11 }, () => ({})), _wallHit: { value: -1e9 }, _wallMiss: { value: -1e9 },
+    ML_WALL_ECHO_SPEED: 108, ML_WALL_ECHO_DIM: numericConst(source, "ML_WALL_ECHO_DIM"), ML_WALL_ECHO_DIM_BEATS: numericConst(source, "ML_WALL_ECHO_DIM_BEATS"), ML_WALL_ECHO_STILL_BEATS: numericConst(source, "ML_WALL_ECHO_STILL_BEATS"), ML_CROSS_LIFT: 0.18, ML_CROSS_BEATS: 1,
+    _archKind: new Float32Array(11), _wallCol: Array.from({ length: 11 }, () => ({})), _wallNext: Array.from({ length: 11 }, () => ({})), _wallHit: { value: -1e9 }, _wallMiss: { value: -1e9 }, _wallCross: { value: -1e9 },
     roadMat: { uniforms: roadUniforms }, roadWall: null, roadWallMat: null, roadMercyInverse: null, roadMercyInverseMat: null, roadWallAccent: null, roadWallAccentMat: null, roadWallVeil: null, roadWallVeilMat: null,
     _roadG: (number) => (+number).toFixed(5), roadTerrainShader: () => "TERRAIN", scene: { add(object) { sceneAdds.push(object); } },
     THREE: { BufferGeometry, BufferAttribute, ShaderMaterial, Mesh, Points, DoubleSide: "DoubleSide", AdditiveBlending: "AdditiveBlending", CustomBlending: "CustomBlending", AddEquation: "AddEquation", OneMinusDstColorFactor: "OneMinusDstColorFactor", ZeroFactor: "ZeroFactor" },
@@ -210,11 +210,11 @@ function assertAllKindReaders(source) {
 test("Inverse kill-switch preserves every shipped reveal combination and remains independently wired", () => {
   const assertGateContract = (source) => {
     const matrix = [
-      [inverseOptions({ mercyInverse: true, wallExhale: 1, wallEcho: true }), { walls: true, exhale: 1, echo: true, inverse: true }],
-      [inverseOptions({ mercyInverse: false, wallExhale: 1, wallEcho: true }), { walls: true, exhale: 1, echo: true, inverse: false }],
-      [inverseOptions({ mercyInverse: true, wallExhale: 0, wallEcho: true }), { walls: true, exhale: 0, echo: true, inverse: true }],
-      [inverseOptions({ mercyInverse: true, wallExhale: 1, wallEcho: false }), { walls: true, exhale: 1, echo: false, inverse: true }],
-      [inverseOptions({ mercyInverse: true, wallsOn: false }), { walls: false, exhale: 0, echo: false, inverse: false }],
+      [inverseOptions({ mercyInverse: true, wallExhale: 1, wallEcho: true }), { walls: true, exhale: 1, echo: true, inverse: true, doorCross: false }],
+      [inverseOptions({ mercyInverse: false, wallExhale: 1, wallEcho: true }), { walls: true, exhale: 1, echo: true, inverse: false, doorCross: false }],
+      [inverseOptions({ mercyInverse: true, wallExhale: 0, wallEcho: true }), { walls: true, exhale: 0, echo: true, inverse: true, doorCross: false }],
+      [inverseOptions({ mercyInverse: true, wallExhale: 1, wallEcho: false }), { walls: true, exhale: 1, echo: false, inverse: true, doorCross: false }],
+      [inverseOptions({ mercyInverse: true, wallsOn: false }), { walls: false, exhale: 0, echo: false, inverse: false, doorCross: false }],
     ];
     for (const [options, expected] of matrix) assert.deepEqual(inverseFlags(source, options), expected);
   };
@@ -227,7 +227,7 @@ test("Inverse kill-switch preserves every shipped reveal combination and remains
   assert.deepEqual(fingerprint(emittedWallsOffSet(html)), wave10Fixture, "wallsOn:false still restores frozen Wave 10 with every child switch requested on");
   const mutation = html.replace("const ML_MERCY_INVERSE=ML_WALLS && !!(CFG.moonline && CFG.moonline.mercyInverse);", "const ML_MERCY_INVERSE=ML_WALLS && !!(CFG.moonline && CFG.moonline.wallEcho);");
   assert.notEqual(mutation, html, "the coupling-blind mercyInverse/wallEcho mutation is constructible");
-  assert.deepEqual(inverseFlags(mutation, inverseOptions({ mercyInverse: false, wallEcho: false })), { walls: true, exhale: 1, echo: false, inverse: false }, "the mutation survives a both-off-only check");
+  assert.deepEqual(inverseFlags(mutation, inverseOptions({ mercyInverse: false, wallEcho: false })), { walls: true, exhale: 1, echo: false, inverse: false, doorCross: false }, "the mutation survives a both-off-only check");
   assert.throws(() => assertGateContract(mutation), assert.AssertionError, "the alone matrix kills the surviving cross-wire mutation");
 });
 
