@@ -808,6 +808,7 @@
                                              
                                                      
                                                
+                                               
                                                                                                                      
                                                                                                                                                                           
                                                                                                                                                                         
@@ -964,7 +965,7 @@
                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                     
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -8856,15 +8857,15 @@ const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','tap
 const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
 const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
-const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=1;
-const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256;
-const GH_VISITOR_X=-90, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
+const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=LOW?1:3, GH_VISITOR_FETCH_COUNT=LOW?1:4;
+const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256, GH_GHOSTS_RESPONSE_MAX=GH_MAX_BYTES*GH_VISITOR_FETCH_COUNT+4096;
+const GH_SEAT_XS=GH_SHARE?[-90,180,-180]:null, GH_SILHOUETTE_XS=GH_SHARE?[270,-270]:null, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
 const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
 const GH_GHOST_PATH='/api/ghost', GH_GHOSTS_PATH='/api/ghosts', GH_MAIL_PATH='/api/ghost-mail';
 let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0, _ghostRecordFinalized=true;
 let _ghostGiftMail=null, _ghostGiftGreetingCount=0, _ghostGiftMailSpoken=false;
 let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoch=-1;
-let _ghostSeats=null, _ghostOwnSeat=null, _ghostVisitorSeat=null, _ghostSeatRows=null, _ghostSeatBusy=false, _ghostGiftHitT=0;
+let _ghostSeats=null, _ghostOwnSeat=null, _ghostVisitorSeats=null, _ghostVisitorCount=0, _ghostSilhouettes=null, _ghostSeatRows=null, _ghostSeatBusy=false, _ghostGiftHitT=0;
 let _ghostReturnPool=null, _ghostReturnCount=0, _ghostReturnSig=-1, _ghostReturnSpoken=false;
 function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
 function ghostRoadReset(){
@@ -8938,13 +8939,14 @@ function ghostUtf8Bytes(text){
   return bytes;
 }
 function ghostSerializedBytes(value){ try{ return ghostUtf8Bytes(JSON.stringify(value)); }catch(e){ return GH_MAX_BYTES+1; } }
-async function ghostRelayJson(path,init){
+async function ghostRelayJson(path,init,maxBytes){
+  const limit=Number.isSafeInteger(maxBytes)?Math.max(GH_MAX_BYTES,Math.min(GH_GHOSTS_RESPONSE_MAX,maxBytes)):GH_MAX_BYTES;
   return ghostRelayFetch(path,init,async response=>{
     if(!response || !response.ok) return null;
     const declared=response.headers&&typeof response.headers.get==='function'?response.headers.get('content-length'):null;
     if(declared!==null && declared!==''){
       const bytes=Number(declared);
-      if(!Number.isSafeInteger(bytes) || bytes<0 || bytes>GH_MAX_BYTES) return null;
+      if(!Number.isSafeInteger(bytes) || bytes<0 || bytes>limit) return null;
     }
     let text='';
     if(response.body && typeof response.body.getReader==='function' && typeof TextDecoder!=='undefined'){
@@ -8952,15 +8954,15 @@ async function ghostRelayJson(path,init){
       for(;;){
         const part=await reader.read(); if(part.done) break;
         if(!part.value || !Number.isSafeInteger(part.value.byteLength)) return null;
-        bytes+=part.value.byteLength; if(bytes>GH_MAX_BYTES){ try{ reader.cancel(); }catch(e){} return null; }
+        bytes+=part.value.byteLength; if(bytes>limit){ try{ reader.cancel(); }catch(e){} return null; }
         pieces.push(decoder.decode(part.value,{stream:true}));
       }
       pieces.push(decoder.decode()); text=pieces.join('');
     }else{
       if(typeof response.text!=='function') return null;
-      text=await response.text(); if(typeof text!=='string' || ghostUtf8Bytes(text)>GH_MAX_BYTES) return null;
+      text=await response.text(); if(typeof text!=='string' || ghostUtf8Bytes(text)>limit) return null;
     }
-    const value=JSON.parse(text); return ghostSerializedBytes(value)<=GH_MAX_BYTES?value:null;
+    const value=JSON.parse(text); return ghostSerializedBytes(value)<=limit?value:null;
   });
 }
 async function ghostUploadAttempt(token,bucket,artifact,pageExit){
@@ -9201,11 +9203,58 @@ function ghostVisitorMailLine(){
   return TF('ghostVisitorMail','{n} of your notes were caught · {sigil}',{n:_ghostReturnCount,sigil:sigil});
 }
 function ghostVisitorLine(){
-  const seat=GH_SHARE?_ghostVisitorSeat:null;
-  if(!seat || seat.spoken || !seat.record) return '';
-  const sigil=ghostMoonSigil(seat.sig); if(!sigil) return '';
-  seat.spoken=true;
-  return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigil});
+  if(!GH_SHARE) return '';
+  const seats=[], sigils=[];
+  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++){
+    const seat=_ghostVisitorSeats[i], sigil=seat&&seat.record?ghostMoonSigil(seat.sig):'';
+    if(!seat || !sigil) return '';
+    seats.push(seat); sigils.push(sigil);
+  }
+  if(!seats.length || seats.every(seat=>seat.spoken)) return '';
+  for(const seat of seats) seat.spoken=true;
+  if(seats.length===1) return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigils[0]});
+  return TF('ghostVisitorsLine','{n} visitors ride tonight · {sigils}',{n:seats.length,sigils:sigils.join('\u2009')});
+}
+function ghostSilhouetteMaterial(alpha,visibility,color){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility,uCol:{value:color}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
+function ghostSilhouetteBuild(x){
+  const visibility={value:0}, moon=new THREE.Color(GH_MOON_BLUE), white=new THREE.Color(GH_WHITE), color=new THREE.Color(GH_MOON_BLUE).lerp(white,GH_AVATAR_MOON_MIX);
+  const root=new THREE.Group(), avatar=new THREE.Group(); avatar.position.set(x,1.7,0); root.add(avatar); scene.add(root);
+  const body=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostSilhouetteMaterial(GH_AVATAR_BODY_ALPHA,visibility,color)); body.position.y=1.55; avatar.add(body);
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostSilhouetteMaterial(GH_AVATAR_HALO_ALPHA,visibility,color)); halo.position.y=3.25; halo.scale.setScalar(1.35); avatar.add(halo);
+  const bow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostSilhouetteMaterial(GH_AVATAR_BOW_ALPHA,visibility,color)); bow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); avatar.add(bow);
+  root.visible=false; avatar.visible=false; body.visible=false; halo.visible=false; bow.visible=false;
+  runIdle(()=>{ try{ renderer.compile(scene,camera); }catch(e){} },180,1800);
+  return {x:x,id:'',sig:-1,record:null,root:root,avatar:avatar,body:body,halo:halo,bow:bow,vis:visibility,fireCursor:0,lastTime:0};
+}
+function ghostSilhouetteHide(seat){
+  if(!seat) return;
+  seat.vis.value=0; seat.root.visible=false; seat.avatar.visible=false; seat.body.visible=false; seat.halo.visible=false; seat.bow.visible=false;
+}
+function ghostSilhouettesReset(){
+  if(!_ghostSilhouettes) return;
+  for(const seat of _ghostSilhouettes){ seat.id=''; seat.sig=-1; seat.record=null; seat.fireCursor=0; seat.lastTime=0; seat.avatar.rotation.set(0,0,0,'YXZ'); ghostSilhouetteHide(seat); }
+}
+function ghostSilhouetteAccept(epoch,id,record){
+  if(!GH_SHARE || LOW || epoch!==_ghostShareEpoch || _ghostVisitorCount<GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
+  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
+  if(_ghostSilhouettes && _ghostSilhouettes[0] && _ghostSilhouettes[0].record) return false;
+  if(!_ghostSilhouettes) _ghostSilhouettes=[];
+  let seat=_ghostSilhouettes[0];
+  try{ if(!seat){ seat=ghostSilhouetteBuild(GH_SILHOUETTE_XS[0]); _ghostSilhouettes[0]=seat; } }
+  catch(e){ return false; }
+  seat.id=id; seat.sig=record.moonBucket; seat.record=record; seat.fireCursor=0; seat.lastTime=0; seat.avatar.rotation.set(0,0,0,'YXZ'); ghostSilhouetteHide(seat); return true;
+}
+function ghostSilhouettesUpdate(){
+  if(!GH_SHARE || !_ghostSilhouettes) return;
+  if(!state.running || templeActive || trainMode){ for(const seat of _ghostSilhouettes) ghostSilhouetteHide(seat); return; }
+  const roadT=ghostRoadTime(), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
+  for(const seat of _ghostSilhouettes){
+    if(!seat.record){ ghostSilhouetteHide(seat); continue; }
+    const t=Math.min(roadT,seat.record.dur), v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
+    if(t<seat.lastTime){ seat.fireCursor=0; seat.lastTime=0; }
+    while(seat.fireCursor<seat.record.fires.length && seat.record.fires[seat.fireCursor][0]<=t){ const fire=seat.record.fires[seat.fireCursor++]; seat.avatar.rotation.set(fire[2],GH_AVATAR_YAW_SIGN*fire[1],0,'YXZ'); }
+    seat.lastTime=t; const open=v>0; seat.vis.value=open?v:0; seat.root.visible=open; seat.avatar.visible=open; seat.body.visible=open; seat.halo.visible=open; seat.bow.visible=open;
+  }
 }
 function ghostReturnMailValid(value){
   if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
@@ -9264,28 +9313,37 @@ function ghostReturnUpdate(){
   }
 }
 function ghostVisitorAccept(epoch,id,record){
-  if(!GH_SHARE || epoch!==_ghostShareEpoch || !ghostTokenValid(id) || !ghostArtifactValid(record)) return;
+  if(!GH_SHARE || epoch!==_ghostShareEpoch || _ghostVisitorCount>=GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
+  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
   if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat);
-  let accepted=false;
+  if(!_ghostVisitorSeats) _ghostVisitorSeats=[];
+  const slot=_ghostVisitorCount, heldGiftLock=_ghGiftLockedRow; let seat=_ghostVisitorSeats[slot], accepted=false;
   try{
-    if(!_ghostVisitorSeat){ ghostSeatClear(GH_VISITOR_X); _ghostVisitorSeat=ghostSeatCapture({}); }
-    else ghostSeatInstall(_ghostVisitorSeat);
+    if(!seat){ ghostSeatClear(GH_SEAT_XS[slot]); seat=ghostSeatCapture({}); _ghostVisitorSeats[slot]=seat; }
+    else ghostSeatInstall(seat);
     _ghostSeatRecord=record; _ghostGiftMail=GH_GIFT?[]:null;
     if(_ghCaughtSlots) _ghCaughtSlots.clear();
-    if(!_ghostSeatRoot) ghostSeatBuild(record); else { ghostSeatPalette(record); ghostSeatPrepare(record); }
-    _ghostVisitorSeat.id=id; _ghostVisitorSeat.sig=record.moonBucket; _ghostVisitorSeat.spoken=false; _ghostVisitorSeat.visitor=true; ghostSeatCapture(_ghostVisitorSeat); ghostSeatRememberRows(_ghostVisitorSeat); accepted=true;
+    if(!_ghostSeatRoot) ghostSeatBuild(record); else ghostSeatPalette(record);
+    ghostSeatPrepare(record); if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ');
+    seat.id=id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
   }catch(e){
-    if(_ghostVisitorSeat){ try{ _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); ghostSeatCapture(_ghostVisitorSeat); }catch(_e){} }
-  }finally{ if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  if(!accepted) return;
-  if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT&&_ghostOwnSeat) _ghostSeats.push(_ghostOwnSeat); _ghostSeats.push(_ghostVisitorSeat);
+    if(seat){ try{ _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); ghostSeatCapture(seat); }catch(_e){} }
+  }finally{ _ghGiftLockedRow=heldGiftLock; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  if(!accepted) return false;
+  _ghostVisitorCount++;
+  if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT&&_ghostOwnSeat) _ghostSeats.push(_ghostOwnSeat); for(let i=0;i<_ghostVisitorCount;i++) _ghostSeats.push(_ghostVisitorSeats[i]);
+  return true;
 }
 async function ghostVisitorFetch(epoch,token,bucket){
-  const path=GH_GHOSTS_PATH+'?lon='+bucket+'&n='+GH_VISITOR_COUNT, body=await ghostRelayJson(path,{headers:ghostRelayHeaders(token,false)});
+  const path=GH_GHOSTS_PATH+'?lon='+bucket+'&n='+GH_VISITOR_FETCH_COUNT, body=await ghostRelayJson(path,{headers:ghostRelayHeaders(token,false)},GH_GHOSTS_RESPONSE_MAX);
   if(epoch!==_ghostShareEpoch || !body || !Array.isArray(body.ghosts) || !body.ghosts.length) return;
-  const item=body.ghosts[0]; if(!item || !ghostTokenValid(item.id) || ghostSerializedBytes(item.artifact)>GH_MAX_BYTES) return;
-  const record=ghostArtifactValid(item.artifact); if(!record) return;
-  ghostVisitorAccept(epoch,item.id,record);
+  let accepted=0;
+  for(let i=0;i<body.ghosts.length && i<GH_VISITOR_FETCH_COUNT;i++){
+    const item=body.ghosts[i]; if(!item || !ghostTokenValid(item.id) || ghostSerializedBytes(item.artifact)>GH_MAX_BYTES) continue;
+    const record=ghostArtifactValid(item.artifact); if(!record) continue;
+    if(accepted<GH_VISITOR_COUNT){ if(ghostVisitorAccept(epoch,item.id,record)) accepted++; }
+    else if(ghostSilhouetteAccept(epoch,item.id,record)) break;
+  }
 }
 async function ghostMailFetch(epoch,token){
   // Read-once is intentional ephemerality: the relay clears this mailbox before it answers, so a crash after this boundary loses the notes and no client cache tries to resurrect them.
@@ -9296,13 +9354,23 @@ async function ghostMailFetch(epoch,token){
 }
 function ghostShareReset(){
   if(!GH_SHARE) return;
-  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=ghostLonBucket(); ghostReturnReset(); _ghostSeatRows=new WeakMap();
+  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=ghostLonBucket(); ghostReturnReset(); ghostSilhouettesReset(); _ghostSeatRows=new WeakMap(); _ghostVisitorCount=0;
   if(!_ghostOwnSeat) _ghostOwnSeat={visitor:false,id:'',sig:-1,spoken:true}; ghostSeatCapture(_ghostOwnSeat); ghostSeatRememberRows(_ghostOwnSeat);
   if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT) _ghostSeats.push(_ghostOwnSeat);
-  if(_ghostVisitorSeat){
-    try{ ghostSeatInstall(_ghostVisitorSeat); _ghostSeatRecord=null; _ghostGiftMail=GH_GIFT?[]:null; if(_ghCaughtSlots) _ghCaughtSlots.clear(); ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); _ghostVisitorSeat.id=''; _ghostVisitorSeat.sig=-1; _ghostVisitorSeat.spoken=false; ghostSeatCapture(_ghostVisitorSeat); }
-    catch(e){}
-    finally{ ghostSeatInstall(_ghostOwnSeat); }
+  if(_ghostVisitorSeats){
+    try{ for(const seat of _ghostVisitorSeats) try{
+      ghostSeatInstall(seat); _ghostSeatRecord=null; _ghostGiftMail=GH_GIFT?[]:null;
+      _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghCatchNext=0; _ghLastTime=0;
+      if(_ghActiveTargets) _ghActiveTargets.length=0; if(_ghHitRows) _ghHitRows.length=0; if(_ghBeatPrefix) _ghBeatPrefix.length=0;
+      if(_ghBurstPool) for(const bird of _ghBurstPool) bird.on=false;
+      if(_ghCatchPool) for(const effect of _ghCatchPool) effect.on=false;
+      if(_ghCaughtSlots) _ghCaughtSlots.clear(); _ghGiftLockedRow=null; if(_ghGiftProxy) _ghGiftProxy._ghostGiftRow=null; _ghGiftRoadT=0; _ghGiftReveal=0;
+      if(_ghBeat) _ghBeat.value=0; if(_ghCounts){ _ghCounts.targets=0; _ghCounts.beacons=0; }
+      if(_ghostTargets) _ghostTargets.count=0; if(_ghostBursts) _ghostBursts.count=0; if(_ghostBeaconCols) _ghostBeaconCols.count=0; if(_ghostBeaconRings) _ghostBeaconRings.count=0;
+      if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ'); ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
+      seat.id=''; seat.sig=-1; seat.spoken=false; ghostSeatCapture(seat);
+    }catch(e){} }
+    finally{ if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
   }
   const token=ghostToken(); if(!token) return;
   const epoch=_ghostShareEpoch, bucket=_ghostShareBucket;
@@ -9314,16 +9382,19 @@ async function ghostMailAttempt(token,toId,catches){
 }
 function ghostShareFinalize(){
   if(!GH_SHARE || _ghostShareSentEpoch===_ghostShareEpoch) return;
-  const seat=_ghostVisitorSeat, catches=seat&&seat.mail;
-  if(!seat || !seat.id || !Array.isArray(catches) || !catches.length) return;
+  const pending=[];
+  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++){ const seat=_ghostVisitorSeats[i], catches=seat&&seat.mail; if(seat&&seat.id&&Array.isArray(catches)&&catches.length) pending.push([seat.id,catches]); }
+  if(!pending.length) return;
   const token=ghostToken(); if(!token) return;
-  _ghostShareSentEpoch=_ghostShareEpoch; ghostMailAttempt(token,seat.id,catches).catch(()=>{});
+  _ghostShareSentEpoch=_ghostShareEpoch; for(const item of pending) ghostMailAttempt(token,item[0],item[1]).catch(()=>{});
 }
 function ghostSeatsUpdate(dt){
-  if(!_ghostSeats || !_ghostSeats.length) return;
-  _ghostSeatBusy=true;
-  try{ for(const seat of _ghostSeats){ ghostSeatInstall(seat); ghostSeatUpdate(dt); ghostSeatCapture(seat); } }
-  finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  if(_ghostSeats && _ghostSeats.length){
+    _ghostSeatBusy=true;
+    try{ for(const seat of _ghostSeats){ ghostSeatInstall(seat); ghostSeatUpdate(dt); ghostSeatCapture(seat); } }
+    finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
+  }
+  ghostSilhouettesUpdate();
 }
 function ghostGiftLockSeats(aim,minDot){
   if(!_ghostSeats || !_ghostSeats.length) return null;
@@ -9672,7 +9743,7 @@ function ghostSeatBeaconVisibility(count){
 }
 function ghostSeatUpdate(dt){
   if(GH_SHARE && !_ghostSeatBusy){ ghostSeatsUpdate(dt); return; }
-  const seatOn=GH_SEAT || (GH_SHARE&&_ghostSeatBusy&&_ghSeatX===GH_VISITOR_X);
+  const seatOn=GH_SEAT || (GH_SHARE&&_ghostSeatBusy);
   if(!seatOn || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
   const roadT=ghostRoadTime(), t=Math.min(roadT,_ghostSeatRecord.dur), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
   const v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
@@ -9720,54 +9791,54 @@ function wasdBeatGlow(){   // THE ENVELOPE, verbatim: |beats − round(beats)| a
   if(trainMode && reduceMotion) return off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
   return beatSwell(maxAmt, off);   // …and the soft envelope, now the one shared copy above (same operands, same order: bit-identical to the line that stood here)
 }
-function updateFloorBeat(){
-  let amt=0;
-  const floorCueOn=wasdBeatCueOn() && !roadLive();   // THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
-  if(floorCueOn){
-    amt=wasdBeatGlow();
-    _floorBeatCol.setHex(WASD_HEX[_beatGlowKey]);
-  }
-  const fsh=dayFloor&&dayFloor.material.userData.sh;
-  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
-  const gsh=nightGrid&&nightGrid.material.userData.shBeat;
-  if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
-}
-let _fireHot=false;
-function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens on the beat. That "LAUNCH now" cue rewarded pulling the trigger ON the beat — the exact instinct that fights landing the shot on the beat. Now the ORB GLOW is the sole "land it here now" cue (the beat pulse + audio carry the anticipation); the player LEADS the release and guesses the flight time. To bring the crosshair cue back as a PREDICTIVE "release now → land on beat" light, gate `hot` on a flight-time lookahead instead of `_openAmt>0`.
-  const hot = false;
-  if(hot!==_fireHot){ _fireHot=hot; if(el.reticle) el.reticle.classList.toggle('fire',hot); }
-}
-/* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
-const landRingPool=[];
-function spawnLandRing(x,z){
-  if(moonlineVoid()) return;   // NOTHING BESIDE THE ROAD BUT SPACE (wave 8, G2a · SPEC §1). This ring is a y=0.03 disc on the RETIRED plane — in the void it is a blue circle hanging in mid-air over the celestial shell's lower half, marking a floor that is not there. The gate is HERE, on the visual, and NOT at the call site: updateProjectiles' `pr.pos.y<=0.04` termination, its onWhiff and its retire are ballistics and stay byte-identical, so in the void a missed shot simply falls out of the world and is graded exactly as it always was (THE TREADMILL LAW). The trainer keeps its land rings (moonlineVoid() reads !trainMode), the Temple never reaches here (templeActive gates updateProjectiles), and moonline.on:false keeps them everywhere
-  let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
-  if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
-  lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
-}
-function updateLandRings(dt){
-  for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
-    if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
-    const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
-}
-function clearLandRings(){   // the twin of clearRings for the OTHER floor-plane pool, and the only way to retire one EARLY: updateLandRings above is unconditional in animate (no state.running, no !templeActive), so a live ring otherwise runs its full 0.55 s wherever the player has been taken in the meantime
-  for(const lr of landRingPool){ if(lr.active){ lr.active=false; lr.mesh.visible=false; } }
-}
+                           
+            
+                                                                                                                                                                                                                                                                                                                                                                                   
+                 
+                       
+                                                 
+   
+                                                    
+                                                                                                                                                                                                                                                              
+                                                          
+                                                                                                                                                         
+ 
+                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                    
+                                                                                             
+ 
+                                                                                             
+                      
+                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                            
+                                                                                                                                                                                                                                                                     
+                                                                                 
+ 
+                             
+                                                                                          
+                                                                 
+                                                                                       
+ 
+                                                                                                                                                                                                                                                                                                                     
+                                                                                           
+ 
 
-/* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
-const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
-let scopeAccum=SCOPE_STEP;
-const lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
-const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
-const _scScreen=[0,0,false];
-/* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
-let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
-const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85, EDGE_FLOW=34;   // deviation -> edge-tint opacity (0 within EDGE_TOL m, full by ~3m). EDGE_FLOW = conveyor scroll speed in px/s per metre of |delta|.
-const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints that CONVEY toward the aim-correction direction
-let _devY=0, _devX=0, _devShow=false, _eTopP=0, _eBotP=0, _eLeftP=0, _eRightP=0;
-function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
-function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
-function hideEdgeTints(){ _devShow=false; }
+                                                                                                                                                     
+                                                         
+                          
+                                                                                                                                                                      
+                                                                                                                                           
+                            
+                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                     
+                                                                                                                                                                                      
+                                                                                
+                                                                                                          
+                                                                                                                                                                        
+                                           
                                                                                                                                                                                                                                                     
                                                                                                                                                             
                                                                                                                                                                                             

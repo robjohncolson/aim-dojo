@@ -808,6 +808,7 @@
                                              
                                                      
                                                
+                                               
                                                                                                                      
                                                                                                                                                                           
                                                                                                                                                                         
@@ -964,7 +965,7 @@
                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                     
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -8856,15 +8857,15 @@
                                        
                                                            
                                                                             
-                                                                                     
-                                                                                                              
-                                                                                                                                                                                                                                                     
+                                                                                                                           
+                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                       
                                                                                    
                                                                                                
                                                                                                                                                            
                                                                                
                                                                                      
-                                                                                                                              
+                                                                                                                                                                             
                                                                                              
                                                                                 
                           
@@ -8938,13 +8939,14 @@
                
  
                                                                                                                               
-                                         
+                                                  
+                                                                                                                           
                                                     
                                               
                                                                                                                           
                                          
                                    
-                                                                                    
+                                                                             
      
                 
                                                                                                          
@@ -8952,15 +8954,15 @@
               
                                                             
                                                                                     
-                                                                                                              
+                                                                                                       
                                                               
        
                                                           
           
                                                         
-                                                                                                              
+                                                                                                       
      
-                                                                                              
+                                                                                       
      
  
                                                                   
@@ -9201,11 +9203,58 @@
                                                                                                             
  
                             
-                                             
-                                                     
-                                                             
+                          
+                            
+                                                               
+                                                                                          
+                                  
+                                         
+   
+                                                                
+                                            
+                                                                                                           
+                                                                                                                      
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                                 
+                                                                                                                                                                      
+                                                                                                                          
+                                                                                                                                                                      
+                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                   
+                                                                                                      
+                                                                             
+                                                                                                                                   
+ 
+                                   
                    
-                                                                                  
+                                                                                                                                                 
+ 
+                                 
+                                
+                                                                                                                                                                                          
+ 
+                                                
+                                                                                                                                                              
+                                                                                                                                     
+                                                                                            
+                                              
+                                
+                                                                                                
+                           
+                                                                                                                                                                                
+ 
+                                  
+                                             
+                                                                                                                            
+                                                                                                                                                  
+                                       
+                                                            
+                                                                                                                                                                       
+                                                              
+                                                                                                                                                                                                                         
+                                                                                                                                                                                      
+   
  
                                      
                                                                              
@@ -9264,28 +9313,37 @@
    
  
                                              
-                                                                                                          
+                                                                                                                                                        
+                                                                                                                                     
                                                     
-                     
+                                                
+                                                                                                                  
       
-                                                                                                   
-                                             
+                                                                                                            
+                                
                                                             
                                               
-                                                                                                            
-                                                                                                                                                                                                                                   
+                                                                              
+                                                                                      
+                                                                                                                                                     
             
-                                                                                                                                                                         
-                                                                
+                                                                                                                                               
+                                                                                               
+                             
                        
-                                                                                                                                                         
+                                                                                                                                                                                                   
+              
  
                                                      
-                                                                                                                                            
+                                                                                                                                                                         
                                                                                                      
-                                                                                                                               
-                                                                     
-                                           
+                 
+                                                                    
+                                                                                                                                   
+                                                                         
+                                                                                             
+                                                               
+   
  
                                            
                                                                                                                                                                                         
@@ -9296,13 +9354,23 @@
  
                            
                        
-                                                                                                                                                      
+                                                                                                                                                                                                     
                                                                                                                                                    
                                                                                                      
-                        
-                                                                                                                                                                                                                                                                                                                                        
-              
-                                               
+                         
+                                                   
+                                                                                    
+                                                                                                                        
+                                                                                                                                   
+                                                                     
+                                                                         
+                                                                                                                                                          
+                                                                                             
+                                                                                                                                                                                     
+                                                                                                                             
+                                                                         
+                 
+                                                                 
    
                                               
                                                          
@@ -9314,16 +9382,19 @@
  
                               
                                                                   
-                                                        
-                                                                             
+                   
+                                                                                                                                                                                                                       
+                             
                                               
-                                                                                               
+                                                                                                                          
  
                               
-                                                 
-                      
-                                                                                                               
-                                                                                     
+                                        
+                        
+                                                                                                                 
+                                                                                       
+   
+                           
  
                                         
                                                       
@@ -9672,7 +9743,7 @@
  
                              
                                                                   
-                                                                              
+                                                     
                                                                                                                                                                               
                                                                                                                                                                                           
                                                                                                                                   
@@ -9720,54 +9791,54 @@
                                                                                                 
                                                                                                                                                                   
  
-                           
-            
-                                                                                                                                                                                                                                                                                                                                                                                   
-                 
-                       
-                                                 
-   
-                                                    
-                                                                                                                                                                                                                                                              
-                                                          
-                                                                                                                                                         
- 
-                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-                    
-                                                                                             
- 
-                                                                                             
-                      
-                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-                                                                            
-                                                                                                                                                                                                                                                                     
-                                                                                 
- 
-                             
-                                                                                          
-                                                                 
-                                                                                       
- 
-                                                                                                                                                                                                                                                                                                                     
-                                                                                           
- 
+function updateFloorBeat(){
+  let amt=0;
+  const floorCueOn=wasdBeatCueOn() && !roadLive();   // THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
+  if(floorCueOn){
+    amt=wasdBeatGlow();
+    _floorBeatCol.setHex(WASD_HEX[_beatGlowKey]);
+  }
+  const fsh=dayFloor&&dayFloor.material.userData.sh;
+  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
+  const gsh=nightGrid&&nightGrid.material.userData.shBeat;
+  if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
+}
+let _fireHot=false;
+function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens on the beat. That "LAUNCH now" cue rewarded pulling the trigger ON the beat — the exact instinct that fights landing the shot on the beat. Now the ORB GLOW is the sole "land it here now" cue (the beat pulse + audio carry the anticipation); the player LEADS the release and guesses the flight time. To bring the crosshair cue back as a PREDICTIVE "release now → land on beat" light, gate `hot` on a flight-time lookahead instead of `_openAmt>0`.
+  const hot = false;
+  if(hot!==_fireHot){ _fireHot=hot; if(el.reticle) el.reticle.classList.toggle('fire',hot); }
+}
+/* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
+const landRingPool=[];
+function spawnLandRing(x,z){
+  if(moonlineVoid()) return;   // NOTHING BESIDE THE ROAD BUT SPACE (wave 8, G2a · SPEC §1). This ring is a y=0.03 disc on the RETIRED plane — in the void it is a blue circle hanging in mid-air over the celestial shell's lower half, marking a floor that is not there. The gate is HERE, on the visual, and NOT at the call site: updateProjectiles' `pr.pos.y<=0.04` termination, its onWhiff and its retire are ballistics and stay byte-identical, so in the void a missed shot simply falls out of the world and is graded exactly as it always was (THE TREADMILL LAW). The trainer keeps its land rings (moonlineVoid() reads !trainMode), the Temple never reaches here (templeActive gates updateProjectiles), and moonline.on:false keeps them everywhere
+  let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
+  if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
+  lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
+}
+function updateLandRings(dt){
+  for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
+    if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
+    const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
+}
+function clearLandRings(){   // the twin of clearRings for the OTHER floor-plane pool, and the only way to retire one EARLY: updateLandRings above is unconditional in animate (no state.running, no !templeActive), so a live ring otherwise runs its full 0.55 s wherever the player has been taken in the meantime
+  for(const lr of landRingPool){ if(lr.active){ lr.active=false; lr.mesh.visible=false; } }
+}
 
-                                                                                                                                                     
-                                                         
-                          
-                                                                                                                                                                      
-                                                                                                                                           
-                            
-                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                     
-                                                                                                                                                                                      
-                                                                                
-                                                                                                          
-                                                                                                                                                                        
-                                           
+/* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
+const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
+let scopeAccum=SCOPE_STEP;
+const lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
+const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
+const _scScreen=[0,0,false];
+/* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
+let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
+const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85, EDGE_FLOW=34;   // deviation -> edge-tint opacity (0 within EDGE_TOL m, full by ~3m). EDGE_FLOW = conveyor scroll speed in px/s per metre of |delta|.
+const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints that CONVEY toward the aim-correction direction
+let _devY=0, _devX=0, _devShow=false, _eTopP=0, _eBotP=0, _eLeftP=0, _eRightP=0;
+function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
+function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
+function hideEdgeTints(){ _devShow=false; }
 function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
   const dy=_devShow?_devY:0, dx=_devShow?_devX:0, scroll=!reduceMotion;   // reduced-motion: keep the static edge tint (opacity), freeze the conveyor scroll
   const tOp=dy<0?edgeOp(-dy):0; if(tOp>0 && scroll){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
