@@ -1,5 +1,40 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
 
+## -25. 2026-09-04: reviewed ImageBitmap decode complete locally · THE SKY ARRIVES LIGHTLY
+**Local-only state (not pushed or deployed):** `c1a3c27` adds flat `skyMaps.bitmapDecode:true`. Where both the browser
+and Three r128 expose ImageBitmap support, `loadSkyTexture` now creates one stable `THREE.Texture` wrapper, decodes
+through one lazily constructed `THREE.ImageBitmapLoader`, and publishes the bitmap with `needsUpdate=true`. The loader
+uses `imageOrientation:'flipY'` and `premultiplyAlpha:'none'`; the wrapper has `flipY=false`. Cache identity, in-flight
+waiter fan-out, retry-after-error, and fail-soft glyph-only behavior remain intact. `bitmapDecode:false`, a missing
+`createImageBitmap`, or a missing Three loader all fall through to the prior `_skyTexLoader.load(...)` block unchanged.
+`_skyTexImageReady` now accepts positive-width/height ImageBitmaps and canvases while retaining DOM-image `.complete`
+semantics. The globe contrast canvas inherits `tex.flipY`; this prevents a second vertical flip after drawing a
+pre-oriented bitmap and is a no-op (`true` to `true`) on the legacy TextureLoader path.
+
+**Evidence:** executable VM contracts cover the active path, stable return identity, duplicate-load suppression,
+waiter release, synchronous ready-cache hits, both failure modes, retry, knob-off and two capability fallbacks, DOM /
+bitmap / canvas readiness, orientation options, and the enhancement handoff. Full suite 345/345; inline mirrors were
+regenerated after the final edit and GitNexus re-indexed to 6,241 nodes / 11,185 edges / 271 clusters / 300 flows.
+Headful high-quality A/B used fixed clock, RNG and camera state against `824527b`: all 13 belt maps loaded on both;
+baseline made 0 `createImageBitmap` calls and the new build made 15. At 1280×800, pixelmatch deltas were menu 7 /
+1,024,000 (0.0007%), focused Jupiter 623 (0.0608%), and Aries belt 27 (0.0026%); visual inspection found no orientation,
+placement, scale or tone drift. The first run caught the enhancement double-flip before this final pass.
+
+**Performance reading:** one three-run headful friend-profile pair was too noisy to claim a speedup: baseline median
+`T_play` / `T_frame` 10,948 / 4,190 ms versus current 11,802 / 4,975 ms, while bytes-before-PLAY also varied 2,284 /
+1,929 KB and both were dominated by the same over-budget cold-start conditions. The defensible measured fact is that
+the new build exercised 15 asynchronous bitmap decodes with visual parity; do not quote this timing sample as a win.
+
+**Risk review:** pre-edit `loadSkyTexture` was CRITICAL (4 direct callers / 13 dependents / 5 processes),
+`_skyTexImageReady` HIGH (2 / 9 / 3), and `enhancePlanetTexture` CRITICAL (1 direct caller / 19 dependents / 10
+processes). The final staged `detect_changes` was CRITICAL by count (66 symbols / 24 flows / 7 files). Raw production
+diff review limits the live change to `CFG.skyMaps`, those three reviewed texture functions, and generated mirrors;
+reported `restoreFigures`, `cardLoad`, and gift flows are mirror repartition attribution.
+
+**Next:** P4 HTML split (`CODEX_PROMPT_PERF_HTML_SPLIT.md`), with pre/post headful measurement and explicit audit of
+every contract that currently reads `index.html`. The relay merge/deploy and live smokes remain the user's external
+boundary.
+
 ## -24. 2026-09-04: wave 22 Parcel P complete locally · THE STARS DID NOT LOAD
 **Local-only state (not pushed or deployed):** `b9cf074` gives the blocking Three.js r128 CDN tag the specified
 `onerror="window.__threeFailed=1"` marker and wraps the existing game IIFE in a strict bootstrap scope. The inner
