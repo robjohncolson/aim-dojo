@@ -415,6 +415,7 @@
                                               
                                                                                                                                                                                                                                        
         
+                                                                                                                                                                                                
        
       
                             
@@ -961,6 +962,7 @@ const CFG = {
   ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
   ghostSeat:1,   // NIGHT GHOSTS S: raw flat kill-switch. 0 allocates and draws no echo-seat object; 1 may load one validated prior-night artifact into the separate +90 m Veiled Choir
   ghostGift:1,   // THE GIFT: raw flat kill-switch. 0 adds no flare candidate, projectile tag, catch state, wrapper/mail or threshold read; 1 lets a revealed prior-night flare receive one connection-only blessed shot
+  gateFirst:1,   // THE GATE FIRST (SPEC_THE_INVITATION C, load scheduling): raw flat kill-switch. 0 keeps the wave-18 boot order (one synchronous shader warm at idle, texture work racing the PLAY gate); 1 lights PLAY as soon as Tone is fetchable and sequences every heavy idle job — chunked shader warm, sticks/belt/milky textures, glossary, sky day, auth, boards — AFTER the gate
   calibSilent:1,   // THE SILENT CALIBRATION (SPEC_THE_INVITATION A): raw flat kill-switch. 0 never reads the accumulator outside the pause-card button; 1 folds a newcomer's measured tap residual into the offset once, wordlessly, at graduation or the first pause
   ghostShare:1,   // THE VISITOR: raw flat kill-switch. 0 mints no relay token, allocates no visitor/mail/star state and makes no relay request; 1 shares worthy nights and may seat one validated stranger at -90 m
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
@@ -11204,7 +11206,9 @@ function roadImpSync(r){
  
                                                                                              
                                       
+                                                                                                                                                                                                                                
                              
+                                                                                                            
                                                                                                                                                            
  
                                                                                                                  
@@ -11699,17 +11703,18 @@ function roadImpSync(r){
                            
                                                                                                                                                                                                    
                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                 
                                            
                                                                                                                                                                                                                                               
                                                                                        
-                                                                                                                         
+                                                                                                                           
                                               
                                                                                                                                                                    
                                                                                                                                               
                 
-                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                 
+                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                   
                                                                                                                              
                                                                                                                           
                                                                                                                                
@@ -11732,15 +11737,37 @@ function roadImpSync(r){
                                                                                                                                                                                                                                              
                                                
  
-                              
-                                                                                                                                                                             
+                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                               
+                
+                                              
+                                       
+                                                                                           
+                                                                                                        
+                                                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                     
+                   
+                                                                                                                                                                        
+                               
+                                                              
+                                
+                                                                                                                             
+     
+                                                         
+    
+          
+ 
+                                                                                           
+                                                                                                                                                                               
                              
                                                                                      
                                                                                                                                                                                                                                               
                 
                                                                                                                    
                                                                                                                                                              
-                                                                                                                                                                                                  
+                                                                                                                                                                                                                          
      
          
        

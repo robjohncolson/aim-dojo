@@ -10,7 +10,7 @@
 // puppeteer-core is NOT a repo dependency: point COLDLOAD_MODULES at a node_modules that has it (or install it
 // beside this file). Chrome: --chrome <path> or CHROME_PATH; the usual Windows/Linux paths are tried.
 //
-// Numbers (per run): T_play = ms until #beginTrain is enabled (setGateReady true) · bytes = encoded bytes received
+// Numbers (per run): T_play = ms (page clock) until #beginTrain's disabled attribute clears (setGateReady true), stamped by a MutationObserver so a busy main thread cannot inflate it · bytes = encoded bytes received
 // before T_play · T_frame = ms from a synthetic PLAY click to the first animation frame after the start card hides ·
 // worst = the longest frame in the 5 s after that. Budget (friend profile): T_play ≤ 4000 · T_frame ≤ 1500 · bytes ≤ 1.5 MB.
 
@@ -67,12 +67,24 @@ async function oneRun(browser, url, profile) {
   if (profile.cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: profile.cpu });
   if (profile.net) await cdp.send("Network.emulateNetworkConditions", profile.net);
   await page.setViewport({ width: 1280, height: 800 });
+  await page.evaluateOnNewDocument(() => {
+    window.__gate = { t: null, first: null };
+    const arm = () => {
+      const b = document.getElementById("beginTrain"); if (!b) return false;
+      const check = () => { if (window.__gate.t === null && !b.disabled && window.__gate.first !== null) window.__gate.t = performance.now(); };
+      new MutationObserver(() => { if (window.__gate.first === null && b.disabled) window.__gate.first = performance.now(); check(); }).observe(b, { attributes: true, attributeFilter: ["disabled"] });
+      if (b.disabled) window.__gate.first = performance.now();
+      check(); return true;
+    };
+    if (!arm()) document.addEventListener("DOMContentLoaded", arm);
+  });
   const t0 = Date.now();
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
   let tPlay = null;
   try {
     await page.waitForFunction(() => { const b = document.getElementById("beginTrain"); return !!b && !b.disabled; }, { timeout: 45000, polling: 50 });
-    tPlay = Date.now() - t0; bytesAtPlay = bytes;
+    const g = await page.evaluate(() => window.__gate);
+    tPlay = g && g.t !== null ? Math.round(g.t) : Date.now() - t0; bytesAtPlay = bytes;   // page-clock gate stamp; the poll-time fallback only if the observer never saw the button go disabled→enabled
   } catch (e) { errors.push("PLAY never enabled within 45 s"); }
   let tFrame = null, worst = null;
   if (tPlay !== null) {

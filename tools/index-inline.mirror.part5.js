@@ -415,6 +415,7 @@
                                               
                                                                                                                                                                                                                                        
         
+                                                                                                                                                                                                
        
       
                             
@@ -961,6 +962,7 @@
                                                                                                                                                                                                             
                                                                                                                                                                                        
                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                     
                                                                                                                                                                                  
@@ -11204,7 +11206,9 @@ function startRun(viaPad){
 }
 beginBtn.addEventListener('click', startRun);   // RESUME path only (modePick hidden mid-run)
 const beginTrainBtn=gid('beginTrain');
+let _gateReadyResolve=null; const _gateReady=new Promise(r=>{ _gateReadyResolve=r; });   // THE GATE FIRST: resolves the first time PLAY lights (Tone fetched, or its failure copy armed); every heavy boot job queues behind it
 function setGateReady(ready){
+  if(ready && _gateReadyResolve){ const r=_gateReadyResolve; _gateReadyResolve=null; try{ r(); }catch(e){} }
   if(!beginTrainBtn) return; beginTrainBtn.disabled=!ready; beginTrainBtn.style.opacity=ready?'':'0.45'; beginTrainBtn.style.cursor=ready?'pointer':'wait';
 }
 setGateReady(!!window.Tone);   // boot-disabled until Tone is fetchable; first enabled click still runs initAudio
@@ -11699,17 +11703,18 @@ function shareLinkUrl(){ return (location.protocol==='file:') ? location.href : 
 renderPrimary(false,false);
 animate();                                              // start the render loop LAST — every module-scope const/let (remotes, ghost, rtCh…) is now initialized, so no TDZ crash in updateRemotes()
 const runIdle=(fn,delay,timeout)=>{ if(window.requestIdleCallback) window.requestIdleCallback(fn,{timeout:timeout||delay||1000}); else setTimeout(fn,delay||0); };
+const afterGate=(fn,delay,timeout)=>{ if(!CFG.gateFirst){ runIdle(fn,delay,timeout); return; } _gateReady.then(()=>runIdle(fn,delay,timeout)); };   // THE GATE FIRST: measured 2026-09-03 on production — the synchronous shader warm (2.0 s of program links on a real Windows driver) and the belt/milky texture uploads were landing BEFORE Tone's then-callback could light PLAY. Off arm = runIdle verbatim
 if(CFG.nightCard.on) cardCaptureSchedule();
 if(SKY_MODE!=='decorative'&&SKY_TIME==='natural'&&!hasSkyObserver()) runIdle(()=>{ requestObserverGeolocation(false); },420,1800);   // one persisted, nonblocking attempt; denial falls back to the manual pause fields and never blocks play
 if(SKY_MODE==='decorative') runIdle(()=>{ buildStars(); updateStars(skyT); },120,1000);
-else runIdle(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick figures REPLACE the random starfield (v2 D4)
+else afterGate(()=>{ loadSticks().then(c=>{   // clocked*: the 13 zodiac stick figures REPLACE the random starfield (v2 D4)
   if(c) try{ buildZodiacSticks(c); }catch(e){}
   if(!stickGroup){ buildStars(); updateStars(skyT); }   // ANY miss — absent, invalid, or throwing fixture — degrades to the decorative stars, never an empty night
   if(!LOW) try{ ensureAllSignArt(); }catch(e){}   // always-on Midpoint belt (size ∝ days in sign); LOW builds it on temple-open (SPEC §P3 L5)
 }); },120,1500);
-if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyGlossary(); },140,1600);   // definitions are a static asset and never wait on either sky server
-if(SKY_MODE!=='decorative') runIdle(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; announceSkyDay(p); }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers) and announced once per tab; failure leaves Meeus ☉/☽ + sticks + glossary untouched
-runIdle(()=>{ initSaveMySky(); },320,2400);   // restored auth/profile is optional and nonblocking; guests make no /api/me/* call
+if(SKY_MODE!=='decorative') afterGate(()=>{ loadSkyGlossary(); },140,1600);   // definitions are a static asset and never wait on either sky server
+if(SKY_MODE!=='decorative') afterGate(()=>{ loadSkyDay().then(p=>{ if(!p) return; _publicSkyPack=p; queueSkyGeometry(p,1,()=>{ _publicSkyReady=true; announceSkyDay(p); }); }); },260,2200);   // valid day data is applied as one immediate epoch switch (including all 12 movers) and announced once per tab; failure leaves Meeus ☉/☽ + sticks + glossary untouched
+afterGate(()=>{ initSaveMySky(); },320,2400);   // restored auth/profile is optional and nonblocking; guests make no /api/me/* call
 /* SHADER WARM-UP. r128 links every GLSL program lazily, on the first frame an object needs it, and the link is SYNCHRONOUS —
    the frame blocks on gl.getProgramInfoLog until the driver is done. renderer.compile() below walks the WHOLE scene graph
    (hidden objects included, unlike render()) and has pre-warmed everything that exists at boot since it shipped. What it could
@@ -11732,15 +11737,37 @@ function warmShaders(){
   try{ renderer.compile(scene, camera); }catch(e){}   // pre-warm every scene material's shader (beat rings, grid variants, floor, and now the on-demand kinds above) during boot idle — no first-use compile can hitch a run's opening beats
   for(const f of back){ try{ f(); }catch(e){} }
 }
-runIdle(warmShaders,900,4000);
-if(SKY_MODE==='clocked_chart') runIdle(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; an authenticated profile is authoritative over every legacy source
+const WARM_SLICE_MS=40;   // THE GATE FIRST: one idle slice links program families until this budget is spent, then yields — a click on PLAY, or Tone's then-callback, is never queued behind the whole scene's links (measured 2.0 s on a real Windows driver)
+function warmShadersStart(){   // the chunked warm: same on-demand kinds parked invisible as warmShaders, but renderer.compile runs per TOP-LEVEL CHILD (lights ride along in every chunk so no program is linked against a lightless scene) across idle slices; PLAY cancels the rest — a run that beats the warm simply gets the old lazy links, exactly the promise warmShaders already made
+  const back=[];
+  try{ ensureArcObjs(); hideArc(); }catch(e){}
+  try{ ensureStarTethers(); }catch(e){}
+  try{ const m=ensureTargetMark(0); m.ring.visible=false; m.drop.visible=false; }catch(e){}
+  try{ const tm=acquireTargetMesh(); tm.visible=false; back.push(()=>releaseTargetMesh(tm)); }catch(e){}
+  try{ const sh=acquireShards(Math.max(1,CFG.shards|0), TOXIC); sh.pts.visible=false; back.push(()=>releaseShards(sh)); }catch(e){}
+  try{ const fl=acquireFlash(TOXIC); fl.visible=false; back.push(()=>releaseFlash(fl)); }catch(e){}
+  const all=scene.children, lights=all.filter(o=>o&&o.isLight), queue=all.filter(o=>o&&!o.isLight);
+  const finish=()=>{ for(const f of back){ try{ f(); }catch(e){} } };
+  const slice=()=>{
+    if(state.started || state.running){ finish(); return; }   // PLAY beat the warm: release the parked kinds and let the run link lazily, as before warmShaders existed
+    const t0=performance.now();
+    while(queue.length && performance.now()-t0<WARM_SLICE_MS){
+      const child=queue.shift();
+      try{ scene.children=lights.concat([child]); renderer.compile(scene, camera); }catch(e){} finally{ scene.children=all; }
+    }
+    if(queue.length) runIdle(slice,0,500); else finish();
+  };
+  slice();
+}
+if(CFG.gateFirst) afterGate(warmShadersStart,300,2000); else runIdle(warmShaders,900,4000);
+if(SKY_MODE==='clocked_chart') afterGate(()=>{ loadSkypack().then(p=>{   // skypack loads OFF the boot path; an authenticated profile is authoritative over every legacy source
   if(_skyAuthSession) return;
   if(!p){ showGhostToast('🌌 '+T('skyNoChart','SKY · CLOCKED — NO CHART')); return; }
   const rank=skyGeometryRank(p); queueSkyGeometry(p,rank,()=>{ if(p._sample) showGhostToast('🌌 '+T('skyMockChart','SKY · SAMPLE CHART')); });   // real personal rank wins any load race; synthetic sample never overrides a valid public day
 }); },400,2500);
 // Eager Tone fetch so the binary gate's first enabled click can init audio (was idle-deferred → cold double-click)
 loadToneOnce().then(()=>{ setGateReady(true); }).catch(()=>{ setGateReady(true); });   // still enable on failure so the user can see the error copy on click
-setTimeout(()=>{ loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100);   // leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
+afterGate(()=>{ setTimeout(()=>{ loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100); },0,0);   // leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
      
          
        
