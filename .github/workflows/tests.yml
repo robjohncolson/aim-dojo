@@ -1,0 +1,31 @@
+# THE SUITE RUNS ON EVERY PUSH (SPEC_THE_INVITATION parcel N). Two hosts on purpose: the 2026-09-03 realCivilDate
+# oracle passed in Japan and failed in New York — a host west of UTC is a real test environment, not a courtesy.
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  suite:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Root modules parse
+        run: |
+          node --check observer-location.js
+          node --check local-sky.js
+          node --check sky-temple.js
+          node --check sky-maps.js
+          node --check save-my-sky.js
+      - name: Inline-JS mirrors are fresh (an index.html edit without regenerated mirrors fails here)
+        run: |
+          node tools/extract-inline.mjs
+          git diff --exit-code -- tools/
+      - name: Suite
+        run: node --test tests/*.test.js
