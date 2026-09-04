@@ -7,11 +7,11 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
-const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const { html: indexHtml, main, sourceText: html, sourceFor } = require("./source.js");
 const wave8ArchFixture = JSON.parse(fs.readFileSync(path.join(__dirname, "moonline-wave8-arch-shaders.fixture.json"), "utf8"));
 
 function emitRoadArchShaders({ nave, low }) {
-  const match = html.match(/function buildRoadArches\(\)\{[\s\S]*?\n\}(?=\nfunction buildNaveVault)/);
+  const match = sourceFor("buildRoadArches").match(/function buildRoadArches\(\)\{[\s\S]*?\n\}(?=\nfunction buildNaveVault)/);
   assert.ok(match, "buildRoadArches is extractable for shader emission");
   class BufferGeometry { setAttribute() {} setIndex() {} }
   class BufferAttribute { constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; } }
@@ -38,7 +38,7 @@ function emitRoadArchShaders({ nave, low }) {
 }
 
 test("every inline browser script parses", () => {
-  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+  const scripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
     .map((match) => match[1])
     .filter(Boolean);
   assert.ok(scripts.length >= 2);
@@ -75,11 +75,16 @@ test("realCivilDate validates Gregorian dates independently of the host time zon
 
 test("inline script comments cannot swallow trailing call statements", () => {
   const offenders = [];
-  for (const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)) {
-    if (!match[1]) continue;
-    const sourceAt = match.index + match[0].indexOf(match[1]);
-    const firstLine = html.slice(0, sourceAt).split("\n").length;
-    match[1].split("\n").forEach((line, index) => {
+  const scripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+    .filter((match) => match[1])
+    .map((match) => ({
+      label: "index.html",
+      firstLine: indexHtml.slice(0, match.index + match[0].indexOf(match[1])).split("\n").length,
+      source: match[1],
+    }));
+  scripts.push({ label: "aim-dojo-main.js", firstLine: 1, source: sourceFor("threeBlock") });
+  for (const script of scripts) {
+    script.source.split("\n").forEach((line, index) => {
       let commentAt = -1;
       let cursor = 0;
       while (true) {
@@ -97,10 +102,10 @@ test("inline script comments cannot swallow trailing call statements", () => {
       const trimmed = tail.trimEnd();
       const tailCall = /\)\s*;\s*$/.test(trimmed) && /[A-Za-z_$][\w$]*\(/.test(trimmed);
       const midCall = /[A-Za-z_$][\w$]*\(.*\)\s*;\s+\/\//.test(tail);
-      if (tailCall || midCall) offenders.push(firstLine + index);
+      if (tailCall || midCall) offenders.push(`${script.label}:${script.firstLine + index}`);
     });
   }
-  assert.deepEqual(offenders, [], `call statements swallowed by // comments at index.html lines: ${offenders.join(", ")}`);
+  assert.deepEqual(offenders, [], `call statements swallowed by // comments at: ${offenders.join(", ")}`);
 });
 
 test("the Nave kill-switch emits the frozen Wave 8 shaders character-for-character", () => {

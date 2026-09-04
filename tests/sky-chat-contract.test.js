@@ -7,22 +7,22 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
-const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const { sourceText: html, sourceFor } = require("./source.js");
 
 function regexEscape(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function blockEnd(openIndex) {
-  assert.equal(html[openIndex], "{", "block starts with an opening brace");
+function blockEnd(source, openIndex) {
+  assert.equal(source[openIndex], "{", "block starts with an opening brace");
   let depth = 0;
   let quote = null;
   let lineComment = false;
   let blockComment = false;
 
-  for (let i = openIndex; i < html.length; i += 1) {
-    const char = html[i];
-    const next = html[i + 1];
+  for (let i = openIndex; i < source.length; i += 1) {
+    const char = source[i];
+    const next = source[i + 1];
 
     if (lineComment) {
       if (char === "\n") lineComment = false;
@@ -65,11 +65,12 @@ function blockEnd(openIndex) {
 }
 
 function namedFunction(name) {
-  const match = new RegExp(`(?:async\\s+)?function\\s+${regexEscape(name)}\\s*\\(`).exec(html);
+  const source = sourceFor(name);
+  const match = new RegExp(`(?:async\\s+)?function\\s+${regexEscape(name)}\\s*\\(`).exec(source);
   assert.ok(match, `${name} exists`);
-  const open = html.indexOf("{", match.index + match[0].length);
+  const open = source.indexOf("{", match.index + match[0].length);
   assert.notEqual(open, -1, `${name} has a body`);
-  return html.slice(match.index, blockEnd(open));
+  return source.slice(match.index, blockEnd(source, open));
 }
 
 function callbackBlock(marker) {
@@ -77,7 +78,7 @@ function callbackBlock(marker) {
   assert.notEqual(start, -1, `${marker} callback exists`);
   const open = html.indexOf("{", start + marker.length);
   assert.notEqual(open, -1, `${marker} callback has a body`);
-  return html.slice(start, blockEnd(open));
+  return html.slice(start, blockEnd(html, open));
 }
 
 function keyListenerContaining(anchor) {
@@ -89,7 +90,7 @@ function keyListenerContaining(anchor) {
   assert.ok(start >= 0, `${anchor} is inside a keydown listener`);
   const open = html.indexOf("{", start);
   assert.ok(open >= 0 && open < anchorIndex, `${anchor} is inside the listener callback`);
-  return html.slice(start, blockEnd(open));
+  return html.slice(start, blockEnd(html, open));
 }
 
 function indexBefore(source, first, second, message) {

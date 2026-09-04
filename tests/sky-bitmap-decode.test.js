@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const { sourceText: html } = require("./source.js");
 
 function namedFunction(name) {
   const marker = `function ${name}(`;

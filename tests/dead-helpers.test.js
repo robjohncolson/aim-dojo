@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const html = fs.readFileSync(path.resolve(__dirname, "..", "index.html"), "utf8");
+const { sourceText: html } = require("./source.js");
 
 const DEAD = [
   "avgReaction", "classifyPocket", "showTempleSignArt", "placeTempleSignArt", "starLitLevel",

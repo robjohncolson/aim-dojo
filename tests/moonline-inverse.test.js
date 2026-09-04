@@ -8,7 +8,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
-const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const { sourceText: html } = require("./source.js");
 const inverseSpec = fs.readFileSync(path.join(ROOT, "SPEC_MOONLINE_INVERSE.md"), "utf8");
 const wave10Fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "moonline-wave10-shaders.fixture.json"), "utf8"));
 const wave111Fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "moonline-wave11-1-shaders.fixture.json"), "utf8"));

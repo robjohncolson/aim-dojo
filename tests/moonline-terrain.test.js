@@ -8,7 +8,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
-const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const { sourceText: html } = require("./source.js");
 const wave9Fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "moonline-wave9-shaders.fixture.json"), "utf8"));
 
 function closingDelimiter(source, openAt, open = "{", close = "}") {

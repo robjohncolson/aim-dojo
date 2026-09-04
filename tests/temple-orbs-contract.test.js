@@ -5,14 +5,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const { sourceText: html, sourceFor } = require("./source.js");
 
 function namedFunction(name) {
   const marker = `function ${name}(`;
-  const start = html.indexOf(marker);
+  const source = sourceFor(name);
+  const start = source.indexOf(marker);
   assert.notEqual(start, -1, `${name} exists`);
-  const next = html.slice(start + marker.length).search(/\nfunction\s+[A-Za-z_$][\w$]*\s*\(/);
-  return next < 0 ? html.slice(start) : html.slice(start, start + marker.length + next);
+  const next = source.slice(start + marker.length).search(/\nfunction\s+[A-Za-z_$][\w$]*\s*\(/);
+  return next < 0 ? source.slice(start) : source.slice(start, start + marker.length + next);
 }
 
 function indexBefore(source, first, second, message) {

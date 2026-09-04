@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const html = fs.readFileSync(path.resolve(__dirname, "..", "index.html"), "utf8");
+const { sourceText: html } = require("./source.js");
 const THREE_TAG = '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="window.__threeFailed=1"></script>';
 const GUARD = "if(typeof THREE==='undefined'){ threeBlock(); return; }";
 
