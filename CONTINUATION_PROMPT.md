@@ -1,5 +1,39 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
 
+## -26. 2026-09-04: P4 HTML split complete · THE PAGE OPENS EARLY
+**Code commit:** `ba15c03` moves the large game IIFE, byte-for-byte apart from its markup-only leading newline, into
+`aim-dojo-main.js`. The 98,800-byte `index.html` retains the gate/overlay, pre-paint and i18n blocks, then preserves
+the required module → Three r128 → deferred main order. The pre-P4 shell at `ab0cfa2` was 1,263,837 bytes. A direct
+oracle confirms current HTML is exactly that old shell with only the large script element replaced by
+`<script defer src="aim-dojo-main.js"></script>`. Vercel gives the new unhashed asset the same must-revalidate policy
+as the other runtime modules.
+
+**Test and graph boundary:** all 23 source-scraping tests now read through `tests/source.js`; `sourceFor(name)` is used
+by the sky-chat, temple-orbs and index-contract extractors. `tests/html-split.test.js` pins the 150 KB ceiling, unique
+deferred tag, full load order, independent main parse, source resolution, and Vercel header. GitNexus cannot parse the
+1.16 MB runtime source within its worker budget, so `.gitnexusignore` excludes only that file and
+`tools/extract-inline.mjs` emits five independently parse-checked, line-preserving main mirrors plus one residual
+inline mirror. A forced rebuild completed in 30.5 s at 5,619 nodes / 10,609 edges / 279 clusters / all 300 flows;
+`animate` resolves at its real main-file line with cross-part callers and 11 processes. Never load or hand-edit mirrors.
+The following documentation refresh settled the current graph at 5,620 nodes / 10,610 edges / 279 clusters / 300 flows.
+
+**Evidence:** final suite 347/347 and `git diff --check` pass. Three-run cold-cache headful friend A/B against exact
+`ab0cfa2`: `T_play` 3,037 → 2,608 ms (−14%), `T_frame` 1,332 → 960 ms (−28%), bytes before PLAY 1,730 → 1,692 KB.
+The current build meets the 4,000/1,500 ms timing budgets; transfer remains 156 KB above the 1,536 KB budget. Direct
+`file://` boot enabled PLAY at 1,705 ms and reached its first gameplay frame in 491 ms. Chromium reports null-origin
+CORS errors for mapped images/JSON and the relay on direct-file open; those fail soft and are not introduced by the
+split. Local HTTP boot had no page error; its only console noise was the known localhost→production relay CORS edge.
+
+**Risk review:** P4 was declared HIGH because almost every contract scraped the monolith. Pre-edit graph impacts for
+the file boundaries, `animate`, `threeBlock`, `CFG`, test readers and extraction tooling were LOW; the test helper
+changes each had zero or one direct test caller and no production process. Final staged `detect_changes` was CRITICAL
+by relocation count (2,170 changed symbols / 271 affected flows / 36 indexed files). The byte-equality oracles, full
+suite and browser A/B bound that graph churn to source relocation and test/tooling adaptation.
+
+**At this entry:** P4 is committed locally; the bookkeeping commit and authorized push follow. The Sidereal relay
+merge/deploy remains the user's external boundary. Live mail/visitor/chat validation must wait for that relay deploy;
+client-only boot can be smoked after the push.
+
 ## -25. 2026-09-04: reviewed ImageBitmap decode complete locally · THE SKY ARRIVES LIGHTLY
 **Local-only state (not pushed or deployed):** `c1a3c27` adds flat `skyMaps.bitmapDecode:true`. Where both the browser
 and Three r128 expose ImageBitmap support, `loadSkyTexture` now creates one stable `THREE.Texture` wrapper, decodes

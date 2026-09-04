@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **aim-dojo** (6241 symbols, 11185 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **aim-dojo** (5620 symbols, 10610 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -43,20 +43,23 @@ This project is indexed by GitNexus as **aim-dojo** (6241 symbols, 11185 relatio
 
 <!-- gitnexus:end -->
 
-# Inline-JS mirror (aim-dojo specific)
+# Runtime-JS mirrors (aim-dojo specific)
 
-The game lives in index.html's inline <script> blocks, which the indexer cannot parse
-directly. tools/index-inline.mirror.part<N>.js are GENERATED line-preserving JS mirrors (markup blanked to spaces; split into parts to fit the indexer parse budget): graph results citing any part's line N refer to index.html:N â€” same line number, read/edit index.html there.
+The browser loads the game from `aim-dojo-main.js`. GitNexus excludes that one oversized
+runtime file via `.gitnexusignore` because tree-sitter times out on it, then indexes GENERATED
+parse-sized `tools/aim-dojo-main.mirror.part<N>.js` files: line N in a main mirror refers to
+`aim-dojo-main.js:N`. The small inline blocks left in `index.html` use the GENERATED
+line-preserving `tools/index-inline.mirror.part<N>.js` files, where line N refers to `index.html:N`.
 
-- NEVER edit the mirror. NEVER load it from the page.
-- After ANY index.html edit, regenerate before re-indexing:
+- NEVER edit a mirror. NEVER load one from the page.
+- After ANY `index.html` or `aim-dojo-main.js` edit, regenerate before re-indexing:
   node tools/extract-inline.mjs
   npx gitnexus analyze   (needs GITNEXUS_MAX_FILE_SIZE=4096 for a --force full rebuild)
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **aim-dojo** (3479 symbols, 6766 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **aim-dojo** (5620 symbols, 10610 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
