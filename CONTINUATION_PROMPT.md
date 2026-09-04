@@ -1,5 +1,32 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
 
+## -21. 2026-09-04: wave 21 Parcel J complete locally · THE TIDE ORDERS THE CHALK
+**Local-only state (not pushed or deployed):** `6103524` adds the flat `moonline.tidePalette:1` arm. The main road's
+existing shared tide record now exposes its already-computed cycle bar as `.cb`; no second modulo or allocation was
+added. At the existing per-station lookup, and only after the seeded 512-bar private palette has returned its two
+colours, the current chalk eases toward the existing powder pigment `0x6f91bc` by the specified smoothstep, capped at
+0.45. The trough and mercy pane remain unblended. `_wallNext` reads `cb+1`, so the shader's colour crossfade is continuous
+through every bar line and through the mercy→trough wrap. `tidePalette:0` leaves `_wallCol/_wallNext` value-identical;
+the ghost palette remains wholly outside the live tide and still wears its own night's chalk.
+
+**Evidence:** focused tide-palette contract 4/4; full suite 330/330, including inline parse, mirror freshness, and
+comment-swallow. A frozen fixture covers both wall-colour arrays over all nine bars. The full
+`doorCross × tidePalette × wallsOn × mercyInverse` matrix passes. Eleven constructed mutants are killed across the
+pigment and cap, linear-vs-smooth easing, mercy leakage, absolute and independently recomputed cycle bars, switch
+cross-wiring, next-colour discontinuity, palette-index shifting, a third private RNG draw, and ghost tinting. Mirrors
+were regenerated after the final inline edit.
+
+**Risk review:** every pre-edit production impact was LOW. `roadTideAt` has one direct caller (`roadBandFill`) with
+`roadSync`/`animate` downstream; `roadArchFill` has one direct caller (`roadSync`) with `animate` downstream; `CFG` and
+`_roadTideR` had no graph-level upstream dependents. Final staged `detect_changes` is CRITICAL by count (73 symbols,
+19 processes, 10 files). The only real changed production route is the reviewed road-sync palette path; the reported
+sky/listen/card names are generated-mirror split-boundary attribution after the inline source grew, and their raw
+`index.html` symbols are untouched. The intended commit is `index.html`, all five mirrors, the new test+fixture, and
+the two GitNexus count files; `state/` remains untracked and untouched.
+
+**Still owed before publication:** the user's relay deploy and live smokes from §-16 item 0 still come first. Parcel J
+is not pushed. Next code item is wave 21 Parcel K, MOON SENSEI II; its Japanese drafts still require native review.
+
 ## -20. 2026-09-04: G-client + H (dormant) + I reviewed and PUSHED (live at `e06ebfc`) · THE NEXT CYCLE, remaining items
 **Review (this machine, real GPU):** `c7c4de9` (G client: strict-boolean `reachedBack`, `seat.back`, the reached-back
 line first; the field never reaches gameplay), `ea0d7fc` (H: `ghostPhase:0` dormant, eight validated slots, phase seat
