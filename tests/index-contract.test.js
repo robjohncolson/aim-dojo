@@ -50,7 +50,7 @@ test("every inline browser script parses", () => {
 test("realCivilDate validates Gregorian dates independently of the host time zone", () => {
   class ApiaDate extends Date {
     constructor(...parts) {
-      if (parts.length >= 3 && parts[0] === 2011 && parts[1] === 11 && parts[2] === 30) super(Date.UTC(2011, 11, 31));
+      if (parts.length >= 3 && parts[0] === 2011 && parts[1] === 11 && parts[2] === 30) super(2011, 11, 31);   // LOCAL midnight of the day after: Apia handed back Dec 31 in its own clock, and only a local date reads as 31 on hosts west of UTC too (a UTC midnight reads as Dec 30 in the Americas and let the local-midnight mutant survive)
       else super(...parts);
     }
     static UTC(...parts) { return Date.UTC(...parts); }
@@ -931,7 +931,7 @@ test("dojo submission allowlist contains no profile or birth fields", () => {
 });
 
 test("share links and dojo POST bodies cannot receive private study content", () => {
-  const shareLink = html.match(/function linkUrl\(\)\{[^}]*\}/);
+  const shareLink = html.match(/function shareLinkUrl\(\)\{[^}]*\}/);
   assert.ok(shareLink);
   assert.match(shareLink[0], /location\.origin\+location\.pathname/);
   assert.doesNotMatch(shareLink[0], /location\.(?:search|hash)|URLSearchParams|observer|aimdojo\.observer|essay|brief|sky.?note|skyBrief|cache_date|has_essay|headline|body|watchpoint|epistemic/i);
