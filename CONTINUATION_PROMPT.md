@@ -1,4 +1,75 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-03 late)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04)
+
+## -16. 2026-09-04: wave 20 E + F reviewed and PUSHED (live) · THE NEXT CYCLE — a brief Codex can implement from, in order
+**Review of Codex's E (`571fcb8`) and F (`309aa27`) (2026-09-04, this machine):** both diffs read coherent and scoped —
+multi-seat registers, honest silhouette, bounded aggregate response (`GH_GHOSTS_RESPONSE_MAX`), per-seat mail, visitor-only
+construction alpha, analytic road-clock Gift flight with canonical 90 Hz collision samples. Mirrors fresh; 318/318 on
+Windows; `detect_changes` vs origin: 171 touched symbols, all inside the ghost/gift flows (expected radius). Headful boot
+smoke on the real GPU: PLAY at 1.0 s, zero page errors. Pushed to main → live.
+**DEPLOY-ORDER CAVEAT, deliberately accepted:** the client now POSTs one mail batch per visitor (up to three) but the LIVE
+relay still cools mail down ≥60 s per sender token, so with two or more visitors the 2nd/3rd batches would 429 (fail-soft:
+nothing surfaces, the notes are simply not delivered). The relay fix is Parcel G on sidereal branch `ghost-relay-wave20`
+(`d2c460f`: `ghost_seen`, `reachedBack`, per-target mail cooldown; 96+ tests). The relay is EMPTY today (10-day TTL),
+so no mail can be lost yet — but the relay MUST deploy before a second friend plays. That deploy is the user's push.
+
+### NEXT CYCLE — ordered work list (Codex: one commit per item, each behind its flat knob; no push, no deploy)
+0. **USER, not Codex — deploy the relay:** merge sidereal `ghost-relay-wave20` → main → Railway. Live-smoke: GET
+   `/api/ghosts?lon=…&n=4` with a throwaway token returns `reachedBack` booleans; two mail POSTs to two targets inside
+   60 s from one sender both 200. Then `node tools/relay-scan.mjs`.
+1. **Parcel G, client half** (SPEC §G "What — client"; only after item 0 is live, but the CODE can be written now because
+   an absent field is the plain line): `ghostVisitorFetch` (index.html ~9337) validates `item.reachedBack` as a STRICT
+   boolean when present (any other type → treat as absent, do not reject the ghost); the seat bag stores it
+   (`seat.back`); `ghostVisitorLine` (~9205) speaks `TF('ghostVisitorBack','a visitor who reached back rides tonight · {sigil}')`
+   / JA `手をのばしてくれた旅人が今夜ならぶ · {sigil}` when any seated visitor reached back (single-visitor form; with 2–3
+   visitors keep the plural line and append the reached-back sigil first). Nothing else reads the field. Tests in
+   tests/the-visitor.test.js: absent → plain line byte-identical; `true` → back line; `"true"`/1 → plain line; the
+   field never reaches grading/spawn/RNG (source scan). Knob: none new — it rides `ghostShare`.
+2. **Parcel H — THE MOON REMEMBERS YOU, built DORMANT:** implement exactly per SPEC §H (slots keyed by moon bucket in
+   `localStorage['aimdojo.ghostPhase']`, written at `ghostRecordFinalize` ~9048 after the worthy night is stored, seated
+   at the first empty visitor seat after strangers, line `ghostPhaseLine`), but ship with `ghostPhase:0` — the user
+   still owes the wave-8 "tonight-only self-ghost" ruling and the knob is how that ruling is applied. Off arm =
+   wave-20 byte-identical (extend the knob matrix: ghostShare × ghostGift × ghostPhase). Do NOT silently broaden the
+   ghost's memory (Codex's own note, kept).
+3. **Wave 21 — Parcel I, THE DOORWAYS ARE EVENTS** (SPEC §I). Anchors: bar latch beside the beat gate in `roadSync`
+   (~3046, `n0!==_roadBeat0`); shared stamp objects `_wallHit/_wallMiss` at ~2069 and the uniform block ~2600 are the
+   pattern for `_wallCross`; `beatSwell` ~9697; `arcWhoosh` ~6004 / `beatSnap` ~5905 for the voice; tide via
+   `roadTideAt` ~2079. Knob `moonline.doorCross`; 0 → frozen-shader fixture byte-identical (test the switch ALONE).
+   Audio gated by bars-to-mercy (silent ≥3 out, −6 dB at 2, full at 1, mercy door = sweep + one pad tonic grace).
+4. **Wave 21 — Parcel J, THE TIDE ORDERS THE CHALK** (SPEC §J): expose `cb` on `_roadTideR` (~2070/2088), tint at the
+   per-station lookup ~2704 AFTER the private palette draw (THE STREAM RULE — the 512-bar walk is untouched), ghost
+   seats NOT tinted. Knob `moonline.tidePalette`; 0 → `_wallCol/_wallNext` byte-identical over a full 9-bar cycle.
+5. **Wave 21 — Parcel K, MOON SENSEI II** (SPEC §K): four once-ever lines (`aimdojo.sensei2`), hooks at the first
+   `tideMercy` true (~6538), the first `tg.fill16` spawn, the holster half-way to the Bow, the first star lit to level
+   1; `showTrainCoach(line,true)`; EN+JA (JA drafts in the spec, mark for native review). Knob `sensei2`.
+6. **Wave 22 — Parcel O** (dead helpers, SPEC §O list — grep `tests/` for `placeTempleSignArt` first) and **Parcel P**
+   (Three.js CDN guard: `onerror` on the tag ~904, first statement of the IIFE ~906, `threeFailedHtml` EN+JA).
+7. **Perf, reviewed round — ImageBitmap decode in `loadSkyTexture` (~3505):** §-14 below has the traps (flipY,
+   `_skyTexImageReady`, `enhancePlanetTexture`) and the visual acceptance (headful screenshots: menu sky, Temple
+   planet focus, belt — pixel A/B vs HEAD). Impact CRITICAL (14 dependents). Knob `skyMaps.bitmapDecode`; the
+   temple-orbs test pins `_skyTexLoader.load(` — keep the TextureLoader fallback path verbatim.
+8. **Perf, last — P4 HTML split** (`CODEX_PROMPT_PERF_HTML_SPLIT.md`): the only lever left for the friend profile's
+   ~6 s parse; HIGH risk (every contract test greps index.html; `tools/extract-inline.mjs` and the mirror-freshness CI
+   gate must learn the new file). Measure with `tools/coldload.mjs --headful` before/after.
+**Human auditions the user owes (not Codex work):** `GH_VISITOR_ALPHA` 0.8 vs 0.65 (two short nights each);
+`GH_GIFT_LEAD` 3.0 by feel; the wave-8 ruling for H; the doorway whoosh level once I ships.
+
+### Hard rules for the implementer (unchanged, restated so no brief has to be re-read)
+- Read SPEC_THE_INVITATION.md's parcel before starting it; the anchors there were verified 2026-09-03 (line numbers
+  drift a few lines per commit — re-grep). Every parcel: flat knob, off arm byte-identical, tested ALONE and in its
+  coupling matrix, mutants constructed (reviewer law: verify "N killed" claims).
+- After ANY index.html edit: `node tools/extract-inline.mjs`, commit the mirrors with it (CI's freshness gate fails
+  otherwise). Comment-swallow scanner: never a mechanical delete on a multi-statement line; a `//` inside a regex
+  literal reads as a comment — write `[/]{2}`. Windows: heredocs eat backslashes — patch via a node script with
+  exact-match anchors.
+- No GitNexus CLI in a Codex sandbox (it hangs); the dispatcher does impact via MCP. Codex cannot render or bind
+  ports — the dispatcher runs coldload/screenshots. `state/` is untracked user data: never touch or stage it.
+- Network only at session boundaries, fail-soft, bounded JSON with byte ceilings before validation. One clock
+  (`ghostRoadTime`). Lane colours only via `WASD_HEX`/`_roadLaneCol`. Every string EN+JA through `T`/`TF`.
+- Acceptance for anything touching the ghost topology walks the REAL door once: `beginAs(true)` → incantation →
+  graduation → night → bow. Commit messages in the house voice, ending with the Co-Authored-By + Claude-Session lines
+  when Claude commits (Codex commits carry its own attribution).
+- Finish every cycle by writing the next section of this file (what shipped, numbers, what is owed).
+
 
 ## -15. 2026-09-03 VERY LATE: wave 20 E/G/F complete locally · deploy order still belongs to the user
 **Local state (nothing pushed or deployed):** aim-dojo `main` contains Parcel E at `571fcb8` and Parcel F in the current tip; the sibling sidereal relay branch `ghost-relay-wave20` contains Parcel G at `d2c460f`. Deploy the relay before the client whenever the user chooses to publish. `state/` is untracked user data: never touch or stage it.
