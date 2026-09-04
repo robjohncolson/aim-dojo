@@ -842,6 +842,7 @@ window.JA={
   tonePadHtml:'<b>音を出すには一度画面にさわってね。</b>クリックかタップのあと、「はじめて」か「もう知ってる」を選んでね（つづきはSTARTでも）。',
   toneFailedHtml:'<b>音を読みこめなかった。</b>通信か音のブロックを確かめて、「はじめて」か「もう知ってる」をもういちど押してね。',
   toneLoadingHtml:'<b>まだ音を読みこんでいるよ。</b>少し待って、「はじめて」か「もう知ってる」をもういちど押してね。',
+  threeFailedHtml:'<b>星空を読みこめなかった。</b>通信かブロックを確かめて、ページを読みなおしてね。',
   yourBest:'じぶんのベスト · {time} · {bpm} bpm', boardOffline:'きろくに届かない ({status})', boardNetwork:'きろくに届かない — 通信エラー', boardEmpty:'まだ誰もいない — 最初の声になろう',
   peak:'さいこう', longest:'さいちょう', localCleared:'ベストを消した',
   pauseFullEyebrow:'ポーズ', pauseTrainEyebrow:'けいこ · ステップ{n}', pauseFullTitleHtml:'きき手の<span class="acc">きろく</span>', pauseTrainTitleHtml:'つづけて<span class="acc">きこう</span>',
@@ -905,10 +906,18 @@ window.JA={
                                      
                                    
                                       
-                                                                                         
+                                                                                                                          
         
             
 "use strict";
+function threeBlock(){
+  const T=(key,en)=>(document.documentElement.lang==='ja'&&window.JA&&window.JA[key]!=null)?window.JA[key]:en;
+  const l=document.getElementById('ovLede'); if(l) l.innerHTML=T('threeFailedHtml','<b>The sky did not load.</b> Check your connection or unblock cdnjs, then reload.');
+  const b=document.getElementById('beginTrain'); if(!b) return;
+  b.disabled=true; b.style.opacity='0.45'; b.style.cursor='wait';
+}
+(function(){
+if(typeof THREE==='undefined'){ threeBlock(); return; }
 
 const IS_JA=document.documentElement.lang==='ja';
 const SKY_TEMPLE_DATA=window.AimDojoSkyTemple||null;
@@ -11945,6 +11954,7 @@ function roadImpSync(r){
                                                                                                                    
                                                                                                                                                              
                                                                                                                                                                                                                           
+     
      
          
        

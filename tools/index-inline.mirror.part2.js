@@ -842,6 +842,7 @@
                                                                                        
                                                                                
                                                                          
+                                                                 
                                                                                                                                                 
                                                        
                                                                                                                                                                            
@@ -905,10 +906,18 @@
                                      
                                    
                                       
-                                                                                         
+                                                                                                                          
         
             
              
+                      
+                                                                                                              
+                                                                                                                                                                        
+                                                               
+                                                                 
+ 
+            
+                                                       
 
                                                  
                                                     
@@ -11945,6 +11954,7 @@ function goldFigure(signId){   // selected figure gold, the rest dimmed — pure
                                                                                                                    
                                                                                                                                                              
                                                                                                                                                                                                                           
+     
      
          
        

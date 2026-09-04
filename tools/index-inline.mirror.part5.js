@@ -842,6 +842,7 @@
                                                                                        
                                                                                
                                                                          
+                                                                 
                                                                                                                                                 
                                                        
                                                                                                                                                                            
@@ -905,10 +906,18 @@
                                      
                                    
                                       
-                                                                                         
+                                                                                                                          
         
             
              
+                      
+                                                                                                              
+                                                                                                                                                                        
+                                                               
+                                                                 
+ 
+            
+                                                       
 
                                                  
                                                     
@@ -11945,6 +11954,7 @@ if(SKY_MODE==='clocked_chart') afterGate(()=>{ loadSkypack().then(p=>{   // skyp
 // Eager Tone fetch so the binary gate's first enabled click can init audio (was idle-deferred → cold double-click)
 loadToneOnce().then(()=>{ setGateReady(true); }).catch(()=>{ setGateReady(true); });   // still enable on failure so the user can see the error copy on click
 afterGate(()=>{ setTimeout(()=>{ loadDojoBoard(); renderDojoBests(); loadRealtimeClient(); }, 1100); },0,0);   // leaderboards/realtime are non-critical; keep startup bandwidth/parser time focused on the renderer first
+})();
      
          
        
