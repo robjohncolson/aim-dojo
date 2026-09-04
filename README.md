@@ -156,8 +156,9 @@ Run SQL once: `supabase-prefs.sql`, then `supabase-prefs-v2.sql` for the extra c
 Without migration, the client falls back to the original four columns.
 Birth data never enters this table.
 
-Your lit sky, witnessed moon phases, last night played, and the most recent night card live in
-`localStorage['aimdojo.*']` only — they are private to the browser and are never uploaded.
+Your lit sky, witnessed moon phases, and most recent night card live in `localStorage['aimdojo.*']` only.
+`aimdojo.ghost` holds the last night locally and may be shared when the Visitor is enabled; optional same-moon
+memories in `aimdojo.ghostPhase` remain private to this browser and are never uploaded.
 
 In Supabase Auth, enable email magic links and add each exact deployed page
 origin/path (plus local development, for example `http://localhost:8931/`) to

@@ -808,7 +808,7 @@
                                              
                                                                                                      
                                                
-                                               
+                                                                                       
                                                                                                                      
                                                                                                                                                                           
                                                                                                                                                                         
@@ -966,6 +966,7 @@
                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                     
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -8851,9 +8852,10 @@
                                                                                                                                                                  
                                                                                                                                                                          
                                                                                                                                                                                   
-                                                 
+                                                                                                                                                                                
+                                                                                    
                                              
-                                                                                                                    
+                                                                                                                                                            
                                                                                             
                                        
                                                            
@@ -8867,6 +8869,7 @@
                                                                                
                                                                                      
                                                                                                                                                                              
+                           
                                                                                              
                                                                                 
                           
@@ -9058,6 +9061,7 @@
                                       
                                                                                                                                                                           
                                             
+                                                                                                                                                                       
                                                                                                                                                                              
              
  
@@ -9113,6 +9117,30 @@
                                               
                                                                   
                
+ 
+                                
+                                                                                                                                                           
+                                                                                                                   
+                                                                             
+                 
+                                                                                                                                                                                                                             
+               
+ 
+                             
+                            
+                                                                                        
+                                                                                                                           
+                                                                                                                                                                                                                                      
+ 
+                                 
+                                                                                                         
+      
+                                                             
+                                                                                                                                                                                                            
+                                            
+                                                                                                                    
+                                                         
+                            
  
                          
                                                                                                                                
@@ -9210,7 +9238,7 @@
                           
                                                 
                                                                
-                                                                                          
+                                                                                                                                      
                                   
                                                                                               
    
@@ -9218,6 +9246,11 @@
                                             
                                                                                                                                                                                                                                                          
                                                                                                                                                                                          
+ 
+                          
+                                                 
+                                                                                                                                                                                                                                                                                                                                
+            
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                  
@@ -9316,9 +9349,10 @@
                                                             
    
  
-                                                         
-                                                                                                                                                        
-                                                                                                                                     
+                                                                   
+                               
+                                                                                                                                                                                    
+                                                                                                                                               
                                                     
                                                 
                                                                                                                   
@@ -9329,7 +9363,7 @@
                                               
                                                                               
                                                                                       
-                                                                                                                                                                                   
+                                                                                                                                                                                                                      
             
                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                
@@ -9337,6 +9371,13 @@
                        
                                                                                                                                                                                                    
               
+ 
+                                 
+                                                         
+                                                                                   
+                                                                
+                                                                                                                                                                                                 
+                  
  
                                                      
                                                                                                                                                                          
@@ -9358,8 +9399,9 @@
  
                            
                        
-                                                                                                                                                                                                     
+                                                                                                                                                                                                                                
                                                                                                                                                    
+                                                                       
                                                                                                      
                          
                                                    
@@ -9372,13 +9414,14 @@
                                                                                              
                                                                                                                                                                                      
                                                                                                                              
-                                                                         
+                                                                                                            
                  
                                                                  
    
-                                              
                                                          
-                                                                                                 
+                                                   
+                                                                          
+                                                                                                                                                               
  
                                                     
                                                                                                                                                             
@@ -9563,7 +9606,7 @@
  
                              
                                                                                                                                                         
-                                                                            
+                                                                                       
                                
                                  
                                  
@@ -9751,16 +9794,16 @@
                                                    
                                                      
  
-                             
-                                                                  
-                                                     
-                                                                                                                                                                              
-                                                                                                                                                                                          
-                                                                                                                                  
-                                                        
-                                                                                              
-                                                                                                                                        
- 
+function ghostSeatUpdate(dt){
+  if(GH_MULTI && !_ghostSeatBusy){ ghostSeatsUpdate(dt); return; }
+  const seatOn=GH_SEAT || (GH_MULTI&&_ghostSeatBusy);
+  if(!seatOn || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
+  const roadT=ghostRoadTime(), t=Math.min(roadT,_ghostSeatRecord.dur), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
+  const v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
+  ghostSeatAdvance(t); _ghBeat.value=ghostSeatBeatAt(t);
+  const counts=ghostSeatUpdateTargets(t,v>0,roadT), bursts=ghostSeatUpdateBursts(t,v>0,roadT);
+  ghostSeatApplyVisibility(v,counts.targets,bursts); ghostSeatBeaconVisibility(t<=_ghostSeatRecord.dur+GH_TARGET_FADE?counts.beacons:0);
+}
 /* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
    THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
    report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
@@ -10320,7 +10363,7 @@ function animate(frameNow){
   try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
   try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
   if(GH_SEAT) try{ ghostSeatUpdate(dt); }catch(e){ if(!ghostSeatUpdate._e){ ghostSeatUpdate._e=1; console.error('ghostSeatUpdate',e); } }   // NIGHT GHOSTS: the separate scene family reads the road's already-written clock/uK authority after roadSync; solo road and walls are never written
-  if(GH_SHARE&&!GH_SEAT) try{ ghostSeatUpdate(dt); }catch(e){ if(!ghostSeatUpdate._v){ ghostSeatUpdate._v=1; console.error('ghostVisitorUpdate',e); } }
+  if(GH_MULTI&&!GH_SEAT) try{ ghostSeatUpdate(dt); }catch(e){ if(!ghostSeatUpdate._v){ ghostSeatUpdate._v=1; console.error('ghostVisitorUpdate',e); } }
   if(GH_SHARE) try{ ghostReturnUpdate(); }catch(e){ if(!ghostReturnUpdate._e){ ghostReturnUpdate._e=1; console.error('ghostReturnUpdate',e); } }
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
   try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
@@ -11561,7 +11604,7 @@ function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + openin
   // mid-animation. Pre-graduation (the trainer never reaches this call), deal.on:false, and any night the ephemeris
   // could not be read (dealLine() returns '') all keep the song name exactly as it has always been.
   // THE THRESHOLD'S PRIORITY CHAIN (wave 15), and still exactly ONE line: the comeback greeting (parcel N, the first
-  // run of a day after a real absence) > caught-note mail > visitor > the night the sky dealt (wave 4) > the song name. Each tier can only ever
+  // run of a day after a real absence) > caught-note mail > visitor > same-moon memory > the night the sky dealt (wave 4) > the song name. Each tier can only ever
   // REPLACE the one below it, never stack with it, and a greeted night is still fully dealt — dealCompute ran at
   // resetSession, so only the SENTENCE is given away, never a rule. Raw booleans first: with remember off this is one
   // read and no call and the flash is wave 4's exactly; with both off it is the song name, as it has always been.
@@ -11570,9 +11613,10 @@ function flashTheme(){   // TUNE LIBRARY: ♪ name + song-colored flash + openin
   const vm=rl?'':(GH_SHARE?ghostVisitorMailLine():'');
   const ml=rl?'':(GH_GIFT?ghostGiftMailLine():'');
   const vl=rl||vm||ml?'':(GH_SHARE?ghostVisitorLine():'');
-  const dl=rl||ml?'':(vm||vl?'':(CFG.deal.on?dealLine():''));   // not even evaluated under comeback, mail or visitor: dealLine is a pure read of _deal, so skipping it changes nothing but the words
+  const pl=rl||vm||ml||vl?'':(GH_PHASE?ghostPhaseLine():'');
+  const dl=rl||ml?'':(vm||vl||pl?'':(CFG.deal.on?dealLine():''));   // not even evaluated under comeback, mail, visitor or phase memory: dealLine is a pure read of _deal, so skipping it changes nothing but the words
   const base=rl||ml||dl||('♪ '+songDisplay(activeTheme.name));
-  setText(f, vm||vl||base);
+  setText(f, vm||vl||pl||base);
   f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); themeBreath();
 }
 function noteSongPeak(){   // per-song personal bests — flash only when you set a new peak BPM or longest hold on THIS song

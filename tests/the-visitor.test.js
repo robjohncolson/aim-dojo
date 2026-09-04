@@ -164,10 +164,10 @@ function relayResponse(value, { declared, chunkSize, stall = false, reads } = {}
   };
 }
 
-function runVisitor(source, { record = false, seat = false, gift = false, share = false, low = false, extra = {}, body = "" } = {}) {
+function runVisitor(source, { record = false, seat = false, gift = false, share = false, phase = false, low = false, extra = {}, body = "" } = {}) {
   const context = vm.createContext({
     Math, Number, JSON, Promise, Date, WeakMap, Set, Float32Array, Uint8Array, Uint16Array,
-    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, ghostShare: share ? 1 : 0, moonline: {}, skyDay: { api: "https://relay.example" }, rangeStart: 11, projGravity: 0, projLife: 10, projRadius: 0.1, flickBonus: { coneMul: 1 } }, LOW: low,
+    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, ghostShare: share ? 1 : 0, ghostPhase: phase ? 1 : 0, moonline: {}, skyDay: { api: "https://relay.example" }, rangeStart: 11, projGravity: 0, projLife: 10, projRadius: 0.1, flickBonus: { coneMul: 1 } }, LOW: low,
     state: { t: 0, bpm: 60, running: true }, trainMode: false, templeActive: false, reduceMotion: false,
     Tone: { Transport: { seconds: 0 } }, audioLat: () => 0, PITCH_LIMIT: 88 * Math.PI / 180,
     PLAYER_POS: { x: 0, y: 1.7, z: 0 }, ML_ARCH_EVERY: 4, ROAD_MPB: 27,
@@ -184,12 +184,12 @@ function runVisitor(source, { record = false, seat = false, gift = false, share 
   return context;
 }
 
-function graduationSnapshot(source, { record, seat, gift, share, low }) {
+function graduationSnapshot(source, { record, seat, gift, share, phase, low }) {
   let touches = 0, network = 0, timers = 0, weakMaps = 0;
   const armCalls = [];
   class CountedWeakMap extends WeakMap { constructor(...args) { super(...args); weakMaps += 1; } }
   const context = runVisitor(source, {
-    record, seat, gift, share, low,
+    record, seat, gift, share, phase, low,
     extra: {
       state: { t: 20, bpm: 60, running: true, range: 10 }, trainMode: true, trainPhase: 2, trainWasd: 0, trainOrbs: 7,
       WeakMap: CountedWeakMap, armCalls, weakMapCount: () => weakMaps, touchCount: () => touches, networkCount: () => network, timerCount: () => timers,
@@ -251,7 +251,7 @@ test("Parcel T mints one header-only token, maps timezone offsets, and makes sha
     assert.match(extractFunction(source, "ghostLonBucket"), /Geolocation and the observer longitude never enter this path/);
   };
   await assertContract(html);
-  let mutation = replaceFunction(html, "ghostShareReset", (fn) => fn.replace("  if(!GH_SHARE) return;\n", ""));
+  let mutation = replaceFunction(html, "ghostShareReset", (fn) => fn.replace("  if(!GH_MULTI) return;\n", ""));
   await mutationMustFail(assertContract, mutation, "the matrix kills a network/token/allocation-at-share:0 mutant");
   mutation = replaceFunction(html, "ghostVisitorFetch", (fn) => fn.replace("+'&n='+GH_VISITOR_FETCH_COUNT", "+'&n='+GH_VISITOR_FETCH_COUNT+'&token='+token"));
   await mutationMustFail(assertContract, mutation, "the URL oracle kills a token-in-query mutant");
@@ -261,20 +261,20 @@ test("Parcel T mints one header-only token, maps timezone offsets, and makes sha
   await mutationMustFail(assertContract, mutation, "the exact table kills Newfoundland plus-210 mapping to bucket 8");
   mutation = replaceFunction(html, "ghostLonBucket", (fn) => fn.replace("  const hour=", "  if(offset===-840) return 1;\n  const hour="));
   await mutationMustFail(assertContract, mutation, "the exact table mutation-pins Kiribati minus-840 to bucket 2");
-  mutation = replaceFunction(html, "ghostShareReset", (fn) => fn.replace("  if(!GH_SHARE) return;", "  new WeakMap();\n  if(!GH_SHARE) return;"));
+  mutation = replaceFunction(html, "ghostShareReset", (fn) => fn.replace("  if(!GH_MULTI) return;", "  new WeakMap();\n  if(!GH_MULTI) return;"));
   await mutationMustFail(assertContract, mutation, "the constructor oracle kills a throwaway WeakMap before the share-off return");
 });
 
-test("graduation is the ordered main-play ghost boundary across the full HIGH/LOW knob matrix", async () => {
+test("graduation is the ordered main-play ghost boundary across the full HIGH/LOW phase matrix", async () => {
   const assertContract = (source) => {
-    for (const low of [false, true]) for (const record of [false, true]) for (const seat of [false, true]) for (const gift of [false, true]) for (const share of [false, true]) {
-      const snapshot = graduationSnapshot(source, { low, record, seat, gift, share });
-      const calls = []; if (seat) calls.push("seat"); if (share) calls.push("share"); if (record) calls.push("record");
-      assert.deepEqual(snapshot.lesson, { calls: [], record: false, touches: 0, network: 0, timers: 0, weakMaps: 0 }, `lesson stays ghost-silent at low:${+low} record:${+record} seat:${+seat} gift:${+gift} share:${+share}`);
+    for (const low of [false, true]) for (const record of [false, true]) for (const seat of [false, true]) for (const gift of [false, true]) for (const share of [false, true]) for (const phase of [false, true]) {
+      const snapshot = graduationSnapshot(source, { low, record, seat, gift, share, phase });
+      const calls = []; if (seat) calls.push("seat"); if (share || phase) calls.push("share"); if (record) calls.push("record");
+      assert.deepEqual(snapshot.lesson, { calls: [], record: false, touches: 0, network: 0, timers: 0, weakMaps: 0 }, `lesson stays ghost-silent at low:${+low} record:${+record} seat:${+seat} gift:${+gift} share:${+share} phase:${+phase}`);
       assert.deepEqual(snapshot.graduation, {
-        calls, record, own: share, touches: +seat + +share, network: 0, timers: 1, weakMaps: +record + +share,
-        base: record || seat || share ? 20 : 0, trainMode: false,
-      }, `graduation arms exact knobs at low:${+low} record:${+record} seat:${+seat} gift:${+gift} share:${+share}`);
+        calls, record, own: share || phase, touches: +seat + +share + +phase, network: 0, timers: 1, weakMaps: +record + +(share || phase),
+        base: record || seat || share || phase ? 20 : 0, trainMode: false,
+      }, `graduation arms exact knobs at low:${+low} record:${+record} seat:${+seat} gift:${+gift} share:${+share} phase:${+phase}`);
     }
     const phase = extractFunction(source, "setTrainPhase"), moonAt = phase.indexOf("moonlineGraduate();"), ghostAt = phase.indexOf("ghostSessionStart();");
     assert.ok(moonAt >= 0 && ghostAt > moonAt, "graduation starts ghosts only after the Moonline owns main play");
@@ -285,7 +285,7 @@ test("graduation is the ordered main-play ghost boundary across the full HIGH/LO
   await mutationMustFail(assertContract, mutation, "the graduation matrix kills removal of the real-entry hook");
   mutation = replaceFunction(html, "ghostSessionStart", (fn) => fn.replace(" || trainMode", ""));
   await mutationMustFail(assertContract, mutation, "the lesson matrix kills a pre-graduation arm");
-  mutation = replaceFunction(html, "ghostSessionStart", (fn) => fn.replace("  if(GH_SEAT) ghostSeatReset();\n  if(GH_SHARE) ghostShareReset();", "  if(GH_SHARE) ghostShareReset();\n  if(GH_SEAT) ghostSeatReset();"));
+  mutation = replaceFunction(html, "ghostSessionStart", (fn) => fn.replace("  if(GH_SEAT) ghostSeatReset();\n  if(GH_MULTI) ghostShareReset();", "  if(GH_MULTI) ghostShareReset();\n  if(GH_SEAT) ghostSeatReset();"));
   await mutationMustFail(assertContract, mutation, "the ordered-arm matrix kills share-before-own-seat startup");
 });
 
@@ -573,19 +573,19 @@ test("a fetched artifact is client-validated before the same seat machinery buil
   await mutationMustFail(assertContract, mutation, "the own-seat replay oracle kills a local fire delayed past its exact timestamp");
   mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("ghostSeatPrepare(record); if(_ghostAvatar)", "ghostSeatPrepare(record); _ghostAvatar.position.y=99; if(_ghostAvatar)"));
   await mutationMustFail(assertContract, mutation, "the singleton scene-state oracle pins the visitor avatar at player height");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "_ghostAvatar.position.z=99; seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "_ghostAvatar.position.z=99; seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the singleton scene-state oracle pins the visitor avatar to its full frozen pose");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "_ghostAvatar.scale.setScalar(2); seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "_ghostAvatar.scale.setScalar(2); seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the normalized singleton scene oracle kills a visitor-only transform drift");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "_ghostRoad.geometry.attributes.position.array[0]=999; seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "_ghostRoad.geometry.attributes.position.array[0]=999; seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the normalized singleton scene oracle kills visitor-only geometry drift");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "_ghostRoad.material.uniforms.uVis={value:1}; seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "_ghostRoad.material.uniforms.uVis={value:1}; seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the normalized singleton scene oracle kills a detached reveal uniform");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "if(LOW) _ghostAvatar.scale.setScalar(2); seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "if(LOW) _ghostAvatar.scale.setScalar(2); seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the singleton matrix kills a LOW-only visual drift");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "if(!GH_SEAT) _ghostAvatar.scale.setScalar(2); seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "if(!GH_SEAT) _ghostAvatar.scale.setScalar(2); seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the singleton matrix kills a share-only visual drift");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "if(LOW) _ghRoadDeck.setHex(123456789); seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "if(LOW) _ghRoadDeck.setHex(123456789); seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the singleton matrix kills a LOW-only palette drift");
 });
 
@@ -711,17 +711,17 @@ test("HIGH packs three full visitors and one honest fire-only silhouette while L
   await mutationMustFail(assertContract, mutation, "the four-return oracle kills a HIGH fetch capped before the honest silhouette");
   mutation = replaceFunction(html, "ghostVisitorFetch", (fn) => fn.replace(/\n}$/, "\n  if(accepted===3 && body.ghosts.length===3) ghostSilhouetteAccept(epoch,'f'.repeat(32),body.ghosts[0].artifact);\n}"));
   await mutationMustFail(assertContract, mutation, "the exact-three oracle kills a fabricated fourth presence");
-  mutation = html.replace("GH_SEAT_XS=GH_SHARE?[-90,180,-180]", "GH_SEAT_XS=GH_SHARE?[-90,-180,180]");
+  mutation = html.replace("GH_SEAT_XS=GH_MULTI?[-90,180,-180]", "GH_SEAT_XS=GH_MULTI?[-90,-180,180]");
   await mutationMustFail(assertContract, mutation, "the position oracle pins the alternating fill order");
-  mutation = replaceFunction(html, "ghostSeatUpdate", (fn) => fn.replace("const seatOn=GH_SEAT || (GH_SHARE&&_ghostSeatBusy);", "const seatOn=GH_SEAT || (GH_SHARE&&_ghostSeatBusy&&_ghSeatX===GH_SEAT_XS[0]);"));
+  mutation = replaceFunction(html, "ghostSeatUpdate", (fn) => fn.replace("const seatOn=GH_SEAT || (GH_MULTI&&_ghostSeatBusy);", "const seatOn=GH_SEAT || (GH_MULTI&&_ghostSeatBusy&&_ghSeatX===GH_SEAT_XS[0]);"));
   await mutationMustFail(assertContract, mutation, "the share-only oracle kills the old minus-ninety gate");
   mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("    ghostSeatPrepare(record);", ""));
   await mutationMustFail(assertContract, mutation, "the replay-table oracle kills a first-build visitor left unprepared");
   mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("ghostSeatPrepare(record); if(_ghostAvatar)", "ghostSeatPrepare(record); _ghPalette[0].setHex(123456789); if(_ghostAvatar)"));
   await mutationMustFail(assertContract, mutation, "the per-record palette oracle kills a corrupt visitor recolour");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "_ghRoadDeck.setHex(123456789); seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "_ghRoadDeck.setHex(123456789); seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the palette oracle pins every derived visitor road colour");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=id;", "ghostSeatPalette({date:'2026-08-22',moonBucket:0}); seat.id=id;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.id=phase?'':id;", "ghostSeatPalette({date:'2026-08-22',moonBucket:0}); seat.id=phase?'':id;"));
   await mutationMustFail(assertContract, mutation, "the independent palette oracle kills a fixed-seed visitor recolour");
   mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("_ghGiftLockedRow=heldGiftLock;", ""));
   await mutationMustFail(assertContract, mutation, "the live-accept oracle preserves a held Gift lock while visitor replay tables prepare");
@@ -1097,7 +1097,7 @@ test("Gift locking scans both seats, visitor catches stay in its ledger, and one
     assert.match(extractFunction(source, "bowFinish"), /if\(GH_SHARE\) ghostShareFinalize\(\);/);
   };
   await assertContract(html);
-  let mutation = replaceFunction(html, "ghostGiftLockTarget", (fn) => fn.replace("  if(GH_SHARE && !_ghostSeatBusy) return ghostGiftLockSeats(aim,minDot);\n", ""));
+  let mutation = replaceFunction(html, "ghostGiftLockTarget", (fn) => fn.replace("  if(GH_MULTI && !_ghostSeatBusy) return ghostGiftLockSeats(aim,minDot);\n", ""));
   await mutationMustFail(assertContract, mutation, "the two-seat oracle kills an own-seat-only Gift scan");
   mutation = replaceFunction(html, "scopeLockTarget", (fn) => fn.replace("if(best || tight || !GH_GIFT) return best;", "if(tight || !GH_GIFT) return best;"));
   await mutationMustFail(assertContract, mutation, "the real arbitration route kills charity outranking a live target");
@@ -1113,7 +1113,7 @@ test("Gift locking scans both seats, visitor catches stay in its ledger, and one
   await mutationMustFail(assertContract, mutation, "the mixed-ledger oracle kills an empty mail POST");
 });
 
-test("threshold copy is EN+JA and keeps comeback then mail then visitor then deal precedence", async () => {
+test("threshold copy is EN+JA and keeps comeback then mail then visitor then phase then deal precedence", async () => {
   const assertContract = (source) => {
     const context = runVisitor(source, {
       gift: true, share: true,
@@ -1163,13 +1163,15 @@ test("threshold copy is EN+JA and keeps comeback then mail then visitor then dea
     assert.match(source, /ghostVisitorBack:'手をのばしてくれた旅人が今夜ならぶ · \{sigil\}'/);
     assert.match(source, /ghostVisitorLine:'今夜 たびびとが となりを走る · \{sigil\}'/);
     assert.match(source, /ghostVisitorsLine:'\{n\}人の旅人が今夜ならぶ · \{sigils\}'/);
+    assert.ok(source.includes("ghostPhaseLine:'このまえの{sigil}の夜がとなりを走る'"), "the phase threshold has its exact Japanese line");
     const flash = extractFunction(source, "flashTheme");
     assert.match(flash, /const vm=rl\?'':\(GH_SHARE\?ghostVisitorMailLine\(\):''\);/);
     assert.match(flash, /const vl=rl\|\|vm\|\|ml\?'':\(GH_SHARE\?ghostVisitorLine\(\):''\);/);
-    assert.match(flash, /setText\(f, vm\|\|vl\|\|base\);/);
+    assert.match(flash, /const pl=rl\|\|vm\|\|ml\|\|vl\?'':\(GH_PHASE\?ghostPhaseLine\(\):''\);/);
+    assert.match(flash, /setText\(f, vm\|\|vl\|\|pl\|\|base\);/);
   };
   await assertContract(html);
-  let mutation = replaceFunction(html, "flashTheme", (fn) => fn.replace("setText(f, vm||vl||base);", "setText(f, vl||vm||base);"));
+  let mutation = replaceFunction(html, "flashTheme", (fn) => fn.replace("setText(f, vm||vl||pl||base);", "setText(f, vl||vm||pl||base);"));
   await mutationMustFail(assertContract, mutation, "the threshold oracle kills visitor-over-mail precedence");
   mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("sigils.join('\\u2009')", "sigils.join(' ')"));
   await mutationMustFail(assertContract, mutation, "the plural-copy oracle pins the thin-space sigil chorus");
@@ -1209,10 +1211,101 @@ test("reachedBack is strict relay metadata stored only for the visitor threshold
   await assertContract(html);
   let mutation = replaceFunction(html, "ghostVisitorFetch", (fn) => fn.replace("typeof item.reachedBack==='boolean'?item.reachedBack:false", "!!item.reachedBack"));
   await mutationMustFail(assertContract, mutation, "the strict-type oracle kills truthy relay metadata");
-  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.back=reachedBack===true;", "seat.back=false;"));
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.back=!phase&&reachedBack===true;", "seat.back=false;"));
   await mutationMustFail(assertContract, mutation, "the seat-bag oracle kills a dropped reached-back bit");
   mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("seat.back===true", "false"));
   await mutationMustFail(assertContract, mutation, "the threshold oracle kills a stored bit that is never spoken");
+});
+
+test("the dormant moon-phase seat follows strangers, skips tonight, and keeps Gifts in the self ledger", async () => {
+  const assertContract = async (source) => {
+    assert.match(source, /ghostPhase:0,\s+\/\/ THE MOON REMEMBERS YOU/);
+    const topology = async ({ share = false, low = false, seat = true, strangerCount = 0, sameDate = false } = {}) => {
+      const THREE = threeHarness(), own = artifact({ moonBucket: 2 }), remembered = artifact({ moonBucket: 4 });
+      remembered.date = sameDate ? own.date : "2026-07-03";
+      const visitors = Array.from({ length: strangerCount }, (_unused, index) => ({ id: String(index + 1).repeat(32), record: artifact({ moonBucket: index }) }));
+      let writes = 0;
+      const context = runVisitor(source, {
+        seat, share, phase: true, low,
+        extra: {
+          THREE, TARGET_CORE_GEO: new THREE.BufferGeometry(), _flockGeo: new THREE.BufferGeometry(),
+          localStorage: {
+            getItem(key) { if(key === "aimdojo.ghost") return JSON.stringify(own); if(key === "aimdojo.ghostPhase") return JSON.stringify({ v: 1, slots: { 4: remembered } }); return null; },
+            setItem() { writes += 1; },
+          },
+        },
+        body: `
+          _ghostToken='${"a".repeat(32)}';
+          const visitors=${JSON.stringify(visitors)};
+          ghostVisitorFetch=async epoch=>{ for(const visitor of visitors) ghostVisitorAccept(epoch,visitor.id,visitor.record,false,false); };
+          ghostMailFetch=async()=>{};
+          this.done=new Promise(resolve=>{ const live=ghostPhaseAccept; ghostPhaseAccept=epoch=>{ const accepted=live(epoch); resolve(accepted); return accepted; }; ghostSessionStart(); });
+          this.snapshot=()=>{ const rows=_ghostVisitorSeats?_ghostVisitorSeats.slice(0,_ghostVisitorCount).map(item=>({x:item.x,id:item.id,phase:item.phase===true,date:item.record.date})):[]; return {rows,all:_ghostSeats?_ghostSeats.map(item=>item.x):[],visitor:ghostVisitorLine(),phase:ghostPhaseLine(),phaseAgain:ghostPhaseLine()}; };
+        `,
+      });
+      await context.done;
+      const snapshot=JSON.parse(JSON.stringify(context.snapshot())); snapshot.writes=writes; return snapshot;
+    };
+    const local = await topology();
+    assert.deepEqual(local, { rows: [{ x: -90, id: "", phase: true, date: "2026-07-03" }], all: [90, -90], visitor: "", phase: "the last 🌕 night rides with you", phaseAgain: "", writes: 0 }, "without the relay, the matching moon takes the first visitor seat and speaks once");
+    const phaseOnly = await topology({ seat: false });
+    assert.deepEqual(phaseOnly.all, [-90], "the phase knob owns its local visitor seat even when the older +90 seat is off");
+    const duplicate = await topology({ sameDate: true });
+    assert.deepEqual(duplicate.rows, []); assert.deepEqual(duplicate.all, [90]); assert.equal(duplicate.phase, "", "the +90 night is never seated twice");
+    const expectedXs = [[-90], [-90, 180], [-90, 180, -180], [-90, 180, -180]];
+    for(let strangers=0;strangers<=3;strangers++){
+      const chorus = await topology({ share: true, strangerCount: strangers });
+      assert.deepEqual(chorus.rows.map((row) => row.x), expectedXs[strangers], `${strangers} strangers fill before the phase memory`);
+      assert.equal(chorus.rows.filter((row) => row.phase).length, strangers < 3 ? 1 : 0, "the phase memory uses only an empty full-seat slot");
+      if(strangers===0) assert.equal(chorus.visitor, "", "the local memory is not announced as a stranger");
+    }
+    const low = await topology({ share: true, low: true, strangerCount: 1 });
+    assert.deepEqual(low.rows, [{ x: -90, id: "1".repeat(32), phase: false, date: "2026-08-22" }], "LOW gives its one full seat to the stranger");
+
+    const THREE = threeHarness(), own = artifact({ moonBucket: 2 }), remembered = artifact({ moonBucket: 4, targets: [[0, 1, 900, 10, 0, null]] }); remembered.date = "2026-07-03";
+    const gift = runVisitor(source, {
+      seat: true, gift: true, phase: true,
+      extra: {
+        THREE, TARGET_CORE_GEO: new THREE.BufferGeometry(), _flockGeo: new THREE.BufferGeometry(),
+        _prev: new THREE.Vector3(),
+        roadWallMat: { uniforms: { uNow: { value: 0 }, uArchN0: { value: 0 }, uK: { value: [1] } } },
+        localStorage: { getItem(key) { if(key === "aimdojo.ghost") return JSON.stringify(own); if(key === "aimdojo.ghostPhase") return JSON.stringify({ v: 1, slots: { 4: remembered } }); return null; }, setItem() {} },
+      },
+      body: `
+        ghostSessionStart(); Tone.Transport.seconds=8; ghostSeatUpdate(0.016);
+        const phaseSeat=_ghostVisitorSeats[0], row=phaseSeat.record.targets[0], p=new THREE.Vector3(); ghostSeatInstall(phaseSeat); ghostTargetPosition(row,8,p); ghostSeatInstall(_ghostOwnSeat);
+        const dx=p.x-PLAYER_POS.x,dy=p.y-PLAYER_POS.y,dz=p.z-PLAYER_POS.z,d=Math.hypot(dx,dy,dz),aim={x:dx/d,y:dy/d,z:dz/d};
+        const proxy=ghostGiftLockTarget(aim,0.72), selected=proxy&&proxy._ghostGiftRow; _ghGiftLockedRow=selected; const speed=ghostGiftPlanSpeed();
+        _prev.copy(p); const projectile={pos:new THREE.Vector3(p.x,p.y,p.z),gift:true,giftRow:selected,giftRoadT:8}, routed=!!selected&&ghostGiftProjectileHit(projectile), caught=routed&&ghostGiftCatch(selected,8);
+        this.gift={selected:selected&&selected[2],speed,routed,caught,visible:phaseSeat.seatRoot.visible,sameMail:phaseSeat.mail===_ghostOwnSeat.mail,ownMail:_ghostOwnSeat.mail.map(row=>row.slice()),phaseMail:phaseSeat.mail.map(row=>row.slice())};
+      `,
+    });
+    assert.deepEqual(JSON.parse(JSON.stringify(gift.gift)), { selected: 900, speed: 72, routed: true, caught: true, visible: true, sameMail: true, ownMail: [[8, 1]], phaseMail: [[8, 1]] }, "a phase-only Gift uses the multi-seat projectile route and the normal self-mail ledger");
+
+    let repairs = 0; const mismatched = artifact({ moonBucket: 5 }); mismatched.date = "2026-07-03";
+    const invalid = runVisitor(source, { phase: true, extra: { localStorage: { getItem: () => JSON.stringify({ v: 1, slots: { 4: mismatched } }), setItem: () => { repairs += 1; } } }, body: "this.phase=ghostPhaseRead(null);" });
+    assert.equal(invalid.phase, null); assert.equal(repairs, 0, "an invalid selected slot is dropped without repairing storage");
+    let offTouches = 0;
+    const off = runVisitor(source, { extra: { localStorage: { getItem: () => { offTouches += 1; return null; }, setItem: () => { offTouches += 1; } } }, body: `this.values=[ghostPhaseRead(null),ghostPhaseWrite(${JSON.stringify(artifact())}),ghostPhaseAccept(0),ghostPhaseLine(),GH_SEAT_XS];` });
+    assert.deepEqual(Array.from(off.values), [null, false, false, "", null]); assert.equal(offTouches, 0, "ghostPhase:0 has no key, seat, or storage touch even under direct calls");
+    assert.equal((ghostBlock(source).match(/GH_PHASE_KEY/g) || []).length, 4, "the browser-only key appears only at declaration, phase read, preserving write-read, and write");
+    assert.doesNotMatch(extractFunction(source, "ghostShareUpload"), /PHASE|Phase|phase/);
+    const phasePaths = ["ghostPhaseSlots", "ghostPhaseRead", "ghostPhaseWrite", "ghostPhaseAccept", "ghostPhaseLine"].map((name) => extractFunction(source, name)).join("\n");
+    assert.doesNotMatch(phasePaths, /\brnd\s*\(|Math\.random\s*\(|state\.(?:bpm|hits|shots|streak|range)\s*=/);
+  };
+  await assertContract(html);
+  let mutation = replaceFunction(html, "ghostPhaseRead", (fn) => fn.replace("&&(!own||record.date!==own.date)", ""));
+  await mutationMustFail(assertContract, mutation, "the duplicate-night oracle kills a phase seat beside its identical +90 night");
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace(" || _ghostVisitorCount>=GH_VISITOR_COUNT", ""));
+  await mutationMustFail(assertContract, mutation, "the LOW oracle kills a phase memory stealing a stranger's only seat");
+  mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("if(seat&&seat.phase===true) continue;", ""));
+  await mutationMustFail(assertContract, mutation, "the copy oracle kills a local memory counted as a stranger");
+  mutation = replaceFunction(html, "ghostGiftLockTarget", (fn) => fn.replace("if(GH_MULTI && !_ghostSeatBusy)", "if(GH_SHARE && !_ghostSeatBusy)"));
+  await mutationMustFail(assertContract, mutation, "the phase-only Gift oracle kills an own-seat-only critical route");
+  mutation = replaceFunction(html, "ghostGiftProjectileHit", (fn) => fn.replace("if(GH_MULTI && !_ghostSeatBusy && pr)", "if(GH_SHARE && !_ghostSeatBusy && pr)"));
+  await mutationMustFail(assertContract, mutation, "the phase-only projectile oracle kills a relay-only collision route");
+  mutation = replaceFunction(html, "ghostPhaseSlots", (fn) => fn.replace("record.moonBucket===+key && ", ""));
+  await mutationMustFail(assertContract, mutation, "the slot validator kills a night filed under the wrong moon");
 });
 
 test("read-once mail schedules at most sixteen pooled lane-colour returns on the road clock", async () => {
@@ -1252,7 +1345,7 @@ test("every Visitor function rejects the gameplay clock and relay calls remain o
     "ghostTokenValid", "ghostToken", "ghostLonBucket", "ghostRelayUrl", "ghostRelayHeaders", "ghostRelayFetch", "ghostUtf8Bytes", "ghostSerializedBytes", "ghostRelayJson", "ghostUploadAttempt", "ghostUploadRetry", "ghostShareUpload",
     "ghostSeatCapture", "ghostSeatInstall", "ghostSeatClear", "ghostSeatRememberRows", "ghostMoonSigil", "ghostVisitorMailLine", "ghostVisitorLine", "ghostReturnMailValid", "ghostReturnEnsure", "ghostReturnReset", "ghostReturnSchedule", "ghostReturnUpdate",
     "ghostSilhouetteMaterial", "ghostSilhouetteBuild", "ghostSilhouetteHide", "ghostSilhouettesReset", "ghostSilhouetteAccept", "ghostSilhouettesUpdate",
-    "ghostVisitorAccept", "ghostVisitorFetch", "ghostMailFetch", "ghostShareReset", "ghostMailAttempt", "ghostShareFinalize", "ghostSeatsUpdate", "ghostGiftLockSeats", "ghostGiftSeatPlan", "ghostGiftSeatProjectileHit", "ghostGiftSeatCatch",
+    "ghostPhaseSlots", "ghostPhaseRead", "ghostPhaseWrite", "ghostPhaseLine", "ghostVisitorAccept", "ghostPhaseAccept", "ghostVisitorFetch", "ghostMailFetch", "ghostShareReset", "ghostMailAttempt", "ghostShareFinalize", "ghostSeatsUpdate", "ghostGiftLockSeats", "ghostGiftSeatPlan", "ghostGiftSeatProjectileHit", "ghostGiftSeatCatch",
     "ghostSessionStart",
   ];
   const allowlist = {
@@ -1314,7 +1407,7 @@ test("visitor, mail, and returning-star execution preserves every proxied gamepl
     assert.doesNotMatch(paths, /\brnd\s*\(|Math\.random\s*\(/); assert.doesNotMatch(paths, /state\.(?:bpm|hits|shots|streak|range)\s*=/);
   };
   await assertContract(html);
-  let mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("  if(!GH_SHARE", "  state.bpm+=1;\n  if(!GH_SHARE"));
+  let mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("  const phase=phaseSeat===true;", "  state.bpm+=1;\n  const phase=phaseSeat===true;"));
   await mutationMustFail(assertContract, mutation, "the isolation snapshot kills a visitor-to-difficulty write");
   mutation = replaceFunction(html, "ghostReturnUpdate", (fn) => fn.replace("  const now=ghostRoadTime();", "  PLAYER_POS.x+=1;\n  const now=ghostRoadTime();"));
   await mutationMustFail(assertContract, mutation, "the authority proxy kills a returning-star PLAYER_POS write");

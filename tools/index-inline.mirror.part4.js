@@ -808,7 +808,7 @@
                                              
                                                                                                      
                                                
-                                               
+                                                                                       
                                                                                                                      
                                                                                                                                                                           
                                                                                                                                                                         
@@ -966,6 +966,7 @@
                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                     
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -8851,22 +8852,24 @@ const GH_RECORD=!!CFG.ghostRecord;                                        // raw
 const GH_SEAT=!!CFG.ghostSeat;                                            // raw boolean first: false means no storage read, scene allocation, frame call or draw
 const GH_GIFT=!!CFG.ghostGift;                                            // raw boolean first: false means no flare lock, blessed tag, catch state, wrapper or mail line
 const GH_SHARE=!!CFG.ghostShare;                                          // raw boolean first: false means no token, relay call, visitor/mail/star allocation or added frame path
-const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
+const GH_PHASE=!!CFG.ghostPhase, GH_MULTI=GH_SHARE||GH_PHASE;              // phase is a local second seat; dormant means the wave-20 topology and storage touches are unchanged
+const GH_STORE_KEY='aimdojo.ghost', GH_PHASE_KEY='aimdojo.ghostPhase', GH_VERSION=1;
 const GH_WORTHY_ARRIVALS=8, GH_WORTHY_DUR=45;
-const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_CAP_MAIL=64, GH_MAX_BYTES=100000;
+const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_CAP_MAIL=64, GH_MAX_BYTES=100000, GH_PHASE_MAX_BYTES=GH_MAX_BYTES*8+1024;
 const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','taps','fires'];
 const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
 const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
 const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=LOW?1:3, GH_VISITOR_FETCH_COUNT=LOW?1:4;
 const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256, GH_GHOSTS_RESPONSE_MAX=GH_MAX_BYTES*GH_VISITOR_FETCH_COUNT+4096;
-const GH_SEAT_XS=GH_SHARE?[-90,180,-180]:null, GH_SILHOUETTE_XS=GH_SHARE?[270,-270]:null, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
+const GH_SEAT_XS=GH_MULTI?[-90,180,-180]:null, GH_SILHOUETTE_XS=GH_SHARE?[270,-270]:null, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
 const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
 const GH_GHOST_PATH='/api/ghost', GH_GHOSTS_PATH='/api/ghosts', GH_MAIL_PATH='/api/ghost-mail';
 let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0, _ghostRecordFinalized=true;
 let _ghostGiftMail=null, _ghostGiftGreetingCount=0, _ghostGiftMailSpoken=false;
 let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoch=-1;
 let _ghostSeats=null, _ghostOwnSeat=null, _ghostVisitorSeats=null, _ghostVisitorCount=0, _ghostSilhouettes=null, _ghostSeatRows=null, _ghostSeatBusy=false, _ghostGiftHitT=0;
+let _ghostPhaseRecord=null;
 let _ghostReturnPool=null, _ghostReturnCount=0, _ghostReturnSig=-1, _ghostReturnSpoken=false;
 function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
 function ghostRoadReset(){
@@ -9058,6 +9061,7 @@ function ghostRecordFinalize(pageExit){
     if(!ghostArtifactValid(r)) return;
     if(GH_GIFT && !ghostWrapperValid({ghost:r,mail})) return;                // decision: mail shares the recording's fail-soft boundary and can never cost a worthy night
     localStorage.setItem(GH_STORE_KEY,json);
+    if(GH_PHASE) ghostPhaseWrite(r);                                         // the ordinary night is already safe; quota failure can lose only this dormant phase copy
     if(GH_SHARE) ghostShareUpload(r,pageExit===true);                         // courtesy copy starts only after the worthy local night is safely stored; it is never awaited
   }catch(e){}
 }
@@ -9113,6 +9117,30 @@ function ghostWrapperValid(value){
   const ghost=ghostArtifactValid(value.ghost);
   if(!ghost || !ghostMailValid(value.mail,ghost.dur)) return null;
   return value;
+}
+function ghostPhaseSlots(value){
+  if(!value || typeof value!=='object' || value.v!==GH_VERSION || !value.slots || typeof value.slots!=='object' || Array.isArray(value.slots)) return null;
+  const keys=Object.keys(value); if(keys.length!==2 || keys.indexOf('v')<0 || keys.indexOf('slots')<0) return null;
+  const slotKeys=Object.keys(value.slots); if(slotKeys.length>8) return null;
+  const slots={};
+  for(const key of slotKeys){ if(!/^[0-7]$/.test(key)) continue; const record=ghostArtifactValid(value.slots[key]); if(record && record.moonBucket===+key && ghostSerializedBytes(record)<=GH_MAX_BYTES) slots[key]=record; }
+  return slots;
+}
+function ghostPhaseRead(own){
+  if(!GH_PHASE) return null;
+  let raw=''; try{ raw=localStorage.getItem(GH_PHASE_KEY)||''; }catch(e){ return null; }
+  if(!raw || typeof raw!=='string' || raw.length>GH_PHASE_MAX_BYTES || ghostUtf8Bytes(raw)>GH_PHASE_MAX_BYTES) return null;
+  try{ const slots=ghostPhaseSlots(JSON.parse(raw)), bucket=moonPhaseBucket(), record=slots&&Number.isInteger(bucket)?slots[String(bucket)]:null; return record&&(!own||record.date!==own.date)?record:null; }catch(e){ return null; }
+}
+function ghostPhaseWrite(record){
+  if(!GH_PHASE || !ghostArtifactValid(record) || ghostSerializedBytes(record)>GH_MAX_BYTES) return false;
+  try{
+    let slots={}, raw=localStorage.getItem(GH_PHASE_KEY)||'';
+    if(typeof raw==='string' && raw.length<=GH_PHASE_MAX_BYTES && ghostUtf8Bytes(raw)<=GH_PHASE_MAX_BYTES){ try{ const prior=raw?ghostPhaseSlots(JSON.parse(raw)):null; if(prior) slots=prior; }catch(e){} }
+    slots[String(record.moonBucket)]=record;
+    const json=JSON.stringify({v:GH_VERSION,slots:slots}); if(ghostUtf8Bytes(json)>GH_PHASE_MAX_BYTES) return false;
+    localStorage.setItem(GH_PHASE_KEY,json); return true;
+  }catch(e){ return false; }
 }
 function ghostSeatRead(){
   if(!GH_SEAT) return null;                                                 // decision: the seat-off build never opens storage
@@ -9210,7 +9238,7 @@ function ghostVisitorLine(){
   if(!GH_SHARE) return '';
   const seats=[], sigils=[]; let reachedBack=-1;
   if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++){
-    const seat=_ghostVisitorSeats[i], sigil=seat&&seat.record?ghostMoonSigil(seat.sig):'';
+    const seat=_ghostVisitorSeats[i]; if(seat&&seat.phase===true) continue; const sigil=seat&&seat.record?ghostMoonSigil(seat.sig):'';
     if(!seat || !sigil) return '';
     seats.push(seat); sigils.push(sigil); if(reachedBack<0 && seat.back===true) reachedBack=i;
   }
@@ -9218,6 +9246,11 @@ function ghostVisitorLine(){
   for(const seat of seats) seat.spoken=true;
   if(seats.length===1 && reachedBack===0) return TF('ghostVisitorBack','a visitor who reached back rides tonight · {sigil}',{sigil:sigils[0]}); if(seats.length===1) return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigils[0]});
   if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','{n} visitors ride tonight · {sigils}',{n:seats.length,sigils:sigils.join('\u2009')});
+}
+function ghostPhaseLine(){
+  if(!GH_PHASE || !_ghostVisitorSeats) return '';
+  for(let i=0;i<_ghostVisitorCount;i++){ const seat=_ghostVisitorSeats[i]; if(!seat || seat.phase!==true) continue; if(seat.spoken) return ''; const sigil=seat.record?ghostMoonSigil(seat.sig):''; if(!sigil) return ''; seat.spoken=true; return TF('ghostPhaseLine','the last {sigil} night rides with you',{sigil:sigil}); }
+  return '';
 }
 function ghostSilhouetteMaterial(alpha,visibility,color){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility,uCol:{value:color}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
 function ghostSilhouetteBuild(x){
@@ -9316,9 +9349,10 @@ function ghostReturnUpdate(){
     star.attribute.needsUpdate=true; star.mesh.visible=true;
   }
 }
-function ghostVisitorAccept(epoch,id,record,reachedBack){
-  if(!GH_SHARE || epoch!==_ghostShareEpoch || _ghostVisitorCount>=GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
-  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
+function ghostVisitorAccept(epoch,id,record,reachedBack,phaseSeat){
+  const phase=phaseSeat===true;
+  if((phase?!GH_PHASE:!GH_SHARE) || epoch!==_ghostShareEpoch || _ghostVisitorCount>=GH_VISITOR_COUNT || (!phase&&!ghostTokenValid(id)) || !ghostArtifactValid(record)) return false;
+  if(!phase && _ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
   if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat);
   if(!_ghostVisitorSeats) _ghostVisitorSeats=[];
   const slot=_ghostVisitorCount, heldGiftLock=_ghGiftLockedRow; let seat=_ghostVisitorSeats[slot], accepted=false;
@@ -9329,7 +9363,7 @@ function ghostVisitorAccept(epoch,id,record,reachedBack){
     if(_ghCaughtSlots) _ghCaughtSlots.clear();
     if(!_ghostSeatRoot) ghostSeatBuild(record); else ghostSeatPalette(record);
     ghostSeatPrepare(record); if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ');
-    seat.id=id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; seat.back=reachedBack===true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
+    seat.id=phase?'':id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; seat.phase=phase; seat.back=!phase&&reachedBack===true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
   }catch(e){
     if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||(_ghostWalls&&_ghostBursts))); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
   }finally{ _ghGiftLockedRow=heldGiftLock; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
@@ -9337,6 +9371,13 @@ function ghostVisitorAccept(epoch,id,record,reachedBack){
   _ghostVisitorCount++;
   if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT&&_ghostOwnSeat) _ghostSeats.push(_ghostOwnSeat); for(let i=0;i<_ghostVisitorCount;i++) _ghostSeats.push(_ghostVisitorSeats[i]);
   return true;
+}
+function ghostPhaseAccept(epoch){
+  if(!GH_PHASE || epoch!==_ghostShareEpoch) return false;
+  const record=_ghostPhaseRecord; _ghostPhaseRecord=null; if(!record) return false;
+  const accepted=ghostVisitorAccept(epoch,'',record,false,true);
+  if(accepted && GH_GIFT && _ghostOwnSeat && Array.isArray(_ghostOwnSeat.mail)){ const seat=_ghostVisitorSeats[_ghostVisitorCount-1]; if(seat&&seat.phase===true) seat.mail=_ghostOwnSeat.mail; }
+  return accepted;
 }
 async function ghostVisitorFetch(epoch,token,bucket){
   const path=GH_GHOSTS_PATH+'?lon='+bucket+'&n='+GH_VISITOR_FETCH_COUNT, body=await ghostRelayJson(path,{headers:ghostRelayHeaders(token,false)},GH_GHOSTS_RESPONSE_MAX);
@@ -9357,9 +9398,10 @@ async function ghostMailFetch(epoch,token){
   _ghostReturnCount=rows.length; _ghostReturnSig=rows[0][2]; ghostReturnSchedule(rows);
 }
 function ghostShareReset(){
-  if(!GH_SHARE) return;
-  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=ghostLonBucket(); ghostReturnReset(); ghostSilhouettesReset(); _ghostSeatRows=new WeakMap(); _ghostVisitorCount=0;
+  if(!GH_MULTI) return;
+  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=GH_SHARE?ghostLonBucket():0; if(GH_SHARE){ ghostReturnReset(); ghostSilhouettesReset(); } _ghostSeatRows=new WeakMap(); _ghostVisitorCount=0;
   if(!_ghostOwnSeat) _ghostOwnSeat={visitor:false,id:'',sig:-1,spoken:true}; ghostSeatCapture(_ghostOwnSeat); ghostSeatRememberRows(_ghostOwnSeat);
+  _ghostPhaseRecord=GH_PHASE?ghostPhaseRead(_ghostOwnSeat.record):null;
   if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT) _ghostSeats.push(_ghostOwnSeat);
   if(_ghostVisitorSeats){
     try{ for(const seat of _ghostVisitorSeats) try{
@@ -9372,13 +9414,14 @@ function ghostShareReset(){
       if(_ghBeat) _ghBeat.value=0; if(_ghCounts){ _ghCounts.targets=0; _ghCounts.beacons=0; }
       if(_ghostTargets) _ghostTargets.count=0; if(_ghostBursts) _ghostBursts.count=0; if(_ghostBeaconCols) _ghostBeaconCols.count=0; if(_ghostBeaconRings) _ghostBeaconRings.count=0;
       if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ'); ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
-      seat.id=''; seat.sig=-1; seat.spoken=false; ghostSeatCapture(seat);
+      seat.id=''; seat.sig=-1; seat.spoken=false; seat.phase=false; seat.back=false; ghostSeatCapture(seat);
     }catch(e){} }
     finally{ if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
   }
-  const token=ghostToken(); if(!token) return;
   const epoch=_ghostShareEpoch, bucket=_ghostShareBucket;
-  ghostVisitorFetch(epoch,token,bucket).catch(()=>{}); ghostMailFetch(epoch,token).catch(()=>{});
+  if(!GH_SHARE){ ghostPhaseAccept(epoch); return; }
+  const token=ghostToken(); if(!token){ ghostPhaseAccept(epoch); return; }
+  ghostVisitorFetch(epoch,token,bucket).then(()=>ghostPhaseAccept(epoch),()=>ghostPhaseAccept(epoch)).catch(()=>{}); ghostMailFetch(epoch,token).catch(()=>{});
 }
 async function ghostMailAttempt(token,toId,catches){
   const response=await ghostRelayFetch(GH_MAIL_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({toId:toId,catches:catches})});
@@ -9563,9 +9606,9 @@ function ghostSeatReset(){
 }
 function ghostSessionStart(){
   // Session-topology decision: graduation is today's real main-play door; resetSession keeps this same arm site for any future direct Full Night entry.
-  if((!GH_RECORD&&!GH_SEAT&&!GH_SHARE) || trainMode || templeActive) return;
+  if((!GH_RECORD&&!GH_SEAT&&!GH_SHARE&&!GH_PHASE) || trainMode || templeActive) return;
   if(GH_SEAT) ghostSeatReset();
-  if(GH_SHARE) ghostShareReset();
+  if(GH_MULTI) ghostShareReset();
   if(GH_RECORD) ghostRecordArm();
 }
 function ghostSeatBeatAt(t){
@@ -9593,7 +9636,7 @@ function ghostGiftable(row,t,v){
   return !!(GH_GIFT && row && row[4]===0 && v>=GH_GIFT_V && t>=row[3]-GH_GIFT_LEAD && t<=row[3] && (!_ghCaughtSlots || !_ghCaughtSlots.has(row[2])));
 }
 function ghostGiftLockTarget(aim,minDot){
-  if(GH_SHARE && !_ghostSeatBusy) return ghostGiftLockSeats(aim,minDot);
+  if(GH_MULTI && !_ghostSeatBusy) return ghostGiftLockSeats(aim,minDot);
   if(!ghostGiftSync() || !_ghGiftProxy || !_ghActiveTargets) return null;
   let bestRow=null, bestDot=minDot;
   for(const row of _ghActiveTargets){
@@ -9612,7 +9655,7 @@ function ghostGiftLockTarget(aim,minDot){
   return _ghGiftProxy;
 }
 function ghostGiftPlanSpeed(){
-  if(GH_SHARE && !_ghostSeatBusy && _ghGiftLockedRow){ const seat=_ghostSeatRows&&_ghostSeatRows.get(_ghGiftLockedRow); if(seat) return ghostGiftSeatPlan(seat); }
+  if(GH_MULTI && !_ghostSeatBusy && _ghGiftLockedRow){ const seat=_ghostSeatRows&&_ghostSeatRows.get(_ghGiftLockedRow); if(seat) return ghostGiftSeatPlan(seat); }
   if(!GH_GIFT || !_ghGiftLockedRow) return null;
   if(!ghostGiftSync() || !ghostGiftable(_ghGiftLockedRow,_ghGiftRoadT,_ghGiftReveal)){ _ghGiftLockedRow=null; return null; }
   return GH_GIFT_SPEED;
@@ -9625,7 +9668,7 @@ function ghostCatchBurst(row,t,pos){
   }
 }
 function ghostGiftCatch(row,t){
-  if(GH_SHARE && !_ghostSeatBusy){ const seat=_ghostSeatRows&&_ghostSeatRows.get(row); if(seat) return ghostGiftSeatCatch(seat,row,t); }
+  if(GH_MULTI && !_ghostSeatBusy){ const seat=_ghostSeatRows&&_ghostSeatRows.get(row); if(seat) return ghostGiftSeatCatch(seat,row,t); }
   if(!GH_GIFT || !row || !_ghCaughtSlots || _ghCaughtSlots.has(row[2])) return false;
   _ghCaughtSlots.add(row[2]);
   if(_ghostGiftMail){ ghostDropOldest(_ghostGiftMail,GH_CAP_MAIL); _ghostGiftMail.push([ghostTime(t),row[1]]); }
@@ -9638,7 +9681,7 @@ function ghostGiftCatch(row,t){
   return true;
 }
 function ghostGiftProjectileHit(pr){
-  if(GH_SHARE && !_ghostSeatBusy && pr){ const seat=_ghostSeatRows&&_ghostSeatRows.get(pr.giftRow); if(seat) return ghostGiftSeatProjectileHit(seat,pr); }
+  if(GH_MULTI && !_ghostSeatBusy && pr){ const seat=_ghostSeatRows&&_ghostSeatRows.get(pr.giftRow); if(seat) return ghostGiftSeatProjectileHit(seat,pr); }
   if(!GH_GIFT || !pr || !pr.gift || !pr.giftRow) return false;
   if(!ghostGiftSync(pr.giftRoadT)){ if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.life)){ const cursor=pr.giftLaunchT+Math.max(0,pr.life); pr.giftRoadT=Number.isFinite(pr.giftRoadT)?Math.max(pr.giftRoadT,cursor):cursor; } return false; }
   const currentT=_ghGiftRoadT, priorT=Number.isFinite(pr.giftRoadT)?Math.min(currentT,pr.giftRoadT):currentT, arrivalT=pr.giftRow[3], endT=Math.min(currentT,arrivalT);
@@ -9751,16 +9794,16 @@ function ghostSeatBeaconVisibility(count){
   if(_ghostBeaconCols) _ghostBeaconCols.visible=on;
   if(_ghostBeaconRings) _ghostBeaconRings.visible=on;
 }
-function ghostSeatUpdate(dt){
-  if(GH_SHARE && !_ghostSeatBusy){ ghostSeatsUpdate(dt); return; }
-  const seatOn=GH_SEAT || (GH_SHARE&&_ghostSeatBusy);
-  if(!seatOn || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
-  const roadT=ghostRoadTime(), t=Math.min(roadT,_ghostSeatRecord.dur), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
-  const v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
-  ghostSeatAdvance(t); _ghBeat.value=ghostSeatBeatAt(t);
-  const counts=ghostSeatUpdateTargets(t,v>0,roadT), bursts=ghostSeatUpdateBursts(t,v>0,roadT);
-  ghostSeatApplyVisibility(v,counts.targets,bursts); ghostSeatBeaconVisibility(t<=_ghostSeatRecord.dur+GH_TARGET_FADE?counts.beacons:0);
-}
+                             
+                                                                  
+                                                     
+                                                                                                                                                                              
+                                                                                                                                                                                          
+                                                                                                                                  
+                                                        
+                                                                                              
+                                                                                                                                        
+ 
                                                                                                                                                                
                                                                                                                             
                                                                                                                               
@@ -11561,7 +11604,7 @@ function ghostSeatUpdate(dt){
                                                                                                                     
                                                                                                     
                                                                                                                      
-                                                                                                                                                
+                                                                                                                                                                   
                                                                                                                  
                                                                                                                       
                                                                                                                   
@@ -11570,9 +11613,10 @@ function ghostSeatUpdate(dt){
                                                       
                                                   
                                                           
-                                                                                                                                                                                                     
+                                                            
+                                                                                                                                                                                                                       
                                                               
-                           
+                               
                                                                                          
  
                                                                                                                            

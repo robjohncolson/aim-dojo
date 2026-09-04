@@ -62,10 +62,10 @@ function testRealCivilDate(value) {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
-function runGhost(source, { record = false, seat = false, gift = false, low = false, extra = {}, body = "" } = {}) {
+function runGhost(source, { record = false, seat = false, gift = false, share = false, phase = false, low = false, extra = {}, body = "" } = {}) {
   const context = vm.createContext({
     Math, Number, JSON, WeakMap, Float32Array, Uint16Array,
-    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, moonline: {} }, LOW: low,
+    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, ghostShare: share ? 1 : 0, ghostPhase: phase ? 1 : 0, moonline: {} }, LOW: low,
     state: { t: 0, bpm: 60, running: true }, trainMode: false, templeActive: false, reduceMotion: false,
     Tone: { Transport: { seconds: 0 } }, audioLat: () => 0, PITCH_LIMIT: 88 * Math.PI / 180,
     PLAYER_POS: { x: 0, z: 0 }, ML_ARCH_EVERY: 4, ROAD_MPB: 27,
@@ -106,16 +106,16 @@ function emissionFingerprint(source, low) {
   return { chars: serialized.length, sha256: crypto.createHash("sha256").update(serialized).digest("hex") };
 }
 
-function withGhostFlags(source, record, seat, gift, share) {
-  return source.replace(/ghostRecord:[01]/, `ghostRecord:${record ? 1 : 0}`).replace(/ghostSeat:[01]/, `ghostSeat:${seat ? 1 : 0}`).replace(/ghostGift:[01]/, `ghostGift:${gift ? 1 : 0}`).replace(/ghostShare:[01]/, `ghostShare:${share ? 1 : 0}`);
+function withGhostFlags(source, record, seat, gift, share, phase) {
+  return source.replace(/ghostRecord:[01]/, `ghostRecord:${record ? 1 : 0}`).replace(/ghostSeat:[01]/, `ghostSeat:${seat ? 1 : 0}`).replace(/ghostGift:[01]/, `ghostGift:${gift ? 1 : 0}`).replace(/ghostShare:[01]/, `ghostShare:${share ? 1 : 0}`).replace(/ghostPhase:[01]/, `ghostPhase:${phase ? 1 : 0}`);
 }
 
-test("MY emitted road and wall family stays on its frozen bytes in all sixteen ghost flag combinations", () => {
+test("MY emitted road and wall family stays on its frozen bytes in all thirty-two ghost flag combinations", () => {
   const assertContract = (source) => {
-    for (const record of [false, true]) for (const seat of [false, true]) for (const gift of [false, true]) for (const share of [false, true]) {
-      const variant = withGhostFlags(source, record, seat, gift, share);
-      assert.deepEqual(emissionFingerprint(variant, false), emissionFixture.high, `HIGH remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}, share=${+share}`);
-      assert.deepEqual(emissionFingerprint(variant, true), emissionFixture.low, `LOW remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}, share=${+share}`);
+    for (const record of [false, true]) for (const seat of [false, true]) for (const gift of [false, true]) for (const share of [false, true]) for (const phase of [false, true]) {
+      const variant = withGhostFlags(source, record, seat, gift, share, phase);
+      assert.deepEqual(emissionFingerprint(variant, false), emissionFixture.high, `HIGH remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}, share=${+share}, phase=${+phase}`);
+      assert.deepEqual(emissionFingerprint(variant, true), emissionFixture.low, `LOW remains frozen at record=${+record}, seat=${+seat}, gift=${+gift}, share=${+share}, phase=${+phase}`);
     }
   };
   assertContract(html);
@@ -157,6 +157,51 @@ test("the v1 recorder emits the locked bounded artifact and drop-oldest caps", (
   assertContract(html);
   mutationMustFail(assertContract, html.replace("GH_CAP_TAPS=2400", "GH_CAP_TAPS=2399"), "the cap test kills a 2399-tap recorder");
   mutationMustFail(assertContract, replaceFunction(html, "ghostAimYaw", (fn) => fn.replace(/return Math\.max\([^;]+;/, "return +value||0;")), "the recorder test kills unnormalized aim output");
+});
+
+test("the dormant phase archive keeps one bounded worthy night per moon bucket after the ordinary save", () => {
+  const assertContract = (source) => {
+    assert.match(source, /ghostPhase:0,\s+\/\/ THE MOON REMEMBERS YOU/);
+    const prior = { v: 1, date: "2026-07-03", moonBucket: 2, bpm0: 60, dur: 60, bpmCurve: [[0, 60]], targets: [], taps: [], fires: [] };
+    const exercise = (phase, quota = false, phaseValue = JSON.stringify({ v: 1, slots: { 2: prior } })) => {
+      const values = new Map([["aimdojo.ghostPhase", phaseValue]]), operations = [];
+      runGhost(source, {
+        record: true, phase,
+        extra: { localStorage: {
+          getItem(key) { operations.push(["get", key]); return values.get(key) || null; },
+          setItem(key, value) { operations.push(["set", key]); if(quota && key === "aimdojo.ghostPhase") throw new Error("quota"); values.set(key, value); },
+        } },
+        body: `
+          ghostRecordArm();
+          for(let i=0;i<8;i++){ const tg={mesh:{position:{x:i%4,z:-10}},expireAt:2}; ghostRecordSpawn(tg); ghostRecordTargetOutcome(tg,0); }
+          Tone.Transport.seconds=45; ghostRecordFinalize();
+        `,
+      });
+      return { values, operations };
+    };
+    const off = exercise(false);
+    assert.deepEqual(off.operations, [["set", "aimdojo.ghost"]], "ghostPhase:0 never opens the archive key");
+    const on = exercise(true), archive = JSON.parse(on.values.get("aimdojo.ghostPhase"));
+    assert.deepEqual(on.operations.map((row) => row.join(":")), ["set:aimdojo.ghost", "get:aimdojo.ghostPhase", "set:aimdojo.ghostPhase"], "the phase copy follows the safe ordinary save");
+    assert.deepEqual(Object.keys(archive), ["v", "slots"]); assert.deepEqual(Object.keys(archive.slots), ["2", "4"]);
+    assert.deepEqual(archive.slots[2], prior); assert.equal(archive.slots[4].date, "2026-08-22"); assert.equal(archive.slots[4].moonBucket, 4);
+    const quota = exercise(true, true);
+    assert.ok(quota.values.get("aimdojo.ghost"), "a phase quota failure cannot cost the ordinary worthy night");
+    assert.equal(quota.values.get("aimdojo.ghostPhase"), JSON.stringify({ v: 1, slots: { 2: prior } }), "the failed copy leaves the prior archive alone");
+    const recovered = exercise(true, false, "{");
+    let recoveredArchive=null; try{ recoveredArchive=JSON.parse(recovered.values.get("aimdojo.ghostPhase")); }catch(_error){}
+    assert.deepEqual(recoveredArchive&&Object.keys(recoveredArchive.slots), ["4"], "a malformed stale archive cannot block the next worthy moon copy");
+    const phaseFns = ["ghostPhaseSlots", "ghostPhaseRead", "ghostPhaseWrite"].map((name) => extractFunction(source, name)).join("\n");
+    assert.doesNotMatch(phaseFns, /\bfetch\s*\(|ghostRelay|ghostShareUpload/, "the phase archive has no transport path");
+    assert.match(source, /GH_PHASE_MAX_BYTES=GH_MAX_BYTES\*8\+1024/);
+  };
+  assertContract(html);
+  let mutation = replaceFunction(html, "ghostRecordFinalize", (fn) => fn.replace("    if(GH_PHASE) ghostPhaseWrite(r);", ""));
+  mutationMustFail(assertContract, mutation, "the archive oracle kills a worthy night omitted from its moon slot");
+  mutation = replaceFunction(html, "ghostPhaseWrite", (fn) => fn.replace("slots[String(record.moonBucket)]=record;", "slots['0']=record;"));
+  mutationMustFail(assertContract, mutation, "the bucket oracle kills a phase copy written under the wrong moon");
+  mutation = replaceFunction(html, "ghostPhaseWrite", (fn) => fn.replace("try{ const prior=raw?ghostPhaseSlots(JSON.parse(raw)):null; if(prior) slots=prior; }catch(e){}", "const prior=raw?ghostPhaseSlots(JSON.parse(raw)):null; if(prior) slots=prior;"));
+  mutationMustFail(assertContract, mutation, "the recovery oracle kills a malformed archive blocking the next worthy moon copy");
 });
 
 test("a divergent road clock recomputes arrival before recording the hit", () => {

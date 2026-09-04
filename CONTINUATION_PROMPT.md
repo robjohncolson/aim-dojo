@@ -1,5 +1,43 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04)
 
+## -18. 2026-09-04: wave 20 Parcel H complete locally · THE MOON REMEMBERS YOU stays DORMANT
+**Local-only state (not pushed or deployed):** `ghostPhase:0` is the ruling boundary, so the shipped/default path never
+opens `aimdojo.ghostPhase`, allocates its seats, or adds its frame path. When explicitly enabled, every worthy finalized
+night is copied only after `aimdojo.ghost` is safe into `{v:1,slots:{"0-7":artifact}}`; the current bucket replaces its
+older bare v1 artifact, each artifact is capped at 100 KB, the eight-slot envelope is bounded, quota failure cannot cost
+the ordinary night, and a malformed old envelope cannot block the next worthy copy. Reads are strict and fail-soft;
+invalid/misfiled slots disappear from the in-memory view without a repair write. The archive never enters a relay path,
+and README now names both browser-only ghost keys.
+
+At the real main-play boundary, the matching phase artifact is skipped when it has the +90 own ghost's same date. It
+otherwise takes the first empty full visitor seat **after** fetched strangers (−90 first with no stranger; LOW's sole
+seat belongs to the stranger). It reuses the existing palette/reveal/beacon/Gift machinery even with `ghostSeat:0`;
+phase catches deliberately alias the normal self-mail ledger. It is excluded from stranger counts and speaks once, at
+the lowest visitor-copy precedence, as `the last {sigil} night rides with you` /
+`このまえの{sigil}の夜がとなりを走る`.
+
+**Evidence:** focused ghost + Visitor suites 44/44; full suite 321/321, including inline parse and comment-swallow.
+The frozen emitted road/wall family passes all 32 `record × seat × gift × share × phase` combinations. Nine constructed
+mutants are killed across archive timing/bucketing/recovery, duplicate-night exclusion, LOW capacity, stranger-copy
+isolation, phase-only Gift lock/projectile/catch routing, and slot/bucket validation. A real headless Chrome door smoke served the current
+source with only in-memory `ghostPhase:1`, relay-off, and shortened Bow timings: actual `beginTrain` →
+`W W S S A D A D · L · Space` graduated to `THE CHORUS REMEMBERS YOU · MOON SENSEI OPENS THE FULL NIGHT`, the actual
+hitless Bow returned `PLAY — A NEW NIGHT`, and the restarted night spoke `the last 🌗 night rides with you`; no page
+error escaped (the local-origin sky-day CORS warning was harness-only).
+
+**Risk review:** pre-edit GitNexus impact was CRITICAL for `ghostGiftLockTarget`; HIGH for `ghostVisitorLine`,
+`ghostShareReset`, `ghostSessionStart`, and `flashTheme`; LOW for the remaining production edits (including `animate`).
+The compare-to-main aggregate is CRITICAL because the same narrow `GH_SHARE → GH_MULTI` predicate reaches existing
+scope/flick/arc/projectile and animation fan-out. Representative traces were read end to end; they still terminate in
+the existing ghost road-clock/seat helpers, while the new archive has no network process. The full knob matrix and Gift
+ledger tests cover those exact boundaries. Final staged `detect_changes`: 68 changed symbols, 53 affected processes,
+10 intended files, CRITICAL aggregate; every listed changed process enters through those reviewed Gift, frame, reset,
+relay-validation, seat-read, or threshold boundaries.
+
+**Still owed before publication:** the USER must merge/deploy sidereal `ghost-relay-wave20` (`d2c460f`) and run the two
+live smokes from §-16 item 0 before pushing either local client commit. The user still owns the wave-8 tonight-only
+ruling; until that changes, leave `ghostPhase:0`. Next code item is wave 21 Parcel I, THE DOORWAYS ARE EVENTS.
+
 ## -17. 2026-09-04: wave 20 Parcel G client half complete locally · RELAY STILL MUST DEPLOY FIRST
 **Local-only state (not pushed or deployed):** the Parcel G client now treats `reachedBack` as relay metadata only when its
 value is a strict boolean; absent, string, numeric, and every other malformed value become the old plain case without
