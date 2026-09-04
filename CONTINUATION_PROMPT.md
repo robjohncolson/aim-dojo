@@ -1,5 +1,28 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
 
+## -23. 2026-09-04: wave 22 Parcel O complete locally · THE DEAD HELPERS
+**Local-only state (not pushed or deployed):** `fff7532` removes the ten verified zero-caller helpers
+`avgReaction`, `classifyPocket`, `showTempleSignArt`, `placeTempleSignArt`, `starLitLevel`, `showListenGhost`,
+`eighthSec`, `timingErrorMs`, `setClassName`, and `liveCount`; the zero-read `decoyChance` / `decoyDistMul`
+knobs; and all three write-only `tg.lifeBeatsEff` assignments. Their obsolete reader/revival comments were corrected.
+The defensive `tg.kind===2` behavior remains intact, as do `pushReaction` at its two live call sites and
+`hideListenGhost` at its one live call site. The realtime fail-quiet test now exercises only the channel behavior
+the application actually calls.
+
+**Evidence:** the comment-swallow/inline parser passed after every individual hand-written deletion. Focused sweep,
+realtime and inline tests pass; full suite 338/338; five root modules parse; mirrors were regenerated only after the
+last inline deletion and then re-indexed. Seventeen constructed mutants prove every removed name stays gone while
+the protected neighboring helpers and all four defensive decoy branches stay present.
+
+**Risk review:** all ten named helper impacts were LOW with zero direct callers and zero processes; `CFG` was LOW
+with zero indexed upstream dependents. GitNexus cannot resolve the record property `lifeBeatsEff`, so its three
+writes and zero reads were verified directly across source and tests before editing. Final staged `detect_changes`
+was CRITICAL by count (31 symbols / 25 flows / 8 files); the raw production diff removes no live branch, and the
+reported Listen/card processes are generated-mirror split-boundary attribution. `spawnTarget` retains every live
+control-flow statement; only its write-only record fields and the comments around them changed.
+
+**Next:** Wave 22 Parcel P, the fail-soft Three.js CDN guard. The user's relay deploy/live smoke remains external.
+
 ## -22. 2026-09-04: wave 21 Parcel K complete locally · MOON SENSEI II
 **Local-only state (not pushed or deployed):** `fb86dd0` adds flat `CFG.sensei2:1` and the lazy, versioned
 `aimdojo.sensei2` envelope `{v:1,seen:{mercy,fill,bow,star}}`. Validation rejects the whole record unless its
