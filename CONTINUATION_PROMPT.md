@@ -1,5 +1,42 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
 
+## -27. 2026-09-04: RELAY DEPLOYED — sidereal `d2c460f` live on Railway · THE CHORUS REMEMBERS WHO REACHED BACK
+**What shipped:** the wave-20 Parcel G relay half (`ghost_seen`, boolean `reachedBack` in `GET /api/ghosts`, mail
+cooldown scoped per sender × target revision). Codex executed `CODEX_PROMPT_RELAY_DEPLOY_WAVE20.md` (this repo — the
+completed relay runbook snapshot: preflight → the single fast-forward push → deployment gate → read-only verify → local sync):
+`git push origin ghost-relay-wave20:main` moved sidereal `5301864..d2c460f`; Railway project `ideal-embrace`, service
+`sidereal`, deployment created at 22:48:32Z reached SUCCESS within ~3.5 min; Dockerfile build, no env change,
+manual migration, or volume operation (the additive schema initializes lazily on the first relay request).
+Verified twice (Codex, then independently here): `/api/health` 200; `GET /api/ghosts?lon=8&n=4` with a throwaway token
+returns 3 ghosts each carrying `reachedBack:false` as a JSON boolean (the old build omitted the key — this is the only
+build discriminator, `sidereal_version` is `0.1.0` on both); deploy log clean of `GhostRelayStoreError`; sidereal local
+`main` fast-forwarded `534da85 → d2c460f` (topic branch retained). The §-16/§-20 deploy-order caveat is CLOSED:
+mail to distinct visitor targets no longer shares a sender-token cooldown.
+
+**Relay state (real nights, not smokes):** three, all lonBucket 8 / moonBucket 6 — 2026-09-03 (229 s, 27 targets,
+107 taps, 3,407 B) and two on 2026-09-04 (141 s, 17/63, 2,381 B; 134 s, 14/46, 2,003 B). The wave-16/17 smoke ghosts
+expired 2026-09-02, so "the relay is empty" is no longer true anywhere in this file.
+
+**Corrections to §-16 item 0 (the smoke law, now written into the runbook as hard rules):** (1) "two mail POSTs from
+one throwaway sender both 200" is impossible on either build — `append_mail` looks the SENDER up first and 404s a
+token that never uploaded; (2) mailing a REAL night, even with `catches: []`, inserts a `ghost_mail_batch` row: the
+smoke token becomes that player's reached-back visitor for 10 days and burns one of the target's only 4 ingress
+batches, so never do it — the per-target cooldown is pinned by
+`test_mail_cooldown_is_per_target_revision_for_three_same_instant_posts`; (3) never `GET /api/ghost-mail` with a real
+token (read-once). Reads with a throwaway token are fine (≤1 `ghost_seen` row per ghost, 10-day TTL).
+
+**Resolved (tooling, LOW):** `tools/relay-scan.mjs` labelled the 2,003-byte real night SMOKE because its `2000±20`
+ease-probe size heuristic matched a human night. Removed both expired wave-16/17 byte signatures; only the existing
+short-duration heuristic remains (a heuristic, not proof of synthetic origin). Updated the two regression assertions,
+including the actual 2,003-byte / 133.925 s false positive; `node --test tests/relay-scan.test.js` passes 2/2. The
+GET-only live scan now reports the same three nights, no SMOKE flags: "3 nights on the relay · 3 look human".
+Scanner fix committed separately as `3a7e77a`.
+
+**Now unblocked (the live validation §-26 deferred):** the user plays one real night on the live site (card link line ·
+pause-card offset · PLAY speed · the doorway whoosh at the mercy door), then a friend; `node tools/relay-scan.mjs`
+after each; the reached-back line should appear the night after a friend's mail lands. **Still owed by the user:** the
+wave-8 ruling for H (`ghostPhase` 0→1 if it falls); the by-ear auditions listed in §-20.
+
 ## -26. 2026-09-04: P4 HTML split complete · THE PAGE OPENS EARLY
 **Code commit:** `ba15c03` moves the large game IIFE, byte-for-byte apart from its markup-only leading newline, into
 `aim-dojo-main.js`. The 98,800-byte `index.html` retains the gate/overlay, pre-paint and i18n blocks, then preserves
