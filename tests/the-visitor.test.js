@@ -561,7 +561,7 @@ test("a fetched artifact is client-validated before the same seat machinery buil
     assert.deepEqual(ownResult.beforeDue, { fireCursor: 0, targetCursor: 1, active: [101], targetDraw: 1, beat: 4.999, turns: [] }, "the own seat advances its target while its fire remains pending one millisecond before due");
     assert.deepEqual(ownResult.atDue, { fireCursor: 1, targetCursor: 1, active: [101], targetDraw: 1, beat: 5, turns: [[-0.1, 0.25, 0, "YXZ"]] }, "the own seat fires exactly when due after visitor acceptance");
     assert.equal((ghostBlock(source).match(/function ghostSeatBuild\(/g) || []).length, 1, "both seats use the one build function");
-    assert.match(extractFunction(source, "ghostVisitorFetch"), /const record=ghostArtifactValid\(item\.artifact\); if\(!record\) continue;[\s\S]*ghostVisitorAccept\(epoch,item\.id,record\)/);
+    assert.match(extractFunction(source, "ghostVisitorFetch"), /const record=ghostArtifactValid\(item\.artifact\); if\(!record\) continue;[\s\S]*ghostVisitorAccept\(epoch,item\.id,record,reachedBack\)/);
   };
   await assertContract(html);
   let mutation = replaceFunction(html, "ghostVisitorFetch", (fn) => fn.replace("const record=ghostArtifactValid(item.artifact); if(!record) continue;", "const record=item.artifact;"));
@@ -1147,7 +1147,20 @@ test("threshold copy is EN+JA and keeps comeback then mail then visitor then dea
       `,
     });
     assert.deepEqual(Array.from(pair.lines), ["2 visitors ride tonight · \u{1F311}\u2009\u{1F318}", ""], "two visitors take the plural branch and preserve the sigil order");
+    const reachedBack = runVisitor(source, {
+      share: true,
+      extra: { TF: (_key, english, values = {}) => english.replace(/\{(\w+)\}/g, (_match, key) => String(values[key])) },
+      body: `
+        _ghostVisitorSeats=[
+          {record:${JSON.stringify(artifact({ moonBucket: 0 }))},sig:0,spoken:false,back:false},
+          {record:${JSON.stringify(artifact({ moonBucket: 7 }))},sig:7,spoken:false,back:true},
+          {record:${JSON.stringify(artifact({ moonBucket: 3 }))},sig:3,spoken:false,back:false}
+        ]; _ghostVisitorCount=3; this.lines=[ghostVisitorLine(),ghostVisitorLine()];
+      `,
+    });
+    assert.deepEqual(Array.from(reachedBack.lines), ["3 visitors ride tonight · \u{1F318}\u2009\u{1F311}\u2009\u{1F314}", ""], "a chorus stays plural and leads with the reached-back sigil");
     assert.match(source, /ghostVisitorMail:'きみの音を \{n\}こ だれかが つかまえた · \{sigil\}'/);
+    assert.match(source, /ghostVisitorBack:'手をのばしてくれた旅人が今夜ならぶ · \{sigil\}'/);
     assert.match(source, /ghostVisitorLine:'今夜 たびびとが となりを走る · \{sigil\}'/);
     assert.match(source, /ghostVisitorsLine:'\{n\}人の旅人が今夜ならぶ · \{sigils\}'/);
     const flash = extractFunction(source, "flashTheme");
@@ -1160,8 +1173,46 @@ test("threshold copy is EN+JA and keeps comeback then mail then visitor then dea
   await mutationMustFail(assertContract, mutation, "the threshold oracle kills visitor-over-mail precedence");
   mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("sigils.join('\\u2009')", "sigils.join(' ')"));
   await mutationMustFail(assertContract, mutation, "the plural-copy oracle pins the thin-space sigil chorus");
-  mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("seats.length===1", "seats.length<=2"));
+  mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("if(seats.length===1) return TF('ghostVisitorLine'", "if(seats.length<=2) return TF('ghostVisitorLine'"));
   await mutationMustFail(assertContract, mutation, "the two-visitor copy oracle kills a singular branch widened to pairs");
+  mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("if(reachedBack>0)", "if(reachedBack<0)"));
+  await mutationMustFail(assertContract, mutation, "the chorus-copy oracle kills a reached-back sigil left out of first place");
+});
+
+test("reachedBack is strict relay metadata stored only for the visitor threshold line", async () => {
+  const assertContract = async (source) => {
+    const fetchOne = async (field) => {
+      const item = { id: "b".repeat(32), artifact: artifact({ moonBucket: 7 }) };
+      if(field !== undefined) item.reachedBack = field;
+      const THREE = threeHarness();
+      const context = runVisitor(source, {
+        seat: true, share: true,
+        extra: { THREE, TARGET_CORE_GEO: new THREE.BufferGeometry(), _flockGeo: new THREE.BufferGeometry() },
+        body: `
+          _ghostShareEpoch=4; _ghostSeatRows=new WeakMap(); ghostRelayJson=()=>Promise.resolve(${JSON.stringify({ ghosts: [item] })});
+          this.read=async()=>{ await ghostVisitorFetch(4,'${"a".repeat(32)}',12); const seat=_ghostVisitorSeats[0]; return {back:seat.back,line:ghostVisitorLine()}; };
+        `,
+      });
+      return JSON.parse(JSON.stringify(await context.read()));
+    };
+    assert.deepEqual(await fetchOne(undefined), { back: false, line: "a visitor rides tonight · 🌘" }, "an old relay stays byte-identical");
+    assert.deepEqual(await fetchOne(true), { back: true, line: "a visitor who reached back rides tonight · 🌘" });
+    assert.deepEqual(await fetchOne("true"), { back: false, line: "a visitor rides tonight · 🌘" });
+    assert.deepEqual(await fetchOne(1), { back: false, line: "a visitor rides tonight · 🌘" });
+    const allowed = ["ghostVisitorFetch", "ghostVisitorAccept", "ghostVisitorLine"];
+    let outside = ghostBlock(source);
+    for(const name of allowed) outside = outside.replace(extractFunction(source, name), "");
+    assert.doesNotMatch(outside, /reachedBack/, "relay reply metadata has no gameplay, grading, spawn, or RNG reader");
+    const paths = allowed.map((name) => extractFunction(source, name)).join("\n");
+    assert.doesNotMatch(paths, /\brnd\s*\(|Math\.random\s*\(/);
+  };
+  await assertContract(html);
+  let mutation = replaceFunction(html, "ghostVisitorFetch", (fn) => fn.replace("typeof item.reachedBack==='boolean'?item.reachedBack:false", "!!item.reachedBack"));
+  await mutationMustFail(assertContract, mutation, "the strict-type oracle kills truthy relay metadata");
+  mutation = replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("seat.back=reachedBack===true;", "seat.back=false;"));
+  await mutationMustFail(assertContract, mutation, "the seat-bag oracle kills a dropped reached-back bit");
+  mutation = replaceFunction(html, "ghostVisitorLine", (fn) => fn.replace("seat.back===true", "false"));
+  await mutationMustFail(assertContract, mutation, "the threshold oracle kills a stored bit that is never spoken");
 });
 
 test("read-once mail schedules at most sixteen pooled lane-colour returns on the road clock", async () => {

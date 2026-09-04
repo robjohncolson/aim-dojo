@@ -1,5 +1,27 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04)
 
+## -17. 2026-09-04: wave 20 Parcel G client half complete locally · RELAY STILL MUST DEPLOY FIRST
+**Local-only state (not pushed or deployed):** the Parcel G client now treats `reachedBack` as relay metadata only when its
+value is a strict boolean; absent, string, numeric, and every other malformed value become the old plain case without
+rejecting the ghost. The normalized bit lives only on the full visitor seat as `seat.back`. A single reached-back visitor
+speaks `a visitor who reached back rides tonight · {sigil}` / `手をのばしてくれた旅人が今夜ならぶ · {sigil}`. A 2–3-seat chorus
+keeps the existing plural sentence byte-for-byte and promotes the first reached-back sigil to the front. No gameplay,
+grading, spawn, silhouette, artifact, or RNG path reads the field. No knob was added; the whole path still rides
+`ghostShare`.
+
+**Evidence:** `tests/the-visitor.test.js` covers absent → old line, `true` → reached-back line, `"true"`/`1` → old line,
+plural sigil precedence, EN+JA, seat storage, and a source scan that confines the field to fetch/accept/copy. Three
+constructed mutants (truthy coercion, dropped seat bit, unread seat bit) are killed. Mirrors regenerated; focused Visitor
+suite 17/17; full suite 319/319. GitNexus pre-edit impact was HIGH for `ghostVisitorFetch` (1 direct caller, 4 flows) and
+`ghostVisitorLine` (1 direct caller, 3 flows), LOW for `ghostVisitorAccept` (1 direct caller, 2 flows). Final
+`detect_changes` was MEDIUM: the affected flows are exactly the four existing bounded `ghostVisitorFetch` relay
+URL/body/timeout/UTF-8 paths; three extra changed-symbol labels are generated-mirror split-boundary attribution, and the
+raw `index.html` diff confirms those underlying symbols are untouched.
+
+**Still owed before publication:** the USER must merge/deploy sidereal `ghost-relay-wave20` (`d2c460f`) and run the two
+live smokes from §-16 item 0. Do not push this client commit first. Next code item is Parcel H, built dormant at
+`ghostPhase:0`; the tonight-only ruling remains with the user.
+
 ## -16. 2026-09-04: wave 20 E + F reviewed and PUSHED (live) · THE NEXT CYCLE — a brief Codex can implement from, in order
 **Review of Codex's E (`571fcb8`) and F (`309aa27`) (2026-09-04, this machine):** both diffs read coherent and scoped —
 multi-seat registers, honest silhouette, bounded aggregate response (`GH_GHOSTS_RESPONSE_MAX`), per-seat mail, visitor-only

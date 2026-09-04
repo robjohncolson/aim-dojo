@@ -806,7 +806,7 @@
                                         
                                                                                           
                                              
-                                                     
+                                                                                                     
                                                
                                                
                                                                                                                      
@@ -9208,16 +9208,16 @@
  
                             
                           
-                            
+                                                
                                                                
                                                                                           
                                   
-                                         
+                                                                                              
    
                                                                 
                                             
-                                                                                                           
-                                                                                                                      
+                                                                                                                                                                                                                                                         
+                                                                                                                                                                                         
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                  
@@ -9316,7 +9316,7 @@
                                                             
    
  
-                                             
+                                                         
                                                                                                                                                         
                                                                                                                                      
                                                     
@@ -9329,7 +9329,7 @@
                                               
                                                                               
                                                                                       
-                                                                                                                                                     
+                                                                                                                                                                                   
             
                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                
@@ -9344,8 +9344,8 @@
                  
                                                                     
                                                                                                                                    
-                                                                         
-                                                                                             
+                                                                                                                                                       
+                                                                                                         
                                                                
    
  
@@ -9761,31 +9761,31 @@
                                                                                               
                                                                                                                                         
  
-                                                                                                                                                               
-                                                                                                                            
-                                                                                                                              
-                                                                                                                             
-                                                                                                                        
-                                                                                             
-                                                                                                                         
-                                                                                                                           
-                                                                                                                         
-                                                                                                                            
-                                                                                      
-                                                                                                                        
-                                                                                                                             
-                                                                                                             
-                                                                                                                       
-                                                                                                                       
-                                                                                                                        
-                                                                                                                          
-                                                                                                                         
-                                                                                                                        
-                                                                                                                         
-                                                                                                                          
-                                                                                                                  
-                                      
-                                                                                                                                                                                    
+/* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
+   THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
+   report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
+   the key that was due, and the road subsumed it because two beat clocks on screen is clutter. THE VOID has no floor left to
+   wash — and it is also where the required LETTER came home to the crosshair — so the identical envelope now lights the
+   LETTER instead, and the cue is MOVED rather than deleted for the second time in two waves.
+   RESTORED, NOT REINVENTED: the timing law below is the shipped one, lifted whole into wasdBeatGlow() and called by both
+   renderers, so there is no second copy of it to drift. The floor path's arithmetic is character-for-character what it was
+   (maxAmt*env*env, in that order, with the trainer's discrete reduced-motion flash intact); the crosshair reads the SAME
+   return and normalises it to 0..1 for its bloom. The two can never both run: the floor asks for !roadLive(), the crosshair
+   for moonlineVoid() ≡ moonline.on && roadLive(), which are disjoint by construction.
+   reduceMotion is inherited verbatim, and that is the honest restoration: the pre-wave-7 cue was OFF in free play under
+   reduced motion (only the trainer kept a discrete flash), so the void's crosshair bloom is off there too — a reduced-motion
+   player loses nothing they ever had, and the letter itself is still shown (CFG.wasdLetter || reduceMotion).
+   [WAVE 8.1 — THE BREATH, SPEC_MOONLINE §1.1. The letter was only HALF of what the wash did. First light said so: "the
+   playing field was the color and it had a mesmerizing increase in saturation up until the correct fire time, and that
+   helped gauge timing — without it, it's hard." A letter cannot be a FIELD. So the CURVE below is now shared three ways
+   rather than two, by beatSwell(): the trainer's floor, the crosshair's letter, and — through roadBreath(), on the road's
+   own latency-corrected clock — the whole Moonline ribbon, which is the biggest surface a floorless world has. The floor
+   and the road still can never both run (!roadLive() vs the road's own live path). The road and the LETTER deliberately
+   DO run together and are not a contradiction: they are two cues for two different actions on the same grid — the letter
+   peaks on the "and", where the WASD tap is due (wasdBeats() carries grooveFreezePhase), and the road peaks on the "one",
+   where the shot must LAND (roadBeatNow() is the raw heard beat). See roadBreath for the full expansion.] ---- */
+const _floorBeatCol=new THREE.Color();
+let _beatGlowKey=0;   // the lane the last wasdBeatGlow() call was about — an int, written where the hue is already computed, so neither renderer needs a second pass over the combo
 function wasdBeatCueOn(){ return !templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started' && (!reduceMotion || trainMode); }   // EVERY condition of the shipped floor-beat gate except which SURFACE is asking: trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). Both callers append their own surface test, and updateFloorBeat's is still `&& !roadLive()`, so its gate reduces character-for-character to the one that shipped
 function beatSwell(maxAmt, off){ const env=Math.max(0,1-off*2); return maxAmt*env*env; }   // THE CURVE, and the ONLY copy of it: a linear ramp off the beat, squared. Lifted out of wasdBeatGlow by wave 8.1 unchanged — same expression, same multiply order, so every caller's product is bit-for-bit what it was — because the RIBBON now needs the same shape on a different clock (roadBreath) and a second transcription of a loved curve is how two cues start disagreeing. Three renderers, one law: the trainer's floor, the crosshair's letter, the Moonline's road
 function wasdBeatGlow(){   // THE ENVELOPE, verbatim: |beats − round(beats)| against a linear ramp, squared. Returns floor-beat units (0..CFG.floorBeatMax) so the floor path's product is bit-for-bit unchanged; the crosshair divides by the same max

@@ -806,7 +806,7 @@
                                         
                                                                                           
                                              
-                                                     
+                                                                                                     
                                                
                                                
                                                                                                                      
@@ -9208,16 +9208,16 @@ function ghostVisitorMailLine(){
 }
 function ghostVisitorLine(){
   if(!GH_SHARE) return '';
-  const seats=[], sigils=[];
+  const seats=[], sigils=[]; let reachedBack=-1;
   if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++){
     const seat=_ghostVisitorSeats[i], sigil=seat&&seat.record?ghostMoonSigil(seat.sig):'';
     if(!seat || !sigil) return '';
-    seats.push(seat); sigils.push(sigil);
+    seats.push(seat); sigils.push(sigil); if(reachedBack<0 && seat.back===true) reachedBack=i;
   }
   if(!seats.length || seats.every(seat=>seat.spoken)) return '';
   for(const seat of seats) seat.spoken=true;
-  if(seats.length===1) return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigils[0]});
-  return TF('ghostVisitorsLine','{n} visitors ride tonight · {sigils}',{n:seats.length,sigils:sigils.join('\u2009')});
+  if(seats.length===1 && reachedBack===0) return TF('ghostVisitorBack','a visitor who reached back rides tonight · {sigil}',{sigil:sigils[0]}); if(seats.length===1) return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigils[0]});
+  if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','{n} visitors ride tonight · {sigils}',{n:seats.length,sigils:sigils.join('\u2009')});
 }
 function ghostSilhouetteMaterial(alpha,visibility,color){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility,uCol:{value:color}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
 function ghostSilhouetteBuild(x){
@@ -9316,7 +9316,7 @@ function ghostReturnUpdate(){
     star.attribute.needsUpdate=true; star.mesh.visible=true;
   }
 }
-function ghostVisitorAccept(epoch,id,record){
+function ghostVisitorAccept(epoch,id,record,reachedBack){
   if(!GH_SHARE || epoch!==_ghostShareEpoch || _ghostVisitorCount>=GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
   if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
   if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat);
@@ -9329,7 +9329,7 @@ function ghostVisitorAccept(epoch,id,record){
     if(_ghCaughtSlots) _ghCaughtSlots.clear();
     if(!_ghostSeatRoot) ghostSeatBuild(record); else ghostSeatPalette(record);
     ghostSeatPrepare(record); if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ');
-    seat.id=id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
+    seat.id=id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; seat.back=reachedBack===true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
   }catch(e){
     if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||(_ghostWalls&&_ghostBursts))); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
   }finally{ _ghGiftLockedRow=heldGiftLock; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
@@ -9344,8 +9344,8 @@ async function ghostVisitorFetch(epoch,token,bucket){
   let accepted=0;
   for(let i=0;i<body.ghosts.length && i<GH_VISITOR_FETCH_COUNT;i++){
     const item=body.ghosts[i]; if(!item || !ghostTokenValid(item.id) || ghostSerializedBytes(item.artifact)>GH_MAX_BYTES) continue;
-    const record=ghostArtifactValid(item.artifact); if(!record) continue;
-    if(accepted<GH_VISITOR_COUNT){ if(ghostVisitorAccept(epoch,item.id,record)) accepted++; }
+    const record=ghostArtifactValid(item.artifact); if(!record) continue; const reachedBack=typeof item.reachedBack==='boolean'?item.reachedBack:false;
+    if(accepted<GH_VISITOR_COUNT){ if(ghostVisitorAccept(epoch,item.id,record,reachedBack)) accepted++; }
     else if(ghostSilhouetteAccept(epoch,item.id,record)) break;
   }
 }
@@ -9761,31 +9761,31 @@ function ghostSeatUpdate(dt){
   const counts=ghostSeatUpdateTargets(t,v>0,roadT), bursts=ghostSeatUpdateBursts(t,v>0,roadT);
   ghostSeatApplyVisibility(v,counts.targets,bursts); ghostSeatBeaconVisibility(t<=_ghostSeatRecord.dur+GH_TARGET_FADE?counts.beacons:0);
 }
-/* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
-   THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
-   report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
-   the key that was due, and the road subsumed it because two beat clocks on screen is clutter. THE VOID has no floor left to
-   wash — and it is also where the required LETTER came home to the crosshair — so the identical envelope now lights the
-   LETTER instead, and the cue is MOVED rather than deleted for the second time in two waves.
-   RESTORED, NOT REINVENTED: the timing law below is the shipped one, lifted whole into wasdBeatGlow() and called by both
-   renderers, so there is no second copy of it to drift. The floor path's arithmetic is character-for-character what it was
-   (maxAmt*env*env, in that order, with the trainer's discrete reduced-motion flash intact); the crosshair reads the SAME
-   return and normalises it to 0..1 for its bloom. The two can never both run: the floor asks for !roadLive(), the crosshair
-   for moonlineVoid() ≡ moonline.on && roadLive(), which are disjoint by construction.
-   reduceMotion is inherited verbatim, and that is the honest restoration: the pre-wave-7 cue was OFF in free play under
-   reduced motion (only the trainer kept a discrete flash), so the void's crosshair bloom is off there too — a reduced-motion
-   player loses nothing they ever had, and the letter itself is still shown (CFG.wasdLetter || reduceMotion).
-   [WAVE 8.1 — THE BREATH, SPEC_MOONLINE §1.1. The letter was only HALF of what the wash did. First light said so: "the
-   playing field was the color and it had a mesmerizing increase in saturation up until the correct fire time, and that
-   helped gauge timing — without it, it's hard." A letter cannot be a FIELD. So the CURVE below is now shared three ways
-   rather than two, by beatSwell(): the trainer's floor, the crosshair's letter, and — through roadBreath(), on the road's
-   own latency-corrected clock — the whole Moonline ribbon, which is the biggest surface a floorless world has. The floor
-   and the road still can never both run (!roadLive() vs the road's own live path). The road and the LETTER deliberately
-   DO run together and are not a contradiction: they are two cues for two different actions on the same grid — the letter
-   peaks on the "and", where the WASD tap is due (wasdBeats() carries grooveFreezePhase), and the road peaks on the "one",
-   where the shot must LAND (roadBeatNow() is the raw heard beat). See roadBreath for the full expansion.] ---- */
-const _floorBeatCol=new THREE.Color();
-let _beatGlowKey=0;   // the lane the last wasdBeatGlow() call was about — an int, written where the hue is already computed, so neither renderer needs a second pass over the combo
+                                                                                                                                                               
+                                                                                                                            
+                                                                                                                              
+                                                                                                                             
+                                                                                                                        
+                                                                                             
+                                                                                                                         
+                                                                                                                           
+                                                                                                                         
+                                                                                                                            
+                                                                                      
+                                                                                                                        
+                                                                                                                             
+                                                                                                             
+                                                                                                                       
+                                                                                                                       
+                                                                                                                        
+                                                                                                                          
+                                                                                                                         
+                                                                                                                        
+                                                                                                                         
+                                                                                                                          
+                                                                                                                  
+                                      
+                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                        

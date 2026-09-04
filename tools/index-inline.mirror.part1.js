@@ -806,7 +806,7 @@ window.JA={
   phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
   rememberLine:'{n}夜が めぐった · {star} が きみの席を まもっていた', rememberAlone:'道場は きみの場所を あけて まっていた',
   ghostGiftMail:'きみは 手をのばした · {n}この音を つかまえた',
-  ghostVisitorMail:'きみの音を {n}こ だれかが つかまえた · {sigil}',
+  ghostVisitorMail:'きみの音を {n}こ だれかが つかまえた · {sigil}', ghostVisitorBack:'手をのばしてくれた旅人が今夜ならぶ · {sigil}',
   ghostVisitorLine:'今夜 たびびとが となりを走る · {sigil}',
   ghostVisitorsLine:'{n}人の旅人が今夜ならぶ · {sigils}',
   rememberAnchortaurus:'アルデバラン', rememberAnchorleo:'レグルス', rememberAnchorvirgo:'スピカ', rememberAnchorscorpius:'アンタレス',
@@ -9208,16 +9208,16 @@ function roadImpSync(r){
  
                             
                           
-                            
+                                                
                                                                
                                                                                           
                                   
-                                         
+                                                                                              
    
                                                                 
                                             
-                                                                                                           
-                                                                                                                      
+                                                                                                                                                                                                                                                         
+                                                                                                                                                                                         
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                  
@@ -9316,7 +9316,7 @@ function roadImpSync(r){
                                                             
    
  
-                                             
+                                                         
                                                                                                                                                         
                                                                                                                                      
                                                     
@@ -9329,7 +9329,7 @@ function roadImpSync(r){
                                               
                                                                               
                                                                                       
-                                                                                                                                                     
+                                                                                                                                                                                   
             
                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                
@@ -9344,8 +9344,8 @@ function roadImpSync(r){
                  
                                                                     
                                                                                                                                    
-                                                                         
-                                                                                             
+                                                                                                                                                       
+                                                                                                         
                                                                
    
  

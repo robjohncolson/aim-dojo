@@ -806,7 +806,7 @@
                                         
                                                                                           
                                              
-                                                     
+                                                                                                     
                                                
                                                
                                                                                                                      
@@ -9208,16 +9208,16 @@ function glossaryListenData(pick){
  
                             
                           
-                            
+                                                
                                                                
                                                                                           
                                   
-                                         
+                                                                                              
    
                                                                 
                                             
-                                                                                                           
-                                                                                                                      
+                                                                                                                                                                                                                                                         
+                                                                                                                                                                                         
  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                  
@@ -9316,7 +9316,7 @@ function glossaryListenData(pick){
                                                             
    
  
-                                             
+                                                         
                                                                                                                                                         
                                                                                                                                      
                                                     
@@ -9329,7 +9329,7 @@ function glossaryListenData(pick){
                                               
                                                                               
                                                                                       
-                                                                                                                                                     
+                                                                                                                                                                                   
             
                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                
@@ -9344,8 +9344,8 @@ function glossaryListenData(pick){
                  
                                                                     
                                                                                                                                    
-                                                                         
-                                                                                             
+                                                                                                                                                       
+                                                                                                         
                                                                
    
  
