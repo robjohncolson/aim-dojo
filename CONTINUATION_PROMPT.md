@@ -1,5 +1,27 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
 
+## -24. 2026-09-04: wave 22 Parcel P complete locally · THE STARS DID NOT LOAD
+**Local-only state (not pushed or deployed):** `b9cf074` gives the blocking Three.js r128 CDN tag the specified
+`onerror="window.__threeFailed=1"` marker and wraps the existing game IIFE in a strict bootstrap scope. The inner
+game IIFE's literal first statement now tests `typeof THREE==='undefined'`, invokes a pre-defined `threeBlock`, and
+returns before the first constructor. `threeBlock` depends only on the markup, document language and the already-loaded
+flat JA table; it writes the EN/JA failure line into `#ovLede` and leaves `#beginTrain` disabled with the same opacity
+and wait cursor as `setGateReady(false)`. A normal load passes the guard without touching the card or gate; inherited
+strict mode preserves the old IIFE semantics.
+
+**Evidence:** source-order and VM failure smokes pass in English, Japanese, missing-card, missing-THREE and normal-THREE
+worlds; five weakened-boundary/copy/gate mutants are killed. Inline parse and comment-swallow pass; all root modules
+parse; full suite 340/340; mirrors regenerated and re-indexed after the final inline edit.
+
+**Risk review:** the generated-file boundaries at the start and end of the anonymous game IIFE were LOW with zero
+indexed upstream dependents; the JA object/anonymous wrapper are not individually resolvable and were reviewed by
+literal source order. Final staged `detect_changes` was MEDIUM (21 symbols / 1 flow / 7 files). Its sole production
+flow (`ShowPause → T`) is name conflation with `threeBlock`'s private pre-guard translator; the raw diff leaves the
+existing game `T` and every normal-load statement untouched.
+
+**Next:** the reviewed ImageBitmap decode round in `loadSkyTexture`; then the final P4 HTML split. The relay deploy
+and live smokes remain the user's external boundary.
+
 ## -23. 2026-09-04: wave 22 Parcel O complete locally · THE DEAD HELPERS
 **Local-only state (not pushed or deployed):** `fff7532` removes the ten verified zero-caller helpers
 `avgReaction`, `classifyPocket`, `showTempleSignArt`, `placeTempleSignArt`, `starLitLevel`, `showListenGhost`,
