@@ -1069,10 +1069,10 @@
                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                       
-                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                 
+                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
@@ -1092,7 +1092,7 @@
                                                                                                                                               
                                                                                                                                                                            
                                                                                                                                   
-                                                                                                                                                                                                                                 
+                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                
@@ -1299,7 +1299,6 @@
                                                                                                                                                               
                                                                                                                        
  
-                                                                                                                                                                                             
                                       
                                                                                     
                                                                                  
@@ -3883,8 +3882,7 @@ function ensureAllSignArt(){
   if(signArtGroup) signArtGroup.visible=true;
   placeAllSignArt();
 }
-// Focus-era API kept as no-ops / ensure so older focus hooks stay safe.
-function showTempleSignArt(/*signId*/){ ensureAllSignArt(); }
+// Focus-era hide hook remains so older focus clears stay safe.
 function hideTempleSignArt(){
   // Always-on: never hide the full belt on focus clear / temple exit.
   if(CFG.skyMaps&&CFG.skyMaps.signArtAlways===false){
@@ -3921,8 +3919,6 @@ function placeAllSignArt(){
   _saLastQ.copy(q); _saLastP.copy(p); _saPlaced=true;
   for(const id in _signArtSlots) placeSignArtSlot(_signArtSlots[id]);
 }
-// Legacy single-plane place (tests may still name placeTempleSignArt).
-function placeTempleSignArt(){ placeAllSignArt(); }
 /* per-frame driver (called from updateSky): build/fade the shell, keep the globe on its sky pin + spinning */
 function updateTempleOrbs(dt){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
@@ -4307,7 +4303,6 @@ function starLitBind(ids){   // the fixture just built: bind ids -> vertex indic
   _starLit=kept;   // memory only: no starLitSaveSoon, so a pruning bind never rewrites the file on its own — the drop costs nothing until real accretion saves next
   starLitRepaint();
 }
-function starLitLevel(id){ return (id&&_starLit[id])|0; }   // 0 = never recovered (parcels I/J read; H only writes)
 function starLitGain(id){   // THE accretion setter — the only writer, and it has no inverse
   if(!id) return 0;
   const cap=CFG.stars.levels|0, cur=_starLit[id]|0;
@@ -4695,32 +4690,25 @@ function restoreListenGlyphs(){
   for(const e of _lsn.emphasis){ e.sp.material.color.copy(e.col); e.sp.scale.set(e.sx,e.sy,1); e.sp.userData.listenSelected=false; if(e.fade) e.fade.a0=e.a0; }
   _lsn.emphasis.length=0;
 }
-function showListenGhost(pick){
-  if(!_lsnMeta || !(pick.id in _lsnMeta.ghostLon)) return;
-  if(!_lsn.ghost){ const C=SKY_CHART.ghost;
-    _lsn.ghost=chartSprite(ringTex(), C.col, C.alpha, C.scale, C.scale, false, null, C.k); chartSkyGroup.add(_lsn.ghost); }
-  _lsn.ghost.position.copy(eclipticDir(_lsnMeta.ghostLon[pick.id],0)).multiplyScalar(SKY_CHART.R*0.99);
-  const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=true; _lsn.ghost.visible=true;
-}
 function hideListenGhost(){ if(!_lsn.ghost) return; const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=false; _lsn.ghost.visible=false; }
 function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(let i=i0;i<i1;i++){ a.setXYZ(i,r,g,b); } a.needsUpdate=true; }
-                                                                                                                                                                    
-                   
-                                   
-                                                                                      
-                                                       
-                                                                                                                                                               
-                                                                                                                                               
-       
-                                      
-                                                                                                     
-                                                                                                                                                                   
-   
-                     
-                                                                                                     
-                                                                                               
-   
- 
+function goldFigure(signId){   // selected figure gold, the rest dimmed — pure vertex-colour rewrite, zero extra draw calls; additive blending makes darker = dimmer
+  restoreFigures();
+  if(!signId || !_stickFig) return;
+  const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
+  const S=SKY_CHART.stick, lb=new THREE.Color(S.lnCol);
+  _lsn.goldFig=fid;   // set BEFORE the paint so the lit-sky repaint below sees which figure is gold (nothing between here and the old assignment ever read it)
+  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: the identical dim+gold paint, with each star's own lit level riding through it
+  else{
+    const pb=new THREE.Color(S.ptCol);
+    _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
+  }
+  if(_stickFig.lGeo){
+    _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
+  }
+}
                           
                                               
                                                                                                                                              
@@ -6602,13 +6590,6 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
 
                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                
-                         
-                          
-                                                                                                             
-                                 
-                                                                              
- 
                                                                                                                   
                                                                                                        
                                                                                                                
@@ -7797,7 +7778,7 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                                   
                                                                    
                                                       
-                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                      
                                                                                                                                                                    
                                                      
 
@@ -7906,8 +7887,7 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                                                                                                                                                                                                               
                                                                                                    
                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                    
                                                                                                                                                                
@@ -7953,7 +7933,7 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                    
                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                       
                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                   
@@ -8016,7 +7996,6 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                                                                                       
                        
  
-                                                                                                          
                                                                                                                                                                                          
                                        
                                         
@@ -10109,7 +10088,6 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
                                                                                                    
                                                                                                                                                                           
                                                                                                                          
-                                                                                                                 
                                                                                                                                                                                                                                                                                         
                                                                                                                                    
 
@@ -11594,7 +11572,6 @@ function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(le
  
                                                                                                                              
                                                                     
-                                                                                                               
                                                                                                                                                                                                                                                
                                                                                                                                                                                
                                       

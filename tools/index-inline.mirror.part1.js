@@ -1069,10 +1069,10 @@ const CFG = {
   clutchTime:0.42, clutchZoom:12, clutchSlow:0.36, clutchBurst:2.35, clutchRingTime:0.62,   // juice: bigger/longer golden pop on clutch + tank finale (was 0.34/9/0.42/1.7/0.5)
   // RAIL-FLICK BONUS (#4): a FLAWLESS on-beat kill on a hot streak FREEZES orb motion (the beat clock keeps ticking); aiming becomes pure FLICK (crosshair literally ON an orb, no lead), tap ANY WASD/pad-face ON the beat to LOCK the pointed orb. Window ends → locked orbs detonate one-per-beat as a scored cascade. Trains FLICK (the complement to the core LEAD). No auto-aim. Set flickBonus:null to disable. All values are first guesses — tune by ear/eye.
   flickBonus:{ on:false, streakGate:3, gradeMax:1, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // CUT (on:false) 2026-07-07 — hijacked WASD (killed the rhythm taps), needed a dense target field this game never spawns, fought the pure-LEAD identity. Code kept; on:true to revive. · streakGate=min streak to earn it · gradeMax=max grade index that arms it (0=FLAWLESS only, 1=also PERFECT) · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack). streakGate+gradeMax LOOSENED for eval — arrival-timing made FLAWLESS-at-streak-4 too rare to ever see the mode; re-tighten once it's felt.
-  // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
-  specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
+  // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY handling remains defensive, but no current roll elects kind 2.
+  specialOrbs:true, goldScore:2, multiHit:true, multiHitChance:0.22,   // goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
   // THE TANK IS A DRUM FILL (music language): the multi-hit tank stops being a random interruption and becomes the phrase's PUNCTUATION. With fillOnly (and TIDES live) the rnd()<multiHitChance roll is gone entirely: AT MOST ONE tank per swell, elected in the first half of the FINAL PEAK BAR (the bar before mercy), and the hits it asks for are a STATED figure of sixteenths counted from that bar's downbeat — fig2 = "and-of-4 → 1", fig3 = "4 → and-of-4 → 1", where the 1 is the MERCY DOWNBEAT. The figure replaces the whole-beat orbOpen gate on that one orb (its notes sit off the beat, where orbOpen never opens) and is judged by the SAME skill-tightened grooveOpenSec seconds every other arrival is judged by, just re-centred on the figure's sixteenth. The walking note per landed hit becomes an ascending run through the theme's own scale that LANDS ON THE TONIC (CHORD_ROOT[0], octave-lifted into the walk's register) exactly on the 1 — so the existing tank finale and wave 1's mercy pad bloom fire on the same downbeat and the fill literally launches the exhale. No new sound, no new voice, no scheduling of its own: alignment does all of the work.
-  // Kill-switch is tank.fillOnly:false (or tide.on:false) → the multiHitChance roll and the whole-beat gate run exactly as today, and every orb carries fill16:-1 so no figure code is ever reached. Inert in the trainer (specials are off there, and the tide block returns before the election) and in the Temple (no spawns at all). SCORING IS UNTOUCHED: a fill hit chips and the last one calls gradeRhythmHit exactly as today, so the daily/ghost invariant score===h.length still holds; an incomplete figure is NOT punished AT ALL — at mercy end the tank takes a NEUTRAL expiry branch (no streak reset, no pushEvent, no FADED, no whiff, no groove duck), because a stated figure is an offer and declining it is not a miss. Its trail also ages on its OWN stretched life (lifeBeatsEff), so the white→red→white ink still reads as the honest clock it is on every other orb.
+  // Kill-switch is tank.fillOnly:false (or tide.on:false) → the multiHitChance roll and the whole-beat gate run exactly as today, and every orb carries fill16:-1 so no figure code is ever reached. Inert in the trainer (specials are off there, and the tide block returns before the election) and in the Temple (no spawns at all). SCORING IS UNTOUCHED: a fill hit chips and the last one calls gradeRhythmHit exactly as today, so the daily/ghost invariant score===h.length still holds; an incomplete figure is NOT punished AT ALL — at mercy end the tank takes a NEUTRAL expiry branch (no streak reset, no pushEvent, no FADED, no whiff, no groove duck), because a stated figure is an offer and declining it is not a miss.
   tank:{ maxBpm:60, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16, fillOnly:true, fig2:[12,16], fig3:[8,12,16] },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). maxBpm: no tanks above this (3 fast leads on one orb gets brutal) — 150 -> 60 UNDER THE SIXTY CAP (parcel P), which makes the constant SELF-DOCUMENTING rather than aspirational: the gate now reads "always, under the cap" and says so, because CFG.maxBpm is 60 and state.bpm can never exceed it. ZERO stream change: the gate `state.bpm<=tank.maxBpm` was already true at every reachable tempo under 150, and it is still true at every reachable tempo under 60 — the same branch is taken on the same beats with the same draws. The one thing that goes quiet is the FULL MOON's tankAny override, which can no longer open anything (see dealCompute) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated hits are manageable, and spec 1.2 (T5a) made that an INVARIANT rather than a wish — see the fill re-draw in spawnTarget · fillOnly = the tank spawns ONLY as the swell's closing fill (see above) · fig2/fig3 = the required hits as SIXTEENTHS from the fill bar's downbeat, 16 = the mercy downbeat (the landing note). The ARRAY LENGTH is the hit count, so a longer figure is a longer tank with no other edit — and the 2-vs-3 pick is the same single rnd() draw today's tank already takes.
   // THE FIGURE SITS ON WHOLE BEATS (SPEC_MUSIC_LANGUAGE 1.2 amendment T1 — every "spec 1.2" below is that document's parcel-G amendment, T1..T5). It shipped as fig2 [14,16] / fig3 [12,14,16] — gates TWO sixteenths apart, on the "and-of-4". The flight time of a tank's own shot is k sixteenths (k drawn from beatSpawnSixteenths, capped at maxLeadSixteenths=4), so the time between LANDING one gate and having to RELEASE for the next is (spacing-k) sixteenths plus the two window edges you may use: budget = (spacing-k)·(15/bpm)s + 2·win, win = grooveOpenSec (0.26s learning → 0.12s expert). At spacing 2 that budget is NEGATIVE wherever k>2: k=4 needs bpm>15/win to break even (≈58bpm learning, ≈125bpm expert) and k=3 needs bpm>7.5/win (≈29bpm / ≈63bpm) — at the 28bpm start it was −0.55s (k=4, learning) to −0.83s (k=4, expert), i.e. the second note had to be fired BEFORE the first one landed. Nobody can play that. (THE SIXTY CAP, parcel P: those break-even tempos — ≈125bpm and ≈63bpm — now sit ABOVE the ceiling entirely, so the rejected spacing-2 design would be dead-negative for k=4 at every reachable tempo and merely marginal for k=3. The cap does not resurrect it; it buries it. Kept as the stated reasoning for the shipped spacing.)
   // At spacing 4 ("4 → 1" and "3 → 4 → 1") the worst case is k=maxLeadSixteenths=4, where the tempo term vanishes and the budget is exactly 2·win AT EVERY TEMPO. RE-COMPUTED UNDER THE SIXTY CAP (parcel P, real solver, shipped constants — win = lerp(grooveOpenSec 0.26, 0.12, diffT) with diffT now spanning 20..60): bpm 20 → win 0.260s, k=2 +2.020s / k=3 +1.270s / k=4 +0.520s · bpm 28 (the start) → 0.232s, +1.535 / +1.000 / +0.464 · bpm 40 → 0.190s, +1.130 / +0.755 / +0.380 · bpm 50 → 0.155s, +0.910 / +0.610 / +0.310 · bpm 60 (the cap, full expert) → 0.120s, +0.740 / +0.490 / +0.240. Positive at every live tempo (28 → 60, and the FULL MOON's old "→ 172" clause is moot now that there is nothing above the cap), by construction and not by luck. The tightest case, +0.240s at the cap, is ARITHMETICALLY THE SAME worst case the old law had at expert speed — win's floor did not move, only the tempo you reach it at. Every gate now falls where the whole-beat glow already peaks, so the fill's pulse and the field's pulse agree; the last gate is still the MERCY DOWNBEAT, so the finale pop + tideBloom payoff is untouched. The 3-figure's OPENER moved inside the election window's reach (the fill bar's first half elects, leaving 2-8 sixteenths before sixteenth 8, vs 6-12 before sixteenth 12) — a late election can now put that opener inside the flight time, which is exactly the case T2's forward search absorbs: the opener is consumed by the beat-4 landing instead of dead-locking the fill.
@@ -1092,7 +1092,7 @@ const CFG = {
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
-  goldDistMul:1.35, goldSizeMul:0.7, decoyDistMul:0.6,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward), DECOYS lunge closer (bait). Deterministic given the seeded kind; the daily is left untouched.
+  goldDistMul:1.35, goldSizeMul:0.7,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward). Deterministic given the seeded kind; the daily is left untouched.
   grooveStreakFull:4, grooveHitsFull:25, grooveAccLo:0.4, grooveAccHi:0.9, grooveW:[0.35,0.3,0.35],   // adaptive-groove TARGET tier (0..3) = a COMPOSITE: streak/grooveStreakFull + click% mapped grooveAccLo..Hi→0..1 + totalHits/grooveHitsFull, weighted by grooveW (sum 1). Click% (rolling) + total hits PERSIST through a miss, so the groove builds + holds instead of tanking on a broken streak. Audio only.
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
@@ -1299,7 +1299,6 @@ function pocketColorCss(id){
   const fallback=id==='push'?0xb8f0a0:(id==='layback'?0xff8ab8:0x9fd8ff), raw=id==='push'?CFG.pocketColPush:(id==='layback'?CFG.pocketColLay:CFG.pocketColOn);
   return '#'+Math.round(Math.max(0,Math.min(0xffffff,Number.isFinite(raw)?raw:fallback))).toString(16).padStart(6,'0');
 }
-function classifyPocket(offBeats){ let o=offBeats; while(o>0.5) o-=1; while(o<=-0.5) o+=1; const e=CFG.pocketBinEdge||0.125; if(o<-e) return 'push'; if(o>e) return 'layback'; return 'on'; }
 function wasdTapAccuracy(offSec, win){
   const ao=Math.abs(Number.isFinite(offSec)?offSec:0), w=Number.isFinite(win)?win:0;
   return ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,w-0.025)));
@@ -3883,8 +3882,7 @@ function roadImpSync(r){
                                              
                     
  
-                                                                        
-                                                             
+                                                               
                              
                                                                       
                                                      
@@ -3921,8 +3919,6 @@ function roadImpSync(r){
                                                      
                                                                      
  
-                                                                       
-                                                   
                                                                                                               
                               
                                                                       
@@ -4307,7 +4303,6 @@ function roadImpSync(r){
                                                                                                                                                                     
                    
  
-                                                                                                                    
                                                                                             
                    
                                                    
@@ -4694,13 +4689,6 @@ function roadImpSync(r){
                                
                                                                                                                                                                
                          
- 
-                               
-                                                          
-                                           
-                                                                                                                           
-                                                                                                       
-                                                                                                                 
  
                                                                                                                                                                        
                                                                                                                                             
@@ -6602,13 +6590,6 @@ function roadImpSync(r){
 
                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                
-                         
-                          
-                                                                                                             
-                                 
-                                                                              
- 
                                                                                                                   
                                                                                                        
                                                                                                                
@@ -7797,7 +7778,7 @@ function roadImpSync(r){
                                                                                                   
                                                                    
                                                       
-                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                      
                                                                                                                                                                    
                                                      
 
@@ -7906,8 +7887,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                                               
                                                                                                    
                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                    
                                                                                                                                                                
@@ -7953,7 +7933,7 @@ function roadImpSync(r){
                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                    
                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                       
                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                   
@@ -8016,7 +7996,6 @@ function roadImpSync(r){
                                                                                                                                                       
                        
  
-                                                                                                          
                                                                                                                                                                                          
                                        
                                         
@@ -10109,7 +10088,6 @@ function roadImpSync(r){
                                                                                                    
                                                                                                                                                                           
                                                                                                                          
-                                                                                                                 
                                                                                                                                                                                                                                                                                         
                                                                                                                                    
 
@@ -11594,7 +11572,6 @@ function roadImpSync(r){
  
                                                                                                                              
                                                                     
-                                                                                                               
                                                                                                                                                                                                                                                
                                                                                                                                                                                
                                       

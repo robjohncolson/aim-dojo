@@ -1069,10 +1069,10 @@ const CFG = {
   clutchTime:0.42, clutchZoom:12, clutchSlow:0.36, clutchBurst:2.35, clutchRingTime:0.62,   // juice: bigger/longer golden pop on clutch + tank finale (was 0.34/9/0.42/1.7/0.5)
   // RAIL-FLICK BONUS (#4): a FLAWLESS on-beat kill on a hot streak FREEZES orb motion (the beat clock keeps ticking); aiming becomes pure FLICK (crosshair literally ON an orb, no lead), tap ANY WASD/pad-face ON the beat to LOCK the pointed orb. Window ends → locked orbs detonate one-per-beat as a scored cascade. Trains FLICK (the complement to the core LEAD). No auto-aim. Set flickBonus:null to disable. All values are first guesses — tune by ear/eye.
   flickBonus:{ on:false, streakGate:3, gradeMax:1, cooldown:1.5, baseBeats:2, extendBeats:1, capBeats:8, graceMisses:1, coneMul:1.25 },   // CUT (on:false) 2026-07-07 — hijacked WASD (killed the rhythm taps), needed a dense target field this game never spawns, fought the pure-LEAD identity. Code kept; on:true to revive. · streakGate=min streak to earn it · gradeMax=max grade index that arms it (0=FLAWLESS only, 1=also PERFECT) · cooldown s (mirrors clutch) · baseBeats window · +extendBeats per lock, capped at capBeats · graceMisses forgiven whiffs before it ends · coneMul = flick tightness (1.0 = crosshair dead-on the orb radius; >1 a hair of slack). streakGate+gradeMax LOOSENED for eval — arrival-timing made FLAWLESS-at-streak-4 too rare to ever see the mode; re-tighten once it's felt.
-  // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY code is intact behind decoyChance:0.
-  specialOrbs:true, decoyChance:0, goldScore:2, multiHit:true, multiHitChance:0.22,   // decoys off; goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
+  // special orbs (variety): GOLD bonus (worth goldScore kills) + SPEED + MOVER; rolled from rnd() only when live. DON'T-HIT DECOY handling remains defensive, but no current roll elects kind 2.
+  specialOrbs:true, goldScore:2, multiHit:true, multiHitChance:0.22,   // goldScore = gold-orb kill multiplier. multiHit (FREE-PLAY): a plain orb has this chance to be a "tank" that opens into a RHYTHMIC COMBO (see CFG.tank).
   // THE TANK IS A DRUM FILL (music language): the multi-hit tank stops being a random interruption and becomes the phrase's PUNCTUATION. With fillOnly (and TIDES live) the rnd()<multiHitChance roll is gone entirely: AT MOST ONE tank per swell, elected in the first half of the FINAL PEAK BAR (the bar before mercy), and the hits it asks for are a STATED figure of sixteenths counted from that bar's downbeat — fig2 = "and-of-4 → 1", fig3 = "4 → and-of-4 → 1", where the 1 is the MERCY DOWNBEAT. The figure replaces the whole-beat orbOpen gate on that one orb (its notes sit off the beat, where orbOpen never opens) and is judged by the SAME skill-tightened grooveOpenSec seconds every other arrival is judged by, just re-centred on the figure's sixteenth. The walking note per landed hit becomes an ascending run through the theme's own scale that LANDS ON THE TONIC (CHORD_ROOT[0], octave-lifted into the walk's register) exactly on the 1 — so the existing tank finale and wave 1's mercy pad bloom fire on the same downbeat and the fill literally launches the exhale. No new sound, no new voice, no scheduling of its own: alignment does all of the work.
-  // Kill-switch is tank.fillOnly:false (or tide.on:false) → the multiHitChance roll and the whole-beat gate run exactly as today, and every orb carries fill16:-1 so no figure code is ever reached. Inert in the trainer (specials are off there, and the tide block returns before the election) and in the Temple (no spawns at all). SCORING IS UNTOUCHED: a fill hit chips and the last one calls gradeRhythmHit exactly as today, so the daily/ghost invariant score===h.length still holds; an incomplete figure is NOT punished AT ALL — at mercy end the tank takes a NEUTRAL expiry branch (no streak reset, no pushEvent, no FADED, no whiff, no groove duck), because a stated figure is an offer and declining it is not a miss. Its trail also ages on its OWN stretched life (lifeBeatsEff), so the white→red→white ink still reads as the honest clock it is on every other orb.
+  // Kill-switch is tank.fillOnly:false (or tide.on:false) → the multiHitChance roll and the whole-beat gate run exactly as today, and every orb carries fill16:-1 so no figure code is ever reached. Inert in the trainer (specials are off there, and the tide block returns before the election) and in the Temple (no spawns at all). SCORING IS UNTOUCHED: a fill hit chips and the last one calls gradeRhythmHit exactly as today, so the daily/ghost invariant score===h.length still holds; an incomplete figure is NOT punished AT ALL — at mercy end the tank takes a NEUTRAL expiry branch (no streak reset, no pushEvent, no FADED, no whiff, no groove duck), because a stated figure is an offer and declining it is not a miss.
   tank:{ maxBpm:60, maxLeadSixteenths:4, openFrac:0.75, blinkWin:0.16, fillOnly:true, fig2:[12,16], fig3:[8,12,16] },   // MULTI-HIT TANK: a distinct AMBER, bigger orb that takes 2-3 ON-BEAT hits to pop — "keep hitting the big one on the beat" (a note walks up per hit, the count ticks down, big pop on the last). maxBpm: no tanks above this (3 fast leads on one orb gets brutal) — 150 -> 60 UNDER THE SIXTY CAP (parcel P), which makes the constant SELF-DOCUMENTING rather than aspirational: the gate now reads "always, under the cap" and says so, because CFG.maxBpm is 60 and state.bpm can never exceed it. ZERO stream change: the gate `state.bpm<=tank.maxBpm` was already true at every reachable tempo under 150, and it is still true at every reachable tempo under 60 — the same branch is taken on the same beats with the same draws. The one thing that goes quiet is the FULL MOON's tankAny override, which can no longer open anything (see dealCompute) · maxLeadSixteenths: tanks spawn CLOSE (short, consistent lead) so the repeated hits are manageable, and spec 1.2 (T5a) made that an INVARIANT rather than a wish — see the fill re-draw in spawnTarget · fillOnly = the tank spawns ONLY as the swell's closing fill (see above) · fig2/fig3 = the required hits as SIXTEENTHS from the fill bar's downbeat, 16 = the mercy downbeat (the landing note). The ARRAY LENGTH is the hit count, so a longer figure is a longer tank with no other edit — and the 2-vs-3 pick is the same single rnd() draw today's tank already takes.
   // THE FIGURE SITS ON WHOLE BEATS (SPEC_MUSIC_LANGUAGE 1.2 amendment T1 — every "spec 1.2" below is that document's parcel-G amendment, T1..T5). It shipped as fig2 [14,16] / fig3 [12,14,16] — gates TWO sixteenths apart, on the "and-of-4". The flight time of a tank's own shot is k sixteenths (k drawn from beatSpawnSixteenths, capped at maxLeadSixteenths=4), so the time between LANDING one gate and having to RELEASE for the next is (spacing-k) sixteenths plus the two window edges you may use: budget = (spacing-k)·(15/bpm)s + 2·win, win = grooveOpenSec (0.26s learning → 0.12s expert). At spacing 2 that budget is NEGATIVE wherever k>2: k=4 needs bpm>15/win to break even (≈58bpm learning, ≈125bpm expert) and k=3 needs bpm>7.5/win (≈29bpm / ≈63bpm) — at the 28bpm start it was −0.55s (k=4, learning) to −0.83s (k=4, expert), i.e. the second note had to be fired BEFORE the first one landed. Nobody can play that. (THE SIXTY CAP, parcel P: those break-even tempos — ≈125bpm and ≈63bpm — now sit ABOVE the ceiling entirely, so the rejected spacing-2 design would be dead-negative for k=4 at every reachable tempo and merely marginal for k=3. The cap does not resurrect it; it buries it. Kept as the stated reasoning for the shipped spacing.)
   // At spacing 4 ("4 → 1" and "3 → 4 → 1") the worst case is k=maxLeadSixteenths=4, where the tempo term vanishes and the budget is exactly 2·win AT EVERY TEMPO. RE-COMPUTED UNDER THE SIXTY CAP (parcel P, real solver, shipped constants — win = lerp(grooveOpenSec 0.26, 0.12, diffT) with diffT now spanning 20..60): bpm 20 → win 0.260s, k=2 +2.020s / k=3 +1.270s / k=4 +0.520s · bpm 28 (the start) → 0.232s, +1.535 / +1.000 / +0.464 · bpm 40 → 0.190s, +1.130 / +0.755 / +0.380 · bpm 50 → 0.155s, +0.910 / +0.610 / +0.310 · bpm 60 (the cap, full expert) → 0.120s, +0.740 / +0.490 / +0.240. Positive at every live tempo (28 → 60, and the FULL MOON's old "→ 172" clause is moot now that there is nothing above the cap), by construction and not by luck. The tightest case, +0.240s at the cap, is ARITHMETICALLY THE SAME worst case the old law had at expert speed — win's floor did not move, only the tempo you reach it at. Every gate now falls where the whole-beat glow already peaks, so the fill's pulse and the field's pulse agree; the last gate is still the MERCY DOWNBEAT, so the finale pop + tideBloom payoff is untouched. The 3-figure's OPENER moved inside the election window's reach (the fill bar's first half elects, leaving 2-8 sixteenths before sixteenth 8, vs 6-12 before sixteenth 12) — a late election can now put that opener inside the flight time, which is exactly the case T2's forward search absorbs: the opener is consumed by the beat-4 landing instead of dead-locking the fill.
@@ -1092,7 +1092,7 @@ const CFG = {
   goldChanceFP:0.12, speedChance:0.07, moverChance:0.07,   // FREE-PLAY orb mix (daily untouched): more GOLD + SPEED (kind 3) + MOVER (kind 4)
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
-  goldDistMul:1.35, goldSizeMul:0.7, decoyDistMul:0.6,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward), DECOYS lunge closer (bait). Deterministic given the seeded kind; the daily is left untouched.
+  goldDistMul:1.35, goldSizeMul:0.7,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward). Deterministic given the seeded kind; the daily is left untouched.
   grooveStreakFull:4, grooveHitsFull:25, grooveAccLo:0.4, grooveAccHi:0.9, grooveW:[0.35,0.3,0.35],   // adaptive-groove TARGET tier (0..3) = a COMPOSITE: streak/grooveStreakFull + click% mapped grooveAccLo..Hi→0..1 + totalHits/grooveHitsFull, weighted by grooveW (sum 1). Click% (rolling) + total hits PERSIST through a miss, so the groove builds + holds instead of tanking on a broken streak. Audio only.
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
@@ -1299,7 +1299,6 @@ function pocketColorCss(id){
   const fallback=id==='push'?0xb8f0a0:(id==='layback'?0xff8ab8:0x9fd8ff), raw=id==='push'?CFG.pocketColPush:(id==='layback'?CFG.pocketColLay:CFG.pocketColOn);
   return '#'+Math.round(Math.max(0,Math.min(0xffffff,Number.isFinite(raw)?raw:fallback))).toString(16).padStart(6,'0');
 }
-function classifyPocket(offBeats){ let o=offBeats; while(o>0.5) o-=1; while(o<=-0.5) o+=1; const e=CFG.pocketBinEdge||0.125; if(o<-e) return 'push'; if(o>e) return 'layback'; return 'on'; }
 function wasdTapAccuracy(offSec, win){
   const ao=Math.abs(Number.isFinite(offSec)?offSec:0), w=Number.isFinite(win)?win:0;
   return ao<=0.025?1:Math.max(0,Math.min(1,1-(ao-0.025)/Math.max(0.03,w-0.025)));
@@ -3883,8 +3882,7 @@ function ensureAllSignArt(){
   if(signArtGroup) signArtGroup.visible=true;
   placeAllSignArt();
 }
-// Focus-era API kept as no-ops / ensure so older focus hooks stay safe.
-function showTempleSignArt(/*signId*/){ ensureAllSignArt(); }
+// Focus-era hide hook remains so older focus clears stay safe.
 function hideTempleSignArt(){
   // Always-on: never hide the full belt on focus clear / temple exit.
   if(CFG.skyMaps&&CFG.skyMaps.signArtAlways===false){
@@ -3921,8 +3919,6 @@ function placeAllSignArt(){
   _saLastQ.copy(q); _saLastP.copy(p); _saPlaced=true;
   for(const id in _signArtSlots) placeSignArtSlot(_signArtSlots[id]);
 }
-// Legacy single-plane place (tests may still name placeTempleSignArt).
-function placeTempleSignArt(){ placeAllSignArt(); }
 /* per-frame driver (called from updateSky): build/fade the shell, keep the globe on its sky pin + spinning */
 function updateTempleOrbs(dt){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false) return;
@@ -4307,7 +4303,6 @@ function starLitBind(ids){   // the fixture just built: bind ids -> vertex indic
   _starLit=kept;   // memory only: no starLitSaveSoon, so a pruning bind never rewrites the file on its own — the drop costs nothing until real accretion saves next
   starLitRepaint();
 }
-function starLitLevel(id){ return (id&&_starLit[id])|0; }   // 0 = never recovered (parcels I/J read; H only writes)
 function starLitGain(id){   // THE accretion setter — the only writer, and it has no inverse
   if(!id) return 0;
   const cap=CFG.stars.levels|0, cur=_starLit[id]|0;
@@ -4694,13 +4689,6 @@ function emphasizeListenGlyph(sp,scale){
 function restoreListenGlyphs(){
   for(const e of _lsn.emphasis){ e.sp.material.color.copy(e.col); e.sp.scale.set(e.sx,e.sy,1); e.sp.userData.listenSelected=false; if(e.fade) e.fade.a0=e.a0; }
   _lsn.emphasis.length=0;
-}
-function showListenGhost(pick){
-  if(!_lsnMeta || !(pick.id in _lsnMeta.ghostLon)) return;
-  if(!_lsn.ghost){ const C=SKY_CHART.ghost;
-    _lsn.ghost=chartSprite(ringTex(), C.col, C.alpha, C.scale, C.scale, false, null, C.k); chartSkyGroup.add(_lsn.ghost); }
-  _lsn.ghost.position.copy(eclipticDir(_lsnMeta.ghostLon[pick.id],0)).multiplyScalar(SKY_CHART.R*0.99);
-  const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=true; _lsn.ghost.visible=true;
 }
 function hideListenGhost(){ if(!_lsn.ghost) return; const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=false; _lsn.ghost.visible=false; }
 function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(let i=i0;i<i1;i++){ a.setXYZ(i,r,g,b); } a.needsUpdate=true; }
@@ -6602,13 +6590,6 @@ function stopTargetSound(snd){
 
 /* ---- rhythm scheduling ---- */
 // rhythmLevel() lived here: a 1-4 tier ladder over bpm 90/115/140, from the 172-cap era. It had NO callers before the sixty cap and none after (gitnexus impact: 0), and under maxBpm 60 not one of its thresholds is reachable — every run would have been tier 1 forever. Deleted rather than re-tiered: a tier ladder over 20..60 names nothing this game asks for, which is the same reasoning that retired Tempo Marks (SPEC_SIXTY_AND_POLY §0). The stale >60 tiers still in server/server.js's peak_bpm bound and supabase-dojo.sql's column comment are OUT OF PARCEL (records are history; a stored legacy row must still validate) and are deliberately left standing.
-function eighthSec(){ return (60/state.bpm)/2; }
-function timingErrorMs(){
-  if(!toneReady) return 0;
-  const e=60/state.bpm; let pos=Tone.Transport.seconds;   // grade against the beat (quarter note) = the tick
-  const lat=audioLat(); pos-=lat;
-  const k=Math.round(pos/e); return (pos - k*e)*1000;   // + = late, - = early
-}
 function metricWeight(i){ if(i===0) return 1.0; if(i===4) return 0.9; if(i===2||i===6) return 0.62; return 0.45; }
 /* ---- TIDES: one intensity envelope, written ONLY in onGrid (bar position), read everywhere else ----
    tideI 1 / tideMercy false is the neutral resting state, so a parcel-off run (or the trainer, which keeps its
@@ -7797,7 +7778,7 @@ function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
 function diffT(){ return Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))); }
 function targetRadius(){ return lerp(CFG.radSlow, 0.62, diffT()); }
 function activeTargetCount(){ return targets.length; }
-function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats*(CFG.deal.on?_deal.quickLifeMul:1)}); }   // THE SKY DEALS THE NIGHT: a FIRST QUARTER runs a brisker field (quickLifeMul). The ink law follows it honestly — spawnTarget latches the shortened life into lifeBeatsEff, the same field the drum fill uses to stretch one
+function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats*(CFG.deal.on?_deal.quickLifeMul:1)}); }   // THE SKY DEALS THE NIGHT: a FIRST QUARTER runs a brisker field by passing quickLifeMul through the existing life option
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
 function specialOrbsLive(){ return CFG.specialOrbs; }
 
@@ -7906,8 +7887,7 @@ function spawnTarget(opts){
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock
   tg._chipT=0;   // MULTI-HIT TANK: per-chip shell scale-punch flash timer (only used when hpMax>1)
   tg.starId=starId;   // STAR-BOUND SPAWNS: the star this Echo called from, or null — which is every orb in the trainer, every orb with the parcel off, and every orb the sky had no risen bearing for. Assigned here, with the other per-spawn resets, so a pooled record can never carry a stale bearing home
-  tg.fill16=-1; tg.fig=null; tg.lifeBeatsEff=0;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base, figure or stretched life); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for. lifeBeatsEff 0 = "my life is the standard rhythmLifeBeats", which is every orb that is not the fill (and, with the kill-switch off, every orb there will ever be) — orbRed's ink law reads it
-  if(CFG.deal.on && _deal.quickLifeMul!==1) tg.lifeBeatsEff=CFG.rhythmLifeBeats*_deal.quickLifeMul;   // THE QUICK ONES WAKE: a brisker field is a brisker CLOCK too — the trail's white→red→white ink law reads lifeBeatsEff, so latching the dealt life here keeps that timing cue honest instead of colouring against a life this orb does not have. Written AFTER the reset above and BEFORE the fill's own stretch below, which outranks it on the one orb that is a figure
+  tg.fill16=-1; tg.fig=null;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base or figure); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for
   tg.poly=_polyPairing;   // POLYRHYTHM PAIRS: the tag both members carry (and every other orb clears, so a pooled record can never haunt the gate with a pair that popped three swells ago). It is READ by exactly one thing — polyOnField's "at most one pair live" — and by nothing on any hot path: a poly member is a plain Echo in every other respect, scored, sung, star-bound and volleyed exactly as it would be alone. Written unconditionally, like tg.starId, so the field is honest even with the parcel off, where _polyPairing is false forever
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true;   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets)
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
@@ -7953,7 +7933,7 @@ function spawnTarget(opts){
   if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; if(through) through.material=TANK_THROUGH_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
     if(_tankD!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, _tankD); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
   if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);
-    tg.expireAt=state.t+lifeF; tg.lifeBeatsEff=lifeF/spbF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves. lifeBeatsEff latches that stretched life in BEATS so the white→red→white ink law (orbRed) runs on the life this orb actually has: the trail is a clock, and a clock that says "fresh" through the four beats you can still play the figure in was lying
+    tg.expireAt=state.t+lifeF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
     if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller. THE FAR ONES CALL reaches gold through `dist` — the band it was drawn from already moved out — and deliberately NOT a second time here: goldDistMul on top of a farMul'd band would compound to ~1.8× and put the Ancient past the arc's reach, which is an unkillable orb, not a long lead
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
@@ -8016,7 +7996,6 @@ function pushReaction(v){
   if(a.length<12) a.push(v); else { state.reactionSum-=a[state.reactionHead]; a[state.reactionHead]=v; state.reactionHead=(state.reactionHead+1)%12; }
   state.reactionSum+=v;
 }
-function avgReaction(){ return state.reactions.length ? state.reactionSum/state.reactions.length : null; }
 function kindScore(tg, atT){   // per-kind score: gold/mover ×bonus, speed bonus only if hit FAST after spawn. Daily only ever rolls kind 0/1, so this stays score===h.length-safe there.
   if(tg.kind===1) return CFG.goldScore;
   if(tg.kind===4) return CFG.moverScore;
@@ -10109,7 +10088,6 @@ const el={ speedVal:gid('speedVal'), hitFlash:gid('hitFlash'), dojoFlash:gid('do
   reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
 el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
 function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
-function setClassName(node, value){ if(node._className!==value){ node.className=value; node._className=value; } }
 function setVar(node, name, value){ const key='_var_'+name; if(node[key]!==value){ node.style.setProperty(name, value); node[key]=value; } }   // change-guarded CSS custom property write (the --tx/--ty/--lx/--ly reticle anchors: skipped while neither the camera nor the orb moved)
 function setStyle(node, prop, value){ const key='_style_'+prop; if(node[key]!==value){ node.style[prop]=value; node[key]=value; } }
 
@@ -11594,7 +11572,6 @@ function projectDir(dir){
 }
 /* ---- realtime: presence ("N in the dojo") + live opponent reticles (Supabase Realtime — ephemeral, no backend/SQL) ---- */
 let rtCh=null, rtFailed=false, lastBcast=0; const remotes=new Map();
-function liveCount(){ try{ return rtCh ? Object.keys(rtCh.presenceState()).length : 0; }catch(e){ return 0; } }
 function showPresence(){ const el=gid('presence'); if(el){ el.classList.remove('on'); el.textContent=''; } }   // DEPRECATED: the "N in the dojo" count is hidden (realtime presence + opponent reticles still work; just no on-screen counter)
 function newRemoteEl(){ const d=document.createElement('div'); d.className='liveRet'; d._shown=false; d._name=''; d._sx=d._sy=999999; document.body.appendChild(d); return d; }
 function realtimeFailQuiet(sb,reason){

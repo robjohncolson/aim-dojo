@@ -1069,10 +1069,10 @@
                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                       
-                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                 
+                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
@@ -1092,7 +1092,7 @@
                                                                                                                                               
                                                                                                                                                                            
                                                                                                                                   
-                                                                                                                                                                                                                                 
+                                                                                                                                                                                   
                                                                                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                                       
                                                                                                                                                                                                                                                                                                                                
@@ -1299,7 +1299,6 @@
                                                                                                                                                               
                                                                                                                        
  
-                                                                                                                                                                                             
                                       
                                                                                     
                                                                                  
@@ -3883,8 +3882,7 @@
                                              
                     
  
-                                                                        
-                                                             
+                                                               
                              
                                                                       
                                                      
@@ -3921,8 +3919,6 @@
                                                      
                                                                      
  
-                                                                       
-                                                   
                                                                                                               
                               
                                                                       
@@ -4307,7 +4303,6 @@
                                                                                                                                                                     
                    
  
-                                                                                                                    
                                                                                             
                    
                                                    
@@ -4694,13 +4689,6 @@
                                
                                                                                                                                                                
                          
- 
-                               
-                                                          
-                                           
-                                                                                                                           
-                                                                                                       
-                                                                                                                 
  
                                                                                                                                                                        
                                                                                                                                             
@@ -6602,13 +6590,6 @@
 
                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                
-                         
-                          
-                                                                                                             
-                                 
-                                                                              
- 
                                                                                                                   
                                                                                                        
                                                                                                                
@@ -7369,40 +7350,40 @@
                                                    
  
                                                                                                                                                                                                                                                                                                                                                                          
-function cardLoad(){
-  if(_cardLoaded) return; _cardLoaded=true;
-  let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                       // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a night that left no card, silently
-  if(!realCivilDate(o.d)) return;                                                            // …and d is a REAL local civil date in the memory layer's one grammar (M5). A card with no honest date can never be shown to be tonight's, so it is not a card
-  // 1.1 amendment (wave 5a review, M4): STRICT ON THE WHOLE ENVELOPE. This used to be lenient in three ways at once —
-  // a missing or foreign hits/stars array coerced to empty and STILL offered a card, a fractional phase/rule/k was
-  // truncated into range, and a wild errMs or k was clamped. That is half-trust, and a half-trusted record is worse
-  // than none (senseiLoad's law): the picture would be honest about nothing. Now every field is checked and ANY
-  // failure drops the record entirely. Everything cardSave writes passes by construction: rounded errMs inside one
-  // beat, k straight out of the ledger (0 for the unquantized fallback — bowNote's own floor, so the floor here is 0
-  // and not 1), both lists capped at maxDots, -1 for a phase the sky would not name or a rule the deal never dealt.
-  const cap=Math.max(1,CFG.nightCard.maxDots|0);
-  const phase=cardInt(o.phase,-1,7), rule=cardInt(o.rule,-1,7);
-  if(phase==null || rule==null) return;                                                      // a bucket or the sky's own -1, and nothing between: -1 draws the empty outline and leaves the card wordless, which is honest for a night that was never named
-  if(typeof o.hb!=='number' || !isFinite(o.hb) || o.hb<0 || o.hb>10000) return;              // the half-beat the glyph's angles were measured against, in ms — 0 is this build's own "unknown" (the painter falls back to the live tempo), and anything outside a plausible tempo is not this build's write
-  if(!Array.isArray(o.hits) || o.hits.length>cap) return;                                    // the ledger is an ARRAY and it is already capped — an over-long one was not written here, and truncating it would be inventing which arrivals to keep
-  const hits=[];
-  for(const h of o.hits){
-    if(!Array.isArray(h) || h.length!==2) return;                                            // a pair, exactly: a nested object, a bare number, a triple — none of them is an arrival
-    const e=h[0], k=cardInt(h[1],0,999);
-    if(typeof e!=='number' || !isFinite(e) || e<-5000 || e>5000 || k==null) return;          // a null (what a NaN or an Infinity becomes the moment it is written), a numeric string, a fractional k: the whole night goes with any one of them
-    hits.push({errMs:e, k:k});                                                               // handed to bowGlyphPaint in the shape it takes live — validated, never clamped
-  }
-  if(!Array.isArray(o.stars) || o.stars.length>cap) return;
-  const stars=[];
-  for(const s of o.stars){
-    if(typeof s!=='string' || !STAR_ID_RE.test(s)) return;                                   // wave 3's OWN id grammar, reused: an id the lit sky would refuse cannot halo a star here either — and now it takes the record with it rather than being skipped
-    stars.push(s);
-  }
-  _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
-}
+                    
+                                           
+                                                                             
+                  
+                                                          
+                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                            
+                                                                                                                      
+                                                                                                                   
+                                                                                                                    
+                                                                                                                
+                                                                                                                   
+                                                                                                                     
+                                                                                                                    
+                                                
+                                                               
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                    
+                
+                         
+                                                                                                                                                                                      
+                                        
+                                                                                                                                                                                                                                                
+                                                                                                                                                                             
+   
+                                                           
+                 
+                          
+                                                                                                                                                                                                                                                              
+                  
+   
+                                                                           
+ 
 function cardSave(){
   // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
   // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
@@ -7797,7 +7778,7 @@ function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
 function diffT(){ return Math.max(0,Math.min(1,(state.bpm-CFG.minBpm)/(CFG.maxBpm-CFG.minBpm))); }
 function targetRadius(){ return lerp(CFG.radSlow, 0.62, diffT()); }
 function activeTargetCount(){ return targets.length; }
-function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats*(CFG.deal.on?_deal.quickLifeMul:1)}); }   // THE SKY DEALS THE NIGHT: a FIRST QUARTER runs a brisker field (quickLifeMul). The ink law follows it honestly — spawnTarget latches the shortened life into lifeBeatsEff, the same field the drum fill uses to stretch one
+function spawnRhythmOrb(){ if(!templeActive) spawnTarget({life: (60/state.bpm)*CFG.rhythmLifeBeats*(CFG.deal.on?_deal.quickLifeMul:1)}); }   // THE SKY DEALS THE NIGHT: a FIRST QUARTER runs a brisker field by passing quickLifeMul through the existing life option
 let _specialLive=false;   // latched ONCE per run in resetSession (constant-per-run → a daily can't flip the gate mid-run if it straddles the UTC-midnight cutover)
 function specialOrbsLive(){ return CFG.specialOrbs; }
 
@@ -7906,8 +7887,7 @@ function spawnTarget(opts){
   tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock
   tg._chipT=0;   // MULTI-HIT TANK: per-chip shell scale-punch flash timer (only used when hpMax>1)
   tg.starId=starId;   // STAR-BOUND SPAWNS: the star this Echo called from, or null — which is every orb in the trainer, every orb with the parcel off, and every orb the sky had no risen bearing for. Assigned here, with the other per-spawn resets, so a pooled record can never carry a stale bearing home
-  tg.fill16=-1; tg.fig=null; tg.lifeBeatsEff=0;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base, figure or stretched life); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for. lifeBeatsEff 0 = "my life is the standard rhythmLifeBeats", which is every orb that is not the fill (and, with the kill-switch off, every orb there will ever be) — orbRed's ink law reads it
-  if(CFG.deal.on && _deal.quickLifeMul!==1) tg.lifeBeatsEff=CFG.rhythmLifeBeats*_deal.quickLifeMul;   // THE QUICK ONES WAKE: a brisker field is a brisker CLOCK too — the trail's white→red→white ink law reads lifeBeatsEff, so latching the dealt life here keeps that timing cue honest instead of colouring against a life this orb does not have. Written AFTER the reset above and BEFORE the fill's own stretch below, which outranks it on the one orb that is a figure
+  tg.fill16=-1; tg.fig=null;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base or figure); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for
   tg.poly=_polyPairing;   // POLYRHYTHM PAIRS: the tag both members carry (and every other orb clears, so a pooled record can never haunt the gate with a pair that popped three swells ago). It is READ by exactly one thing — polyOnField's "at most one pair live" — and by nothing on any hot path: a poly member is a plain Echo in every other respect, scored, sung, star-bound and volleyed exactly as it would be alone. Written unconditionally, like tg.starId, so the field is honest even with the parcel off, where _polyPairing is false forever
   tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true;   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets)
   let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live
@@ -7953,7 +7933,7 @@ function spawnTarget(opts){
   if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; if(through) through.material=TANK_THROUGH_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
     if(_tankD!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, _tankD); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
   if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);
-    tg.expireAt=state.t+lifeF; tg.lifeBeatsEff=lifeF/spbF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves. lifeBeatsEff latches that stretched life in BEATS so the white→red→white ink law (orbRed) runs on the life this orb actually has: the trail is a clock, and a clock that says "fresh" through the four beats you can still play the figure in was lying
+    tg.expireAt=state.t+lifeF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
     if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller. THE FAR ONES CALL reaches gold through `dist` — the band it was drawn from already moved out — and deliberately NOT a second time here: goldDistMul on top of a farMul'd band would compound to ~1.8× and put the Ancient past the arc's reach, which is an unkillable orb, not a long lead
     else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast
@@ -8016,7 +7996,6 @@ function pushReaction(v){
   if(a.length<12) a.push(v); else { state.reactionSum-=a[state.reactionHead]; a[state.reactionHead]=v; state.reactionHead=(state.reactionHead+1)%12; }
   state.reactionSum+=v;
 }
-function avgReaction(){ return state.reactions.length ? state.reactionSum/state.reactions.length : null; }
 function kindScore(tg, atT){   // per-kind score: gold/mover ×bonus, speed bonus only if hit FAST after spawn. Daily only ever rolls kind 0/1, so this stays score===h.length-safe there.
   if(tg.kind===1) return CFG.goldScore;
   if(tg.kind===4) return CFG.moverScore;
@@ -9755,49 +9734,49 @@ function ghostGiftCatch(row,t){
   ghostCatchBurst(row,t,_ghGiftImpactPos); _ghGiftLockedRow=null;
   return true;
 }
-                                    
-                                                                                                                                                          
-                                                              
-                                                                                                                                                                                                                                                      
-                                                                                                                                                                       
-                        
-                                                                                
-                                               
-                                                                 
-                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                   
-   
-           
-                                                               
-                                                                                                                 
-                                                                                                               
-                                                                                                                                                                              
-                                                                                                                    
-                                                                         
-   
-                            
-             
- 
-                              
-                                   
-                                         
-                       
-                                                                                                                                                  
-                                                                                                                                                                                                                                                                                   
-   
- 
-                             
-                                
-                     
-                                                
-                                                                                        
-                                                                        
-                                                             
-   
-                                                                                                                                       
-                                                                                                                                                                                                   
-                
- 
+function ghostGiftProjectileHit(pr){
+  if(GH_MULTI && !_ghostSeatBusy && pr){ const seat=_ghostSeatRows&&_ghostSeatRows.get(pr.giftRow); if(seat) return ghostGiftSeatProjectileHit(seat,pr); }
+  if(!GH_GIFT || !pr || !pr.gift || !pr.giftRow) return false;
+  if(!ghostGiftSync(pr.giftRoadT)){ if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.life)){ const cursor=pr.giftLaunchT+Math.max(0,pr.life); pr.giftRoadT=Number.isFinite(pr.giftRoadT)?Math.max(pr.giftRoadT,cursor):cursor; } return false; }
+  const currentT=_ghGiftRoadT, priorT=Number.isFinite(pr.giftRoadT)?Math.min(currentT,pr.giftRoadT):currentT, arrivalT=pr.giftRow[3], endT=Math.min(currentT,arrivalT);
+  pr.giftRoadT=currentT;
+  if(endT<priorT || !ghostGiftable(pr.giftRow,endT,_ghGiftReveal)) return false;
+  const rr2=GH_GIFT_R*GH_GIFT_R; let hit=false;
+  if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX)){
+    const first=Math.max(1,Math.floor(Math.max(0,priorT-pr.giftLaunchT)/GH_GIFT_STEP)+1), last=Math.floor(Math.max(0,endT-pr.giftLaunchT)/GH_GIFT_STEP+1e-9);
+    for(let n=first;n<=last;n++){ const t=n*GH_GIFT_STEP, k=0.5*t*(t+GH_GIFT_STEP); ghostTargetPosition(pr.giftRow,pr.giftLaunchT+t,_ghGiftImpactPos); const dx=pr.giftX+pr.giftVx*t+windX*k-_ghGiftImpactPos.x, dy=pr.giftY+pr.giftVy*t-CFG.projGravity*k-_ghGiftImpactPos.y, dz=pr.giftZ+pr.giftVz*t+windZ*k-_ghGiftImpactPos.z; if(dx*dx+dy*dy+dz*dz<=rr2){ hit=true; break; } }
+  }
+  if(!hit){
+    const span=currentT-priorT, uT=span>0?(endT-priorT)/span:0;
+    ghostTargetPosition(pr.giftRow,priorT,_ghGiftPrevPos); ghostTargetPosition(pr.giftRow,endT,_ghGiftImpactPos);
+    const px=_prev.x+(pr.pos.x-_prev.x)*uT, py=_prev.y+(pr.pos.y-_prev.y)*uT, pz=_prev.z+(pr.pos.z-_prev.z)*uT;
+    const ax=_prev.x-_ghGiftPrevPos.x, ay=_prev.y-_ghGiftPrevPos.y, az=_prev.z-_ghGiftPrevPos.z, bx=px-_ghGiftImpactPos.x, by=py-_ghGiftImpactPos.y, bz=pz-_ghGiftImpactPos.z;
+    const sx=bx-ax, sy=by-ay, sz=bz-az, l2=sx*sx+sy*sy+sz*sz; let u=l2>0?-(ax*sx+ay*sy+az*sz)/l2:0; u=u<0?0:u>1?1:u;
+    const dx=ax+sx*u, dy=ay+sy*u, dz=az+sz*u; hit=dx*dx+dy*dy+dz*dz<=rr2;
+  }
+  if(hit) _ghGiftRoadT=endT;
+  return hit;
+}
+function ghostBurstSpawn(row){
+  if(!_ghBurstPool || !row) return;
+  ghostTargetPosition(row,row[5],_ghPos);
+  for(let i=0;i<3;i++){
+    const bird=_ghBurstPool[_ghBurstNext++%GH_BURST_MAX], seed=(row[2]+1)*131+i*977, a=ghostHashUnit(seed)*Math.PI*2, lift=ghostHashUnit(seed+31);
+    bird.on=true; bird.catch=false; bird.core=false; bird.born=row[5]; bird.lane=row[1]; bird.x=_ghPos.x; bird.y=_ghPos.y; bird.z=_ghPos.z; bird.vx=Math.cos(a)*(1.4+lift*1.8); bird.vy=1.0+lift*2.0; bird.vz=Math.sin(a)*(1.4+lift*1.8); bird.spin=(ghostHashUnit(seed+71)-0.5)*4;
+  }
+}
+function ghostSeatAdvance(t){
+  const record=_ghostSeatRecord;
+  if(!record) return;
+  if(t<_ghLastTime){ ghostSeatPrepare(record); }
+  while(_ghTargetCursor<record.targets.length && record.targets[_ghTargetCursor][0]<=t){
+    if(_ghActiveTargets.length>=GH_TARGET_MAX) _ghActiveTargets.shift();
+    _ghActiveTargets.push(record.targets[_ghTargetCursor++]);
+  }
+  while(_ghHitCursor<_ghHitRows.length && _ghHitRows[_ghHitCursor][5]<=t){ ghostBurstSpawn(_ghHitRows[_ghHitCursor]); _ghHitCursor++; }
+  while(_ghFireCursor<record.fires.length && record.fires[_ghFireCursor][0]<=t){ const fire=record.fires[_ghFireCursor++]; _ghostAvatar.rotation.set(fire[2],GH_AVATAR_YAW_SIGN*fire[1],0,'YXZ'); }
+  _ghLastTime=t;
+}
                                                 
                                                   
                                                        
@@ -10109,7 +10088,6 @@ function ghostGiftCatch(row,t){
                                                                                                    
                                                                                                                                                                           
                                                                                                                          
-                                                                                                                 
                                                                                                                                                                                                                                                                                         
                                                                                                                                    
 
@@ -11594,7 +11572,6 @@ function ghostGiftCatch(row,t){
  
                                                                                                                              
                                                                     
-                                                                                                               
                                                                                                                                                                                                                                                
                                                                                                                                                                                
                                       

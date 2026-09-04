@@ -45,7 +45,7 @@ function runRealtime(source) {
     setAimDir() { throw new Error("empty remotes must short-circuit aim work"); },
     _remoteDir: {}, viewCX: 0, viewCY: 0,
   });
-  new vm.Script(`${realtimeBlock(source)}\nthis.api={loadRealtimeClient,initRealtime,realtimeFailQuiet,liveCount,broadcastAim,updateRemotes,state:()=>({channel:rtCh,failed:rtFailed})};`, { filename: "realtime-fail-quiet.vm.js" }).runInContext(context);
+  new vm.Script(`${realtimeBlock(source)}\nthis.api={loadRealtimeClient,initRealtime,realtimeFailQuiet,broadcastAim,updateRemotes,state:()=>({channel:rtCh,failed:rtFailed})};`, { filename: "realtime-fail-quiet.vm.js" }).runInContext(context);
   return { calls, client, context, callback: () => subscribeCallback };
 }
 
@@ -68,7 +68,6 @@ test("the legacy realtime channel keeps its feature, then fails quiet for the pa
     live.context.api.broadcastAim();
     assert.equal(live.calls.tracked, 1, "a healthy channel still tracks presence");
     assert.equal(live.calls.sent, 1, "a healthy channel still broadcasts aim");
-    assert.equal(live.context.api.liveCount(), 1, "a healthy channel still reports presence");
 
     const failed = runRealtime(source);
     failed.context.api.loadRealtimeClient();
@@ -78,7 +77,6 @@ test("the legacy realtime channel keeps its feature, then fails quiet for the pa
     await failed.callback()("CLOSED");
     failed.context.api.realtimeFailQuiet(failed.client, "again");
     assert.deepEqual({ created: failed.calls.created, subscribed: failed.calls.subscribed, removed: failed.calls.removed, warned: failed.calls.warned }, { created: 1, subscribed: 1, removed: 1, warned: 1 }, "the page-life latch blocks retry, teardown, and warning repeats");
-    assert.equal(failed.context.api.liveCount(), 0);
     assert.doesNotThrow(() => failed.context.api.broadcastAim());
     assert.doesNotThrow(() => failed.context.api.updateRemotes(1));
     assert.equal(failed.calls.sent, 0, "channel absence stays outside gameplay and frame work");
