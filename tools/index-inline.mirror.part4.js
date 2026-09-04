@@ -1041,7 +1041,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
@@ -2006,6 +2006,7 @@
                                                                                                                                                                                                                                                                               
                                                                                                                                                                                                            
                                                                                                                                                                                                 
+                                                                                                                                                                                                                  
                                                                                                                                                                                                          
                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                            
@@ -2075,7 +2076,7 @@
                                                                                                                                                                                                           
                                                                                                                                                                                                         
                                                                                                                                                                                                       
-                                                                                                                                                                          
+                                                                                                                                                                                                                                     
                                
                                         
                                                                                                                                                                                                                               
@@ -2084,12 +2085,19 @@
                                           
  
                                                                                                                           
+                          
+                                                                                                      
+                                                                                                                                                               
+                                                                                                                  
+                                           
+                                                                                                                       
+ 
                        
                                                                                                                          
                                                                                                                           
-                                                                                                                 
+                                                                                                                    
                                                                                                                               
-                                                                                                   
+                                                                                                                            
                                                                                                                  
                                                    
                                                                                                                               
@@ -2097,6 +2105,7 @@
                             
                                                                              
                                                          
+                     
                     
  
                        
@@ -2706,18 +2715,19 @@
                                                                                                                            
                                                                                              
                                           
-                                                               
+                                                                                            
                                                                                                                                                                                                                               
                                                                        
                
                                                                              
                                  
-                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                    
                                                        
                                                                                                                                                                                                
                                                                                                                                                                                                                                                 
                         
-                                                                                                                                       
+                                                                                                       
+                                                                                                                      
      
                          
                                                 
@@ -7366,25 +7376,25 @@
    
                                                                            
  
-                    
-                                                                                                                    
-                                                                                           
-                                                                                                                                                                       
-                                                                                                                              
-                                                                                           
-                                                                                                                                                                                                                                                          
-                                      
-                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                 
-                   
-                                                                                                                                                                                    
-                                                                                                                                                                                                           
-                 
-                    
-                                                            
-                                                             
- 
-                                                                                                                                                                                                                             
+function cardSave(){
+  // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
+  // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
+  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor bows: defence in depth (bowLive already gates the ceremony itself)
+  const n=_bowHits.length; if(!n) return;   // a hitless night leaves no card at all — no write, no button, nothing to explain
+  const cap=Math.max(1,CFG.nightCard.maxDots|0), from=Math.max(0,n-cap), pairs=[], hits=[];
+  for(let i=from;i<n;i++){ const e=Math.round(_bowHits[i].errMs), k=_bowHits[i].k|0; pairs.push([e,k]); hits.push({errMs:e,k:k}); }   // the MOST RECENT, exactly as the Mandala kept them, rounded to whole ms (the glyph plots angles, not measurements)
+  const stars=_cardStars.slice(0,cap);
+  const rec={ v:1, d:phasesToday(), phase:moonPhaseBucket(), rule:(CFG.deal.on?_deal.ph:-1),
+    hb:Math.round((60/Math.max(20,state.bpm))*500), hits:pairs, stars:stars };   // phase = THE one phase authority (the moon that was actually up); rule = the night the sky actually DEALT, so a night with the deal off names nothing rather than naming a rule that never applied; hb = the half-beat the glyph's angles were measured against, so a reopened card is the same picture and not a rescaled one
+  _cardLoaded=true;
+  _card={ d:rec.d, phase:rec.phase, rule:rec.rule, hb:rec.hb, hits:hits, stars:stars };   // in memory FIRST: a full or blocked quota still offers this page the card it just earned
+  try{ localStorage.setItem(CARD_KEY, JSON.stringify(rec)); }catch(e){}   // a lost write costs tonight's card and nothing else — the stars, the stamp and the records were all banked by their own parcels
+  _cardBlob=null;
+  _cardCaptureSeq++;
+  const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  const w=gid('nightCardWrap'); if(w) w.style.display='none';
+}
+function cardToday(){ cardLoad(); return (_card && _card.d===phasesToday()) ? _card : null; }   // yesterday's card is GONE: the same local civil calendar the stamp, the greeting and the deal's freshness gate turn over on
 function cardStale(){
   // The night turned over while a surface was still up: take the WHOLE offer down. The button first, so nothing can
   // re-open what is gone, then the view — a wrapper with nothing paintable in it is not something to leave on screen.

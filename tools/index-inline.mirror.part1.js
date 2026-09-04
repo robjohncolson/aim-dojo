@@ -1041,7 +1041,7 @@ const CFG = {
   // THE SKY REMEMBERS YOU (wave 5a, parcel N): coming back after nights away is a REUNION, never a penance. The one night this game keeps track of is the last one you played (localStorage['aimdojo.lastNight'], written once per played day by the same "a scoring arrival happened" rule the ring stamps by), and the only thing it is ever used for is a warm greeting at the threshold of your first run back: how many nights turned, and which of YOUR lit stars kept your seat. Nothing counts down, nothing lapses, nothing is worth less for the gap — there is no streak here to break, and the word "missed" appears nowhere in this parcel.
   // ONE LINE AT THE THRESHOLD, still: the greeting REPLACES wave 4's deal line rather than joining it (comeback > deal > the song name), and the deal itself still deals — dealCompute already ran at resetSession, so the night is exactly the night the sky dealt; only the SPEAKING is given away. A corrupt, missing or future-dated file is a fresh player, silently, which means the worst this parcel can do is say nothing.
   // NIGHT CARDS (wave 5a, parcel O): a session leaves an ARTIFACT — one tall, dark, zero-number image of tonight. The sky band is the real zodiac fixture the dome already draws, with the stars this player has lit brightened and the ones lit TONIGHT haloed; the glyph is the Bow's own Mandala, repainted from the stored arrivals by the SAME painter (one glyph authority, never two); the phase disc is the same moon shape the Temple ring stamps. The only words on it are the night's rule and the date. No count, no BPM, no accuracy, no name, no comparison — there is nothing on the card that could be read as a score, which is exactly why it is worth sending to someone.
-  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, mercyInverse:1, doorCross:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0, wallEcho:0, mercyInverse:0 and doorCross:0 independently restore their preceding shipped emissions. mercyInverse owns only the mercy marker: zero keeps the Wave 11.1 ring, rose and veil; one builds the inverse pane and crown star. doorCross owns the bar-line bloom/whoosh and emits no shader token or audio node at zero. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
+  moonline:{ on:true, shellOpacity:1, fogDensity:0, domeCull:true, metersPerBeat:27, drawBeats:32, impostorMinStraight:0.55, impostorInk:0.9, archOn:true, naveOn:true, naveStars:1500, naveVeil:0.45, naveStreetGold:1, markGlyph:true, terrainOn:true, terrainAmp:1, curveBite:2.2, curveHeading:0.2, leanBite:0.25, wallsOn:true, wallDissolve:95, wallGlow:1, wallExhale:1, wallEcho:1, mercyInverse:1, doorCross:1, tidePalette:1, wallStar:false, wallSat:1, wallPalette:null, archHeightM:7, archGlow:1, archPrism:0.35, mercyRingBoost:1.9, reflectAlpha:0.18, dustCount:400, dustGlow:0.85, cueGlowPx:26, tetherGlow:0.9, breathMax:0.45 },   // THE MOONLINE remains one FLAT build contract: wallsOn:false ALONE restores Wave 10's shaders and white nave byte-for-byte; wallDissolve:0 is the identical master-off spelling; wallExhale:0, wallEcho:0, mercyInverse:0 and doorCross:0 independently restore their preceding shipped emissions. mercyInverse owns only the mercy marker: zero keeps the Wave 11.1 ring, rose and veil; one builds the inverse pane and crown star. doorCross owns the bar-line bloom/whoosh and emits no shader token or audio node at zero. tidePalette owns only the live wall colour lookup: zero leaves the seeded 512-bar chalk walk and both colour arrays untouched. wallSat:0 isolates the Wave 10 resting fill while walls remain. wallGlow controls only veduta lift/spill; wallPalette is a test-only flat override. Every earlier Wave 8/9/10 knob keeps its shipped meaning.
   // EPHEMERAL BY DESIGN: one summary, overwritten every night (the SKY is the permanent record — the card is just how tonight leaves the house). The button appears in the existing records/share row only while TODAY's summary exists, and yesterday's card is simply gone.
   nightCard:{ on:true, maxDots:60, w:720, h:1080, link:1 },   // link:1 (SPEC_THE_INVITATION B) paints the site's host under the date — the card is the invitation; 0 → cardCompose byte-identical   // on:false → nothing is captured after the Bow, no listener is wired, the button can never appear and the file is never opened (no read, no write) · maxDots = arrivals kept for the glyph AND the ceiling on tonight's haloed stars (60 — the Bow's own mandalaMaxDots, so the card's glyph is the glyph you were just shown, not a longer one) · w/h = the image, 2:3 so it lands in a phone-shaped share slot without being cropped
   remember:{ on:true, gapDays:3 },   // on:false → the file is never opened (no read, no write) and the threshold is wave 4's deal line, verbatim · gapDays = how many nights away before the sky says anything at all (3 — under that you did not go anywhere, and a greeting for a night off would be the game watching your calendar). Raising it makes the reunion rarer and warmer; it can never make an absence cost anything, because absences cost nothing here
@@ -2006,6 +2006,7 @@ const ML_WALL_RING_R1=10, ML_WALL_RING_R2=11.6, ML_WALL_PAL_N=512;
 const ML_WALL_LOW_N=7, ML_WALL_N=LOW?ML_WALL_LOW_N:ML_ARCH_N;             // LOW p90 bound: only the seven nearest slots (rear history through 4 bars ahead) receive geometry; the far four die under the existing dissolve horizon instead of paying the doorway SDF overdraw
 const ML_WALL_REAR0=-(ML_ARCH_BEHIND+ML_ARCH_EVERY), ML_WALL_REAR1=-ML_ARCH_BEHIND;   // the retiring rear wall spends its final bar crumbling from full at -8 beats to absent at the -12-beat recycle seam
 const ML_WALL_CHALK=[0xbf7486,0x6f91bc,0x789b6b,0xb99a49,0x8d70ac,0xc48465,0x6ea895];   // night-corrected rose, powder, sage, butter, lilac, peach, mint — chamber pigments, never lane colours
+const ML_TIDE_COOL=0x6f91bc, ML_TIDE_COOL_MAX=0.45;                       // THE TIDE ORDERS THE CHALK: the existing powder pigment arrives smoothly toward mercy, never at the trough or on the mercy pane itself
 const ML_WALL_EXHALE2=0.60, ML_WALL_EXHALE1=0.30;                         // two bars out the powder reaches 40% inward; one bar out it reaches 70% — the mercy gap itself remains Wave 11's no-wall span
 const ML_WALL_ECHO_LIFT=0.12, ML_WALL_ECHO_BEATS=1.5, ML_WALL_ECHO_WIDTH=8, ML_WALL_ECHO_SPEED=ML_ARCH_EVERY*ROAD_MPB, ML_WALL_ECHO_DIM=0.10, ML_WALL_ECHO_DIM_BEATS=0.5, ML_WALL_ECHO_STILL_BEATS=1;   // one chamber per beat, an eight-metre warm-white front, bounded lift, and the clank's half-beat wince
 const ML_CROSS_LIFT=0.18, ML_CROSS_BEATS=1.0, DOOR_WHOOSH_DB=-26, DOOR_WHOOSH_SEC=0.22, DOOR_WHOOSH_HZ=[520,140];   // a doorway answers for one beat: its warm-white front gains 18% (a still 6% under reduced motion), while the tide-gated triangle falls through one quiet 220 ms sweep
@@ -2075,7 +2076,7 @@ const _roadLaneCol=[new THREE.Color(), new THREE.Color(), new THREE.Color(), new
 const _wallCol=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNext=Array.from({length:ML_ARCH_N},()=>new THREE.Color()), _wallNight=new Uint32Array(ML_WALL_PAL_N); let _wallNightReady=false;
 const _wallHit={value:-1e9}, _wallMiss={value:-1e9};                     // shared uniform OBJECTS: gameplay writes only these stamps; every wall-family material that names one borrows this exact pair
 const _wallCross={value:-1e9};                                            // the third road-clock sink: one doorway stamp borrowed by both the wall and arch materials; no gameplay path reads it back
-const _roadTide0={m:0,i:1}, _roadTideR={m:0,i:1};                         // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate
+const _roadTide0={m:0,i:1,cb:0}, _roadTideR={m:0,i:1,cb:0};                // one shared record each — roadTideAt is called ROAD_SLOTS times per BEAT and must not allocate; cb exposes this same cycle's bar without a second modulo
 function roadWallPalette(seed){
   if(_wallNightReady) return _wallNight;
   const over=CFG.moonline.wallPalette, src=Array.isArray(over)&&over.length?over:ML_WALL_CHALK, courseSeed=seed==null?(_roadCourse||roadCourse()).seed:seed, rr=mulberry32(courseSeed), n=Math.max(1,src.length); let prev=-1;
@@ -2084,12 +2085,19 @@ function roadWallPalette(seed){
   _wallNightReady=true; return _wallNight;
 }
 function roadWallPaletteAt(bar){ const p=roadWallPalette(); return p[((bar%ML_WALL_PAL_N)+ML_WALL_PAL_N)%ML_WALL_PAL_N]; }
+function tideTint(hex,cb){
+  const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), edge=rise+peak-1;
+  if(cb>=rise+peak || edge<=0) return hex;                                // the mercy pane and a cycle with no approach keep their own night's unblended chalk
+  const x=Math.max(0,Math.min(1,cb/edge)), s=x*x*(3-2*x), k=ML_TIDE_COOL_MAX*s, h=Number(hex)>>>0, c=ML_TIDE_COOL;
+  const r=h>>>16&255, g=h>>>8&255, b=h&255;
+  return ((Math.round(r+((c>>>16&255)-r)*k)<<16)|(Math.round(g+((c>>>8&255)-g)*k)<<8)|Math.round(b+((c&255)-b)*k))>>>0;
+}
 function roadTideAt(n){
   // THE SWELL AT BEAT n — onGrid's own tide expression, replayed on that beat's EIGHTH index. onGrid runs on Tone's '8n'
   // repeat from a Transport that teardownTransport resets to 0 alongside grid8, so the eighth whose audio sounds at heard
-  // beat b is exactly g = 2b: this is the same clock, read at a different time, not a second one. Returns {m,i}:
+  // beat b is exactly g = 2b: this is the same clock, read at a different time, not a second one. Returns {m,i,cb}:
   //   m = 0 not mercy · 1 the mercy bar's FIRST beat (it keeps its "1" line) · 2 a mercy continuation (its line is swallowed,
-  //       which is what makes the bar read as ONE wide band) — and i = tideI, the luminance rider.
+  //       which is what makes the bar read as ONE wide band) — i = tideI, the luminance rider · cb = this same cycle's bar.
   // Kill-switch first: with tide.on:false the swell rests neutral exactly as onGrid's own else-branch leaves it.
   if(!(CFG.tide && CFG.tide.on)) return _roadTide0;
   const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);
@@ -2097,6 +2105,7 @@ function roadTideAt(n){
   const mercy=cb>=rise+peak;
   _roadTideR.m = mercy ? ((cb===rise+peak && (((g%8)+8)%8)===0) ? 1 : 2) : 0;
   _roadTideR.i = mercy ? 0 : (cb<rise ? (cb+f)/rise : 1);
+  _roadTideR.cb = cb;
   return _roadTideR;
 }
 function roadHoldAt(n){
@@ -2706,18 +2715,19 @@ function roadImpSync(r){
                                                                                                                            
                                                                                              
                                           
-                                                               
+                                                                                            
                                                                                                                                                                                                                               
                                                                        
                
                                                                              
                                  
-                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                    
                                                        
                                                                                                                                                                                                
                                                                                                                                                                                                                                                 
                         
-                                                                                                                                       
+                                                                                                       
+                                                                                                                      
      
                          
                                                 
