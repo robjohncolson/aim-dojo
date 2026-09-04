@@ -1,4 +1,35 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
+
+## -20. 2026-09-04: G-client + H (dormant) + I reviewed and PUSHED (live at `e06ebfc`) · THE NEXT CYCLE, remaining items
+**Review (this machine, real GPU):** `c7c4de9` (G client: strict-boolean `reachedBack`, `seat.back`, the reached-back
+line first; the field never reaches gameplay), `ea0d7fc` (H: `ghostPhase:0` dormant, eight validated slots, phase seat
+after strangers, never posts to the relay), `e06ebfc` (I: `doorCross:1`, one road-clock stamp, tide-gated whoosh,
+mercy tonic, wave-18 frozen-shader fixture). Suite 326/326; mirrors fresh; `detect_changes` CRITICAL by count (208
+symbols) but the production reach is the ghost/gift flows + `roadSync`/`initAudio` — mirror repartitioning explains
+the sky/card/listen names (their index.html symbols are untouched). Headful boot smoke: PLAY at 1.8 s, zero page errors.
+Pushed → Vercel live. Deploy-order caveat from §-16 STILL STANDS: the live relay cools mail per sender token until the
+user merges+deploys sidereal `ghost-relay-wave20`; with the relay empty nothing is lost yet.
+
+### NEXT CYCLE (remaining, in order; the §-16 hard rules apply unchanged)
+0. **USER:** deploy the relay (sidereal `ghost-relay-wave20` → main → Railway), live-smoke per §-16 item 0, then play
+   one real night on the live site (card link line · pause-card offset · PLAY speed · the doorway whoosh at the mercy door).
+1. **Wave 21 — Parcel J, THE TIDE ORDERS THE CHALK** (SPEC §J; anchors: `_roadTideR` ~2070 + `cb` local ~2088 →
+   expose `.cb`; tint at the per-station lookup ~2704 AFTER `roadWallPaletteAt` (THE STREAM RULE: the 512-bar private
+   walk is untouched); `_wallNext` uses `cb+1`; ghost seats (~9353 palette twin) NOT tinted). Knob
+   `moonline.tidePalette`; 0 → `_wallCol/_wallNext` byte-identical over a full 9-bar cycle (fixture). Consts
+   `ML_TIDE_COOL=0x6f91bc`, `ML_TIDE_COOL_MAX=0.45`.
+2. **Wave 21 — Parcel K, MOON SENSEI II** (SPEC §K): `aimdojo.sensei2` `{v:1,seen:{mercy,fill,bow,star}}` strict;
+   hooks: first `tideMercy` true (~6538), first `tg.fill16` spawn, holster half-way to the Bow (the Bow's own
+   constant), first star lit to level 1; `showTrainCoach(line,true)`; EN+JA (JA drafts in the spec, mark for native
+   review). Knob `sensei2`; post-graduation only; never over the threshold flash.
+3. **Wave 22 — Parcel O** (dead helpers; grep `tests/` for `placeTempleSignArt` first; comment-swallow scans after
+   every deletion) and **Parcel P** (Three.js CDN guard: `onerror` on the tag ~904, first statement of the IIFE ~906,
+   `threeFailedHtml` EN+JA; a vm smoke with THREE undefined).
+4. **Perf, reviewed round — ImageBitmap decode in `loadSkyTexture`** (§-14 traps + visual acceptance; impact CRITICAL).
+5. **Perf, last — P4 HTML split** (measure with `tools/coldload.mjs --headful` before/after).
+**Owed by the user (human):** the relay deploy; the wave-8 ruling for H (flip `ghostPhase` to 1 if it falls); by-ear
+auditions — doorway whoosh level (`DOOR_WHOOSH_DB` −26 vs −30/−22), `GH_VISITOR_ALPHA` 0.8 vs 0.65, `GH_GIFT_LEAD` 3.0.
+
 
 ## -19. 2026-09-04: wave 21 Parcel I complete locally · THE DOORWAYS ARE EVENTS
 **Local-only state (not pushed or deployed):** `moonline.doorCross:1` gives the live main road one absolute-bar latch.
