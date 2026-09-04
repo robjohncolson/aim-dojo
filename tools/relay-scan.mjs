@@ -20,9 +20,7 @@ const GHOSTS_PATH = "/api/ghosts";
 const BUCKETS = 24;
 const PER_QUERY = 4;
 const TIMEOUT_MS = 8000;
-const SMOKE_BYTES = [2338, 2000];   // the wave-16/17 smoke ghosts: 2338 B exactly, and the ~2000 B ease-probes (±20)
-const SMOKE_BYTES_SLACK = 20;
-const SMOKE_DUR_MAX = 50;           // a real human night is longer than the worthiness floor plus a few seconds
+const SMOKE_DUR_MAX = 50;           // short-duration heuristic, not proof that a night is synthetic
 const SIGILS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
 
 function parseArgs(argv) {
@@ -47,7 +45,7 @@ export function scanToken(given) {
 }
 
 export function isSmoke(bytes, dur) {
-  if (SMOKE_BYTES.some((b) => Math.abs(bytes - b) <= (b === 2338 ? 0 : SMOKE_BYTES_SLACK))) return true;
+  // Real nights overlap the expired wave-16/17 probe sizes; bytes alone cannot identify a smoke.
   return Number.isFinite(dur) && dur < SMOKE_DUR_MAX;
 }
 

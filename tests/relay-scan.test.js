@@ -18,8 +18,8 @@ test("the scan tool never names the mail endpoint (GET there is read-once and de
 
 test("smoke detection and row shaping", async () => {
   const mod = await import("file://" + TOOL.replace(/\\/g, "/"));
-  assert.equal(mod.isSmoke(2338, 200), true, "the 2338-byte smoke ghost is a smoke regardless of duration");
-  assert.equal(mod.isSmoke(2010, 200), true, "an ease-probe within 20 B of 2000 is a smoke");
+  assert.equal(mod.isSmoke(2338, 200), false, "matching the expired wave-16 probe size does not make a long night a smoke");
+  assert.equal(mod.isSmoke(2003, 133.925), false, "the real 2,003-byte, 134 s night is not an expired ease-probe");
   assert.equal(mod.isSmoke(2426, 162), false, "the user's first real night (2,426 B, 162 s) is human");
   assert.equal(mod.isSmoke(2426, 46), true, "a 46 s night is below the human floor");
   const row = mod.rowFor({ id: "0123456789abcdef0123456789abcdef", lonBucket: 21, postedAt: "2026-08-23T11:00:00Z",
