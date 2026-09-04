@@ -136,6 +136,11 @@ Build order is the section order. Each wave ships and goes live before the next 
 - Remeasure on a quiet machine (the wave-15 environment law: `pkill` zombie Chromes, load < 5): gift-on vs gift-off LOW median and p90 at a staged reveal (probe kit `mercy-stall-probe.mjs` / `gift-storm.mjs`; regenerate from the §5 harness recipe in CONTINUATION_PROMPT if the scratchpad is gone). Record both numbers; the wave-14 "+8–11 ms" sample is either confirmed (then the catch birds on LOW stay absent — they already are, `9532-9538` writes into a null pool) or retired.
 - `GH_GIFT_LEAD`: audition 2.2 and 3.0 with the honest-lock band test as the safety net (a lead shorter than the 1.4 s flight at 72 m/s is the wave-14 trap).
 
+**Parcel F result (2026-09-03).**
+- Shipped tuning remains `GH_VISITOR_ALPHA=1.0`. The multiplier is construction-time and visitor-only across road, wall, avatar, and beacon materials; targets, hit/catch birds, and the honest silhouette remain unweighted. Human peripheral-weight auditions at 0.8 and 0.65 are still owed (two short nights each).
+- The quiet-machine LOW A/B retires the wave-14 "+8-11 ms" sample. Seven alternating 300-frame pairs measured gift-off/on render median 0.4/0.4 ms, render p90 0.5/0.6 ms, whole-frame CPU median 0.6/0.6 ms, CPU p90 0.8/0.8 ms, and rAF median/p90 17.7/18.1 vs 17.6/18.1 ms. A three-pair confirmation on the exact final curved-collision source (`GH_GIFT_LEAD=3.0`, `GH_GIFT_STEP=1/90`) measured off/on render median 0.4/0.4 ms, render p90 0.5/0.5 ms, whole-frame CPU median 0.6/0.7 ms, CPU p90 0.8/0.9 ms, and identical rAF median/p90 17.7/18.1 ms. Every arm held the same one-target/one-beacon/two-ring topology, 18 draws, 3,232 triangles, DPR 0.5, and zero errors; the final source adds no observable frame-cadence regression.
+- Production-code aim sweeps found confirmed full-row lock opportunities for 4/8 seat extrema at lead 2.2, 6/8 at 2.6, and 8/8 at 3.0, so `GH_GIFT_LEAD=3.0` is the technical audition candidate. Real Gift flight now evaluates the predictor's absolute 90 Hz curve instead of accumulating frame-rate-dependent Euler steps; collision also checks those canonical curve samples so pinned inner, outer, and exact radius-edge locks agree with the honest catch at 30/60/90/144 Hz and across a two-second frame stall.
+
 ---
 
 # WAVE 21 — THE FELT NIGHT

@@ -1,5 +1,16 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-03 late)
 
+## -15. 2026-09-03 VERY LATE: wave 20 E/G/F complete locally · deploy order still belongs to the user
+**Local state (nothing pushed or deployed):** aim-dojo `main` contains Parcel E at `571fcb8` and Parcel F in the current tip; the sibling sidereal relay branch `ghost-relay-wave20` contains Parcel G at `d2c460f`. Deploy the relay before the client whenever the user chooses to publish. `state/` is untracked user data: never touch or stage it.
+
+**Parcel F — THE VISITOR, WEIGHED:** `GH_VISITOR_ALPHA=1.0` is the safe default. Visitor-only construction scales road, wall, avatar, and beacon alpha; own seats, targets, hit/catch birds, and the honest fourth silhouette stay exact. Failure injection covers first/last material allocation on HIGH/LOW, restores the exact own register set and held Gift lock, publishes no partial roots, and retries a complete cached seat. Human judgement remains open: audition 0.8 and 0.65 for two short nights each before choosing a softer peripheral weight.
+
+**Gift tuning:** lead 3.0 is the technical audition candidate: production-code aim sweeps found lock opportunities for 4/8 extrema at 2.2, 6/8 at 2.6, and 8/8 at 3.0. Real Gift flight and collision now share the predictor's absolute 90 Hz curve. Exact outer tangent locks catch at independent 30/60/90/144 Hz and through a two-second stall; a hidden crossing advances its cursor and cannot be awarded when reveal reopens. Independent sweep: 200 gold candidates, 800 cadence runs plus 800 coarse-stall runs, zero mismatches. Full suite: 318/318.
+
+**Performance, exact final source:** LOW, three alternating pairs × 300 frames, gift off/on: render median 0.4/0.4 ms, render p90 0.5/0.5 ms, whole-frame CPU median 0.6/0.7 ms, CPU p90 0.8/0.9 ms, rAF median/p90 17.7/18.1 vs 17.7/18.1 ms. Identical one-target/one-beacon/two-ring topology, 18 draws, 3,232 triangles, DPR 0.5, zero errors. The old wave-14 "+8–11 ms" result is retired.
+
+**Next:** let the user decide push/deploy and the 0.8-vs-0.65 visual audition. Parcel H still requires the wave-8 tonight-only ruling; if that law stands, ship H dormant at `ghostPhase:0`. Do not silently broaden the ghost's memory.
+
 ## -14. 2026-09-03 LATE: THE GATE FIRST shipped (wave 19 complete) · HANDOFF FOR ANY AGENT (Codex included) — start here
 **State of main:** wave 19 of SPEC_THE_INVITATION.md is complete and pushed (parcels A/B/M `530a46b`, C/D/N `1694396`,
 C-load-scheduling THE GATE FIRST — see git log). Live at aim-dojo.vercel.app. Suite 315/315 (`node --test tests/*.test.js`).

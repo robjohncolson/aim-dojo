@@ -72,7 +72,12 @@ class Vec3 {
   set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
   copy(value) { return this.set(value.x, value.y, value.z); }
   subVectors(a, b) { return this.set(a.x - b.x, a.y - b.y, a.z - b.z); }
+  multiplyScalar(value) { return this.set(this.x * value, this.y * value, this.z * value); }
+  addScaledVector(value, scale) { return this.set(this.x + value.x * scale, this.y + value.y * scale, this.z + value.z * scale); }
+  crossVectors(a, b) { return this.set(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x); }
+  lengthSq() { return this.x * this.x + this.y * this.y + this.z * this.z; }
   length() { return Math.hypot(this.x, this.y, this.z); }
+  normalize() { const length = this.length(); return length ? this.multiplyScalar(1 / length) : this; }
   distanceTo(value) { return Math.hypot(this.x - value.x, this.y - value.y, this.z - value.z); }
 }
 
@@ -123,7 +128,7 @@ test("reveal-gated deterministic flares extend the lock only after every real ca
   const assertContract = (source) => {
     const block = ghostBlock(source);
     assert.match(source, /ghostGift:1/); assert.match(block, /const GH_GIFT=!!CFG\.ghostGift/);
-    assert.match(block, /GH_GIFT_V=0\.7, GH_GIFT_R=2\.2/); assert.match(block, /GH_BEACON_LEAD=1\.5, GH_GIFT_LEAD=2\.6/);
+    assert.match(block, /GH_GIFT_STEP=1\/90, GH_GIFT_V=0\.7, GH_GIFT_R=2\.2/); assert.match(block, /GH_BEACON_LEAD=1\.5, GH_GIFT_LEAD=3\.0/);
     assert.match(extractFunction(source, "scopeLockTarget"), /best \|\| tight \|\| !GH_GIFT/);
     assert.match(extractFunction(source, "ghostSeatBuild"), /if\(GH_GIFT\)\{/);
     assert.match(extractFunction(source, "ghostGiftLockTarget"), /ghostGiftable\(row,_ghGiftRoadT,_ghGiftReveal\)/);
@@ -139,7 +144,7 @@ test("reveal-gated deterministic flares extend the lock only after every real ca
     `, extra: { Vec3 } });
     assert.deepEqual(Array.from(window.window), [false, false, true, true]); assert.equal(window.afterCatch, false);
     assert.deepEqual(Array.from(window.positions, (row) => Array.from(row)), [[88.4, 2.2, -108], [88.4, 2.2, -58], [88.4, 2.2, -8]]);
-    assert.equal(beaconCountAt(source, true, 7.4), 1, "Gift beacons ignite on the 2.6 s ballistic lead");
+    assert.equal(beaconCountAt(source, true, 7), 1, "Gift beacons ignite on the 3.0 s full-row ballistic lead");
     assert.equal(beaconCountAt(source, false, 7.4), 0, "the kill-switch preserves the shipped 1.5 s beacon arm");
     assert.equal(beaconCountAt(source, false, 8.5), 1, "the shipped beacon opens exactly 1.5 s before arrival");
     const withReal = scopeResult(source, true), withoutReal = scopeResult(source, false);
@@ -149,7 +154,7 @@ test("reveal-gated deterministic flares extend the lock only after every real ca
   assertContract(html);
   const mutation = replaceFunction(html, "scopeLockTarget", (fn) => fn.replace("if(best || tight || !GH_GIFT) return best;", "if(tight || !GH_GIFT) return best;"));
   mutationMustFail(assertContract, mutation, "the real-target oracle kills a flare that outranks a live target");
-  const leadMutation = html.replace("GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=2.6", "GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=1.5");
+  const leadMutation = html.replace("GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0", "GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=1.5");
   mutationMustFail(assertContract, leadMutation, "the ballistic lead oracle kills the obsolete 1.5 s Gift window");
 });
 
@@ -238,7 +243,7 @@ function giftLockCatchResult(source, tta) {
     this.locked=simGiftShotHits(muzzle,velocity,best.t,proxy);
     this.distance=Math.hypot(current.x-muzzle.x,current.y-muzzle.y,current.z-muzzle.z);
     this.flight=best.t; this.speed=best.speed; this.band=GH_GIFT_LEAD-best.t;
-    const projectile={pos:new Vec3().copy(muzzle),vel:new Vec3().copy(velocity),life:0,mesh:null,gift:true,giftRow:row,giftRoadT:now,fireRow:null};
+    const projectile={pos:new Vec3().copy(muzzle),vel:new Vec3().copy(velocity),life:0,mesh:null,gift:true,giftRow:row,giftRoadT:now,giftLaunchT:now,giftX:muzzle.x,giftY:muzzle.y,giftZ:muzzle.z,giftVx:velocity.x,giftVy:velocity.y,giftVz:velocity.z,fireRow:null};
     projectiles.push(projectile); this._prev=new Vec3(); _ghostSeatRecord={dur:row[3],targets:[row]}; _ghostSeatRoot={}; _ghCaughtSlots=new Set(); _ghostGiftMail=[]; _ghGiftPrevPos=new Vec3(); _ghGiftImpactPos=new Vec3(); _ghBurstPool=null; _ghCatchPool=null;
     Tone.Transport.seconds=now;
     for(let n=0;n<220 && projectiles.length;n++){ Tone.Transport.seconds=now+(n+1)*step; updateProjectiles(step); }
@@ -250,7 +255,7 @@ function giftLockCatchResult(source, tta) {
 test("the 90–120 m gold band ends one real flight before arrival", () => {
   const assertContract = (source) => {
     const mid = giftLockCatchResult(source, 2), late = giftLockCatchResult(source, 1.1);
-    assert.ok(mid.distance>=90 && mid.distance<=120); assert.ok(mid.band>=1.1 && mid.band<=1.3); assert.ok(Math.abs(mid.speed-72)<0.5);
+    assert.ok(mid.distance>=90 && mid.distance<=120); assert.ok(mid.band>=1.5 && mid.band<=1.7); assert.ok(Math.abs(mid.speed-72)<0.5);
     assert.equal(mid.locked, true, "a mid-band mastery-speed aim earns gold"); assert.equal(mid.caught, true);
     assert.ok(late.distance>=90 && late.distance<=120); assert.ok(late.flight>1.1); assert.ok(Math.abs(late.speed-72)<0.5);
     assert.equal(late.normalLocked, true, "the historical unclamped march reaches the post-arrival proxy");
@@ -274,6 +279,96 @@ test("every confirmed gift lock agrees with the catch's clamped pre-arrival law"
   mutationMustFail(assertContract, mutation, "the catch-vs-lock agreement oracle kills the unclamped proxy march");
 });
 
+const FULL_ROW_GIFT_FIXTURES = [
+  { seat: -90, lane: 0, x: -94.8, yaw: -1.160627950944, pitch: 0.172779564118, flight: 1.666666666667 },
+  { seat: -90, lane: 3, x: -85.2, yaw: -1.097849589503, pitch: 0.160763167367, flight: 1.566666666667 },
+  { seat: 90, lane: 0, x: 85.2, yaw: 1.093398761263, pitch: 0.160763167367, flight: 1.566666666667 },
+  { seat: 90, lane: 3, x: 94.8, yaw: 1.156948973114, pitch: 0.172779564118, flight: 1.666666666667 },
+  { seat: -180, lane: 0, x: -184.8, yaw: -1.494170565889, pitch: 0.314508864538, flight: 2.833333333333 },
+  { seat: -180, lane: 3, x: -175.2, yaw: -1.471018455992, pitch: 0.295972443571, flight: 2.7 },
+  { seat: 180, lane: 0, x: 175.2, yaw: 1.470106611394, pitch: 0.295972453094, flight: 2.7 },
+  { seat: 180, lane: 3, x: 184.8, yaw: 1.493473526534, pitch: 0.314508839985, flight: 2.833333333333 },
+  { seat: -180, lane: 0, x: -184.8, yaw: -1.4822273254394531, pitch: 0.31649957380029015, flight: 2.866666666667, edge: true },
+  { seat: -180, lane: 0, x: -184.8, yaw: -1.494170565889, pitch: 0.299994265985, flight: 2.733333333333, edge: true },
+  { seat: -180, lane: 0, x: -184.8, yaw: -1.49333984375, pitch: 0.299993141289, flight: 2.733333333333, edge: true },
+];
+
+function fullRowGiftResult(source, fixture) {
+  const projectiles = [];
+  const cp = Math.cos(fixture.pitch), direction = new Vec3(cp * Math.sin(fixture.yaw), Math.sin(fixture.pitch), -cp * Math.cos(fixture.yaw));
+  const camera = { direction, getWorldDirection(out) { return out.copy(this.direction); } };
+  const context = runGhost(source, { gift: true, extra: {
+    Vec3, camera, projectiles, windX: 0, windZ: 0, ROOM_HALF_W: 32, ROOM_HALF_D: 32, ML_ARC_VOID: false,
+    CFG: { ghostRecord: 0, ghostSeat: 0, ghostGift: 1, moonline: {}, projSpeedFast: 72, projGravity: 16, projRadius: 0.3, projLife: 14 },
+    roadWallMat: { uniforms: { uNow: { value: 0 }, uArchN0: { value: 0 }, uK: { value: [1] } } }, roadArchMat: null,
+    soundOn: false, toneReady: false, kick: null, targets: [], onWhiff() {}, orbOpen: () => true, gradeRhythmHit() {}, clankShot() {}, handleTankHit() {},
+    retireProjectile: (index) => { projectiles.splice(index, 1); }, moonlineVoid: () => false, spawnLandRing() {},
+  }, body: `
+    const ARC_MAX=430, BLADE_DX=1.5, BLADE_DY=0.7, BLADE_DZ=0.4, _arcDir=new Vec3(), _arcPos=new Vec3(), _arcVel=new Vec3(), _arcRight=new Vec3(), _arcI=new Vec3(), _ARC_UP=new Vec3(0,1,0); let _planLanded=false;
+    ${extractFunction(source, "computeShotPlan")}
+    ${extractFunction(source, "simGiftShotHits")}
+    ${extractFunction(source, "segDistSq")}
+    ${extractFunction(source, "updateProjectiles")}
+    const row=[5.38,${fixture.lane},71,10,0,null], now=7, muzzle=new Vec3(), velocity=new Vec3(); _ghSeatX=${fixture.seat};
+    _ghostSeatRecord={dur:10,targets:[row]}; _ghostSeatRoot={}; _ghCaughtSlots=new Set(); _ghostGiftMail=[]; _ghGiftPos=new Vec3(); _ghGiftVel=new Vec3(); _ghGiftPrevPos=new Vec3(); _ghGiftImpactPos=new Vec3(); _ghBurstPool=null; _ghCatchPool=null; _ghActiveTargets=[row]; _prev=new Vec3();
+    _ghGiftProxy={mesh:{position:_ghGiftPos},vel:_ghGiftVel,radius:GH_GIFT_R,sc:1,kind:0,gift:true,lockUntil:0,_ghostGiftRow:null}; Tone.Transport.seconds=now;
+    const proxy=ghostGiftLockTarget(camera.direction,0.72), flight=computeShotPlan(muzzle,velocity,GH_GIFT_SPEED), locked=!!proxy&&simGiftShotHits(muzzle,velocity,flight,proxy);
+    const resetRun=()=>{ projectiles.length=0; _ghCaughtSlots.clear(); _ghostGiftMail=[]; _ghGiftRoadT=now; _ghGiftReveal=1; _ghostRoadBase=0; _ghostRoadLast=now; Tone.Transport.seconds=now;
+      const projectile={pos:new Vec3().copy(muzzle),vel:new Vec3().copy(velocity),life:0,mesh:null,gift:true,giftRow:row,giftRoadT:now,giftLaunchT:now,giftX:muzzle.x,giftY:muzzle.y,giftZ:muzzle.z,giftVx:velocity.x,giftVy:velocity.y,giftVz:velocity.z,fireRow:null}; projectiles.push(projectile);
+      return projectile; };
+    const runHz=hz=>{ resetRun();
+      for(let frame=1;frame<=Math.ceil(3.2*hz)&&projectiles.length;frame++){ Tone.Transport.seconds=now+frame/hz; updateProjectiles(1/hz); }
+      return {caught:_ghCaughtSlots.has(row[2]),at:_ghostGiftMail.length?_ghostGiftMail[0][0]:null}; };
+    const runStall=()=>{ resetRun(); let prior=now; for(const at of [now+1,now+3]){ Tone.Transport.seconds=at; updateProjectiles(at-prior); prior=at; } return {caught:_ghCaughtSlots.has(row[2]),at:_ghostGiftMail.length?_ghostGiftMail[0][0]:null}; };
+    const position=new Vec3(); ghostTargetPosition(row,now,position);
+    this.fullRow={selected:proxy&&proxy._ghostGiftRow===row,locked,flight,position:[position.x,position.y,position.z],speed:velocity.length(),rates:[30,60,90,144].map(runHz),stall:runStall()};
+  ` });
+  return { ...context.fullRow, position: Array.from(context.fullRow.position), rates: Array.from(context.fullRow.rates, (row) => ({ ...row })), stall: { ...context.fullRow.stall } };
+}
+
+function giftWindowBoundary(source, lead) {
+  const tuned = lead === 3 ? source : source.replace("GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0", `GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=${lead}`);
+  assert.ok(lead === 3 || tuned !== source, `lead ${lead} is constructible`);
+  const context = runGhost(tuned, { gift: true, body: `
+    _ghCaughtSlots=new Set(); const row=[5.38,1,9,10,0,null], open=10-GH_GIFT_LEAD;
+    this.boundary=[ghostGiftable(row,open,0.7),ghostGiftable(row,open-0.001,0.7),ghostGiftable(row,open,0.699),ghostGiftable(row,10,1),ghostGiftable(row,10.001,1)];
+  ` });
+  return Array.from(context.boundary);
+}
+
+test("the three-second Gift lead reaches every full seat and gold stays honest across cadence and stalls", () => {
+  const assertContract = (source) => {
+    const block = ghostBlock(source), spawn = extractFunction(source, "spawnProjectile"), update = extractFunction(source, "updateProjectiles"), collision = extractFunction(source, "ghostGiftProjectileHit");
+    assert.match(block, /GH_BEACON_LEAD=1\.5, GH_GIFT_LEAD=3\.0/); assert.match(block, /GH_GIFT_SPEED=72, GH_GIFT_STEP=1\/90/);
+    assert.match(spawn, /giftLaunchT=pr\.giftRoadT; pr\.giftX=pr\.pos\.x; pr\.giftY=pr\.pos\.y; pr\.giftZ=pr\.pos\.z; pr\.giftVx=pr\.vel\.x; pr\.giftVy=pr\.vel\.y; pr\.giftVz=pr\.vel\.z/);
+    assert.match(update, /k=0\.5\*t\*\(t\+GH_GIFT_STEP\)/); assert.doesNotMatch(update, /new THREE/, "the cadence-stable Gift flight allocates nothing per frame");
+    assert.match(collision, /first=Math\.max\(1,[^;]+GH_GIFT_STEP[^;]+last=Math\.floor\([^;]+GH_GIFT_STEP\+1e-9\)/); assert.doesNotMatch(collision, /new THREE/, "the curved-path catch allocates nothing per frame");
+    assert.deepEqual([2.2, 2.6, 3].map((lead) => giftWindowBoundary(source, lead)), Array(3).fill([true, false, false, true, false]), "every audition keeps exact open/reveal/arrival boundaries");
+    for (const lead of [2.2, 2.6, 3]) {
+      const tuned = lead === 3 ? source : source.replace("GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0", `GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=${lead}`), late = giftLockCatchResult(tuned, 1.1);
+      assert.equal(late.normalLocked, true); assert.equal(late.locked, false); assert.equal(late.caught, false);
+    }
+    for (const fixture of FULL_ROW_GIFT_FIXTURES) {
+      const result = fullRowGiftResult(source, fixture);
+      assert.equal(result.selected, true); assert.equal(result.locked, true); assert.ok(Math.abs(result.flight-fixture.flight)<1e-9); assert.ok(Math.abs(result.speed-72)<0.5);
+      assert.ok(Math.abs(result.position[0]-fixture.x)<1e-9); assert.ok(Math.abs(result.position[1]-2.2)<1e-9);
+      for (const rate of result.rates) { assert.equal(rate.caught, true, `${fixture.x} m ${fixture.edge?'edge ':' '}gold catches`); assert.ok(rate.at<=10); }
+      assert.equal(result.stall.caught, true, `${fixture.x} m ${fixture.edge?'edge ':' '}gold survives a two-second frame stall`); assert.ok(result.stall.at<=10);
+    }
+  };
+  assertContract(html);
+  let mutation = html.replace("GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0", "GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=2.6");
+  mutationMustFail(assertContract, mutation, "the outer-row oracle rejects the 2.6-second near-only survivor");
+  mutation = replaceFunction(html, "simGiftShotHits", (fn) => fn.replace("Math.min(T+0.15,tg.lockUntil)", "T+0.15"));
+  mutationMustFail(assertContract, mutation, "every audition kills the historical post-arrival false gold");
+  mutation = replaceFunction(html, "updateProjectiles", (fn) => fn.replace("if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX))", "if(false)"));
+  mutationMustFail(assertContract, mutation, "the cadence oracle kills the former render-step Gift flight");
+  mutation = replaceFunction(html, "ghostGiftProjectileHit", (fn) => fn.replace("if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX))", "if(false)"));
+  mutationMustFail(assertContract, mutation, "the collision oracle kills a frame chord that skips the blessed parabola");
+  mutation = replaceFunction(html, "spawnProjectile", (fn) => fn.replace("pr.giftLaunchT=pr.giftRoadT; ", ""));
+  mutationMustFail(assertContract, mutation, "the launch oracle kills a pooled Gift without its absolute road origin");
+});
+
 function traceGeometryAgreement(source) {
   const projectiles = [];
   const context = runGhost(source, { gift: true, extra: {
@@ -295,7 +390,7 @@ function traceGeometryAgreement(source) {
     Tone.Transport.seconds=now;
     const proxy=ghostGiftLockTarget(aim,0.72), initialDistance=Math.hypot(proxy.mesh.position.x-PLAYER_POS.x,proxy.mesh.position.y-PLAYER_POS.y,proxy.mesh.position.z-PLAYER_POS.z);
     const proxyPosition=[proxy.mesh.position.x,proxy.mesh.position.y,proxy.mesh.position.z], proxySpeed=proxy.vel.z, locked=simGiftShotHits(muzzle,velocity,flight,proxy);
-    const projectile={pos:new Vec3().copy(muzzle),vel:new Vec3().copy(velocity),life:0,mesh:null,gift:true,giftRow:row,giftRoadT:now,fireRow:null};
+    const projectile={pos:new Vec3().copy(muzzle),vel:new Vec3().copy(velocity),life:0,mesh:null,gift:true,giftRow:row,giftRoadT:now,giftLaunchT:now,giftX:muzzle.x,giftY:muzzle.y,giftZ:muzzle.z,giftVx:velocity.x,giftVy:velocity.y,giftVz:velocity.z,fireRow:null};
     projectiles.push(projectile);
     const frameWall=0.075, frameDt=0.05, flare=new Vec3(); let dmin=Infinity, closestTta=null;
     for(let frame=1;frame<=40 && projectiles.length;frame++){
@@ -319,10 +414,11 @@ test("the trace geometry's proxy march and real road-clock flight agree", () => 
     assert.ok(result.proxyPosition.every((value,index)=>Math.abs(value-[91.6,2.2,-58][index])<1e-12)); assert.ok(Math.abs(result.proxySpeed-100/4.62)<1e-12);
     assert.ok(result.initialDistance>108 && result.initialDistance<109); assert.ok(Math.abs(result.launchSpeed-71.8)<0.1);
     assert.equal(result.locked, true); assert.equal(result.caught, true, `march blessed but real flight missed by ${result.dmin.toFixed(2)} m`);
+    assert.ok(result.dmin<5, `the rendered projectile follows its blessed curve (nearest sampled frame ${result.dmin.toFixed(2)} m)`);
   };
   assertContract(html);
-  const mutation = replaceFunction(html, "updateProjectiles", (fn) => fn.replace("const giftDt=Number.isFinite(pr.giftRoadT)?Math.max(0,ghostRoadTime()-pr.giftRoadT):dt;", "const giftDt=dt;"));
-  mutationMustFail(assertContract, mutation, "the trace oracle kills a Gift flight returned to capped render time");
+  const mutation = replaceFunction(html, "updateProjectiles", (fn) => fn.replace("pr.pos.x=pr.giftX+pr.giftVx*t+windX*k", "pr.pos.x=pr.giftX"));
+  mutationMustFail(assertContract, mutation, "the trace oracle kills a blessed flight frozen at its launch x");
 });
 
 function realBoundsGiftResult(source) {
@@ -548,6 +644,7 @@ function revealCollapseResult(source) {
     orbOpen: () => { calls.orb += 1; return true; }, gradeRhythmHit: () => { calls.grade += 1; }, clankShot: () => { calls.clank += 1; }, handleTankHit: () => {},
     retireProjectile: (index) => { projectiles.splice(index, 1); }, moonlineVoid: () => false, spawnLandRing: () => {},
   }, body: `
+    ${extractFunction(source, "simGiftShotHits")}
     ${extractFunction(source, "segDistSq")}
     ${extractFunction(source, "updateProjectiles")}
     const row=[0,1,5,10,0,null], targetPos=new Vec3(); ghostTargetPosition(row,8,targetPos);
@@ -555,10 +652,17 @@ function revealCollapseResult(source) {
     projectiles.push(projectile); this.targets=[{dead:false,radius:2.2,sc:1,hpMax:1,kind:0,mesh:{position:new Vec3().copy(targetPos)}}]; this._prev=new Vec3(); _ghostRecord={}; _ghostSeatRecord={dur:10,targets:[row]}; _ghostSeatRoot={}; _ghCaughtSlots=new Set(); _ghostGiftMail=[]; _ghGiftPrevPos=new Vec3(); _ghGiftImpactPos=new Vec3(); _ghBurstPool=null; _ghCatchPool=null;
     Tone.Transport.seconds=8; updateProjectiles(0); this.closed={live:projectiles.length,tag:projectile.gift,mail:_ghostGiftMail.length,calls:{...calls}};
     roadWallMat.uniforms.uK.value=[1]; Tone.Transport.seconds=8.01; updateProjectiles(0); this.reopened={live:projectiles.length,mail:_ghostGiftMail.map(row=>Array.from(row)),fireHit:projectile.fireRow[3],calls:{...calls}};
+    projectiles.length=0; _ghCaughtSlots.clear(); _ghostGiftMail=[]; _ghSeatX=90; _ghostRoadBase=0; _ghostRoadLast=7; _ghGiftRoadT=7; Tone.Transport.seconds=7;
+    const absRow=[0,1,9,10,0,null], targetAtLaunch=new Vec3(); ghostTargetPosition(absRow,7,targetAtLaunch);
+    const muzzle=new Vec3(targetAtLaunch.x-72,2.2,targetAtLaunch.z+10), velocity=new Vec3(72,0,0), proxy={mesh:{position:targetAtLaunch},vel:new Vec3(0,0,10),radius:GH_GIFT_R,sc:1,gift:true,lockUntil:3};
+    const absLocked=simGiftShotHits(muzzle,velocity,1,proxy), absolute={pos:new Vec3().copy(muzzle),vel:new Vec3().copy(velocity),life:0,mesh:null,gift:true,giftRow:absRow,giftRoadT:7,giftLaunchT:7,giftX:muzzle.x,giftY:muzzle.y,giftZ:muzzle.z,giftVx:velocity.x,giftVy:velocity.y,giftVz:velocity.z,fireRow:[0,0,0,0]};
+    projectiles.push(absolute); _ghostSeatRecord={dur:10,targets:[absRow]}; roadWallMat.uniforms.uK.value=[0]; Tone.Transport.seconds=8.2; updateProjectiles(1.2); const absoluteClosed={locked:absLocked,live:projectiles.length,caught:_ghCaughtSlots.has(9),cursor:absolute.giftRoadT};
+    roadWallMat.uniforms.uK.value=[1]; Tone.Transport.seconds=8.3; updateProjectiles(0.1); this.absolute={closed:absoluteClosed,reopened:{live:projectiles.length,caught:_ghCaughtSlots.has(9),mail:_ghostGiftMail.length,cursor:absolute.giftRoadT}};
   ` });
   return {
     closed: { ...context.closed, calls: { ...context.closed.calls } },
     reopened: { ...context.reopened, mail: Array.from(context.reopened.mail, (row) => Array.from(row)), calls: { ...context.reopened.calls } },
+    absolute: { closed: { ...context.absolute.closed }, reopened: { ...context.absolute.reopened } },
   };
 }
 
@@ -567,9 +671,13 @@ test("mid-flight reveal collapse keeps the tag harmless and exclusive until reve
     const result = revealCollapseResult(source);
     assert.deepEqual(result.closed, { live: 1, tag: true, mail: 0, calls: { mark: 0, whiff: 0, grade: 0, clank: 0, orb: 0 } });
     assert.deepEqual(result.reopened, { live: 0, mail: [[8.01, 1]], fireHit: 1, calls: { mark: 0, whiff: 0, grade: 0, clank: 0, orb: 0 } });
+    assert.deepEqual(result.absolute.closed, { locked: true, live: 1, caught: false, cursor: 8.2 }, "the hidden interval advances the absolute Gift collision cursor");
+    assert.deepEqual(result.absolute.reopened, { live: 1, caught: false, mail: 0, cursor: 8.3 }, "reopening cannot backfill a connection that crossed under the veil");
   };
   assertContract(html);
   let mutation = replaceFunction(html, "ghostGiftSync", (fn) => fn.replace("return _ghGiftReveal>=GH_GIFT_V;", "return true;"));
   mutation = replaceFunction(mutation, "ghostGiftable", (fn) => fn.replace("v>=GH_GIFT_V", "v>=0"));
   mutationMustFail(assertContract, mutation, "the reveal-gate oracle kills a mid-flight catch while v is below GH_GIFT_V");
+  mutation = replaceFunction(html, "ghostGiftProjectileHit", (fn) => fn.replace("if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.life)){ const cursor=pr.giftLaunchT+Math.max(0,pr.life); pr.giftRoadT=Number.isFinite(pr.giftRoadT)?Math.max(pr.giftRoadT,cursor):cursor; } ", ""));
+  mutationMustFail(assertContract, mutation, "the reveal cursor oracle kills a retroactive catch after the veil reopens");
 });

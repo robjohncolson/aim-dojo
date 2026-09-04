@@ -8289,11 +8289,11 @@
              
  
                                           
-                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                
                      
                                 
-                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                  
                        
@@ -8313,8 +8313,9 @@
                                            
                             
                            
-                                                                                             
-                                                                                                                                                                                                             
+                                                                                                                                  
+                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                 
           
                                                                                                                                                                                                                             
      
@@ -8433,7 +8434,7 @@
                                                                                                 
  
                                    
-                                                                                                          
+                                                                                                                  
                                                  
                                                                 
                                                     
@@ -9146,9 +9147,10 @@
                                                                                                            
                                                                                     
                                                                                                                                                       
+                                                                                                                                                               
                                                                                                                                      
                                                    
-                                                                                                                                              
+                                                                                                                                                                 
                                                                      
                                                                                                
                                                                                                  
@@ -9172,6 +9174,7 @@
                                                                                                                                           
                                                                                                                                                                                                                                                             
                                                                         
+                   
                                 
                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                
@@ -9180,13 +9183,14 @@
               
  
                                 
+                                               
                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                     
                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
  
                            
-                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                       
                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                          
@@ -9319,15 +9323,15 @@
                                                 
                                                                                                                   
       
-                                                                                                            
-                                
+                                                                                                                        
+                           
                                                             
                                               
                                                                               
                                                                                       
                                                                                                                                                      
             
-                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                
                              
                        
@@ -9481,7 +9485,7 @@
                                                                                                                                                                                                                                                                              
                                                                                      
                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                  
                                                                                                                                             
                                                                                                                                                                                                                                                                                    
@@ -9489,7 +9493,7 @@
                                                                                  
                                                                                           
                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
@@ -9505,17 +9509,17 @@
                                                                                                                                                                                       
                                                                                                                                
    
-                                                                                                                               
+                                                                       
                            
                                                                                                                                                                  
                                                                                                                                                                                  
                                                                 
                                                                                                                                                                                                                                                                                                                                                                                  
                                                                                                               
-                                                                                                                                                                                     
-                                                                                                                                                                                                                                           
-                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                         
                                                      
@@ -9523,6 +9527,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                     
    
+                                                         
                                                                 
                                                                                                                                                                                                                                 
                                                                              
@@ -9634,19 +9639,24 @@
  
                                     
                                                                                                                                                           
-                                                                                              
+                                                              
+                                                                                                                                                                                                                                                      
                                                                                                                                                                        
                         
                                                                                 
-                                                             
-                                                        
-                                                        
-                                                                                                             
-                                                                                                                                                                            
-                                                           
-                                       
-                  
-                                                                                       
+                                               
+                                                                 
+                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                   
+   
+           
+                                                               
+                                                                                                                 
+                                                                                                               
+                                                                                                                                                                              
+                                                                                                                    
+                                                                         
+   
                             
              
  
@@ -9776,21 +9786,21 @@
                                                                                                                   
                                       
                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                       
-                                                                                                           
-                                                          
-              
-                         
-                                                                                                        
-                                                                           
-                                                  
-                                                     
-                                
-                                                                                                
-                                                                                                                                                                  
- 
+function wasdBeatCueOn(){ return !templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started' && (!reduceMotion || trainMode); }   // EVERY condition of the shipped floor-beat gate except which SURFACE is asking: trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). Both callers append their own surface test, and updateFloorBeat's is still `&& !roadLive()`, so its gate reduces character-for-character to the one that shipped
+function beatSwell(maxAmt, off){ const env=Math.max(0,1-off*2); return maxAmt*env*env; }   // THE CURVE, and the ONLY copy of it: a linear ramp off the beat, squared. Lifted out of wasdBeatGlow by wave 8.1 unchanged — same expression, same multiply order, so every caller's product is bit-for-bit what it was — because the RIBBON now needs the same shape on a different clock (roadBreath) and a second transcription of a loved curve is how two cues start disagreeing. Three renderers, one law: the trainer's floor, the crosshair's letter, the Moonline's road
+function wasdBeatGlow(){   // THE ENVELOPE, verbatim: |beats − round(beats)| against a linear ramp, squared. Returns floor-beat units (0..CFG.floorBeatMax) so the floor path's product is bit-for-bit unchanged; the crosshair divides by the same max
+  let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
+  const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
+  beats-=cueI;
+  const nd=wasdNoteDiv();
+  // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
+  const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length;
+  _beatGlowKey=_combo[(((biKey*nd)%len)+len)%len];
+  const bi=Math.round(beats), off=Math.abs(beats-bi);
+  const maxAmt=CFG.floorBeatMax;
+  if(trainMode && reduceMotion) return off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
+  return beatSwell(maxAmt, off);   // …and the soft envelope, now the one shared copy above (same operands, same order: bit-identical to the line that stood here)
+}
 function updateFloorBeat(){
   let amt=0;
   const floorCueOn=wasdBeatCueOn() && !roadLive();   // THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped

@@ -622,7 +622,7 @@ test("the lighthouse and avatar expose named presence, halo, bow, and yaw contra
   const assertContract = (source) => {
     const block = ghostBlock(source), build = extractFunction(source, "ghostSeatBuild"), instances = extractFunction(source, "ghostInstanceMaterial"), advance = extractFunction(source, "ghostSeatAdvance");
     assert.match(block, /GH_BEACON_ALPHA=0\.78, GH_BEACON_WIDTH=1\.6, GH_BEACON_HEIGHT=40, GH_BEACON_RING_RADIUS=1\.05, GH_BEACON_RING_TUBE=0\.10, GH_BEACON_HALO_RADIUS=2\.6/);
-    assert.match(build, /ghostInstanceMaterial\(GH_BEACON_ALPHA,_ghBeacon\)/);
+    assert.match(build, /ghostInstanceMaterial\(GH_BEACON_ALPHA\*_ghSeatAlpha,_ghBeacon\)/);
     assert.match(build, /new THREE\.BoxGeometry\(GH_BEACON_WIDTH,GH_BEACON_HEIGHT,GH_BEACON_WIDTH\)/);
     assert.match(instances, /gl_FragColor=vec4\(vCol,a\)/);
     assert.doesNotMatch(instances, /vec4\(vCol\*a,a\)/, "additive RGB is not alpha-premultiplied twice");

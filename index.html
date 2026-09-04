@@ -8289,11 +8289,11 @@ function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter i
   }catch(e){}
 }
 function spawnProjectile(fireRow,giftRow){
-  const pr=projectilePool.pop() || (GH_GIFT?{pos:new THREE.Vector3(),vel:new THREE.Vector3(),fireRow:null,gift:false,giftRow:null,giftRoadT:0,life:0,mesh:null,charged:false}:{pos:new THREE.Vector3(),vel:new THREE.Vector3(),fireRow:null,life:0,mesh:null,charged:false});
+  const pr=projectilePool.pop() || (GH_GIFT?{pos:new THREE.Vector3(),vel:new THREE.Vector3(),fireRow:null,gift:false,giftRow:null,giftRoadT:0,giftLaunchT:0,giftX:0,giftY:0,giftZ:0,giftVx:0,giftVy:0,giftVz:0,life:0,mesh:null,charged:false}:{pos:new THREE.Vector3(),vel:new THREE.Vector3(),fireRow:null,life:0,mesh:null,charged:false});
   const gift=!!(GH_GIFT&&giftRow), _T=gift?computeShotPlan(pr.pos,pr.vel,GH_GIFT_SPEED):computeShotPlan(pr.pos, pr.vel);   // mercy lends mastery's fixed muzzle speed; the off/normal arm keeps the shipped two-argument solve
   playFireLaunch(_T);
   pr.fireRow=fireRow; pr.life=0;
-  if(GH_GIFT){ pr.gift=gift; pr.giftRow=gift?giftRow:null; pr.giftRoadT=gift?ghostRoadTime():0; }   // decision: the off arm never adds a projectile tag; the on arm writes its row and road-clock origin exactly once at launch
+  if(GH_GIFT){ pr.gift=gift; pr.giftRow=gift?giftRow:null; pr.giftRoadT=gift?ghostRoadTime():0; if(gift){ pr.giftLaunchT=pr.giftRoadT; pr.giftX=pr.pos.x; pr.giftY=pr.pos.y; pr.giftZ=pr.pos.z; pr.giftVx=pr.vel.x; pr.giftVy=pr.vel.y; pr.giftVz=pr.vel.z; } }   // decision: the off arm never adds a projectile tag; the on arm writes its row and road-clock origin exactly once at launch; pooled launch scalars keep its blessed parabola independent of render cadence
   // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
@@ -8313,8 +8313,9 @@ function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const pr=projectiles[i];
     if(GH_GIFT && pr.gift){
-      const giftDt=Number.isFinite(pr.giftRoadT)?Math.max(0,ghostRoadTime()-pr.giftRoadT):dt;
-      pr.vel.x+=windX*giftDt; pr.vel.y-=CFG.projGravity*giftDt; pr.vel.z+=windZ*giftDt; _prev.copy(pr.pos); pr.pos.x+=pr.vel.x*giftDt; pr.pos.y+=pr.vel.y*giftDt; pr.pos.z+=pr.vel.z*giftDt; pr.life+=giftDt;
+      const giftNow=ghostRoadTime(), giftDt=Number.isFinite(pr.giftRoadT)?Math.max(0,giftNow-pr.giftRoadT):dt; _prev.copy(pr.pos);
+      if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX)){ const t=Math.max(pr.life,Math.max(0,giftNow-pr.giftLaunchT)), k=0.5*t*(t+GH_GIFT_STEP); pr.pos.x=pr.giftX+pr.giftVx*t+windX*k; pr.pos.y=pr.giftY+pr.giftVy*t-CFG.projGravity*k; pr.pos.z=pr.giftZ+pr.giftVz*t+windZ*k; pr.life=t; }
+      else{ pr.vel.x+=windX*giftDt; pr.vel.y-=CFG.projGravity*giftDt; pr.vel.z+=windZ*giftDt; pr.pos.x+=pr.vel.x*giftDt; pr.pos.y+=pr.vel.y*giftDt; pr.pos.z+=pr.vel.z*giftDt; pr.life+=giftDt; }
     }else{
     pr.vel.x+=windX*dt; pr.vel.y-=CFG.projGravity*dt; pr.vel.z+=windZ*dt; _prev.copy(pr.pos); pr.pos.x+=pr.vel.x*dt; pr.pos.y+=pr.vel.y*dt; pr.pos.z+=pr.vel.z*dt; pr.life+=dt;   // wind: horizontal accel (0 in the daily)
     }
@@ -8433,7 +8434,7 @@ function simShotHits(M, V, T, tg){                                              
   _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
 }
 function simGiftShotHits(M,V,T,tg){
-  const g=CFG.projGravity, sdt=1/90, limit=Number.isFinite(tg.lockUntil)?Math.min(T+0.15,tg.lockUntil):-1;
+  const g=CFG.projGravity, sdt=GH_GIFT_STEP, limit=Number.isFinite(tg.lockUntil)?Math.min(T+0.15,tg.lockUntil):-1;
   let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
   const T0=tg.mesh.position, Vt=tg.vel, rr2=GH_GIFT_R*GH_GIFT_R;
   let bestH2=Infinity, bestDy=0, bestDx=0, bestDz=0;
@@ -9139,16 +9140,17 @@ const GH_ROAD_HALF=7, GH_ROAD_AHEAD=180, GH_ROAD_BEHIND=20, GH_ROAD_BEATS=12;
 const GH_WALL_SOLID=24, GH_WALL_POWDER=38, GH_WALL_Y0=-24, GH_WALL_Y1=21, GH_WALL_N=7;
 const GH_LOW_TARGET_MAX=24, GH_HIGH_TARGET_MAX=48, GH_LOW_BURST_MAX=0, GH_HIGH_BURST_MAX=24;
 const GH_TARGET_MAX=LOW?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=LOW?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
-const GH_TARGET_FAR=108, GH_TARGET_NEAR=8, GH_TARGET_Y=2.2, GH_TARGET_FADE=0.35, GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=2.6;
+const GH_TARGET_FAR=108, GH_TARGET_NEAR=8, GH_TARGET_Y=2.2, GH_TARGET_FADE=0.35, GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0;
 const GH_LANE_STEP=3.2, GH_LANE_MIX=0.56, GH_WALL_ALPHA=0.55, GH_WALL_SHADE_MIN=0.48, GH_BURST_LIFE=1.2;
 const GH_PALETTE_MOON_MIX=0.58, GH_ROAD_DECK_MOON_MIX=0.18, GH_ROAD_GOLD_MOON_MIX=0.38, GH_AVATAR_MOON_MIX=0.28;
 const GH_ROAD_DECK_ALPHA=0.12, GH_ROAD_RULE_ALPHA=0.72, GH_TARGET_ALPHA=0.82, GH_BURST_ALPHA=0.70;
 const GH_AVATAR_BODY_ALPHA=0.62, GH_AVATAR_HALO_ALPHA=0.34, GH_AVATAR_BOW_ALPHA=0.72, GH_AVATAR_YAW_SIGN=1;
 const GH_AVATAR_BOW_WIDTH=0.14, GH_AVATAR_BOW_HEIGHT=0.18, GH_AVATAR_BOW_LENGTH=2.4;
 const GH_BEACON_ALPHA=0.78, GH_BEACON_WIDTH=1.6, GH_BEACON_HEIGHT=40, GH_BEACON_RING_RADIUS=1.05, GH_BEACON_RING_TUBE=0.10, GH_BEACON_HALO_RADIUS=2.6;
+const GH_VISITOR_ALPHA=1.0;                                               // one construction-time weight for full visitor seats; own and silhouette stay exact
 const GH_TARGET_SCALE=0.72, GH_TARGET_GROW_SEC=0.22, GH_BEACON_BREATH_MIN=0.86, GH_BEACON_BREATH_SWING=0.14, GH_BEACON_BREATH_HZ=2.1;
 const GH_BURST_SCALE=0.34, GH_BURST_SCALE_MIN=0.25;
-const GH_GIFT_SPEED=72, GH_GIFT_V=0.7, GH_GIFT_R=2.2, GH_GIFT_SPAN_MIN=0.001, GH_GIFT_NEAR_MIN=1, GH_GIFT_PROXY_SCALE=1, GH_GIFT_PROXY_KIND=0;
+const GH_GIFT_SPEED=72, GH_GIFT_STEP=1/90, GH_GIFT_V=0.7, GH_GIFT_R=2.2, GH_GIFT_SPAN_MIN=0.001, GH_GIFT_NEAR_MIN=1, GH_GIFT_PROXY_SCALE=1, GH_GIFT_PROXY_KIND=0;
 const GH_CATCH_EFFECT_MAX=8, GH_CATCH_BIRDS=8, GH_CATCH_CORE_BIRDS=3;
 const GH_CATCH_LIFE=1.65, GH_CATCH_SCALE=0.68, GH_CATCH_SCALE_MIN=0.36, GH_CATCH_WARM_MIX=0.72;
 const GH_CATCH_SPEED_MIN=3.0, GH_CATCH_SPEED_SPAN=3.4, GH_CATCH_UP_MIN=2.4, GH_CATCH_UP_SPAN=3.5;
@@ -9172,6 +9174,7 @@ let _ghTargetCursor=0, _ghHitCursor=0, _ghFireCursor=0, _ghBpmCursor=0, _ghBurst
 let _ghActiveTargets=null, _ghHitRows=null, _ghBeatPrefix=null, _ghBurstPool=null, _ghCatchPool=null, _ghCaughtSlots=null, _ghCounts=null;
 let _ghMatrix=null, _ghPos=null, _ghScale=null, _ghIdentity=null, _ghBurstQuat=null, _ghRingQuat=null, _ghXAxis=null, _ghColor=null, _ghGiftPos=null, _ghGiftVel=null, _ghGiftImpactPos=null, _ghGiftPrevPos=null, _ghGiftProxy=null, _ghGiftLockedRow=null;
 let _ghCatchNext=0, _ghGiftRoadT=0, _ghGiftReveal=0, _ghSeatX=GH_SEAT_X;
+let _ghSeatAlpha=1;
 function ghostSeatCapture(seat){
   seat.x=_ghSeatX; seat.record=_ghostSeatRecord; seat.seatRoot=_ghostSeatRoot; seat.beaconRoot=_ghostBeaconRoot; seat.road=_ghostRoad; seat.walls=_ghostWalls; seat.targets=_ghostTargets; seat.bursts=_ghostBursts; seat.avatar=_ghostAvatar; seat.avatarBody=_ghostAvatarBody; seat.avatarHalo=_ghostAvatarHalo; seat.avatarBow=_ghostAvatarBow; seat.beaconCols=_ghostBeaconCols; seat.beaconRings=_ghostBeaconRings;
   seat.vis=_ghVis; seat.beat=_ghBeat; seat.beacon=_ghBeacon; seat.moon=_ghMoon; seat.white=_ghWhite; seat.catchWarm=_ghCatchWarm; seat.roadDeck=_ghRoadDeck; seat.roadGold=_ghRoadGold; seat.avatarCol=_ghAvatarCol; seat.palette=_ghPalette; seat.nightChalk=_ghNightChalk; seat.lane=_ghLane;
@@ -9180,13 +9183,14 @@ function ghostSeatCapture(seat){
   return seat;
 }
 function ghostSeatInstall(seat){
+  _ghSeatAlpha=seat.visitor?GH_VISITOR_ALPHA:1;
   _ghSeatX=seat.x; _ghostSeatRecord=seat.record; _ghostSeatRoot=seat.seatRoot; _ghostBeaconRoot=seat.beaconRoot; _ghostRoad=seat.road; _ghostWalls=seat.walls; _ghostTargets=seat.targets; _ghostBursts=seat.bursts; _ghostAvatar=seat.avatar; _ghostAvatarBody=seat.avatarBody; _ghostAvatarHalo=seat.avatarHalo; _ghostAvatarBow=seat.avatarBow; _ghostBeaconCols=seat.beaconCols; _ghostBeaconRings=seat.beaconRings;
   _ghVis=seat.vis; _ghBeat=seat.beat; _ghBeacon=seat.beacon; _ghMoon=seat.moon; _ghWhite=seat.white; _ghCatchWarm=seat.catchWarm; _ghRoadDeck=seat.roadDeck; _ghRoadGold=seat.roadGold; _ghAvatarCol=seat.avatarCol; _ghPalette=seat.palette; _ghNightChalk=seat.nightChalk; _ghLane=seat.lane;
   _ghTargetCursor=seat.targetCursor; _ghHitCursor=seat.hitCursor; _ghFireCursor=seat.fireCursor; _ghBpmCursor=seat.bpmCursor; _ghBurstNext=seat.burstNext; _ghLastTime=seat.lastTime; _ghActiveTargets=seat.activeTargets; _ghHitRows=seat.hitRows; _ghBeatPrefix=seat.beatPrefix; _ghBurstPool=seat.burstPool; _ghCatchPool=seat.catchPool; _ghCaughtSlots=seat.caughtSlots; _ghCounts=seat.counts;
   _ghMatrix=seat.matrix; _ghPos=seat.pos; _ghScale=seat.scale; _ghIdentity=seat.identity; _ghBurstQuat=seat.burstQuat; _ghRingQuat=seat.ringQuat; _ghXAxis=seat.xAxis; _ghColor=seat.color; _ghGiftPos=seat.giftPos; _ghGiftVel=seat.giftVel; _ghGiftImpactPos=seat.giftImpactPos; _ghGiftPrevPos=seat.giftPrevPos; _ghGiftProxy=seat.giftProxy; _ghCatchNext=seat.catchNext; _ghGiftRoadT=seat.giftRoadT; _ghGiftReveal=seat.giftReveal; _ghostGiftMail=seat.mail;
 }
 function ghostSeatClear(x){
-  _ghSeatX=x; _ghostSeatRecord=null; _ghostSeatRoot=null; _ghostBeaconRoot=null; _ghostRoad=null; _ghostWalls=null; _ghostTargets=null; _ghostBursts=null; _ghostAvatar=null; _ghostAvatarBody=null; _ghostAvatarHalo=null; _ghostAvatarBow=null; _ghostBeaconCols=null; _ghostBeaconRings=null;
+  _ghSeatAlpha=1; _ghSeatX=x; _ghostSeatRecord=null; _ghostSeatRoot=null; _ghostBeaconRoot=null; _ghostRoad=null; _ghostWalls=null; _ghostTargets=null; _ghostBursts=null; _ghostAvatar=null; _ghostAvatarBody=null; _ghostAvatarHalo=null; _ghostAvatarBow=null; _ghostBeaconCols=null; _ghostBeaconRings=null;
   _ghVis=null; _ghBeat=null; _ghBeacon=null; _ghMoon=null; _ghWhite=null; _ghCatchWarm=null; _ghRoadDeck=null; _ghRoadGold=null; _ghAvatarCol=null; _ghPalette=null; _ghNightChalk=null; _ghLane=null;
   _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghLastTime=0; _ghActiveTargets=null; _ghHitRows=null; _ghBeatPrefix=null; _ghBurstPool=null; _ghCatchPool=null; _ghCaughtSlots=null; _ghCounts=null;
   _ghMatrix=null; _ghPos=null; _ghScale=null; _ghIdentity=null; _ghBurstQuat=null; _ghRingQuat=null; _ghXAxis=null; _ghColor=null; _ghGiftPos=null; _ghGiftVel=null; _ghGiftImpactPos=null; _ghGiftPrevPos=null; _ghGiftProxy=null; _ghCatchNext=0; _ghGiftRoadT=0; _ghGiftReveal=0; _ghostGiftMail=null;
@@ -9319,15 +9323,15 @@ function ghostVisitorAccept(epoch,id,record){
   if(!_ghostVisitorSeats) _ghostVisitorSeats=[];
   const slot=_ghostVisitorCount, heldGiftLock=_ghGiftLockedRow; let seat=_ghostVisitorSeats[slot], accepted=false;
   try{
-    if(!seat){ ghostSeatClear(GH_SEAT_XS[slot]); seat=ghostSeatCapture({}); _ghostVisitorSeats[slot]=seat; }
-    else ghostSeatInstall(seat);
+    if(!seat){ ghostSeatClear(GH_SEAT_XS[slot]); seat=ghostSeatCapture({visitor:true}); _ghostVisitorSeats[slot]=seat; }
+    ghostSeatInstall(seat);
     _ghostSeatRecord=record; _ghostGiftMail=GH_GIFT?[]:null;
     if(_ghCaughtSlots) _ghCaughtSlots.clear();
     if(!_ghostSeatRoot) ghostSeatBuild(record); else ghostSeatPalette(record);
     ghostSeatPrepare(record); if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ');
     seat.id=id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
   }catch(e){
-    if(seat){ try{ _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); ghostSeatCapture(seat); }catch(_e){} }
+    if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||(_ghostWalls&&_ghostBursts))); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
   }finally{ _ghGiftLockedRow=heldGiftLock; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
   if(!accepted) return false;
   _ghostVisitorCount++;
@@ -9481,7 +9485,7 @@ function ghostWallGeometry(){
 function ghostRoadMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uDeck:{value:_ghRoadDeck},uGold:{value:_ghRoadGold}},vertexShader:[
   'uniform float uBeat; attribute float aTone,aScroll,aAnchor; varying float vTone;',
   'void main(){ vec3 P=position; if(aScroll>0.5){ float b=mod(aAnchor-uBeat+1.0,'+_roadG(GH_ROAD_BEATS)+')-1.0; P.z=-b*'+_roadG(ROAD_MPB)+'+position.z; } vTone=aTone; gl_Position=projectionMatrix*modelViewMatrix*vec4(P,1.0); }'
-  ].join('\n'),fragmentShader:'uniform float uVis; uniform vec3 uDeck,uGold; varying float vTone; void main(){ float a=mix('+_roadG(GH_ROAD_DECK_ALPHA)+','+_roadG(GH_ROAD_RULE_ALPHA)+',step(0.5,vTone))*uVis; if(a<=0.003) discard; vec3 c=mix(uDeck,uGold,step(0.5,vTone)); gl_FragColor=vec4(c,a); }'}); }
+  ].join('\n'),fragmentShader:'uniform float uVis; uniform vec3 uDeck,uGold; varying float vTone; void main(){ float a=mix('+_roadG(GH_ROAD_DECK_ALPHA*_ghSeatAlpha)+','+_roadG(GH_ROAD_RULE_ALPHA*_ghSeatAlpha)+',step(0.5,vTone))*uVis; if(a<=0.003) discard; vec3 c=mix(uDeck,uGold,step(0.5,vTone)); gl_FragColor=vec4(c,a); }'}); }
 function ghostWallMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uPal:{value:_ghPalette}},vertexShader:[
   'uniform float uBeat; uniform vec3 uPal[5]; attribute float aAnchor,aPal,aSeed; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
   'void main(){ float b=mod(aAnchor-uBeat+4.0,'+_roadG(GH_WALL_N*ML_ARCH_EVERY)+')-4.0; vec3 P=vec3('+_roadG(_ghSeatX)+'+position.x,position.y,-b*'+_roadG(ROAD_MPB)+'); vP=position.xy; vCol=uPal[int(aPal)]; vSeed=aSeed; gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0); }'
@@ -9489,7 +9493,7 @@ function ghostWallMaterial(){ return new THREE.ShaderMaterial({transparent:true,
   'uniform float uVis; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
   'float ghHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vSeed)*43758.5453); }',
   'float ghNoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=ghHash(i),b=ghHash(i+vec2(1.0,0.0)),c=ghHash(i+vec2(0.0,1.0)),d=ghHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
-  'void main(){ float x=vP.x,y=vP.y,d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; } if(d<0.0) discard; float seam=1.0-smoothstep('+_roadG(GH_WALL_SOLID)+','+_roadG(GH_WALL_POWDER)+',abs(x)); if(seam<ghNoise(vP*2.7+9.1)) discard; float grad=mix('+_roadG(GH_WALL_SHADE_MIN)+',1.0,smoothstep('+_roadG(GH_WALL_Y0)+','+_roadG(GH_WALL_Y1)+',y)); float a='+_roadG(GH_WALL_ALPHA)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol*grad,a); }'
+  'void main(){ float x=vP.x,y=vP.y,d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; } if(d<0.0) discard; float seam=1.0-smoothstep('+_roadG(GH_WALL_SOLID)+','+_roadG(GH_WALL_POWDER)+',abs(x)); if(seam<ghNoise(vP*2.7+9.1)) discard; float grad=mix('+_roadG(GH_WALL_SHADE_MIN)+',1.0,smoothstep('+_roadG(GH_WALL_Y0)+','+_roadG(GH_WALL_Y1)+',y)); float a='+_roadG(GH_WALL_ALPHA*_ghSeatAlpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol*grad,a); }'
   ].join('\n')}); }
 function ghostInstanceMaterial(alpha,visibility){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility},vertexShader:'varying vec3 vCol; void main(){ vCol=instanceColor; gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; varying vec3 vCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol,a); }'}); }
 function ghostAvatarMaterial(alpha){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uCol:{value:_ghAvatarCol}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
@@ -9505,17 +9509,17 @@ function ghostSeatBuild(record){
     _ghGiftProxy={mesh:{position:_ghGiftPos},vel:_ghGiftVel,radius:GH_GIFT_R,sc:GH_GIFT_PROXY_SCALE,kind:GH_GIFT_PROXY_KIND,gift:true,lockR:GH_GIFT_R,lockUntil:0,_ghostGiftRow:null};
     _ghCaughtSlots=new Set(); _ghCatchPool=Array.from({length:GH_CATCH_EFFECT_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0}));
   }
-  _ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group(); scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);
+  _ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group();
   ghostSeatPalette(record);
   _ghostRoad=new THREE.Mesh(ghostRoadGeometry(),ghostRoadMaterial()); _ghostRoad.frustumCulled=false; _ghostRoad.renderOrder=-30; _ghostSeatRoot.add(_ghostRoad);
   if(!LOW){ _ghostWalls=new THREE.Mesh(ghostWallGeometry(),ghostWallMaterial()); _ghostWalls.frustumCulled=false; _ghostWalls.renderOrder=-31; _ghostSeatRoot.add(_ghostWalls); }
   const targetMat=ghostInstanceMaterial(GH_TARGET_ALPHA,_ghVis);
   _ghostTargets=new THREE.InstancedMesh(TARGET_CORE_GEO,targetMat,GH_TARGET_MAX); _ghostTargets.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostTargets.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_TARGET_MAX*3),3); _ghostTargets.count=0; _ghostTargets.frustumCulled=false; _ghostTargets.renderOrder=1.2; _ghostSeatRoot.add(_ghostTargets);
   _ghostAvatar=new THREE.Group(); _ghostAvatar.position.set(_ghSeatX,1.7,0); _ghostSeatRoot.add(_ghostAvatar);
-  _ghostAvatarBody=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostAvatarMaterial(GH_AVATAR_BODY_ALPHA)); _ghostAvatarBody.position.y=1.55; _ghostAvatar.add(_ghostAvatarBody);
-  _ghostAvatarHalo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostAvatarMaterial(GH_AVATAR_HALO_ALPHA)); _ghostAvatarHalo.position.y=3.25; _ghostAvatarHalo.scale.setScalar(1.35); _ghostAvatar.add(_ghostAvatarHalo);
-  _ghostAvatarBow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostAvatarMaterial(GH_AVATAR_BOW_ALPHA)); _ghostAvatarBow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); _ghostAvatar.add(_ghostAvatarBow);
-  const beaconMat=ghostInstanceMaterial(GH_BEACON_ALPHA,_ghBeacon), colGeo=new THREE.BoxGeometry(GH_BEACON_WIDTH,GH_BEACON_HEIGHT,GH_BEACON_WIDTH), ringGeo=new THREE.TorusGeometry(GH_BEACON_RING_RADIUS,GH_BEACON_RING_TUBE,LOW?5:8,LOW?12:20);
+  _ghostAvatarBody=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostAvatarMaterial(GH_AVATAR_BODY_ALPHA*_ghSeatAlpha)); _ghostAvatarBody.position.y=1.55; _ghostAvatar.add(_ghostAvatarBody);
+  _ghostAvatarHalo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostAvatarMaterial(GH_AVATAR_HALO_ALPHA*_ghSeatAlpha)); _ghostAvatarHalo.position.y=3.25; _ghostAvatarHalo.scale.setScalar(1.35); _ghostAvatar.add(_ghostAvatarHalo);
+  _ghostAvatarBow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostAvatarMaterial(GH_AVATAR_BOW_ALPHA*_ghSeatAlpha)); _ghostAvatarBow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); _ghostAvatar.add(_ghostAvatarBow);
+  const beaconMat=ghostInstanceMaterial(GH_BEACON_ALPHA*_ghSeatAlpha,_ghBeacon), colGeo=new THREE.BoxGeometry(GH_BEACON_WIDTH,GH_BEACON_HEIGHT,GH_BEACON_WIDTH), ringGeo=new THREE.TorusGeometry(GH_BEACON_RING_RADIUS,GH_BEACON_RING_TUBE,LOW?5:8,LOW?12:20);
   _ghostBeaconCols=new THREE.InstancedMesh(colGeo,beaconMat,GH_BEACON_DRAW_MAX); _ghostBeaconCols.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconCols.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_DRAW_MAX*3),3); _ghostBeaconCols.count=0; _ghostBeaconCols.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconCols);
   _ghostBeaconRings=new THREE.InstancedMesh(ringGeo,beaconMat,GH_BEACON_RING_DRAW_MAX); _ghostBeaconRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconRings.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_RING_DRAW_MAX*3),3); _ghostBeaconRings.count=0; _ghostBeaconRings.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconRings);
   _ghRingQuat.setFromAxisAngle(_ghXAxis,Math.PI*0.5);
@@ -9523,6 +9527,7 @@ function ghostSeatBuild(record){
     _ghostBursts=new THREE.InstancedMesh(_flockGeo,ghostInstanceMaterial(GH_BURST_ALPHA,_ghVis),GH_BURST_MAX); _ghostBursts.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBursts.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BURST_MAX*3),3); _ghostBursts.count=0; _ghostBursts.frustumCulled=false; _ghostBursts.renderOrder=1.4; _ghostSeatRoot.add(_ghostBursts);
     _ghBurstPool=Array.from({length:GH_BURST_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,spin:0}));
   }
+  scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);
   ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
   // Decision for the user's "the game slows down when playing after a bit" report: this lazy seat missed the boot warm, so compile its complete material family during the session's quiet opening instead of its first reveal.
   runIdle(()=>{ try{ renderer.compile(scene,camera); }catch(e){} },180,1800);
@@ -9634,19 +9639,24 @@ function ghostGiftCatch(row,t){
 }
 function ghostGiftProjectileHit(pr){
   if(GH_SHARE && !_ghostSeatBusy && pr){ const seat=_ghostSeatRows&&_ghostSeatRows.get(pr.giftRow); if(seat) return ghostGiftSeatProjectileHit(seat,pr); }
-  if(!GH_GIFT || !pr || !pr.gift || !pr.giftRow || !ghostGiftSync(pr.giftRoadT)) return false;
+  if(!GH_GIFT || !pr || !pr.gift || !pr.giftRow) return false;
+  if(!ghostGiftSync(pr.giftRoadT)){ if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.life)){ const cursor=pr.giftLaunchT+Math.max(0,pr.life); pr.giftRoadT=Number.isFinite(pr.giftRoadT)?Math.max(pr.giftRoadT,cursor):cursor; } return false; }
   const currentT=_ghGiftRoadT, priorT=Number.isFinite(pr.giftRoadT)?Math.min(currentT,pr.giftRoadT):currentT, arrivalT=pr.giftRow[3], endT=Math.min(currentT,arrivalT);
   pr.giftRoadT=currentT;
   if(endT<priorT || !ghostGiftable(pr.giftRow,endT,_ghGiftReveal)) return false;
-  const span=currentT-priorT, uT=span>0?(endT-priorT)/span:0;
-  ghostTargetPosition(pr.giftRow,priorT,_ghGiftPrevPos);
-  ghostTargetPosition(pr.giftRow,endT,_ghGiftImpactPos);
-  const px=_prev.x+(pr.pos.x-_prev.x)*uT, py=_prev.y+(pr.pos.y-_prev.y)*uT, pz=_prev.z+(pr.pos.z-_prev.z)*uT;
-  const ax=_prev.x-_ghGiftPrevPos.x, ay=_prev.y-_ghGiftPrevPos.y, az=_prev.z-_ghGiftPrevPos.z, bx=px-_ghGiftImpactPos.x, by=py-_ghGiftImpactPos.y, bz=pz-_ghGiftImpactPos.z;
-  const sx=bx-ax, sy=by-ay, sz=bz-az, l2=sx*sx+sy*sy+sz*sz;
-  let u=l2>0?-(ax*sx+ay*sy+az*sz)/l2:0;
-  u=u<0?0:u>1?1:u;
-  const dx=ax+sx*u, dy=ay+sy*u, dz=az+sz*u, hit=dx*dx+dy*dy+dz*dz<=GH_GIFT_R*GH_GIFT_R;
+  const rr2=GH_GIFT_R*GH_GIFT_R; let hit=false;
+  if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX)){
+    const first=Math.max(1,Math.floor(Math.max(0,priorT-pr.giftLaunchT)/GH_GIFT_STEP)+1), last=Math.floor(Math.max(0,endT-pr.giftLaunchT)/GH_GIFT_STEP+1e-9);
+    for(let n=first;n<=last;n++){ const t=n*GH_GIFT_STEP, k=0.5*t*(t+GH_GIFT_STEP); ghostTargetPosition(pr.giftRow,pr.giftLaunchT+t,_ghGiftImpactPos); const dx=pr.giftX+pr.giftVx*t+windX*k-_ghGiftImpactPos.x, dy=pr.giftY+pr.giftVy*t-CFG.projGravity*k-_ghGiftImpactPos.y, dz=pr.giftZ+pr.giftVz*t+windZ*k-_ghGiftImpactPos.z; if(dx*dx+dy*dy+dz*dz<=rr2){ hit=true; break; } }
+  }
+  if(!hit){
+    const span=currentT-priorT, uT=span>0?(endT-priorT)/span:0;
+    ghostTargetPosition(pr.giftRow,priorT,_ghGiftPrevPos); ghostTargetPosition(pr.giftRow,endT,_ghGiftImpactPos);
+    const px=_prev.x+(pr.pos.x-_prev.x)*uT, py=_prev.y+(pr.pos.y-_prev.y)*uT, pz=_prev.z+(pr.pos.z-_prev.z)*uT;
+    const ax=_prev.x-_ghGiftPrevPos.x, ay=_prev.y-_ghGiftPrevPos.y, az=_prev.z-_ghGiftPrevPos.z, bx=px-_ghGiftImpactPos.x, by=py-_ghGiftImpactPos.y, bz=pz-_ghGiftImpactPos.z;
+    const sx=bx-ax, sy=by-ay, sz=bz-az, l2=sx*sx+sy*sy+sz*sz; let u=l2>0?-(ax*sx+ay*sy+az*sz)/l2:0; u=u<0?0:u>1?1:u;
+    const dx=ax+sx*u, dy=ay+sy*u, dz=az+sz*u; hit=dx*dx+dy*dy+dz*dz<=rr2;
+  }
   if(hit) _ghGiftRoadT=endT;
   return hit;
 }

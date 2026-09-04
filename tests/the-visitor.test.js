@@ -759,6 +759,110 @@ test("HIGH packs three full visitors and one honest fire-only silhouette while L
   await mutationMustFail(assertContract, mutation, "the ledger oracle kills a silhouette leaking into Gift catches");
 });
 
+function visitorAlphaSnapshot(source, alpha, low) {
+  const tuned = source.replace("const GH_VISITOR_ALPHA=1.0;", `const GH_VISITOR_ALPHA=${alpha};`);
+  assert.notEqual(tuned, source, `visitor alpha ${alpha} is constructible`);
+  const THREE = threeHarness();
+  const records = [1, 2, 3, 4].map((moonBucket) => artifact({ moonBucket }));
+  const context = runVisitor(tuned, {
+    seat: true, gift: true, share: true, low,
+    extra: {
+      THREE, TARGET_CORE_GEO: new THREE.BufferGeometry(), _flockGeo: new THREE.BufferGeometry(),
+      roadWallMat: { uniforms: { uNow: { value: 0 }, uArchN0: { value: 0 }, uK: { value: [1] } } },
+    },
+    body: `
+      const records=${JSON.stringify(records)}, ids=['a','b','c','d'].map(value=>value.repeat(32));
+      const scalar=mesh=>Number(mesh.material.fragmentShader.match(/float a=([0-9.]+)\\*uVis/)[1]);
+      const road=mesh=>mesh.material.fragmentShader.match(/float a=mix\\(([0-9.]+),([0-9.]+)/).slice(1).map(Number);
+      const shape=seat=>({road:road(seat.road),wall:seat.walls?scalar(seat.walls):null,target:scalar(seat.targets),body:scalar(seat.avatarBody),halo:scalar(seat.avatarHalo),bow:scalar(seat.avatarBow),beacon:scalar(seat.beaconCols),burst:seat.bursts?scalar(seat.bursts):null});
+      const silhouetteShape=seat=>seat?{body:scalar(seat.body),halo:scalar(seat.halo),bow:scalar(seat.bow)}:null;
+      const own=records[0]; _ghostSeatRecord=own; ghostSeatBuild(own); ghostSeatPrepare(own); _ghostOwnSeat=ghostSeatCapture({visitor:false}); _ghostSeats=[_ghostOwnSeat]; _ghostSeatRows=new WeakMap(); _ghostShareEpoch=41;
+      for(let i=0;i<GH_VISITOR_COUNT;i++) ghostVisitorAccept(41,ids[i],records[i+1]);
+      if(!LOW) ghostSilhouetteAccept(41,ids[3],records[3]);
+      const beforeMaterials=_ghostVisitorSeats.slice(0,_ghostVisitorCount).map(seat=>[seat.road.material,seat.walls&&seat.walls.material,seat.targets.material,seat.avatarBody.material,seat.avatarHalo.material,seat.avatarBow.material,seat.beaconCols.material,seat.bursts&&seat.bursts.material]);
+      const beforeShapes=_ghostVisitorSeats.slice(0,_ghostVisitorCount).map(shape), beforeSilhouette=_ghostSilhouettes&&_ghostSilhouettes[0]?silhouetteShape(_ghostSilhouettes[0]):null;
+      ghostSeatInstall(_ghostVisitorSeats[0]); const visitorInstall=_ghSeatAlpha;
+      ghostSeatInstall(_ghostOwnSeat); const ownInstall=_ghSeatAlpha;
+      ghostSeatInstall(_ghostVisitorSeats[_ghostVisitorCount-1]); const lastVisitorInstall=_ghSeatAlpha;
+      ghostSeatClear(999); const clearAlpha=_ghSeatAlpha; ghostSeatInstall(_ghostOwnSeat);
+      const stages=[0,0.02,0.01,1].map(packed=>{ roadWallMat.uniforms.uK.value=[packed]; ghostSeatsUpdate(0.016); return _ghostVisitorSeats.slice(0,_ghostVisitorCount).map(seat=>seat.vis.value); });
+      ghostShareReset(); const epoch=_ghostShareEpoch;
+      for(let i=0;i<GH_VISITOR_COUNT;i++) ghostVisitorAccept(epoch,ids[i],records[i+1]);
+      if(!LOW) ghostSilhouetteAccept(epoch,ids[3],records[3]);
+      const afterShapes=_ghostVisitorSeats.slice(0,_ghostVisitorCount).map(shape), afterSilhouette=_ghostSilhouettes&&_ghostSilhouettes[0]?silhouetteShape(_ghostSilhouettes[0]):null;
+      const sameMaterials=_ghostVisitorSeats.slice(0,_ghostVisitorCount).every((seat,index)=>[seat.road.material,seat.walls&&seat.walls.material,seat.targets.material,seat.avatarBody.material,seat.avatarHalo.material,seat.avatarBow.material,seat.beaconCols.material,seat.bursts&&seat.bursts.material].every((material,part)=>material===beforeMaterials[index][part]));
+      this.alphaSnapshot={own:shape(_ghostOwnSeat),visitors:beforeShapes,silhouette:beforeSilhouette,stages,install:[visitorInstall,ownInstall,lastVisitorInstall,clearAlpha],reused:{sameMaterials,sameShapes:JSON.stringify(beforeShapes)===JSON.stringify(afterShapes),sameSilhouette:JSON.stringify(beforeSilhouette)===JSON.stringify(afterSilhouette)}};
+    `,
+  });
+  return JSON.parse(JSON.stringify(context.alphaSnapshot));
+}
+
+function visitorAlphaFailureSnapshot(source, alpha, low, failAt) {
+  const tuned = source.replace("const GH_VISITOR_ALPHA=1.0;", `const GH_VISITOR_ALPHA=${alpha};`);
+  assert.notEqual(tuned, source, `visitor alpha ${alpha} failure probe is constructible`);
+  const THREE = threeHarness(), sceneAdds = [];
+  const context = runVisitor(tuned, {
+    seat: true, gift: true, share: true, low,
+    extra: { THREE, sceneAdds, scene: { add(value) { sceneAdds.push(value); } }, TARGET_CORE_GEO: new THREE.BufferGeometry(), _flockGeo: new THREE.BufferGeometry() },
+    body: `
+      const own=${JSON.stringify(artifact({ moonBucket: 0 }))}; _ghostSeatRecord=own; ghostSeatBuild(own); ghostSeatPrepare(own); _ghostOwnSeat=ghostSeatCapture({visitor:false}); _ghostSeats=[_ghostOwnSeat]; _ghostSeatRows=new WeakMap(); _ghostShareEpoch=51;
+      const ownState=ghostSeatCapture({}), ownAdds=sceneAdds.length, heldLock={slot:99}, LiveShaderMaterial=THREE.ShaderMaterial, visitor=${JSON.stringify(artifact({ moonBucket: 7 }))}; let materialCalls=0; _ghGiftLockedRow=heldLock;
+      THREE.ShaderMaterial=function(options){ materialCalls++; if(materialCalls===${failAt}) throw new Error('visitor material failure'); return new LiveShaderMaterial(options); };
+      const first=ghostVisitorAccept(51,'e'.repeat(32),visitor); THREE.ShaderMaterial=LiveShaderMaterial;
+      const restoredState=ghostSeatCapture({}), exactOwn=Object.keys(ownState).every(key=>Object.is(ownState[key],restoredState[key]));
+      const restored={alpha:_ghSeatAlpha,exactOwn,heldLock:_ghGiftLockedRow===heldLock,visitorCount:_ghostVisitorCount,sceneAdds:sceneAdds.length-ownAdds};
+      const retried=ghostVisitorAccept(51,'e'.repeat(32),visitor), seat=_ghostVisitorSeats[0];
+      const complete=!!(seat&&seat.road&&seat.targets&&seat.avatarBody&&seat.avatarHalo&&seat.avatarBow&&seat.beaconCols&&(LOW?!seat.walls&&!seat.bursts:seat.walls&&seat.bursts));
+      this.failureSnapshot={first,restored,retried,complete,visitorAlpha:complete?Number(seat.avatarBody.material.fragmentShader.match(/float a=([0-9.]+)\\*uVis/)[1]):null,finalAlpha:_ghSeatAlpha,sceneAdds:sceneAdds.length-ownAdds};
+    `,
+  });
+  return JSON.parse(JSON.stringify(context.failureSnapshot));
+}
+
+test("visitor weight is per-seat, construction-time, and excludes targets, hit/catch birds, and the honest silhouette", async () => {
+  const assertContract = (source) => {
+    assert.match(ghostBlock(source), /const GH_VISITOR_ALPHA=1\.0;/, "the shipped tuning starts byte-identical at one");
+    const ownHigh = { road: [0.12, 0.72], wall: 0.55, target: 0.82, body: 0.62, halo: 0.34, bow: 0.72, beacon: 0.78, burst: 0.7 };
+    const ownLow = { ...ownHigh, wall: null, burst: null };
+    for (const alpha of [0.8, 0.65]) for (const low of [false, true]) {
+      const snapshot = visitorAlphaSnapshot(source, alpha, low);
+      const visitor = alpha === 0.8
+        ? { road: [0.096, 0.576], wall: 0.44, target: 0.82, body: 0.496, halo: 0.272, bow: 0.576, beacon: 0.624, burst: 0.7 }
+        : { road: [0.078, 0.468], wall: 0.3575, target: 0.82, body: 0.403, halo: 0.221, bow: 0.468, beacon: 0.507, burst: 0.7 };
+      if (low) { visitor.wall = null; visitor.burst = null; }
+      assert.deepEqual(snapshot.own, low ? ownLow : ownHigh, `own seat stays exact at alpha ${alpha} LOW:${+low}`);
+      assert.equal(snapshot.visitors.length, low ? 1 : 3);
+      for (const weighted of snapshot.visitors) assert.deepEqual(weighted, visitor, `every visitor receives alpha ${alpha} at LOW:${+low}`);
+      assert.deepEqual(snapshot.silhouette, low ? null : { body: 0.62, halo: 0.34, bow: 0.72 }, "the fourth real voice remains an honest avatar-only silhouette");
+      assert.deepEqual(snapshot.stages, [0, 0.35, 0.7, 1].map(value => Array(low ? 1 : 3).fill(value)), "weight never changes the reveal authority");
+      assert.deepEqual(snapshot.install, [alpha, 1, alpha, 1], "semantic seat identity selects the weight and clear restores neutral state");
+      assert.deepEqual(snapshot.reused, { sameMaterials: true, sameShapes: true, sameSilhouette: true }, "reset/refill reuses the tuned material family without rebuilding it");
+    }
+    for (const low of [false, true]) for (const failAt of [1, low ? 6 : 8]) assert.deepEqual(visitorAlphaFailureSnapshot(source, 0.65, low, failAt), {
+      first: false, restored: { alpha: 1, exactOwn: true, heldLock: true, visitorCount: 0, sceneAdds: 0 }, retried: true, complete: true, visitorAlpha: 0.403, finalAlpha: 1, sceneAdds: 2,
+    }, `an allocation-${failAt} visitor failure restores own state, publishes no orphan, and retries a complete weighted seat at LOW:${+low}`);
+  };
+  assertContract(html);
+  const mutations = [
+    [replaceFunction(html, "ghostSeatInstall", (fn) => fn.replace("seat.visitor?GH_VISITOR_ALPHA:1", "seat.visitor?1:GH_VISITOR_ALPHA")), "the semantic identity oracle kills inverted own/visitor weighting"],
+    [replaceFunction(html, "ghostSeatClear", (fn) => fn.replace("_ghSeatAlpha=1; ", "")), "the clear oracle kills a leaked visitor construction weight"],
+    [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("ghostSeatCapture({visitor:true})", "ghostSeatCapture({})")), "the first-build oracle kills visitor identity marked after construction"],
+    [replaceFunction(html, "ghostRoadMaterial", (fn) => fn.replace("GH_ROAD_RULE_ALPHA*_ghSeatAlpha", "GH_ROAD_RULE_ALPHA")), "the road oracle kills one unweighted rule layer"],
+    [replaceFunction(html, "ghostWallMaterial", (fn) => fn.replace("GH_WALL_ALPHA*_ghSeatAlpha", "GH_WALL_ALPHA")), "the wall oracle kills an unweighted HIGH-only layer"],
+    [replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("GH_AVATAR_HALO_ALPHA*_ghSeatAlpha", "GH_AVATAR_HALO_ALPHA")), "the avatar oracle kills one unweighted body-family layer"],
+    [replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("GH_BEACON_ALPHA*_ghSeatAlpha", "GH_BEACON_ALPHA")), "the beacon oracle kills an unweighted always-visible exception"],
+    [replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("GH_TARGET_ALPHA,_ghVis", "GH_TARGET_ALPHA*_ghSeatAlpha,_ghVis")), "the target oracle kills weight leaking into gameplay notes"],
+    [replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("GH_BURST_ALPHA,_ghVis", "GH_BURST_ALPHA*_ghSeatAlpha,_ghVis")), "the burst oracle kills weight leaking into hit birds"],
+    [replaceFunction(html, "ghostSilhouetteBuild", (fn) => fn.replace("GH_AVATAR_BODY_ALPHA,visibility", "GH_AVATAR_BODY_ALPHA*GH_VISITOR_ALPHA,visibility")), "the silhouette oracle kills weighting a representation promised to stay honest"],
+    [replaceFunction(html, "ghostSeatApplyVisibility", (fn) => fn.replace("_ghVis.value=open?v:0", "_ghVis.value=open?v*_ghSeatAlpha:0")), "the reveal oracle kills a shared-uniform weight that dims targets and bursts"],
+    [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }", "}")), "the failure oracle kills a visitor register set left installed over the own seat"],
+    [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("LOW||(_ghostWalls&&_ghostBursts)", "LOW||_ghostWalls")), "the late-failure oracle kills a HIGH seat accepted without its burst family"],
+    [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("if(!complete) ghostSeatClear(seat.x);", "")), "the retry oracle kills an incomplete cached seat that is not cleared"],
+    [replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("  scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);\n", "").replace("_ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group();", "_ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group(); scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);")), "the publication oracle kills roots attached before construction completes"],
+  ];
+  for (const [mutation, message] of mutations) await mutationMustFail(assertContract, mutation, message);
+});
+
 test("visitor and mail JSON responses are byte-bounded, malformed-safe, and timed through body consumption", async () => {
   const assertContract = async (source) => {
     const large = oversizedArtifact();
