@@ -30,9 +30,11 @@ changes each had zero or one direct test caller and no production process. Final
 by relocation count (2,170 changed symbols / 271 affected flows / 36 indexed files). The byte-equality oracles, full
 suite and browser A/B bound that graph churn to source relocation and test/tooling adaptation.
 
-**At this entry:** P4 is committed locally; the bookkeeping commit and authorized push follow. The Sidereal relay
-merge/deploy remains the user's external boundary. Live mail/visitor/chat validation must wait for that relay deploy;
-client-only boot can be smoked after the push.
+**Shipped state:** the twelve-commit range `6103524..be193c7` was pushed to `origin/main`. Vercel immediately served
+the 98,800-byte shell and 1,165,065-byte main with `max-age=0, must-revalidate`. A cold-cache, headful live desktop
+smoke was clean: PLAY 2,302 ms, first frame 765 ms, 1,192 KB before PLAY, worst early frame 117 ms, and no page or
+console errors. The Sidereal relay merge/deploy remains the user's external boundary; live mail/visitor/chat
+validation must wait for that relay deploy.
 
 ## -25. 2026-09-04: reviewed ImageBitmap decode complete locally · THE SKY ARRIVES LIGHTLY
 **Local-only state (not pushed or deployed):** `c1a3c27` adds flat `skyMaps.bitmapDecode:true`. Where both the browser
