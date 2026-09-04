@@ -1,5 +1,33 @@
 # CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
 
+## -22. 2026-09-04: wave 21 Parcel K complete locally · MOON SENSEI II
+**Local-only state (not pushed or deployed):** `fb86dd0` adds flat `CFG.sensei2:1` and the lazy, versioned
+`aimdojo.sensei2` envelope `{v:1,seen:{mercy,fill,bow,star}}`. Validation rejects the whole record unless its
+top level and four numeric 0/1 marks are exactly the shape this build writes. Marks only accrete, and memory is
+updated before storage so a refused quota cannot repeat a line during the same page life. The raw knob, trainer and
+Temple gates precede every storage touch; `sensei2:0` creates no key and speaks no line.
+
+The four hooks observe existing authorities rather than inventing clocks: the false→true `tideMercy` transition,
+a `tg.fill16` tag only after the spawned record survives the fill rescue path, half of the same computed threshold
+that commits the Bow, and `starLitGain(...)===1` at both live return-drain branches. `starFlyClear` teardown is
+deliberately unhooked, so a pause/new-night cleanup cannot collide with the threshold flash. Every line uses
+`showTrainCoach(line,true)` and the existing `T` table; the four Japanese drafts remain marked for native review.
+
+**Evidence:** focused K + star-return + inline-contract suite 117/117; full suite 336/336; all five root modules parse;
+comment-swallow and inline-script parse pass; mirrors regenerated and re-indexed after the final inline edit. The new
+contract executes strict-invalid repair, valid accretion, every off gate, refused storage, exact EN/JA one-line copy,
+both Bow clocks and long-frame ordering, both star drain branches, and teardown exclusion.
+
+**Risk review:** pre-edit `onGrid` was LOW (0 direct callers), `spawnTarget` LOW (1 direct caller / 1 process),
+`bowClock` LOW (1 / 1), and `CFG` LOW. `starFlyDrain` was HIGH: two direct callers (`starFlyStep`, `onGrid`) and three
+return/render processes; the reviewed edit keeps every grant in the same order and only observes its existing return
+value before the old geometry gate. Final staged `detect_changes` was CRITICAL by count (82 symbols / 27 flows / 8
+files). The real production paths are exactly the four reviewed hooks; reported card/gift names are generated-mirror
+split-boundary attribution, and the raw zero-context `index.html` diff confirms those symbols are untouched.
+
+**Still owed:** the user's relay merge/deploy and live smokes from §-16 item 0 remain an external boundary. Next code
+item is Wave 22 Parcel O (dead helpers) followed by Parcel P (Three.js CDN failure guard).
+
 ## -21. 2026-09-04: wave 21 Parcel J complete locally · THE TIDE ORDERS THE CHALK
 **Local-only state (not pushed or deployed):** `6103524` adds the flat `moonline.tidePalette:1` arm. The main road's
 existing shared tide record now exposes its already-computed cycle bar as `.cb`; no second modulo or allocation was
