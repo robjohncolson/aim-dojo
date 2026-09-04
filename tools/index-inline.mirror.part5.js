@@ -961,6 +961,7 @@
                                                                                                                                                                                                             
                                                                                                                                                                                        
                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                     
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
@@ -1038,7 +1039,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
@@ -5735,6 +5736,7 @@
                                                                                                                                                                                                   
                                                                                                                                   
                                                             
+                                                                                                                                                                                           
                                                                                                             
                                                                                             
                                                
@@ -5827,6 +5829,8 @@
                                   
                       
                                                                                                                            
+                                                                                                                                                                                                                                                       
+                                                                                                                                                         
                                                                                                             
                                                       
                                                                                                                                                                                                                                                                                                                                                                            
@@ -7431,6 +7435,12 @@
                                                                                                                                                                                                                                                                                                                          
                                                                                   
                                                        
+                                                                                                                                                                                                                                                                                                                                           
+ 
+                                                                                                                                                                                       
+                                                     
+                                                                                                     
+                                                                    
  
                      
                                                                                                                                                                                                        
@@ -9756,16 +9766,16 @@
                                                                                                           
                                                                                                                                                                         
                                            
-                                                                                                                                                                                                                                                    
-                                                                                                                                                            
-                                                                                                                                                                                            
-                                                                                                                                                                                            
-                                                                                                                                                                                             
-                                                                                                                                                                                              
- 
-                                                                                                                                                                                                        
-                                                                                                                                                          
-                                                                                                                                                                     
+function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
+  const dy=_devShow?_devY:0, dx=_devShow?_devX:0, scroll=!reduceMotion;   // reduced-motion: keep the static edge tint (opacity), freeze the conveyor scroll
+  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0 && scroll){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
+  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0 && scroll){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
+  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0 && scroll){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
+  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
+}
+function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } if(GH_GIFT) _ghGiftLockedRow=null; _pulsePhase=0; hideEdgeTints(); }
+function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
+  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
 function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
 function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
   for(const tg of targets){ if(tg.dead) continue;
@@ -10459,14 +10469,29 @@ if(beatCircleToggle) beatCircleToggle.addEventListener('click', (e)=>{
 });
 if(offSlider) offSlider.addEventListener('input', ()=>{ const ms=Math.max(-120,Math.min(320,parseInt(offSlider.value,10)||0)), next=ms/1000; if(next!==_userOffsetSec){ _userOffsetSec=next; rebasePocketMissTracking(); } if(offVal) offVal.textContent=ms+' ms'; try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){} });   // LIVE — audioLat() reads _userOffsetSec every frame; pocket miss tracking rebases so a paused edit cannot back-fill a fake event
 if(offSlider) offSlider.addEventListener('change', ()=>{ queueCloudPrefs({offset_ms:Math.round(_userOffsetSec*1000)}); });
-if(calibBtn) calibBtn.addEventListener('click', ()=>{
-  if(_tapOffN<6){ if(calibHint) calibHint.textContent=T('calibNotEnough','not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'); return; }
-  const avg=_tapOffSum/_tapOffN, nextOffset=Math.max(-0.12,Math.min(0.32, _userOffsetSec+avg)); if(nextOffset!==_userOffsetSec){ _userOffsetSec=nextOffset; rebasePocketMissTracking(); }   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
-  const ms=Math.round(_userOffsetSec*1000); if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
+const CALIB_MIN_SEC=-0.12, CALIB_MAX_SEC=0.32, CALIB_SILENT_MIN_TAPS=12, CALIB_SILENT_MIN_SEC=0.012;   // the button's clamp, named once; the silent path asks twice the button's 6 taps (a newcomer's noise needs the sample) and ignores a mean inside the 12 ms noise floor (that is not a latency)
+let _calibSilentDone=false;
+function calibApply(avg){   // ONE AUTHORITY for folding a measured tap residual into the offset: the pause-card button and THE SILENT CALIBRATION (parcel A) both come through here, so the stored ms and the cloud payload cannot disagree
+  const nextOffset=Math.max(CALIB_MIN_SEC,Math.min(CALIB_MAX_SEC, _userOffsetSec+avg)); if(nextOffset!==_userOffsetSec){ _userOffsetSec=nextOffset; rebasePocketMissTracking(); }   // your taps land avg `avg`s off in the heard timeline → fold that residual into the offset so future taps read on-time
+  const ms=Math.round(_userOffsetSec*1000);
   try{ localStorage.setItem('aimdojo.offsetMs', ms); }catch(e){}
   try{ queueCloudPrefs({offset_ms:ms}); }catch(e){}
-  if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:_tapOffN,total:ms});
   _tapOffSum=0; _tapOffN=0;
+  return ms;
+}
+function calibSilent(){   // THE SILENT CALIBRATION: fires at most once per page life, only for a player with NO stored offset (a cloud-applied or hand-set value is never overridden), only on a sample worth trusting, and says nothing — the friend is simply on time from then on
+  if(!CFG.calibSilent || _calibSilentDone || trainMode) return false;
+  let stored=null; try{ stored=localStorage.getItem('aimdojo.offsetMs'); }catch(e){ return false; }
+  if(stored!==null || _userOffsetSec!==0) return false;
+  if(_tapOffN<CALIB_SILENT_MIN_TAPS) return false;
+  const avg=_tapOffSum/_tapOffN; if(!isFinite(avg) || Math.abs(avg)<CALIB_SILENT_MIN_SEC) return false;   // a tiny mean leaves the accumulator INTACT so the button still works
+  _calibSilentDone=true; calibApply(avg); return true;
+}
+if(calibBtn) calibBtn.addEventListener('click', ()=>{
+  if(_tapOffN<6){ if(calibHint) calibHint.textContent=T('calibNotEnough','not enough taps yet — play a bit, tap W/A/S/D on the beat, then calibrate'); return; }
+  const avg=_tapOffSum/_tapOffN, n=_tapOffN, ms=calibApply(avg);
+  if(offSlider) offSlider.value=ms; if(offVal) offVal.textContent=ms+' ms';
+  if(calibHint) calibHint.textContent=TF('calibApplied','applied {avg}ms from {n} taps → offset {total}ms',{avg:(avg>=0?'+':'')+Math.round(avg*1000),n:n,total:ms});
 });
 
 /* ===== CLOUD PREFS (optional, signed-in only): Supabase aimdojo_prefs supersedes localStorage =====
@@ -11312,6 +11337,7 @@ function resetSession(){
   clearRings();
   _ringEchoAt=-1e9;   // the Transport rewinds below, so retire the run-local confirm before state.t can make an old timestamp young again
   events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
+  _gradSnap={t:0,hits:0};   // parcel M: a fresh run has no graduation yet
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1; _polyK=-1; _polyPairing=false;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives). POLYRHYTHM PAIRS rides along: the try/finally in polyPairSpawn already makes both of these unreachable-when-set outside its own synchronous body, so this is belt-and-braces for a run that begins while nothing is half-built — and it is the line that guarantees "one pair live" starts every night at zero, since the targets it counted were freed above
   if(ML_WALL_ECHO) _wallHit.value=_wallMiss.value=-1e9;   // the Transport is about to rewind: retire both run-local echo stamps first; live wall uniforms update too because every material borrows these exact OBJECTS
@@ -11435,9 +11461,9 @@ const _DOJO_SORTS={peak_bpm:1,runtime:1};                         // whitelist (
 let dojoSort='peak_bpm'; try{ const _s=localStorage.getItem('aimdojo.dojosort'); if(_s && _DOJO_SORTS[_s]) dojoSort=_s; }catch(e){}
 function loadDojoBests(){ try{ const o=JSON.parse(localStorage.getItem('aimdojo.dojobest')||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
 function dojoSession(){ return {   // board metrics + legacy columns the table/Railway still require (NOT NULL)
-  dur:Math.round(state.t), bpm:Math.round(state.maxBpm),
+  dur:Math.round(Math.max(0,state.t-_gradSnap.t)), bpm:Math.round(state.maxBpm),   // parcel M: the lesson's seconds and voices are not the night's (bpm/far/high/streak stay whole-run: unranked legacy columns, and the lesson's bpm can only be ≤ the night's)
   far:Math.round((state.maxHitDist||0)*100)/100, high:Math.round((state.maxHitHeight||0)*100)/100,
-  streak:state.bestStreak|0, kills:state.hits|0
+  streak:state.bestStreak|0, kills:Math.max(0,(state.hits-_gradSnap.hits)|0)
 }; }
 function renderDojoBests(){ const sub=gid('dojoBests'); if(!sub) return; const b=_dojoBest||loadDojoBests();
   if(!(b.dur>0||b.bpm>0)){ sub.textContent=''; return; }
@@ -11476,7 +11502,7 @@ function noteSongPeak(){   // per-song personal bests — flash only when you se
   if(hit){ const f=el.dojoFlash; if(f){ setText(f, hit); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); } }
 }
 async function submitDojo(){
-  if(state.hits<1) return;
+  if(trainMode || state.hits-_gradSnap.hits<1) return;   // parcel M: the trainer publishes nothing and touches neither the local bests nor the runtime map; a graduated night must have landed a voice AFTER graduation
   const s=dojoSession(), b=loadDojoBests();
   const improved = s.dur>(b.dur||0) || s.bpm>(b.bpm||0);
   _dojoBest={ dur:Math.max(b.dur||0,s.dur), bpm:Math.max(b.bpm||0,s.bpm) };
@@ -11587,6 +11613,7 @@ function updateChartTempleHint(){
 }
 function showPause(){
   if(!state.started) return;
+  if(CFG.calibSilent && !trainMode) calibSilent();   // THE SILENT CALIBRATION (parcel A): a pause is the one boundary where the button itself is allowed to move the heard timeline
   document.body.classList.add('overlay-paused');
   flushSkyDayAnnounce();   // a day pack that landed mid-run waited for a surface; this is one
   ovEyebrow.textContent=trainMode
@@ -11632,12 +11659,12 @@ function showPause(){
 gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; try{ localStorage.setItem('aimdojo.soundOn', soundOn?'1':'0'); }catch(e){} queueCloudPrefs({sound_on:soundOn}); const m=gid('muteBtn'); m.textContent=soundOn?'♪':'×'; m.style.color=soundOn?'':'var(--blood)'; applyAudioState(); reconcileTargetSounds(); });
 
 /* ========================= SHARE MODAL ========================= */
+function shareLinkUrl(){ return (location.protocol==='file:') ? location.href : (location.origin+location.pathname); }   // ONE link authority (hoisted for parcel B): origin+path only — query, hash and any identity are deliberately stripped; only a local file keeps its full href
 (function(){
   const shareOverlay=gid('shareOverlay'), shareBtn=gid('shareBtn'), shareClose=gid('shareClose');
   const copyBtn=gid('copyBtn'), shareUrlInput=gid('shareUrl'), copyMsg=gid('copyMsg'), qrBox=gid('qrcode');
   const QR_JS='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
   if(!shareOverlay || !shareBtn) return;
-  function linkUrl(){ return (location.protocol==='file:') ? location.href : (location.origin+location.pathname); }
   function fallbackQR(url){
     const img=document.createElement('img');                 // fallback if the QR lib didn't load
     img.alt=TF('qrAlt','QR code for {url}',{url:url});
@@ -11648,7 +11675,7 @@ gid('muteBtn').addEventListener('click',()=>{ soundOn=!soundOn; try{ localStorag
     try{ new QRCode(qrBox,{text:url,width:188,height:188,colorDark:'#0b0d0c',colorLight:'#d8e0d4',correctLevel:QRCode.CorrectLevel.M}); return true; }catch(e){ return false; }
   }
   function buildQR(){
-    const url=linkUrl(); shareUrlInput.value=url; qrBox.innerHTML='';
+    const url=shareLinkUrl(); shareUrlInput.value=url; qrBox.innerHTML='';
     if(window.QRCode){ if(!drawQR(url)) fallbackQR(url); return; }
     loadScriptOnce(QR_JS).then(()=>{ if(shareOverlay.classList.contains('hidden')) return; qrBox.innerHTML=''; if(!drawQR(url)) fallbackQR(url); })
       .catch(()=>{ qrBox.innerHTML=''; fallbackQR(url); });

@@ -356,7 +356,7 @@ test("pause preserves the day thread, while account/chart/full resets clear it",
 
 test("chat state cannot enter share, dojo, presence, leaderboard, or cloud-pref sinks", () => {
   const outbound = {
-    share: namedFunction("linkUrl"),
+    share: namedFunction("shareLinkUrl"),
     dojoSession: namedFunction("dojoSession"),
     leaderboardSubmit: namedFunction("submitDojo"),
     realtimeSetup: namedFunction("initRealtime"),

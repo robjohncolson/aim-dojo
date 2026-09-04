@@ -107,8 +107,8 @@ test("copy and download reuse the captured Blob and revoke the download URL", as
   const assertContract = (source) => {
     const layout = source.match(/function cardDateText\(d\)\{[\s\S]*?(?=\nfunction cardDownload\()/);
     assert.ok(layout);
-    assert.equal(layout[0].length, 6137, "the card painter and filename block keeps its byte length");
-    assert.equal(crypto.createHash("sha256").update(layout[0]).digest("hex"), "50a7cb6cbab2729921d04f8664a8d861f0091e8bfb4a59fdd4ffb52ac65a150e", "layout, pixels, and filename stay byte-preserved");
+    assert.equal(layout[0].length, 6880, "the card painter and filename block keeps its byte length (re-pinned 2026-09-03: SPEC_THE_INVITATION parcel B adds the link line + cardLinkText)");
+    assert.equal(crypto.createHash("sha256").update(layout[0]).digest("hex"), "c8e929af207b50c3a3fef30861c3312663d2ef8a458f1eb3984ba40022959771", "layout, pixels, and filename stay byte-preserved");
     const download = extractFunction(source, "cardDownload");
     assert.match(download, /u=URL\.createObjectURL\(blob\);/);
     assert.match(download, /URL\.revokeObjectURL\(u\)/);

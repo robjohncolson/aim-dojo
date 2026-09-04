@@ -961,6 +961,7 @@
                                                                                                                                                                                                             
                                                                                                                                                                                        
                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                     
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
@@ -1038,7 +1039,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
@@ -5735,6 +5736,7 @@
                                                                                                                                                                                                   
                                                                                                                                   
                                                             
+                                                                                                                                                                                           
                                                                                                             
                                                                                             
                                                
@@ -5827,6 +5829,8 @@
                                   
                       
                                                                                                                            
+                                                                                                                                                                                                                                                       
+                                                                                                                                                         
                                                                                                             
                                                       
                                                                                                                                                                                                                                                                                                                                                                            
@@ -7431,6 +7435,12 @@ function cardCompose(g,W,H,rec){
   bowGlyphPaint(g, rec.hits, W/2, H*0.635, R, rec.hb>0?rec.hb:(60/Math.max(20,state.bpm))*500, 1, 0, R/224);   // THE Bow's glyph, at full brightness and undrifted (a card is the held moment, not the dissolve). dotK = R over the ceremony's own 224px radius, so the dots keep the weight they have on the big canvas
   g.fillStyle='rgba(198,216,246,.42)'; g.font=Math.round(W*0.022)+'px '+CARD_FONT;
   g.fillText(cardDateText(rec.d), W/2, H*0.945, W*0.8);
+  const link=cardLinkText(); if(link){ g.fillStyle='rgba(198,216,246,.30)'; g.font=Math.round(W*0.020)+'px '+CARD_FONT; g.fillText(link, W/2, H*0.972, W*0.8); }   // THE LINK ON THE CARD (parcel B): the host, under the date, quieter than it — a pasted card is now an invitation. A hostname is not a number; the date-line law stands
+}
+function cardLinkText(){   // parcel B: host and path only, from the share overlay's own authority — never a query, hash or token; a local file is not an invitation and paints nothing
+  if(!(CFG.nightCard&&CFG.nightCard.link)) return '';
+  let u=''; try{ if(location.protocol==='file:') return ''; u=shareLinkUrl(); }catch(e){ return ''; }
+  return String(u).replace(/^https?:[/]{2}/i,'').replace(/\/+$/,'');
 }
 function cardPaint(){
   const rec=cardFresh(); if(!rec) return;   // a record that has aged out CLOSES the view (M2) rather than leaving a blank wrapper standing — the paint is the last place the date could still be wrong
@@ -9756,16 +9766,16 @@ let _devY=0, _devX=0, _devShow=false, _eTopP=0, _eBotP=0, _eLeftP=0, _eRightP=0;
 function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
 function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
 function hideEdgeTints(){ _devShow=false; }
-function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
-  const dy=_devShow?_devY:0, dx=_devShow?_devX:0, scroll=!reduceMotion;   // reduced-motion: keep the static edge tint (opacity), freeze the conveyor scroll
-  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0 && scroll){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
-  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0 && scroll){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
-  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0 && scroll){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
-  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
-}
-function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } if(GH_GIFT) _ghGiftLockedRow=null; _pulsePhase=0; hideEdgeTints(); }
-function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
-  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
+                                                                                                                                                                                                                                                    
+                                                                                                                                                            
+                                                                                                                                                                                            
+                                                                                                                                                                                            
+                                                                                                                                                                                             
+                                                                                                                                                                                              
+ 
+                                                                                                                                                                                                        
+                                                                                                                                                          
+                                                                                                                                                                     
                                                                                                     
                                                                                                                                                                                                                                                                       
                                                  
@@ -10459,14 +10469,29 @@ function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInve
    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                           
-                                                     
-                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                   
-                                                                                                                     
+                                                                                                                                                                                                                                                                                                      
+                           
+                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                           
+                                           
                                                                 
                                                    
-                                                                                                                                                                           
                            
+            
+ 
+                                                                                                                                                                                                                                                                                     
+                                                                     
+                                                                                                   
+                                                       
+                                                  
+                                                                                                                                                                                
+                                                      
+ 
+                                                     
+                                                                                                                                                                
+                                                                
+                                                                           
+                                                                                                                                                                    
    
 
                                                                                                      
@@ -11312,6 +11337,7 @@ function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInve
                
                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                          
                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                         
@@ -11435,9 +11461,9 @@ function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInve
                                                                                                                                    
                                                                                                                                                                   
                                                                                                                
-                                                        
+                                                                                                                                                                                                                                                                 
                                                                                                   
-                                               
+                                                                            
     
                                                                                                             
                                                         
@@ -11476,7 +11502,7 @@ function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInve
                                                                                                                                      
  
                             
-                          
+                                                                                                                                                                                                                        
                                            
                                                         
                                                                            
@@ -11587,6 +11613,7 @@ function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInve
  
                      
                             
+                                                                                                                                                                                    
                                                 
                                                                                               
                                  
@@ -11632,12 +11659,12 @@ function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInve
                                                                                                                                                                                                                                                                                                                                
 
                                                                      
+                                                                                                                                                                                                                                                                                       
             
                                                                                                  
                                                                                                            
                                                                                     
                                         
-                                                                                                                   
                            
                                                                                                   
                                                       
@@ -11648,7 +11675,7 @@ function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInve
                                                                                                                                                                                
    
                      
-                                                                     
+                                                                          
                                                                   
                                                                                                                                                    
                                                            

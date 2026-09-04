@@ -961,6 +961,7 @@
                                                                                                                                                                                                             
                                                                                                                                                                                        
                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                      
                                                                                                                                                                                                                     
                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
@@ -1038,7 +1039,7 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                                                                                                                                                                                                
@@ -5735,6 +5736,7 @@ const TRAIN_NEED_WASD=3, TRAIN_NEED_ORB1=2, TRAIN_NEED_ORB2=2;   // THE BRISK LE
 const TRAIN_NEED_TOTAL=TRAIN_NEED_WASD+TRAIN_NEED_ORB1+TRAIN_NEED_ORB2;   // 7 — named so a test pins the second halving as one fact and the whole refresher stays visible to the next pacing pass
 const TRAIN_RANGE_NEAR=9, TRAIN_RANGE_FAR=20;   // phase-2 live range ramp endpoints (trainer-only; full dojo range law untouched)
 let trainMode=false, trainPhase=0, trainWasd=0, trainOrbs=0;
+let _gradSnap={t:0,hits:0};   // THE LESSON LEAVES NO RECORD (parcel M): state.t and state.hits at graduation; zeroed at every resetSession, so a direct Full Night start subtracts nothing
 let gateChosen=false;   // true after TRAIN/FULL (or resume path); pad START must not bypass the binary gate
 const trainCoachEl=typeof document!=='undefined'?document.getElementById('trainCoach'):null;
 let _trainCoachT=0, _trainCoachEphemeral=false;
@@ -5827,6 +5829,8 @@ function setTrainPhase(p){
     trainMode=false; trainPhase=0;
     applySenseiFull();
     resetPocketState();   // rolling pocket starts cold at expected ON once trainer ends (buffer was idle during trainMode)
+    _gradSnap={t:state.t,hits:state.hits};   // THE LESSON LEAVES NO RECORD (SPEC_THE_INVITATION M): the records' runtime and kills count from here; state.t itself is never reset mid-run (the road, the spawn scheduler and the flash timers read it)
+    if(CFG.calibSilent) calibSilent();   // THE SILENT CALIBRATION (parcel A): usually too few taps yet — the first pause is the site that normally fires
     _specialLive=specialOrbsLive();   // must re-latch AFTER full config (specials were forced off in train)
     state.range=Math.max(state.range, CFG.rangeStart);
     moonlineGraduate();   // THE VOID (wave 8, parcel T · SPEC §2): the room's floor dissolves from under the graduate and the Moonline is revealed beneath them, over the Temple's own floorDissolveSec. Called AFTER trainMode=false above, which is the flag moonlineOwns() reads; with the parcel off it is one boolean read and this phase change stays byte-identical
@@ -7431,6 +7435,12 @@ function cardDateText(d){
                                                                                                                                                                                                                                                                                                                          
                                                                                   
                                                        
+                                                                                                                                                                                                                                                                                                                                           
+ 
+                                                                                                                                                                                       
+                                                     
+                                                                                                     
+                                                                    
  
                      
                                                                                                                                                                                                        
@@ -10459,14 +10469,29 @@ function cardDateText(d){
    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                                                                                                                           
-                                                     
-                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                   
-                                                                                                                     
+                                                                                                                                                                                                                                                                                                      
+                           
+                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                           
+                                           
                                                                 
                                                    
-                                                                                                                                                                           
                            
+            
+ 
+                                                                                                                                                                                                                                                                                     
+                                                                     
+                                                                                                   
+                                                       
+                                                  
+                                                                                                                                                                                
+                                                      
+ 
+                                                     
+                                                                                                                                                                
+                                                                
+                                                                           
+                                                                                                                                                                    
    
 
                                                                                                      
@@ -11312,6 +11337,7 @@ function cardDateText(d){
                
                                                                                                                                           
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                          
                                                                                                                                                    
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                                                                                                                                                                                                         
@@ -11435,9 +11461,9 @@ function cardDateText(d){
                                                                                                                                    
                                                                                                                                                                   
                                                                                                                
-                                                        
+                                                                                                                                                                                                                                                                 
                                                                                                   
-                                               
+                                                                            
     
                                                                                                             
                                                         
@@ -11476,7 +11502,7 @@ function cardDateText(d){
                                                                                                                                      
  
                             
-                          
+                                                                                                                                                                                                                        
                                            
                                                         
                                                                            
@@ -11587,6 +11613,7 @@ function cardDateText(d){
  
                      
                             
+                                                                                                                                                                                    
                                                 
                                                                                               
                                  
@@ -11632,12 +11659,12 @@ function cardDateText(d){
                                                                                                                                                                                                                                                                                                                                
 
                                                                      
+                                                                                                                                                                                                                                                                                       
             
                                                                                                  
                                                                                                            
                                                                                     
                                         
-                                                                                                                   
                            
                                                                                                   
                                                       
@@ -11648,7 +11675,7 @@ function cardDateText(d){
                                                                                                                                                                                
    
                      
-                                                                     
+                                                                          
                                                                   
                                                                                                                                                    
                                                            

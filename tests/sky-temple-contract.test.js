@@ -296,7 +296,7 @@ test("temple chrome stays lore-silent and excludes private birth/location data",
 });
 
 test("selection and temple focus never enter outbound share, dojo, realtime, or cloud payloads", () => {
-  const outbound = ["linkUrl", "dojoSession", "broadcastAim", "localPrefSnapshot"]
+  const outbound = ["shareLinkUrl", "dojoSession", "broadcastAim", "localPrefSnapshot"]
     .map(namedFunction)
     .join("\n");
   assert.doesNotMatch(outbound, /_skySel|_templeFocus|templeActive|natal_id|birth_date|birth_time|place_label|_skyObserver/);
