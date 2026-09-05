@@ -127,7 +127,7 @@ function installer({ enabled = true, reduced = false, low = true, record = night
   const context = marks({ enabled, functions: ["realCivilDate", "ghostLastNight", "ghostDoorIndex", "ghostChalkReset", "ghostChalkInstall", "ghostChalkHue", "ghostNightPalette", "ghostNightSeed", "mulberry32"], extra: {
     ML_ARCH_EVERY: 4, ML_ARCH_BEHIND: 8, ML_WALL_DJ: 7.3, ML_WALL_N: low ? 7 : 11, reduceMotion: reduced,
     CFG: { moonline: { wallPalette: null } }, ML_WALL_CHALK: visitorsFixture.palette,
-    _ghostOwn: record, _ghostVisitors: visitors, _ghostDoorOrigin: NaN, _ghostChalkBeat0: 0, roadWallMat: { uniforms }, phasesToday: () => "2026-09-05",
+    _ghostOwn: record, _ghostVisitors: visitors, _ghostDoorOrigin: NaN, _ghostChalkBeat0: 0, roadWallMat: { uniforms }, phasesToday: () => "2026-09-05", ghostMailReset() {},
   } });
   context.ghostChalkReset(origin);
   return { context, uniforms, values: source => uniforms[`uMark${source}`].value.map(v => [v.x, v.y, v.z, v.w]) };

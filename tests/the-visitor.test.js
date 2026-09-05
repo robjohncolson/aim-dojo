@@ -242,7 +242,7 @@ test('C1 read-once mail stores validated rows without a replay clock, scene or l
   await c.ghostMailFetch(4,'a'.repeat(32));
   assert.equal(requests.length,1);assert.equal(requests[0].url,'https://relay.example/api/ghost-mail');assert.equal(requests[0].init.method,undefined);assert.equal(requests[0].init.headers['X-Ghost-Token'],'a'.repeat(32));
   assert.equal(storage,0);assert.deepEqual(JSON.parse(JSON.stringify(c._ghostMailRows)),rows);
-  assert.equal(c.ghostVisitorMailLine(),'2 of your notes were caught · 🌒');assert.equal(c.ghostVisitorMailLine(),'');
+  assert.equal(c.ghostVisitorMailLine(),'strangers left marks at your door · 🌒\u2009🌘');assert.equal(c.ghostVisitorMailLine(),'');
   assert.match(extract(source,'ghostMailFetch'),/Read-once|read-once/);
 });
 
@@ -264,7 +264,7 @@ test('C1 own-night loading keeps both raw v1 and existing wrapped artifacts with
     assert.deepEqual(JSON.parse(JSON.stringify(loaded)),night);assert.equal(c._ghostOwn,loaded);assert.equal(writes,0);
     assert.equal(c.ghostLocalMailLine(),value.mail?'you reached back · 2 notes caught':'');assert.equal(c.ghostLocalMailLine(),'');
     c.ghostOwnLoad();c._ghostMailRows=[[1,0,1],[2,1,1]];
-    assert.equal(c.ghostLocalMailLine(),'2 of your notes were caught · 🌒');assert.equal(c.ghostLocalMailLine(),'');
+    assert.equal(c.ghostLocalMailLine(),'someone left a mark at your door · 🌒');assert.equal(c.ghostLocalMailLine(),'');
   }
   for(const raw of ['{',' '.repeat(100001),JSON.stringify({...night,date:'2026-99-99'}),JSON.stringify({ghost:night,mail:[[61,0]]})]){
     const c=core(source,{record:true,functions:['ghostOwnLoad'],extra:{localStorage:{getItem:()=>raw}}});
@@ -323,7 +323,8 @@ test('C4 Bow mail boundary attempts each shown visitor once per epoch and isolat
 test('C1 threshold renders one line in comeback, mail, visitor, deal order without consuming lower lines',()=>{
   for(const entry of [
     "ghostGiftMail:'きみは 手をのばした · {n}この音を つかまえた'",
-    "ghostVisitorMail:'きみの音を {n}こ だれかが つかまえた · {sigil}'",
+    "ghostVisitorMail:'だれかがあなたの戸口にしるしを残した · {sigil}'",
+    "ghostVisitorsMail:'旅人たちがあなたの戸口にしるしを残した · {sigils}'",
     "ghostVisitorBack:'手をのばしてくれた旅人が戸口にしるしを残した · {sigil}'",
     "ghostVisitorLine:'今夜の戸口には旅人のしるしがある · {sigil}'",
     "ghostVisitorsLine:'今夜の戸口には{n}人の旅人のしるしがある · {sigils}'"

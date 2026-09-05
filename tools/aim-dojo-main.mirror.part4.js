@@ -8405,6 +8405,7 @@ function ghostChalkReset(r){
   _ghostDoorOrigin=Math.floor(Math.max(0,r)/ML_ARCH_EVERY); _ghostChalkBeat0=Math.floor(r);
   _ghostMarksOut=[]; _ghostMercyMarks=new Map();
   if(_ghostVisitors) for(const visitor of _ghostVisitors) visitor.shown=false;
+  ghostMailReset(r);
 }
 // The visibility proof uses the wall's cached uniforms, then samples its real projected ink and the definite opaque bays in front of it.
 let _ghostChalkProbe=null;
@@ -8537,6 +8538,7 @@ function ghostChalkInstall(n0){
   }
 }
 function ghostChalkObserve(r){
+  if(GH_CHALK) ghostMailAdvance(r);
   if(!GH_CHALK || !_ghostVisitors || !roadWallMat) return;
   const U=roadWallMat.uniforms; if(!U.uMark1) return;
   for(let s=0;s<Math.min(3,_ghostVisitors.length);s++){
@@ -8562,6 +8564,136 @@ function ghostChalkTap(k,beats,nd,bps,w){
   }
   return false;
 }
+// Received chalk uses one lazy draw for at most 256 receipt quads (1024 vertices/512 triangles), no assets or audio. Assignment supplies physical door boundaries; same-lane overlaps keep receipt order.
+let _ghostMailMesh=null, _ghostMailGeometry=null;
+function ghostMailVertexShader(){ if(!GH_CHALK || !ML_WALLS) return ''; return [
+  'uniform float uNow,uArchN0,uMarkFocalPx,uWallSeed; uniform vec2 uBase; uniform vec3 uA,uW,uP;',
+  'attribute vec2 aCorner,aMail; varying vec2 vMailP; varying float vMailHue,vMailInk,vMailRetire,vMailSeed;',
+  ...(ML_BITE?['uniform vec3 uBite;']:[]),
+  ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+  'void main(){',
+  '  float b=position.x, x=position.y, y='+_roadG(ML_WALL_APEX*0.32)+'+aCorner.y*'+_roadG(ML_WALL_APEX*0.07)+', slot=(b-uArchN0)/'+_roadG(ML_ARCH_EVERY)+';',
+  '  vec3 ph=uW*b+uP, sc=sin(ph), co=cos(ph); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);',
+  '  float cd=dot(uA*uW,co)'+(ML_BITE?'+uBite.x*uBite.y*cos(uBite.y*b+uBite.z)':'')+'-uBase.y, u=(b-uNow)*'+_roadG(ROAD_MPB)+'; vec2 lat=normalize(vec2('+_roadG(ROAD_MPB)+',cd));',
+  '  vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x); float tv=1.0;',
+  ...(ML_TERRAIN?['  tv=terrainVis(u,P.x,0.0); P.y+=cyAt(u);']:[]),
+  '  vec4 eye=viewMatrix*vec4(P,1.0); float halfW=1.5*max(0.0,-eye.z)/max(1.0,uMarkFocalPx); x+=aCorner.x*halfW; P+=vec3(lat.x,0.0,lat.y)*(aCorner.x*halfW);',
+  '  float shown=step(-0.5,slot)*step(slot,'+_roadG(ML_WALL_N-0.5)+')*(1.0-step(1.5,aMail.y));',
+  '  vMailP=vec2(x,y); vMailHue=aMail.x; vMailInk=0.9*(1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)))*step(0.5,tv)*shown; vMailRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow); vMailSeed=uWallSeed+slot*13.7;',
+  '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
+  '}'
+].join('\n'); }
+function ghostMailFragmentShader(){ if(!GH_CHALK || !ML_WALLS) return ''; return [
+  'varying vec2 vMailP; varying float vMailHue,vMailInk,vMailRetire,vMailSeed;',
+  ...(!LOW?[
+  'float mailHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vMailSeed)*43758.5453); }',
+  'float mailVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=mailHash(i),b=mailHash(i+vec2(1.0,0.0)),c=mailHash(i+vec2(0.0,1.0)),d=mailHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
+  ]:[]),
+  'void main(){ if(vMailInk<=0.004 || vMailRetire<=0.004) discard;',
+  ...(!LOW?['  if(vMailRetire<mailVn(vMailP*5.3+19.1)) discard;']:['  float powder=0.5+0.25*sin(vMailP.x*0.37)+0.25*sin(vMailP.y*0.53); if(vMailRetire<powder) discard;']),
+  '  vec3 rgb=clamp(abs(fract(vMailHue+vec3(0.0,0.66666667,0.33333333))*6.0-3.0)-1.0,0.0,1.0); gl_FragColor=vec4(mix(vec3(0.92),rgb,0.28)*vMailInk,1.0);',
+  '}'
+].join('\n'); }
+function ghostMailBuild(){
+  if(!GH_CHALK || !ML_WALLS || !roadWall || _ghostMailMesh) return;
+  const n=GH_MAIL_RESPONSE_MAX, p=new Float32Array(n*12), c=new Float32Array(n*8), a=new Float32Array(n*8), ix=new Uint16Array(n*6);
+  for(let i=0;i<n;i++){ const v=i*4,o=i*8,j=i*6; c.set([-1,-1,1,-1,1,1,-1,1],o); ix.set([v,v+1,v+2,v,v+2,v+3],j); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(p,3).setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('aCorner',new THREE.BufferAttribute(c,2));
+  g.setAttribute('aMail',new THREE.BufferAttribute(a,2).setUsage(THREE.DynamicDrawUsage)); g.setIndex(new THREE.BufferAttribute(ix,1)); g.setDrawRange(0,0);
+  const U=roadWallMat.uniforms, mat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
+    uniforms:{uNow:U.uNow,uArchN0:U.uArchN0,uMarkFocalPx:U.uMarkFocalPx,uWallSeed:U.uWallSeed,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon},vertexShader:ghostMailVertexShader(),fragmentShader:ghostMailFragmentShader()});
+  _ghostMailGeometry=g; _ghostMailMesh=new THREE.Mesh(g,mat); _ghostMailMesh.frustumCulled=false; _ghostMailMesh.renderOrder=6.25; _ghostMailMesh.visible=false; _ghostMailMesh.onBeforeRender=roadWall.onBeforeRender; roadWall.add(_ghostMailMesh);
+}
+function ghostMailWallKind(b){
+  if(!GH_CHALK || !ML_WALLS) return 2;
+  if(roadTideAt(b).m===1) return 1;
+  return roadTideAt(b+ML_ARCH_EVERY).m===1 || roadTideAt(b-ML_ARCH_EVERY).m===1 || roadTideAt(b-2*ML_ARCH_EVERY).m===1?2:0;
+}
+function ghostMailPaint(rows){
+  if(!GH_CHALK || !ML_WALLS) return;
+  const n=Array.isArray(rows)?Math.min(rows.length,GH_MAIL_RESPONSE_MAX):0;
+  if(n && !_ghostMailMesh) ghostMailBuild();
+  if(!_ghostMailMesh) return;
+  const g=_ghostMailGeometry, p=g.attributes.position.array, a=g.attributes.aMail.array;
+  p.fill(0); a.fill(0); let count=0;
+  for(let i=0;i<n;i++){
+    const row=rows[i]; if(!row || !Number.isFinite(row.b) || !Number.isInteger(row.lane) || row.lane<0 || row.lane>3 || !Number.isInteger(row.sig) || row.sig<0 || row.sig>7) continue;
+    const x=GH_MARK_LANES[row.lane]*ML_WALL_DJ, kind=Number.isFinite(row.kind)?row.kind:ghostMailWallKind(row.b), hue=row.sig/8;
+    for(let q=0;q<4;q++){ const v=count*4+q; p[v*3]=row.b; p[v*3+1]=x; a[v*2]=hue; a[v*2+1]=kind; }
+    count++;
+  }
+  g.attributes.position.needsUpdate=true; g.attributes.aMail.needsUpdate=true; g.setDrawRange(0,count*6); _ghostMailMesh.visible=count>0;
+}
+let _ghostMailState=null;
+// Tonight's heard seconds and rendered beats are sampled together. The bounded prefetch history covers the relay's four-second deadline; decimation and frame interpolation are approximations, not a sub-frame grading clock.
+function ghostMailReset(r){
+  if(!GH_CHALK) return;
+  _ghostMailState=GH_SHARE?{ready:!_ghostToken,pending:[],assigned:[],clock:[[0,r]],t:0,r:r,bar:NaN}:null;
+  ghostMailPaint([]);
+}
+function ghostMailBeatAt(clock,t){
+  if(!clock.length) return 0;
+  if(t<=clock[0][0]) return clock[0][1];
+  for(let i=1;i<clock.length;i++){
+    const b=clock[i], a=clock[i-1];
+    if(t<=b[0]) return a[1]+(b[1]-a[1])*(b[0]>a[0]?(t-a[0])/(b[0]-a[0]):1);
+  }
+  return clock[clock.length-1][1];
+}
+function ghostMailRender(r){
+  if(!GH_CHALK) return;
+  const m=_ghostMailState; if(!m) return;
+  const shift=reduceMotion?Math.floor(r/ML_ARCH_EVERY)*ML_ARCH_EVERY:0;
+  const first=-ML_ARCH_BEHIND, last=first+(ML_WALL_N-1)*ML_ARCH_EVERY;
+  ghostMailPaint(m.assigned.map(row=>{
+    let b=row.b-shift;
+    if(reduceMotion && b>=first && b<=last) b=ghostMailNearestDoor(b,first,last);
+    return {b:b,lane:row.lane,sig:row.sig};
+  }));
+}
+function ghostMailNearestDoor(b,first,last){
+  if(first===undefined) first=(_ghostDoorOrigin+1)*ML_ARCH_EVERY;
+  if(last===undefined) last=Infinity;
+  for(let step=0;step<=ML_ARCH_N;step++){
+    const ahead=b+step*ML_ARCH_EVERY, behind=b-step*ML_ARCH_EVERY;
+    if(ahead<=last && ghostMailWallKind(ahead)<1.5) return ahead;
+    if(behind>=first && ghostMailWallKind(behind)<1.5) return behind;
+  }
+  return b;
+}
+function ghostMailAdvance(r,t){
+  if(!GH_CHALK || !GH_SHARE || !_ghostMailState || !Number.isFinite(r)) return;
+  const m=_ghostMailState; if(t===undefined) t=ghostRoadTime();
+  if(!Number.isFinite(t) || t<m.t) return;
+  const bar=Math.floor(r/ML_ARCH_EVERY); let changed=false;
+  if(!m.ready || m.pending.length){
+    const clock=m.clock, last=clock[clock.length-1];
+    if(t===last[0]) last[1]=r;
+    else{
+      if(clock.length>=256){ let n=1; for(let i=2;i<clock.length-1;i+=2) clock[n++]=clock[i]; clock[n++]=last; clock.length=n; }
+      clock.push([t,r]);
+    }
+    while(m.pending.length && m.pending[0][0]<=t){
+      const row=m.pending.shift(), beat=ghostMailBeatAt(clock,row[0]);
+      const b=Math.max((_ghostDoorOrigin+1)*ML_ARCH_EVERY,(Math.floor(beat/ML_ARCH_EVERY)+1)*ML_ARCH_EVERY);
+      m.assigned.push({b:reduceMotion?b:ghostMailNearestDoor(b),lane:row[1],sig:row[2]}); changed=true;   // nearest real door, ties forward; the still road defers this choice to its pinned physical stations
+    }
+    if(m.ready){ clock[0]=[t,r]; clock.length=1; }
+  }
+  m.t=t; m.r=r;
+  if(changed || (bar!==m.bar && m.assigned.length)) ghostMailRender(r);
+  m.bar=bar;
+}
+function ghostMailArrive(rows){
+  if(!GH_CHALK || !GH_SHARE || !_ghostMailState) return;
+  const m=_ghostMailState;
+  if(m.ready) return;
+  m.ready=true; m.pending=rows.map(row=>row.slice()).sort((a,b)=>a[0]-b[0]);
+  ghostMailAdvance(m.r,m.t);
+  m.clock[0]=[m.t,m.r]; m.clock.length=1;
+}
 function ghostOwnLoad(){
   _ghostOwn=null; _ghostLocalMailCount=0; _ghostLocalMailSpoken=false;
   if(!GH_RECORD) return null;
@@ -8586,9 +8718,15 @@ function ghostMoonSigil(bucket){
 }
 function ghostVisitorMailLine(){
   if(!GH_SHARE || _ghostMailSpoken || !_ghostMailRows || _ghostMailRows.length<1) return '';
-  const sigil=ghostMoonSigil(_ghostMailRows[0][2]); if(!sigil) return '';
+  const sigils=[]; let seen=0;
+  for(const row of _ghostMailRows){
+    const bucket=row&&row[2], sigil=ghostMoonSigil(bucket); if(!sigil) continue;
+    const bit=1<<bucket; if(seen&bit) continue; seen|=bit; sigils.push(sigil);
+  }
+  if(!sigils.length) return '';
   _ghostMailSpoken=true;
-  return TF('ghostVisitorMail','{n} of your notes were caught · {sigil}',{n:_ghostMailRows.length,sigil:sigil});
+  if(sigils.length===1) return TF('ghostVisitorMail','someone left a mark at your door · {sigil}',{sigil:sigils[0]});
+  return TF('ghostVisitorsMail','strangers left marks at your door · {sigils}',{sigils:sigils.join('\u2009')});
 }
 function ghostVisitorLine(){
   if(!GH_SHARE) return '';
@@ -8629,9 +8767,10 @@ async function ghostVisitorFetch(epoch,token,bucket){
 async function ghostMailFetch(epoch,token){
   // Read-once is intentional ephemerality: the relay clears this mailbox before it answers, so a crash after this boundary loses the notes and no client cache tries to resurrect them.
   const body=await ghostRelayJson(GH_MAIL_PATH,{headers:ghostRelayHeaders(token,false)});
-  if(!body || ghostSerializedBytes(body)>GH_MAX_BYTES) return;
-  const rows=body&&ghostMailRowsValid(body.catches); if(epoch!==_ghostShareEpoch || !rows || !rows.length) return;
-  _ghostMailRows=rows;
+  if(epoch!==_ghostShareEpoch) return;
+  const rows=body&&ghostSerializedBytes(body)<=GH_MAX_BYTES?ghostMailRowsValid(body.catches):null;
+  if(rows && rows.length) _ghostMailRows=rows;
+  if(GH_CHALK) try{ ghostMailArrive(rows||[]); }catch(e){}   // empty, rejected and timed-out reads also close the bounded prefetch history; no receipt is persisted or retried
 }
 function ghostShareReset(){
   if(!GH_SHARE) return;

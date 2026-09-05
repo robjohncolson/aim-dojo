@@ -806,8 +806,10 @@ window.JA={
   phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
   rememberLine:'{n}夜が めぐった · {star} が きみの席を まもっていた', rememberAlone:'道場は きみの場所を あけて まっていた',
   ghostGiftMail:'きみは 手をのばした · {n}この音を つかまえた',
+  // C5 received-mark threshold strings: Japanese wording pending native review.
+  ghostVisitorMail:'だれかがあなたの戸口にしるしを残した · {sigil}', ghostVisitorsMail:'旅人たちがあなたの戸口にしるしを残した · {sigils}',
   // C3 chalk threshold strings: Japanese wording pending native review.
-  ghostVisitorMail:'きみの音を {n}こ だれかが つかまえた · {sigil}', ghostVisitorBack:'手をのばしてくれた旅人が戸口にしるしを残した · {sigil}',
+  ghostVisitorBack:'手をのばしてくれた旅人が戸口にしるしを残した · {sigil}',
   ghostVisitorLine:'今夜の戸口には旅人のしるしがある · {sigil}',
   ghostPhaseLine:'このまえの{sigil}の夜がとなりを走る', ghostVisitorsLine:'今夜の戸口には{n}人の旅人のしるしがある · {sigils}',
   rememberAnchortaurus:'アルデバラン', rememberAnchorleo:'レグルス', rememberAnchorvirgo:'スピカ', rememberAnchorscorpius:'アンタレス',

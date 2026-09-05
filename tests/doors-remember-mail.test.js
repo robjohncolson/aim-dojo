@@ -34,7 +34,7 @@ function tapContext(options = {}) {
     _ghostMarksOut: [], _ghostMercyMarks: new Map(), _ghostVisitors: [],
     roadWallMat: { uniforms: { uArchN0: { value: options.arch0 === undefined ? 16 : options.arch0 }, uK: { value: kinds } } },
     ghostChalkVisible(b, x, kind) { seen.push([b, x, kind]); return options.visible ? options.visible(b, x, kind) : true; },
-    ghostRoadTime: () => roadTime, ghostChalkInstall() { installs.push(true); },
+    ghostRoadTime: () => roadTime, ghostChalkInstall() { installs.push(true); }, ghostMailAdvance() {},
     doorCross: forbidden, pushEvent: forbidden, rnd: forbidden, spawnTarget: forbidden, Tone: new Proxy({}, { get: forbidden }),
   });
   const lanes = main.match(/\bGH_MARK_LANES=(\[[^\]]+\])/); assert.ok(lanes);
