@@ -135,7 +135,7 @@ disables personal requests instead of falling through to another host. Set
 a Supabase service-role, secret, or JWT-signing key in this object or any
 browser file.
 
-`?piano=1` auditions the felted-keyboard night (metronome kept; chip mix otherwise). This URL-only audition is not saved in preferences.
+Piano is the default night, with the metronome kept. `?piano=0` restores the chip/analog mix; `?pianoHums=0` restores the previous orb voices on a piano night. These URL overrides are not saved in preferences.
 
 ### Cloud play preferences
 

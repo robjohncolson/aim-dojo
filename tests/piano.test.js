@@ -36,10 +36,16 @@ test("Piano frozen fixture authenticates the as-found chip graph and later SFX s
   assert.equal(extractFunction(main, "dutyToWidth"), extractFunction(beforePiano, "dutyToWidth"));
 });
 
-test("Piano authored defaults are URL-only and default off", () => {
+test("Piano authored defaults make the keyboard and soft calls the night, with URL-only escapes", () => {
   const declaration = main.match(/^\s+piano:(\{[^\n]+\}),\s*\/\//m);
   assert.ok(declaration, "CFG owns the one piano patch and key-length controls");
   assert.deepEqual(normalize(vm.runInNewContext(`(${declaration[1]})`)), pianoDefaults);
+  assert.equal(pianoDefaults.on, true);
+  assert.equal(pianoDefaults.hums, true);
+  const ctx = vm.createContext({});
+  vm.runInContext(extractFunction(main, "resolvePiano"), ctx);
+  for (const search of ["", "?chip=lead,bass,pad", "?pianoHums=0"]) assert.equal(ctx.resolvePiano(search, pianoDefaults), true, search);
+  assert.equal(ctx.resolvePiano("?piano=0", pianoDefaults), false);
   assert.match(main, /const PIANO=resolvePiano\(location\.search\+location\.hash,CFG\.piano\)/);
 });
 

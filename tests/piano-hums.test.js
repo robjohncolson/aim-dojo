@@ -38,8 +38,8 @@ function exerciseField(h){
  const a=h.target("a",2),b=h.target("b",4);h.c.humFieldSpawn(a);h.c.humFieldSpawn(b);h.c.humFieldGrid(100.1,1,3,0);h.trace.advance(100.06);h.c.humFieldSpawn(a);h.trace.drain(100.1);a.mesh.position.x=9;h.trace.advance(100.16);h.c.humFieldUpdate();h.c.humFieldStop();h.trace.drain(100.5);return h;
 }
 
-test("piano hums default off and exact URL switch is applied only on the piano arm",()=>{
- const cfg=Function("return "+main.match(/^\s*piano:\s*(\{[^\n]+?\})/m)[1])();assert.equal(cfg.hums,false);
+test("piano hums default on and exact URL switch is applied only on the piano arm",()=>{
+ const cfg=Function("return "+main.match(/^\s*piano:\s*(\{[^\n]+?\})/m)[1])();assert.equal(cfg.hums,true);
  const resolve=Function(extractFunction(main,"resolvePianoHums")+"\nreturn resolvePianoHums;")();
  for(const [search,initial,expected]of [["?pianoHums=1",false,true],["#pianoHums=0",true,false],["?x=1&pianoHums=1&x=0",false,true],["?pianoHums=true",false,false],["?pianoHums=10",false,false],["?pianoHums=01",true,true],["?xpianoHums=1",false,false],["?pianoHums=%31",false,false],["",true,true]]){const c={hums:initial,other:7};resolve(search,c);assert.deepEqual(c,{hums:expected,other:7},search);}
  assert.match(main,/if\s*\(PIANO\)\s*resolvePianoHums\(/);
