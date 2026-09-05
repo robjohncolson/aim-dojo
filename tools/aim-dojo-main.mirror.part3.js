@@ -4126,21 +4126,18 @@
 
 
 
-const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new THREE.Vector3(), _templeTmp=new THREE.Vector3();
-function _templeDisposeChildren(){
-  while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
-    if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
-    if(obj.material && obj.material.dispose){ obj.material.dispose(); const hz=_hzFadeMats.indexOf(obj.material); if(hz>=0) _hzFadeMats.splice(hz,1); }   // the aspect/highlight lines are horizonFadeMat() materials: drop the disposed one from the list setHorizonOpen walks every sky tick, or the list grows by two per Temple entry forever (perf audit 2026-08-18)
-  }
-  _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
-}
-function _templeAspectColor(id){
-  if(id==='square') return new THREE.Color(0xff8a78);
-  if(id==='opposition') return new THREE.Color(0x88bfff);
-  if(id==='trine') return new THREE.Color(0x8fe3c0);
-  if(id==='sextile') return new THREE.Color(0xa8d8ff);
-  return new THREE.Color(0xffd66f);
-}
+
+
+
+
+
+
+
+
+
+
+
+
 function rebuildSkyTempleGeometry(){
   const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
     :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}

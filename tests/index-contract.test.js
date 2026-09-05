@@ -1040,10 +1040,10 @@ test("a void miss loses its floor ring and keeps its ballistic termination", () 
   // THE TREADMILL LAW: the gate is on the VISUAL, never on the y=0 termination that grades the miss.
   const update = html.match(/function updateProjectiles\(dt\)\{[\s\S]*?\n\}/);
   assert.ok(update, "the projectile update is present");
-  const terminate = update[0].match(/const gift=!!\(GH_GIFT&&pr\.gift\);\n\s*if\(pr\.life>=CFG\.projLife \|\| pr\.pos\.y<=0\.04[^\n]*\n/);
+  const terminate = update[0].match(/if\(pr\.life>=CFG\.projLife \|\| pr\.pos\.y<=0\.04[^\n]*\n/);
   assert.ok(terminate, "the projectile termination line is present");
-  assert.match(terminate[0], /\(!gift && \(Math\.abs\(pr\.pos\.x\)>ROOM_HALF_W \|\| Math\.abs\(pr\.pos\.z\)>ROOM_HALF_D\)\)/);
-  assert.match(terminate[0], /if\(!gift && pr\.pos\.y<=0\.04 && \(!ML_ARC_VOID \|\| !moonlineVoid\(\)\)\) spawnLandRing\(pr\.pos\.x, pr\.pos\.z\); onWhiff\(gift\); retireProjectile\(i\); continue;/);
+  assert.match(terminate[0], /Math\.abs\(pr\.pos\.x\)>ROOM_HALF_W \|\| Math\.abs\(pr\.pos\.z\)>ROOM_HALF_D/);
+  assert.match(terminate[0], /if\(pr\.pos\.y<=0\.04 && \(!ML_ARC_VOID \|\| !moonlineVoid\(\)\)\) spawnLandRing\(pr\.pos\.x, pr\.pos\.z\); onWhiff\(\); retireProjectile\(i\); continue;/);
   assert.doesNotMatch(terminate[0].slice(0, terminate[0].indexOf("{")), /moonline|_mlBlend|roadLive/i);
 });
 

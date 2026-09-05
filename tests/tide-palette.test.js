@@ -166,15 +166,15 @@ test("tidePalette:0 freezes both wall arrays for a full cycle and every coupled 
   mutationMustFail(assertContract, replaceFunction(html, "roadArchFill", (fn) => fn.replace("col=roadWallPaletteAt(bar)", "col=roadWallPaletteAt(bar+1)")), "the frozen fixture kills a shifted private walk");
 });
 
-test("the private palette stream and every ghost seat remain outside the tide", () => {
+test("the private palette stream and remembered night palette remain outside the tide", () => {
   const assertContract = (source) => {
-    const palette = extractFunction(source, "roadWallPalette"), fill = extractFunction(source, "roadArchFill"), ghostNight = extractFunction(source, "ghostNightPalette"), ghostSeat = extractFunction(source, "ghostSeatPalette");
+    const palette = extractFunction(source, "roadWallPalette"), fill = extractFunction(source, "roadArchFill"), ghostNight = extractFunction(source, "ghostNightPalette");
     assert.equal((palette.match(/\brr\(\)/g) || []).length, 2, "the private walk still spends exactly two draws per chamber");
     assert.doesNotMatch(palette, /tideTint|tidePalette|roadTideAt/, "the seeded 512-bar walk never learns the live tide");
     assert.equal((fill.match(/roadWallPaletteAt\(/g) || []).length, 2); assert.match(fill, /col=roadWallPaletteAt\(bar\), next=roadWallPaletteAt\(bar\+1\);[\s\S]*tideTint\(col,cb\)[\s\S]*tideTint\(next,cb\+1\)/);
-    assert.doesNotMatch(`${ghostNight}\n${ghostSeat}`, /tideTint|tidePalette|roadTideAt|_roadTideR/, "a ghost keeps the chalk of its own night");
+    assert.doesNotMatch(ghostNight, /tideTint|tidePalette|roadTideAt|_roadTideR/, "a remembered artifact keeps the chalk of its own night");
   };
   assertContract(html);
   mutationMustFail(assertContract, replaceFunction(html, "roadWallPalette", (fn) => fn.replace("rr()*n", "rr()*rr()*n")), "the stream oracle kills a third private draw");
-  mutationMustFail(assertContract, replaceFunction(html, "ghostSeatPalette", (fn) => fn.replace("setHex(_ghNightChalk[i])", "setHex(tideTint(_ghNightChalk[i],0))")), "the ghost oracle kills a live-night tint");
+  mutationMustFail(assertContract, replaceFunction(html, "ghostNightPalette", (fn) => fn.replace("return out;", "tideTint(0,0); return out;")), "the remembered-palette oracle kills a live-night tint");
 });

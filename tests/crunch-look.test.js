@@ -53,12 +53,13 @@ test("authored chalk fixes strong-device DPR while weak and disabled ranges rema
   assert.deepEqual(dpr(false, true, true, 2, true), [1.25, .8]);
 });
 
-test("hardware probe is shared and social capacities never depend on render LOW", () => {
+test("hardware probe is shared and remembered visitor capacities are identical on every device", () => {
   assert.match(source, /const WEAK = detectWeakGPU\(\);/);
   assert.doesNotMatch(resolver, /detectWeakGPU\(/);
-  for (const name of ["GH_VISITOR_COUNT", "GH_VISITOR_FETCH_COUNT", "GH_TARGET_MAX", "GH_BURST_MAX"]) {
+  for (const [name, count] of [["GH_VISITOR_COUNT", 3], ["GH_VISITOR_FETCH_COUNT", 4]]) {
     const assignment = source.match(new RegExp(`\\b${name}=([^,;]+)`))[1];
-    assert.match(assignment, /\bWEAK\b/);
-    assert.doesNotMatch(assignment, /\bLOW\b/);
+    assert.equal(Number(assignment), count);
+    assert.doesNotMatch(assignment, /\b(?:LOW|WEAK)\b/);
   }
+  assert.doesNotMatch(source, /\bGH_(?:LOW_|HIGH_)?(?:TARGET|BURST)_MAX\b/);
 });

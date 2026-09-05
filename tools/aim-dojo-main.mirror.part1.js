@@ -62,13 +62,10 @@ const CFG = {
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
-  ghostSeat:1,   // NIGHT GHOSTS S: raw flat kill-switch. 0 allocates and draws no echo-seat object; 1 may load one validated prior-night artifact into the separate +90 m Veiled Choir
-  ghostGift:1,   // THE GIFT: raw flat kill-switch. 0 adds no flare candidate, projectile tag, catch state, wrapper/mail or threshold read; 1 lets a revealed prior-night flare receive one connection-only blessed shot
   gateFirst:1,   // THE GATE FIRST (SPEC_THE_INVITATION C, load scheduling): raw flat kill-switch. 0 keeps the wave-18 boot order (one synchronous shader warm at idle, texture work racing the PLAY gate); 1 lights PLAY as soon as Tone is fetchable and sequences every heavy idle job — chunked shader warm, sticks/belt/milky textures, glossary, sky day, auth, boards — AFTER the gate
   calibSilent:1,   // THE SILENT CALIBRATION (SPEC_THE_INVITATION A): raw flat kill-switch. 0 never reads the accumulator outside the pause-card button; 1 folds a newcomer's measured tap residual into the offset once, wordlessly, at graduation or the first pause
   sensei2:1,   // MOON SENSEI II (SPEC_THE_INVITATION K): raw flat kill-switch. 0 never opens aimdojo.sensei2 and never speaks; 1 lets each post-graduation night dynamic teach itself in one line, once ever
-  ghostShare:1,   // THE CHORUS LINE: raw flat kill-switch. 0 mints no relay token, allocates no visitor/mail/star state and makes no relay request; 1 shares worthy nights and seats one validated stranger on LOW or up to three plus one honest silhouette on HIGH
-  ghostPhase:0,   // THE MOON REMEMBERS YOU: dormant pending the tonight-only ruling. 0 never opens aimdojo.ghostPhase or seats a phase memory; 1 keeps one browser-only worthy night per moon bucket
+  ghostShare:1,   // raw flat kill-switch: 0 mints no token, allocates no visitors/mail and makes no relay request; 1 keeps up to three validated strangers in memory
   spawnMinDeg:16, spawnMinHiDeg:40,                      // spawn anywhere in the 360° world, but at least this far from your aim (grows with tempo → no freebies, bigger flicks)
   beatSpawn:true, beatSpawnSixteenths:[2,3,4,6,8,12,16], beatSpawnPitchDeg:8,   // BEAT-QUANTIZED SPAWN (arrival-timing): pick each orb's distance so the shot's FLIGHT TIME = one of these 16th-note counts (k/16 beat) → to land ON the beat you RELEASE exactly k sixteenths early, so every correct release falls on a rhythmic subdivision (distance encodes the syncopation). Reduced pitch keeps orbs near eye-height so the flight-time model holds. beatSpawn:false → the old cube-root distance.
   // THE SURVIVING EXPERT k-SET UNDER THE SIXTY CAP (parcel P, computed with the real solver in beatSpawnDist against the SHIPPED constants — projSpeed 28/projSpeedFast 72 from SENSEI_PACK, projGravity 16, rangeNear 8, rangeMax 28): the LIST DOES NOT CHANGE — infeasible k's have always dropped out by arithmetic, and they still do. AT EXACTLY 60 BPM (dT 1.00, s 72 m/s) against rangeMax the feasible set is {2, 3, 4, 6} at d = {9.00, 13.50, 17.99, 26.98} m; k=8/12/16 need 35.94/53.81/71.55 m and are out of reach. Over the WHOLE new live band 20..60 (far = rangeMax): k=2,3,4 are feasible throughout, k=6 enters at 40.1 bpm, k=8/12/16 never — the expert lead is therefore the SIX-sixteenth (3/8-beat) call, not the old 8..16. On a LAST QUARTER (farMul 1.3, band 10.4..36.4 m) the set at 60 shifts out to {3, 4, 6, 8}, which is the one night k=8 speaks at all. At the CLOSE end (state.range at rangeStart 11) only k=2 is ever feasible, at every tempo — so a night's k vocabulary genuinely opens as the distance shell marches out, which is what the shell was for.
@@ -1645,5 +1642,42 @@ function buildRoadArches(){
     ]).join('\n') });
   roadArch=new THREE.Mesh(g,roadArchMat); roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);
   if(roadArchAccentMat){ roadArchAccent=new THREE.Mesh(g,roadArchAccentMat); roadArchAccent.frustumCulled=false; roadArchAccent.renderOrder=-37.8; roadArchAccent.visible=false; scene.add(roadArchAccent); }
+}
+function buildNaveVault(){
+  /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
+     uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's
+     existing pin makes the whole painted vault stand. Private seeded generation preserves the gameplay random stream. */
+  const N=ML_NAVE_STARS, pos=new Float32Array(N*3), dat=new Float32Array(N*3), rr=mulberry32(0x51f15e9d);
+  for(let i=0;i<N;i++){
+    const canopy=i<Math.floor(N*0.76), anchor=rr()*ML_NAVE_VAULT_SPAN, u=anchor*ROAD_MPB; let x,y;
+    if(canopy){ x=(rr()*2-1)*34; const roof=Math.max(19,58-Math.abs(x)*0.78); y=15+Math.pow(rr(),1.25)*(roof-15); }
+    else { const side=rr()<0.5?-1:1; x=side*(9+24*Math.pow(rr(),1.4)); y=5.5+16*rr(); }
+    if(u>430){ const cone=3+(u-430)*0.028; if(Math.abs(x)<cone) x=(x<0?-1:1)*cone; }
+    const near=1-0.72*Math.max(0,Math.min(1,(u-90)/560)), sz=(canopy?0.18:0.14)+(canopy?0.68:0.46)*Math.pow(rr(),1.8), pick=rr();
+    pos[i*3]=anchor; pos[i*3+1]=x; pos[i*3+2]=y; dat[i*3]=sz; dat[i*3+1]=pick<0.16?1:(pick<0.24?2:0); dat[i*3+2]=(0.48+0.52*rr())*near;
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aData',new THREE.BufferAttribute(dat,3));
+  const U=roadMat.uniforms;
+  roadVaultMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,
+    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uBreath:U.uBreath},
+    vertexShader:[
+      'uniform float uNow,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; attribute vec3 aData; varying float vA,vT;',
+      ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
+      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+      'void main(){',
+      '  float ba=mod(position.x-uNow,'+_roadG(ML_NAVE_VAULT_SPAN)+')-'+_roadG(ML_NAVE_VAULT_BEHIND)+', b=uNow+ba;',
+      (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
+      (ML_TERRAIN?'  float u=ba*'+_roadG(ROAD_MPB)+', tv=terrainVis(u,cx+position.y,position.z); vec4 mv=viewMatrix*vec4(cx+position.y,position.z+cyAt(u),-u,1.0); gl_Position=projectionMatrix*mv;':'  float u=ba*'+_roadG(ROAD_MPB)+'; vec4 mv=viewMatrix*vec4(cx+position.y,position.z,-u,1.0); gl_Position=projectionMatrix*mv;'),
+      '  float px=clamp(aData.x*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),1.6,34.0); gl_PointSize=px; vT=aData.y; vA=aData.z*clamp(px/8.0,0.18,1.0)*smoothstep('+_roadG(-ROAD_MPB)+','+_roadG(-ROAD_MPB*0.45)+',u)*(1.0-smoothstep(560.0,690.0,u))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+')'+(ML_TERRAIN?'*tv':'')+';',
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      'varying float vA,vT; void main(){ vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*7.0); float a=core;'
+    ].concat(ML_ARCH_RICH?[
+      '  if(vT>0.5){ float r4=exp(-abs(q.x)*10.0)*exp(-q.y*q.y*3.5)+exp(-abs(q.y)*10.0)*exp(-q.x*q.x*3.5); a+=r4*0.55; if(vT>1.5){ vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); a+=(exp(-abs(d.x)*12.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*12.0)*exp(-d.x*d.x*4.0))*0.40; } }'
+    ]:[]).concat([
+      '  a*=vA; if(a<0.003) discard; vec3 c=mix(vec3(1.0,0.824,0.478),vec3(1.0,0.925,0.80),core*0.55); gl_FragColor=vec4(c*a,a); }'
+    ]).join('\n') });
+  roadVault=new THREE.Points(g,roadVaultMat); roadVault.frustumCulled=false; roadVault.renderOrder=-38.6; roadVault.visible=false; scene.add(roadVault);
 }
 })();

@@ -248,7 +248,6 @@ function previewFrame({ arcSwitch, voidWorld }) {
     ARC_SAMP: 30,
     ARC_UPDATE_STEP: 1 / 20,
     CFG: { projArc: true, projGravity: 1, projectile: true, projLife: 14 },
-    GH_GIFT: false,
     ML_ARC_FAR: 140,
     ML_ARC_VOID: arcSwitch,
     Math,
@@ -316,7 +315,6 @@ function projectileFrame({ arcSwitch, voidWorld }) {
   const projectile = { life: 0, mesh: {}, pos: new Vec3(0, 0.05, 0), vel: new Vec3(0, -1, 0) };
   const context = vm.createContext({
     CFG: { projGravity: 0, projLife: 14, projRadius: 0.3 },
-    GH_GIFT: false,
     ML_ARC_VOID: arcSwitch,
     Math,
     ROOM_HALF_D: 100,
@@ -358,7 +356,6 @@ function realLandRingFrame({ arcSwitch, voidWorld }) {
   class LineBasicMaterial { constructor(options) { Object.assign(this, options); } }
   const context = vm.createContext({
     CFG: { projGravity: 0, projLife: 14, projRadius: 0.3 },
-    GH_GIFT: false,
     ML_ARC_VOID: arcSwitch,
     Math,
     ROOM_HALF_D: 100,
@@ -400,10 +397,14 @@ test("SPACE TRUTH knobs are flat, raw, independent, and cover off/R-only/V-only/
   }
 });
 
-test("computeShotPlan keeps the shipped solve with one explicit gift-speed input", () => {
+test("computeShotPlan keeps the frozen ordinary solve after deleting only the gift-speed input", () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "space-truth-shot-plan.fixture.json"), "utf8"));
+  assert.equal(crypto.createHash("sha256").update(fixture.computeShotPlan).digest("hex"), "9435bc79e35034b572695131365fd979b7b2795775d9843d840afd8eac300dca", "the fixture retains the pre-C1 shipped hash");
   const source = extractFunction("computeShotPlan");
-  const hash = crypto.createHash("sha256").update(source).digest("hex");
-  assert.equal(hash, "9435bc79e35034b572695131365fd979b7b2795775d9843d840afd8eac300dca");
+  assert.match(source, /^function computeShotPlan\(M, V\)\{/);
+  const expected = fixture.computeShotPlan.slice(fixture.computeShotPlan.indexOf("\n") + 1)
+    .replace("const muzzleSpeed=Number.isFinite(planSpeed)?planSpeed:projSpeedNow();", "const muzzleSpeed=projSpeedNow();");
+  assert.equal(source.slice(source.indexOf("\n") + 1), expected, "all ordinary solver bytes survive the deleted parameter and its sole speed branch");
 });
 
 test("ML_RING_IN remains the named approach-condensation constant", () => {
@@ -609,7 +610,13 @@ test("V skips only the void land-ring call; onWhiff and retirement stay byte-ord
   assert.ok(voidFrame.projectile.pos.y <= 0.04, "the accepted phantom-plane bullet death remains");
   assert.match(extractFunction("spawnLandRing"), /if\(moonlineVoid\(\)\) return;/, "the shipped defense-in-depth visual arm is unconditional");
   const deathLine = extractFunction("updateProjectiles").split("\n").find((line) => line.includes("pr.life>=CFG.projLife"));
-  assert.match(deathLine, /spawnLandRing\([^;]+\); onWhiff\(gift\); retireProjectile\(i\); continue;/, "grading and retirement remain on the same shipped clock and order");
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "space-truth-shot-plan.fixture.json"), "utf8"));
+  const ordinary = fixture.projectileDeathLine
+    .replace("(!gift && (Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D))", "Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D")
+    .replace("if(!gift && pr.pos.y<=0.04", "if(pr.pos.y<=0.04")
+    .replace("onWhiff(gift);", "onWhiff();");
+  assert.equal(deathLine.split("   //")[0], ordinary, "only the exact deleted gift exemptions and argument differ from the frozen ordinary termination");
+  assert.match(deathLine, /spawnLandRing\([^;]+\); onWhiff\(\); retireProjectile\(i\); continue;/, "grading and retirement remain on the same shipped clock and order");
 });
 
 test("arcVoid:0 real missed-shot rings retain the shipped void suppression", () => {

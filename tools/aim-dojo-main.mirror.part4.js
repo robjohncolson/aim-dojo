@@ -6769,9 +6769,6 @@
 
 
 
-
-
-
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
@@ -7333,9 +7330,8 @@ function updateTanks(dt){   // per-frame: the per-chip shell "pop" (the amber ha
     else { tg._chipT=0; if(!(CFG.tank.fillOnly && tg.fill16>=0 && _fillAmt>=0)) tg.shell.scale.setScalar(1.55); }   // the live FILL tank's scale was already set this frame by the lens-bubble on the fill's own clock (spec 1.2 T4) — flat 1.55 here was clobbering the blink every rendered frame; the chip-pop above still wins during its 0.28s (a hit reaction outranks the pulse)
   }
 }
-function onWhiff(gift){
+function onWhiff(){
   state.shots++;
-  if(GH_GIFT && gift) return;                                              // decision: quiet shot bookkeeping may run, but THE GIFT CAN NEVER HURT reaches none of the felt or adaptive taps below
   state.streak=0; pushEvent(false);
   flashReticleBad(); playWhiffSfx(); missGrooveDuck(false);
   if(!reduceMotion){ addTrauma(CFG.hitTrauma*0.18); missCamKick(false); }
@@ -7360,8 +7356,7 @@ function fire(){
   if(CFG.fireQuant && toneReady && Tone.Transport.state==='started'){ let gi=-1; try{ gi=Math.floor((Tone.Transport.ticks/Tone.Transport.PPQ)*CFG.fireQuantDiv); }catch(e){} if(gi>=0){ if(gi<=_fireGrid) return; _fireGrid=gi; } }   // FIRE QUANTIZE: drop this press if we already launched on this 1/fireQuantDiv-beat grid step → caps spam at fireQuantDiv shots/beat, discrete grid-paced firing
   addRecoil();
   const fireRow=GH_RECORD?ghostRecordFire(ghostRoadTime(),yaw,pitch):null;
-  if(GH_GIFT) spawnProjectile(fireRow,_ghGiftLockedRow);                    // decision: the launch owns the displayed lock's tag forever; a later near-miss may never infer blessing from proximity
-  else spawnProjectile(fireRow);   // ARC is the only fire mode now (railgun removed). Groove timing is judged at ARRIVAL — the connect-vs-clank at impact checks orbOpen() when the bullet LANDS (in updateProjectiles), so you lead in TIME as well as space: fire early enough to put the shot on the orb while it glows. A gift fire is still this ordinary recorder row; only its collision route is blessed.
+  spawnProjectile(fireRow);   // ARC arrival timing remains the ordinary projectile law.
 }
 canvas.addEventListener('mousedown', e=>{
   if(e.button===0){
@@ -7549,19 +7544,18 @@ function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter i
     }
   }catch(e){}
 }
-function spawnProjectile(fireRow,giftRow){
-  const pr=projectilePool.pop() || (GH_GIFT?{pos:new THREE.Vector3(),vel:new THREE.Vector3(),fireRow:null,gift:false,giftRow:null,giftRoadT:0,giftLaunchT:0,giftX:0,giftY:0,giftZ:0,giftVx:0,giftVy:0,giftVz:0,life:0,mesh:null,charged:false}:{pos:new THREE.Vector3(),vel:new THREE.Vector3(),fireRow:null,life:0,mesh:null,charged:false});
-  const gift=!!(GH_GIFT&&giftRow), _T=gift?computeShotPlan(pr.pos,pr.vel,GH_GIFT_SPEED):computeShotPlan(pr.pos, pr.vel);   // mercy lends mastery's fixed muzzle speed; the off/normal arm keeps the shipped two-argument solve
+function spawnProjectile(fireRow){
+  const pr=projectilePool.pop() || {pos:new THREE.Vector3(),vel:new THREE.Vector3(),fireRow:null,life:0,mesh:null,charged:false};
+  const _T=computeShotPlan(pr.pos, pr.vel);
   playFireLaunch(_T);
   pr.fireRow=fireRow; pr.life=0;
-  if(GH_GIFT){ pr.gift=gift; pr.giftRow=gift?giftRow:null; pr.giftRoadT=gift?ghostRoadTime():0; if(gift){ pr.giftLaunchT=pr.giftRoadT; pr.giftX=pr.pos.x; pr.giftY=pr.pos.y; pr.giftZ=pr.pos.z; pr.giftVx=pr.vel.x; pr.giftVy=pr.vel.y; pr.giftVz=pr.vel.z; } }   // decision: the off arm never adds a projectile tag; the on arm writes its row and road-clock origin exactly once at launch; pooled launch scalars keep its blessed parabola independent of render cadence
   // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
-  if(projectiles.length>64){ const droppedGift=!!(GH_GIFT&&projectiles[0].gift); onWhiff(droppedGift); retireProjectile(0); }   // hard cap against rapid-fire spam — the retired launch owns its miss law, so dropping a blessed shot cannot leak one punitive tap
+  if(projectiles.length>64){ onWhiff(); retireProjectile(0); }   // hard cap against rapid-fire spam
 }
-function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; if(GH_GIFT){ pr.gift=false; pr.giftRow=null; pr.giftRoadT=0; } projectilePool.push(pr); }
-function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; if(GH_GIFT){ pr.gift=false; pr.giftRow=null; pr.giftRoadT=0; } projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
+function retireProjectile(i){ const pr=swapRemove(projectiles,i); releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; projectilePool.push(pr); }
+function clearProjectiles(){ for(const pr of projectiles){ releaseProjectileMesh(pr.mesh); pr.mesh=null; pr.fireRow=null; projectilePool.push(pr); } projectiles.length=0; hideArc(); hideScope(); }
 function segDistSq(a,b,c){                                                                 // squared distance from point c to segment a→b (swept test so fast bullets can't tunnel through a target)
   const sx=b.x-a.x, sy=b.y-a.y, sz=b.z-a.z, l2=sx*sx+sy*sy+sz*sz;
   let t = l2>0 ? ((c.x-a.x)*sx+(c.y-a.y)*sy+(c.z-a.z)*sz)/l2 : 0;
@@ -7573,30 +7567,16 @@ const _prev=new THREE.Vector3();
 function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const pr=projectiles[i];
-    if(GH_GIFT && pr.gift){
-      const giftNow=ghostRoadTime(), giftDt=Number.isFinite(pr.giftRoadT)?Math.max(0,giftNow-pr.giftRoadT):dt; _prev.copy(pr.pos);
-      if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX)){ const t=Math.max(pr.life,Math.max(0,giftNow-pr.giftLaunchT)), k=0.5*t*(t+GH_GIFT_STEP); pr.pos.x=pr.giftX+pr.giftVx*t+windX*k; pr.pos.y=pr.giftY+pr.giftVy*t-CFG.projGravity*k; pr.pos.z=pr.giftZ+pr.giftVz*t+windZ*k; pr.life=t; }
-      else{ pr.vel.x+=windX*giftDt; pr.vel.y-=CFG.projGravity*giftDt; pr.vel.z+=windZ*giftDt; pr.pos.x+=pr.vel.x*giftDt; pr.pos.y+=pr.vel.y*giftDt; pr.pos.z+=pr.vel.z*giftDt; pr.life+=giftDt; }
-    }else{
     pr.vel.x+=windX*dt; pr.vel.y-=CFG.projGravity*dt; pr.vel.z+=windZ*dt; _prev.copy(pr.pos); pr.pos.x+=pr.vel.x*dt; pr.pos.y+=pr.vel.y*dt; pr.pos.z+=pr.vel.z*dt; pr.life+=dt;   // wind: horizontal accel (0 in the daily)
-    }
     let hit=null;
-    if(GH_GIFT && pr.gift){
-      if(ghostGiftProjectileHit(pr) && ghostGiftCatch(pr.giftRow,_ghGiftRoadT)){
-        if(GH_RECORD) ghostRecordMarkFire(pr.fireRow,true);
-        retireProjectile(i); continue;
-      }
-    }else{
-      for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
-        if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
-    }
+    for(const tg of targets){ if(tg.dead) continue; const rr=tg.radius*tg.sc+CFG.projRadius;
+      if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
       if(hit.hpMax>1){ handleTankHit(hit, pr.pos, pr.fireRow); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
       if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos, false, pr.fireRow); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos, undefined, undefined, pr.fireRow); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm); fireRow only identifies the recorder row and never enters grading
-    const gift=!!(GH_GIFT&&pr.gift);
-    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || (!gift && (Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D))){ if(!gift && pr.pos.y<=0.04 && (!ML_ARC_VOID || !moonlineVoid())) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(gift); retireProjectile(i); continue; }   // missed → whiff at the shipped instant; a blessed miss falls into the stars with only quiet shot bookkeeping, while the normal route and phantom-floor law stay unchanged
+    if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04 && (!ML_ARC_VOID || !moonlineVoid())) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(); retireProjectile(i); continue; }   // ordinary ballistic termination and the void floor-ring rule stay unchanged
     if(pr.mesh) pr.mesh.position.copy(pr.pos);
   }
 }
@@ -7667,9 +7647,9 @@ function animateArcPulse(){                                                     
   const ph=(state.t % period)/period; _arcPulseSet(arcPulseA, ph); _arcPulseSet(arcPulseB, (ph+0.5)%1);
 }
 function projSpeedNow(){ return lerp(CFG.projSpeed, CFG.projSpeedFast, diffT()); }   // muzzle speed scales with tempo/skill (diffT) so the bullet's flight time — and thus the lead a fast orb demands — stays manageable at high BPM. Used by computeShotPlan (→ bullet+ribbon+lock) and the ideal-arc readout, so all stay consistent. THE SIXTY CAP (parcel P) KEEPS BOTH LERP ENDPOINTS UNCHANGED — see CFG.projSpeedFast for the full decision. In one line: projSpeedFast IS the expert muzzle speed and 60 IS expert now, so the arc reaching 72 m/s at the cap is the definition being honoured, not a range artefact. It is FLAGGED for the post-wave tuning session (arc flatness at the cap) and deliberately NOT pre-tuned. Note this fn is also the solver input for beatSpawnDist/tankCloseDist, which is precisely why the feasible k-set moves down to {2,3,4,6} at 60: a faster bullet covers a k-sixteenth flight in more metres, so the long leads walk out past rangeMax.
-function computeShotPlan(M, V, planSpeed){                                                   // shared by the dashed arc, the REAL projectile, and the lock: launch from the bottom-right muzzle, solved to land where the eye→crosshair parabola lands. Gift callers pass the expert speed explicitly so the preview and the blessed shot solve the same parabola.
+function computeShotPlan(M, V){   // shared by the ribbon, real projectile and lock: solve the muzzle launch to the eye-to-crosshair parabola
   camera.getWorldDirection(_arcDir);
-  const muzzleSpeed=Number.isFinite(planSpeed)?planSpeed:projSpeedNow();
+  const muzzleSpeed=projSpeedNow();
   _arcPos.copy(PLAYER_POS); _arcVel.copy(_arcDir).multiplyScalar(muzzleSpeed);
   const step=1/30, g=CFG.projGravity; let n=0; _planLanded=false;
   for(; n<ARC_MAX; n++){ _arcVel.x+=windX*step; _arcVel.y-=g*step; _arcVel.z+=windZ*step; _arcPos.addScaledVector(_arcVel,step);   // wind drifts the eye→crosshair landing point too (so wind is FELT — the player aims upwind)
@@ -7694,30 +7674,16 @@ function simShotHits(M, V, T, tg){                                              
     if(dx*dx+dy*dy+dz*dz<=rr2){ _scVMiss=0; _scMissX=0; _scMissZ=0; _scVMissOn=true; return true; } }
   _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
 }
-function simGiftShotHits(M,V,T,tg){
-  const g=CFG.projGravity, sdt=GH_GIFT_STEP, limit=Number.isFinite(tg.lockUntil)?Math.min(T+0.15,tg.lockUntil):-1;
-  let px=M.x,py=M.y,pz=M.z, vx=V.x,vy=V.y,vz=V.z;
-  const T0=tg.mesh.position, Vt=tg.vel, rr2=GH_GIFT_R*GH_GIFT_R;
-  let bestH2=Infinity, bestDy=0, bestDx=0, bestDz=0;
-  for(let t=sdt; t<=limit && py>-1; t+=sdt){
-    vx+=windX*sdt; vy-=g*sdt; vz+=windZ*sdt; px+=vx*sdt; py+=vy*sdt; pz+=vz*sdt;
-    const dx=px-(T0.x+Vt.x*t), dy=py-(T0.y+Vt.y*t), dz=pz-(T0.z+Vt.z*t), h2=dx*dx+dz*dz;
-    if(h2<bestH2){ bestH2=h2; bestDy=dy; bestDx=dx; bestDz=dz; }
-    if(dx*dx+dy*dy+dz*dz<=rr2){ _scVMiss=0; _scMissX=0; _scMissZ=0; _scVMissOn=true; return true; }
-  }
-  _scVMiss=bestDy; _scMissX=bestDx; _scMissZ=bestDz; _scVMissOn=(bestH2<Infinity); return false;
-}
 function updateArcPreview(dt){                                                               // rainbow ribbon = real shot path (same plan spawnProjectile uses)
   if(!(CFG.projectile && CFG.projArc && state.running && !templeActive)){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
   if(bonusActive){ hideArc(); arcAccum=ARC_UPDATE_STEP; return; }
   ensureArcObjs();
-  const giftPlanSpeed=GH_GIFT?ghostGiftPlanSpeed():null;
   const arcVoid=ML_ARC_VOID && moonlineVoid();
   if(ML_ARC_VOID) _arcTail.value=arcVoid?1:0;
   if(ML_ARC_VOID) arcRibbon.renderOrder=arcVoid?-41:0;
   // scroll ROYGBIV bands muzzle→impact every frame; speed scales with current projectile muzzle speed
   if(!reduceMotion){
-    _arcScroll += dt * ((giftPlanSpeed||projSpeedNow()) * 0.085);   // the blessed ribbon carries the same expert speed in its motion language as in its solved geometry
+    _arcScroll += dt * (projSpeedNow() * 0.085);
     if(arcRibbon.material.uniforms) arcRibbon.material.uniforms.uScroll.value=_arcScroll;
   }
   if(reduceMotion){ if(arcPulseA){ arcPulseA.visible=arcPulseB.visible=false; } }
@@ -7728,7 +7694,7 @@ function updateArcPreview(dt){                                                  
     return;
   }
   arcAccum=0;
-  const T=giftPlanSpeed?computeShotPlan(_arcM,_arcV,giftPlanSpeed):computeShotPlan(_arcM, _arcV);
+  const T=computeShotPlan(_arcM, _arcV);
   const cam=camera.position; let TVis=T;
   if(arcVoid){
     const step=1/30, far2=ML_ARC_FAR*ML_ARC_FAR; let t=0;
@@ -8104,33 +8070,27 @@ function updateFlock(dt){
   }
 }
 
-/* ================= NIGHT GHOSTS — THE VEILED CHOIR (wave 13, phase 0a) =================
-   The recorder is a sink: existing gameplay events may write compact facts into it, and no gameplay decision reads one
-   back. The seat is a different arm again: it reads one validated storage artifact and owns every object it draws. The
-   player's road, walls, uK array, materials, uniforms, draw order and RNG streams are never written by either arm. */
-const GH_RECORD=!!CFG.ghostRecord;                                        // raw boolean first: false means no tap call, ledger allocation or storage access
-const GH_SEAT=!!CFG.ghostSeat;                                            // raw boolean first: false means no storage read, scene allocation, frame call or draw
-const GH_GIFT=!!CFG.ghostGift;                                            // raw boolean first: false means no flare lock, blessed tag, catch state, wrapper or mail line
-const GH_SHARE=!!CFG.ghostShare;                                          // raw boolean first: false means no token, relay call, visitor/mail/star allocation or added frame path
-const GH_PHASE=!!CFG.ghostPhase, GH_MULTI=GH_SHARE||GH_PHASE;              // phase is a local second seat; dormant means the wave-20 topology and storage touches are unchanged
-const GH_STORE_KEY='aimdojo.ghost', GH_PHASE_KEY='aimdojo.ghostPhase', GH_VERSION=1;
+/* ================= NIGHT RECORDS — THE DOORS REMEMBER =================
+   The recorder remains a write-only sink; validated own and stranger nights are data only here, with nothing drawn.
+   Revival path for lanes, gifts and returning stars: git ad8a9a9 and SPEC_THE_VISITOR / SPEC_THE_GIFT / SPEC_THE_INVITATION. */
+const GH_RECORD=!!CFG.ghostRecord;
+const GH_SHARE=!!CFG.ghostShare;                                          // raw boolean first: false means no token, relay call or visitor/mail allocation
+const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
 const GH_WORTHY_ARRIVALS=8, GH_WORTHY_DUR=45;
-const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_CAP_MAIL=64, GH_MAX_BYTES=100000, GH_PHASE_MAX_BYTES=GH_MAX_BYTES*8+1024;
+const GH_CAP_BPM=200, GH_CAP_TARGETS=1200, GH_CAP_TAPS=2400, GH_CAP_FIRES=1200, GH_CAP_MAIL=64, GH_MAX_BYTES=100000;
 const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','taps','fires'];
 const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
 const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
-const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=WEAK?1:3, GH_VISITOR_FETCH_COUNT=WEAK?1:4;
+const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=3, GH_VISITOR_FETCH_COUNT=4;
 const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256, GH_GHOSTS_RESPONSE_MAX=GH_MAX_BYTES*GH_VISITOR_FETCH_COUNT+4096;
-const GH_SEAT_XS=GH_MULTI?[-90,180,-180]:null, GH_SILHOUETTE_XS=GH_SHARE?[270,-270]:null, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
 const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
 const GH_GHOST_PATH='/api/ghost', GH_GHOSTS_PATH='/api/ghosts', GH_MAIL_PATH='/api/ghost-mail';
 let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecordArrivals=0, _ghostRoadBase=0, _ghostRoadLast=0, _ghostRecordFinalized=true;
-let _ghostGiftMail=null, _ghostGiftGreetingCount=0, _ghostGiftMailSpoken=false;
 let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoch=-1;
-let _ghostSeats=null, _ghostOwnSeat=null, _ghostVisitorSeats=null, _ghostVisitorCount=0, _ghostSilhouettes=null, _ghostSeatRows=null, _ghostSeatBusy=false, _ghostGiftHitT=0;
-let _ghostPhaseRecord=null;
-let _ghostReturnPool=null, _ghostReturnCount=0, _ghostReturnSig=-1, _ghostReturnSpoken=false;
+let _ghostOwn=null, _ghostVisitors=null, _ghostMailRows=null, _ghostMailSpoken=false;
+let _ghostLocalMailCount=0, _ghostLocalMailSpoken=false;
+
 function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
 function ghostRoadReset(){
   _ghostRoadBase=0; _ghostRoadLast=0;
@@ -8295,7 +8255,7 @@ function ghostRecordBpm(bpm){
   ghostDropOldest(r.bpmCurve,GH_CAP_BPM); r.bpmCurve.push([at,value]);
 }
 function ghostRecordTrim(r,mail){
-  const payload=GH_GIFT?{ghost:r,mail:Array.isArray(mail)?mail:[]}:r;
+  const payload={ghost:r,mail:Array.isArray(mail)?mail:[]};
   let json=JSON.stringify(payload);
   while(json.length>GH_MAX_BYTES){
     let family=null, first=Infinity;
@@ -8316,12 +8276,11 @@ function ghostRecordFinalize(pageExit){
     r.date=phasesToday(); r.moonBucket=moonPhaseBucket();
     if(r.moonBucket<0 || r.moonBucket>7) return;                            // decision: an unreadable sky cannot overwrite the last transport-valid night
     for(const row of r.targets) if(row[4]!==0 && row[4]!==1){ row[4]=0; row[5]=null; }
-    const mail=GH_GIFT&&_ghostGiftMail?_ghostGiftMail:[];
+    const mail=[];
     const json=ghostRecordTrim(r,mail);
     if(!ghostArtifactValid(r)) return;
-    if(GH_GIFT && !ghostWrapperValid({ghost:r,mail})) return;                // decision: mail shares the recording's fail-soft boundary and can never cost a worthy night
+    if(!ghostWrapperValid({ghost:r,mail})) return;                // decision: mail shares the recording's fail-soft boundary and can never cost a worthy night
     localStorage.setItem(GH_STORE_KEY,json);
-    if(GH_PHASE) ghostPhaseWrite(r);                                         // the ordinary night is already safe; quota failure can lose only this dormant phase copy
     if(GH_SHARE) ghostShareUpload(r,pageExit===true);                         // courtesy copy starts only after the worthy local night is safely stored; it is never awaited
   }catch(e){}
 }
@@ -8335,7 +8294,6 @@ if(GH_RECORD && typeof window!=='undefined'){
     if(event && event.persisted===false) ghostRecordFinalizeOnce(true);
   });
 }
-
 function ghostArtifactValid(value){
   if(!value || typeof value!=='object') return null;
   const keys=Object.keys(value);
@@ -8378,266 +8336,58 @@ function ghostWrapperValid(value){
   if(!ghost || !ghostMailValid(value.mail,ghost.dur)) return null;
   return value;
 }
-function ghostPhaseSlots(value){
-  if(!value || typeof value!=='object' || value.v!==GH_VERSION || !value.slots || typeof value.slots!=='object' || Array.isArray(value.slots)) return null;
-  const keys=Object.keys(value); if(keys.length!==2 || keys.indexOf('v')<0 || keys.indexOf('slots')<0) return null;
-  const slotKeys=Object.keys(value.slots); if(slotKeys.length>8) return null;
-  const slots={};
-  for(const key of slotKeys){ if(!/^[0-7]$/.test(key)) continue; const record=ghostArtifactValid(value.slots[key]); if(record && record.moonBucket===+key && ghostSerializedBytes(record)<=GH_MAX_BYTES) slots[key]=record; }
-  return slots;
-}
-function ghostPhaseRead(own){
-  if(!GH_PHASE) return null;
-  let raw=''; try{ raw=localStorage.getItem(GH_PHASE_KEY)||''; }catch(e){ return null; }
-  if(!raw || typeof raw!=='string' || raw.length>GH_PHASE_MAX_BYTES || ghostUtf8Bytes(raw)>GH_PHASE_MAX_BYTES) return null;
-  try{ const slots=ghostPhaseSlots(JSON.parse(raw)), bucket=moonPhaseBucket(), record=slots&&Number.isInteger(bucket)?slots[String(bucket)]:null; return record&&(!own||record.date!==own.date)?record:null; }catch(e){ return null; }
-}
-function ghostPhaseWrite(record){
-  if(!GH_PHASE || !ghostArtifactValid(record) || ghostSerializedBytes(record)>GH_MAX_BYTES) return false;
-  try{
-    let slots={}, raw=localStorage.getItem(GH_PHASE_KEY)||'';
-    if(typeof raw==='string' && raw.length<=GH_PHASE_MAX_BYTES && ghostUtf8Bytes(raw)<=GH_PHASE_MAX_BYTES){ try{ const prior=raw?ghostPhaseSlots(JSON.parse(raw)):null; if(prior) slots=prior; }catch(e){} }
-    slots[String(record.moonBucket)]=record;
-    const json=JSON.stringify({v:GH_VERSION,slots:slots}); if(ghostUtf8Bytes(json)>GH_PHASE_MAX_BYTES) return false;
-    localStorage.setItem(GH_PHASE_KEY,json); return true;
-  }catch(e){ return false; }
-}
-function ghostSeatRead(){
-  if(!GH_SEAT) return null;                                                 // decision: the seat-off build never opens storage
-  if(GH_GIFT){ _ghostGiftGreetingCount=0; _ghostGiftMailSpoken=false; }
+function ghostOwnLoad(){
+  _ghostOwn=null; _ghostLocalMailCount=0; _ghostLocalMailSpoken=false;
+  if(!GH_RECORD) return null;
   let raw=''; try{ raw=localStorage.getItem(GH_STORE_KEY)||''; }catch(e){ return null; }
   if(!raw || raw.length>GH_MAX_BYTES) return null;
   try{
     const value=JSON.parse(raw), legacy=ghostArtifactValid(value);
-    if(legacy) return legacy;
-    if(!GH_GIFT) return null;                                               // decision: the off arm understands only the byte-identical wave-13 artifact
-    const wrapper=ghostWrapperValid(value);
-    if(!wrapper) return null;
-    _ghostGiftGreetingCount=wrapper.mail.length; return wrapper.ghost;
+    if(legacy) return _ghostOwn=legacy;
+    const wrapper=ghostWrapperValid(value); if(!wrapper) return null;
+    _ghostLocalMailCount=wrapper.mail.length; return _ghostOwn=wrapper.ghost;
   }catch(e){ return null; }
 }
-function ghostGiftMailLine(){
-  if(GH_SHARE && _ghostReturnCount>0) return ghostVisitorMailLine();
-  if(!GH_GIFT || _ghostGiftMailSpoken || _ghostGiftGreetingCount<1) return '';
-  _ghostGiftMailSpoken=true;
-  return TF('ghostGiftMail','you reached back · {n} notes caught',{n:_ghostGiftGreetingCount});
+function ghostLocalMailLine(){
+  if(GH_SHARE && _ghostMailRows && _ghostMailRows.length>0) return ghostVisitorMailLine();
+  if(_ghostLocalMailSpoken || _ghostLocalMailCount<1) return '';
+  _ghostLocalMailSpoken=true;
+  return TF('ghostGiftMail','you reached back · {n} notes caught',{n:_ghostLocalMailCount});
 }
-
-const GH_SEAT_X=90, GH_MOON_BLUE=0x9fc2ec, GH_WHITE=0xffffff;
-const GH_ROAD_HALF=7, GH_ROAD_AHEAD=180, GH_ROAD_BEHIND=20, GH_ROAD_BEATS=12;
-const GH_WALL_SOLID=24, GH_WALL_POWDER=38, GH_WALL_Y0=-24, GH_WALL_Y1=21, GH_WALL_N=7;
-const GH_LOW_TARGET_MAX=24, GH_HIGH_TARGET_MAX=48, GH_LOW_BURST_MAX=0, GH_HIGH_BURST_MAX=24;
-const GH_TARGET_MAX=WEAK?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=WEAK?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
-const GH_TARGET_FAR=108, GH_TARGET_NEAR=8, GH_TARGET_Y=2.2, GH_TARGET_FADE=0.35, GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0;
-const GH_LANE_STEP=3.2, GH_LANE_MIX=0.56, GH_WALL_ALPHA=0.55, GH_WALL_SHADE_MIN=0.48, GH_BURST_LIFE=1.2;
-const GH_PALETTE_MOON_MIX=0.58, GH_ROAD_DECK_MOON_MIX=0.18, GH_ROAD_GOLD_MOON_MIX=0.38, GH_AVATAR_MOON_MIX=0.28;
-const GH_ROAD_DECK_ALPHA=0.12, GH_ROAD_RULE_ALPHA=0.72, GH_TARGET_ALPHA=0.82, GH_BURST_ALPHA=0.70;
-const GH_AVATAR_BODY_ALPHA=0.62, GH_AVATAR_HALO_ALPHA=0.34, GH_AVATAR_BOW_ALPHA=0.72, GH_AVATAR_YAW_SIGN=1;
-const GH_AVATAR_BOW_WIDTH=0.14, GH_AVATAR_BOW_HEIGHT=0.18, GH_AVATAR_BOW_LENGTH=2.4;
-const GH_BEACON_ALPHA=0.78, GH_BEACON_WIDTH=1.6, GH_BEACON_HEIGHT=40, GH_BEACON_RING_RADIUS=1.05, GH_BEACON_RING_TUBE=0.10, GH_BEACON_HALO_RADIUS=2.6;
-const GH_VISITOR_ALPHA=1.0;                                               // one construction-time weight for full visitor seats; own and silhouette stay exact
-const GH_TARGET_SCALE=0.72, GH_TARGET_GROW_SEC=0.22, GH_BEACON_BREATH_MIN=0.86, GH_BEACON_BREATH_SWING=0.14, GH_BEACON_BREATH_HZ=2.1;
-const GH_BURST_SCALE=0.34, GH_BURST_SCALE_MIN=0.25;
-const GH_GIFT_SPEED=72, GH_GIFT_STEP=1/90, GH_GIFT_V=0.7, GH_GIFT_R=2.2, GH_GIFT_SPAN_MIN=0.001, GH_GIFT_NEAR_MIN=1, GH_GIFT_PROXY_SCALE=1, GH_GIFT_PROXY_KIND=0;
-const GH_CATCH_EFFECT_MAX=8, GH_CATCH_BIRDS=8, GH_CATCH_CORE_BIRDS=3;
-const GH_CATCH_LIFE=1.65, GH_CATCH_SCALE=0.68, GH_CATCH_SCALE_MIN=0.36, GH_CATCH_WARM_MIX=0.72;
-const GH_CATCH_SPEED_MIN=3.0, GH_CATCH_SPEED_SPAN=3.4, GH_CATCH_UP_MIN=2.4, GH_CATCH_UP_SPAN=3.5;
-const GH_CATCH_SIGH_LIFE=1.1, GH_CATCH_SIGH_RISE=7.5, GH_CATCH_RING_SCALE=1.8, GH_CATCH_RING_GROW=0.6, GH_CATCH_FADE_MIN=0.02, GH_CATCH_BEACON_HALF=0.5;
-const GH_CATCH_SEED_BASE=131, GH_CATCH_SEED_STEP=977, GH_CATCH_SEED_OFFSET=1, GH_CATCH_SPEED_SALT=17, GH_CATCH_UP_SALT=31, GH_CATCH_SPIN_SALT=71, GH_CATCH_SPIN_CENTER=0.5, GH_CATCH_SPIN_SCALE=4, GH_CATCH_TURN=Math.PI*2;
-const GH_BEACON_DRAW_MAX=GH_BEACON_MAX+(GH_GIFT?GH_CATCH_EFFECT_MAX:0), GH_BEACON_RING_DRAW_MAX=GH_BEACON_RING_MAX+(GH_GIFT?GH_CATCH_EFFECT_MAX:0);
-function ghostSeatReveal(now,n0,kinds){
-  if(!kinds || !kinds.length || !Number.isFinite(now) || !Number.isFinite(n0)) return 0;
-  let slot=0;
-  for(let k=0;k<kinds.length;k++){ if(n0+ML_ARCH_EVERY*k<=now+1e-5) slot=k; else break; }
-  const packed=+kinds[slot]||0, kind=Math.floor(packed+1e-5), bars=Math.floor((packed-kind)*100+0.5);
-  if(kind===1) return 1;
-  if(kind===2) return bars===1?0.7:1;
-  if(bars===1) return 0.7;
-  if(bars===2) return 0.35;
-  return 0;
-}
-let _ghostSeatRecord=null, _ghostSeatRoot=null, _ghostBeaconRoot=null, _ghostRoad=null, _ghostWalls=null, _ghostTargets=null, _ghostBursts=null, _ghostAvatar=null, _ghostAvatarBody=null, _ghostAvatarHalo=null, _ghostAvatarBow=null, _ghostBeaconCols=null, _ghostBeaconRings=null;
-let _ghVis=null, _ghBeat=null, _ghBeacon=null, _ghMoon=null, _ghWhite=null, _ghCatchWarm=null, _ghRoadDeck=null, _ghRoadGold=null, _ghAvatarCol=null, _ghPalette=null, _ghNightChalk=null, _ghLane=null;
-let _ghTargetCursor=0, _ghHitCursor=0, _ghFireCursor=0, _ghBpmCursor=0, _ghBurstNext=0, _ghLastTime=0;
-let _ghActiveTargets=null, _ghHitRows=null, _ghBeatPrefix=null, _ghBurstPool=null, _ghCatchPool=null, _ghCaughtSlots=null, _ghCounts=null;
-let _ghMatrix=null, _ghPos=null, _ghScale=null, _ghIdentity=null, _ghBurstQuat=null, _ghRingQuat=null, _ghXAxis=null, _ghColor=null, _ghGiftPos=null, _ghGiftVel=null, _ghGiftImpactPos=null, _ghGiftPrevPos=null, _ghGiftProxy=null, _ghGiftLockedRow=null;
-let _ghCatchNext=0, _ghGiftRoadT=0, _ghGiftReveal=0, _ghSeatX=GH_SEAT_X;
-let _ghSeatAlpha=1;
-function ghostSeatCapture(seat){
-  seat.x=_ghSeatX; seat.record=_ghostSeatRecord; seat.seatRoot=_ghostSeatRoot; seat.beaconRoot=_ghostBeaconRoot; seat.road=_ghostRoad; seat.walls=_ghostWalls; seat.targets=_ghostTargets; seat.bursts=_ghostBursts; seat.avatar=_ghostAvatar; seat.avatarBody=_ghostAvatarBody; seat.avatarHalo=_ghostAvatarHalo; seat.avatarBow=_ghostAvatarBow; seat.beaconCols=_ghostBeaconCols; seat.beaconRings=_ghostBeaconRings;
-  seat.vis=_ghVis; seat.beat=_ghBeat; seat.beacon=_ghBeacon; seat.moon=_ghMoon; seat.white=_ghWhite; seat.catchWarm=_ghCatchWarm; seat.roadDeck=_ghRoadDeck; seat.roadGold=_ghRoadGold; seat.avatarCol=_ghAvatarCol; seat.palette=_ghPalette; seat.nightChalk=_ghNightChalk; seat.lane=_ghLane;
-  seat.targetCursor=_ghTargetCursor; seat.hitCursor=_ghHitCursor; seat.fireCursor=_ghFireCursor; seat.bpmCursor=_ghBpmCursor; seat.burstNext=_ghBurstNext; seat.lastTime=_ghLastTime; seat.activeTargets=_ghActiveTargets; seat.hitRows=_ghHitRows; seat.beatPrefix=_ghBeatPrefix; seat.burstPool=_ghBurstPool; seat.catchPool=_ghCatchPool; seat.caughtSlots=_ghCaughtSlots; seat.counts=_ghCounts;
-  seat.matrix=_ghMatrix; seat.pos=_ghPos; seat.scale=_ghScale; seat.identity=_ghIdentity; seat.burstQuat=_ghBurstQuat; seat.ringQuat=_ghRingQuat; seat.xAxis=_ghXAxis; seat.color=_ghColor; seat.giftPos=_ghGiftPos; seat.giftVel=_ghGiftVel; seat.giftImpactPos=_ghGiftImpactPos; seat.giftPrevPos=_ghGiftPrevPos; seat.giftProxy=_ghGiftProxy; seat.catchNext=_ghCatchNext; seat.giftRoadT=_ghGiftRoadT; seat.giftReveal=_ghGiftReveal; seat.mail=_ghostGiftMail;
-  return seat;
-}
-function ghostSeatInstall(seat){
-  _ghSeatAlpha=seat.visitor?GH_VISITOR_ALPHA:1;
-  _ghSeatX=seat.x; _ghostSeatRecord=seat.record; _ghostSeatRoot=seat.seatRoot; _ghostBeaconRoot=seat.beaconRoot; _ghostRoad=seat.road; _ghostWalls=seat.walls; _ghostTargets=seat.targets; _ghostBursts=seat.bursts; _ghostAvatar=seat.avatar; _ghostAvatarBody=seat.avatarBody; _ghostAvatarHalo=seat.avatarHalo; _ghostAvatarBow=seat.avatarBow; _ghostBeaconCols=seat.beaconCols; _ghostBeaconRings=seat.beaconRings;
-  _ghVis=seat.vis; _ghBeat=seat.beat; _ghBeacon=seat.beacon; _ghMoon=seat.moon; _ghWhite=seat.white; _ghCatchWarm=seat.catchWarm; _ghRoadDeck=seat.roadDeck; _ghRoadGold=seat.roadGold; _ghAvatarCol=seat.avatarCol; _ghPalette=seat.palette; _ghNightChalk=seat.nightChalk; _ghLane=seat.lane;
-  _ghTargetCursor=seat.targetCursor; _ghHitCursor=seat.hitCursor; _ghFireCursor=seat.fireCursor; _ghBpmCursor=seat.bpmCursor; _ghBurstNext=seat.burstNext; _ghLastTime=seat.lastTime; _ghActiveTargets=seat.activeTargets; _ghHitRows=seat.hitRows; _ghBeatPrefix=seat.beatPrefix; _ghBurstPool=seat.burstPool; _ghCatchPool=seat.catchPool; _ghCaughtSlots=seat.caughtSlots; _ghCounts=seat.counts;
-  _ghMatrix=seat.matrix; _ghPos=seat.pos; _ghScale=seat.scale; _ghIdentity=seat.identity; _ghBurstQuat=seat.burstQuat; _ghRingQuat=seat.ringQuat; _ghXAxis=seat.xAxis; _ghColor=seat.color; _ghGiftPos=seat.giftPos; _ghGiftVel=seat.giftVel; _ghGiftImpactPos=seat.giftImpactPos; _ghGiftPrevPos=seat.giftPrevPos; _ghGiftProxy=seat.giftProxy; _ghCatchNext=seat.catchNext; _ghGiftRoadT=seat.giftRoadT; _ghGiftReveal=seat.giftReveal; _ghostGiftMail=seat.mail;
-}
-function ghostSeatClear(x){
-  _ghSeatAlpha=1; _ghSeatX=x; _ghostSeatRecord=null; _ghostSeatRoot=null; _ghostBeaconRoot=null; _ghostRoad=null; _ghostWalls=null; _ghostTargets=null; _ghostBursts=null; _ghostAvatar=null; _ghostAvatarBody=null; _ghostAvatarHalo=null; _ghostAvatarBow=null; _ghostBeaconCols=null; _ghostBeaconRings=null;
-  _ghVis=null; _ghBeat=null; _ghBeacon=null; _ghMoon=null; _ghWhite=null; _ghCatchWarm=null; _ghRoadDeck=null; _ghRoadGold=null; _ghAvatarCol=null; _ghPalette=null; _ghNightChalk=null; _ghLane=null;
-  _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghLastTime=0; _ghActiveTargets=null; _ghHitRows=null; _ghBeatPrefix=null; _ghBurstPool=null; _ghCatchPool=null; _ghCaughtSlots=null; _ghCounts=null;
-  _ghMatrix=null; _ghPos=null; _ghScale=null; _ghIdentity=null; _ghBurstQuat=null; _ghRingQuat=null; _ghXAxis=null; _ghColor=null; _ghGiftPos=null; _ghGiftVel=null; _ghGiftImpactPos=null; _ghGiftPrevPos=null; _ghGiftProxy=null; _ghCatchNext=0; _ghGiftRoadT=0; _ghGiftReveal=0; _ghostGiftMail=null;
-}
-function ghostSeatRememberRows(seat){ if(!_ghostSeatRows || !seat || !seat.record) return; for(const row of seat.record.targets) _ghostSeatRows.set(row,seat); }
 function ghostMoonSigil(bucket){
   if(!Number.isInteger(bucket) || bucket<0 || bucket>7) return '';
   const at=bucket*GH_SIGIL_CODE_UNITS; return GH_MOON_SIGILS.slice(at,at+GH_SIGIL_CODE_UNITS);
 }
 function ghostVisitorMailLine(){
-  if(!GH_SHARE || _ghostReturnSpoken || _ghostReturnCount<1) return '';
-  const sigil=ghostMoonSigil(_ghostReturnSig); if(!sigil) return '';
-  _ghostReturnSpoken=true;
-  return TF('ghostVisitorMail','{n} of your notes were caught · {sigil}',{n:_ghostReturnCount,sigil:sigil});
+  if(!GH_SHARE || _ghostMailSpoken || !_ghostMailRows || _ghostMailRows.length<1) return '';
+  const sigil=ghostMoonSigil(_ghostMailRows[0][2]); if(!sigil) return '';
+  _ghostMailSpoken=true;
+  return TF('ghostVisitorMail','{n} of your notes were caught · {sigil}',{n:_ghostMailRows.length,sigil:sigil});
 }
 function ghostVisitorLine(){
   if(!GH_SHARE) return '';
-  const seats=[], sigils=[]; let reachedBack=-1;
-  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++){
-    const seat=_ghostVisitorSeats[i]; if(seat&&seat.phase===true) continue; const sigil=seat&&seat.record?ghostMoonSigil(seat.sig):'';
-    if(!seat || !sigil) return '';
-    seats.push(seat); sigils.push(sigil); if(reachedBack<0 && seat.back===true) reachedBack=i;
+  const visitors=[], sigils=[]; let reachedBack=-1;
+  if(_ghostVisitors) for(const visitor of _ghostVisitors){
+    const sigil=visitor&&visitor.record?ghostMoonSigil(visitor.sig):'';
+    if(!visitor || !sigil) return '';
+    visitors.push(visitor); sigils.push(sigil); if(reachedBack<0 && visitor.back===true) reachedBack=visitors.length-1;
   }
-  if(!seats.length || seats.every(seat=>seat.spoken)) return '';
-  for(const seat of seats) seat.spoken=true;
-  if(seats.length===1 && reachedBack===0) return TF('ghostVisitorBack','a visitor who reached back rides tonight · {sigil}',{sigil:sigils[0]}); if(seats.length===1) return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigils[0]});
-  if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','{n} visitors ride tonight · {sigils}',{n:seats.length,sigils:sigils.join('\u2009')});
+  if(!visitors.length || visitors.every(visitor=>visitor.spoken)) return '';
+  for(const visitor of visitors) visitor.spoken=true;
+  if(visitors.length===1 && reachedBack===0) return TF('ghostVisitorBack','a visitor who reached back rides tonight · {sigil}',{sigil:sigils[0]}); if(visitors.length===1) return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigils[0]});
+  if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','{n} visitors ride tonight · {sigils}',{n:visitors.length,sigils:sigils.join('\u2009')});
 }
-function ghostPhaseLine(){
-  if(!GH_PHASE || !_ghostVisitorSeats) return '';
-  for(let i=0;i<_ghostVisitorCount;i++){ const seat=_ghostVisitorSeats[i]; if(!seat || seat.phase!==true) continue; if(seat.spoken) return ''; const sigil=seat.record?ghostMoonSigil(seat.sig):''; if(!sigil) return ''; seat.spoken=true; return TF('ghostPhaseLine','the last {sigil} night rides with you',{sigil:sigil}); }
-  return '';
-}
-function ghostSilhouetteMaterial(alpha,visibility,color){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility,uCol:{value:color}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
-function ghostSilhouetteBuild(x){
-  const visibility={value:0}, moon=new THREE.Color(GH_MOON_BLUE), white=new THREE.Color(GH_WHITE), color=new THREE.Color(GH_MOON_BLUE).lerp(white,GH_AVATAR_MOON_MIX);
-  const root=new THREE.Group(), avatar=new THREE.Group(); avatar.position.set(x,1.7,0); root.add(avatar); scene.add(root);
-  const body=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostSilhouetteMaterial(GH_AVATAR_BODY_ALPHA,visibility,color)); body.position.y=1.55; avatar.add(body);
-  const halo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostSilhouetteMaterial(GH_AVATAR_HALO_ALPHA,visibility,color)); halo.position.y=3.25; halo.scale.setScalar(1.35); avatar.add(halo);
-  const bow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostSilhouetteMaterial(GH_AVATAR_BOW_ALPHA,visibility,color)); bow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); avatar.add(bow);
-  root.visible=false; avatar.visible=false; body.visible=false; halo.visible=false; bow.visible=false;
-  runIdle(()=>{ try{ renderer.compile(scene,camera); }catch(e){} },180,1800);
-  return {x:x,id:'',sig:-1,record:null,root:root,avatar:avatar,body:body,halo:halo,bow:bow,vis:visibility,fireCursor:0,lastTime:0};
-}
-function ghostSilhouetteHide(seat){
-  if(!seat) return;
-  seat.vis.value=0; seat.root.visible=false; seat.avatar.visible=false; seat.body.visible=false; seat.halo.visible=false; seat.bow.visible=false;
-}
-function ghostSilhouettesReset(){
-  if(!_ghostSilhouettes) return;
-  for(const seat of _ghostSilhouettes){ seat.id=''; seat.sig=-1; seat.record=null; seat.fireCursor=0; seat.lastTime=0; seat.avatar.rotation.set(0,0,0,'YXZ'); ghostSilhouetteHide(seat); }
-}
-function ghostSilhouetteAccept(epoch,id,record){
-  if(!GH_SHARE || WEAK || epoch!==_ghostShareEpoch || _ghostVisitorCount<GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
-  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
-  if(_ghostSilhouettes && _ghostSilhouettes[0] && _ghostSilhouettes[0].record) return false;
-  if(!_ghostSilhouettes) _ghostSilhouettes=[];
-  let seat=_ghostSilhouettes[0];
-  try{ if(!seat){ seat=ghostSilhouetteBuild(GH_SILHOUETTE_XS[0]); _ghostSilhouettes[0]=seat; } }
-  catch(e){ return false; }
-  seat.id=id; seat.sig=record.moonBucket; seat.record=record; seat.fireCursor=0; seat.lastTime=0; seat.avatar.rotation.set(0,0,0,'YXZ'); ghostSilhouetteHide(seat); return true;
-}
-function ghostSilhouettesUpdate(){
-  if(!GH_SHARE || !_ghostSilhouettes) return;
-  if(!state.running || templeActive || trainMode){ for(const seat of _ghostSilhouettes) ghostSilhouetteHide(seat); return; }
-  const roadT=ghostRoadTime(), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
-  for(const seat of _ghostSilhouettes){
-    if(!seat.record){ ghostSilhouetteHide(seat); continue; }
-    const t=Math.min(roadT,seat.record.dur), v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
-    if(t<seat.lastTime){ seat.fireCursor=0; seat.lastTime=0; }
-    while(seat.fireCursor<seat.record.fires.length && seat.record.fires[seat.fireCursor][0]<=t){ const fire=seat.record.fires[seat.fireCursor++]; seat.avatar.rotation.set(fire[2],GH_AVATAR_YAW_SIGN*fire[1],0,'YXZ'); }
-    seat.lastTime=t; const open=v>0; seat.vis.value=open?v:0; seat.root.visible=open; seat.avatar.visible=open; seat.body.visible=open; seat.halo.visible=open; seat.bow.visible=open;
-  }
-}
-function ghostReturnMailValid(value){
+function ghostMailRowsValid(value){
   if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
   for(const row of value) if(!Array.isArray(row) || row.length!==GH_MAIL_ROW_SIZE || !Number.isFinite(row[0]) || row[0]<0 || !Number.isInteger(row[1]) || row[1]<0 || row[1]>3 || !ghostMoonSigil(row[2])) return null;
   return value;
 }
-function ghostReturnEnsure(){
-  if(_ghostReturnPool) return;
-  const pool=[];
-  try{
-    for(let i=0;i<GH_RETURN_MAX;i++){
-      const data=new Float32Array(6), geometry=new THREE.BufferGeometry(), attribute=new THREE.Float32BufferAttribute(data,3);
-      geometry.setAttribute('position',attribute);
-      const material=new THREE.LineBasicMaterial({color:WASD_COL[0],transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:true});
-      const mesh=new THREE.Line(geometry,material); mesh.visible=false; mesh.frustumCulled=false; mesh.renderOrder=GH_RETURN_ORDER; scene.add(mesh);
-      pool.push({mesh:mesh,data:data,attribute:attribute,at:0,lane:0,spent:true});
-    }
-    _ghostReturnPool=pool;
-  }catch(e){ for(const star of pool){ star.mesh.visible=false; try{ scene.remove(star.mesh); }catch(_e){} } }
-}
-function ghostReturnReset(){
-  _ghostReturnCount=0; _ghostReturnSig=-1; _ghostReturnSpoken=false;
-  if(_ghostReturnPool) for(const star of _ghostReturnPool){ star.spent=true; star.mesh.visible=false; }
-}
-function ghostReturnSchedule(rows){
-  if(!GH_SHARE || !rows || !rows.length) return;
-  ghostReturnEnsure(); if(!_ghostReturnPool) return;
-  const now=ghostRoadTime(), ownDur=_ghostOwnSeat&&_ghostOwnSeat.record?_ghostOwnSeat.record.dur:0, period=ownDur>0?ownDur:GH_RETURN_PERIOD, count=Math.min(GH_RETURN_MAX,rows.length);
-  for(let i=0;i<_ghostReturnPool.length;i++){
-    const star=_ghostReturnPool[i];
-    if(i>=count){ star.spent=true; star.mesh.visible=false; continue; }
-    const row=rows[i]; let at=ghostTime(row[0]%period); while(at<now) at+=period;
-    star.at=at; star.lane=row[1]; star.spent=false; star.mesh.visible=false; star.mesh.material.color.setStyle(WASD_COL[star.lane]);
-  }
-}
-function ghostReturnUpdate(){
-  if(!GH_SHARE || !_ghostReturnPool) return;
-  if(!state.running || templeActive || trainMode){ for(const star of _ghostReturnPool) star.mesh.visible=false; return; }
-  const now=ghostRoadTime();
-  for(const star of _ghostReturnPool){
-    if(star.spent) continue;
-    const start=reduceMotion?star.at:star.at-GH_RETURN_LIFE, finish=star.at+(reduceMotion?GH_RETURN_GLINT:GH_RETURN_FADE);
-    if(now<start){ star.mesh.visible=false; continue; }
-    if(now>finish){ star.spent=true; star.mesh.visible=false; continue; }
-    const laneX=(star.lane-1.5)*GH_LANE_STEP, data=star.data;
-    if(reduceMotion){
-      data[0]=laneX; data[1]=GH_RETURN_Y-GH_RETURN_TAIL; data[2]=GH_RETURN_ROAD_Z; data[3]=laneX; data[4]=GH_RETURN_Y+GH_RETURN_TAIL; data[5]=GH_RETURN_ROAD_Z;
-      star.mesh.material.opacity=Math.max(0,1-(now-star.at)/GH_RETURN_GLINT);
-    }else{
-      const u=Math.max(0,Math.min(1,(now-start)/GH_RETURN_LIFE)), tail=Math.max(0,u-GH_RETURN_TAIL);
-      data[0]=laneX; data[1]=GH_RETURN_SKY_Y+(GH_RETURN_Y-GH_RETURN_SKY_Y)*tail; data[2]=GH_RETURN_SKY_Z+(GH_RETURN_ROAD_Z-GH_RETURN_SKY_Z)*tail;
-      data[3]=laneX; data[4]=GH_RETURN_SKY_Y+(GH_RETURN_Y-GH_RETURN_SKY_Y)*u; data[5]=GH_RETURN_SKY_Z+(GH_RETURN_ROAD_Z-GH_RETURN_SKY_Z)*u;
-      star.mesh.material.opacity=now<=star.at?1:Math.max(0,1-(now-star.at)/GH_RETURN_FADE);
-    }
-    star.attribute.needsUpdate=true; star.mesh.visible=true;
-  }
-}
-function ghostVisitorAccept(epoch,id,record,reachedBack,phaseSeat){
-  const phase=phaseSeat===true;
-  if((phase?!GH_PHASE:!GH_SHARE) || epoch!==_ghostShareEpoch || _ghostVisitorCount>=GH_VISITOR_COUNT || (!phase&&!ghostTokenValid(id)) || !ghostArtifactValid(record)) return false;
-  if(!phase && _ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
-  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat);
-  if(!_ghostVisitorSeats) _ghostVisitorSeats=[];
-  const slot=_ghostVisitorCount, heldGiftLock=_ghGiftLockedRow; let seat=_ghostVisitorSeats[slot], accepted=false;
-  try{
-    if(!seat){ ghostSeatClear(GH_SEAT_XS[slot]); seat=ghostSeatCapture({visitor:true}); _ghostVisitorSeats[slot]=seat; }
-    ghostSeatInstall(seat);
-    _ghostSeatRecord=record; _ghostGiftMail=GH_GIFT?[]:null;
-    if(_ghCaughtSlots) _ghCaughtSlots.clear();
-    if(!_ghostSeatRoot) ghostSeatBuild(record); else ghostSeatPalette(record);
-    ghostSeatPrepare(record); if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ');
-    seat.id=phase?'':id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; seat.phase=phase; seat.back=!phase&&reachedBack===true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
-  }catch(e){
-    if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||_ghostWalls)&&(WEAK||_ghostBursts)); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
-  }finally{ _ghGiftLockedRow=heldGiftLock; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  if(!accepted) return false;
-  _ghostVisitorCount++;
-  if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT&&_ghostOwnSeat) _ghostSeats.push(_ghostOwnSeat); for(let i=0;i<_ghostVisitorCount;i++) _ghostSeats.push(_ghostVisitorSeats[i]);
+function ghostVisitorStore(epoch,id,record,reachedBack){
+  if(!GH_SHARE || epoch!==_ghostShareEpoch || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
+  if(!_ghostVisitors) _ghostVisitors=[];
+  if(_ghostVisitors.length>=GH_VISITOR_COUNT || _ghostVisitors.some(visitor=>visitor.id===id)) return false;
+  _ghostVisitors.push({id:id,record:record,sig:record.moonBucket,back:reachedBack===true,spoken:false,mail:[]});
   return true;
-}
-function ghostPhaseAccept(epoch){
-  if(!GH_PHASE || epoch!==_ghostShareEpoch) return false;
-  const record=_ghostPhaseRecord; _ghostPhaseRecord=null; if(!record) return false;
-  const accepted=ghostVisitorAccept(epoch,'',record,false,true);
-  if(accepted && GH_GIFT && _ghostOwnSeat && Array.isArray(_ghostOwnSeat.mail)){ const seat=_ghostVisitorSeats[_ghostVisitorCount-1]; if(seat&&seat.phase===true) seat.mail=_ghostOwnSeat.mail; }
-  return accepted;
 }
 async function ghostVisitorFetch(epoch,token,bucket){
   const path=GH_GHOSTS_PATH+'?lon='+bucket+'&n='+GH_VISITOR_FETCH_COUNT, body=await ghostRelayJson(path,{headers:ghostRelayHeaders(token,false)},GH_GHOSTS_RESPONSE_MAX);
@@ -8646,42 +8396,22 @@ async function ghostVisitorFetch(epoch,token,bucket){
   for(let i=0;i<body.ghosts.length && i<GH_VISITOR_FETCH_COUNT;i++){
     const item=body.ghosts[i]; if(!item || !ghostTokenValid(item.id) || ghostSerializedBytes(item.artifact)>GH_MAX_BYTES) continue;
     const record=ghostArtifactValid(item.artifact); if(!record) continue; const reachedBack=typeof item.reachedBack==='boolean'?item.reachedBack:false;
-    if(accepted<GH_VISITOR_COUNT){ if(ghostVisitorAccept(epoch,item.id,record,reachedBack)) accepted++; }
-    else if(ghostSilhouetteAccept(epoch,item.id,record)) break;
+    if(accepted<GH_VISITOR_COUNT){ if(ghostVisitorStore(epoch,item.id,record,reachedBack)) accepted++; }
   }
 }
 async function ghostMailFetch(epoch,token){
   // Read-once is intentional ephemerality: the relay clears this mailbox before it answers, so a crash after this boundary loses the notes and no client cache tries to resurrect them.
   const body=await ghostRelayJson(GH_MAIL_PATH,{headers:ghostRelayHeaders(token,false)});
   if(!body || ghostSerializedBytes(body)>GH_MAX_BYTES) return;
-  const rows=body&&ghostReturnMailValid(body.catches); if(epoch!==_ghostShareEpoch || !rows || !rows.length) return;
-  _ghostReturnCount=rows.length; _ghostReturnSig=rows[0][2]; ghostReturnSchedule(rows);
+  const rows=body&&ghostMailRowsValid(body.catches); if(epoch!==_ghostShareEpoch || !rows || !rows.length) return;
+  _ghostMailRows=rows;
 }
 function ghostShareReset(){
-  if(!GH_MULTI) return;
-  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=GH_SHARE?ghostLonBucket():0; if(GH_SHARE){ ghostReturnReset(); ghostSilhouettesReset(); } _ghostSeatRows=new WeakMap(); _ghostVisitorCount=0;
-  if(!_ghostOwnSeat) _ghostOwnSeat={visitor:false,id:'',sig:-1,spoken:true}; ghostSeatCapture(_ghostOwnSeat); ghostSeatRememberRows(_ghostOwnSeat);
-  _ghostPhaseRecord=GH_PHASE?ghostPhaseRead(_ghostOwnSeat.record):null;
-  if(!_ghostSeats) _ghostSeats=[]; _ghostSeats.length=0; if(GH_SEAT) _ghostSeats.push(_ghostOwnSeat);
-  if(_ghostVisitorSeats){
-    try{ for(const seat of _ghostVisitorSeats) try{
-      ghostSeatInstall(seat); _ghostSeatRecord=null; _ghostGiftMail=GH_GIFT?[]:null;
-      _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghCatchNext=0; _ghLastTime=0;
-      if(_ghActiveTargets) _ghActiveTargets.length=0; if(_ghHitRows) _ghHitRows.length=0; if(_ghBeatPrefix) _ghBeatPrefix.length=0;
-      if(_ghBurstPool) for(const bird of _ghBurstPool) bird.on=false;
-      if(_ghCatchPool) for(const effect of _ghCatchPool) effect.on=false;
-      if(_ghCaughtSlots) _ghCaughtSlots.clear(); _ghGiftLockedRow=null; if(_ghGiftProxy) _ghGiftProxy._ghostGiftRow=null; _ghGiftRoadT=0; _ghGiftReveal=0;
-      if(_ghBeat) _ghBeat.value=0; if(_ghCounts){ _ghCounts.targets=0; _ghCounts.beacons=0; }
-      if(_ghostTargets) _ghostTargets.count=0; if(_ghostBursts) _ghostBursts.count=0; if(_ghostBeaconCols) _ghostBeaconCols.count=0; if(_ghostBeaconRings) _ghostBeaconRings.count=0;
-      if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ'); ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
-      seat.id=''; seat.sig=-1; seat.spoken=false; seat.phase=false; seat.back=false; ghostSeatCapture(seat);
-    }catch(e){} }
-    finally{ if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  }
-  const epoch=_ghostShareEpoch, bucket=_ghostShareBucket;
-  if(!GH_SHARE){ ghostPhaseAccept(epoch); return; }
-  const token=ghostToken(); if(!token){ ghostPhaseAccept(epoch); return; }
-  ghostVisitorFetch(epoch,token,bucket).then(()=>ghostPhaseAccept(epoch),()=>ghostPhaseAccept(epoch)).catch(()=>{}); ghostMailFetch(epoch,token).catch(()=>{});
+  if(!GH_SHARE) return;
+  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=ghostLonBucket();
+  _ghostVisitors=[]; _ghostMailRows=[]; _ghostMailSpoken=false;
+  const epoch=_ghostShareEpoch, bucket=_ghostShareBucket, token=ghostToken(); if(!token) return;
+  ghostVisitorFetch(epoch,token,bucket).catch(()=>{}); ghostMailFetch(epoch,token).catch(()=>{});
 }
 async function ghostMailAttempt(token,toId,catches){
   const response=await ghostRelayFetch(GH_MAIL_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({toId:toId,catches:catches})});
@@ -8690,50 +8420,10 @@ async function ghostMailAttempt(token,toId,catches){
 function ghostShareFinalize(){
   if(!GH_SHARE || _ghostShareSentEpoch===_ghostShareEpoch) return;
   const pending=[];
-  if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++){ const seat=_ghostVisitorSeats[i], catches=seat&&seat.mail; if(seat&&seat.id&&Array.isArray(catches)&&catches.length) pending.push([seat.id,catches]); }
+  if(_ghostVisitors) for(const visitor of _ghostVisitors){ const catches=visitor&&visitor.mail; if(visitor&&visitor.id&&Array.isArray(catches)&&catches.length) pending.push([visitor.id,catches]); }
   if(!pending.length) return;
   const token=ghostToken(); if(!token) return;
   _ghostShareSentEpoch=_ghostShareEpoch; for(const item of pending) ghostMailAttempt(token,item[0],item[1]).catch(()=>{});
-}
-function ghostSeatsUpdate(dt){
-  if(_ghostSeats && _ghostSeats.length){
-    _ghostSeatBusy=true;
-    try{ for(const seat of _ghostSeats){ ghostSeatInstall(seat); ghostSeatUpdate(dt); ghostSeatCapture(seat); } }
-    finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  }
-  ghostSilhouettesUpdate();
-}
-function ghostGiftLockSeats(aim,minDot){
-  if(!_ghostSeats || !_ghostSeats.length) return null;
-  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat);
-  let best=null, bestSeat=null, bestDot=minDot;
-  _ghostSeatBusy=true;
-  try{
-    for(const seat of _ghostSeats){
-      ghostSeatInstall(seat); const candidate=ghostGiftLockTarget(aim,minDot); ghostSeatCapture(seat);
-      if(!candidate) continue;
-      const p=candidate.mesh.position, dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d=Math.hypot(dx,dy,dz), dot=d>0?(dx*aim.x+dy*aim.y+dz*aim.z)/d:minDot;
-      if(dot>bestDot){ bestDot=dot; best=candidate; bestSeat=seat; }
-    }
-  }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  if(bestSeat && best._ghostGiftRow) _ghostSeatRows.set(best._ghostGiftRow,bestSeat);
-  return best;
-}
-function ghostGiftSeatPlan(seat){
-  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat); ghostSeatInstall(seat); _ghostSeatBusy=true;
-  let speed=null; try{ speed=ghostGiftPlanSpeed(); ghostSeatCapture(seat); }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  return speed;
-}
-function ghostGiftSeatProjectileHit(seat,pr){
-  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat); ghostSeatInstall(seat); _ghostSeatBusy=true;
-  let hit=false; try{ hit=ghostGiftProjectileHit(pr); _ghostGiftHitT=_ghGiftRoadT; ghostSeatCapture(seat); }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  _ghGiftRoadT=_ghostGiftHitT;
-  return hit;
-}
-function ghostGiftSeatCatch(seat,row,t){
-  if(_ghostOwnSeat) ghostSeatCapture(_ghostOwnSeat); ghostSeatInstall(seat); _ghostSeatBusy=true;
-  let caught=false; try{ caught=ghostGiftCatch(row,t); ghostSeatCapture(seat); }finally{ _ghostSeatBusy=false; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
-  return caught;
 }
 function ghostNightSeed(record){
   const date=record.date, key=(+date.slice(0,4)*10000+(+date.slice(5,7))*100+(+date.slice(8,10)))|0;
@@ -8747,323 +8437,14 @@ function ghostNightPalette(record,out){
   }
   return out;
 }
-function ghostHashUnit(value){ value=Math.imul((value|0)^0x7feb352d,0x846ca68b); value=Math.imul(value^(value>>>16),0x45d9f3b); return ((value^(value>>>15))>>>0)/4294967296; }
-function ghostLaneColor(lane,out){ return out.copy(_ghLane[Math.max(0,Math.min(3,lane|0))]); }
-function ghostSeatPalette(record){
-  if(!_ghPalette || !_ghNightChalk) return;
-  ghostNightPalette(record,_ghNightChalk);
-  for(let i=0;i<_ghPalette.length;i++) _ghPalette[i].setHex(_ghNightChalk[i]).lerp(_ghMoon,GH_PALETTE_MOON_MIX);
-  _ghRoadDeck.copy(_ghPalette[0]).lerp(_ghMoon,GH_ROAD_DECK_MOON_MIX);
-  _ghRoadGold.setHex(ML_GOLD).lerp(_ghMoon,GH_ROAD_GOLD_MOON_MIX);
-  _ghAvatarCol.copy(_ghMoon).lerp(_ghWhite,GH_AVATAR_MOON_MIX);
-}
-function ghostGeometry(data){
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.Float32BufferAttribute(data.p,3));
-  if(data.tone) g.setAttribute('aTone',new THREE.Float32BufferAttribute(data.tone,1));
-  if(data.scroll) g.setAttribute('aScroll',new THREE.Float32BufferAttribute(data.scroll,1));
-  if(data.anchor) g.setAttribute('aAnchor',new THREE.Float32BufferAttribute(data.anchor,1));
-  if(data.pal) g.setAttribute('aPal',new THREE.Float32BufferAttribute(data.pal,1));
-  if(data.seed) g.setAttribute('aSeed',new THREE.Float32BufferAttribute(data.seed,1));
-  g.setIndex(data.i); return g;
-}
-function ghostQuad(data,a,b,c,d,tone,scroll,anchor,pal,seed){
-  const base=data.p.length/3;
-  for(const q of [a,b,c,d]){ data.p.push(q[0],q[1],q[2]); if(data.tone) data.tone.push(tone||0); if(data.scroll) data.scroll.push(scroll||0); if(data.anchor) data.anchor.push(anchor||0); if(data.pal) data.pal.push(pal||0); if(data.seed) data.seed.push(seed||0); }
-  data.i.push(base,base+1,base+2,base,base+2,base+3);
-}
-function ghostRoadGeometry(){
-  const d={p:[],tone:[],scroll:[],anchor:[],i:[]}, x0=_ghSeatX-GH_ROAD_HALF, x1=_ghSeatX+GH_ROAD_HALF, z0=-GH_ROAD_AHEAD, z1=GH_ROAD_BEHIND;
-  if(!LOW) ghostQuad(d,[x0,0.02,z1],[x0,0.02,z0],[x1,0.02,z0],[x1,0.02,z1],0,0,0,0,0);
-  for(const x of [x0,x1]) ghostQuad(d,[x-0.08,0.08,z1],[x-0.08,0.08,z0],[x+0.08,0.08,z0],[x+0.08,0.08,z1],1,0,0,0,0);
-  for(const x of [x0,x1]) for(const y of [1.8,3.6]) ghostQuad(d,[x-0.06,y-0.06,z1],[x-0.06,y-0.06,z0],[x+0.06,y+0.06,z0],[x+0.06,y+0.06,z1],1,0,0,0,0);
-  for(let beat=0;beat<GH_ROAD_BEATS;beat++) ghostQuad(d,[x0,0.10,-0.08],[x0,0.10,0.08],[x1,0.10,0.08],[x1,0.10,-0.08],1,1,beat,0,0);
-  return ghostGeometry(d);
-}
-function ghostWallGeometry(){
-  const d={p:[],anchor:[],pal:[],seed:[],i:[]};
-  for(let k=0;k<GH_WALL_N;k++) ghostQuad(d,[-GH_WALL_POWDER,GH_WALL_Y0,0],[-GH_WALL_POWDER,GH_WALL_Y1,0],[GH_WALL_POWDER,GH_WALL_Y1,0],[GH_WALL_POWDER,GH_WALL_Y0,0],0,0,k*ML_ARCH_EVERY,k%5,k*0.173);
-  return ghostGeometry(d);
-}
-function ghostRoadMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uDeck:{value:_ghRoadDeck},uGold:{value:_ghRoadGold}},vertexShader:[
-  'uniform float uBeat; attribute float aTone,aScroll,aAnchor; varying float vTone;',
-  'void main(){ vec3 P=position; if(aScroll>0.5){ float b=mod(aAnchor-uBeat+1.0,'+_roadG(GH_ROAD_BEATS)+')-1.0; P.z=-b*'+_roadG(ROAD_MPB)+'+position.z; } vTone=aTone; gl_Position=projectionMatrix*modelViewMatrix*vec4(P,1.0); }'
-  ].join('\n'),fragmentShader:'uniform float uVis; uniform vec3 uDeck,uGold; varying float vTone; void main(){ float a=mix('+_roadG(GH_ROAD_DECK_ALPHA*_ghSeatAlpha)+','+_roadG(GH_ROAD_RULE_ALPHA*_ghSeatAlpha)+',step(0.5,vTone))*uVis; if(a<=0.003) discard; vec3 c=mix(uDeck,uGold,step(0.5,vTone)); gl_FragColor=vec4(c,a); }'}); }
-function ghostWallMaterial(){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{uVis:_ghVis,uBeat:_ghBeat,uPal:{value:_ghPalette}},vertexShader:[
-  'uniform float uBeat; uniform vec3 uPal[5]; attribute float aAnchor,aPal,aSeed; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
-  'void main(){ float b=mod(aAnchor-uBeat+4.0,'+_roadG(GH_WALL_N*ML_ARCH_EVERY)+')-4.0; vec3 P=vec3('+_roadG(_ghSeatX)+'+position.x,position.y,-b*'+_roadG(ROAD_MPB)+'); vP=position.xy; vCol=uPal[int(aPal)]; vSeed=aSeed; gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0); }'
-  ].join('\n'),fragmentShader:[
-  'uniform float uVis; varying vec2 vP; varying vec3 vCol; varying float vSeed;',
-  'float ghHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vSeed)*43758.5453); }',
-  'float ghNoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=ghHash(i),b=ghHash(i+vec2(1.0,0.0)),c=ghHash(i+vec2(0.0,1.0)),d=ghHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
-  'void main(){ float x=vP.x,y=vP.y,d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; } if(d<0.0) discard; float seam=1.0-smoothstep('+_roadG(GH_WALL_SOLID)+','+_roadG(GH_WALL_POWDER)+',abs(x)); if(seam<ghNoise(vP*2.7+9.1)) discard; float grad=mix('+_roadG(GH_WALL_SHADE_MIN)+',1.0,smoothstep('+_roadG(GH_WALL_Y0)+','+_roadG(GH_WALL_Y1)+',y)); float a='+_roadG(GH_WALL_ALPHA*_ghSeatAlpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol*grad,a); }'
-  ].join('\n')}); }
-function ghostInstanceMaterial(alpha,visibility){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,uniforms:{uVis:visibility},vertexShader:'varying vec3 vCol; void main(){ vCol=instanceColor; gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; varying vec3 vCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(vCol,a); }'}); }
-function ghostAvatarMaterial(alpha){ return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{uVis:_ghVis,uCol:{value:_ghAvatarCol}},vertexShader:'void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',fragmentShader:'uniform float uVis; uniform vec3 uCol; void main(){ float a='+_roadG(alpha)+'*uVis; if(a<=0.003) discard; gl_FragColor=vec4(uCol,a); }'}); }
-function ghostSeatBuild(record){
-  if(_ghostSeatRoot) return;
-  _ghVis={value:0}; _ghBeat={value:0}; _ghBeacon={value:0};
-  _ghMoon=new THREE.Color(GH_MOON_BLUE); _ghWhite=new THREE.Color(GH_WHITE); _ghRoadDeck=new THREE.Color(); _ghRoadGold=new THREE.Color(); _ghAvatarCol=new THREE.Color(); _ghPalette=Array.from({length:5},()=>new THREE.Color()); _ghNightChalk=new Uint32Array(_ghPalette.length); _ghLane=Array.from({length:WASD_COL.length},(_unused,lane)=>new THREE.Color().setStyle(WASD_COL[lane]).lerp(_ghMoon,GH_LANE_MIX));
-  _ghActiveTargets=[]; _ghHitRows=[]; _ghBeatPrefix=[]; _ghCounts={targets:0,beacons:0};
-  _ghMatrix=new THREE.Matrix4(); _ghPos=new THREE.Vector3(); _ghScale=new THREE.Vector3(); _ghIdentity=new THREE.Quaternion(); _ghBurstQuat=new THREE.Quaternion(); _ghRingQuat=new THREE.Quaternion(); _ghXAxis=new THREE.Vector3(1,0,0); _ghColor=new THREE.Color();
-  if(GH_GIFT){
-    _ghCatchWarm=new THREE.Color(ML_GOLD).lerp(_ghWhite,GH_CATCH_WARM_MIX);
-    _ghGiftPos=new THREE.Vector3(); _ghGiftVel=new THREE.Vector3(); _ghGiftImpactPos=new THREE.Vector3(); _ghGiftPrevPos=new THREE.Vector3();
-    _ghGiftProxy={mesh:{position:_ghGiftPos},vel:_ghGiftVel,radius:GH_GIFT_R,sc:GH_GIFT_PROXY_SCALE,kind:GH_GIFT_PROXY_KIND,gift:true,lockR:GH_GIFT_R,lockUntil:0,_ghostGiftRow:null};
-    _ghCaughtSlots=new Set(); _ghCatchPool=Array.from({length:GH_CATCH_EFFECT_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0}));
-  }
-  _ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group();
-  ghostSeatPalette(record);
-  _ghostRoad=new THREE.Mesh(ghostRoadGeometry(),ghostRoadMaterial()); _ghostRoad.frustumCulled=false; _ghostRoad.renderOrder=-30; _ghostSeatRoot.add(_ghostRoad);
-  if(!LOW){ _ghostWalls=new THREE.Mesh(ghostWallGeometry(),ghostWallMaterial()); _ghostWalls.frustumCulled=false; _ghostWalls.renderOrder=-31; _ghostSeatRoot.add(_ghostWalls); }
-  const targetMat=ghostInstanceMaterial(GH_TARGET_ALPHA,_ghVis);
-  _ghostTargets=new THREE.InstancedMesh(TARGET_CORE_GEO,targetMat,GH_TARGET_MAX); _ghostTargets.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostTargets.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_TARGET_MAX*3),3); _ghostTargets.count=0; _ghostTargets.frustumCulled=false; _ghostTargets.renderOrder=1.2; _ghostSeatRoot.add(_ghostTargets);
-  _ghostAvatar=new THREE.Group(); _ghostAvatar.position.set(_ghSeatX,1.7,0); _ghostSeatRoot.add(_ghostAvatar);
-  _ghostAvatarBody=new THREE.Mesh(new THREE.ConeGeometry(0.9,3.2,6),ghostAvatarMaterial(GH_AVATAR_BODY_ALPHA*_ghSeatAlpha)); _ghostAvatarBody.position.y=1.55; _ghostAvatar.add(_ghostAvatarBody);
-  _ghostAvatarHalo=new THREE.Mesh(new THREE.SphereGeometry(0.72,LOW?6:10,LOW?4:8),ghostAvatarMaterial(GH_AVATAR_HALO_ALPHA*_ghSeatAlpha)); _ghostAvatarHalo.position.y=3.25; _ghostAvatarHalo.scale.setScalar(1.35); _ghostAvatar.add(_ghostAvatarHalo);
-  _ghostAvatarBow=new THREE.Mesh(new THREE.BoxGeometry(GH_AVATAR_BOW_WIDTH,GH_AVATAR_BOW_HEIGHT,GH_AVATAR_BOW_LENGTH),ghostAvatarMaterial(GH_AVATAR_BOW_ALPHA*_ghSeatAlpha)); _ghostAvatarBow.position.set(0,2.2,-GH_AVATAR_BOW_LENGTH*0.5); _ghostAvatar.add(_ghostAvatarBow);
-  const beaconMat=ghostInstanceMaterial(GH_BEACON_ALPHA*_ghSeatAlpha,_ghBeacon), colGeo=new THREE.BoxGeometry(GH_BEACON_WIDTH,GH_BEACON_HEIGHT,GH_BEACON_WIDTH), ringGeo=new THREE.TorusGeometry(GH_BEACON_RING_RADIUS,GH_BEACON_RING_TUBE,LOW?5:8,LOW?12:20);
-  _ghostBeaconCols=new THREE.InstancedMesh(colGeo,beaconMat,GH_BEACON_DRAW_MAX); _ghostBeaconCols.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconCols.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_DRAW_MAX*3),3); _ghostBeaconCols.count=0; _ghostBeaconCols.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconCols);
-  _ghostBeaconRings=new THREE.InstancedMesh(ringGeo,beaconMat,GH_BEACON_RING_DRAW_MAX); _ghostBeaconRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconRings.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_RING_DRAW_MAX*3),3); _ghostBeaconRings.count=0; _ghostBeaconRings.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconRings);
-  _ghRingQuat.setFromAxisAngle(_ghXAxis,Math.PI*0.5);
-  if(!WEAK){
-    _ghostBursts=new THREE.InstancedMesh(_flockGeo,ghostInstanceMaterial(GH_BURST_ALPHA,_ghVis),GH_BURST_MAX); _ghostBursts.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBursts.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BURST_MAX*3),3); _ghostBursts.count=0; _ghostBursts.frustumCulled=false; _ghostBursts.renderOrder=1.4; _ghostSeatRoot.add(_ghostBursts);
-    _ghBurstPool=Array.from({length:GH_BURST_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,spin:0}));
-  }
-  scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);
-  ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
-  // Decision for the user's "the game slows down when playing after a bit" report: this lazy seat missed the boot warm, so compile its complete material family during the session's quiet opening instead of its first reveal.
-  runIdle(()=>{ try{ renderer.compile(scene,camera); }catch(e){} },180,1800);
-}
-function ghostSeatPrepare(record){
-  _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghCatchNext=0; _ghLastTime=0; _ghActiveTargets.length=0; _ghHitRows.length=0; _ghBeatPrefix.length=0;
-  for(const row of record.targets) if(row[4]===1) _ghHitRows.push(row);
-  _ghHitRows.sort((a,b)=>a[5]-b[5]);
-  const curve=record.bpmCurve;
-  if(curve.length){
-    _ghBeatPrefix[0]=curve[0][0]*record.bpm0/60;
-    for(let i=1;i<curve.length;i++) _ghBeatPrefix[i]=_ghBeatPrefix[i-1]+(curve[i][0]-curve[i-1][0])*curve[i-1][1]/60;
-  }
-  if(_ghBurstPool) for(const bird of _ghBurstPool) bird.on=false;
-  if(GH_GIFT){
-    if(_ghCatchPool) for(const effect of _ghCatchPool) effect.on=false;
-    _ghGiftLockedRow=null;
-  }
-  if(_ghostTargets) _ghostTargets.count=0;
-  if(_ghostBursts) _ghostBursts.count=0;
-  ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);
-}
-function ghostSeatReset(){
-  if(!GH_SEAT) return;
-  ghostRoadReset();
-  if(GH_GIFT){
-    if(_ghCaughtSlots) _ghCaughtSlots.clear();
-    _ghostGiftMail=[];
-  }
-  const record=trainMode||templeActive?null:ghostSeatRead(); _ghostSeatRecord=record;
-  if(!record){ if(_ghVis) _ghVis.value=0; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
-  ghostSeatBuild(record); ghostSeatPalette(record); ghostSeatPrepare(record);
-}
 function ghostSessionStart(){
-  // Session-topology decision: graduation is today's real main-play door; resetSession keeps this same arm site for any future direct Full Night entry.
-  if((!GH_RECORD&&!GH_SEAT&&!GH_SHARE&&!GH_PHASE) || trainMode || templeActive) return;
-  if(GH_SEAT) ghostSeatReset();
-  if(GH_MULTI) ghostShareReset();
+  // Graduation is the real main-play boundary; recording and relay reads keep the same lifecycle entry.
+  if((!GH_RECORD&&!GH_SHARE) || trainMode || templeActive) return;
+  if(GH_RECORD) ghostOwnLoad();
+  if(GH_SHARE) ghostShareReset();
   if(GH_RECORD) ghostRecordArm();
 }
-function ghostSeatBeatAt(t){
-  const record=_ghostSeatRecord, curve=record&&record.bpmCurve;
-  if(!record) return 0;
-  if(!curve.length) return t*record.bpm0/60;
-  if(t<curve[0][0]) return t*record.bpm0/60;
-  while(_ghBpmCursor+1<curve.length && curve[_ghBpmCursor+1][0]<=t) _ghBpmCursor++;
-  const row=curve[_ghBpmCursor]; return _ghBeatPrefix[_ghBpmCursor]+Math.max(0,t-row[0])*row[1]/60;
-}
-function ghostTargetPosition(row,t,out){
-  const span=Math.max(0.001,row[3]-row[0]), u=Math.max(0,Math.min(1,(t-row[0])/span));
-  out.set(_ghSeatX+(row[1]-1.5)*GH_LANE_STEP,GH_TARGET_Y,-GH_TARGET_FAR+(GH_TARGET_FAR-GH_TARGET_NEAR)*u); return out;
-}
-function ghostGiftSync(priorT){
-  if(!GH_GIFT || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode) return false;
-  const roadT=ghostRoadTime(), endT=_ghostSeatRecord.dur;
-  if(roadT>endT && !(Number.isFinite(priorT) && priorT<endT)) return false;
-  const authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
-  if(!authority) return false;
-  _ghGiftRoadT=roadT; _ghGiftReveal=ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value);
-  return _ghGiftReveal>=GH_GIFT_V;
-}
-function ghostGiftable(row,t,v){
-  return !!(GH_GIFT && row && row[4]===0 && v>=GH_GIFT_V && t>=row[3]-GH_GIFT_LEAD && t<=row[3] && (!_ghCaughtSlots || !_ghCaughtSlots.has(row[2])));
-}
-function ghostGiftLockTarget(aim,minDot){
-  if(GH_MULTI && !_ghostSeatBusy) return ghostGiftLockSeats(aim,minDot);
-  if(!ghostGiftSync() || !_ghGiftProxy || !_ghActiveTargets) return null;
-  let bestRow=null, bestDot=minDot;
-  for(const row of _ghActiveTargets){
-    if(!ghostGiftable(row,_ghGiftRoadT,_ghGiftReveal)) continue;
-    ghostTargetPosition(row,_ghGiftRoadT,_ghGiftPos);
-    const dx=_ghGiftPos.x-PLAYER_POS.x, dy=_ghGiftPos.y-PLAYER_POS.y, dz=_ghGiftPos.z-PLAYER_POS.z, d=Math.hypot(dx,dy,dz);
-    if(d<GH_GIFT_NEAR_MIN) continue;
-    const dot=(dx*aim.x+dy*aim.y+dz*aim.z)/d;
-    if(dot>bestDot){ bestDot=dot; bestRow=row; }
-  }
-  if(!bestRow) return null;
-  ghostTargetPosition(bestRow,_ghGiftRoadT,_ghGiftPos);
-  const span=Math.max(GH_GIFT_SPAN_MIN,bestRow[3]-bestRow[0]);
-  _ghGiftVel.set(0,0,(GH_TARGET_FAR-GH_TARGET_NEAR)/span);
-  _ghGiftProxy.lockUntil=Math.max(0,bestRow[3]-_ghGiftRoadT); _ghGiftProxy._ghostGiftRow=bestRow;
-  return _ghGiftProxy;
-}
-function ghostGiftPlanSpeed(){
-  if(GH_MULTI && !_ghostSeatBusy && _ghGiftLockedRow){ const seat=_ghostSeatRows&&_ghostSeatRows.get(_ghGiftLockedRow); if(seat) return ghostGiftSeatPlan(seat); }
-  if(!GH_GIFT || !_ghGiftLockedRow) return null;
-  if(!ghostGiftSync() || !ghostGiftable(_ghGiftLockedRow,_ghGiftRoadT,_ghGiftReveal)){ _ghGiftLockedRow=null; return null; }
-  return GH_GIFT_SPEED;
-}
-function ghostCatchBurst(row,t,pos){
-  if(!_ghBurstPool || !row || !pos) return;
-  for(let i=0;i<GH_CATCH_BIRDS;i++){
-    const bird=_ghBurstPool[_ghBurstNext++%GH_BURST_MAX], seed=(row[2]+GH_CATCH_SEED_OFFSET)*GH_CATCH_SEED_BASE+i*GH_CATCH_SEED_STEP, a=ghostHashUnit(seed)*GH_CATCH_TURN, speed=GH_CATCH_SPEED_MIN+ghostHashUnit(seed+GH_CATCH_SPEED_SALT)*GH_CATCH_SPEED_SPAN;
-    bird.on=true; bird.catch=true; bird.core=i<GH_CATCH_CORE_BIRDS; bird.born=t; bird.lane=row[1]; bird.x=pos.x; bird.y=pos.y; bird.z=pos.z; bird.vx=Math.cos(a)*speed; bird.vy=GH_CATCH_UP_MIN+ghostHashUnit(seed+GH_CATCH_UP_SALT)*GH_CATCH_UP_SPAN; bird.vz=Math.sin(a)*speed; bird.spin=(ghostHashUnit(seed+GH_CATCH_SPIN_SALT)-GH_CATCH_SPIN_CENTER)*GH_CATCH_SPIN_SCALE;
-  }
-}
-function ghostGiftCatch(row,t){
-  if(GH_MULTI && !_ghostSeatBusy){ const seat=_ghostSeatRows&&_ghostSeatRows.get(row); if(seat) return ghostGiftSeatCatch(seat,row,t); }
-  if(!GH_GIFT || !row || !_ghCaughtSlots || _ghCaughtSlots.has(row[2])) return false;
-  _ghCaughtSlots.add(row[2]);
-  if(_ghostGiftMail){ ghostDropOldest(_ghostGiftMail,GH_CAP_MAIL); _ghostGiftMail.push([ghostTime(t),row[1]]); }
-  ghostTargetPosition(row,t,_ghGiftImpactPos);
-  if(_ghCatchPool){
-    const effect=_ghCatchPool[_ghCatchNext++%GH_CATCH_EFFECT_MAX];
-    effect.on=true; effect.born=t; effect.lane=row[1]; effect.x=_ghGiftImpactPos.x; effect.y=_ghGiftImpactPos.y; effect.z=_ghGiftImpactPos.z;
-  }
-  ghostCatchBurst(row,t,_ghGiftImpactPos); _ghGiftLockedRow=null;
-  return true;
-}
-function ghostGiftProjectileHit(pr){
-  if(GH_MULTI && !_ghostSeatBusy && pr){ const seat=_ghostSeatRows&&_ghostSeatRows.get(pr.giftRow); if(seat) return ghostGiftSeatProjectileHit(seat,pr); }
-  if(!GH_GIFT || !pr || !pr.gift || !pr.giftRow) return false;
-  if(!ghostGiftSync(pr.giftRoadT)){ if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.life)){ const cursor=pr.giftLaunchT+Math.max(0,pr.life); pr.giftRoadT=Number.isFinite(pr.giftRoadT)?Math.max(pr.giftRoadT,cursor):cursor; } return false; }
-  const currentT=_ghGiftRoadT, priorT=Number.isFinite(pr.giftRoadT)?Math.min(currentT,pr.giftRoadT):currentT, arrivalT=pr.giftRow[3], endT=Math.min(currentT,arrivalT);
-  pr.giftRoadT=currentT;
-  if(endT<priorT || !ghostGiftable(pr.giftRow,endT,_ghGiftReveal)) return false;
-  const rr2=GH_GIFT_R*GH_GIFT_R; let hit=false;
-  if(Number.isFinite(pr.giftLaunchT)&&Number.isFinite(pr.giftX)){
-    const first=Math.max(1,Math.floor(Math.max(0,priorT-pr.giftLaunchT)/GH_GIFT_STEP)+1), last=Math.floor(Math.max(0,endT-pr.giftLaunchT)/GH_GIFT_STEP+1e-9);
-    for(let n=first;n<=last;n++){ const t=n*GH_GIFT_STEP, k=0.5*t*(t+GH_GIFT_STEP); ghostTargetPosition(pr.giftRow,pr.giftLaunchT+t,_ghGiftImpactPos); const dx=pr.giftX+pr.giftVx*t+windX*k-_ghGiftImpactPos.x, dy=pr.giftY+pr.giftVy*t-CFG.projGravity*k-_ghGiftImpactPos.y, dz=pr.giftZ+pr.giftVz*t+windZ*k-_ghGiftImpactPos.z; if(dx*dx+dy*dy+dz*dz<=rr2){ hit=true; break; } }
-  }
-  if(!hit){
-    const span=currentT-priorT, uT=span>0?(endT-priorT)/span:0;
-    ghostTargetPosition(pr.giftRow,priorT,_ghGiftPrevPos); ghostTargetPosition(pr.giftRow,endT,_ghGiftImpactPos);
-    const px=_prev.x+(pr.pos.x-_prev.x)*uT, py=_prev.y+(pr.pos.y-_prev.y)*uT, pz=_prev.z+(pr.pos.z-_prev.z)*uT;
-    const ax=_prev.x-_ghGiftPrevPos.x, ay=_prev.y-_ghGiftPrevPos.y, az=_prev.z-_ghGiftPrevPos.z, bx=px-_ghGiftImpactPos.x, by=py-_ghGiftImpactPos.y, bz=pz-_ghGiftImpactPos.z;
-    const sx=bx-ax, sy=by-ay, sz=bz-az, l2=sx*sx+sy*sy+sz*sz; let u=l2>0?-(ax*sx+ay*sy+az*sz)/l2:0; u=u<0?0:u>1?1:u;
-    const dx=ax+sx*u, dy=ay+sy*u, dz=az+sz*u; hit=dx*dx+dy*dy+dz*dz<=rr2;
-  }
-  if(hit) _ghGiftRoadT=endT;
-  return hit;
-}
-function ghostBurstSpawn(row){
-  if(!_ghBurstPool || !row) return;
-  ghostTargetPosition(row,row[5],_ghPos);
-  for(let i=0;i<3;i++){
-    const bird=_ghBurstPool[_ghBurstNext++%GH_BURST_MAX], seed=(row[2]+1)*131+i*977, a=ghostHashUnit(seed)*Math.PI*2, lift=ghostHashUnit(seed+31);
-    bird.on=true; bird.catch=false; bird.core=false; bird.born=row[5]; bird.lane=row[1]; bird.x=_ghPos.x; bird.y=_ghPos.y; bird.z=_ghPos.z; bird.vx=Math.cos(a)*(1.4+lift*1.8); bird.vy=1.0+lift*2.0; bird.vz=Math.sin(a)*(1.4+lift*1.8); bird.spin=(ghostHashUnit(seed+71)-0.5)*4;
-  }
-}
-function ghostSeatAdvance(t){
-  const record=_ghostSeatRecord;
-  if(!record) return;
-  if(t<_ghLastTime){ ghostSeatPrepare(record); }
-  while(_ghTargetCursor<record.targets.length && record.targets[_ghTargetCursor][0]<=t){
-    if(_ghActiveTargets.length>=GH_TARGET_MAX) _ghActiveTargets.shift();
-    _ghActiveTargets.push(record.targets[_ghTargetCursor++]);
-  }
-  while(_ghHitCursor<_ghHitRows.length && _ghHitRows[_ghHitCursor][5]<=t){ ghostBurstSpawn(_ghHitRows[_ghHitCursor]); _ghHitCursor++; }
-  while(_ghFireCursor<record.fires.length && record.fires[_ghFireCursor][0]<=t){ const fire=record.fires[_ghFireCursor++]; _ghostAvatar.rotation.set(fire[2],GH_AVATAR_YAW_SIGN*fire[1],0,'YXZ'); }
-  _ghLastTime=t;
-}
-function ghostSeatUpdateTargets(t,open,effectT){
-  const catchT=Number.isFinite(effectT)?effectT:t;
-  const beaconLead=GH_GIFT?GH_GIFT_LEAD:GH_BEACON_LEAD;
-  let targetN=0, beaconN=0, ringN=0;
-  for(let i=_ghActiveTargets.length-1;i>=0;i--){
-    const row=_ghActiveTargets[i], hit=row[4]===1, caught=!!(GH_GIFT&&_ghCaughtSlots&&_ghCaughtSlots.has(row[2])), end=hit?row[5]:row[3]+GH_TARGET_FADE;
-    if(t>end){ const last=_ghActiveTargets.pop(); if(i<_ghActiveTargets.length) _ghActiveTargets[i]=last; continue; }
-    ghostTargetPosition(row,Math.min(t,row[3]),_ghPos);
-    if(!caught && open && t<(hit?row[5]:row[3]) && targetN<GH_TARGET_MAX){
-      const grow=Math.max(0.2,Math.min(1,(t-row[0])/GH_TARGET_GROW_SEC)); _ghScale.setScalar(GH_TARGET_SCALE*grow); _ghMatrix.compose(_ghPos,_ghIdentity,_ghScale); _ghostTargets.setMatrixAt(targetN,_ghMatrix); _ghostTargets.setColorAt(targetN,ghostLaneColor(row[1],_ghColor)); targetN++;
-    }
-    if(!hit && !caught && t>=row[3]-beaconLead && t<=row[3]+GH_TARGET_FADE && beaconN<GH_BEACON_MAX){
-      const fade=t<=row[3]?1:Math.max(0,1-(t-row[3])/GH_TARGET_FADE), breath=reduceMotion?1:(GH_BEACON_BREATH_MIN+GH_BEACON_BREATH_SWING*Math.sin(t*GH_BEACON_BREATH_HZ));
-      _ghScale.set(1,Math.max(0.02,fade*breath),1); _ghPos.y=GH_BEACON_HEIGHT*0.5; _ghMatrix.compose(_ghPos,_ghIdentity,_ghScale); _ghostBeaconCols.setMatrixAt(beaconN,_ghMatrix); _ghostBeaconCols.setColorAt(beaconN,ghostLaneColor(row[1],_ghColor));
-      ghostTargetPosition(row,Math.min(t,row[3]),_ghPos); _ghScale.setScalar(Math.max(0.02,fade)); _ghMatrix.compose(_ghPos,_ghRingQuat,_ghScale); _ghostBeaconRings.setMatrixAt(ringN,_ghMatrix); _ghostBeaconRings.setColorAt(ringN,_ghWhite); beaconN++;
-      _ghPos.y=GH_BEACON_HEIGHT; _ghScale.setScalar(Math.max(0.02,fade*GH_BEACON_HALO_RADIUS/GH_BEACON_RING_RADIUS)); _ghMatrix.compose(_ghPos,_ghRingQuat,_ghScale); _ghostBeaconRings.setMatrixAt(ringN+1,_ghMatrix); _ghostBeaconRings.setColorAt(ringN+1,_ghWhite); ringN+=2;
-    }
-  }
-  if(GH_GIFT && _ghCatchPool){
-    for(const effect of _ghCatchPool){
-      if(!effect.on) continue;
-      const age=catchT-effect.born;
-      if(age<0 || age>GH_CATCH_SIGH_LIFE){ effect.on=false; continue; }
-      const u=age/GH_CATCH_SIGH_LIFE, fade=Math.max(GH_CATCH_FADE_MIN,1-u), rise=reduceMotion?0:age*GH_CATCH_SIGH_RISE;
-      if(beaconN<GH_BEACON_DRAW_MAX){
-        _ghPos.set(effect.x,effect.y+rise+GH_BEACON_HEIGHT*fade*GH_CATCH_BEACON_HALF,effect.z); _ghScale.set(fade,fade,fade); _ghMatrix.compose(_ghPos,_ghIdentity,_ghScale); _ghostBeaconCols.setMatrixAt(beaconN,_ghMatrix); _ghostBeaconCols.setColorAt(beaconN,ghostLaneColor(effect.lane,_ghColor)); beaconN++;
-      }
-      if(ringN<GH_BEACON_RING_DRAW_MAX){
-        _ghPos.set(effect.x,effect.y,effect.z); _ghScale.setScalar(fade*(GH_CATCH_RING_SCALE+u*GH_CATCH_RING_GROW)); _ghMatrix.compose(_ghPos,_ghRingQuat,_ghScale); _ghostBeaconRings.setMatrixAt(ringN,_ghMatrix); _ghostBeaconRings.setColorAt(ringN,_ghWhite); ringN++;
-      }
-    }
-  }
-  _ghostTargets.count=targetN; _ghostBeaconCols.count=beaconN; _ghostBeaconRings.count=ringN;
-  if(targetN){ _ghostTargets.instanceMatrix.needsUpdate=true; _ghostTargets.instanceColor.needsUpdate=true; }
-  if(beaconN){ _ghostBeaconCols.instanceMatrix.needsUpdate=true; _ghostBeaconCols.instanceColor.needsUpdate=true; _ghostBeaconRings.instanceMatrix.needsUpdate=true; _ghostBeaconRings.instanceColor.needsUpdate=true; }
-  _ghCounts.targets=targetN; _ghCounts.beacons=beaconN; return _ghCounts;
-}
-function ghostSeatUpdateBursts(t,open,effectT){
-  if(!_ghBurstPool || !_ghostBursts) return 0;
-  let count=0;
-  for(const bird of _ghBurstPool){
-    if(!bird.on) continue;
-    const now=bird.catch&&Number.isFinite(effectT)?effectT:t, age=now-bird.born, life=bird.catch?GH_CATCH_LIFE:GH_BURST_LIFE; if(age<0 || age>life){ bird.on=false; continue; }
-    if(!open) continue;
-    const travel=reduceMotion?0:age, fade=1-age/life, scale=bird.catch?GH_CATCH_SCALE:GH_BURST_SCALE, scaleMin=bird.catch?GH_CATCH_SCALE_MIN:GH_BURST_SCALE_MIN;
-    _ghPos.set(bird.x+bird.vx*travel,bird.y+bird.vy*travel,bird.z+bird.vz*travel); _ghBurstQuat.setFromAxisAngle(SPAWN_UP,bird.spin*travel); _ghScale.setScalar(scale*(reduceMotion?1:Math.max(scaleMin,fade))); _ghMatrix.compose(_ghPos,_ghBurstQuat,_ghScale); _ghostBursts.setMatrixAt(count,_ghMatrix); _ghostBursts.setColorAt(count,bird.core?_ghCatchWarm:ghostLaneColor(bird.lane,_ghColor)); count++;
-  }
-  _ghostBursts.count=count;
-  if(count){ _ghostBursts.instanceMatrix.needsUpdate=true; _ghostBursts.instanceColor.needsUpdate=true; }
-  return count;
-}
-function ghostSeatApplyVisibility(v,targetCount,burstCount){
-  const open=!!(_ghostSeatRecord && state.running && !templeActive && !trainMode && v>0);
-  if(_ghVis) _ghVis.value=open?v:0;
-  if(_ghostSeatRoot) _ghostSeatRoot.visible=open;
-  if(_ghostRoad) _ghostRoad.visible=open;
-  if(_ghostWalls) _ghostWalls.visible=open;
-  if(_ghostAvatar) _ghostAvatar.visible=open;
-  if(_ghostAvatarBody) _ghostAvatarBody.visible=open;
-  if(_ghostAvatarHalo) _ghostAvatarHalo.visible=open;
-  if(_ghostAvatarBow) _ghostAvatarBow.visible=open;
-  if(_ghostTargets) _ghostTargets.visible=open&&targetCount>0;
-  if(_ghostBursts) _ghostBursts.visible=open&&burstCount>0;
-}
-function ghostSeatBeaconVisibility(count){
-  const on=!!(_ghostSeatRecord && state.running && !templeActive && !trainMode && count>0);
-  if(_ghBeacon) _ghBeacon.value=on?1:0;
-  if(_ghostBeaconRoot) _ghostBeaconRoot.visible=on;
-  if(_ghostBeaconCols) _ghostBeaconCols.visible=on;
-  if(_ghostBeaconRings) _ghostBeaconRings.visible=on;
-}
-function ghostSeatUpdate(dt){
-  if(GH_MULTI && !_ghostSeatBusy){ ghostSeatsUpdate(dt); return; }
-  const seatOn=GH_SEAT || (GH_MULTI&&_ghostSeatBusy);
-  if(!seatOn || !_ghostSeatRecord || !_ghostSeatRoot || !state.running || templeActive || trainMode){ ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); return; }
-  const roadT=ghostRoadTime(), t=Math.min(roadT,_ghostSeatRecord.dur), authority=roadWallMat&&roadWallMat.uniforms.uK?roadWallMat:(roadArchMat&&roadArchMat.uniforms.uK?roadArchMat:null);
-  const v=authority?ghostSeatReveal(authority.uniforms.uNow.value,authority.uniforms.uArchN0.value,authority.uniforms.uK.value):0;
-  ghostSeatAdvance(t); _ghBeat.value=ghostSeatBeatAt(t);
-  const counts=ghostSeatUpdateTargets(t,v>0,roadT), bursts=ghostSeatUpdateBursts(t,v>0,roadT);
-  ghostSeatApplyVisibility(v,counts.targets,bursts); ghostSeatBeaconVisibility(t<=_ghostSeatRecord.dur+GH_TARGET_FADE?counts.beacons:0);
-}
+
 /* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
    THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
    report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
@@ -9142,4 +8523,545 @@ function clearLandRings(){   // the twin of clearRings for the OTHER floor-plane
 const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
 let scopeAccum=SCOPE_STEP;
 const lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
+const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
+const _scScreen=[0,0,false];
+/* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
+let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
+const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85, EDGE_FLOW=34;   // deviation -> edge-tint opacity (0 within EDGE_TOL m, full by ~3m). EDGE_FLOW = conveyor scroll speed in px/s per metre of |delta|.
+const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints that CONVEY toward the aim-correction direction
+let _devY=0, _devX=0, _devShow=false, _eTopP=0, _eBotP=0, _eLeftP=0, _eRightP=0;
+function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
+function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
+function hideEdgeTints(){ _devShow=false; }
+function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
+  const dy=_devShow?_devY:0, dx=_devShow?_devX:0, scroll=!reduceMotion;   // reduced-motion: keep the static edge tint (opacity), freeze the conveyor scroll
+  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0 && scroll){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
+  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0 && scroll){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
+  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0 && scroll){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
+  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
+}
+function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
+function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
+  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
+function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
+function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
+  for(const tg of targets){ if(tg.dead) continue;
+    if(tight && (tg._flickLocked || tg.kind===2)) continue;   // flick can't re-lock a locked orb, and you never flick-lock a decoy
+    _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included in the normal path -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
+    const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d;
+    if(tight){ if(dot>=Math.cos(Math.atan2(tg.radius*tg.sc*CFG.flickBonus.coneMul, d)) && dot>bestDot){ bestDot=dot; best=tg; } }   // dot >= cos(angular radius) == the crosshair is inside the orb's silhouette
+    else if(dot>bestDot){ bestDot=dot; best=tg; } }
+  return best;
+}
+function updateScope(dt){
+  if(!(CFG.projectile && CFG.scope && state.running && !templeActive)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
+  if(bonusActive){ hideScope(); scopeAccum=SCOPE_STEP; return; }   // RAIL-FLICK BONUS: updateFlickBonus owns lockBoxEl (the gold "lockable now" mark) during the bonus
+  scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
+  const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
+  const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
+  const flight=computeShotPlan(_scM, _scV);
+  const locked=simShotHits(_scM, _scV, flight, tg);   // does the real shot path connect with the moving target?
+  // seeking → LOCK reticle around the target, sized to its on-screen radius
+  const ts=projectPointScope(Tt);
+  if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
+    lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
+    setVar(lockBoxEl,'--lx', ts[0]+'px'); setVar(lockBoxEl,'--ly', ts[1]+'px');
+    const isDecoy=tg.kind===2, lk=locked && !isDecoy; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', lk);   // decoy -> red AVOID box, never the gold LOCK
+    if(lk && flight>0 && !reduceMotion){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast. reduced-motion -> steady box (no breathe)
+    else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
+  else { lockBoxEl.classList.remove('on','lock','decoy'); _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); }
+  // deviation edge tints: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits) — the red glow on the screen edge to aim toward
+  if(ts[2] && _scVMissOn && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one). edge tints are a functional aim cue -> shown under reduced-motion too; only the conveyor SCROLL is motion (frozen in updateEdgeTints)
+    const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
+    const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
+    driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
+  } else { hideEdgeTints(); }
+}
+/* ========================= RAIL-FLICK BONUS (#4) =========================
+   Earned by a FLAWLESS on-beat kill on a hot streak. Orb MOTION freezes (the beat clock keeps
+   ticking — we never touch dt/Tone.Transport); aiming becomes pure FLICK (crosshair literally ON
+   an orb, no lead). Tap ANY WASD / pad-face ON the beat to LOCK the pointed orb; each lock extends
+   the window. When it ends the locked orbs detonate in a one-per-beat cascade, each a scored bonus
+   kill. Trains FLICK — the complement to the core LEAD skill. No auto-aim. */
+function currentRawBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b; }   // raw whole-beat clock (no groove phase-shift) — drives the window countdown + cascade cadence
+function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
+  if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
+  if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
+  if(state.t-_bonusLast<CFG.flickBonus.cooldown) return;                           // keep it a treat, not a strobe (mirrors clutch)
+  try{ updatePocketMisses(); }catch(e){}                                           // close the normal-input frontier immediately before bonus takes ownership
+  bonusActive=true; _bonusResolving=false; _bonusJustArmed=true; bonusLocks.length=0;   // _bonusJustArmed → updateFlickBonus clears in-flight projectiles NEXT (safely, after updateProjectiles' loop this frame)
+  _bonusGrace=CFG.flickBonus.graceMisses;
+  _bonusEntryBeat=currentRawBeat(); bonusEndsBeat=_bonusEntryBeat+CFG.flickBonus.baseBeats;
+  if(soundOn && toneReady){ try{ const t=beatSnap(); if(lead){ lead.triggerAttackRelease(PENTA[4],'8n',t,0.7); lead.triggerAttackRelease(PENTA[6],'8n',t+0.06,0.6); } if(chordSynth) chordSynth.triggerAttackRelease([PENTA[0],PENTA[2],PENTA[4]],'4n',t,0.4); }catch(e){} }   // a rising two-note "mode on" flourish + an open chord
+}
+function abortFlickBonus(){   // pause / reset: drop the mode with NO cascade payoff — un-flag locked orbs, unfreeze the field (they resume with full life)
+  if(!bonusActive) return;
+  try{ updatePocketMisses(); }catch(e){}   // freeze pocket progress through the final pre-pause center before clearing bonusActive
+  for(const tg of bonusLocks) if(tg) tg._flickLocked=false;
+  bonusLocks.length=0; bonusActive=false; _bonusResolving=false; _bonusJustArmed=false;
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+}
+function flickLockPress(){   // a WASD/pad-face tap DURING the bonus: on-beat AND crosshair on an orb = LOCK; anything else = a missed attempt (one grace, then the cascade rolls)
+  if(_bonusResolving) return;                                                      // cascade already rolling — taps do nothing
+  const tg=scopeLockTarget(true);                                                  // tight, size-aware cone; skips already-locked orbs + decoys
+  if(tg && orbOpen()){                                                             // ON the beat (orb glowing) AND the crosshair is literally on an orb
+    tg._flickLocked=true; bonusLocks.push(tg);
+    bonusEndsBeat=Math.min(_bonusEntryBeat+CFG.flickBonus.capBeats, bonusEndsBeat+CFG.flickBonus.extendBeats);   // each lock buys +extendBeats, capped at capBeats from entry
+    if(soundOn && toneReady){ try{ const s=Math.min(bonusLocks.length-1,PENTA.length-1); if(lead) lead.triggerAttackRelease(PENTA[s],'16n',beatSnap(),0.72); if(tick) tick.triggerAttackRelease(1568,'32n',Tone.now(),0.6); }catch(e){} }   // lock chime climbs the pentatonic with each lock
+    if(!reduceMotion) popHitMarker();
+  } else {                                                                         // whiffed flick (no orb under the crosshair) or off-beat tap = a missed attempt
+    if(_bonusGrace>0){ _bonusGrace--; flashReticleBad(); if(soundOn&&toneReady) sfx('offbeat'); }   // one forgiven fumble so entering with nothing centered doesn't instantly end the mode
+    else startFlickResolve(currentRawBeat());                                      // no-lock resolves exit through endFlickBonus, which advances the frozen pocket frontier first
+  }
+}
+function startFlickResolve(atBeat){
+  _bonusResolving=true; _bonusCascadeBeat=Math.floor(atBeat)+1;                     // first detonation on the next whole beat
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+  if(!bonusLocks.length) endFlickBonus();                                           // nothing locked → just exit (no cascade, streak intact)
+}
+function endFlickBonus(){
+  if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
+  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+}
+function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
+  if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
+  tg.dead=true; tg._flickLocked=false;
+  const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
+  recordHit(tg);
+  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
+  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
+}
+function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
+  const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
+  if(!ts[2]){ if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); return; }
+  const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
+  lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
+  lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px'); lockBoxEl.style.setProperty('--pulse','1');
+  lockBoxEl.classList.add('on','lock'); lockBoxEl.classList.remove('decoy');
+}
+function updateFlickBonus(dt){
+  if(!bonusActive) return;
+  if(_bonusJustArmed){ _bonusJustArmed=false; clearProjectiles(); }                 // deferred: clear in-flight shots AFTER updateProjectiles' loop this frame (clearing mid-loop would corrupt its index)
+  const beat=currentRawBeat();
+  if(!_bonusResolving){                                                             // LOCK PHASE: preview the lockable orb + count the window down (in whole beats)
+    const tg=scopeLockTarget(true);
+    if(tg) showFlickBox(tg); else if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+    if(beat>=bonusEndsBeat) startFlickResolve(beat);
+  } else {                                                                          // RESOLVE PHASE: detonate one locked orb per beat, then unfreeze
+    if(beat>=_bonusCascadeBeat){
+      if(bonusLocks.length){ resolveFlickLock(bonusLocks.shift()); _bonusCascadeBeat=Math.floor(beat)+1; }
+      else endFlickBonus();
+    }
+  }
+}
+/* ---- wind HUD (free-play prototype): an arrow rotated to the wind direction RELATIVE TO YOUR VIEW + the strength ---- */
+const windHudEl=gid('windHud'), windArrowEl=windHudEl&&windHudEl.querySelector('.wh-arrow'), windMagEl=windHudEl&&windHudEl.querySelector('.wh-mag'), _windFwd=new THREE.Vector3();
+function updateWindHud(){
+  if(!windHudEl) return;
+  if(!(state.running && (windX||windZ))){ if(windHudEl.classList.contains('on')) windHudEl.classList.remove('on'); return; }
+  camera.getWorldDirection(_windFwd); const fl=Math.hypot(_windFwd.x,_windFwd.z)||1, dfx=_windFwd.x/fl, dfz=_windFwd.z/fl;   // horizontal forward
+  const wFwd=windX*dfx+windZ*dfz, wRight=windX*(-dfz)+windZ*dfx, ang=Math.atan2(wRight,wFwd)*RAD2DEG;   // wind vs view: 0=downrange (arrow up), + = pushes right (screen-right = (-fz,fx))
+  setStyle(windArrowEl,'transform','rotate('+ang.toFixed(0)+'deg)');
+  setText(windMagEl, Math.hypot(windX,windZ).toFixed(2));
+  if(!windHudEl.classList.contains('on')) windHudEl.classList.add('on');
+}
+
+/* ========================= HUD ========================= */
+function gid(id){ return document.getElementById(id); }
+const el={ speedVal:gid('speedVal'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
+  reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
+el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
+function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
+function setVar(node, name, value){ const key='_var_'+name; if(node[key]!==value){ node.style.setProperty(name, value); node[key]=value; } }   // change-guarded CSS custom property write (the --tx/--ty/--lx/--ly reticle anchors: skipped while neither the camera nor the orb moved)
+function setStyle(node, prop, value){ const key='_style_'+prop; if(node[key]!==value){ node.style[prop]=value; node[key]=value; } }
+
+let primaryKey='';
+function renderPrimary(up, flash){
+  const v=Math.round(state.bpm), key=''+v;
+  if(key!==primaryKey){ el.speedVal.innerHTML=v+'<span class="x">bpm</span>'; primaryKey=key; }
+  if(flash && !reduceMotion){ el.speedVal.classList.remove('up','down'); void el.speedVal.offsetWidth; el.speedVal.classList.add(up?'up':'down'); }
+}
+function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('fire'); void el.hitmark.offsetWidth; el.hitmark.classList.add('fire'); }
+let reticleBadT=0;
+function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
+let _spoilShown=false;
+function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
+  const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
+  let spoil=false;
+  if(active && _spoilNote>=0){ const nd=wasdNoteDiv(); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
+  if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
+}
+function showTiming(grade, sub, cls, pathTxt, pathCls){
+  if(!el.timing) return;
+  el.timing.classList.remove('show','perfect','good','off'); void el.timing.offsetWidth;
+  if(el.timingG) el.timingG.textContent=grade; if(el.timingS) el.timingS.textContent=sub||'';
+  const pe=el.timingP;
+  if(pe){ pe.textContent=pathTxt||''; pe.className='p '+(pathCls||''); pe.style.display=pathTxt?'':'none'; }
+  el.timing.classList.add(cls||'good','show');
+}
+function pulseBeat(downbeat){
+  if(reduceMotion) return;
+  el.reticle.classList.add('beat'); setTimeout(()=>el.reticle.classList.remove('beat'),100);
+  if(downbeat && el.beatRing){ el.beatRing.classList.remove('pulse'); void el.beatRing.offsetWidth; el.beatRing.classList.add('pulse'); }
+}
+
+/* ========================= ASSIST ARROWS ========================= */
+const assistWrap=gid('assist'); const arrowPool=[];
+const _assistLocal=new THREE.Vector3(), _assistNdc=new THREE.Vector3();
+const ASSIST_NEAR2=64, ASSIST_FAR2=1156, ASSIST_FADE=0.65/(ASSIST_FAR2-ASSIST_NEAR2);
+const ASSIST_UPDATE_STEP=1/30; let assistAccum=ASSIST_UPDATE_STEP, assistShown=0;
+function getArrow(i){ while(arrowPool.length<=i){ const a=document.createElement('div'); a.className='arrow'; a.innerHTML='<span></span>'; a._shown=false; a._color=''; a._opacity=-1; a._sx=a._sy=a._ang=999999; assistWrap.appendChild(a); arrowPool.push(a);} return arrowPool[i]; }
+function hideAssistFrom(start){ for(let j=start;j<assistShown;j++){ const a=arrowPool[j]; if(a && a._shown){ a.style.display='none'; a._shown=false; } } assistShown=start; }
+function updateAssist(dt){
+  if(!CFG.audioAssist || !state.running || !targets.length){ hideAssistFrom(0); assistAccum=ASSIST_UPDATE_STEP; return; }
+  assistAccum+=dt; if(assistAccum<ASSIST_UPDATE_STEP) return; assistAccum=0;
+  const cx=viewCX, cy=viewCY; let idx=0;
+  for(const tg of targets){
+    if(tg.dead) continue;
+    _assistLocal.copy(tg.mesh.position).applyMatrix4(camera.matrixWorldInverse); const behind=_assistLocal.z>0;
+    _assistNdc.copy(_assistLocal).applyMatrix4(camera.projectionMatrix); let x=_assistNdc.x,y=_assistNdc.y;
+    if(!behind && Math.abs(x)<=1 && Math.abs(y)<=1) continue;
+    if(behind){ x=-x; y=-y; }
+    const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.86/Math.max(ax,ay); x*=s; y*=s;
+    const ap=tg.mesh.position, cp=camera.position, adx=ap.x-cp.x, ady=ap.y-cp.y, adz=ap.z-cp.z;
+    const sx=cx+x*cx, sy=cy-y*cy, ang=Math.atan2(-y,x), d2=adx*adx+ady*ady+adz*adz;
+    const a=getArrow(idx++); if(!a._shown){ a.style.display='block'; a._shown=true; }
+    const sxr=Math.round(sx), syr=Math.round(sy), ar=Math.round(ang*100)/100;
+    if(a._sx!==sxr || a._sy!==syr || a._ang!==ar){ a._sx=sxr; a._sy=syr; a._ang=ar; a.style.transform='translate('+sxr+'px,'+syr+'px) rotate('+ar+'rad)'; }
+    const color='var(--plasma)';   // both near + far direction arrows orange (distance still reads via opacity below)
+    if(a._color!==color){ a.style.setProperty('--c', color); a._color=color; }
+    const opacity=Math.round(Math.max(0.5,Math.min(1,1-(d2-ASSIST_NEAR2)*ASSIST_FADE))*1000)/1000;
+    if(a._opacity!==opacity){ a.style.opacity=opacity; a._opacity=opacity; }
+  }
+  hideAssistFrom(idx); if(idx>assistShown) assistShown=idx;
+}
+
+/* ========================= AIM TRAIL (3D, per target) ========================= */
+// Each target paints its OWN trail: when it spawns the crosshair starts drawing on an invisible sphere; the
+// line ripens white→red toward the optimal click time, then detaches and fades for a moment after the orb
+// dies. Path score per orb = great-circle angle to where you started ÷ angle actually travelled.
+const TRAIL_MAX=90;   // max samples per pooled trail line (the returning-voice line uses 2)
+const trailMeshPool=[];   // additive depth-test-free THREE.Line pool — today only the returning-voice line (starFlyStep) rides it; the per-orb aim trail that once shared it was retired 2026-08-18 (it had been silently dead since e172584 swallowed its spawn line into a comment)
+function setAimDir(out, p, y){
+  if(p==null && y==null){
+    if(aimDirty){ const cp=Math.cos(pitch); _aimDirCache.set(-Math.sin(yaw)*cp, Math.sin(pitch), -Math.cos(yaw)*cp); aimDirty=false; }
+    return out.copy(_aimDirCache);
+  }
+  p=p==null?pitch:p; y=y==null?yaw:y; const cp=Math.cos(p); return out.set(-Math.sin(y)*cp, Math.sin(p), -Math.cos(y)*cp);
+}
+function newTrailMesh(){
+  let m=trailMeshPool.pop();
+  if(!m){
+    const geo=new THREE.BufferGeometry();
+    const pos=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
+    const col=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', pos); geo.setAttribute('color', col);
+    m=new THREE.Line(geo, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false, linewidth:2}));
+    m.frustumCulled=false; m.renderOrder=999;
+  }
+  m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); m.visible=false; m.position.copy(PLAYER_POS); scene.add(m); return m;
+}
+function releaseTrailMesh(m){
+  m.visible=false; m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); scene.remove(m); trailMeshPool.push(m);
+}
+function updateTrail(dt){   // the per-orb aim trail is gone; the name stays because the returning voices still ride the trail pool from here (one boolean, one call, every frame)
+  if(CFG.stars.on && (_starFly.length || _starPend.length || _starDebt.length)) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes
+}
+
+/* ========================= LOOP ========================= */
+const clock=new THREE.Clock();
+const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30;
+const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
+let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
+const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
+function animate(frameNow){
+  requestAnimationFrame(animate);
+  if(document.hidden){ clock.getDelta(); return; }
+  if(frameNow==null) frameNow=performance.now();
+  if(!state.running && explosions.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
+  if(!state.running) lastIdleFrame=frameNow;
+  _audioFrame++;   // AUDIO AUTOMATION DIET: one listener push per frame, however many times the camera's children get walked
+  const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
+  if(_trainCoachT>0){
+    _trainCoachT-=dt;
+    if(_trainCoachT<=0){
+      _trainCoachT=0;
+      if(trainCoachEl && _trainCoachEphemeral){ trainCoachEl.classList.remove('on'); trainCoachEl.textContent=''; _trainCoachEphemeral=false; }   // hide graduation copy; training tips (_trainCoachT=0, persistent) stay
+    }
+  }
+  if(CFG.bow.on) bowClock(dt);   // THE BOW: holster clock while idle, ceremony clock once committed. The kill-switch is read HERE so bow.on:false costs one boolean per frame and not a call (bowClock's own guards stay as defense in depth).
+  pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
+  updateRenderQuality(dt);
+  if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
+    fpsAccum+=dt; if(fpsAccum>=0.25){ fpsAccum=0; setText(fpsEl, Math.round(fpsEMA)+' fps · dpr '+renderer.getPixelRatio().toFixed(2)); if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on'); } }
+
+  // camera = aim base + recoil kick + trauma shake (all decay back to the true aim)
+  const rf=Math.exp(-dt*CFG.recoilReturn); recoilPitch*=rf; recoilYaw*=rf;
+  let shP=0, shY=0, shR=0, shX=0, shPY=0, shZ=0;
+  if(trauma>0){
+    trauma=Math.max(0, trauma - dt*CFG.traumaDecay);
+    const s=trauma*trauma;
+    if(s>0){
+      shP=(Math.random()*2-1)*CFG.shakeAng*s; shY=(Math.random()*2-1)*CFG.shakeAng*s; shR=(Math.random()*2-1)*CFG.shakeRoll*s;
+      shX=(Math.random()*2-1)*CFG.shakePos*s; shPY=(Math.random()*2-1)*CFG.shakePos*s; shZ=(Math.random()*2-1)*CFG.shakePos*s;
+    }
+  }
+  let _dollyY=0, _dollyP=0, _dollyR=0;                         // TRACKING DOLLY: slow rotational view wander (added to the camera only — yaw/pitch input state stays clean; the shot follows the drifted crosshair, so you counter it to hold a target). Non-beat-synced smooth lissajous of state.t; static (=0) at t=0 and while paused (state.t frozen), so no jump. _dollyR is THE STAR ROAD's bank and is identically 0 on every other path.
+  if(CFG.dolly && !reduceMotion && !templeActive){ const _t=state.t, _w=CFG.dollySpeed, D=0.017453293, _dm=dollyStrengthMul()*(CFG.tide.on?tideMul(CFG.tide.dollyLo):1);   // TIDES: the view wanders hardest at the crest and calms into the mercy bar. Kill-switch read first → tide.on:false is one boolean, no call, no tide read
+    if(roadLive()){   // COURSE-DRIVEN BANKING (SPEC_STAR_ROAD §3, decision 3): the noise IS the course now. roadLean() is the road's heading ROAD_TURN_LEAD beats out, normalised to ±1 — so the camera swings with the river and you counter-steer a bend you could READ eight beats ago, instead of counter-steering a lissajous nobody can anticipate. Raw kill-switch first inside roadLive(): road.on:false and both branches below are the ones that shipped, evaluated on exactly the arguments they always were. Every surrounding law is inherited untouched (CFG.dolly · dollyStrengthMul's dollyStrength × skill ramp · the tide's dollyLo breathing · reduceMotion and templeActive skip the whole block), and the yaw BUDGET is unchanged: the noise paths' harmonic coefficients sum to exactly 1.00, so their peak was dollyYawDeg × _dm — precisely what the clamped course term reaches. PITCH is deliberately 0 here: a ribbon that bends in the plane has no vertical fact to state, and a vertical wander with nothing to say is decoration, which this road does not do.
+      const _ln=roadLean(roadBeatNow());                      // the SAME clock the road is drawn on, so the lean and the bend under it can never disagree. Frozen with the Transport (paused, or the start card) exactly as the noise dolly was frozen with state.t — so there is no jump at the downbeat; the difference is that the resting tilt is not 0 but the bend the card is already showing you
+      _dollyY=-CFG.dollyYawDeg*D*_dm*_ln;                      // the river bends toward world +X (to the right of the road's own travel) → the view is carried right, which is negative yaw under 'YXZ'
+      _dollyR=-ROAD_BANK_DEG*D*_dm*_ln;                        // …and the camera LEANS INTO it, head tilting the same way. Bounded at 3.25° (60 bpm, full strength) — under the shipped trauma roll's 3.44° on the same axis — and it cannot touch the shot: camera.rotation is 'YXZ' (R = Ry·Rx·Rz) and Rz leaves the local −Z axis fixed, so camera.getWorldDirection(), the only thing computeShotPlan reads, is identically independent of roll
+    } else if(CFG.dollyHuman){   // SENSEI: irregular multi-harmonic wander + slow envelope — tracks like a strafing opponent, not a perfect machine orbit
+      const e=0.72+0.28*Math.sin(_t*0.19+0.5);
+      _dollyY=CFG.dollyYawDeg*D*_dm*e*(0.42*Math.sin(_t*_w)+0.26*Math.sin(_t*_w*2.07+0.9)+0.18*Math.sin(_t*_w*0.51+2.2)+0.14*Math.sin(_t*_w*3.17+0.3));
+      _dollyP=CFG.dollyPitchDeg*D*_dm*e*(0.48*Math.sin(_t*_w*0.69+1.2)+0.28*Math.sin(_t*_w*1.88+0.4)+0.24*Math.sin(_t*_w*0.37+2.6));
+    } else {
+      _dollyY=CFG.dollyYawDeg*D*_dm*(0.62*Math.sin(_t*_w)+0.38*Math.sin(_t*_w*1.73+1.3));
+      _dollyP=CFG.dollyPitchDeg*D*_dm*(0.62*Math.sin(_t*_w*0.83+0.7)+0.38*Math.sin(_t*_w*1.31+2.1));
+    }
+  }
+  camera.rotation.set(pitch+recoilPitch+shP+_dollyP, yaw+recoilYaw+shY+_dollyY, shR+_dollyR, 'YXZ');   // THE STAR ROAD's bank rides the roll slot the trauma shake already owns; _dollyR is 0 on every path but the road's, so `shR+0` is the shipped value at every other site and under road.on:false
+  camera.position.set(shX, EYE+shPY, shZ);
+  camera.updateMatrixWorld(); camera.matrixWorldInverse.copy(camera.matrixWorld).invert();   // the pose is final for this frame here, so refresh matrixWorld + its inverse ONCE (exactly what renderer.render does at the end of the frame anyway) — projectPointScope / updateAssist / the remote reticles then read camera.matrixWorldInverse instead of each re-inverting a 4×4 through camera.worldToLocal (perf audit 2026-08-18)
+  if(clutchT>0){                                               // clutch FOV punch: a quick zoom-in that eases out. Purely visual — does NOT touch dt or the beat clock.
+    clutchT=Math.max(0, clutchT-dt);
+    const a=clutchDur*0.14, tIn=clutchDur-clutchT;             // short attack, then ease-out
+    const env=tIn<a ? tIn/a : Math.max(0, clutchT/(clutchDur-a));
+    camera.fov=camFovBase - CFG.clutchZoom*env; camera.updateProjectionMatrix();
+    if(clutchT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }   // restore exactly when the punch ends
+  } else if(missKickT>0){                                      // miss flinch: gentle FOV widen (was 5.5° — too shouty with trauma)
+    missKickT=Math.max(0, missKickT-dt);
+    const a=missKickDur*0.25, tIn=missKickDur-missKickT;
+    const env=tIn<a ? tIn/a : Math.max(0, missKickT/(missKickDur-a));
+    camera.fov=camFovBase + 2.2*env; camera.updateProjectionMatrix();
+    if(missKickT<=0){ camera.fov=camFovBase; camera.updateProjectionMatrix(); }
+  }
+
+  if(state.running && !templeActive){
+    state.t+=dt;
+    let _fb=NaN; const frameBeat=()=>{ if(_fb!==_fb){ _fb=0; try{ _fb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} } return _fb; };   // ONE transport read per frame for the two consumers below (perf audit 2026-08-18): Tone's `Transport.ticks` getter walks the state timeline with allocations on every read, and the vuln glow + the strobe grid asked it twice for one value. Lazy, so a build with both consumers off gains no read; the sample is the same render quantum either way. Input grading (fire/keydown) never comes through here.
+    _fillAmt=-1;   // THE FILL'S OWN PULSE rests at "nothing is asking" every frame and is re-earned inside the vuln branch below, so a build with the vuln mechanic off (or reduced motion on top of it) can never read a stale amount off a previous frame
+    if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
+      let hb=frameBeat();
+      const _bps=60/Math.max(20,state.bpm), _lat=audioLat(); hb-=_lat/_bps;   // heard timeline (reported latency + user offset) → the glow matches the audible beat
+      // Open window peaks on the audible 1 by default (grooveFireEarlyBeat:0). Optional early shift is CFG-only — never coupled to WASD pocket push/layback.
+      const _early=Math.max(0,Math.min(0.45, CFG.grooveFireEarlyBeat!=null?CFG.grooveFireEarlyBeat:0));
+      const _ideal=_early>0?(Math.round(hb+_early)-_early):Math.round(hb);
+      const _offSec=Math.abs(hb-_ideal)*_bps, _winSec=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();   // seconds off the open peak vs skill-tightened band
+      _openAmt=Math.max(0, 1-_offSec/Math.max(0.01,_winSec));
+      // SMOKY open lens: lower peak opacity than a neon flare; shell scale inflate (below) carries the "bubble" read
+      const _floor=CFG.openShellOpacityFloor!=null?CFG.openShellOpacityFloor:0.04;
+      const _peak=CFG.openShellOpacityPeak!=null?CFG.openShellOpacityPeak:0.42;
+      const _so=_openAmt>0?Math.min(_peak, (_floor+(_peak-_floor)*_openAmt)*(CFG.openGlowBoost||1)):_floor;
+      TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
+      // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2 amendment T4). The shipped tank wore the FIELD's whole-beat glow, so
+      // the one orb that answers to a count of gates lit up identically on gates it still needed and gates it had already
+      // spent — the middle gate of the 3-figure was, visually, dark: nothing on screen said "again, now". blinkWin was the
+      // knob for exactly this cue and had been dead since the tank became a fill. Now the (at most one) live fill tank
+      // overrides this material with its OWN amount, shaped by the same law from the distance to the gate it still needs.
+      // With T1's whole-beat gates the two clocks mostly agree — which is the point: they agree on the beats the tank wants
+      // and part company on the beats it does not, so the count reads honestly off the shell. TANK_SHELL_MAT is shared, but
+      // fillOnly guarantees at most one tank alive, and with fillOnly:false _fillAmt is -1 forever and this line never runs.
+      _fillAmt = CFG.tank.fillOnly ? fillGlowAmt() : -1;
+      if(_fillAmt>=0) TANK_SHELL_MAT.opacity = _fillAmt>0 ? Math.min(_peak, (_floor+(_peak-_floor)*_fillAmt)*(CFG.openGlowBoost||1)) : _floor;   // the identical opacity law as _so above, on the fill's clock instead of the beat's
+    } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
+    try{ updatePocketMisses(); }catch(e){}   // unconditional on target presence: close overdue main events before this frame's field work
+    if(targets.length){
+      const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
+      // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
+      const wantStrobe=(CFG.beatQuant && toneReady);   // beat-quantized motion: the orb HOLDS, then STEPS on the beat grid
+      const strobe=wantStrobe && Tone.Transport.state==='started';
+      let doSnap=true, moveStep=dt, doJuke=false;
+      if(wantStrobe && !strobe){ doSnap=false; }               // transport not ticking yet (e.g. the brief window after a resume) → HOLD, don't revert to per-frame scatter
+      else if(strobe){
+        const dT=diffT(), d=CFG.beatQuantDivs, t=CFG.beatQuantT, spb=dT<t[0]?d[0]:(dT<t[1]?d[1]:d[2]);   // 1/2 → 1/4 → 1/8 beat as skill (diffT) rises
+        _snapInterval=(60/Math.max(20,state.bpm))/spb;   // seconds between strobe steps → scales the WASD hit window
+        let beats=frameBeat();   // same audio clock as the spawn scheduler (onGrid) → in the daily, strobe steps + spawns share one timeline (seeded-fair, fps-tolerant)
+        const qi=Math.floor(beats*spb);
+        doSnap = qi!==_quantIdx;
+        if(doSnap){ moveStep = _quantIdx===-1 ? 0 : Math.min(1.0, state.t-_quantT); _quantIdx=qi; _quantT=state.t; scopeAccum=SCOPE_STEP; arcAccum=ARC_UPDATE_STEP; }   // first snap holds (no teleport); else advance by real elapsed (clamped). force the scope+arc guides to recompute THIS frame so they step in sync with the orb
+        const _jb=Math.floor(beats - (CFG.grooveGroove?CFG.grooveFreezePhase:0)); if(CFG.grooveGroove && CFG.grooveJuke && _jb!==_jukeIdx){ doJuke=true; _jukeIdx=_jb; }   // JUKE on the "and" (off-beat) → the orb then glides predictably into the on-beat open window (a fair timed lead)
+      }
+      if(bonusActive){ doSnap=false; doJuke=false; }         // RAIL-FLICK BONUS: HOLD the field (orbs freeze) while the flick mode runs. _quantIdx/_quantT already advanced in the strobe block above, so on unfreeze the next snap is a small step (no teleport, no beat-clock desync).
+      const brownianStep=(CFG.brownian>0 && doSnap) ? CFG.brownian*(0.6+0.8*diffT())*Math.sqrt(moveStep) : 0;
+      const brownianDamp=brownianStep ? Math.max(0,1-CFG.brownianDamp*moveStep) : 1;
+      const _tideW=CFG.tide.on?tideMul(CFG.tide.brownianLo):1;   // TIDES: wander cap + juke sharpness breathe with the swell (kill-switch first → literally ×1, no call, with the parcel off). grooveGlideSpeed is NOT scaled — the leadable glide is the sacred loop
+      const velCap=Math.max(CFG.grooveGroove?CFG.grooveGlideSpeed:0, lerp(CFG.brownianMaxSlow, CFG.brownianMax, diffT())*_tideW), velCap2=velCap*velCap;   // wander SPEED scales with skill; in groove mode the cap can't fall below grooveGlideSpeed so a juked orb keeps its leadable glide at low tempo
+      if(doSnap){
+        if(CFG.wasdRhythm && strobe){ const nd=wasdNoteDiv();   // THE FORTY FIX: the lane's OWN ladder (wasdNoteDiv) — no longer half the orb-jump rate, so the strobe can deepen to 1/8 at 50 bpm without conscripting the fingers
+          syncWasdResolutionGrid(nd);
+          const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
+          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; _wasdCombo=0; }   // DE-COERCION (parcel R): only a MAIN leaving unresolved costs damping AND combo. A skipped in-between note is a declined invitation, so it cannot zero _wasdCombo — pressing once per beat is a clean run at every tempo. (Rolling main misses still come from the all-pocket sweep.)
+            if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
+        } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _resolved.clear(); }
+        const _raw=wasdMul(); _mulEff = _raw<_mulEff ? _raw : Math.min(_raw, _mulEff+0.35); }   // asymmetric envelope: calm lands INSTANTLY, punishment ramps +0.35/snap (a miss wakes the field over ~3 snaps instead of one full-amplitude jump-scare)
+      for(let i=targets.length-1;i>=0;i--){
+        const tg=targets[i];
+        if(tg.sc<1){ tg.sc=Math.min(1,tg.sc+dt/0.14); tg.mesh.scale.setScalar(tg.radius*tg.sc); }   // grow-in stays smooth (per frame), independent of the motion strobe
+        // Soft lens bubble: grow the shell while open (smoke/glass rim), not brighter neon
+        const _sh=tg.mesh.userData.shell;
+        if(_sh){
+          const base=CFG.openShellScale!=null?CFG.openShellScale:1.55, peak=CFG.openShellScalePeak!=null?CFG.openShellScalePeak:1.92;
+          const a=(CFG.grooveGroove&&CFG.grooveVuln)?((_fillAmt>=0 && tg.fill16>=0)?_fillAmt:_openAmt):0;   // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2, T4): the bubble inflates with the same amount its opacity was just shaped from, so the tank's shell reads as ONE cue and not a light arguing with a size. _fillAmt is -1 on every frame of a fillOnly:false build and tg.fill16 is -1 on every orb that is not the fill, so this is _openAmt verbatim for everything else
+          const pulse=a>0?(base+(peak-base)*a*(0.94+0.06*Math.sin(state.t*9+(tg.idx||0)))):base;
+          _sh.scale.setScalar(pulse);
+        }
+        const p=tg.mesh.position;
+        if(doSnap){ const mul=_mulEff;                  // strobe step scaled by the enveloped WASD freeze: 1=full move, 0=frozen (falls instantly on a clean tap, rises clipped after a break)
+          if(brownianStep){                                  // brownian wander
+            const bj=brownianStep*mul;   // jitter scaled by accuracy too → a clean hit calms the velocity, not just the position (over a streak the field truly settles)
+            tg.vel.x+=(Math.random()*2-1)*bj; tg.vel.y+=(Math.random()*2-1)*bj*0.6; tg.vel.z+=(Math.random()*2-1)*bj;
+            tg.vel.x*=brownianDamp; tg.vel.y*=brownianDamp; tg.vel.z*=brownianDamp;
+            const vx=tg.vel.x, vy=tg.vel.y, vz=tg.vel.z, sp2=vx*vx+vy*vy+vz*vz; if(sp2>velCap2){ const f=velCap/Math.sqrt(sp2); tg.vel.x*=f; tg.vel.y*=f; tg.vel.z*=f; }
+          }
+          if(doJuke){ let _ha=Math.atan2(tg.vel.z, tg.vel.x); if(!(tg.vel.x||tg.vel.z)) _ha=Math.random()*6.283; _ha+=(Math.random()*2-1)*CFG.grooveJukeDeg*_tideW*0.017453293; tg.vel.x=Math.cos(_ha)*CFG.grooveGlideSpeed; tg.vel.z=Math.sin(_ha)*CFG.grooveGlideSpeed; }   // beat JUKE: CUT the heading ±grooveJukeDeg and set a steady glide speed → a visible dart you must re-lead each beat
+          const ms=moveStep*mul;   // accuracy-scaled displacement: the better you time the beat, the less the field drifts this step
+          p.x+=tg.vel.x*ms; p.y+=tg.vel.y*ms; p.z+=tg.vel.z*ms;
+          if(strobe){                                          // large strobe steps: reflect POSITION back inside + set vel sign by side (a blind flip could leave the orb outside for a whole hold, or chatter)
+            if(p.x<-ROOM_BX){ p.x=-2*ROOM_BX-p.x; tg.vel.x=Math.abs(tg.vel.x); } else if(p.x>ROOM_BX){ p.x=2*ROOM_BX-p.x; tg.vel.x=-Math.abs(tg.vel.x); }
+            if(p.z<-ROOM_BZ){ p.z=-2*ROOM_BZ-p.z; tg.vel.z=Math.abs(tg.vel.z); } else if(p.z>ROOM_BZ){ p.z=2*ROOM_BZ-p.z; tg.vel.z=-Math.abs(tg.vel.z); }
+            if(p.y<2.2){ p.y=4.4-p.y; tg.vel.y=Math.abs(tg.vel.y); } else if(p.y>ROOM_BY){ p.y=2*ROOM_BY-p.y; tg.vel.y=-Math.abs(tg.vel.y); }
+          }else{
+            if(p.x<-ROOM_BX||p.x>ROOM_BX) tg.vel.x*=-1; if(p.z<-ROOM_BZ||p.z>ROOM_BZ) tg.vel.z*=-1; if(p.y<2.2||p.y>ROOM_BY) tg.vel.y*=-1;
+          }
+        }
+        if(tg.snd){
+          if(CFG.targetPulse && tg.snd.gateGain && _actx){ tg.gatePhase=(tg.gatePhase+_gateRate)%CFG.targetPulsePeriod; const go=tg.gatePhase<CFG.targetPulseOn; if(go!==tg.gOn){ tg.gOn=go; tg.snd.gateGain.gain.setTargetAtTime(go?1:0.0001, _actx.currentTime, go?0.016:0.08); } }   // eased open on this target's 16th (was 5ms -- spitty), longer release into its rest
+          tg.sndAccum+=dt; if(tg.sndAccum>=TARGET_AUDIO_STEP){ tg.sndAccum=0; const dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d2=dx*dx+dy*dy+dz*dz;
+          const db=Math.max(0,Math.min(TARGET_AUDIO_BUCKETS, Math.round((d2-TARGET_AUDIO_NEAR2)*TARGET_AUDIO_BUCKET_SCALE)));
+          if(db!==tg.snd.dBucket){ tg.snd.dBucket=db; const d=Math.sqrt(d2), t=(d-6)/22; tg.snd.lowpass.frequency.value=lerp(7000,1200,t); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,t); }
+        } }
+        if(bonusActive) tg.expireAt+=dt;                     // RAIL-FLICK BONUS: hold every orb's life clock during the freeze so nothing expires mid-bonus (and each resumes with full remaining life on unfreeze)
+        else if(state.t>=tg.expireAt){ dropTarget(tg); onExpire(tg); }
+      }
+    }
+    if(reticleBadT>0){ reticleBadT-=dt; if(reticleBadT<=0) el.reticle.classList.remove('bad'); }
+  }
+
+  // explosions (shards fly out + a flash); run regardless so they finish across a pause
+  for(let i=explosions.length-1;i>=0;i--){
+    const e=explosions[i]; const edt=dt*(e.slow||1); e.age+=edt; const k=e.age/e.life;   // edt: a clutch burst (slow<1) ages in slow-mo — localized, never the master clock
+    if(e.geo){ const arr=e.geo.attributes.position.array;
+      const drag=Math.max(0,1-1.6*edt);
+      for(let j=0;j<e.vels.length;j+=3){ e.vels[j+1]-=9.8*edt*0.5; e.vels[j]*=drag; e.vels[j+1]*=drag; e.vels[j+2]*=drag; arr[j]+=e.vels[j]*edt; arr[j+1]+=e.vels[j+1]*edt; arr[j+2]+=e.vels[j+2]*edt; }
+      e.geo.attributes.position.needsUpdate=true; e.mat.opacity=Math.max(0,1-k);
+    }
+    const fk=Math.min(1,e.age/0.18); e.flash.scale.setScalar(e.flashBase*(1+fk*2.4)); e.flash.material.opacity=Math.max(0,0.95*(1-fk));
+    if(e.age>=e.life){ if(e.shards) releaseShards(e.shards); releaseFlash(e.flash); swapRemove(explosions,i); e.shards=e.pts=e.geo=e.mat=e.vels=e.flash=null; explosionRecordPool.push(e); }
+  }
+
+  if(clutchRingT>0 && clutchRing){                              // clutch shockwave: a camera-facing ring expanding out of the impact
+    clutchRingT=Math.max(0, clutchRingT-dt);
+    const u=1-clutchRingT/clutchRingDur, r=0.6+u*7.0;
+    clutchRing.position.copy(_clutchRingPos); clutchRing.scale.set(r,r,r); clutchRing.lookAt(camera.position);
+    clutchRing.material.opacity=Math.max(0,1-u)*0.9; clutchRing.visible=true;
+  } else if(clutchRing && clutchRing.visible){ clutchRing.visible=false; }
+  if(comboGlowEl && !reduceMotion){                             // combo color-lift: warm vignette rides the streak (rise fast / fall slow)
+    const gt=(state.running ? Math.min(1, state.streak/CFG.glowStreakFull) : 0);
+    glowI += (gt-glowI)*(1-Math.exp(-dt*(gt>glowI?CFG.glowRiseK:CFG.glowFallK)));
+    const op=CFG.comboGlow ? glowI*CFG.glowMax : 0;
+    if(comboGlowEl._op===undefined || Math.abs(comboGlowEl._op-op)>0.004){ comboGlowEl.style.opacity=op.toFixed(3); comboGlowEl._op=op; }
+  }
+  // Slow sky/light uniforms do not need a 60Hz CPU update; gameplay rendering stays per-frame.
+  skyT += dt; skyAccum += dt; starAccum += dt;
+  if(starAccum>=STAR_UPDATE_STEP){ updateStars(skyT); starAccum=0; }
+  if(skyAccum>=SKY_UPDATE_STEP){ updateSky(skyAccum); skyAccum=0; }
+  if(state.running && !templeActive && activeRingCount>0){
+    const spb=60/state.bpm;
+    // THE ROOM'S FURNITURE EXITS WITH THE ROOM (wave 8, G1b). Gating emitRing above stops NEW rings, but a ring lives
+    // RING_LIFE=7 beats, so the ones the TRAINER lit are still expanding when setTrainPhase(3) pulls the floor out from
+    // under them. This retires them on the FLOOR'S OWN TIMELINE: _mlBlend is the graduation dissolve and nothing else —
+    // it SNAPS everywhere else — so a player who skipped the trainer finds mlFade already 0 on frame one (nothing to
+    // fade, since nothing was ever emitted), a Temple visit cannot re-fade anything, and the ONE ramp there is is the
+    // one the floor leaves on. No second duration: this is floorDissolveSec through the blend that already reads it,
+    // stepped in the same updateSky call two lines above so the rings and the sky can never disagree by a frame.
+    // Outside the void mlFade is exactly 1, and `x*1` is a bit-identical double, so the trainer's rings and every
+    // moonline.on:false ring keep the shipped opacity to the last bit. VISUAL ONLY — no gameplay quantity is read here.
+    const mlFade=moonlineVoid()?Math.max(0,1-_mlBlend):1;
+    if(mlFade<=0) clearRings();
+    else for(const r of RING_POOL){
+      if(!r.active) continue;
+      const ageB=(state.t-r.t0)/spb;
+      if(ageB>=RING_LIFE){ r.active=false; r.mesh.visible=false; r.rq=0; r.op=-1; activeRingCount=Math.max(0,activeRingCount-1); continue; }
+      const Rq=Math.max(RING_CELL, Math.round((ageB*RING_SPEED)/RING_CELL)*RING_CELL);  // quantize: snap out to the next grid line
+      if(r.rq!==Rq){ r.rq=Rq; r.mesh.scale.set(Rq,1,Rq); }
+      const op=Math.max(0, Math.round(r.intensity*(1-ageB/RING_LIFE)*mlFade*RING_OP_SCALE));
+      if(r.op!==op){ r.op=op; r.mesh.material.opacity=op/RING_OP_SCALE; }
+    }
+  } else clearRings();
+  updateAssist(dt);
+  updateTrail(dt);
+  if(CFG.projectile) try{ if(state.running&&!templeActive) updateProjectiles(dt); updateArcPreview(dt); updateScope(dt); }catch(e){}   // ARC; guarded so a hiccup can't freeze the loop
+  else { if(arcRibbon && arcRibbon.visible) hideArc(); hideScope(); }   // railgun free-play: also tear down the scope HUD (e.g. lingering after an ARC daily ends with the railgun toggle on)
+  try{ if(state.running&&!templeActive) updateFlickBonus(dt); }catch(e){ if(!updateFlickBonus._e){ updateFlickBonus._e=1; console.error('updateFlickBonus',e); } }   // RAIL-FLICK BONUS: countdown + "lockable now" box + cascade resolve (runs AFTER updateProjectiles so the deferred clearProjectiles can't corrupt its loop)
+  try{ updateTanks(dt); }catch(e){ if(!updateTanks._e){ updateTanks._e=1; console.error('updateTanks',e); } }   // MULTI-HIT TANK: the per-chip shell pop
+  try{ updateTargetMarks(); }catch(e){ if(!updateTargetMarks._e){ updateTargetMarks._e=1; console.error('updateTargetMarks',e); } }   // floor indicators under targets (all modes)
+  try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
+  try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
+  try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
+  try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
+  try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
+  try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
+  try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
+  if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
+  if(state.running && !templeActive && rtCh) broadcastAim();  // temple investigation stays out of the dojo reticle channel
+  if(rtCh || remotes.size) updateRemotes(dt);   // draw live reticles only when realtime state exists
+  renderer.render(scene,camera);
+}
+// NOTE: animate() is kicked off at the very end of the IIFE (after all module-scope const/let exist) — see bootstrap below.
+window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH; camera.updateProjectionMatrix(); renderer.setSize(viewW,viewH); sizeRefl(); });
+
+/* ========================= OVERLAY ========================= */
+const overlay=gid('overlay'), beginBtn=gid('beginBtn'), beginLabel=gid('beginLabel');
+const WARM_CARD=true;   // WARM CARD experiment: platinum-warm bone on the start/pause card only (CSS #overlay.warm). false = the original cool bone everywhere. Eye-judged — flip and reload
+if(WARM_CARD && overlay) overlay.classList.add('warm');
+const ovEyebrow=gid('ovEyebrow'), ovTitle=gid('ovTitle'), ovLede=gid('ovLede'), pauseStats=gid('pauseStats');
+const keysRow=document.querySelector('.keys'), phonesNote=gid('phonesNote');
+/* ===== PAUSE-MENU SETTINGS: resolution (persist + reload) · audio-offset slider (live) · calibrate-from-your-taps ===== */
+const settingsBox=gid('settingsBox'), resToggle=gid('resToggle'), skyMotionToggle=gid('skyMotionToggle'), skyMotionRow=gid('skyMotionRow'), beatCircleToggle=gid('beatCircleToggle'), beatCircleRow=gid('beatCircleRow'), offSlider=gid('offSlider'), offVal=gid('offVal'), calibBtn=gid('calibBtn'), calibHint=gid('calibHint');
+const observerUi={
+  root:gid('observerLocation'), mode:gid('observerLocationMode'), status:gid('observerLocationStatus'),
+  geo:gid('observerGeoButton'), lat:gid('observerLat'), lon:gid('observerLon'), save:gid('observerSave')
+};
+let _observerGeoState='idle', _observerGeoSeq=0, _observerFormDirty=false, _observerNotice='';
+let _observerGeoTriedSession=(function(){ try{ return !!(OBSERVER_PREFS&&OBSERVER_PREFS.hasGeoTried(localStorage)); }catch(e){ return false; } })();
+function observerDegrees(value,positive,negative){
+  const number=Math.abs(value), shown=number.toFixed(4).replace(/(?:\.0+|(?:(\.\d*?)0+))$/,'$1');
+  return shown+'°'+(value<0?negative:positive);
+}
+function observerStatusText(){
+  if(_observerGeoState==='locating') return T('observerLocating','FINDING YOUR LOCATION…');
+  if(_observerNotice) return _observerNotice;   // surface invalid/manual storage failures even when an older valid observer remains active
+  if(_skyObserver){
+    const source=_skyObserver.source==='manual'?T('observerManualSource','MANUAL')
+      : _skyObserver.source==='geo'?T('observerGeoSource','DEVICE'):T('observerDefaultSource','APPROX');
+    return source+' · '+observerDegrees(_skyObserver.lat,'N','S')+' '+observerDegrees(_skyObserver.lon,'E','W');
+  }
+  if(SKY_TIME==='theatre') return T('observerTheatreMode','OPTIONAL · USED ONLY IN NATURAL');
+  if(_observerGeoState==='failed') return T('observerGeoFailed','LOCATION UNAVAILABLE · ENTER LAT/LON');
+  return T('observerSetPrompt','SET LOCATION FOR TRUE SKY');
+}
+function renderObserverSettings(){
+  const decorative=SKY_MODE==='decorative';
+  if(observerUi.root){ observerUi.root.hidden=decorative; if(decorative) return; }
+  if(observerUi.mode) observerUi.mode.textContent=SKY_TIME==='theatre'
+    ? T('observerTheatreMode','OPTIONAL · USED ONLY IN NATURAL')
+    : T('observerNaturalMode','NATURAL · LOCAL HORIZON');
+  if(observerUi.geo) observerUi.geo.disabled=_observerGeoState==='locating';
+  if(!_observerFormDirty && _skyObserver && document.activeElement!==observerUi.lat && document.activeElement!==observerUi.lon){
+    if(observerUi.lat) observerUi.lat.value=String(_skyObserver.lat);
+    if(observerUi.lon) observerUi.lon.value=String(_skyObserver.lon);
+  }
+  if(observerUi.status){
+    observerUi.status.textContent=observerStatusText();
+    observerUi.status.classList.toggle('prompt',!_skyObserver&&SKY_TIME==='natural');
+  }
+}
+function persistSkyObserver(lat,lon,source){
+  if(!OBSERVER_PREFS) throw new Error('Observer preferences unavailable');
+  _skyObserver=OBSERVER_PREFS.saveObserver(localStorage,{lat:lat,lon:lon,source:source,updatedAt:Date.now()});
+  return _skyObserver;
+}
 })();
