@@ -1628,6 +1628,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 function buildNaveVeil(){
   /* Mercy-only, one tiny indexed sheet draw. Each half owns geometry only on its side of the aim line; the lower opening is
      wider than the crown opening, so neither transparency nor a fold can ever cross the centre gap. Its swell borrows the

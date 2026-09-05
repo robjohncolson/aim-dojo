@@ -4086,6 +4086,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 function rebuildSkyTempleGeometry(){
   const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
     :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}
@@ -5625,8 +5636,8 @@ function makeTargetSound(mesh){
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
-    const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=pickPenta();
-    const ampGain=ctx.createGain(); ampGain.gain.value=0.55;
+    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=pickPenta();
+    const ampGain=ctx.createGain(); ampGain.gain.value=CHIP_HUMS?CFG.chip.humGain:0.55;
     const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2;
     const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain
@@ -5652,7 +5663,7 @@ function voiceTargetSound(snd, kind){
     const ctx=listener.context, f=snd.osc.frequency.value;
     if(kind===1){        // GOLD: a faint detuned sine twin through the same tremolo -> gentle beating shimmer
       snd.lowpass.frequency.value=f*3.8;
-      const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.004;
+      const o2=ctx.createOscillator(); if(CHIP_HUMS) o2.setPeriodicWave(pulseWave(ctx)); else o2.type='sine'; o2.frequency.value=f*1.004;
       const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2;
     }else if(kind===2){  // DECOY (dormant): slower pulse -- faintly "wrong" (timbre now matches the others; the sluggish 1.4 Hz tremolo is the tell)
       snd.lowpass.frequency.value=f*2.0; snd.lfo.frequency.value=1.4;

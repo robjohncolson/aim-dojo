@@ -233,6 +233,17 @@ function resolveChip(search,cfg){
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
+function pulseCoefficients(duty,harmonics){
+  const d=Math.max(0.05,Math.min(0.5,duty)), h=Math.max(1,Math.min(4095,harmonics|0)), real=new Float32Array(h+1), imag=new Float32Array(h+1);
+  for(let n=1;n<=h;n++){ const p=2*Math.PI*n*d, k=2/(Math.PI*n); real[n]=k*Math.sin(p); imag[n]=k*(1-Math.cos(p)); }
+  return {real,imag};   // bipolar pulse HIGH on [0,dT): cosine/sine integrals; index zero stays zero to remove DC
+}
+function pulseWave(ctx){
+  if(ctx._aimDojoChipPulseWave) return ctx._aimDojoChipPulseWave;
+  const c=pulseCoefficients(CFG.chip.dutyEdge,CFG.chip.humHarmonics);
+  ctx._aimDojoChipPulseWave=ctx.createPeriodicWave(c.real,c.imag,{disableNormalization:false});
+  return ctx._aimDojoChipPulseWave;   // the listener owns one shared table: base hum and gold twin reuse it within the same native context
+}
 const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
 const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);
@@ -5625,8 +5636,8 @@ function makeTargetSound(mesh){
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
-    const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=pickPenta();
-    const ampGain=ctx.createGain(); ampGain.gain.value=0.55;
+    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=pickPenta();
+    const ampGain=ctx.createGain(); ampGain.gain.value=CHIP_HUMS?CFG.chip.humGain:0.55;
     const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2;
     const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain
@@ -5652,7 +5663,7 @@ function voiceTargetSound(snd, kind){
     const ctx=listener.context, f=snd.osc.frequency.value;
     if(kind===1){        // GOLD: a faint detuned sine twin through the same tremolo -> gentle beating shimmer
       snd.lowpass.frequency.value=f*3.8;
-      const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.004;
+      const o2=ctx.createOscillator(); if(CHIP_HUMS) o2.setPeriodicWave(pulseWave(ctx)); else o2.type='sine'; o2.frequency.value=f*1.004;
       const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2;
     }else if(kind===2){  // DECOY (dormant): slower pulse -- faintly "wrong" (timbre now matches the others; the sluggish 1.4 Hz tremolo is the tell)
       snd.lowpass.frequency.value=f*2.0; snd.lfo.frequency.value=1.4;

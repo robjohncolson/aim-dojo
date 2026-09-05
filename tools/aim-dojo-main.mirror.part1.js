@@ -233,6 +233,17 @@ function resolveChip(search,cfg){
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
+function pulseCoefficients(duty,harmonics){
+  const d=Math.max(0.05,Math.min(0.5,duty)), h=Math.max(1,Math.min(4095,harmonics|0)), real=new Float32Array(h+1), imag=new Float32Array(h+1);
+  for(let n=1;n<=h;n++){ const p=2*Math.PI*n*d, k=2/(Math.PI*n); real[n]=k*Math.sin(p); imag[n]=k*(1-Math.cos(p)); }
+  return {real,imag};   // bipolar pulse HIGH on [0,dT): cosine/sine integrals; index zero stays zero to remove DC
+}
+function pulseWave(ctx){
+  if(ctx._aimDojoChipPulseWave) return ctx._aimDojoChipPulseWave;
+  const c=pulseCoefficients(CFG.chip.dutyEdge,CFG.chip.humHarmonics);
+  ctx._aimDojoChipPulseWave=ctx.createPeriodicWave(c.real,c.imag,{disableNormalization:false});
+  return ctx._aimDojoChipPulseWave;   // the listener owns one shared table: base hum and gold twin reuse it within the same native context
+}
 const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
 const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);

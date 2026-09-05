@@ -6715,6 +6715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
