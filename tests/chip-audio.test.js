@@ -4,8 +4,12 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const vm = require("node:vm");
 const { ROOT, main, sourceFor } = require("./source.js");
-const { baselineSource, extractFunction, checkOffGraph, checkLeadGraph } = require("./chip-graph.js");
+const { baselineSource, extractFunction, checkOffGraph, checkLeadGraph, checkDryGraph } = require("./chip-graph.js");
 const baseline = baselineSource(ROOT);
+
+test("dry chip removes exactly three delay nodes and preserves every other voice route", () => {
+  checkDryGraph(main, checkOffGraph(main, ROOT));
+});
 
 test("chip URL selects exactly the audition voices without persistence", () => {
   const ctx = vm.createContext({});
