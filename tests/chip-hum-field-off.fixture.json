@@ -1,0 +1,3052 @@
+{
+  "baseline": "d503ab15f0972ce828d4934964d4cf3ed57d83b5",
+  "functions": {
+    "makeTargetSound": "function makeTargetSound(mesh){\n  if(!listener || !soundOn) return null;\n  const ctx=listener.context;\n  try{\n    const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);\n    pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);\n    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=CHIP_HUMS?pickPenta()*Math.pow(2,CFG.chip.humOctave):pickPenta();\n    const ampGain=ctx.createGain(); ampGain.gain.value=CHIP_HUMS?CFG.chip.humGain:0.55;\n    let lfo=null, lfoGain=null;\n    if(!CHIP_HUMS){ lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2; lfoGain=ctx.createGain(); lfoGain.gain.value=0.22; }\n    const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain\n    const outGain=ctx.createGain(); outGain.gain.value=0.0001;\n    const gateGain=ctx.createGain(); gateGain.gain.value = 1;   // rhythmic 16th-note gate (driven each frame per-target from its OWN spawn phase); opens at spawn; stays 1 (continuous) when targetPulse is off\n    osc.connect(ampGain); if(lfo){ lfo.connect(lfoGain); lfoGain.connect(ampGain.gain); }\n    ampGain.connect(lowpass); lowpass.connect(gateGain); gateGain.connect(outGain);\n    pa.setNodeSource(outGain); mesh.add(pa);\n    // reverb send (rises with distance for the \"far = washy\" cue) — tapped POST-gate so the reverb tail fills the rests between blips\n    let send=null;\n    if(!CHIP_HUMS && reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }\n    osc.start(); if(lfo) lfo.start();\n    const now=ctx.currentTime;\n    outGain.gain.setValueAtTime(0.0001, now);\n    outGain.gain.exponentialRampToValueAtTime(0.8, now+0.12);\n    return {pa, osc, lfo, ampGain, lowpass, gateGain, outGain, send, osc2:null, lfo2:null, lfo2Gain:null, dBucket:-1, stopped:false};   // lfo2Gain owns kind-specific pitch vibrato; the base chip ping allocates neither tremolo nor a reverb send\n  }catch(e){ return null; }\n}",
+    "voiceTargetSound": "function voiceTargetSound(snd, kind){\n  if(!snd || !listener || !kind) return;\n  try{\n    const ctx=listener.context, f=snd.osc.frequency.value;\n    if(kind===1){        // GOLD: chip register supplies the old voice; the off arm keeps its faint detuned sine twin\n      snd.lowpass.frequency.value=f*3.8;\n      if(!CHIP_HUMS){ const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.004; const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2; }\n    }else if(kind===2){  // DECOY (dormant): slower pulse -- faintly \"wrong\" (timbre now matches the others; the sluggish 1.4 Hz tremolo is the tell)\n      snd.lowpass.frequency.value=f*2.0; if(snd.lfo) snd.lfo.frequency.value=1.4;\n    }else if(kind===3){  // SPEED: an octave up with a quicker flutter -- light + urgent, filter keeps it airy not piercing\n      snd.osc.frequency.value=f*2; snd.lowpass.frequency.value=f*2*2.4;\n      if(CHIP_HUMS){ const l2=ctx.createOscillator(); l2.type='sine'; l2.frequency.value=4.5+Math.random()*1.5; const lg=ctx.createGain(); lg.gain.value=f*2*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2; snd.lfo2Gain=lg; }   // without amplitude tremolo, SPEED keeps its flutter as small fast pitch vibrato through the existing kind-modulation ownership path\n      else if(snd.lfo) snd.lfo.frequency.value=4.5+Math.random()*1.5;\n    }else if(kind===4){  // MOVER: dreamy slow pitch wobble (a few cents at 0.7 Hz)\n      const l2=ctx.createOscillator(); l2.type='sine'; l2.frequency.value=0.7;\n      const lg=ctx.createGain(); lg.gain.value=f*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2; snd.lfo2Gain=lg;\n    }\n  }catch(e){}\n}",
+    "singTargetSound": "function singTargetSound(snd, kind, k, call){\n  if(!snd || !snd.osc || !listener || !(k>0) || !singLive()) return;   // k<=0 = the cube-root fallback distance: no honest subdivision, so no claim — the orb keeps its pickPenta() pitch\n  try{\n    const S=CFG.sing, deg=singDegree(k); if(deg<0) return;\n    const f0=snd.osc.frequency.value; if(!(f0>0)) return;\n    let f=CHIP_HUMS?PENTA[deg]*Math.pow(2,CFG.chip.humOctave):PENTA[deg]; if(kind===1 && S.goldOctDown) f*=0.5;   // transpose every re-sung degree by the same register as the initial pick; GOLD keeps its additional octave-down law\n    const now=listener.context.currentTime;\n    // lowpass is deliberately NOT touched: the per-frame distance buckets (animate, ~5643) own its cutoff absolutely, so the dry/close-vs-washy/far spatial model stays exactly as it is today — pitch adds information, it never replaces the space.\n    if(snd.osc2){ const r2=snd.osc2.frequency.value/f0; if(r2>0) snd.osc2.frequency.value=f*r2; }          // gold's detuned twin keeps beating at the same rate\n    if(snd.lfo2Gain) snd.lfo2Gain.gain.value=f*(Math.pow(2,(S.moverVibCents||0)/1200)-1);                  // re-scale existing kind pitch vibrato to the same small cents depth after every register or degree change\n    if(kind===3 && S.speedGlideMs>0){                        // SPEED (Quick): a grace-note pickup — start a semitone under and settle UP into pitch. One scheduled ramp at spawn, never a per-frame write.\n      const fr=snd.osc.frequency;\n      fr.cancelScheduledValues(now); fr.setValueAtTime(f*0.94387, now); fr.linearRampToValueAtTime(f, now+S.speedGlideMs/1000);\n    }else snd.osc.frequency.value=f;\n    if(call && snd.gateGain && S.callBoost>1){                // THE CALL: the first 16th-gate open of a new Echo is louder, then it settles into the field. Rides the gate the per-frame pulse already owns — the next open/close writes it home whatever happens.\n      const gg=snd.gateGain.gain; gg.cancelScheduledValues(now); gg.setValueAtTime(S.callBoost, now); gg.setTargetAtTime(1, now, 0.06);\n    }\n  }catch(e){}\n}",
+    "stopTargetSound": "function stopTargetSound(snd){\n  if(!snd || snd.stopped) return; snd.stopped=true;\n  try{ if(snd.pa && snd.pa.parent) snd.pa.parent.remove(snd.pa); }catch(e){}\n  if(listener){\n    try{\n      const now=listener.context.currentTime;\n      snd.outGain.gain.cancelScheduledValues(now);\n      snd.outGain.gain.setValueAtTime(Math.max(0.0001,snd.outGain.gain.value),now);\n      snd.outGain.gain.exponentialRampToValueAtTime(0.0001, now+0.06);\n      snd.osc.stop(now+0.09); if(snd.lfo) snd.lfo.stop(now+0.09);\n      if(snd.osc2) snd.osc2.stop(now+0.09); if(snd.lfo2) snd.lfo2.stop(now+0.09);\n    }catch(e){}\n  }\n  try{ if(snd.send) snd.send.disconnect(); }catch(e){}\n}",
+    "reconcileTargetSounds": "function reconcileTargetSounds(){\n  for(const tg of targets){\n    if(!soundOn){ if(tg.snd){ stopTargetSound(tg.snd); tg.snd=null; } }\n    else if(state.running && !templeActive && listener && !tg.snd){ tg.snd=makeTargetSound(tg.mesh); voiceTargetSound(tg.snd, tg.kind); if(CFG.sing.on) singTargetSound(tg.snd, tg.kind, tg.bowK, false); tg.sndAccum=999; }   // a rebuilt voice re-sings its distance; no call boost — the orb announced itself once, at spawn\n  }\n}",
+    "onGrid": "function onGrid(time){\n  if(!state.running || templeActive){ grid8++; return; }\n  const rhythmEpoch=rhythmGeneration;\n  const i=grid8%8;\n  const ci=Math.floor(grid8/8)%CHORD_ROOT.length;   // HARMONIC MOVEMENT: chord index into the ACTIVE theme's progression (8 grid steps = 1 bar); length varies (dojo/moonlight/icaros=4 bars, canon=8)\n  // TRAINER SOUNDTRACK: spare, didactic — loud \"and\" ticks so WASD syncs with the floor flash; full Moonlight arrangement only after graduation\n  if(trainMode){\n    try{\n      const andStep=(i%2===1);   // the \"and\" (WASD pocket) — louder tick so letters lock to the same cue as the floor colour\n      if(tick && andStep) tick.triggerAttackRelease(i===1?1760:1480,'32n',time, trainPhase===0?0.95:0.7);\n      if(tick && i===0) tick.triggerAttackRelease(2093,'32n',time, 0.55);   // soft downbeat (shot pocket) — quieter in phase 0 so the letter pocket owns attention\n      if(kick && i===0) kick.triggerAttackRelease('C1','8n',time, trainPhase===0?0.35:0.55);\n      if(bass && i===0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]), trainPhase===0?'2n':'4n', time, trainPhase===0?0.38:0.55);\n      if(pad && i===0 && trainPhase>=1) padChord(CHORD_TRIAD[ci],'1n',time, 0.12);\n      if(hat && trainPhase>=1 && andStep) hat.triggerAttackRelease('32n',time, 0.28);\n      if(arp && trainPhase>=2 && (i===0||i===4)) arp.triggerAttackRelease(CHORD_TRIAD[ci][0]*2,'16n',time, 0.35);\n    }catch(e){}\n    if(i%2===0){ try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){} }\n    // phase 0: no orbs. phase 1+: sparse spawn (CFG.patternConcurrency already gated)\n    if(bonusActive){ grid8++; return; }\n    const active=activeTargetCount(); let spawned=false;\n    if(cd>0) cd--;\n    else if(trainPhase>=1 && active<CFG.patternConcurrency && (i%2===0)){\n      let p=CFG.densityScale*metricWeight(i); if(restSlots>=CFG.maxRestSlots) p=1;\n      if(rnd()<p){\n        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) spawnRhythmOrb(); }\n        spawned=true; cd=CFG.minGap;\n      }\n    }\n    restSlots=spawned?0:restSlots+1; grid8++; return;\n  }\n  if(CFG.stars.on && (_starPend.length || _starDebt.length)) starFlyDrain(starBeatNow());   // THE SECOND OPPORTUNITY (1.2): the gap a return is stamped with belongs to the beat clock, so the beat clock gets to pay it too — whichever of this callback and the render frame reaches the due first. It grants nothing that is not due, allocates nothing (pooled records, one buffer repaint), builds no mesh and schedules no sound, and the trainer returned far above so the parcel stays inert there. Raw boolean first, and the length reads keep a quiet run at three numbers per eighth\n  if(_bow.stage>=BOW.RIT){   // THE BOW, closing bars: play has ended, so the arrangement THINS to pad + root and resolves to the TONIC (chord index 0 of the active theme) while the Transport ritards. No drums, no tick, no arp, no hook, no spawns, no groove bookkeeping — and stage HOLD is silent, because the single held pad note was already struck at the resolution.\n    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', time, 0.42); if(pad && CHORD_TRIAD) padChord(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}\n    grid8++; return;\n  }\n  // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the\n  // chord walk, so the swell is locked to the arrangement without touching the Transport. Everything downstream READS.\n  let tideBloom=false, fillArm=-1, wasMercy=tideMercy;   // fillArm = the fill bar's downbeat (grid8) when THIS slot may elect the swell's one drum-fill tank, else -1; wasMercy makes the teaching hook a transition, not a mercy-bar poll\n  if(CFG.tide && CFG.tide.on){\n    const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), cyc=rise+peak+Math.max(0,TD.mercyBars|0);\n    const bar=Math.floor(grid8/8), cb=bar%cyc, f=(grid8%8)/8, down=(grid8%8)===0;   // cb = bar within the swell, f = fraction through that bar\n    tideMercy = cb>=rise+peak;                                     // MERCY: spawn gate shut, field drains, the arrangement breathes\n    tideI = tideMercy ? 0 : (cb<rise ? (cb+f)/rise : 1);           // linear swell across riseBars → hold at the crest → drop to the trough for the mercy bar\n    tideBloom = tideMercy && cb===rise+peak && down;               // mercy DOWNBEAT: the pad blooms once (existing pad voice, velocity only)\n    const cycleIdx=Math.floor(bar/cyc);\n    if(cb===0 && down && _tideCycle!==cycleIdx){ if(_tideCycle>=0) tideStepBpm(); _tideCycle=cycleIdx; if(CFG.chorus.on) chorusShut(time); }   // mercy→rise: the ONE tempo step per swell (the first cycle only latches — nothing to judge yet). THE STANDING CHORUS's gate hard-closes on the SAME latch: the mercy chord's release would otherwise bleed 2.5 s of held slack into the swell, and \"silent during combat\" is meant literally — the rise's first beat sounds into a bus already ramped to nothing. Raw boolean first, and this is the tide's own boundary, not a second clock\n    if(CFG.tank.fillOnly && cb===rise+peak-1 && (grid8%8)<4 && _fillSpent8!==bar*8) fillArm=bar*8;   // THE TANK IS A DRUM FILL: the swell's FINAL PEAK BAR (the bar before mercy) is the only window, and only its first half — an orb elected on beat 1 or 2 still has two full beats of lead before the figure's first note on the \"4\". _fillSpent8 makes it at most once per swell. Raw kill-switch first, and the bar index is the tide block's own (no second bar clock anywhere)\n  } else { tideI=1; tideMercy=false; }\n  if(tideMercy && !wasMercy) sensei2Speak('mercy');\n  const tideLift=(CFG.tide && CFG.tide.on) ? (CFG.tide.padPeakVel||0)*(tideBloom?1:tideI) : 0;   // velocity lift shaped by the swell; full on the mercy bloom. 0 with the parcel off → every trigger keeps its literal velocity\n  const _acc=windowAccuracy(), accN=_acc==null?0:Math.max(0,Math.min(1,(_acc-CFG.grooveAccLo)/(CFG.grooveAccHi-CFG.grooveAccLo)));   // groove TARGET = composite of streak + click% + total hits (acc + hits persist through a miss, so it doesn't tank)\n  const streakN=Math.min(1,state.streak/CFG.grooveStreakFull), hitsN=Math.min(1,state.hits/CFG.grooveHitsFull), gw=CFG.grooveW;\n  let gt=3*(gw[0]*streakN + gw[1]*accN + gw[2]*hitsN); if(CFG.wasdRhythm) gt=Math.min(3, gt + Math.min(CFG.wasdGrooveMax, _wasdCombo*CFG.wasdGrooveGain));   // 0..3 target tier; the WASD bonus combo (off-beat hits) lifts the groove → music intensifies as you nail the rhythm\n  grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly (no jarring collapse)\n  const tier = grooveI<0.5?0 : grooveI<1.5?1 : grooveI<2.5?2 : 3;\n  try{\n    if(kick && (i===0||i===4)) kick.triggerAttackRelease('C1','8n',time);\n    if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick\n    if(snare && tier>=1 && (i===2||i===6)) snare.triggerAttackRelease('16n',time, tier>=2?0.9:0.65);  // backbeat fades in\n    if(hat && (tier>=2 || i%2===0)) hat.triggerAttackRelease('32n',time, i===0?0.5:0.3);   // beat-hats → every-step hats as it builds\n    const _isTori=activeTheme&&activeTheme.name==='TORIYANSE';\n    // TIER-0 HUM: faint root + soft tick before the full groove so the song identity is present from the first bars (very quiet — doesn't fight learning)\n    if(tier===0){\n      if(bass && BASS && i===0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]), '4n', time, 0.28);\n      if(tick && i===0){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(1568,'32n',time, 0.35*tv); }   // QUIET TICK: ×1 unless the parcel is live (a downbeat only ever thins on a mercy-carry beat)\n    }\n    if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]*bm), BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root\n    // TORIYANSE director's cut: at high groove, answering fifth chirps on the off-beats (the signal \"talks back\")\n    if(bass && _isTori && tier>=2 && (i===2||i===6)) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]*1.5), '16n', time, 0.42);\n    if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, (tier>=2?0.55:0.42)+tideLift);   // TIDES: the figure leans in as the swell rises (+0 with the parcel off)\n    // HOOK with HOLD: repeated same-index steps do NOT retrigger — one sustained note until pitch changes or rest\n    if(tune && tier>=1){\n      const tn=TUNE[grid8%TUNE.length];\n      if(tn<0){ _tuneHold=-1; }\n      else if(tn!==_tuneHold){\n        _tuneHold=tn;\n        let hold=1; const L=TUNE.length, g0=grid8;\n        while(hold<16 && TUNE[(g0+hold)%L]===tn) hold++;\n        const dur=(hold<=1)?'8n':(hold===2)?'4n':(hold<=4)?'2n':'1n';\n        tune.triggerAttackRelease(PENTA[tn], dur, time, tier>=2?0.85:0.7);\n      }\n    }\n    // PAD: full-bar triad. TORIYANSE gets it from mid-groove (tier≥1 / grooveI≥1) so the crossing always has a warm bed; others wait for the Rez build\n    if(pad && i===0){\n      if(_isTori && grooveI>=1.0) padChord(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0))+tideLift);\n      else if(grooveI>=1.5) padChord(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);\n      else if(tideBloom && tideLift>0) padChord(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth\n    }\n    if(CFG.chorus.on && tideBloom) chorusMercy(time);   // THE STANDING CHORUS: the mercy downbeat is one of the parcel's three sanctioned moments — the lit sky swells with the bloom and lets go across the bar. Raw boolean first, so with the parcel off this slot costs one read and no call, and the trainer (which returned far above) never reaches it at all\n    if(tick && (i%2===0)){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, (i===0?0.9:0.75)*tv); }   // QUIET TICK: the metronome thins as tickI climbs — velocity-shaped so beats dissolve over a bar, skipped entirely once they reach 0 (×1 with the parcel off). Pitches/timing untouched\n  }catch(e){}\n  if(i%2===0){\n    try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive) pulseBeat(i===0); }, time); }catch(e){}\n    const beatIdx=i/2;                                        // 0..3 across the grid cycle\n    if((beatIdx%2===0 || state.streak>=8) && !moonlineVoid()){   // base: a ring every 2 beats; on a streak: every beat — but THE RINGS BELONG TO THE ROOM (wave 8, G1a · SPEC §1 \"nothing beside the road but space\"). Every beat ring is a floor-plane LineLoop at y=0.04 expanding across the grid the void DELETED, and at 60 bpm a mercy bar can hold seven of them at once, drawn across nothing. Gated at the SCHEDULE so a void beat never even allocates the Draw closure (the frame budget's \"zero new allocations\"), and the identical read inside the callback below is what covers THE GRADUATION FLIP — a ring scheduled one audio-lookahead before setTrainPhase(3) would otherwise light its first frame after the floor was already gone. The trainer keeps every ring byte for byte (moonlineVoid() reads !trainMode), and moonline.on:false keeps them everywhere. VISUAL ONLY: emitRing writes no ballistic, spawn or grading quantity, so the treadmill law is untouched\n      try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive&&!moonlineVoid()) emitRing(); }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive&&!moonlineVoid()) emitRing(); }\n    }\n  }\n  if(bonusActive){ grid8++; return; }                      // RAIL-FLICK BONUS: the beat/music above keep playing, but freeze NEW orb spawns while the flick mode holds the field\n  // sparse, spaced groove — a cooldown after each orb forbids clustering; density sets the rate\n  const active=activeTargetCount();\n  let spawned=false;\n  if(cd>0){ cd--; }\n  else if(active<CFG.patternConcurrency && !tideMercy && !(CFG.bow.on && bowHolding())){       // THE SKY DEALS THE NIGHT DOES NOT TOUCH THIS GATE (1.2): a risen Jupiter used to lift the concurrency cap here, but this gate is what decides whether the spawn roll below is TAKEN — raising it makes a beat roll where a planet-less night rolls nothing, which is a planet acting as a DRAW rather than a weight. Jupiter's fuller field is now one more multiplier on p, three lines down, on the roll this gate has already let through. THE BOW reuses this same NEW-spawn gate from the moment it commits (step 1 of the ceremony); bowHolding() is always false with bow.on:false. MERCY BAR: the NEW-spawn gate shuts for tideMercyBars. Live orbs, their lifetimes and every grading path are untouched — the field just drains and breathes. restSlots keeps counting through it, so the first eligible beat of the next rise is a forced spawn (\"here it comes\")\n    const elig = (i%2===0);                                  // orbs land ON beats (quarter notes) only\n    if(elig){\n      let p = CFG.densityScale*metricWeight(i)*(CFG.tide.on?tideMul(CFG.tide.densityLo):1)*(CFG.deal.on?_deal.densityMul:1);   // free-play orb density, thinned toward the trough by the swell, then opened out by a FULL MOON (or a risen JUPITER, 1.2) or thinned again by a WANING CRESCENT — one more multiplier on the number this single roll already compares against, so the draw stays exactly one draw. THIS is where a planet is allowed to be felt: the gate above has already decided the roll happens, and rnd() is spent here whatever the sky dealt. The raw kill-switch is read FIRST, so tide.on:false spends nothing at all here (tideMul's own guard stays as defense in depth)\n      if(restSlots>=CFG.maxRestSlots && (i%2===0)) p=1;      // never silent too long: force on a beat\n      if(rnd()<p){\n        if(fillArm>=0){ _fillSpent8=fillArm; _fillPend16=fillArm*2; }   // THE TANK IS A DRUM FILL: elect THIS spawn (the swell is spent either way — a dropped Draw costs the swell its fill, never a stray tank). grid8 counts EIGHTHS, so the same downbeat in sixteenths is ×2\n        try{ Tone.Draw.schedule(()=>{ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else if(CFG.poly.on) polyPairSpawn(); else spawnRhythmOrb(); } }, time); }catch(e){ if(rhythmEpoch===rhythmGeneration&&state.running&&!templeActive){ if(CFG.deal.on&&_deal.pairChance>0) dealPairSpawn(); else if(CFG.poly.on) polyPairSpawn(); else spawnRhythmOrb(); } }   // POLYRHYTHM PAIRS (wave 6) takes the spawn moment the SAME way and on the same terms — it decides the pair before the primary is built, then issues one orb or two on this one Draw, so a companion inherits the epoch/running/temple guards verbatim and can never arrive alone. It is ordered AFTER the deal because a pairs night's grammar outranks it (the two never co-occur, and polyLive locks the same door a second time), and its own gate is the first thing it reads: below the gate polyPairSpawn IS spawnRhythmOrb, draw for draw. Raw boolean FIRST, so with poly.on:false this expression is the wave-5 line verbatim. THE ECHOES ANSWER IN PAIRS: on a pairs night dealPairSpawn OWNS this spawn moment — it decides the pair first (both members must be plain Echoes, so the decision cannot come after the primary is built) and then issues one orb or two, riding the SAME Draw either way, so the companion inherits the epoch/running/temple guards verbatim and can never arrive alone. Raw boolean FIRST: with the parcel off, and on all seven other phases, this is spawnRhythmOrb() and nothing else\n        spawned=true; cd=CFG.minGap;                          // enforce the gap (~3 beats) before the next orb\n      }\n    }\n  }\n  restSlots = spawned ? 0 : restSlots+1;\n  grid8++;\n}",
+    "teardownTransport": "function teardownTransport(){\n  if(!toneReady) return;\n  if(CHIP_PAD) padChipStop();   // a new night must not inherit old native pitch or envelope events\n  try{ if(gridId!=null){ Tone.Transport.clear(gridId); gridId=null; } Tone.Transport.stop(); Tone.Transport.cancel(); Tone.Transport.position=0; }catch(e){}\n  grid8=0; cd=0; restSlots=0;\n}",
+    "applyAudioState": "function applyAudioState(){\n  if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);\n  if(drumBus) drumBus.mute = !(state.running && !templeActive && soundOn);\n  if(CHIP_PAD && !(state.running && !templeActive && soundOn)) padChipStop();   // native pitch automation outlives Transport callbacks, so a silent boundary must clear the optional mono channel too\n  try{ if(window.Tone&&Tone.Destination) Tone.Destination.mute=!!(templeActive||!soundOn); }catch(e){}   // silence direct-routed combat notes already scheduled before Temple entry\n}",
+    "spawnTarget": "function spawnTarget(opts){\n  if(templeActive) return null;\n  opts=opts||{};\n  const r=targetRadius();\n  const core=acquireTargetMesh(), shell=core.userData.shell, through=shell.userData.through;\n  const a0=setAimDir(_spawnAim0); let dir3, starId=null;\n  if(CFG.spawnField==='full'){                            // uniform over the FULL 360° world (+ pitch band); min-angle cone around aim (skipped in the seeded challenge, which is aim-independent)\n    let minDeg=lerp(CFG.spawnMinDeg, CFG.spawnMinHiDeg, diffT());\n    if(CFG.deal.on && _deal.spreadMul!==1) minDeg=Math.min(170, minDeg*_deal.spreadMul);   // THE DARK LISTENS (NEW MOON): the minimum angle FROM YOUR AIM opens up, which in this uniform 360° field is exactly \"wider spread, more bearings behind you\" — the same constant this cone already reads, clamped short of 180° so the reroll loop can still find a direction. Raw boolean first, and the whole statement is skipped on every other night, so the expression below is the one that shipped. STREAM: a wider cone rejects more directions, so the loop below runs more iterations and this night's spawn draws more than a plain night's. That is the DEAL'S OWN NIGHT changing its own draws, which the stream rule permits (see CFG.deal) — keeping it draw-neutral would mean pinning the loop to a fixed iteration count or rotating the rejected direction instead of rerolling it, and either one rewrites the shipped spawn direction for every night, which is a far bigger change than the rule is worth\n    const minDot=Math.cos(THREE.MathUtils.degToRad(minDeg));\n    let tries=0, pit=0;\n    do{                                                   // TODAY'S ROLL, ALWAYS, FIRST — same draws, same order, same count, whatever the sky is doing (see the override below)\n      const az=rnd()*Math.PI*2; pit=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);   // beatSpawn → flatter pitch band so orbs sit near eye-height (keeps the flight-time = k/16 model accurate)\n      dir3=_spawnDir.set(Math.sin(az)*Math.cos(pit), Math.sin(pit), Math.cos(az)*Math.cos(pit));\n    }while(dir3.dot(a0)>minDot && ++tries<8);\n    if(CFG.stars.on && !trainMode){                       // STAR-BOUND SPAWN, as a pure AZIMUTH OVERRIDE (1.1): the roll above already happened and its pitch is the pitch this orb will really take, so the cone test runs on the true direction and the rolled azimuth is simply discarded — consumed, never skipped. starSpawnAz itself draws from starPickRnd, not rnd(). Net effect: the rnd() stream that feeds beatSpawnDist, the drift velocity, the kind roll and the tank roll below is IDENTICAL to the no-stars build, draw for draw, on the bound path and on the fallback alike — the star changes one number and nothing else. Raw boolean first, so with the parcel off (or in the trainer, which keeps its didactic field) this costs one read and no call\n      const sAz=starSpawnAz(a0,minDot,pit);\n      if(_starSpawnId){ starId=_starSpawnId; dir3=_spawnDir.set(Math.sin(sAz)*Math.cos(pit), Math.sin(pit), Math.cos(sAz)*Math.cos(pit)); }   // the Echo calls from a real risen star's bearing; _starSpawnId null (nothing risen, nothing outside the aim cone, no fixture) leaves the rolled direction standing — today's path, verbatim and silent\n    }\n  }else{\n    camera.getWorldDirection(_spawnFwd);\n    _spawnFlat.set(_spawnFwd.x,0,_spawnFwd.z).normalize();\n    _spawnRight.crossVectors(_spawnFlat,SPAWN_UP).normalize();\n    const yawOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.yawSpreadDeg);\n    const pitOff=(rnd()*2-1)*THREE.MathUtils.degToRad(CFG.beatSpawn?CFG.beatSpawnPitchDeg:CFG.pitchSpreadDeg);\n    dir3=_spawnDir.copy(_spawnFlat).applyQuaternion(_spawnQYaw.setFromAxisAngle(SPAWN_UP,yawOff)).applyQuaternion(_spawnQPit.setFromAxisAngle(_spawnRight,pitOff));\n  }\n  _beatSpawnK=0;\n  let dist = CFG.beatSpawn ? beatSpawnDist() : null;        // BEAT-QUANTIZED distance (flight time = k/16 beat → release on a rhythmic subdivision)\n  if(dist==null){ const far=state.range, d0=Math.max(CFG.rangeNear, far-CFG.rangeBand), d1=far;   // fallback (beatSpawn off, or no feasible 16th at this tempo/reach): the old cube-root warp → constant volumetric density (no bunching at the near edge). state.range = skill-gated shell that marches outward as you hit, eases back when you struggle\n    dist=Math.cbrt(lerp(d0*d0*d0, d1*d1*d1, rnd())); }\n  _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist);\n  _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos);\n  const dmag=lerp(CFG.driftSlow,CFG.driftFast,diffT())*0.7;\n  const tg=acquireTargetRecord();\n  const vel=tg.vel.set(rnd()*2-1,(rnd()*2-1)*0.35,rnd()*2-1).normalize().multiplyScalar(dmag);\n  core.scale.setScalar(r*(reduceMotion?1:0.01)); shell.scale.setScalar(1.55);   // reset shell scale (a pooled mesh may have been left mid-throb by a tank combo)\n  const snd=makeTargetSound(core);\n  const life=opts.life!=null?opts.life:(60/state.bpm)*CFG.rhythmLifeBeats;   // a0 (aim at spawn) computed above for the flick offset; reused as aim0 for scoring\n  tg.mesh=core; tg.shell=shell; tg.born=state.t; tg.expireAt=state.t+life; tg.vel=vel; tg.radius=r; tg.dead=false; tg.sc=reduceMotion?1:0.01; tg.snd=snd; tg._flickLocked=false;   // _flickLocked: reset here so a pooled target record never carries a stale RAIL-FLICK lock\n  tg._chipT=0;   // MULTI-HIT TANK: per-chip shell scale-punch flash timer (only used when hpMax>1)\n  tg.starId=starId;   // STAR-BOUND SPAWNS: the star this Echo called from, or null — which is every orb in the trainer, every orb with the parcel off, and every orb the sky had no risen bearing for. Assigned here, with the other per-spawn resets, so a pooled record can never carry a stale bearing home\n  tg.fill16=-1; tg.fig=null;   // THE TANK IS A DRUM FILL: every orb starts NOT a fill (a pooled record must never carry a stale base or figure); only the elected tank below is handed a base + a figure, and -1 is what every gate below tests for\n  tg.poly=_polyPairing;   // POLYRHYTHM PAIRS: the tag both members carry (and every other orb clears, so a pooled record can never haunt the gate with a pair that popped three swells ago). It is READ by exactly one thing — polyOnField's \"at most one pair live\" — and by nothing on any hot path: a poly member is a plain Echo in every other respect, scored, sung, star-bound and volleyed exactly as it would be alone. Written unconditionally, like tg.starId, so the field is honest even with the parcel off, where _polyPairing is false forever\n  tg.sndAccum=999; tg.gatePhase=0; tg.gOn=true;   // gatePhase/gOn: this target's own 16th-note tone gate, phase 0 at spawn (so it blips on spawn, then offsets from other targets)\n  let kind=0;                                              // roll kind LAST so the position/velocity stream is unchanged; roll only when special orbs are live\n  if(_specialLive){ const kr=rnd(); const dl=CFG.deal.on;   // THE SKY DEALS THE NIGHT tilts the MIX and nothing else: the phase rule and every risen planet move these three thresholds, the SAME single draw decides the kind, and a planet can therefore never become a second rule. Raw boolean first — an off night reads the three base chances verbatim\n    const g=CFG.goldChanceFP*(dl?_deal.goldMul:1), sp=g+CFG.speedChance*(dl?_deal.quickMul:1), mv=sp+CFG.moverChance*(dl?_deal.moverMul:1); kind = ((dl&&_dealPairing)||(CFG.poly.on&&_polyPairing)) ? 0 : (kr<g ? 1 : (kr<sp ? 3 : (kr<mv ? 4 : 0))); }   // gold + speed (3) + mover (4) — except a member of a dealt PAIR, which is pinned plain (1.1: pairs are pure volley material, and gold's goldDistMul would move it off the distance its own k was drawn for). The draw is still taken and simply discarded, so a pair member's spawn costs exactly what every other spawn costs. POLYRHYTHM PAIRS (wave 6) pins kind 0 for exactly the same reason and by exactly the same means: its two members' distances ARE the ratio, and gold would silently move one of them off the lead it was chosen for. Raw boolean first on both sides, so an off parcel reads one flag and stops, and with poly.on:false this ternary is character-for-character the wave-5 decision\n  tg.kind=kind; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; if(through) through.material=TARGET_THROUGH_MAT[kind]; voiceTargetSound(snd, kind);\n  let hp=1;   // MULTI-HIT TANK (kind 0, free-play): a plain orb can roll 2-3 hp — hit it on that many consecutive BEATS to pop it\n  // THE POLY PIN EXCLUDES ALL TANK ELECTION (SPEC_SIXTY_AND_POLY 1.1 amendment F4). The pin shipped covering the KIND roll only, on the reading that a poly member could never meet a tank anyway — true on the shipped config (a pending fill election makes polyLive stand down) but NOT under tank.fillOnly:false or tide.on:false, where the legacy branch below rolls multiHitChance on every plain orb: at SENSEI's 0.34 that catches at least one member of ~56% of pairs, turns it AMBER with 2-3 hp, and then re-draws its distance through beatSpawnDist(maxLeadSixteenths) — a call the pin deliberately ignores (!maxK) — which would move that member clean off the lead the ratio chose for it. The pair would still LOOK like a pair and would no longer BE one. Both election paths are therefore gated on the pin now, and per the established pinning pattern the rolls are SPENT AND DISCARDED, so a pinned member's spawn costs exactly what every other spawn costs. EVERY REMAINING PATH THAT COULD MUTATE kind/hp/distance AFTER THE PIN, enumerated and closed: the kind roll (pinned 0 above) · the fill election (gated below, and unreachable while pairing anyway — polyLive returns false on _fillPend16>=0 — so this is the second lock on that door, at zero stream cost) · the legacy multiHit roll (gated below) · the tank's close re-draw and the tank reposition (both behind hp>1, now unreachable) · gold's goldDistMul, SPEED's life and MOVER's velocity (all behind kind, pinned 0). The ONE adjustment a pinned member still shares with every other Echo is the _spawnPos.y clamp into [2.2, ROOM_BY] — kind-independent, election-free, older than every parcel here, and part of the flight-time model's standing tolerance rather than anything the pair introduced.\n  if(CFG.tank.fillOnly && CFG.tide.on){   // THE TANK IS A DRUM FILL: no random roll at all — the swell's fill bar already elected this orb, or nothing here is a tank\n    const pend=_fillPend16; _fillPend16=-1;   // consume the handoff WHATEVER happens below, so a rejected (or dropped) election can never leak onto a later orb\n    const off=pend>=0?fillOff16(pend):0;     // …and re-validate it against the heard clock: within a bar of that downbeat, or the election is stale (a dropped Draw, a pause) and is simply dropped. The lower bound is generous because a large audio offset at a fast tempo legitimately reads a few sixteenths early; a stale election is a whole minGap (10+ sixteenths) late, so the two never overlap\n    if(pend>=0 && !(CFG.poly.on&&_polyPairing) && off>-8 && off<8 && CFG.multiHit && _specialLive && kind===0 && (state.bpm<=CFG.tank.maxBpm || (CFG.deal.on&&_deal.tankAny))){   // POLYRHYTHM PAIRS (1.1 amendment F4): the pin is the SECOND lock on this door and costs nothing — polyLive already returns false while an election is pending, so a pinned member can never reach a pend>=0 here, and the clause is a pure read either way (no draw sits between it and the guard). THE SKY DEALS THE NIGHT: a FULL MOON (the generous night) keeps the tank eligible at any tempo — an effective value on the constant this gate already reads. This IS a gate, so opening it spends the figure draw below on a beat a plain night spends nothing: that is why it is a PHASE RULE and only a phase rule (an active rule may change its own night's draws — see THE STREAM RULE), and why 1.2 took SATURN off this line. No planet reaches this gate; above tank.maxBpm there is no tank, Saturn or not. Raw boolean first, and the base cap is tested first so an off night short-circuits before any _deal read. THE SIXTY CAP (parcel P): tank.maxBpm is now the ceiling itself (60), so `state.bpm<=CFG.tank.maxBpm` is TRUE at every reachable tempo — the left branch always wins, the `_deal.tankAny` read is never even evaluated, and the FULL MOON's one gate-opening clause has quietly become inert. That is a STRENGTHENING of THE STREAM RULE, not a violation of it: the one night that was allowed to spend a draw a plain night skips no longer needs to, so every night is now draw-for-draw identical on this axis. Both sides of the || are kept, because the day the cap moves the clause has to mean something again\n      const fg=rnd()<Math.min(1,0.5*(CFG.deal.on?_deal.fillMul:1))?CFG.tank.fig3:CFG.tank.fig2;   // the SAME single draw today's tank takes to pick 3-vs-2 hits; here the figure's LENGTH is the hit count. THE HEAVY ONE (1.2): a risen SATURN leans that one draw toward the three-note figure — a weight on a threshold, on a roll this election spends either way and whose two branches both fall straight through to the length test, so a Saturn night and a planet-less night draw identically. Clamped at 1 (a certainty, never a spent-but-meaningless roll), and ×1 on every other night and with the parcel off\n      if(fg && fg.length>=2){ hp=fg.length; tg.fig=fg; tg.fill16=pend; }\n    }\n  }\n  else if(CFG.multiHit && _specialLive && kind===0 && state.bpm<=CFG.tank.maxBpm && rnd()<CFG.multiHitChance){ const _hpRoll=rnd()<0.5?3:2; if(!(CFG.poly.on&&_polyPairing)) hp=_hpRoll; }   // THE LEGACY RANDOM TANK (reachable only with tank.fillOnly:false or tide.on:false). POLYRHYTHM PAIRS (1.1 amendment F4): a pinned member takes BOTH of these draws and discards the result — the eligibility roll is already spent by the time the pin can be read, and the 3-vs-2 roll is spent deliberately so a pair member's spawn costs exactly what an unpinned orb's does, which is the same discipline the kind roll above keeps. hp stays 1, kind stays 0, and the tank's distance re-draw below (behind hp>1, and blind to the pin by design) is therefore never reached — that re-draw is the whole reason this gate exists: it would have moved a member off the lead the ratio chose. Raw boolean first, so with poly.on:false this line is the wave-5 statement, draw for draw and branch for branch\n  // TANKS SPAWN CLOSE IS AN INVARIANT (spec 1.2 amendment T5a). The close re-draw runs HERE, before the tank is dressed,\n  // because its RESULT is now allowed to veto the election. beatSpawnDist(maxLeadSixteenths=4) returns null whenever no\n  // k<=4 lands inside the live band — and above a middling tempo that is EVERY tempo: a 4-sixteenth flight covers only\n  // ~4.9m at 86bpm mid-skill (rangeNear is 8m), so the whole feasible set {2,3,4} is empty above ~52bpm at learning speed\n  // and ~135bpm at expert speed. The shipped code then silently KEPT the first, uncapped draw — which is the full\n  // beatSpawnSixteenths list up to k=16 — so the swell's fill could be a four-beat-lead orb across the room asking for\n  // three hits one beat apart, the exact opposite of what the constant promises. Now: clamp to the NEAR EDGE (the closest\n  // legal spawn there is), and if even that has no answer, drop the election and let this orb be plain — no tank beats an\n  // unreachable tank. Both new branches are gated on the fill tag under the raw kill-switch, so a fillOnly:false legacy\n  // tank still takes today's silent-keep path, draw for draw and byte for byte.\n  // THE SIXTY CAP (wave 6, parcel P) — RE-SOLVED, NOT ASSUMED. The paragraph above describes the OLD tempo law; under the new\n  // one the arithmetic inverts, because diffT (and therefore projSpeedNow) rises far faster per bpm. Measured over the whole\n  // live (bpm 20..60) x (state.range 11..28) domain with the real solver: the capped k<=4 set is NEVER empty — not on a plain\n  // night, not on a LAST QUARTER, not at any reach — so beatSpawnDist(4) always answers and the two rescue branches below\n  // (tankCloseDist, then abandon-the-tank) are now UNREACHABLE IN PRACTICE at every playable tempo. At the cap itself the\n  // capped set is {2,3,4} at d {9.00, 13.50, 17.99} m, all comfortably inside rangeNear 8 .. rangeMax 28. (Under the old cap\n  // the same sweep found 22392 empty grid cells — that is the hole T5a was written to plug, and the cap has now closed it by\n  // construction.) THE CODE IS KEPT VERBATIM ANYWAY: it costs one null test on a path that already runs, it is the invariant's\n  // proof rather than its patch, and tankCloseDist's own r>=1 impossibility check is likewise never hit over 20..60 (verified).\n  let _tankD=null;\n  if(hp>1 && CFG.beatSpawn){ _tankD=beatSpawnDist(CFG.tank.maxLeadSixteenths);   // the same single draw, in the same guard, at the same point in the rnd() stream as the shipped re-draw\n    if(_tankD==null && CFG.tank.fillOnly && tg.fill16>=0){ const k0=_beatSpawnK; _tankD=tankCloseDist();   // k0 = the k the FIRST draw latched; the failed call above has already reset _beatSpawnK to 0\n      if(_tankD==null){ hp=1; tg.fig=null; tg.fill16=-1; _beatSpawnK=k0; }   // no distance at all (the shot cannot return to eye height in a 4-sixteenth flight at this speed): abandon the tank, restore the honest k of the position this orb is keeping, and it lives on as a plain Echo. The figure draw above is already spent and stays spent — this is the active parcel's own night. _fillSpent8 latched at ELECTION time, so the swell does not try again: this is one silent swell without a fill, which is the whole point\n    } }\n  tg.hp=hp; tg.hpMax=hp;\n  if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; if(through) through.material=TANK_THROUGH_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as \"hit me on several beats\"\n    if(_tankD!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, _tankD); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable\n  if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);\n    tg.expireAt=state.t+lifeF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves\n  if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)\n    if(kind===1){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, dist*CFG.goldDistMul); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); tg.radius=r*CFG.goldSizeMul; core.scale.setScalar(tg.radius*tg.sc); }   // gold: farther + smaller. THE FAR ONES CALL reaches gold through `dist` — the band it was drawn from already moved out — and deliberately NOT a second time here: goldDistMul on top of a farMul'd band would compound to ~1.8× and put the Ancient past the arc's reach, which is an unkillable orb, not a long lead\n    else if(kind===3){ tg.expireAt=state.t+life*CFG.speedLifeMul; }                                            // speed: shorter life -> snap fast\n    else if(kind===4){ tg.vel.multiplyScalar(CFG.moverVelMul); }                                               // mover: faster, more erratic drift\n  }\n  if(CFG.sing.on) singTargetSound(snd, kind, _beatSpawnK, true);   // ORBS SING THEIR DISTANCE: pitch this orb's hum from its FINAL k (the tank's close re-draw above already landed) and let its first gate-open call out. Raw boolean first so the parcel off costs one read and no call.\n  tg.bowK=_beatSpawnK;   // THE BOW: this orb's spawn subdivision (k sixteenths of lead), latched AFTER every distance draw (the tank re-draw included) so a scoring arrival can record {errMs,k} for the Mandala. 0 = the cube-root fallback (no k) and reads as the innermost ring; gold's goldDistMul stretches the distance without changing the pocket it was drawn for, so the drawn k is still the honest one.\n  tg.idx=targets.length; core.userData.target=tg; targets.push(tg);\n  if(tg.fill16>=0) sensei2Speak('fill');   // the tag survived every election/rescue gate: this is the first real fill spawn, not merely an attempt\n  if(GH_RECORD) ghostRecordSpawn(tg);   // NIGHT GHOSTS: a write-only tap after every spawn decision and RNG draw is final; the recorder returns nothing and no gameplay value can flow back\n}"
+  },
+  "hashes": {
+    "makeTargetSound": "74d7e6d4815b308915208718d2d17845e7f727869fcb6c89bf642f3be6525208",
+    "voiceTargetSound": "f3de7acc1ac6bbabb42ae4b18dc391eaeb8adfa12b82f4125f75f8be19625641",
+    "singTargetSound": "8cf5dc7d76a2e63159ffdf3c06d09b842ce4eb3eed8f06eae4d1d88dc917fd98",
+    "stopTargetSound": "680fd98f70380b2a21a88554d238e5a2ac38e46ec6d360a0e672092ab3433fd4",
+    "reconcileTargetSounds": "a996e03fcdd7c4656f3175005b2d25896dbae28acac5c7d32c347a2831a9f2ea",
+    "onGrid": "8d7ed282157fe2e6e70d09be3497d537834db6c74566b9f7430e11887387c7db",
+    "teardownTransport": "bd0f44cd469ef683ce61167f663d66d4a00e61b0774a87aa83b5a91b866a493e",
+    "applyAudioState": "5139d0ed9ffd186b65a14006ce4f953164bd31b9ae3cb4117fac854f3e3f97dd",
+    "spawnTarget": "05dece5481afcbdbfe3957820a6c5466b35346f67184266878c9d05c9cbb708e"
+  },
+  "targetFrame": "        if(tg.snd){\n          if(CFG.targetPulse && tg.snd.gateGain && _actx){ tg.gatePhase=(tg.gatePhase+_gateRate)%CFG.targetPulsePeriod; const go=tg.gatePhase<CFG.targetPulseOn; if(go!==tg.gOn){ tg.gOn=go; tg.snd.gateGain.gain.setTargetAtTime(go?1:0.0001, _actx.currentTime, go?0.016:0.08); } }   // eased open on this target's 16th (was 5ms -- spitty), longer release into its rest\n          tg.sndAccum+=dt; if(tg.sndAccum>=TARGET_AUDIO_STEP){ tg.sndAccum=0; const dx=p.x-PLAYER_POS.x, dy=p.y-PLAYER_POS.y, dz=p.z-PLAYER_POS.z, d2=dx*dx+dy*dy+dz*dz;\n          const db=Math.max(0,Math.min(TARGET_AUDIO_BUCKETS, Math.round((d2-TARGET_AUDIO_NEAR2)*TARGET_AUDIO_BUCKET_SCALE)));\n          if(db!==tg.snd.dBucket){ tg.snd.dBucket=db; const d=Math.sqrt(d2), t=(d-6)/22; tg.snd.lowpass.frequency.value=lerp(7000,1200,t); if(tg.snd.send) tg.snd.send.gain.value=lerp(0.12,0.5,t); }\n        } }\n",
+  "targetFrameHash": "7af1043e652580dfae7ea206c43f5e6527e253bae042a8924d00efe44c88f65d",
+  "graphs": {
+    "sine": [
+      {
+        "op": "construct",
+        "id": "n0",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n0",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n0",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n0",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n0",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n0",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n1",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n1",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 220
+      },
+      {
+        "op": "construct",
+        "id": "n2",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n2.gain",
+        "value": 0.55
+      },
+      {
+        "op": "construct",
+        "id": "n3",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n3",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n3.frequency",
+        "value": 2.5
+      },
+      {
+        "op": "construct",
+        "id": "n4",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n4.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n5",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n5",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n5.frequency",
+        "value": 704
+      },
+      {
+        "op": "construct",
+        "id": "n6",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n6.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n7",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n7.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n1",
+        "to": "n2"
+      },
+      {
+        "op": "connect",
+        "from": "n3",
+        "to": "n4"
+      },
+      {
+        "op": "connect",
+        "from": "n4",
+        "to": "n2.gain"
+      },
+      {
+        "op": "connect",
+        "from": "n2",
+        "to": "n5"
+      },
+      {
+        "op": "connect",
+        "from": "n5",
+        "to": "n7"
+      },
+      {
+        "op": "connect",
+        "from": "n7",
+        "to": "n6"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n0",
+        "source": "n6"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n0"
+      },
+      {
+        "op": "construct",
+        "id": "n8",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n8.gain",
+        "value": 0.12
+      },
+      {
+        "op": "connect",
+        "from": "n7",
+        "to": "n8"
+      },
+      {
+        "op": "connect",
+        "from": "n8",
+        "to": "reverbInput"
+      },
+      {
+        "op": "start",
+        "id": "n1",
+        "args": []
+      },
+      {
+        "op": "start",
+        "id": "n3",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n6.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n6.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "construct",
+        "id": "n9",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n9",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n9",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n9",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n9",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n9",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n10",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n10",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n10.frequency",
+        "value": 220
+      },
+      {
+        "op": "construct",
+        "id": "n11",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n11.gain",
+        "value": 0.55
+      },
+      {
+        "op": "construct",
+        "id": "n12",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n12",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n12.frequency",
+        "value": 2.5
+      },
+      {
+        "op": "construct",
+        "id": "n13",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n13.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n14",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n14",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n14.frequency",
+        "value": 704
+      },
+      {
+        "op": "construct",
+        "id": "n15",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n15.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n16",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n16.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n10",
+        "to": "n11"
+      },
+      {
+        "op": "connect",
+        "from": "n12",
+        "to": "n13"
+      },
+      {
+        "op": "connect",
+        "from": "n13",
+        "to": "n11.gain"
+      },
+      {
+        "op": "connect",
+        "from": "n11",
+        "to": "n14"
+      },
+      {
+        "op": "connect",
+        "from": "n14",
+        "to": "n16"
+      },
+      {
+        "op": "connect",
+        "from": "n16",
+        "to": "n15"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n9",
+        "source": "n15"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n9"
+      },
+      {
+        "op": "construct",
+        "id": "n17",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n17.gain",
+        "value": 0.12
+      },
+      {
+        "op": "connect",
+        "from": "n16",
+        "to": "n17"
+      },
+      {
+        "op": "connect",
+        "from": "n17",
+        "to": "reverbInput"
+      },
+      {
+        "op": "start",
+        "id": "n10",
+        "args": []
+      },
+      {
+        "op": "start",
+        "id": "n12",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n15.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n15.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "value",
+        "id": "n14.frequency",
+        "value": 836
+      },
+      {
+        "op": "construct",
+        "id": "n18",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n18",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n18.frequency",
+        "value": 220.88
+      },
+      {
+        "op": "construct",
+        "id": "n19",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n19.gain",
+        "value": 0.35
+      },
+      {
+        "op": "connect",
+        "from": "n18",
+        "to": "n19"
+      },
+      {
+        "op": "connect",
+        "from": "n19",
+        "to": "n11"
+      },
+      {
+        "op": "start",
+        "id": "n18",
+        "args": []
+      },
+      {
+        "op": "construct",
+        "id": "n20",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n20",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n20",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n20",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n20",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n20",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n21",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n21",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n21.frequency",
+        "value": 220
+      },
+      {
+        "op": "construct",
+        "id": "n22",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n22.gain",
+        "value": 0.55
+      },
+      {
+        "op": "construct",
+        "id": "n23",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n23",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n23.frequency",
+        "value": 2.5
+      },
+      {
+        "op": "construct",
+        "id": "n24",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n24.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n25",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n25",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n25.frequency",
+        "value": 704
+      },
+      {
+        "op": "construct",
+        "id": "n26",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n26.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n27",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n27.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n21",
+        "to": "n22"
+      },
+      {
+        "op": "connect",
+        "from": "n23",
+        "to": "n24"
+      },
+      {
+        "op": "connect",
+        "from": "n24",
+        "to": "n22.gain"
+      },
+      {
+        "op": "connect",
+        "from": "n22",
+        "to": "n25"
+      },
+      {
+        "op": "connect",
+        "from": "n25",
+        "to": "n27"
+      },
+      {
+        "op": "connect",
+        "from": "n27",
+        "to": "n26"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n20",
+        "source": "n26"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n20"
+      },
+      {
+        "op": "construct",
+        "id": "n28",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n28.gain",
+        "value": 0.12
+      },
+      {
+        "op": "connect",
+        "from": "n27",
+        "to": "n28"
+      },
+      {
+        "op": "connect",
+        "from": "n28",
+        "to": "reverbInput"
+      },
+      {
+        "op": "start",
+        "id": "n21",
+        "args": []
+      },
+      {
+        "op": "start",
+        "id": "n23",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n26.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n26.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "value",
+        "id": "n25.frequency",
+        "value": 440
+      },
+      {
+        "op": "value",
+        "id": "n23.frequency",
+        "value": 1.4
+      },
+      {
+        "op": "construct",
+        "id": "n29",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n29",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n29",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n29",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n29",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n29",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n30",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n30",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n30.frequency",
+        "value": 220
+      },
+      {
+        "op": "construct",
+        "id": "n31",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n31.gain",
+        "value": 0.55
+      },
+      {
+        "op": "construct",
+        "id": "n32",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n32",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n32.frequency",
+        "value": 2.5
+      },
+      {
+        "op": "construct",
+        "id": "n33",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n33.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n34",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n34",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n34.frequency",
+        "value": 704
+      },
+      {
+        "op": "construct",
+        "id": "n35",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n35.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n36",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n36.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n30",
+        "to": "n31"
+      },
+      {
+        "op": "connect",
+        "from": "n32",
+        "to": "n33"
+      },
+      {
+        "op": "connect",
+        "from": "n33",
+        "to": "n31.gain"
+      },
+      {
+        "op": "connect",
+        "from": "n31",
+        "to": "n34"
+      },
+      {
+        "op": "connect",
+        "from": "n34",
+        "to": "n36"
+      },
+      {
+        "op": "connect",
+        "from": "n36",
+        "to": "n35"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n29",
+        "source": "n35"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n29"
+      },
+      {
+        "op": "construct",
+        "id": "n37",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n37.gain",
+        "value": 0.12
+      },
+      {
+        "op": "connect",
+        "from": "n36",
+        "to": "n37"
+      },
+      {
+        "op": "connect",
+        "from": "n37",
+        "to": "reverbInput"
+      },
+      {
+        "op": "start",
+        "id": "n30",
+        "args": []
+      },
+      {
+        "op": "start",
+        "id": "n32",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n35.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n35.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "value",
+        "id": "n30.frequency",
+        "value": 440
+      },
+      {
+        "op": "value",
+        "id": "n34.frequency",
+        "value": 1056
+      },
+      {
+        "op": "value",
+        "id": "n32.frequency",
+        "value": 4.875
+      },
+      {
+        "op": "construct",
+        "id": "n38",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n38",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n38",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n38",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n38",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n38",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n39",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n39",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n39.frequency",
+        "value": 220
+      },
+      {
+        "op": "construct",
+        "id": "n40",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n40.gain",
+        "value": 0.55
+      },
+      {
+        "op": "construct",
+        "id": "n41",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n41",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n41.frequency",
+        "value": 2.5
+      },
+      {
+        "op": "construct",
+        "id": "n42",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n42.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n43",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n43",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n43.frequency",
+        "value": 704
+      },
+      {
+        "op": "construct",
+        "id": "n44",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n44.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n45",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n45.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n39",
+        "to": "n40"
+      },
+      {
+        "op": "connect",
+        "from": "n41",
+        "to": "n42"
+      },
+      {
+        "op": "connect",
+        "from": "n42",
+        "to": "n40.gain"
+      },
+      {
+        "op": "connect",
+        "from": "n40",
+        "to": "n43"
+      },
+      {
+        "op": "connect",
+        "from": "n43",
+        "to": "n45"
+      },
+      {
+        "op": "connect",
+        "from": "n45",
+        "to": "n44"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n38",
+        "source": "n44"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n38"
+      },
+      {
+        "op": "construct",
+        "id": "n46",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n46.gain",
+        "value": 0.12
+      },
+      {
+        "op": "connect",
+        "from": "n45",
+        "to": "n46"
+      },
+      {
+        "op": "connect",
+        "from": "n46",
+        "to": "reverbInput"
+      },
+      {
+        "op": "start",
+        "id": "n39",
+        "args": []
+      },
+      {
+        "op": "start",
+        "id": "n41",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n44.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n44.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "construct",
+        "id": "n47",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n47",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n47.frequency",
+        "value": 0.7
+      },
+      {
+        "op": "construct",
+        "id": "n48",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n48.gain",
+        "value": 1.76
+      },
+      {
+        "op": "connect",
+        "from": "n47",
+        "to": "n48"
+      },
+      {
+        "op": "connect",
+        "from": "n48",
+        "to": "n39.frequency"
+      },
+      {
+        "op": "start",
+        "id": "n47",
+        "args": []
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 440
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n7.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n7.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n7.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 329.63
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n7.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n7.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n7.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 220
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n7.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n7.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n7.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n6.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n6.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n6.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n1",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n3",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "disconnect",
+        "id": "n8"
+      },
+      {
+        "op": "value",
+        "id": "n18.frequency",
+        "value": 220.88
+      },
+      {
+        "op": "value",
+        "id": "n10.frequency",
+        "value": 220
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n16.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n16.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n16.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n18.frequency",
+        "value": 165.47426
+      },
+      {
+        "op": "value",
+        "id": "n10.frequency",
+        "value": 164.815
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n16.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n16.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n16.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n18.frequency",
+        "value": 110.44
+      },
+      {
+        "op": "value",
+        "id": "n10.frequency",
+        "value": 110
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n16.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n16.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n16.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n15.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n15.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n15.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n10",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n12",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n18",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "disconnect",
+        "id": "n17"
+      },
+      {
+        "op": "value",
+        "id": "n21.frequency",
+        "value": 440
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n27.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n27.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n27.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n21.frequency",
+        "value": 329.63
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n27.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n27.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n27.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n21.frequency",
+        "value": 220
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n27.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n27.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n27.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n26.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n26.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n26.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n21",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n23",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "disconnect",
+        "id": "n28"
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n30.frequency",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n30.frequency",
+        "value": 415.3028,
+        "at": 100
+      },
+      {
+        "op": "linearRampToValueAtTime",
+        "id": "n30.frequency",
+        "value": 440,
+        "at": 100.08
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n36.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n36.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n36.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n30.frequency",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n30.frequency",
+        "value": 311.1278681,
+        "at": 100
+      },
+      {
+        "op": "linearRampToValueAtTime",
+        "id": "n30.frequency",
+        "value": 329.63,
+        "at": 100.08
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n36.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n36.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n36.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n30.frequency",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n30.frequency",
+        "value": 207.6514,
+        "at": 100
+      },
+      {
+        "op": "linearRampToValueAtTime",
+        "id": "n30.frequency",
+        "value": 220,
+        "at": 100.08
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n36.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n36.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n36.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n35.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n35.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n35.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n30",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n32",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "disconnect",
+        "id": "n37"
+      },
+      {
+        "op": "value",
+        "id": "n48.gain",
+        "value": 1.5275693441812432
+      },
+      {
+        "op": "value",
+        "id": "n39.frequency",
+        "value": 440
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n45.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n45.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n45.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n48.gain",
+        "value": 1.1443924611874163
+      },
+      {
+        "op": "value",
+        "id": "n39.frequency",
+        "value": 329.63
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n45.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n45.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n45.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n48.gain",
+        "value": 0.7637846720906216
+      },
+      {
+        "op": "value",
+        "id": "n39.frequency",
+        "value": 220
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n45.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n45.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n45.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n44.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n44.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n44.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n39",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n41",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n47",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "disconnect",
+        "id": "n46"
+      }
+    ],
+    "chip": [
+      {
+        "op": "construct",
+        "id": "n0",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n0",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n0",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n0",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n0",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n0",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n1",
+        "name": "Oscillator"
+      },
+      {
+        "op": "createPeriodicWave",
+        "id": "wave0"
+      },
+      {
+        "op": "setPeriodicWave",
+        "id": "n1",
+        "wave": "wave0"
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 110
+      },
+      {
+        "op": "construct",
+        "id": "n2",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n2.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n3",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n3",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n3.frequency",
+        "value": 352
+      },
+      {
+        "op": "construct",
+        "id": "n4",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n4.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n5",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n5.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n1",
+        "to": "n2"
+      },
+      {
+        "op": "connect",
+        "from": "n2",
+        "to": "n3"
+      },
+      {
+        "op": "connect",
+        "from": "n3",
+        "to": "n5"
+      },
+      {
+        "op": "connect",
+        "from": "n5",
+        "to": "n4"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n0",
+        "source": "n4"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n0"
+      },
+      {
+        "op": "start",
+        "id": "n1",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n4.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n4.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "construct",
+        "id": "n6",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n6",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n6",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n6",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n6",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n6",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n7",
+        "name": "Oscillator"
+      },
+      {
+        "op": "setPeriodicWave",
+        "id": "n7",
+        "wave": "wave0"
+      },
+      {
+        "op": "value",
+        "id": "n7.frequency",
+        "value": 110
+      },
+      {
+        "op": "construct",
+        "id": "n8",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n8.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n9",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n9",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n9.frequency",
+        "value": 352
+      },
+      {
+        "op": "construct",
+        "id": "n10",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n10.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n11",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n11.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n7",
+        "to": "n8"
+      },
+      {
+        "op": "connect",
+        "from": "n8",
+        "to": "n9"
+      },
+      {
+        "op": "connect",
+        "from": "n9",
+        "to": "n11"
+      },
+      {
+        "op": "connect",
+        "from": "n11",
+        "to": "n10"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n6",
+        "source": "n10"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n6"
+      },
+      {
+        "op": "start",
+        "id": "n7",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n10.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n10.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "value",
+        "id": "n9.frequency",
+        "value": 418
+      },
+      {
+        "op": "construct",
+        "id": "n12",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n12",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n12",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n12",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n12",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n12",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n13",
+        "name": "Oscillator"
+      },
+      {
+        "op": "setPeriodicWave",
+        "id": "n13",
+        "wave": "wave0"
+      },
+      {
+        "op": "value",
+        "id": "n13.frequency",
+        "value": 110
+      },
+      {
+        "op": "construct",
+        "id": "n14",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n14.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n15",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n15",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n15.frequency",
+        "value": 352
+      },
+      {
+        "op": "construct",
+        "id": "n16",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n16.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n17",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n17.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n13",
+        "to": "n14"
+      },
+      {
+        "op": "connect",
+        "from": "n14",
+        "to": "n15"
+      },
+      {
+        "op": "connect",
+        "from": "n15",
+        "to": "n17"
+      },
+      {
+        "op": "connect",
+        "from": "n17",
+        "to": "n16"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n12",
+        "source": "n16"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n12"
+      },
+      {
+        "op": "start",
+        "id": "n13",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n16.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n16.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "value",
+        "id": "n15.frequency",
+        "value": 220
+      },
+      {
+        "op": "construct",
+        "id": "n18",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n18",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n18",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n18",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n18",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n18",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n19",
+        "name": "Oscillator"
+      },
+      {
+        "op": "setPeriodicWave",
+        "id": "n19",
+        "wave": "wave0"
+      },
+      {
+        "op": "value",
+        "id": "n19.frequency",
+        "value": 110
+      },
+      {
+        "op": "construct",
+        "id": "n20",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n20.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n21",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n21",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n21.frequency",
+        "value": 352
+      },
+      {
+        "op": "construct",
+        "id": "n22",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n22.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n23",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n23.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n19",
+        "to": "n20"
+      },
+      {
+        "op": "connect",
+        "from": "n20",
+        "to": "n21"
+      },
+      {
+        "op": "connect",
+        "from": "n21",
+        "to": "n23"
+      },
+      {
+        "op": "connect",
+        "from": "n23",
+        "to": "n22"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n18",
+        "source": "n22"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n18"
+      },
+      {
+        "op": "start",
+        "id": "n19",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n22.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n22.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "value",
+        "id": "n19.frequency",
+        "value": 220
+      },
+      {
+        "op": "value",
+        "id": "n21.frequency",
+        "value": 528
+      },
+      {
+        "op": "construct",
+        "id": "n24",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n24",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n24.frequency",
+        "value": 4.875
+      },
+      {
+        "op": "construct",
+        "id": "n25",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n25.gain",
+        "value": 1.76
+      },
+      {
+        "op": "connect",
+        "from": "n24",
+        "to": "n25"
+      },
+      {
+        "op": "connect",
+        "from": "n25",
+        "to": "n19.frequency"
+      },
+      {
+        "op": "start",
+        "id": "n24",
+        "args": []
+      },
+      {
+        "op": "construct",
+        "id": "n26",
+        "name": "PositionalAudio"
+      },
+      {
+        "op": "quietAudioMatrixUpdates",
+        "id": "n26",
+        "recursive": true
+      },
+      {
+        "op": "setRefDistance",
+        "id": "n26",
+        "value": 5
+      },
+      {
+        "op": "setRolloffFactor",
+        "id": "n26",
+        "value": 1
+      },
+      {
+        "op": "setDistanceModel",
+        "id": "n26",
+        "value": "inverse"
+      },
+      {
+        "op": "setMaxDistance",
+        "id": "n26",
+        "value": 120
+      },
+      {
+        "op": "construct",
+        "id": "n27",
+        "name": "Oscillator"
+      },
+      {
+        "op": "setPeriodicWave",
+        "id": "n27",
+        "wave": "wave0"
+      },
+      {
+        "op": "value",
+        "id": "n27.frequency",
+        "value": 110
+      },
+      {
+        "op": "construct",
+        "id": "n28",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n28.gain",
+        "value": 0.22
+      },
+      {
+        "op": "construct",
+        "id": "n29",
+        "name": "BiquadFilter"
+      },
+      {
+        "op": "type",
+        "id": "n29",
+        "value": "lowpass"
+      },
+      {
+        "op": "value",
+        "id": "n29.frequency",
+        "value": 352
+      },
+      {
+        "op": "construct",
+        "id": "n30",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n30.gain",
+        "value": 0.0001
+      },
+      {
+        "op": "construct",
+        "id": "n31",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n31.gain",
+        "value": 1
+      },
+      {
+        "op": "connect",
+        "from": "n27",
+        "to": "n28"
+      },
+      {
+        "op": "connect",
+        "from": "n28",
+        "to": "n29"
+      },
+      {
+        "op": "connect",
+        "from": "n29",
+        "to": "n31"
+      },
+      {
+        "op": "connect",
+        "from": "n31",
+        "to": "n30"
+      },
+      {
+        "op": "setNodeSource",
+        "id": "n26",
+        "source": "n30"
+      },
+      {
+        "op": "meshAdd",
+        "id": "n26"
+      },
+      {
+        "op": "start",
+        "id": "n27",
+        "args": []
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n30.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n30.gain",
+        "value": 0.8,
+        "at": 100.12
+      },
+      {
+        "op": "construct",
+        "id": "n32",
+        "name": "Oscillator"
+      },
+      {
+        "op": "type",
+        "id": "n32",
+        "value": "sine"
+      },
+      {
+        "op": "value",
+        "id": "n32.frequency",
+        "value": 0.7
+      },
+      {
+        "op": "construct",
+        "id": "n33",
+        "name": "Gain"
+      },
+      {
+        "op": "value",
+        "id": "n33.gain",
+        "value": 0.88
+      },
+      {
+        "op": "connect",
+        "from": "n32",
+        "to": "n33"
+      },
+      {
+        "op": "connect",
+        "from": "n33",
+        "to": "n27.frequency"
+      },
+      {
+        "op": "start",
+        "id": "n32",
+        "args": []
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 220
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n5.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n5.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n5.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 164.815
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n5.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n5.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n5.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n1.frequency",
+        "value": 110
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n5.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n5.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n5.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n4.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n4.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n4.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n1",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "value",
+        "id": "n7.frequency",
+        "value": 110
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n11.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n11.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n11.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n7.frequency",
+        "value": 82.4075
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n11.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n11.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n11.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n7.frequency",
+        "value": 55
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n11.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n11.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n11.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n10.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n10.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n10.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n7",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "value",
+        "id": "n13.frequency",
+        "value": 220
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n17.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n17.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n17.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n13.frequency",
+        "value": 164.815
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n17.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n17.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n17.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n13.frequency",
+        "value": 110
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n17.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n17.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n17.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n16.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n16.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n16.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n13",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "value",
+        "id": "n25.gain",
+        "value": 0.7637846720906216
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n19.frequency",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n19.frequency",
+        "value": 207.6514,
+        "at": 100
+      },
+      {
+        "op": "linearRampToValueAtTime",
+        "id": "n19.frequency",
+        "value": 220,
+        "at": 100.08
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n23.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n23.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n23.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n25.gain",
+        "value": 0.5721962305937082
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n19.frequency",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n19.frequency",
+        "value": 155.56393405,
+        "at": 100
+      },
+      {
+        "op": "linearRampToValueAtTime",
+        "id": "n19.frequency",
+        "value": 164.815,
+        "at": 100.08
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n23.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n23.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n23.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n25.gain",
+        "value": 0.3818923360453108
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n19.frequency",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n19.frequency",
+        "value": 103.8257,
+        "at": 100
+      },
+      {
+        "op": "linearRampToValueAtTime",
+        "id": "n19.frequency",
+        "value": 110,
+        "at": 100.08
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n23.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n23.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n23.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n22.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n22.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n22.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n19",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n24",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "value",
+        "id": "n33.gain",
+        "value": 0.7637846720906216
+      },
+      {
+        "op": "value",
+        "id": "n27.frequency",
+        "value": 220
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n31.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n31.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n31.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n33.gain",
+        "value": 0.5721962305937082
+      },
+      {
+        "op": "value",
+        "id": "n27.frequency",
+        "value": 164.815
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n31.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n31.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n31.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "value",
+        "id": "n33.gain",
+        "value": 0.3818923360453108
+      },
+      {
+        "op": "value",
+        "id": "n27.frequency",
+        "value": 110
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n31.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n31.gain",
+        "value": 1.3,
+        "at": 100
+      },
+      {
+        "op": "setTargetAtTime",
+        "id": "n31.gain",
+        "value": 1,
+        "at": 100,
+        "timeConstant": 0.06
+      },
+      {
+        "op": "cancelScheduledValues",
+        "id": "n30.gain",
+        "at": 100
+      },
+      {
+        "op": "setValueAtTime",
+        "id": "n30.gain",
+        "value": 0.0001,
+        "at": 100
+      },
+      {
+        "op": "exponentialRampToValueAtTime",
+        "id": "n30.gain",
+        "value": 0.0001,
+        "at": 100.06
+      },
+      {
+        "op": "stop",
+        "id": "n27",
+        "args": [
+          100.09
+        ]
+      },
+      {
+        "op": "stop",
+        "id": "n32",
+        "args": [
+          100.09
+        ]
+      }
+    ]
+  }
+}

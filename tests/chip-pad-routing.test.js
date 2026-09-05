@@ -22,7 +22,7 @@ test("all ten pad sites retain baseline guards, notes, timing and velocity throu
     assert.equal(current.split("padChord(").length - 1, calls, name);
     assert.equal(current.includes("pad.triggerAttackRelease("), false, name);
     // A3's independently tested octave wrapper is the only prior change in these functions.
-    const withoutBassWrapper = current.replace(/bassNote\(([^()]*)\)/g, "$1");
+    const withoutBassWrapper = current.replace(/bassNote\(([^()]*)\)/g, "$1").replace(/\n  if\(CHIP_FIELD\) try\{ humFieldGrid\(time,ci,tier,i\); \}catch\(e\)\{\}/, "");
     assert.equal(withoutBassWrapper, original.replaceAll("pad.triggerAttackRelease(", "padChord("), name);
   }
   assert.equal(count, 10);
@@ -33,7 +33,7 @@ test("chip pad cleanup follows silent boundaries and remains inert when disabled
   function audioState(source, chip, running, temple, sound) {
     const calls = [];
     const ctx = vm.createContext({
-      CHIP_PAD: chip, state: { running }, templeActive: temple, soundOn: sound,
+      CHIP_PAD: chip, CHIP_FIELD: false, state: { running }, templeActive: temple, soundOn: sound,
       listener: { setMasterVolume: value => calls.push(["master", value]) },
       drumBus: {}, Tone: { Destination: {} }, window: { Tone: true },
       padChipStop: () => calls.push(["padStop"]),
@@ -51,5 +51,5 @@ test("chip pad cleanup follows silent boundaries and remains inert when disabled
     assert.deepEqual(actual, reference);
   }
   const teardown = extractFunction(sourceFor("teardownTransport"), "teardownTransport");
-  assert.equal(teardown.replace(/\n  if\(CHIP_PAD\) padChipStop\(\);[^\n]*/, ""), extractFunction(baseline, "teardownTransport"));
+  assert.equal(teardown.replace(/\n  if\(CHIP_PAD\) padChipStop\(\);[^\n]*/, "").replace(/\n  if\(CHIP_FIELD\) try\{ humFieldStop\(\); \}catch\(e\)\{\}/, ""), extractFunction(baseline, "teardownTransport"));
 });

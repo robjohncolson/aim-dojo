@@ -4096,6 +4096,8 @@
 
 
 
+
+
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -5702,6 +5704,7 @@ function chorusMenu(){   // THE BOOT CHORUS: the overlay is the one place stems 
 function chorusMercy(time){ chorusSing((+CFG.chorus.mercyVelMul||1)*(CFG.deal.on?_deal.mercyMul:1), 0, 4*(60/Math.max(20,state.bpm)), time); }   // THE SKY DEALS THE NIGHT: the FULL MOON's chorus swell is taller (fullMercyMul) — a velocity weight on the moment that already exists, no extra stem, no extra moment, ×1 on every other night. THE MERCY BAR: the whole ensemble arrives as one chord on the same downbeat the pad blooms on, and lets go across the bar — the swell is where a star lit this run is heard for the first time
 function chorusBow(sec){ chorusSaltRefresh(); chorusSing(1, 0, Math.max(0.5,sec), 0); }   // THE BOW's HOLD: held for exactly the stage that carries the Mandala, the line and the ✦, then gone with the night
 function applyAudioState(){
+  if(CHIP_FIELD && !(state.running && !templeActive && soundOn)) try{ humFieldStop(); }catch(e){}
   if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);
   if(drumBus) drumBus.mute = !(state.running && !templeActive && soundOn);
   if(CHIP_PAD && !(state.running && !templeActive && soundOn)) padChipStop();   // native pitch automation outlives Transport callbacks, so a silent boundary must clear the optional mono channel too
@@ -5711,6 +5714,7 @@ function applyAudioState(){
 // Position-aware hum: the chip is a bare gated ping; the off arm keeps the sine's tremolo and distance reverb.
 function makeTargetSound(mesh){
   if(!listener || !soundOn) return null;
+  if(CHIP_FIELD && !trainMode){ try{ THREE.MathUtils.generateUUID(); pickPenta(); }catch(e){} return null; }   // spend the old positional UUID and pitch draws at their original site; native shared carriers add none, so audio cannot shift the healthy pulse arm's spawn stream
   const ctx=listener.context;
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
@@ -5737,6 +5741,7 @@ function makeTargetSound(mesh){
 }
 // per-kind voice: same instrument family, small timbre shifts by orb color (called AFTER the kind roll so the rnd() spawn stream is untouched; audio-only)
 function voiceTargetSound(snd, kind){
+  if(CHIP_FIELD && !trainMode){ if(listener && soundOn && kind===3) Math.random(); return; }   // SPEED's old modulation choice still spends its draw after the kind roll; the harmonious field has no detune or semitone pickup
   if(!snd || !listener || !kind) return;
   try{
     const ctx=listener.context, f=snd.osc.frequency.value;
@@ -5825,6 +5830,187 @@ function stopTargetSound(snd){
     }catch(e){}
   }
   try{ if(snd.send) snd.send.disconnect(); }catch(e){}
+}
+
+/* THE FIELD SINGS THE CHORD: two native pulse carriers, enabled only for the hums audition.
+   The recurring calls use the existing Tone.Draw clock: frame-quantized, never dt-integrated; attacks over 50 ms late are skipped.
+   No added instrument, RNG draw, gameplay mutation, effect send, vibrato, semitone pickup or extra tail voice.
+   Whole-beat arrivals are opportunities, not deadlines. Fill-tagged tanks already own their drum figure.
+   The five-rung chord ladder replaces absolute scale pitches; its register needs an ear test. */
+let _humField=CHIP_FIELD?{voices:null,ctx:null,active:false,epoch:0,serial:0,tags:new WeakMap(),harmony:[],appliedAt:-Infinity,ci:0,tier:0}:null;
+function humFieldLive(){
+  return CHIP_FIELD && soundOn && toneReady && state.running && !trainMode && !templeActive && _bow.stage<BOW.LAST && listener && rawCtx && listener.context;
+}
+function humFieldBeat(){
+  try{ return Tone.Transport.getTicksAtTime(rawCtx.currentTime)/Tone.Transport.PPQ; }catch(e){ return NaN; }
+}
+function humFieldNativeTime(t){
+  const ctx=listener.context; return Math.max(ctx.currentTime,ctx.currentTime+t-rawCtx.currentTime);
+}
+function humFieldQuiet(v,at){
+  v.gain.gain.cancelScheduledValues(at);v.gain.gain.setValueAtTime(0,at);
+  v.osc.frequency.cancelScheduledValues(at);v.until=at;
+}
+function humFieldRetireLegacy(){
+  if(!humFieldLive())return;
+  // Graduation keeps live trainer targets. Silence their old native release tails before the shared field can speak.
+  for(const tg of targets)if(tg.snd){
+    const snd=tg.snd;stopTargetSound(snd);
+    const now=listener.context.currentTime;
+    try{snd.outGain.gain.cancelScheduledValues(now);snd.outGain.gain.setValueAtTime(0,now);}catch(e){}
+    for(const node of [snd.osc,snd.lfo,snd.osc2,snd.lfo2])if(node)try{node.stop(now);}catch(e){}
+    tg.snd=null;
+  }
+}
+function humFieldBuild(){
+  const F=_humField;if(!humFieldLive())return false;
+  humFieldRetireLegacy();
+  const ctx=listener.context;
+  if(F.voices)return F.ctx===ctx;
+  if((ctx.state&&ctx.state!=='running')||(rawCtx.state&&rawCtx.state!=='running'))return false;
+  const built=[];
+  try{
+    for(let i=0;i<2;i++){
+      const panner=ctx.createPanner(),gain=ctx.createGain(),osc=ctx.createOscillator();
+      const v={panner,gain,osc,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
+      panner.panningModel='HRTF';panner.refDistance=5;panner.rolloffFactor=1;panner.distanceModel='inverse';panner.maxDistance=120;
+      osc.setPeriodicWave(pulseWave(ctx));osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
+      osc.start();
+    }
+    F.ctx=ctx;F.voices=built;return true;
+  }catch(e){for(const v of built){try{v.gain.gain.value=0;v.osc.stop();v.osc.disconnect();v.gain.disconnect();v.panner.disconnect();}catch(ignore){}}return false;}
+}
+function humFieldEligible(tg){
+  return !!(tg && !tg.dead && tg.mesh && tg.idx>=0 && targets[tg.idx]===tg && state.t<tg.expireAt && tg.fill16<0 && tg.kind!==2);
+}
+function humFieldMove(v,now,instant){
+  if(!v.target||(!instant&&now<v.nextSpatial))return;
+  const p=v.target.mesh.position;v.nextSpatial=now+TARGET_AUDIO_STEP;
+  if(!instant&&p.x===v.x&&p.y===v.y&&p.z===v.z)return;
+  v.x=p.x;v.y=p.y;v.z=p.z;
+  if(v.panner.positionX){
+    if(instant){v.panner.positionX.cancelScheduledValues(now);v.panner.positionY.cancelScheduledValues(now);v.panner.positionZ.cancelScheduledValues(now);}
+    const at=instant?now:now+TARGET_AUDIO_STEP,method=instant?'setValueAtTime':'linearRampToValueAtTime';
+    v.panner.positionX[method](p.x,at);v.panner.positionY[method](p.y,at);v.panner.positionZ[method](p.z,at);
+  }else v.panner.setPosition(p.x,p.y,p.z);
+}
+function humFieldSelect(beat){
+  let first=null,second=null,a=Infinity,b=Infinity;
+  const before=(x,at,y,bt)=>!y || at<bt || (at===bt && (x.expireAt<y.expireAt || (x.expireAt===y.expireAt && (x.born<y.born || (x.born===y.born && x.idx<y.idx)))));
+  for(const tg of targets){
+    if(!humFieldEligible(tg))continue;
+    const at=Math.ceil(beat+(tg.bowK>0?tg.bowK/16:0));
+    if(before(tg,at,first,a)){second=first;b=a;first=tg;a=at;}else if(before(tg,at,second,b)){second=tg;b=at;}
+  }
+  return [first,second];
+}
+function humFieldPitch(tg,ci){
+  const tri=CHORD_TRIAD&&CHORD_TRIAD[ci];if(!tri||tri.length<3)return 0;
+  const n=PENTA.length,span=Math.max(1,Math.min(n,CFG.sing.degSpan|0)),degree=CFG.sing.on&&tg.bowK>0?singDegree(tg.bowK):n-span;
+  const rung=Math.max(0,Math.min(span-1,degree-(n-span)));
+  // Ordered authored triads, repeated upward by octaves: every rung is an exact current chord tone.
+  // The +1 uses the existing humOctave=-1 as the lower chord register; a four-k vocabulary remains distinct.
+  return tri[rung%3]*Math.pow(2,Math.floor(rung/3)+1+CFG.chip.humOctave);
+}
+function humFieldRemember(time,ci,tier,i){
+  const F=_humField,H=F.harmony,now=rawCtx.currentTime;
+  let keep=0;for(let j=1;j<H.length;j++)if(H[j].time<=now)keep=j;
+  if(keep)H.splice(0,keep);
+  const old=H.find(e=>e.time===time);if(old){old.ci=ci;old.tier=tier;old.i=i;return old;}
+  const entry={time,ci,tier,i,armed:false,done:false};H.push(entry);H.sort((a,b)=>a.time-b.time);
+  // Keep the latest due entry and the nearest seven future entries; normal lookahead holds only one future eighth.
+  if(H.length>8)H.length=8;
+  // The announced future harmony can end an old tail on the native sample clock even if Draw is a frame late.
+  if(F.voices)for(const v of F.voices)if(v.ci!==ci){
+    const end=humFieldNativeTime(time);if(v.until>end){v.gain.gain.cancelScheduledValues(end);v.gain.gain.linearRampToValueAtTime(0,end);v.until=end;}
+  }
+  return entry;
+}
+function humFieldDue(){
+  const F=_humField,now=rawCtx.currentTime;let entry=null;
+  for(const e of F.harmony){if(e.time>now)break;entry=e;}
+  if(entry)return entry;
+  // No due scheduler history yet (first start/resume): use real transport time, never its lookahead ticks getter.
+  const beat=humFieldBeat(),n=CHORD_TRIAD.length,ci=Number.isFinite(beat)?((Math.floor(beat/4)%n)+n)%n:0;
+  return {time:-Infinity,ci,tier:0,i:0};
+}
+function humFieldApply(entry){
+  const F=_humField;if(entry.time>rawCtx.currentTime || entry.time<F.appliedAt)return false;
+  F.appliedAt=entry.time;F.ci=entry.ci;F.tier=entry.tier;
+  if(F.voices)for(const v of F.voices)if(v.ci!==entry.ci){humFieldQuiet(v,F.ctx.currentTime);v.ci=entry.ci;}
+  return true;
+}
+function humFieldBind(picked){
+  const F=_humField,voices=F.voices,used=[false,false];
+  for(const tg of picked){if(!tg)continue;const tag=F.tags.get(tg);
+    for(let j=0;j<2;j++)if(!used[j]&&voices[j].target===tg&&voices[j].tag===tag){used[j]=true;break;}
+  }
+  for(const tg of picked){if(!tg)continue;const tag=F.tags.get(tg);
+    if(voices.some((v,j)=>used[j]&&v.target===tg&&v.tag===tag))continue;
+    const j=used.indexOf(false);if(j<0)break;const v=voices[j];
+    humFieldQuiet(v,F.ctx.currentTime);
+    v.target=tg;v.tag=tag;v.lastEvent=-Infinity;humFieldMove(v,F.ctx.currentTime,true);used[j]=true;
+  }
+  for(let j=0;j<2;j++)if(!used[j]){const v=voices[j];humFieldQuiet(v,F.ctx.currentTime);v.target=null;v.tag=0;}
+}
+function humFieldStrike(entry,event,only){
+  if(!humFieldLive()||!humFieldApply(entry)||!humFieldBuild())return;
+  const beat=humFieldBeat();if(!Number.isFinite(beat))return;
+  humFieldBind(humFieldSelect(beat));
+  const F=_humField,at=humFieldNativeTime(entry.time===-Infinity?rawCtx.currentTime:Math.max(entry.time,rawCtx.currentTime));
+  let end=at+0.12;
+  for(const e of F.harmony)if(e.time>rawCtx.currentTime&&e.ci!==entry.ci)end=Math.min(end,humFieldNativeTime(e.time));
+  const duration=end-at;if(duration<0.02)return;   // no microscopic pickup immediately before the new chord
+  for(const v of F.voices){
+    if(!v.target||(only&&v.target!==only)||v.lastEvent===event)continue;
+    const f=humFieldPitch(v.target,entry.ci);if(!(f>0))continue;
+    humFieldQuiet(v,at);humFieldMove(v,at,true);v.osc.frequency.setValueAtTime(f,at);v.ci=entry.ci;v.lastEvent=event;
+    const peak=Math.max(0,CFG.chip.humGain)*0.8;
+    v.gain.gain.linearRampToValueAtTime(peak,at+Math.min(0.008,duration*0.25));
+    v.gain.gain.linearRampToValueAtTime(peak*0.55,at+Math.min(0.045,duration*0.6));
+    v.gain.gain.linearRampToValueAtTime(0,end);v.until=end;
+  }
+}
+function humFieldSpawn(tg){
+  if(!CHIP_FIELD||!humFieldLive()||!humFieldEligible(tg))return;
+  const F=_humField;F.active=true;F.tags.set(tg,++F.serial);
+  const entry=humFieldDue();humFieldApply(entry);
+  if(entry.tier===0)humFieldStrike(entry,'spawn:'+F.serial,tg);
+  // A grid callback can run before the Draw callback that creates this orb on the same beat. Join only that due pulse.
+  else if(rawCtx.currentTime-entry.time<=0.05 && ((entry.tier>=3&&entry.i%2===0)||(entry.tier<3&&entry.i%4===0)))humFieldStrike(entry,entry.time,tg);
+}
+function humFieldGrid(time,ci,tier,i){
+  if(!CHIP_FIELD||!humFieldLive()||!Number.isFinite(time))return;
+  const entry=humFieldRemember(time,ci,tier,i),F=_humField,epoch=F.epoch;F.active=true;
+  try{Tone.Draw.schedule(()=>{
+    if(epoch!==F.epoch||!humFieldLive())return;
+    // Tone.Draw may deliver up to 8 ms early. Arm now; the next real frame drains only after audio time is due.
+    entry.armed=true;humFieldDrain();
+  },time);}catch(e){}
+}
+function humFieldDrain(){
+  const F=_humField,now=rawCtx.currentTime;let due=null;
+  for(const e of F.harmony)if(e.armed&&!e.done&&e.time<=now){e.done=true;due=e;}
+  if(!due||!humFieldApply(due))return;
+  // One current strike only: a stalled frame cannot replay a backlog of missed field notes.
+  if(now-due.time>0.05)return;
+  if((due.tier>=3&&due.i%2===0)||(due.tier>=1&&due.tier<3&&due.i%4===0))humFieldStrike(due,due.time,null);
+}
+function humFieldUpdate(){
+  if(!CHIP_FIELD)return;
+  const F=_humField;if(!humFieldLive()){humFieldStop();return;}
+  humFieldRetireLegacy();
+  humFieldApply(humFieldDue());
+  humFieldDrain();
+  if(F.voices)for(const v of F.voices){
+    if(v.target&&(!humFieldEligible(v.target)||F.tags.get(v.target)!==v.tag)){humFieldQuiet(v,F.ctx.currentTime);v.target=null;v.tag=0;}
+    else if(v.target&&v.until>F.ctx.currentTime)humFieldMove(v,F.ctx.currentTime,false);
+  }
+}
+function humFieldStop(){
+  if(!CHIP_FIELD)return;
+  const F=_humField;if(!F.active)return;F.active=false;F.epoch++;F.harmony.length=0;F.appliedAt=-Infinity;F.ci=0;F.tier=0;
+  if(F.voices)for(const v of F.voices){humFieldQuiet(v,F.ctx.currentTime);v.target=null;v.tag=0;v.lastEvent=-Infinity;v.ci=-1;}
 }
 
 /* ---- rhythm scheduling ---- */
@@ -6622,147 +6808,5 @@ function cardLoad(){
     stars.push(s);
   }
   _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
-}
-function cardSave(){
-  // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
-  // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
-  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor bows: defence in depth (bowLive already gates the ceremony itself)
-  const n=_bowHits.length; if(!n) return;   // a hitless night leaves no card at all — no write, no button, nothing to explain
-  const cap=Math.max(1,CFG.nightCard.maxDots|0), from=Math.max(0,n-cap), pairs=[], hits=[];
-  for(let i=from;i<n;i++){ const e=Math.round(_bowHits[i].errMs), k=_bowHits[i].k|0; pairs.push([e,k]); hits.push({errMs:e,k:k}); }   // the MOST RECENT, exactly as the Mandala kept them, rounded to whole ms (the glyph plots angles, not measurements)
-  const stars=_cardStars.slice(0,cap);
-  const rec={ v:1, d:phasesToday(), phase:moonPhaseBucket(), rule:(CFG.deal.on?_deal.ph:-1),
-    hb:Math.round((60/Math.max(20,state.bpm))*500), hits:pairs, stars:stars };   // phase = THE one phase authority (the moon that was actually up); rule = the night the sky actually DEALT, so a night with the deal off names nothing rather than naming a rule that never applied; hb = the half-beat the glyph's angles were measured against, so a reopened card is the same picture and not a rescaled one
-  _cardLoaded=true;
-  _card={ d:rec.d, phase:rec.phase, rule:rec.rule, hb:rec.hb, hits:hits, stars:stars };   // in memory FIRST: a full or blocked quota still offers this page the card it just earned
-  try{ localStorage.setItem(CARD_KEY, JSON.stringify(rec)); }catch(e){}   // a lost write costs tonight's card and nothing else — the stars, the stamp and the records were all banked by their own parcels
-  _cardBlob=null;
-  _cardCaptureSeq++;
-  const b=gid('nightCardBtn'); if(b) b.style.display='none';
-  const w=gid('nightCardWrap'); if(w) w.style.display='none';
-}
-function cardToday(){ cardLoad(); return (_card && _card.d===phasesToday()) ? _card : null; }   // yesterday's card is GONE: the same local civil calendar the stamp, the greeting and the deal's freshness gate turn over on
-function cardStale(){
-  // The night turned over while a surface was still up: take the WHOLE offer down. The button first, so nothing can
-  // re-open what is gone, then the view — a wrapper with nothing paintable in it is not something to leave on screen.
-  const b=gid('nightCardBtn'); if(b) b.style.display='none';
-  _cardBlob=null;
-  cardClose();
-}
-function cardFresh(){
-  // 1.1 amendment (wave 5a review, M2): THE ONE DATE GATE, and every card entry point takes it — the offer, the open,
-  // the paint and both shares. cardOffer used to be the only same-day test in the parcel, which meant a button or a
-  // view left open ACROSS LOCAL MIDNIGHT stayed live: still clickable, still exportable, and painting nothing into a
-  // wrapper that stayed up. A card belongs to one night; at every door, it is either tonight's or there is no card.
-  const rec=cardToday();
-  if(!rec){ cardStale(); return null; }
-  return rec;
-}
-function cardOffer(){
-  // The whole offer: one button in the chrome row that already holds RECORDS and SHARE, shown only while tonight has
-  // something captured and ready to share. Never a toast, never a badge, never a nag.
-  const b=gid('nightCardBtn'); if(!b) return;
-  const rec=cardFresh();       // a card that has aged out of today takes its own button and view down with it
-  const ready=!!(rec&&_cardBlob);
-  b.style.display=ready?'':'none';
-  if(_cardOpen){ const w=gid('nightCardWrap'); if(w) w.style.display=ready?'block':'none'; }
-}
-function cardOpen(){ if(!cardFresh() || !_cardBlob) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); }   // the date gate stays FIRST (M2); the ready Blob means the idle painter has already filled this canvas
-function cardClose(){ const w=gid('nightCardWrap'); if(!w) return; _cardOpen=false; w.style.display='none'; }
-function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||''; }
-function cardDateText(d){
-  // The date, and the ONLY numbers on the card — a date is not a score, and a night you can name is the point of
-  // keeping one. EN spells the month so it can never be read as a fraction; JA takes the numeric form it actually uses.
-  const p=String(d||'').split('-'), y=+p[0], m=+p[1], dd=+p[2];
-  if(!isFinite(y) || !isFinite(m) || !isFinite(dd)) return '';
-  return TF('cardDate','{d} {mon} {y}', {d:dd, mon:CARD_MON_EN[Math.max(1,Math.min(12,m))-1], m:m, y:y});
-}
-function cardBand(g,W,cy,bw,bh,rec){
-  // TONIGHT'S SKY, laid out flat: x is the star's own ecliptic longitude (the band opens at 0°, the head of Aries,
-  // where the zodiac has always started) and y its latitude. The positions come out of the SAME buffer the dome is
-  // drawing — read back to lon/lat rather than re-fetched or re-typed — so every star here is a real one at its real
-  // place, and the only liberty the card takes is that the sphere has been unrolled onto a page.
-  const fig=_stickFig; if(!fig || !fig.pGeo) return;   // no fixture (a decorative sky, or a fetch that never landed) → no band, and the rest of the card composes exactly as it would have
-  const x0=(W-bw)/2, half=bh/2;
-  const lonOf=(x,z)=>{ const a=Math.atan2(-z,x)*180/Math.PI; return ((a%360)+360)%360; };
-  const latOf=(x,y,z)=>{ const L=Math.sqrt(x*x+y*y+z*z); return L>1e-6?Math.asin(Math.max(-1,Math.min(1,y/L)))*180/Math.PI:0; };
-  const px=l=>x0+l/360*bw, py=t=>cy-Math.max(-1,Math.min(1,t/CARD_LAT_DEG))*half;
-  const lp=fig.lGeo?fig.lGeo.attributes.position:null;
-  if(lp){
-    g.strokeStyle='rgba(174,198,232,.20)'; g.lineWidth=1;   // the sticks, at the dome's own line colour and about its own weight
-    for(let i=0;i+1<lp.count;i+=2){
-      const l1=lonOf(lp.getX(i),lp.getZ(i)), l2=lonOf(lp.getX(i+1),lp.getZ(i+1));
-      if(Math.abs(l1-l2)>180) continue;   // THE SEAM at 0°: a figure straddling it keeps both its stars and loses one line, rather than drawing a stroke across the entire sky
-      g.beginPath();
-      g.moveTo(px(l1), py(latOf(lp.getX(i),lp.getY(i),lp.getZ(i))));
-      g.lineTo(px(l2), py(latOf(lp.getX(i+1),lp.getY(i+1),lp.getZ(i+1))));
-      g.stroke();
-    }
-  }
-  const tonight=Object.create(null);
-  for(const s of rec.stars) tonight[s]=true;
-  const pp=fig.pGeo.attributes.position, ids=(CFG.stars.on&&_starLitIds)?_starLitIds:null;   // raw boolean first: with the lit sky off nothing is lit, so the band draws the plain constellations and no halo
-  for(let i=0;i<pp.count;i++){
-    const X=px(lonOf(pp.getX(i),pp.getZ(i))), Y=py(latOf(pp.getX(i),pp.getY(i),pp.getZ(i)));
-    const id=ids?ids[i]:'', lv=id?(_starLit[id]|0):0;
-    const r=lv>0?(1.5+0.45*lv):1.1, a=lv>0?Math.min(1,0.40+0.12*lv):0.16;   // a lit star is brighter AND wider, the same two channels the dome gives it — an unlit one is still there, faintly, because the sky is not a checklist
-    g.beginPath(); g.arc(X,Y,r,0,6.2831853); g.fillStyle='rgba(198,216,246,'+a.toFixed(3)+')'; g.fill();
-    if(id && tonight[id]){ g.beginPath(); g.arc(X,Y,r+3.6,0,6.2831853); g.strokeStyle='rgba(226,238,255,.55)'; g.lineWidth=1; g.stroke(); }   // TONIGHT's own: one thin ring, so a card with nothing new on it simply has no rings and looks like every other night's sky
-  }
-}
-function cardCompose(g,W,H,rec){
-  // The composition, top to bottom: the mark · the moon that was up · the night's name · your sky · your glyph · the
-  // date. Moonlight monochrome throughout, and a still image by nature — there is nothing here for reduceMotion to
-  // turn off, because nothing here ever moves.
-  g.clearRect(0,0,W,H);
-  const bg=g.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#080b12'); bg.addColorStop(0.55,'#05070c'); bg.addColorStop(1,'#04060a');
-  g.fillStyle=bg; g.fillRect(0,0,W,H);
-  g.strokeStyle='rgba(198,216,246,.14)'; g.lineWidth=1; g.strokeRect(Math.round(W*0.035)+0.5, Math.round(H*0.023)+0.5, Math.round(W*0.93), Math.round(H*0.954));
-  g.textAlign='center'; g.textBaseline='middle';
-  try{ g.letterSpacing='0.16em'; }catch(e){}   // the menus' own tracking where the canvas supports it; ignored, harmlessly, where it does not
-  g.fillStyle='rgba(198,216,246,.50)'; g.font=Math.round(W*0.032)+'px '+CARD_FONT;
-  g.fillText('✦', W/2, H*0.072);
-  const pr=W*0.062, pyC=H*0.145;
-  g.beginPath(); g.arc(W/2,pyC,pr,0,6.2831853); g.strokeStyle='rgba(198,216,246,.34)'; g.lineWidth=1; g.stroke();
-  if(rec.phase>=0) phasesDrawDisc(g,W/2,pyC,pr,rec.phase);   // the Temple ring's OWN moon shape, for the bucket that was actually overhead (a pure drawing call — it opens no file, so it belongs to no parcel's kill-switch)
-  if(rec.rule>=0){ g.fillStyle='rgba(198,216,246,.80)'; g.font=Math.round(W*0.030)+'px '+CARD_FONT; g.fillText(T('dealRule'+rec.rule, DEAL_RULE_EN[rec.rule]), W/2, H*0.228, W*0.86); }   // wave 4's own words for the night, in whichever language the page is in
-  cardBand(g,W,H*0.325,W*0.88,H*0.115,rec);
-  const R=W*0.30;
-  bowGlyphPaint(g, rec.hits, W/2, H*0.635, R, rec.hb>0?rec.hb:(60/Math.max(20,state.bpm))*500, 1, 0, R/224);   // THE Bow's glyph, at full brightness and undrifted (a card is the held moment, not the dissolve). dotK = R over the ceremony's own 224px radius, so the dots keep the weight they have on the big canvas
-  g.fillStyle='rgba(198,216,246,.42)'; g.font=Math.round(W*0.022)+'px '+CARD_FONT;
-  g.fillText(cardDateText(rec.d), W/2, H*0.945, W*0.8);
-  const link=cardLinkText(); if(link){ g.fillStyle='rgba(198,216,246,.30)'; g.font=Math.round(W*0.020)+'px '+CARD_FONT; g.fillText(link, W/2, H*0.972, W*0.8); }   // THE LINK ON THE CARD (parcel B): the host, under the date, quieter than it — a pasted card is now an invitation. A hostname is not a number; the date-line law stands
-}
-function cardLinkText(){   // parcel B: host and path only, from the share overlay's own authority — never a query, hash or token; a local file is not an invitation and paints nothing
-  if(!(CFG.nightCard&&CFG.nightCard.link)) return '';
-  let u=''; try{ if(location.protocol==='file:') return ''; u=shareLinkUrl(); }catch(e){ return ''; }
-  return String(u).replace(/^https?:[/]{2}/i,'').replace(/\/+$/,'');
-}
-function cardPaint(){
-  const rec=cardFresh(); if(!rec) return;   // a record that has aged out CLOSES the view (M2) rather than leaving a blank wrapper standing — the paint is the last place the date could still be wrong
-  const cv=cardCanvasEl(); if(!cv) return;
-  const N=CFG.nightCard, W=Math.max(240,N.w|0), H=Math.max(240,N.h|0);
-  if(cv.width!==W) cv.width=W;
-  if(cv.height!==H) cv.height=H;
-  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
-  try{ cardCompose(g,W,H,rec); }catch(e){}   // a card that cannot be composed leaves the view standing and says nothing — this path is never allowed to throw into the page
-}
-function cardFileName(){ const rec=cardToday(); return 'moon-chorus-'+((rec&&rec.d)||'night')+'.png'; }
-function cardDownload(blob){
-  // The card leaves as the Blob captured after the Bow. A browser that refuses object URLs or the download simply says
-  // so on the card's own status line and leaves the view intact.
-  if(!cardFresh()) return;
-  blob=blob||_cardBlob;
-  if(!blob || !window.URL || typeof URL.createObjectURL!=='function'){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); return; }
-  let a=null, u='';
-  try{
-    a=document.createElement('a'); a.download=cardFileName(); a.rel='noopener'; a.style.display='none';
-    u=URL.createObjectURL(blob); a.href=u;
-    setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(e){} }, 4000);
-    document.body.appendChild(a);
-    try{ a.click(); }finally{ if(a.parentNode) a.parentNode.removeChild(a); }
-    cardNote(T('cardSaved','CARD SAVED')+' ✓');
-  }catch(e){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); }
 }
 })();

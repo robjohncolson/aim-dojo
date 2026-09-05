@@ -97,7 +97,7 @@ const CFG = {
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
-  chip:{ lead:true, dry:true, bass:true, hums:false, pad:false, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums stays an audition, ?chip=0 restores the old sound, and the rescued chorus stays human
+  chip:{ lead:true, dry:true, bass:true, hums:false, pad:false, humHarmony:true, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums auditions a sparse chord-aware field, humHarmony:0 restores H2, and the rescued chorus stays human
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -230,6 +230,7 @@ function resolveChip(search,cfg){
   const selected=value.split(','); return names.map(name=>value==='all'||selected.indexOf(name)>=0);
 }
 function resolveHum(search,cfg){
+  const harmony=String(search||'').match(/(?:^|[?&#])humHarmony=([01])(?:[&#]|$)/); if(harmony) cfg.humHarmony=harmony[1]==='1';
   for(const [param,key,lo,hi] of [['humDuty','humDuty',0.05,0.5],['humOct','humOctave',-2,0],['humGain','humGain',0.05,0.6]]){
     const m=String(search||'').match(new RegExp('(?:^|[?&#])'+param+'=([^&#]*)')); if(!m) continue;
     let raw=''; try{ raw=decodeURIComponent(m[1]); }catch(e){ continue; }
@@ -239,6 +240,7 @@ function resolveHum(search,cfg){
 }   // boot-only ear-test controls: invalid values leave the authored setting intact and octave stays in the three supported registers
 resolveHum(location.search+location.hash,CFG.chip);
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
+const CHIP_FIELD=CHIP_HUMS && CFG.chip.humHarmony===true;
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
 let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
@@ -5702,6 +5704,7 @@ function chorusMenu(){   // THE BOOT CHORUS: the overlay is the one place stems 
 function chorusMercy(time){ chorusSing((+CFG.chorus.mercyVelMul||1)*(CFG.deal.on?_deal.mercyMul:1), 0, 4*(60/Math.max(20,state.bpm)), time); }   // THE SKY DEALS THE NIGHT: the FULL MOON's chorus swell is taller (fullMercyMul) — a velocity weight on the moment that already exists, no extra stem, no extra moment, ×1 on every other night. THE MERCY BAR: the whole ensemble arrives as one chord on the same downbeat the pad blooms on, and lets go across the bar — the swell is where a star lit this run is heard for the first time
 function chorusBow(sec){ chorusSaltRefresh(); chorusSing(1, 0, Math.max(0.5,sec), 0); }   // THE BOW's HOLD: held for exactly the stage that carries the Mandala, the line and the ✦, then gone with the night
 function applyAudioState(){
+  if(CHIP_FIELD && !(state.running && !templeActive && soundOn)) try{ humFieldStop(); }catch(e){}
   if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);
   if(drumBus) drumBus.mute = !(state.running && !templeActive && soundOn);
   if(CHIP_PAD && !(state.running && !templeActive && soundOn)) padChipStop();   // native pitch automation outlives Transport callbacks, so a silent boundary must clear the optional mono channel too
@@ -5711,6 +5714,7 @@ function applyAudioState(){
 // Position-aware hum: the chip is a bare gated ping; the off arm keeps the sine's tremolo and distance reverb.
 function makeTargetSound(mesh){
   if(!listener || !soundOn) return null;
+  if(CHIP_FIELD && !trainMode){ try{ THREE.MathUtils.generateUUID(); pickPenta(); }catch(e){} return null; }   // spend the old positional UUID and pitch draws at their original site; native shared carriers add none, so audio cannot shift the healthy pulse arm's spawn stream
   const ctx=listener.context;
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
@@ -5737,6 +5741,7 @@ function makeTargetSound(mesh){
 }
 // per-kind voice: same instrument family, small timbre shifts by orb color (called AFTER the kind roll so the rnd() spawn stream is untouched; audio-only)
 function voiceTargetSound(snd, kind){
+  if(CHIP_FIELD && !trainMode){ if(listener && soundOn && kind===3) Math.random(); return; }   // SPEED's old modulation choice still spends its draw after the kind roll; the harmonious field has no detune or semitone pickup
   if(!snd || !listener || !kind) return;
   try{
     const ctx=listener.context, f=snd.osc.frequency.value;
@@ -5825,6 +5830,187 @@ function stopTargetSound(snd){
     }catch(e){}
   }
   try{ if(snd.send) snd.send.disconnect(); }catch(e){}
+}
+
+/* THE FIELD SINGS THE CHORD: two native pulse carriers, enabled only for the hums audition.
+   The recurring calls use the existing Tone.Draw clock: frame-quantized, never dt-integrated; attacks over 50 ms late are skipped.
+   No added instrument, RNG draw, gameplay mutation, effect send, vibrato, semitone pickup or extra tail voice.
+   Whole-beat arrivals are opportunities, not deadlines. Fill-tagged tanks already own their drum figure.
+   The five-rung chord ladder replaces absolute scale pitches; its register needs an ear test. */
+let _humField=CHIP_FIELD?{voices:null,ctx:null,active:false,epoch:0,serial:0,tags:new WeakMap(),harmony:[],appliedAt:-Infinity,ci:0,tier:0}:null;
+function humFieldLive(){
+  return CHIP_FIELD && soundOn && toneReady && state.running && !trainMode && !templeActive && _bow.stage<BOW.LAST && listener && rawCtx && listener.context;
+}
+function humFieldBeat(){
+  try{ return Tone.Transport.getTicksAtTime(rawCtx.currentTime)/Tone.Transport.PPQ; }catch(e){ return NaN; }
+}
+function humFieldNativeTime(t){
+  const ctx=listener.context; return Math.max(ctx.currentTime,ctx.currentTime+t-rawCtx.currentTime);
+}
+function humFieldQuiet(v,at){
+  v.gain.gain.cancelScheduledValues(at);v.gain.gain.setValueAtTime(0,at);
+  v.osc.frequency.cancelScheduledValues(at);v.until=at;
+}
+function humFieldRetireLegacy(){
+  if(!humFieldLive())return;
+  // Graduation keeps live trainer targets. Silence their old native release tails before the shared field can speak.
+  for(const tg of targets)if(tg.snd){
+    const snd=tg.snd;stopTargetSound(snd);
+    const now=listener.context.currentTime;
+    try{snd.outGain.gain.cancelScheduledValues(now);snd.outGain.gain.setValueAtTime(0,now);}catch(e){}
+    for(const node of [snd.osc,snd.lfo,snd.osc2,snd.lfo2])if(node)try{node.stop(now);}catch(e){}
+    tg.snd=null;
+  }
+}
+function humFieldBuild(){
+  const F=_humField;if(!humFieldLive())return false;
+  humFieldRetireLegacy();
+  const ctx=listener.context;
+  if(F.voices)return F.ctx===ctx;
+  if((ctx.state&&ctx.state!=='running')||(rawCtx.state&&rawCtx.state!=='running'))return false;
+  const built=[];
+  try{
+    for(let i=0;i<2;i++){
+      const panner=ctx.createPanner(),gain=ctx.createGain(),osc=ctx.createOscillator();
+      const v={panner,gain,osc,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
+      panner.panningModel='HRTF';panner.refDistance=5;panner.rolloffFactor=1;panner.distanceModel='inverse';panner.maxDistance=120;
+      osc.setPeriodicWave(pulseWave(ctx));osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
+      osc.start();
+    }
+    F.ctx=ctx;F.voices=built;return true;
+  }catch(e){for(const v of built){try{v.gain.gain.value=0;v.osc.stop();v.osc.disconnect();v.gain.disconnect();v.panner.disconnect();}catch(ignore){}}return false;}
+}
+function humFieldEligible(tg){
+  return !!(tg && !tg.dead && tg.mesh && tg.idx>=0 && targets[tg.idx]===tg && state.t<tg.expireAt && tg.fill16<0 && tg.kind!==2);
+}
+function humFieldMove(v,now,instant){
+  if(!v.target||(!instant&&now<v.nextSpatial))return;
+  const p=v.target.mesh.position;v.nextSpatial=now+TARGET_AUDIO_STEP;
+  if(!instant&&p.x===v.x&&p.y===v.y&&p.z===v.z)return;
+  v.x=p.x;v.y=p.y;v.z=p.z;
+  if(v.panner.positionX){
+    if(instant){v.panner.positionX.cancelScheduledValues(now);v.panner.positionY.cancelScheduledValues(now);v.panner.positionZ.cancelScheduledValues(now);}
+    const at=instant?now:now+TARGET_AUDIO_STEP,method=instant?'setValueAtTime':'linearRampToValueAtTime';
+    v.panner.positionX[method](p.x,at);v.panner.positionY[method](p.y,at);v.panner.positionZ[method](p.z,at);
+  }else v.panner.setPosition(p.x,p.y,p.z);
+}
+function humFieldSelect(beat){
+  let first=null,second=null,a=Infinity,b=Infinity;
+  const before=(x,at,y,bt)=>!y || at<bt || (at===bt && (x.expireAt<y.expireAt || (x.expireAt===y.expireAt && (x.born<y.born || (x.born===y.born && x.idx<y.idx)))));
+  for(const tg of targets){
+    if(!humFieldEligible(tg))continue;
+    const at=Math.ceil(beat+(tg.bowK>0?tg.bowK/16:0));
+    if(before(tg,at,first,a)){second=first;b=a;first=tg;a=at;}else if(before(tg,at,second,b)){second=tg;b=at;}
+  }
+  return [first,second];
+}
+function humFieldPitch(tg,ci){
+  const tri=CHORD_TRIAD&&CHORD_TRIAD[ci];if(!tri||tri.length<3)return 0;
+  const n=PENTA.length,span=Math.max(1,Math.min(n,CFG.sing.degSpan|0)),degree=CFG.sing.on&&tg.bowK>0?singDegree(tg.bowK):n-span;
+  const rung=Math.max(0,Math.min(span-1,degree-(n-span)));
+  // Ordered authored triads, repeated upward by octaves: every rung is an exact current chord tone.
+  // The +1 uses the existing humOctave=-1 as the lower chord register; a four-k vocabulary remains distinct.
+  return tri[rung%3]*Math.pow(2,Math.floor(rung/3)+1+CFG.chip.humOctave);
+}
+function humFieldRemember(time,ci,tier,i){
+  const F=_humField,H=F.harmony,now=rawCtx.currentTime;
+  let keep=0;for(let j=1;j<H.length;j++)if(H[j].time<=now)keep=j;
+  if(keep)H.splice(0,keep);
+  const old=H.find(e=>e.time===time);if(old){old.ci=ci;old.tier=tier;old.i=i;return old;}
+  const entry={time,ci,tier,i,armed:false,done:false};H.push(entry);H.sort((a,b)=>a.time-b.time);
+  // Keep the latest due entry and the nearest seven future entries; normal lookahead holds only one future eighth.
+  if(H.length>8)H.length=8;
+  // The announced future harmony can end an old tail on the native sample clock even if Draw is a frame late.
+  if(F.voices)for(const v of F.voices)if(v.ci!==ci){
+    const end=humFieldNativeTime(time);if(v.until>end){v.gain.gain.cancelScheduledValues(end);v.gain.gain.linearRampToValueAtTime(0,end);v.until=end;}
+  }
+  return entry;
+}
+function humFieldDue(){
+  const F=_humField,now=rawCtx.currentTime;let entry=null;
+  for(const e of F.harmony){if(e.time>now)break;entry=e;}
+  if(entry)return entry;
+  // No due scheduler history yet (first start/resume): use real transport time, never its lookahead ticks getter.
+  const beat=humFieldBeat(),n=CHORD_TRIAD.length,ci=Number.isFinite(beat)?((Math.floor(beat/4)%n)+n)%n:0;
+  return {time:-Infinity,ci,tier:0,i:0};
+}
+function humFieldApply(entry){
+  const F=_humField;if(entry.time>rawCtx.currentTime || entry.time<F.appliedAt)return false;
+  F.appliedAt=entry.time;F.ci=entry.ci;F.tier=entry.tier;
+  if(F.voices)for(const v of F.voices)if(v.ci!==entry.ci){humFieldQuiet(v,F.ctx.currentTime);v.ci=entry.ci;}
+  return true;
+}
+function humFieldBind(picked){
+  const F=_humField,voices=F.voices,used=[false,false];
+  for(const tg of picked){if(!tg)continue;const tag=F.tags.get(tg);
+    for(let j=0;j<2;j++)if(!used[j]&&voices[j].target===tg&&voices[j].tag===tag){used[j]=true;break;}
+  }
+  for(const tg of picked){if(!tg)continue;const tag=F.tags.get(tg);
+    if(voices.some((v,j)=>used[j]&&v.target===tg&&v.tag===tag))continue;
+    const j=used.indexOf(false);if(j<0)break;const v=voices[j];
+    humFieldQuiet(v,F.ctx.currentTime);
+    v.target=tg;v.tag=tag;v.lastEvent=-Infinity;humFieldMove(v,F.ctx.currentTime,true);used[j]=true;
+  }
+  for(let j=0;j<2;j++)if(!used[j]){const v=voices[j];humFieldQuiet(v,F.ctx.currentTime);v.target=null;v.tag=0;}
+}
+function humFieldStrike(entry,event,only){
+  if(!humFieldLive()||!humFieldApply(entry)||!humFieldBuild())return;
+  const beat=humFieldBeat();if(!Number.isFinite(beat))return;
+  humFieldBind(humFieldSelect(beat));
+  const F=_humField,at=humFieldNativeTime(entry.time===-Infinity?rawCtx.currentTime:Math.max(entry.time,rawCtx.currentTime));
+  let end=at+0.12;
+  for(const e of F.harmony)if(e.time>rawCtx.currentTime&&e.ci!==entry.ci)end=Math.min(end,humFieldNativeTime(e.time));
+  const duration=end-at;if(duration<0.02)return;   // no microscopic pickup immediately before the new chord
+  for(const v of F.voices){
+    if(!v.target||(only&&v.target!==only)||v.lastEvent===event)continue;
+    const f=humFieldPitch(v.target,entry.ci);if(!(f>0))continue;
+    humFieldQuiet(v,at);humFieldMove(v,at,true);v.osc.frequency.setValueAtTime(f,at);v.ci=entry.ci;v.lastEvent=event;
+    const peak=Math.max(0,CFG.chip.humGain)*0.8;
+    v.gain.gain.linearRampToValueAtTime(peak,at+Math.min(0.008,duration*0.25));
+    v.gain.gain.linearRampToValueAtTime(peak*0.55,at+Math.min(0.045,duration*0.6));
+    v.gain.gain.linearRampToValueAtTime(0,end);v.until=end;
+  }
+}
+function humFieldSpawn(tg){
+  if(!CHIP_FIELD||!humFieldLive()||!humFieldEligible(tg))return;
+  const F=_humField;F.active=true;F.tags.set(tg,++F.serial);
+  const entry=humFieldDue();humFieldApply(entry);
+  if(entry.tier===0)humFieldStrike(entry,'spawn:'+F.serial,tg);
+  // A grid callback can run before the Draw callback that creates this orb on the same beat. Join only that due pulse.
+  else if(rawCtx.currentTime-entry.time<=0.05 && ((entry.tier>=3&&entry.i%2===0)||(entry.tier<3&&entry.i%4===0)))humFieldStrike(entry,entry.time,tg);
+}
+function humFieldGrid(time,ci,tier,i){
+  if(!CHIP_FIELD||!humFieldLive()||!Number.isFinite(time))return;
+  const entry=humFieldRemember(time,ci,tier,i),F=_humField,epoch=F.epoch;F.active=true;
+  try{Tone.Draw.schedule(()=>{
+    if(epoch!==F.epoch||!humFieldLive())return;
+    // Tone.Draw may deliver up to 8 ms early. Arm now; the next real frame drains only after audio time is due.
+    entry.armed=true;humFieldDrain();
+  },time);}catch(e){}
+}
+function humFieldDrain(){
+  const F=_humField,now=rawCtx.currentTime;let due=null;
+  for(const e of F.harmony)if(e.armed&&!e.done&&e.time<=now){e.done=true;due=e;}
+  if(!due||!humFieldApply(due))return;
+  // One current strike only: a stalled frame cannot replay a backlog of missed field notes.
+  if(now-due.time>0.05)return;
+  if((due.tier>=3&&due.i%2===0)||(due.tier>=1&&due.tier<3&&due.i%4===0))humFieldStrike(due,due.time,null);
+}
+function humFieldUpdate(){
+  if(!CHIP_FIELD)return;
+  const F=_humField;if(!humFieldLive()){humFieldStop();return;}
+  humFieldRetireLegacy();
+  humFieldApply(humFieldDue());
+  humFieldDrain();
+  if(F.voices)for(const v of F.voices){
+    if(v.target&&(!humFieldEligible(v.target)||F.tags.get(v.target)!==v.tag)){humFieldQuiet(v,F.ctx.currentTime);v.target=null;v.tag=0;}
+    else if(v.target&&v.until>F.ctx.currentTime)humFieldMove(v,F.ctx.currentTime,false);
+  }
+}
+function humFieldStop(){
+  if(!CHIP_FIELD)return;
+  const F=_humField;if(!F.active)return;F.active=false;F.epoch++;F.harmony.length=0;F.appliedAt=-Infinity;F.ci=0;F.tier=0;
+  if(F.voices)for(const v of F.voices){humFieldQuiet(v,F.ctx.currentTime);v.target=null;v.tag=0;v.lastEvent=-Infinity;v.ci=-1;}
 }
 
 /* ---- rhythm scheduling ---- */
@@ -6862,6 +7048,7 @@ function onGrid(time){
   let gt=3*(gw[0]*streakN + gw[1]*accN + gw[2]*hitsN); if(CFG.wasdRhythm) gt=Math.min(3, gt + Math.min(CFG.wasdGrooveMax, _wasdCombo*CFG.wasdGrooveGain));   // 0..3 target tier; the WASD bonus combo (off-beat hits) lifts the groove → music intensifies as you nail the rhythm
   grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly (no jarring collapse)
   const tier = grooveI<0.5?0 : grooveI<1.5?1 : grooveI<2.5?2 : 3;
+  if(CHIP_FIELD) try{ humFieldGrid(time,ci,tier,i); }catch(e){}
   try{
     if(kick && (i===0||i===4)) kick.triggerAttackRelease('C1','8n',time);
     if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick
@@ -6937,6 +7124,7 @@ function syncTransport(){
   else { if(Tone.Transport.state==='started') Tone.Transport.pause(); }
 }
 function teardownTransport(){
+  if(CHIP_FIELD) try{ humFieldStop(); }catch(e){}
   if(!toneReady) return;
   if(CHIP_PAD) padChipStop();   // a new night must not inherit old native pitch or envelope events
   try{ if(gridId!=null){ Tone.Transport.clear(gridId); gridId=null; } Tone.Transport.stop(); Tone.Transport.cancel(); Tone.Transport.position=0; }catch(e){}
@@ -7184,6 +7372,7 @@ function spawnTarget(opts){
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
   if(tg.fill16>=0) sensei2Speak('fill');   // the tag survived every election/rescue gate: this is the first real fill spawn, not merely an attempt
   if(GH_RECORD) ghostRecordSpawn(tg);   // NIGHT GHOSTS: a write-only tap after every spawn decision and RNG draw is final; the recorder returns nothing and no gameplay value can flow back
+  if(CHIP_FIELD) try{ humFieldSpawn(tg); }catch(e){}
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }
 function reconcileTargetSounds(){
@@ -9307,6 +9496,8 @@ function animate(frameNow){
     }
     if(reticleBadT>0){ reticleBadT-=dt; if(reticleBadT<=0) el.reticle.classList.remove('bad'); }
   }
+
+  if(CHIP_FIELD) try{ humFieldUpdate(); }catch(e){}
 
   // explosions (shards fly out + a flash); run regardless so they finish across a pause
   for(let i=explosions.length-1;i>=0;i--){

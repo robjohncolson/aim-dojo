@@ -6765,6 +6765,192 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function cardSave(){
+  // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
+  // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
+  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor bows: defence in depth (bowLive already gates the ceremony itself)
+  const n=_bowHits.length; if(!n) return;   // a hitless night leaves no card at all — no write, no button, nothing to explain
+  const cap=Math.max(1,CFG.nightCard.maxDots|0), from=Math.max(0,n-cap), pairs=[], hits=[];
+  for(let i=from;i<n;i++){ const e=Math.round(_bowHits[i].errMs), k=_bowHits[i].k|0; pairs.push([e,k]); hits.push({errMs:e,k:k}); }   // the MOST RECENT, exactly as the Mandala kept them, rounded to whole ms (the glyph plots angles, not measurements)
+  const stars=_cardStars.slice(0,cap);
+  const rec={ v:1, d:phasesToday(), phase:moonPhaseBucket(), rule:(CFG.deal.on?_deal.ph:-1),
+    hb:Math.round((60/Math.max(20,state.bpm))*500), hits:pairs, stars:stars };   // phase = THE one phase authority (the moon that was actually up); rule = the night the sky actually DEALT, so a night with the deal off names nothing rather than naming a rule that never applied; hb = the half-beat the glyph's angles were measured against, so a reopened card is the same picture and not a rescaled one
+  _cardLoaded=true;
+  _card={ d:rec.d, phase:rec.phase, rule:rec.rule, hb:rec.hb, hits:hits, stars:stars };   // in memory FIRST: a full or blocked quota still offers this page the card it just earned
+  try{ localStorage.setItem(CARD_KEY, JSON.stringify(rec)); }catch(e){}   // a lost write costs tonight's card and nothing else — the stars, the stamp and the records were all banked by their own parcels
+  _cardBlob=null;
+  _cardCaptureSeq++;
+  const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  const w=gid('nightCardWrap'); if(w) w.style.display='none';
+}
+function cardToday(){ cardLoad(); return (_card && _card.d===phasesToday()) ? _card : null; }   // yesterday's card is GONE: the same local civil calendar the stamp, the greeting and the deal's freshness gate turn over on
+function cardStale(){
+  // The night turned over while a surface was still up: take the WHOLE offer down. The button first, so nothing can
+  // re-open what is gone, then the view — a wrapper with nothing paintable in it is not something to leave on screen.
+  const b=gid('nightCardBtn'); if(b) b.style.display='none';
+  _cardBlob=null;
+  cardClose();
+}
+function cardFresh(){
+  // 1.1 amendment (wave 5a review, M2): THE ONE DATE GATE, and every card entry point takes it — the offer, the open,
+  // the paint and both shares. cardOffer used to be the only same-day test in the parcel, which meant a button or a
+  // view left open ACROSS LOCAL MIDNIGHT stayed live: still clickable, still exportable, and painting nothing into a
+  // wrapper that stayed up. A card belongs to one night; at every door, it is either tonight's or there is no card.
+  const rec=cardToday();
+  if(!rec){ cardStale(); return null; }
+  return rec;
+}
+function cardOffer(){
+  // The whole offer: one button in the chrome row that already holds RECORDS and SHARE, shown only while tonight has
+  // something captured and ready to share. Never a toast, never a badge, never a nag.
+  const b=gid('nightCardBtn'); if(!b) return;
+  const rec=cardFresh();       // a card that has aged out of today takes its own button and view down with it
+  const ready=!!(rec&&_cardBlob);
+  b.style.display=ready?'':'none';
+  if(_cardOpen){ const w=gid('nightCardWrap'); if(w) w.style.display=ready?'block':'none'; }
+}
+function cardOpen(){ if(!cardFresh() || !_cardBlob) return; const w=gid('nightCardWrap'); if(!w || _cardOpen) return; _cardOpen=true; w.style.display='block'; cardNote(''); }   // the date gate stays FIRST (M2); the ready Blob means the idle painter has already filled this canvas
+function cardClose(){ const w=gid('nightCardWrap'); if(!w) return; _cardOpen=false; w.style.display='none'; }
+function cardNote(msg){ const n=gid('nightCardNote'); if(n) n.textContent=msg||''; }
+function cardDateText(d){
+  // The date, and the ONLY numbers on the card — a date is not a score, and a night you can name is the point of
+  // keeping one. EN spells the month so it can never be read as a fraction; JA takes the numeric form it actually uses.
+  const p=String(d||'').split('-'), y=+p[0], m=+p[1], dd=+p[2];
+  if(!isFinite(y) || !isFinite(m) || !isFinite(dd)) return '';
+  return TF('cardDate','{d} {mon} {y}', {d:dd, mon:CARD_MON_EN[Math.max(1,Math.min(12,m))-1], m:m, y:y});
+}
+function cardBand(g,W,cy,bw,bh,rec){
+  // TONIGHT'S SKY, laid out flat: x is the star's own ecliptic longitude (the band opens at 0°, the head of Aries,
+  // where the zodiac has always started) and y its latitude. The positions come out of the SAME buffer the dome is
+  // drawing — read back to lon/lat rather than re-fetched or re-typed — so every star here is a real one at its real
+  // place, and the only liberty the card takes is that the sphere has been unrolled onto a page.
+  const fig=_stickFig; if(!fig || !fig.pGeo) return;   // no fixture (a decorative sky, or a fetch that never landed) → no band, and the rest of the card composes exactly as it would have
+  const x0=(W-bw)/2, half=bh/2;
+  const lonOf=(x,z)=>{ const a=Math.atan2(-z,x)*180/Math.PI; return ((a%360)+360)%360; };
+  const latOf=(x,y,z)=>{ const L=Math.sqrt(x*x+y*y+z*z); return L>1e-6?Math.asin(Math.max(-1,Math.min(1,y/L)))*180/Math.PI:0; };
+  const px=l=>x0+l/360*bw, py=t=>cy-Math.max(-1,Math.min(1,t/CARD_LAT_DEG))*half;
+  const lp=fig.lGeo?fig.lGeo.attributes.position:null;
+  if(lp){
+    g.strokeStyle='rgba(174,198,232,.20)'; g.lineWidth=1;   // the sticks, at the dome's own line colour and about its own weight
+    for(let i=0;i+1<lp.count;i+=2){
+      const l1=lonOf(lp.getX(i),lp.getZ(i)), l2=lonOf(lp.getX(i+1),lp.getZ(i+1));
+      if(Math.abs(l1-l2)>180) continue;   // THE SEAM at 0°: a figure straddling it keeps both its stars and loses one line, rather than drawing a stroke across the entire sky
+      g.beginPath();
+      g.moveTo(px(l1), py(latOf(lp.getX(i),lp.getY(i),lp.getZ(i))));
+      g.lineTo(px(l2), py(latOf(lp.getX(i+1),lp.getY(i+1),lp.getZ(i+1))));
+      g.stroke();
+    }
+  }
+  const tonight=Object.create(null);
+  for(const s of rec.stars) tonight[s]=true;
+  const pp=fig.pGeo.attributes.position, ids=(CFG.stars.on&&_starLitIds)?_starLitIds:null;   // raw boolean first: with the lit sky off nothing is lit, so the band draws the plain constellations and no halo
+  for(let i=0;i<pp.count;i++){
+    const X=px(lonOf(pp.getX(i),pp.getZ(i))), Y=py(latOf(pp.getX(i),pp.getY(i),pp.getZ(i)));
+    const id=ids?ids[i]:'', lv=id?(_starLit[id]|0):0;
+    const r=lv>0?(1.5+0.45*lv):1.1, a=lv>0?Math.min(1,0.40+0.12*lv):0.16;   // a lit star is brighter AND wider, the same two channels the dome gives it — an unlit one is still there, faintly, because the sky is not a checklist
+    g.beginPath(); g.arc(X,Y,r,0,6.2831853); g.fillStyle='rgba(198,216,246,'+a.toFixed(3)+')'; g.fill();
+    if(id && tonight[id]){ g.beginPath(); g.arc(X,Y,r+3.6,0,6.2831853); g.strokeStyle='rgba(226,238,255,.55)'; g.lineWidth=1; g.stroke(); }   // TONIGHT's own: one thin ring, so a card with nothing new on it simply has no rings and looks like every other night's sky
+  }
+}
+function cardCompose(g,W,H,rec){
+  // The composition, top to bottom: the mark · the moon that was up · the night's name · your sky · your glyph · the
+  // date. Moonlight monochrome throughout, and a still image by nature — there is nothing here for reduceMotion to
+  // turn off, because nothing here ever moves.
+  g.clearRect(0,0,W,H);
+  const bg=g.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#080b12'); bg.addColorStop(0.55,'#05070c'); bg.addColorStop(1,'#04060a');
+  g.fillStyle=bg; g.fillRect(0,0,W,H);
+  g.strokeStyle='rgba(198,216,246,.14)'; g.lineWidth=1; g.strokeRect(Math.round(W*0.035)+0.5, Math.round(H*0.023)+0.5, Math.round(W*0.93), Math.round(H*0.954));
+  g.textAlign='center'; g.textBaseline='middle';
+  try{ g.letterSpacing='0.16em'; }catch(e){}   // the menus' own tracking where the canvas supports it; ignored, harmlessly, where it does not
+  g.fillStyle='rgba(198,216,246,.50)'; g.font=Math.round(W*0.032)+'px '+CARD_FONT;
+  g.fillText('✦', W/2, H*0.072);
+  const pr=W*0.062, pyC=H*0.145;
+  g.beginPath(); g.arc(W/2,pyC,pr,0,6.2831853); g.strokeStyle='rgba(198,216,246,.34)'; g.lineWidth=1; g.stroke();
+  if(rec.phase>=0) phasesDrawDisc(g,W/2,pyC,pr,rec.phase);   // the Temple ring's OWN moon shape, for the bucket that was actually overhead (a pure drawing call — it opens no file, so it belongs to no parcel's kill-switch)
+  if(rec.rule>=0){ g.fillStyle='rgba(198,216,246,.80)'; g.font=Math.round(W*0.030)+'px '+CARD_FONT; g.fillText(T('dealRule'+rec.rule, DEAL_RULE_EN[rec.rule]), W/2, H*0.228, W*0.86); }   // wave 4's own words for the night, in whichever language the page is in
+  cardBand(g,W,H*0.325,W*0.88,H*0.115,rec);
+  const R=W*0.30;
+  bowGlyphPaint(g, rec.hits, W/2, H*0.635, R, rec.hb>0?rec.hb:(60/Math.max(20,state.bpm))*500, 1, 0, R/224);   // THE Bow's glyph, at full brightness and undrifted (a card is the held moment, not the dissolve). dotK = R over the ceremony's own 224px radius, so the dots keep the weight they have on the big canvas
+  g.fillStyle='rgba(198,216,246,.42)'; g.font=Math.round(W*0.022)+'px '+CARD_FONT;
+  g.fillText(cardDateText(rec.d), W/2, H*0.945, W*0.8);
+  const link=cardLinkText(); if(link){ g.fillStyle='rgba(198,216,246,.30)'; g.font=Math.round(W*0.020)+'px '+CARD_FONT; g.fillText(link, W/2, H*0.972, W*0.8); }   // THE LINK ON THE CARD (parcel B): the host, under the date, quieter than it — a pasted card is now an invitation. A hostname is not a number; the date-line law stands
+}
+function cardLinkText(){   // parcel B: host and path only, from the share overlay's own authority — never a query, hash or token; a local file is not an invitation and paints nothing
+  if(!(CFG.nightCard&&CFG.nightCard.link)) return '';
+  let u=''; try{ if(location.protocol==='file:') return ''; u=shareLinkUrl(); }catch(e){ return ''; }
+  return String(u).replace(/^https?:[/]{2}/i,'').replace(/\/+$/,'');
+}
+function cardPaint(){
+  const rec=cardFresh(); if(!rec) return;   // a record that has aged out CLOSES the view (M2) rather than leaving a blank wrapper standing — the paint is the last place the date could still be wrong
+  const cv=cardCanvasEl(); if(!cv) return;
+  const N=CFG.nightCard, W=Math.max(240,N.w|0), H=Math.max(240,N.h|0);
+  if(cv.width!==W) cv.width=W;
+  if(cv.height!==H) cv.height=H;
+  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
+  try{ cardCompose(g,W,H,rec); }catch(e){}   // a card that cannot be composed leaves the view standing and says nothing — this path is never allowed to throw into the page
+}
+function cardFileName(){ const rec=cardToday(); return 'moon-chorus-'+((rec&&rec.d)||'night')+'.png'; }
+function cardDownload(blob){
+  // The card leaves as the Blob captured after the Bow. A browser that refuses object URLs or the download simply says
+  // so on the card's own status line and leaves the view intact.
+  if(!cardFresh()) return;
+  blob=blob||_cardBlob;
+  if(!blob || !window.URL || typeof URL.createObjectURL!=='function'){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); return; }
+  let a=null, u='';
+  try{
+    a=document.createElement('a'); a.download=cardFileName(); a.rel='noopener'; a.style.display='none';
+    u=URL.createObjectURL(blob); a.href=u;
+    setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(e){} }, 4000);
+    document.body.appendChild(a);
+    try{ a.click(); }finally{ if(a.parentNode) a.parentNode.removeChild(a); }
+    cardNote(T('cardSaved','CARD SAVED')+' ✓');
+  }catch(e){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); }
+}
 function cardCopy(){
   // Clipboard first, download second — both consume the Blob captured after the Bow, so sharing never repaints or
   // re-encodes the card. Every failure lands on the download, and its own failure lands on one quiet line.
@@ -6862,6 +7048,7 @@ function onGrid(time){
   let gt=3*(gw[0]*streakN + gw[1]*accN + gw[2]*hitsN); if(CFG.wasdRhythm) gt=Math.min(3, gt + Math.min(CFG.wasdGrooveMax, _wasdCombo*CFG.wasdGrooveGain));   // 0..3 target tier; the WASD bonus combo (off-beat hits) lifts the groove → music intensifies as you nail the rhythm
   grooveI += (gt - grooveI) * (gt>grooveI ? 0.5 : 0.1);                             // build fast, strip slowly (no jarring collapse)
   const tier = grooveI<0.5?0 : grooveI<1.5?1 : grooveI<2.5?2 : 3;
+  if(CHIP_FIELD) try{ humFieldGrid(time,ci,tier,i); }catch(e){}
   try{
     if(kick && (i===0||i===4)) kick.triggerAttackRelease('C1','8n',time);
     if(kick && tier>=3 && i===6) kick.triggerAttackRelease('C1','8n',time, 0.65);          // full intensity: extra kick
@@ -6937,6 +7124,7 @@ function syncTransport(){
   else { if(Tone.Transport.state==='started') Tone.Transport.pause(); }
 }
 function teardownTransport(){
+  if(CHIP_FIELD) try{ humFieldStop(); }catch(e){}
   if(!toneReady) return;
   if(CHIP_PAD) padChipStop();   // a new night must not inherit old native pitch or envelope events
   try{ if(gridId!=null){ Tone.Transport.clear(gridId); gridId=null; } Tone.Transport.stop(); Tone.Transport.cancel(); Tone.Transport.position=0; }catch(e){}
@@ -7184,6 +7372,7 @@ function spawnTarget(opts){
   tg.idx=targets.length; core.userData.target=tg; targets.push(tg);
   if(tg.fill16>=0) sensei2Speak('fill');   // the tag survived every election/rescue gate: this is the first real fill spawn, not merely an attempt
   if(GH_RECORD) ghostRecordSpawn(tg);   // NIGHT GHOSTS: a write-only tap after every spawn decision and RNG draw is final; the recorder returns nothing and no gameplay value can flow back
+  if(CHIP_FIELD) try{ humFieldSpawn(tg); }catch(e){}
 }
 function removeTarget(tg){ stopTargetSound(tg.snd); releaseTargetMesh(tg.mesh); releaseTargetRecord(tg); }
 function reconcileTargetSounds(){
@@ -9105,42 +9294,4 @@ function updateAssist(dt){
   hideAssistFrom(idx); if(idx>assistShown) assistShown=idx;
 }
 
-/* ========================= AIM TRAIL (3D, per target) ========================= */
-// Each target paints its OWN trail: when it spawns the crosshair starts drawing on an invisible sphere; the
-// line ripens white→red toward the optimal click time, then detaches and fades for a moment after the orb
-// dies. Path score per orb = great-circle angle to where you started ÷ angle actually travelled.
-const TRAIL_MAX=90;   // max samples per pooled trail line (the returning-voice line uses 2)
-const trailMeshPool=[];   // additive depth-test-free THREE.Line pool — today only the returning-voice line (starFlyStep) rides it; the per-orb aim trail that once shared it was retired 2026-08-18 (it had been silently dead since e172584 swallowed its spawn line into a comment)
-function setAimDir(out, p, y){
-  if(p==null && y==null){
-    if(aimDirty){ const cp=Math.cos(pitch); _aimDirCache.set(-Math.sin(yaw)*cp, Math.sin(pitch), -Math.cos(yaw)*cp); aimDirty=false; }
-    return out.copy(_aimDirCache);
-  }
-  p=p==null?pitch:p; y=y==null?yaw:y; const cp=Math.cos(p); return out.set(-Math.sin(y)*cp, Math.sin(p), -Math.cos(y)*cp);
-}
-function newTrailMesh(){
-  let m=trailMeshPool.pop();
-  if(!m){
-    const geo=new THREE.BufferGeometry();
-    const pos=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
-    const col=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
-    geo.setAttribute('position', pos); geo.setAttribute('color', col);
-    m=new THREE.Line(geo, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false, linewidth:2}));
-    m.frustumCulled=false; m.renderOrder=999;
-  }
-  m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); m.visible=false; m.position.copy(PLAYER_POS); scene.add(m); return m;
-}
-function releaseTrailMesh(m){
-  m.visible=false; m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); scene.remove(m); trailMeshPool.push(m);
-}
-function updateTrail(dt){   // the per-orb aim trail is gone; the name stays because the returning voices still ride the trail pool from here (one boolean, one call, every frame)
-  if(CFG.stars.on && (_starFly.length || _starPend.length || _starDebt.length)) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes
-}
-
-/* ========================= LOOP ========================= */
-const clock=new THREE.Clock();
-const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30;
-const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
-let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
-const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
 })();

@@ -9143,6 +9143,195 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ========================= AIM TRAIL (3D, per target) ========================= */
+// Each target paints its OWN trail: when it spawns the crosshair starts drawing on an invisible sphere; the
+// line ripens white→red toward the optimal click time, then detaches and fades for a moment after the orb
+// dies. Path score per orb = great-circle angle to where you started ÷ angle actually travelled.
+const TRAIL_MAX=90;   // max samples per pooled trail line (the returning-voice line uses 2)
+const trailMeshPool=[];   // additive depth-test-free THREE.Line pool — today only the returning-voice line (starFlyStep) rides it; the per-orb aim trail that once shared it was retired 2026-08-18 (it had been silently dead since e172584 swallowed its spawn line into a comment)
+function setAimDir(out, p, y){
+  if(p==null && y==null){
+    if(aimDirty){ const cp=Math.cos(pitch); _aimDirCache.set(-Math.sin(yaw)*cp, Math.sin(pitch), -Math.cos(yaw)*cp); aimDirty=false; }
+    return out.copy(_aimDirCache);
+  }
+  p=p==null?pitch:p; y=y==null?yaw:y; const cp=Math.cos(p); return out.set(-Math.sin(y)*cp, Math.sin(p), -Math.cos(y)*cp);
+}
+function newTrailMesh(){
+  let m=trailMeshPool.pop();
+  if(!m){
+    const geo=new THREE.BufferGeometry();
+    const pos=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
+    const col=new THREE.BufferAttribute(new Float32Array(TRAIL_MAX*3),3).setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', pos); geo.setAttribute('color', col);
+    m=new THREE.Line(geo, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthTest:false, depthWrite:false, fog:false, linewidth:2}));
+    m.frustumCulled=false; m.renderOrder=999;
+  }
+  m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); m.visible=false; m.position.copy(PLAYER_POS); scene.add(m); return m;
+}
+function releaseTrailMesh(m){
+  m.visible=false; m.geometry.setDrawRange(0,0); m.material.opacity=1; m.scale.setScalar(1); scene.remove(m); trailMeshPool.push(m);
+}
+function updateTrail(dt){   // the per-orb aim trail is gone; the name stays because the returning voices still ride the trail pool from here (one boolean, one call, every frame)
+  if(CFG.stars.on && (_starFly.length || _starPend.length || _starDebt.length)) starFlyStep(dt);   // THE VOICE FLIES HOME: the returning voices ride here because they ARE trail meshes
+}
+
+/* ========================= LOOP ========================= */
+const clock=new THREE.Clock();
+const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30;
+const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
+let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
+const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
 function animate(frameNow){
   requestAnimationFrame(animate);
   if(document.hidden){ clock.getDelta(); return; }
@@ -9307,6 +9496,8 @@ function animate(frameNow){
     }
     if(reticleBadT>0){ reticleBadT-=dt; if(reticleBadT<=0) el.reticle.classList.remove('bad'); }
   }
+
+  if(CHIP_FIELD) try{ humFieldUpdate(); }catch(e){}
 
   // explosions (shards fly out + a flash); run regardless so they finish across a pause
   for(let i=explosions.length-1;i>=0;i--){

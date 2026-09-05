@@ -153,7 +153,7 @@ function captureHums(source, chipOn, kinds = [0, 1, 2, 3, 4], chip = {}) {
     },
   };
   const ctx = vm.createContext({
-    CFG: { chip: { ...chipDefaults, ...chip }, sing: { goldOctDown: true, moverVibCents: 6, speedGlideMs: 80, callBoost: 1.3 } }, CHIP_HUMS: chipOn, Math: math, Number, Float32Array,
+    CFG: { chip: { ...chipDefaults, ...chip }, sing: { goldOctDown: true, moverVibCents: 6, speedGlideMs: 80, callBoost: 1.3 } }, CHIP_HUMS: chipOn, CHIP_FIELD: false, Math: math, Number, Float32Array,
     THREE, listener, soundOn: true, reverbInput: { id: "reverbInput" }, pickPenta: () => 220,
     PENTA: [220, 277.18, 329.63, 440], singDegree: k => ({ 2: 3, 4: 2, 6: 0 })[k], singLive: () => true,
     quietAudioMatrixUpdates: (pa, recursive) => events.push({ op: "quietAudioMatrixUpdates", id: pa.id, recursive }),
