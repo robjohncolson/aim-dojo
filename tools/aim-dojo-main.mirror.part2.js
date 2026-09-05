@@ -1628,28 +1628,29 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function buildNaveVeil(){
+  /* Mercy-only, one tiny indexed sheet draw. Each half owns geometry only on its side of the aim line; the lower opening is
+     wider than the crown opening, so neither transparency nor a fold can ever cross the centre gap. Its swell borrows the
+     roadArch material's uBreath object, which is roadMat's object in turn, so the mercy sheet cannot lag the gate around it. */
+  const pos=[], side=[], idx=[]; let v=0;
+  for(let k=0;k<ML_ARCH_N;k++) for(const sd of [-1,1]){ const b=v; for(const q of [[0,0],[1,0],[1,1],[0,1]]){ pos.push(k,q[0],q[1]); side.push(sd); v++; } idx.push(b,b+1,b+2,b,b+2,b+3); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('aSide',new THREE.Float32BufferAttribute(side,1)); g.setIndex(idx);
+  const U=roadArchMat.uniforms;
+  roadNaveVeilMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,premultipliedAlpha:true,
+    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uBreath:U.uBreath,uArchN0:U.uArchN0,uK:U.uK,uVeil:U.uVeil},
+    vertexShader:[
+      'uniform float uNow,uArchN0,uVeil,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+']; attribute float aSide; varying vec2 vUV; varying float vA;',
+      ...(ML_BITE?['uniform vec3 uBite;']:[]),
+      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+      'void main(){ float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot, gap=mix(1.75,0.45,position.z), xl=aSide*mix(gap,'+_roadG(ROAD_HALF_W-0.45)+',position.y);',
+      (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
+      (ML_TERRAIN?'  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', ly=position.z*9.7, tv=terrainVis(u,cx+xl,ly), fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vUV=vec2(aSide*(position.y*0.5+0.5),position.z); vA=mercy*uVeil*sqrt(max(fade,0.0))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+')*tv; gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,ly+cyAt(u),-u+0.18,1.0); }':'  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vUV=vec2(aSide*(position.y*0.5+0.5),position.z); vA=mercy*uVeil*sqrt(max(fade,0.0))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+'); gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,position.z*9.7,-u+0.18,1.0); }')
+    ].join('\n'),
+    fragmentShader:[
+      'varying vec2 vUV; varying float vA; void main(){ if(vA<=0.003) discard; float x=abs(vUV.x), lat=1.0-smoothstep(0.82,1.0,x), folds=0.70+0.30*sin(vUV.x*31.0+vUV.y*2.0)*sin(vUV.x*9.0-0.6), vert=(0.10+0.90*pow(vUV.y,1.4))*(1.0-smoothstep(0.80,0.99,vUV.y)); float a=lat*folds*vert*0.22*vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.66,0.28),vec3(1.0,0.92,0.75),vUV.y*0.8); gl_FragColor=vec4(c*a,a); }'
+    ].join('\n') });
+  roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
+}
 function roadWallVertexShader(){ return [
   'uniform float uNow,uArchN0,uWallSeed'+((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
   ...(ML_BITE?['uniform vec3 uBite;']:[]),
@@ -4084,81 +4085,5 @@ function _templeAspectColor(id){
   if(id==='trine') return new THREE.Color(0x8fe3c0);
   if(id==='sextile') return new THREE.Color(0xa8d8ff);
   return new THREE.Color(0xffd66f);
-}
-function rebuildSkyTempleGeometry(){
-  const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
-    :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}
-      :(_templeFocus.kind==='body'?{kind:'body',id:_templeFocus.body&&_templeFocus.body.id}
-        :(_templeFocus.kind==='sign'?{kind:'sign',id:_templeFocus.pick&&_templeFocus.pick.id}:null))));
-  _templeDisposeChildren();
-  const meta=_lsnMeta, R=SKY_CHART.R;
-  if(!meta){ _templeGroup.visible=false; return; }
-  // No ecliptic great-circle rail — it washed out sticks, sign art, and planet globes (visual simplify L1).
-  const ghosts=meta.templeGhosts||Object.create(null);
-  for(const id of Object.keys(ghosts).slice(0,SKY_CHART.caps.ghost)){
-    const body=ghosts[id]; if(!body || !isFinite(body.lonJ2000)) continue;
-    const mat=new THREE.SpriteMaterial({map:glyphTex(body.glyph||'·'),color:0xc9d4ff,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending});
-    const sprite=new THREE.Sprite(mat), size=SKY_CHART.ghost.scale*1.55;   // larger than dojo ghosts — temple investigation target
-    sprite.position.copy(eclipticDir(body.lonJ2000,0)).multiplyScalar(R*0.985); sprite.scale.set(size,size,1); sprite.renderOrder=3;
-    _templeGroup.add(sprite); _templeNatal.push({kind:'natal',id:id,body:body,sprite:sprite,local:sprite.position.clone(),baseScale:size});
-  }
-  const records=Array.isArray(meta.aspects)?meta.aspects.slice(0,Math.min(24,CFG.skyTemple.maxAspectLines||24)):[];
-  if(records.length){
-    const pos=new Float32Array(records.length*6), col=new Float32Array(records.length*6);
-    records.forEach((record,i)=>{
-      const start=eclipticDir(record.transit.lonJ2000,0).multiplyScalar(R*0.992);
-      const end=eclipticDir(record.natal.lonJ2000,0).multiplyScalar(R*0.985);
-      pos.set([start.x,start.y,start.z,end.x,end.y,end.z],i*6);
-      const c=_templeAspectColor(record.aspectId), light=0.35+0.65*Math.max(0,Math.min(1,record.tightness||0)); c.multiplyScalar(light);
-      col.set([c.r,c.g,c.b,c.r,c.g,c.b],i*6);
-      _templeAspects.push({kind:'aspect',record:record,start:start,end:end,index:i});
-    });
-    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
-    // depthTest:false so chords that pass under the former floor still draw (full sphere)
-    const mat=horizonFadeMat(new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending}));
-    _templeAspectMesh=new THREE.LineSegments(geo,mat); _templeAspectMesh.frustumCulled=false; _templeAspectMesh.renderOrder=2; _templeGroup.add(_templeAspectMesh);
-    const hGeo=new THREE.BufferGeometry(); hGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
-    const hMat=horizonFadeMat(new THREE.LineBasicMaterial({color:0xffdf72,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending}));
-    _templeHighlight=new THREE.Line(hGeo,hMat); _templeHighlight.frustumCulled=false; _templeHighlight.renderOrder=4; _templeHighlight.visible=false; _templeGroup.add(_templeHighlight);
-  }
-  _templeGroup.visible=templeActive;
-  if(templeActive){
-    let rebound=_templeFocus;
-    if(priorFocus&&priorFocus.kind==='aspect') rebound=_templeAspects.find(item=>item.record&&item.record.key===priorFocus.key)||null;
-    else if(priorFocus&&priorFocus.kind==='natal') rebound=_templeNatal.find(item=>item.id===priorFocus.id)||null;
-    else if(priorFocus&&priorFocus.kind==='body'){
-      const meta=_lsnMeta.bodies[priorFocus.id], pick=meta?{kind:'body',id:priorFocus.id,meta:meta}:null, body=_templeBodyFromPick(pick);
-      rebound=body?{kind:'body',body:body,pick:pick}:null;
-    }else if(priorFocus&&priorFocus.kind==='sign'){
-      const meta=_lsnMeta.signs[priorFocus.id]; rebound=meta?{kind:'sign',pick:{kind:'sign',id:priorFocus.id,meta:meta}}:null;
-    }
-    setSkyTempleFocus(rebound);
-  }
-}
-function updateSkyTempleVisuals(){
-  _templeGroup.visible=templeActive||_templeBlend>0.01;
-  if(!templeActive && _templeBlend<=0.01) return;
-  // While templeActive, full opacity immediately (do not wait on floor blend) so the sphere is obvious looking up or down.
-  const open=templeActive?1:Math.max(_templeBlend,0.001);
-  const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
-  // Transit aspect chords: quieter than before so sticks/globes/art stay readable.
-  const aspectOp=CFG.skyTemple.aspectLineOpacity!=null?CFG.skyTemple.aspectLineOpacity:0.42;
-  const hiOp=CFG.skyTemple.aspectHighlightOpacity!=null?CFG.skyTemple.aspectHighlightOpacity:0.65;
-  if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',aspectOp*open*dim);
-  if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?hiOp*open:0);
-  for(const pick of _templeNatal){
-    // Full sphere: no horizon hide — natal ghosts exist underfoot and above.
-    const focused=_templeFocus===pick;
-    pick.sprite.material.color.setHex(focused?0xffd24a:0xc9d4ff);
-    pick.sprite.material.depthTest=false;
-    setScalarCached(pick.sprite.material,'opacity',(focused?0.95:0.62)*open);
-    const s=pick.baseScale*(focused?1.35:1); pick.sprite.scale.set(s,s,1); pick.sprite.visible=open>0.01;
-  }
-}
-function _templeScreen(local,out){
-  _templeTmp.copy(local).applyQuaternion(skySphere.quaternion);
-  camera.getWorldDirection(_templeFwd); _templeA.copy(_templeTmp).sub(camera.position);
-  if(_templeA.dot(_templeFwd)<=0.05) return false;
-  _templeTmp.project(camera); out.x=(_templeTmp.x+1)*viewW*0.5; out.y=(1-_templeTmp.y)*viewH*0.5; return isFinite(out.x)&&isFinite(out.y);
 }
 })();

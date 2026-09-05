@@ -4086,81 +4086,82 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function rebuildSkyTempleGeometry(){
+  const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
+    :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}
+      :(_templeFocus.kind==='body'?{kind:'body',id:_templeFocus.body&&_templeFocus.body.id}
+        :(_templeFocus.kind==='sign'?{kind:'sign',id:_templeFocus.pick&&_templeFocus.pick.id}:null))));
+  _templeDisposeChildren();
+  const meta=_lsnMeta, R=SKY_CHART.R;
+  if(!meta){ _templeGroup.visible=false; return; }
+  // No ecliptic great-circle rail — it washed out sticks, sign art, and planet globes (visual simplify L1).
+  const ghosts=meta.templeGhosts||Object.create(null);
+  for(const id of Object.keys(ghosts).slice(0,SKY_CHART.caps.ghost)){
+    const body=ghosts[id]; if(!body || !isFinite(body.lonJ2000)) continue;
+    const mat=new THREE.SpriteMaterial({map:glyphTex(body.glyph||'·'),color:0xc9d4ff,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending});
+    const sprite=new THREE.Sprite(mat), size=SKY_CHART.ghost.scale*1.55;   // larger than dojo ghosts — temple investigation target
+    sprite.position.copy(eclipticDir(body.lonJ2000,0)).multiplyScalar(R*0.985); sprite.scale.set(size,size,1); sprite.renderOrder=3;
+    _templeGroup.add(sprite); _templeNatal.push({kind:'natal',id:id,body:body,sprite:sprite,local:sprite.position.clone(),baseScale:size});
+  }
+  const records=Array.isArray(meta.aspects)?meta.aspects.slice(0,Math.min(24,CFG.skyTemple.maxAspectLines||24)):[];
+  if(records.length){
+    const pos=new Float32Array(records.length*6), col=new Float32Array(records.length*6);
+    records.forEach((record,i)=>{
+      const start=eclipticDir(record.transit.lonJ2000,0).multiplyScalar(R*0.992);
+      const end=eclipticDir(record.natal.lonJ2000,0).multiplyScalar(R*0.985);
+      pos.set([start.x,start.y,start.z,end.x,end.y,end.z],i*6);
+      const c=_templeAspectColor(record.aspectId), light=0.35+0.65*Math.max(0,Math.min(1,record.tightness||0)); c.multiplyScalar(light);
+      col.set([c.r,c.g,c.b,c.r,c.g,c.b],i*6);
+      _templeAspects.push({kind:'aspect',record:record,start:start,end:end,index:i});
+    });
+    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+    // depthTest:false so chords that pass under the former floor still draw (full sphere)
+    const mat=horizonFadeMat(new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending}));
+    _templeAspectMesh=new THREE.LineSegments(geo,mat); _templeAspectMesh.frustumCulled=false; _templeAspectMesh.renderOrder=2; _templeGroup.add(_templeAspectMesh);
+    const hGeo=new THREE.BufferGeometry(); hGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+    const hMat=horizonFadeMat(new THREE.LineBasicMaterial({color:0xffdf72,transparent:true,opacity:0,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending}));
+    _templeHighlight=new THREE.Line(hGeo,hMat); _templeHighlight.frustumCulled=false; _templeHighlight.renderOrder=4; _templeHighlight.visible=false; _templeGroup.add(_templeHighlight);
+  }
+  _templeGroup.visible=templeActive;
+  if(templeActive){
+    let rebound=_templeFocus;
+    if(priorFocus&&priorFocus.kind==='aspect') rebound=_templeAspects.find(item=>item.record&&item.record.key===priorFocus.key)||null;
+    else if(priorFocus&&priorFocus.kind==='natal') rebound=_templeNatal.find(item=>item.id===priorFocus.id)||null;
+    else if(priorFocus&&priorFocus.kind==='body'){
+      const meta=_lsnMeta.bodies[priorFocus.id], pick=meta?{kind:'body',id:priorFocus.id,meta:meta}:null, body=_templeBodyFromPick(pick);
+      rebound=body?{kind:'body',body:body,pick:pick}:null;
+    }else if(priorFocus&&priorFocus.kind==='sign'){
+      const meta=_lsnMeta.signs[priorFocus.id]; rebound=meta?{kind:'sign',pick:{kind:'sign',id:priorFocus.id,meta:meta}}:null;
+    }
+    setSkyTempleFocus(rebound);
+  }
+}
+function updateSkyTempleVisuals(){
+  _templeGroup.visible=templeActive||_templeBlend>0.01;
+  if(!templeActive && _templeBlend<=0.01) return;
+  // While templeActive, full opacity immediately (do not wait on floor blend) so the sphere is obvious looking up or down.
+  const open=templeActive?1:Math.max(_templeBlend,0.001);
+  const dim=_templeFocus&&_templeFocus.kind==='aspect'?0.3:1;
+  // Transit aspect chords: quieter than before so sticks/globes/art stay readable.
+  const aspectOp=CFG.skyTemple.aspectLineOpacity!=null?CFG.skyTemple.aspectLineOpacity:0.42;
+  const hiOp=CFG.skyTemple.aspectHighlightOpacity!=null?CFG.skyTemple.aspectHighlightOpacity:0.65;
+  if(_templeAspectMesh) setScalarCached(_templeAspectMesh.material,'opacity',aspectOp*open*dim);
+  if(_templeHighlight) setScalarCached(_templeHighlight.material,'opacity',_templeHighlight.visible?hiOp*open:0);
+  for(const pick of _templeNatal){
+    // Full sphere: no horizon hide — natal ghosts exist underfoot and above.
+    const focused=_templeFocus===pick;
+    pick.sprite.material.color.setHex(focused?0xffd24a:0xc9d4ff);
+    pick.sprite.material.depthTest=false;
+    setScalarCached(pick.sprite.material,'opacity',(focused?0.95:0.62)*open);
+    const s=pick.baseScale*(focused?1.35:1); pick.sprite.scale.set(s,s,1); pick.sprite.visible=open>0.01;
+  }
+}
+function _templeScreen(local,out){
+  _templeTmp.copy(local).applyQuaternion(skySphere.quaternion);
+  camera.getWorldDirection(_templeFwd); _templeA.copy(_templeTmp).sub(camera.position);
+  if(_templeA.dot(_templeFwd)<=0.05) return false;
+  _templeTmp.project(camera); out.x=(_templeTmp.x+1)*viewW*0.5; out.y=(1-_templeTmp.y)*viewH*0.5; return isFinite(out.x)&&isFinite(out.y);
+}
 function pickSkyTempleAspect(){
   if(!SKY_TEMPLE_DATA||!SKY_TEMPLE_DATA.rayToSegment) return null;
   let best=null,bestD=CFG.skyTemple.aspectPickPx||18;
@@ -5099,7 +5100,7 @@ function themeBreath(){   // opening breath of the song: soft pad triad + root s
   try{
     const t=Tone.now();
     if(pad && CHORD_TRIAD && CHORD_TRIAD[0]) pad.triggerAttackRelease(CHORD_TRIAD[0], '2n', t, 0.14);
-    if(bass && CHORD_ROOT) bass.triggerAttackRelease(CHORD_ROOT[0], '2n', t, 0.62);
+    if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', t, 0.62);
     if(tune && PENTA) tune.triggerAttackRelease(PENTA[Math.min(4,PENTA.length-1)], '4n', t+0.05, 0.55);   // a single high note = the song's "hello"
   }catch(e){}
 }
@@ -5157,7 +5158,7 @@ function buildDrums(){
     hat=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0}}).connect(hatFilt);
     tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(tickVol=new Tone.Volume(TICK_VOL_DB).connect(drumBus));   // QUIET TICK: the same +3 dB trim, now HELD (tickVol) so the metronome alone can duck and swell back after a miss without touching drumBus (which missGrooveDuck owns)
     shotCue=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.03}}).connect(new Tone.Volume(1).connect(drumBus));   // groove Phase 1 shot-timing feedback: its OWN voice + a distinct SINE timbre so it never voice-steals the (triangle) metronome tick
-    bass=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.006,decay:0.28,sustain:0.18,release:0.22}}).connect(new Tone.Filter(520,'lowpass').connect(new Tone.Volume(-6).connect(drumBus)));   // THEME bassline voice — warmer + louder + longer sustain so root walks read as distinct lines (was -9 / short blips that all themes shared)
+    bass=new Tone.Synth({oscillator:{type:CHIP_BASS?'triangle':'sawtooth'},envelope:{attack:0.006,decay:0.28,sustain:0.18,release:0.22}}).connect(CHIP_BASS?new Tone.Volume(CFG.chip.bassDb).connect(drumBus):new Tone.Filter(520,'lowpass').connect(new Tone.Volume(-6).connect(drumBus)));   // the chip triangle needs no filter; the off arm keeps the warm saw, 520 Hz lowpass and original trim
     // These three '8n' delays become fixed ~0.25 s slaps at construction, before the run sets BPM; an eighth at 28 BPM is 1.07 s. Dry auditions their absence without retiming the off arm.
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(4200,'lowpass').connect(CHIP_DRY?new Tone.Volume(-9).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }   // CHORD-ARP BED (pass 3: ducked vol -6→-9 so the new TUNE hook can cut through; still bright enough to carry harmony)
     try{ tapSynth=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.002,decay:0.13,sustain:0,release:0.08}}).connect(new Tone.Filter(3200,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }   // WASD taps get a VOICE (were silent): the off-beat "and" taps play a pentatonic counter-melody — playing well = playing music

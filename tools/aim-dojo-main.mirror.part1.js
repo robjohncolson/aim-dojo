@@ -232,6 +232,7 @@ function resolveChip(search,cfg){
 }
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
+function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
 const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
 const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);
@@ -1626,28 +1627,5 @@ function buildNaveVault(){
       '  a*=vA; if(a<0.003) discard; vec3 c=mix(vec3(1.0,0.824,0.478),vec3(1.0,0.925,0.80),core*0.55); gl_FragColor=vec4(c*a,a); }'
     ]).join('\n') });
   roadVault=new THREE.Points(g,roadVaultMat); roadVault.frustumCulled=false; roadVault.renderOrder=-38.6; roadVault.visible=false; scene.add(roadVault);
-}
-function buildNaveVeil(){
-  /* Mercy-only, one tiny indexed sheet draw. Each half owns geometry only on its side of the aim line; the lower opening is
-     wider than the crown opening, so neither transparency nor a fold can ever cross the centre gap. Its swell borrows the
-     roadArch material's uBreath object, which is roadMat's object in turn, so the mercy sheet cannot lag the gate around it. */
-  const pos=[], side=[], idx=[]; let v=0;
-  for(let k=0;k<ML_ARCH_N;k++) for(const sd of [-1,1]){ const b=v; for(const q of [[0,0],[1,0],[1,1],[0,1]]){ pos.push(k,q[0],q[1]); side.push(sd); v++; } idx.push(b,b+1,b+2,b,b+2,b+3); }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('aSide',new THREE.Float32BufferAttribute(side,1)); g.setIndex(idx);
-  const U=roadArchMat.uniforms;
-  roadNaveVeilMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,premultipliedAlpha:true,
-    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uBreath:U.uBreath,uArchN0:U.uArchN0,uK:U.uK,uVeil:U.uVeil},
-    vertexShader:[
-      'uniform float uNow,uArchN0,uVeil,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+']; attribute float aSide; varying vec2 vUV; varying float vA;',
-      ...(ML_BITE?['uniform vec3 uBite;']:[]),
-      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
-      'void main(){ float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot, gap=mix(1.75,0.45,position.z), xl=aSide*mix(gap,'+_roadG(ROAD_HALF_W-0.45)+',position.y);',
-      (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
-      (ML_TERRAIN?'  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', ly=position.z*9.7, tv=terrainVis(u,cx+xl,ly), fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vUV=vec2(aSide*(position.y*0.5+0.5),position.z); vA=mercy*uVeil*sqrt(max(fade,0.0))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+')*tv; gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,ly+cyAt(u),-u+0.18,1.0); }':'  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vUV=vec2(aSide*(position.y*0.5+0.5),position.z); vA=mercy*uVeil*sqrt(max(fade,0.0))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+'); gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,position.z*9.7,-u+0.18,1.0); }')
-    ].join('\n'),
-    fragmentShader:[
-      'varying vec2 vUV; varying float vA; void main(){ if(vA<=0.003) discard; float x=abs(vUV.x), lat=1.0-smoothstep(0.82,1.0,x), folds=0.70+0.30*sin(vUV.x*31.0+vUV.y*2.0)*sin(vUV.x*9.0-0.6), vert=(0.10+0.90*pow(vUV.y,1.4))*(1.0-smoothstep(0.80,0.99,vUV.y)); float a=lat*folds*vert*0.22*vA; if(a<=0.003) discard; vec3 c=mix(vec3(1.0,0.66,0.28),vec3(1.0,0.92,0.75),vUV.y*0.8); gl_FragColor=vec4(c*a,a); }'
-    ].join('\n') });
-  roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
 })();

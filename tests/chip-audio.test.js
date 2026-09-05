@@ -4,8 +4,42 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const vm = require("node:vm");
 const { ROOT, main, sourceFor } = require("./source.js");
-const { baselineSource, extractFunction, checkOffGraph, checkLeadGraph, checkDryGraph } = require("./chip-graph.js");
+const { baselineSource, extractFunction, checkOffGraph, checkLeadGraph, checkDryGraph, checkBassGraph } = require("./chip-graph.js");
 const baseline = baselineSource(ROOT);
+
+test("chip bass raises Hz and named notes one octave and is a strict identity when off", () => {
+  const calls = [];
+  const ctx = vm.createContext({ CHIP_BASS: false, Tone: { Frequency(n) {
+    calls.push(n);
+    let hz = typeof n === "number" ? n : ({ C1: 32.70319566257483, A1: 55, A2: 110 })[n];
+    return { transpose(semitones) { assert.equal(semitones, 12); hz *= 2 ** (semitones / 12); return this; }, toFrequency() { return hz; } };
+  } } });
+  vm.runInContext(extractFunction(sourceFor("bassNote"), "bassNote"), ctx);
+  for (const note of [55, 43.65, "C1", "A1", undefined, { hz: 55 }]) assert.strictEqual(ctx.bassNote(note), note);
+  assert.equal(calls.length, 0, "disabled arm never allocates a Tone frequency object");
+  ctx.CHIP_BASS = true;
+  for (const note of [41.2, 43.65, 49, 55, 69.3, 73.42, 82.41]) assert.equal(ctx.bassNote(note), note * 2);
+  assert.equal(ctx.bassNote("C1"), 65.40639132514966);
+  assert.equal(ctx.bassNote("A1"), 110);
+  assert.equal(ctx.bassNote("A2"), 220);
+});
+
+test("every bass trigger uses the octave helper without changing its schedule or velocity", () => {
+  const lines = main.split("\n").filter(line => line.includes("bass.triggerAttackRelease("));
+  const oldLines = baseline.split("\n").filter(line => line.includes("bass.triggerAttackRelease("));
+  assert.equal(lines.length, 6);
+  assert.equal(lines.length, oldLines.length);
+  lines.forEach((line, i) => {
+    assert.match(line, /bass\.triggerAttackRelease\(bassNote\(/);
+    const oldArgs = oldLines[i].slice(oldLines[i].indexOf("bass.triggerAttackRelease(") + 26).split(",");
+    const newArgs = line.slice(line.indexOf("bass.triggerAttackRelease(") + 26).split(",");
+    assert.deepEqual(newArgs.slice(1), oldArgs.slice(1));
+  });
+});
+
+test("chip bass changes only waveform, filter removal and trim in the voice graph", () => {
+  checkBassGraph(main, checkOffGraph(main, ROOT));
+});
 
 test("dry chip removes exactly three delay nodes and preserves every other voice route", () => {
   checkDryGraph(main, checkOffGraph(main, ROOT));
