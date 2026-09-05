@@ -71,7 +71,7 @@ test("C2 missing doors and disabled chalk produce no mark and read no artifact",
   assert.equal(c.markFor(null, 0), null); assert.equal(c.markFor(night(), 0), null);
   const unreadable = new Proxy({}, { get() { throw Error("disabled chalk cannot inspect artifacts"); } });
   assert.equal(marks({ enabled: false }).markFor(unreadable, 0), null);
-  assert.match(main, /\n  ghostChalk:1,/);
+  assert.match(main, /\n  ghostChalk:0,/);
   assert.match(main, /const GH_CHALK=!!CFG\.ghostChalk;/);
 });
 
