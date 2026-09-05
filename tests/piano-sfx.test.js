@@ -217,8 +217,8 @@ test("Piano chordHit and bonus retain their existing polyphonic notes and schedu
   assert.equal(h.c.bonusActive, true); assert.equal(h.c._bonusEntryBeat, 12); assert.equal(h.c.bonusEndsBeat, 16);
 });
 
-test("Piano direct SFX remain behind existing Destination mute and leave the standing chorus intact", () => {
-  assert.equal(extractFunction(main, "chorusEnsure"), extractFunction(before, "chorusEnsure"));
+test("Piano direct SFX remain behind existing Destination mute and preserve standing chorus initialization", () => {
+  // piano-chorus.test.js authenticates the off graph and both instruments' cap, birth mute and warm sequence.
   assert.equal(extractFunction(main, "applyAudioState"), extractFunction(before, "applyAudioState"));
   for (const piano of [false, true]) for (const temple of [false, true]) for (const sound of [false, true]) {
     const h = audio(main, { piano, temple, sound });

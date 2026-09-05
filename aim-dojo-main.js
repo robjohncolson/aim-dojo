@@ -5542,7 +5542,11 @@ function chorusEnsure(){
   if(chorusVoice || !toneReady) return chorusVoice;
   try{
     chorusVol=new Tone.Volume(CHORUS_VOL_DB).toDestination(); chorusVol.mute=true;   // BORN MUTED: the parcel's silence is the node's default state
+    if(PIANO){
+      chorusVoice=new Tone.PolySynth(Tone.FMSynth,pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(chorusVol));   // rescued stems enter as keys on the same instrument
+    }else{
     chorusVoice=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.9,decay:0.4,sustain:0.9,release:CHORUS_REL_SEC}}).connect(new Tone.Filter(1500,'lowpass').connect(chorusVol));   // slow attack + near-full sustain = a voice that swells rather than plays; the lowpass keeps the triangle from glinting over the arrangement
+    }
     chorusVoice.maxPolyphony=chorusCap();   // EXACTLY maxStems — the ceiling the spec states, now enforced by the synth itself. The old ×2 "tail headroom" existed so a handover could put a fresh octet on top of eight still-releasing stems, which is precisely the sixteen-voice pile this parcel promised could never happen. The cap is the promise; chorusCut is what makes it survivable (Tone does not steal — it DROPS)
     chorusWarm();                           // and the pool itself, here on the main thread, for the same reason the node is
   }catch(e){ chorusVoice=null; chorusVol=null; }
@@ -5663,7 +5667,7 @@ function chorusCut(){
   // that, and puts the real release straight back: the envelope ramp and the oscillator's stop are both committed at
   // trigger time, so restoring it cannot reach them, and a second stop() legitimately pulls the first one earlier.
   if(!chorusVoice) return;
-  try{ chorusVoice.set({envelope:{release:CHORUS_CUT_SEC}}); chorusVoice.releaseAll(); chorusVoice.set({envelope:{release:CHORUS_REL_SEC}}); }catch(e){}
+  try{ chorusVoice.set({envelope:{release:CHORUS_CUT_SEC}}); chorusVoice.releaseAll(); chorusVoice.set({envelope:{release:PIANO?CFG.piano.release:CHORUS_REL_SEC}}); }catch(e){}   // a borrowed cut must restore this instrument's release, not the old choir tail
 }
 function chorusShut(at){
   // THE COMBAT BOUNDARY. The mercy bar's chord is struck with a stated length of one bar, so its own 2.2 s release
