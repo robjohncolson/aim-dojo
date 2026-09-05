@@ -211,7 +211,7 @@ test('harmony is a literal boot audition and hums remains opt-in with an H2 rest
   for(const value of ['0','1','true','false','2','01','', '%31']){const cfg={humHarmony:true};c.resolveHum('?humHarmony='+value,cfg);assert.equal(cfg.humHarmony,value!=='0');}
   const cfg={humHarmony:false};c.resolveHum('#humHarmony=1',cfg);assert.equal(cfg.humHarmony,true);
   assert.match(main,/const CHIP_FIELD=CHIP_HUMS && CFG\.chip\.humHarmony===true;/);
-  const defaults=vm.runInNewContext('('+main.match(/\bchip:(\{[^\n]+?\})/)[1]+')');assert.equal(defaults.hums,false);assert.equal(defaults.humHarmony,true);
+  const defaults=vm.runInNewContext('('+main.match(/\bchip:(\{[^\n]+?\})/)[1]+')');assert.equal(defaults.hums,true);assert.equal(defaults.humHarmony,true);
 });
 
 test('graduation retires old per-target hums at exact zero before either shared carrier attacks',()=>{

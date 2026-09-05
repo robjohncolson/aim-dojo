@@ -171,9 +171,15 @@ function data(extra={},options={}){
     state:new Proxy({running:true,bpm:60,streak:3},{set(){throw Error('ghost data cannot write gameplay');},get(o,k){if(k==='t')throw Error('ghost data cannot read the gameplay clock');return o[k];}}),
     rnd(){throw Error('ghost data cannot advance gameplay RNG');},
     THREE:new Proxy({},{get(){throw Error('C1 data cannot build any scene object');}}),
-    TF:(_key,text,values={})=>text.replace(/\{(\w+)\}/g,(_m,k)=>String(values[k])),...extra
+    TF:(_key,text,values={})=>text.replace(/\{(\w+)\}/g,(_m,k)=>String(values[k])),GH_CHALK:true,...extra
   }});
 }
+
+test('plain doors (ghostChalk:0) speak no chalk sentence even with strangers seated',async()=>{
+  const item={id:'b'.repeat(32),artifact:artifact({moonBucket:7}),reachedBack:true};
+  const c=data({GH_CHALK:false,fetch:()=>Promise.resolve(response({ghosts:[item]}))});await c.ghostVisitorFetch(4,'a'.repeat(32),8);
+  assert.equal(c._ghostVisitors.length,1);assert.equal(c.ghostVisitorLine(),'');
+});
 
 test('C1 stores three validated strangers without geometry and ignores a fourth visual source',async()=>{
   const ghosts=[0,3,7,4].map((moonBucket,i)=>({id:'bcde'[i].repeat(32),artifact:artifact({moonBucket}),reachedBack:i===1}));

@@ -269,7 +269,7 @@ test("chip ping stop handles absent tremolo and still stops kind pitch vibrato",
   }
 });
 
-test("chip hum auditions clamp boot-only duty, discrete octave and gain without enabling hums", () => {
+test("chip hum auditions clamp boot-only duty, discrete octave and gain without touching the voice flags", () => {
   const source = sourceFor("resolveHum"), ctx = vm.createContext({});
   vm.runInContext(extractFunction(source, "resolveHum"), ctx);
   const resolve = search => { const cfg = { ...chipDefaults }; ctx.resolveHum(search, cfg); return cfg; };
@@ -278,7 +278,7 @@ test("chip hum auditions clamp boot-only duty, discrete octave and gain without 
   assert.equal(custom.humDuty, 0.25);
   assert.equal(custom.humOctave, -2);
   assert.equal(custom.humGain, 0.4);
-  assert.equal(custom.hums, false, "audition values never turn a voice on");
+  assert.equal(custom.hums, chipDefaults.hums, "audition values never flip a voice flag; ?chip= is the only switch");
   const high = resolve("?humDuty=99&humOct=99&humGain=99");
   assert.equal(high.humDuty, 0.5); assert.equal(high.humOctave, 0); assert.equal(high.humGain, 0.6);
   const low = resolve("#humDuty=-99&humOct=-99&humGain=-99");
@@ -292,13 +292,14 @@ test("chip hum auditions clamp boot-only duty, discrete octave and gain without 
   assert.match(source, /resolveHum\(location\.search\+location\.hash,CFG\.chip\)/);
 });
 
-test("accepted lead dry bass defaults keep the square ping an explicit audition", () => {
+test("the normal URL carries the whole chip: lead, dry, bass and the in-key ping on; the pad stays an audition", () => {
   const source = sourceFor("resolveHum"), literal = source.match(/\bchip:(\{[^\n]+?\})/);
   assert.ok(literal);
   const actual = vm.runInNewContext("(" + literal[1] + ")");
   assert.deepEqual(JSON.parse(JSON.stringify(actual)), chipDefaults);
   assert.equal(actual.lead && actual.dry && actual.bass, true);
-  assert.equal(actual.hums, false);
+  assert.equal(actual.hums, true);
+  assert.equal(actual.humHarmony, true);
   assert.equal(actual.pad, false);
   assert.equal(actual.humDuty, 0.5);
   assert.equal(actual.humOctave, -1);

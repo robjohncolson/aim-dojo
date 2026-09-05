@@ -8918,7 +8918,7 @@ function ghostVisitorMailLine(){
   return TF('ghostVisitorsMail','strangers left marks at your door · {sigils}',{sigils:sigils.join('\u2009')});
 }
 function ghostVisitorLine(){
-  if(!GH_SHARE) return '';
+  if(!GH_SHARE || !GH_CHALK) return '';   // plain doors carry no chalk, so no sentence may claim they do (the user: "it makes no sense") — strangers stay silent until presence has a home again
   const visitors=[], sigils=[]; let reachedBack=-1;
   if(_ghostVisitors) for(const visitor of _ghostVisitors){
     const sigil=visitor&&visitor.record?ghostMoonSigil(visitor.sig):'';

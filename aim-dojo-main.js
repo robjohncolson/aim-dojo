@@ -97,7 +97,7 @@ const CFG = {
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
-  chip:{ lead:true, dry:true, bass:true, hums:false, pad:false, humHarmony:true, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums auditions a sparse chord-aware field, humHarmony:0 restores H2, and the rescued chorus stays human
+  chip:{ lead:true, dry:true, bass:true, hums:true, pad:false, humHarmony:true, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums auditions a sparse chord-aware field, humHarmony:0 restores H2, and the rescued chorus stays human
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -8918,7 +8918,7 @@ function ghostVisitorMailLine(){
   return TF('ghostVisitorsMail','strangers left marks at your door · {sigils}',{sigils:sigils.join('\u2009')});
 }
 function ghostVisitorLine(){
-  if(!GH_SHARE) return '';
+  if(!GH_SHARE || !GH_CHALK) return '';   // plain doors carry no chalk, so no sentence may claim they do (the user: "it makes no sense") — strangers stay silent until presence has a home again
   const visitors=[], sigils=[]; let reachedBack=-1;
   if(_ghostVisitors) for(const visitor of _ghostVisitors){
     const sigil=visitor&&visitor.record?ghostMoonSigil(visitor.sig):'';
