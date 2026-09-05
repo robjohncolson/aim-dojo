@@ -233,6 +233,41 @@ function resolveChip(search,cfg){
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
+let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
+function padChord(notes,dur,at,vel){
+  if(!CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);
+  if(!pad) return;
+  const start=at===undefined?Tone.now():Tone.Time(at).toSeconds(), now=Tone.immediate();
+  const frequencies=Array.isArray(notes)?notes.map(n=>Tone.Frequency(n).toFrequency()):null;
+  if(frequencies && !frequencies.length) return;
+  const note={frequencies,scalar:frequencies?frequencies[0]:notes,dur,seconds:Math.max(0,Tone.Time(dur).toSeconds()),at:start,vel};
+  for(let i=_chipPadPending.length-1;i>=0;i--) if(_chipPadPending[i].at<=now || _chipPadPending[i].at===start) _chipPadPending.splice(i,1);   // only not-yet-heard attacks need replay; a later volley owns an exactly equal snap
+  _chipPadPending.push(note);
+  _chipPadPending.sort((a,b)=>a.at-b.at);
+  for(const queued of _chipPadPending) if(queued.at>=start) padChipSchedule(queued,queued!==note);   // a live hit can arrive before a clock callback with an earlier audio timestamp: rebuild later pending notes chronologically to preserve the earned volley
+}
+function padChipSchedule(note,replay){
+  pad.oscillator.frequency.cancelScheduledValues(note.at);
+  if(note.at<=_chipPadAt) pad.oscillator.stop(note.at);   // Tone rejects duplicate starts: cancel the replaced oscillator before an equal or earlier attack without nudging its time
+  _chipPadAt=Math.max(note.at,Tone.immediate());
+  if(!note.frequencies || note.frequencies.length===1) return pad.triggerAttackRelease(note.scalar,replay?note.seconds:note.dur,note.at,note.vel);
+  const step=1/Math.max(1,+CFG.chip.arpHz||30);
+  pad.triggerAttack(note.frequencies[0],note.at,note.vel);
+  for(let i=1;i*step<note.seconds;i++) pad.oscillator.frequency.setValueAtTime(note.frequencies[i%note.frequencies.length],note.at+i*step);   // attack is pitch step zero; only pitch moves for the duration, then the last step rides the original release
+  pad.triggerRelease(note.at+note.seconds);
+}
+function padChipStop(at){
+  if(!CHIP_PAD || !pad) return;
+  try{
+    const t=at===undefined?Tone.immediate():Tone.Time(at).toSeconds();
+    pad.oscillator.frequency.cancelScheduledValues(t);
+    pad.envelope.cancel(t);
+    pad.triggerRelease(t);
+    pad.oscillator.stop(t);
+  }catch(e){}
+  _chipPadPending.length=0;
+  _chipPadAt=-Infinity;
+}
 function pulseCoefficients(duty,harmonics){
   const d=Math.max(0.05,Math.min(0.5,duty)), h=Math.max(1,Math.min(4095,harmonics|0)), real=new Float32Array(h+1), imag=new Float32Array(h+1);
   for(let n=1;n<=h;n++){ const p=2*Math.PI*n*d, k=2/(Math.PI*n); real[n]=k*Math.sin(p); imag[n]=k*(1-Math.cos(p)); }
@@ -2169,7 +2204,7 @@ function doorCross(bar){
     doorWhoosh.triggerAttackRelease(DOOR_WHOOSH_HZ[0],DOOR_WHOOSH_SEC,at,velocity);
     doorWhoosh.frequency.cancelScheduledValues(at); doorWhoosh.frequency.setValueAtTime(DOOR_WHOOSH_HZ[0],at); doorWhoosh.frequency.linearRampToValueAtTime(DOOR_WHOOSH_HZ[1],at+DOOR_WHOOSH_SEC);
     const tonic=mercy&&pad&&CHORD_TRIAD&&CHORD_TRIAD[0]&&CHORD_TRIAD[0][0];
-    if(tonic) pad.triggerAttackRelease(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
+    if(tonic) padChord(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
   }catch(e){}
 }
 function roadSync(){
@@ -5110,7 +5145,7 @@ function themeBreath(){   // opening breath of the song: soft pad triad + root s
   if(!soundOn || !toneReady || !activeTheme) return;
   try{
     const t=Tone.now();
-    if(pad && CHORD_TRIAD && CHORD_TRIAD[0]) pad.triggerAttackRelease(CHORD_TRIAD[0], '2n', t, 0.14);
+    if(pad && CHORD_TRIAD && CHORD_TRIAD[0]) padChord(CHORD_TRIAD[0], '2n', t, 0.14);
     if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', t, 0.62);
     if(tune && PENTA) tune.triggerAttackRelease(PENTA[Math.min(4,PENTA.length-1)], '4n', t+0.05, 0.55);   // a single high note = the song's "hello"
   }catch(e){}
@@ -5173,7 +5208,7 @@ function buildDrums(){
     // These three '8n' delays become fixed ~0.25 s slaps at construction, before the run sets BPM; an eighth at 28 BPM is 1.07 s. Dry auditions their absence without retiming the off arm.
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(4200,'lowpass').connect(CHIP_DRY?new Tone.Volume(-9).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }   // CHORD-ARP BED (pass 3: ducked vol -6→-9 so the new TUNE hook can cut through; still bright enough to carry harmony)
     try{ tapSynth=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.002,decay:0.13,sustain:0,release:0.08}}).connect(new Tone.Filter(3200,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }   // WASD taps get a VOICE (were silent): the off-beat "and" taps play a pentatonic counter-melody — playing well = playing music
-    try{ pad=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}}).connect(new Tone.Filter(1400,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }   // sustained PAD swell — layers in on the downbeat at high groove (the "Rez build" ceiling above tier 3)
+    try{ pad=(CHIP_PAD?new Tone.Synth({oscillator:{type:'pulse',width:dutyToWidth(CFG.chip.padDuty)},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}}):new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}})).connect(new Tone.Filter(1400,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }   // one pulse channel cycles the chord when auditioned; the off arm keeps the original polyphonic triangle, envelope, filter and trim
     try{ leadLp=new Tone.Filter(CHIP_LEAD?CFG.chip.leadLpHz:3800,'lowpass'); lead=new Tone.Synth({oscillator:CHIP_LEAD?{type:'pulse',width:dutyToWidth(CFG.chip.dutyFull)}:{type:'triangle'},envelope:{attack:0.004,decay:0.2,sustain:0.12,release:0.22}}).connect(leadLp.connect(CHIP_DRY?new Tone.Volume(-8).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; leadLp=null; }   // pulse duty carries tightness while the held filter stays at its safety cutoff; the off arm keeps the original triangle, 3800 Hz node and echo graph
     try{ tune=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.008,decay:0.18,sustain:0.08,release:0.28}}).connect(new Tone.Filter(5600,'lowpass').connect(CHIP_DRY?new Tone.Volume(-5).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.12,wet:0.15}).connect(new Tone.Volume(-5).connect(drumBus)))); }catch(e){ tune=null; }   // HOOK melody (pass 3): sine + longer notes + light delay, sits ABOVE the arp bed; own voice so kills never cut the phrase
     drumsBuilt=true;
@@ -5320,12 +5355,12 @@ function volleyNote(tg){
   try{
     const V=CFG.chordVolley, tri=CHORD_TRIAD[Math.floor(grid8/8)%CHORD_ROOT.length]; if(!tri || tri.length<2) return;   // the SAME bar-chord expression onGrid voices the pad and arp from, so the volley is always in the harmony that is actually playing
     const st=beatSnap();
-    if(_volleyN>=3){ pad.triggerAttackRelease(tri, '2n', st, V.triadVel); return; }   // THIRD on the beat: the full bar triad, the volley's payoff (the theme's own array — read, never mutated)
+    if(_volleyN>=3){ padChord(tri, '2n', st, V.triadVel); return; }   // THIRD on the beat: the full bar triad, the volley's payoff (the theme's own array — read, never mutated)
     const deg=(tg && tg.bowK>0) ? singDegree(tg.bowK) : -1, VV=CFG.voice;
     _volleyDyad[0]=(deg>=0 && PENTA && PENTA[deg]>0) ? PENTA[deg]*0.5 : tri[0];   // the orb's OWN sung degree (parcel D's map, so the dyad says which distance you just closed), an octave down into the chord register where tri[1] lives — without the drop it would sit a tenth above the third and read as two separate melodies, not one dyad. No k (cube-root fallback) → the chord root
     _volleyDyad[1]=tri[1];                                          // the bar's THIRD: the interval that makes it harmony rather than the open fifth chordHit already plays on every kill
     const shaped=VV.on && voiceLive(), q=shaped?voiceQ():1;
-    pad.triggerAttackRelease(_volleyDyad, '4n', st, V.dyadVel*(shaped ? Math.min(1,(VV.breathyVel+(VV.fullVel-VV.breathyVel)*q)/Math.max(0.001,VV.fullVel)) : 1));   // SECOND on the beat: the dyad inherits the arrival's shaped velocity as a RATIO of parcel E's own full-vs-breathy law, so a tight volley rings and a scraped one only breathes (voice.on:false → the flat dyadVel)
+    padChord(_volleyDyad, '4n', st, V.dyadVel*(shaped ? Math.min(1,(VV.breathyVel+(VV.fullVel-VV.breathyVel)*q)/Math.max(0.001,VV.fullVel)) : 1));   // SECOND on the beat: the dyad inherits the arrival's shaped velocity as a RATIO of parcel E's own full-vs-breathy law, so a tight volley rings and a scraped one only breathes (voice.on:false → the flat dyadVel)
   }catch(e){}
 }
 /* ===== THE STANDING CHORUS (wave 3 parcel J) — the save file you can HEAR =====
@@ -5626,6 +5661,7 @@ function chorusBow(sec){ chorusSaltRefresh(); chorusSing(1, 0, Math.max(0.5,sec)
 function applyAudioState(){
   if(listener) listener.setMasterVolume((state.running && !templeActive && soundOn)?1:0);
   if(drumBus) drumBus.mute = !(state.running && !templeActive && soundOn);
+  if(CHIP_PAD && !(state.running && !templeActive && soundOn)) padChipStop();   // native pitch automation outlives Transport callbacks, so a silent boundary must clear the optional mono channel too
   try{ if(window.Tone&&Tone.Destination) Tone.Destination.mute=!!(templeActive||!soundOn); }catch(e){}   // silence direct-routed combat notes already scheduled before Temple entry
 }
 
@@ -5945,7 +5981,7 @@ function bowEnterHold(){
   const man=_bow.dots?Math.max(0.1,B.mandalaSec||0):0, tail=Math.max(man, man*(B.lineAtMandala||0)+(B.lineHoldSec||0));
   _bow.lineAt=_bow.t+man*(B.lineAtMandala||0);
   _bow.endAt=_bow.t+tail+(B.senseiSec||0); _bow.senseiAt=_bow.endAt-(B.senseiSec||0);
-  if(toneReady && soundOn && pad && CHORD_TRIAD){ try{ pad.triggerAttackRelease(CHORD_TRIAD[0], tail+0.5, Tone.now(), 0.16); }catch(e){} }   // the resolution: ONE held pad note on the tonic, ringing under the glyph. onGrid has nothing left to play.
+  if(toneReady && soundOn && pad && CHORD_TRIAD){ try{ padChord(CHORD_TRIAD[0], tail+0.5, Tone.now(), 0.16); }catch(e){} }   // the resolution: ONE held pad note on the tonic, ringing under the glyph. onGrid has nothing left to play.
   if(_bow.dots){ const cv=bowCanvasEl(); if(cv) cv.style.display='block'; }   // no dots → the canvas never even shows
   if(CFG.chorus.on) chorusBow(_bow.endAt-_bow.t);   // THE STANDING CHORUS holds under the Mandala for exactly this stage — the night's last sound is the sky it filled. Raw boolean first; a hitless Bow still gets it (the stems are the collection's, not this run's)
 }
@@ -6739,7 +6775,7 @@ function onGrid(time){
       if(tick && i===0) tick.triggerAttackRelease(2093,'32n',time, 0.55);   // soft downbeat (shot pocket) — quieter in phase 0 so the letter pocket owns attention
       if(kick && i===0) kick.triggerAttackRelease('C1','8n',time, trainPhase===0?0.35:0.55);
       if(bass && i===0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]), trainPhase===0?'2n':'4n', time, trainPhase===0?0.38:0.55);
-      if(pad && i===0 && trainPhase>=1) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, 0.12);
+      if(pad && i===0 && trainPhase>=1) padChord(CHORD_TRIAD[ci],'1n',time, 0.12);
       if(hat && trainPhase>=1 && andStep) hat.triggerAttackRelease('32n',time, 0.28);
       if(arp && trainPhase>=2 && (i===0||i===4)) arp.triggerAttackRelease(CHORD_TRIAD[ci][0]*2,'16n',time, 0.35);
     }catch(e){}
@@ -6759,7 +6795,7 @@ function onGrid(time){
   }
   if(CFG.stars.on && (_starPend.length || _starDebt.length)) starFlyDrain(starBeatNow());   // THE SECOND OPPORTUNITY (1.2): the gap a return is stamped with belongs to the beat clock, so the beat clock gets to pay it too — whichever of this callback and the render frame reaches the due first. It grants nothing that is not due, allocates nothing (pooled records, one buffer repaint), builds no mesh and schedules no sound, and the trainer returned far above so the parcel stays inert there. Raw boolean first, and the length reads keep a quiet run at three numbers per eighth
   if(_bow.stage>=BOW.RIT){   // THE BOW, closing bars: play has ended, so the arrangement THINS to pad + root and resolves to the TONIC (chord index 0 of the active theme) while the Transport ritards. No drums, no tick, no arp, no hook, no spawns, no groove bookkeeping — and stage HOLD is silent, because the single held pad note was already struck at the resolution.
-    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', time, 0.42); if(pad && CHORD_TRIAD) pad.triggerAttackRelease(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
+    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', time, 0.42); if(pad && CHORD_TRIAD) padChord(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
     grid8++; return;
   }
   // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
@@ -6811,9 +6847,9 @@ function onGrid(time){
     }
     // PAD: full-bar triad. TORIYANSE gets it from mid-groove (tier≥1 / grooveI≥1) so the crossing always has a warm bed; others wait for the Rez build
     if(pad && i===0){
-      if(_isTori && grooveI>=1.0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0))+tideLift);
-      else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
-      else if(tideBloom && tideLift>0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
+      if(_isTori && grooveI>=1.0) padChord(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0))+tideLift);
+      else if(grooveI>=1.5) padChord(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
+      else if(tideBloom && tideLift>0) padChord(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
     }
     if(CFG.chorus.on && tideBloom) chorusMercy(time);   // THE STANDING CHORUS: the mercy downbeat is one of the parcel's three sanctioned moments — the lit sky swells with the bloom and lets go across the bar. Raw boolean first, so with the parcel off this slot costs one read and no call, and the trainer (which returned far above) never reaches it at all
     if(tick && (i%2===0)){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, (i===0?0.9:0.75)*tv); }   // QUIET TICK: the metronome thins as tickI climbs — velocity-shaped so beats dissolve over a bar, skipped entirely once they reach 0 (×1 with the parcel off). Pitches/timing untouched
@@ -6858,6 +6894,7 @@ function syncTransport(){
 }
 function teardownTransport(){
   if(!toneReady) return;
+  if(CHIP_PAD) padChipStop();   // a new night must not inherit old native pitch or envelope events
   try{ if(gridId!=null){ Tone.Transport.clear(gridId); gridId=null; } Tone.Transport.stop(); Tone.Transport.cancel(); Tone.Transport.position=0; }catch(e){}
   grid8=0; cd=0; restSlots=0;
 }

@@ -233,6 +233,41 @@ function resolveChip(search,cfg){
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
+let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
+function padChord(notes,dur,at,vel){
+  if(!CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);
+  if(!pad) return;
+  const start=at===undefined?Tone.now():Tone.Time(at).toSeconds(), now=Tone.immediate();
+  const frequencies=Array.isArray(notes)?notes.map(n=>Tone.Frequency(n).toFrequency()):null;
+  if(frequencies && !frequencies.length) return;
+  const note={frequencies,scalar:frequencies?frequencies[0]:notes,dur,seconds:Math.max(0,Tone.Time(dur).toSeconds()),at:start,vel};
+  for(let i=_chipPadPending.length-1;i>=0;i--) if(_chipPadPending[i].at<=now || _chipPadPending[i].at===start) _chipPadPending.splice(i,1);   // only not-yet-heard attacks need replay; a later volley owns an exactly equal snap
+  _chipPadPending.push(note);
+  _chipPadPending.sort((a,b)=>a.at-b.at);
+  for(const queued of _chipPadPending) if(queued.at>=start) padChipSchedule(queued,queued!==note);   // a live hit can arrive before a clock callback with an earlier audio timestamp: rebuild later pending notes chronologically to preserve the earned volley
+}
+function padChipSchedule(note,replay){
+  pad.oscillator.frequency.cancelScheduledValues(note.at);
+  if(note.at<=_chipPadAt) pad.oscillator.stop(note.at);   // Tone rejects duplicate starts: cancel the replaced oscillator before an equal or earlier attack without nudging its time
+  _chipPadAt=Math.max(note.at,Tone.immediate());
+  if(!note.frequencies || note.frequencies.length===1) return pad.triggerAttackRelease(note.scalar,replay?note.seconds:note.dur,note.at,note.vel);
+  const step=1/Math.max(1,+CFG.chip.arpHz||30);
+  pad.triggerAttack(note.frequencies[0],note.at,note.vel);
+  for(let i=1;i*step<note.seconds;i++) pad.oscillator.frequency.setValueAtTime(note.frequencies[i%note.frequencies.length],note.at+i*step);   // attack is pitch step zero; only pitch moves for the duration, then the last step rides the original release
+  pad.triggerRelease(note.at+note.seconds);
+}
+function padChipStop(at){
+  if(!CHIP_PAD || !pad) return;
+  try{
+    const t=at===undefined?Tone.immediate():Tone.Time(at).toSeconds();
+    pad.oscillator.frequency.cancelScheduledValues(t);
+    pad.envelope.cancel(t);
+    pad.triggerRelease(t);
+    pad.oscillator.stop(t);
+  }catch(e){}
+  _chipPadPending.length=0;
+  _chipPadAt=-Infinity;
+}
 function pulseCoefficients(duty,harmonics){
   const d=Math.max(0.05,Math.min(0.5,duty)), h=Math.max(1,Math.min(4095,harmonics|0)), real=new Float32Array(h+1), imag=new Float32Array(h+1);
   for(let n=1;n<=h;n++){ const p=2*Math.PI*n*d, k=2/(Math.PI*n); real[n]=k*Math.sin(p); imag[n]=k*(1-Math.cos(p)); }

@@ -1639,6 +1639,41 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function buildNaveVeil(){
   /* Mercy-only, one tiny indexed sheet draw. Each half owns geometry only on its side of the aim line; the lower opening is
      wider than the crown opening, so neither transparency nor a fold can ever cross the centre gap. Its swell borrows the
@@ -2169,7 +2204,7 @@ function doorCross(bar){
     doorWhoosh.triggerAttackRelease(DOOR_WHOOSH_HZ[0],DOOR_WHOOSH_SEC,at,velocity);
     doorWhoosh.frequency.cancelScheduledValues(at); doorWhoosh.frequency.setValueAtTime(DOOR_WHOOSH_HZ[0],at); doorWhoosh.frequency.linearRampToValueAtTime(DOOR_WHOOSH_HZ[1],at+DOOR_WHOOSH_SEC);
     const tonic=mercy&&pad&&CHORD_TRIAD&&CHORD_TRIAD[0]&&CHORD_TRIAD[0][0];
-    if(tonic) pad.triggerAttackRelease(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
+    if(tonic) padChord(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
   }catch(e){}
 }
 function roadSync(){

@@ -103,6 +103,7 @@ function runDoorCross(source, { live = true, train = false, temple = false, soun
     pad: { triggerAttackRelease(...args) { padNotes.push(args); } }, CHORD_TRIAD: [[110, 132, 165]],
     beatSnap: () => { snaps.push(1); return 10; }, sweep, frequency, padNotes, snaps,
   });
+  context.padChord = (...args) => context.pad.triggerAttackRelease(...args);
   vm.runInContext(`${extractFunction(source, "roadTideAt")}\n${extractFunction(source, "doorCross")}\nthis.cross=function(bar,clock){ roadMat.uniforms.uNow.value=clock; roadMat.uniforms.uPulse.value=clock+100; doorCross(bar); return _wallCross.value; };`, context);
   return context;
 }
@@ -192,7 +193,7 @@ test("Door whoosh observes the exact bars-to-mercy gain ladder and mercy tonic",
   assertContract(html);
   mutationMustFail(assertContract, replaceFunction(html, "doorCross", (fn) => fn.replace("barsToMercy>=3", "barsToMercy>3")), "the quiet ladder kills a whoosh three bars before mercy");
   mutationMustFail(assertContract, replaceFunction(html, "doorCross", (fn) => fn.replace("barsToMercy===2?Math.pow(10,-6/20):1", "1")), "the gain oracle kills a full-volume two-bars-out door");
-  mutationMustFail(assertContract, replaceFunction(html, "doorCross", (fn) => fn.replace("if(tonic) pad.triggerAttackRelease", "if(false&&tonic) pad.triggerAttackRelease")), "the mercy oracle kills a missing tonic grace");
+  mutationMustFail(assertContract, replaceFunction(html, "doorCross", (fn) => fn.replace("if(tonic) padChord", "if(false&&tonic) padChord")), "the mercy oracle kills a missing tonic grace");
   mutationMustFail(assertContract, replaceFunction(html, "doorCross", (fn) => fn.replace("(reduceMotion?roadMat.uniforms.uPulse:roadMat.uniforms.uNow)", "roadMat.uniforms.uNow")), "the standing clock oracle kills a uNow-stamped crossing");
 });
 

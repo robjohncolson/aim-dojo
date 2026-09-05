@@ -31,8 +31,10 @@ test("every bass trigger uses the octave helper without changing its schedule or
   assert.equal(lines.length, oldLines.length);
   lines.forEach((line, i) => {
     assert.match(line, /bass\.triggerAttackRelease\(bassNote\(/);
-    const oldArgs = oldLines[i].slice(oldLines[i].indexOf("bass.triggerAttackRelease(") + 26).split(",");
-    const newArgs = line.slice(line.indexOf("bass.triggerAttackRelease(") + 26).split(",");
+    const marker = "bass.triggerAttackRelease(";
+    const oldArgs = oldLines[i].slice(oldLines[i].indexOf(marker) + marker.length).split(";")[0].split(",");
+    const newArgs = line.slice(line.indexOf(marker) + marker.length).split(";")[0].split(",");
+    assert.equal(newArgs[0], `bassNote(${oldArgs[0]})`);
     assert.deepEqual(newArgs.slice(1), oldArgs.slice(1));
   });
 });

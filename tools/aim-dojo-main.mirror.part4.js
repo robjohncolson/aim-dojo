@@ -6726,6 +6726,42 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
@@ -6739,7 +6775,7 @@ function onGrid(time){
       if(tick && i===0) tick.triggerAttackRelease(2093,'32n',time, 0.55);   // soft downbeat (shot pocket) — quieter in phase 0 so the letter pocket owns attention
       if(kick && i===0) kick.triggerAttackRelease('C1','8n',time, trainPhase===0?0.35:0.55);
       if(bass && i===0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]), trainPhase===0?'2n':'4n', time, trainPhase===0?0.38:0.55);
-      if(pad && i===0 && trainPhase>=1) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, 0.12);
+      if(pad && i===0 && trainPhase>=1) padChord(CHORD_TRIAD[ci],'1n',time, 0.12);
       if(hat && trainPhase>=1 && andStep) hat.triggerAttackRelease('32n',time, 0.28);
       if(arp && trainPhase>=2 && (i===0||i===4)) arp.triggerAttackRelease(CHORD_TRIAD[ci][0]*2,'16n',time, 0.35);
     }catch(e){}
@@ -6759,7 +6795,7 @@ function onGrid(time){
   }
   if(CFG.stars.on && (_starPend.length || _starDebt.length)) starFlyDrain(starBeatNow());   // THE SECOND OPPORTUNITY (1.2): the gap a return is stamped with belongs to the beat clock, so the beat clock gets to pay it too — whichever of this callback and the render frame reaches the due first. It grants nothing that is not due, allocates nothing (pooled records, one buffer repaint), builds no mesh and schedules no sound, and the trainer returned far above so the parcel stays inert there. Raw boolean first, and the length reads keep a quiet run at three numbers per eighth
   if(_bow.stage>=BOW.RIT){   // THE BOW, closing bars: play has ended, so the arrangement THINS to pad + root and resolves to the TONIC (chord index 0 of the active theme) while the Transport ritards. No drums, no tick, no arp, no hook, no spawns, no groove bookkeeping — and stage HOLD is silent, because the single held pad note was already struck at the resolution.
-    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', time, 0.42); if(pad && CHORD_TRIAD) pad.triggerAttackRelease(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
+    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', time, 0.42); if(pad && CHORD_TRIAD) padChord(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
     grid8++; return;
   }
   // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
@@ -6811,9 +6847,9 @@ function onGrid(time){
     }
     // PAD: full-bar triad. TORIYANSE gets it from mid-groove (tier≥1 / grooveI≥1) so the crossing always has a warm bed; others wait for the Rez build
     if(pad && i===0){
-      if(_isTori && grooveI>=1.0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0))+tideLift);
-      else if(grooveI>=1.5) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
-      else if(tideBloom && tideLift>0) pad.triggerAttackRelease(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
+      if(_isTori && grooveI>=1.0) padChord(CHORD_TRIAD[ci],'1n',time, Math.min(0.22,0.08+0.08*(grooveI-1.0))+tideLift);
+      else if(grooveI>=1.5) padChord(CHORD_TRIAD[ci],'1n',time, Math.min(0.2,0.06+0.09*(grooveI-1.5))+tideLift);
+      else if(tideBloom && tideLift>0) padChord(CHORD_TRIAD[ci],'1n',time, tideLift);   // TIDES: the mercy bar gets its breath even at low groove — same pad voice, no new synth
     }
     if(CFG.chorus.on && tideBloom) chorusMercy(time);   // THE STANDING CHORUS: the mercy downbeat is one of the parcel's three sanctioned moments — the lit sky swells with the bloom and lets go across the bar. Raw boolean first, so with the parcel off this slot costs one read and no call, and the trainer (which returned far above) never reaches it at all
     if(tick && (i%2===0)){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(i===0?2093:1568,'32n',time, (i===0?0.9:0.75)*tv); }   // QUIET TICK: the metronome thins as tickI climbs — velocity-shaped so beats dissolve over a bar, skipped entirely once they reach 0 (×1 with the parcel off). Pitches/timing untouched
@@ -6858,6 +6894,7 @@ function syncTransport(){
 }
 function teardownTransport(){
   if(!toneReady) return;
+  if(CHIP_PAD) padChipStop();   // a new night must not inherit old native pitch or envelope events
   try{ if(gridId!=null){ Tone.Transport.clear(gridId); gridId=null; } Tone.Transport.stop(); Tone.Transport.cancel(); Tone.Transport.position=0; }catch(e){}
   grid8=0; cd=0; restSlots=0;
 }
