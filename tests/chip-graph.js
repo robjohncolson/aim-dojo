@@ -78,7 +78,8 @@ function captureGraph(source, flags = {}, chip = {}, piano = {}) {
     assert.equal(targets.length, 1, `${id} should have one outgoing edge`);
     return [{ name: node.name, args: node.args }, ...route(targets[0].to)];
   }
-  return { events, nodes, edges, roots, routes: Object.fromEntries(voices.map(k => [k, roots[k] === null ? null : route(roots[k])])) };
+  const polyphony = Object.fromEntries(voices.filter(k => ctx[k] && ctx[k].maxPolyphony !== undefined).map(k => [k, ctx[k].maxPolyphony]));
+  return { events, nodes, edges, roots, polyphony, routes: Object.fromEntries(voices.map(k => [k, roots[k] === null ? null : route(roots[k])])) };
 }
 
 function baselineSource(root) { return execFileSync("git", ["show", "589c3db:aim-dojo-main.js"], { cwd: root, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 }); }

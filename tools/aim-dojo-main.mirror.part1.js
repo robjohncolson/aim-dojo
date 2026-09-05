@@ -254,6 +254,12 @@ function pianoDur(q){
   const t=Math.max(0,Math.min(1,q));
   return lo+(hi-lo)*t;
 }   // key length follows arrival tightness; the off arm never calls this helper
+function pianoHold(dur){
+  if(!PIANO) return dur;
+  const sec=Math.max(0,Tone.Time(dur).toSeconds());
+  const cap=Math.max(+CFG.piano.longSec||0.42,0.42)*2;   // a held chord may ring longer than a kill, never a whole bar
+  return Math.min(sec,cap);
+}
 function pianoBass(n){
   return PIANO?Tone.Frequency(n).transpose(12).toFrequency():n;
 }   // one octave lets the piano root speak on laptop speakers; callers choose this OR the chip wrapper
@@ -275,12 +281,13 @@ function bassOut(n){ return PIANO?pianoBass(n):bassNote(n); }   // select exactl
 
 let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
 function padChord(notes,dur,at,vel){
-  if(PIANO || !CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);
+  const hold=pianoHold(dur);
+  if(PIANO || !CHIP_PAD) return pad.triggerAttackRelease(notes,hold,at,vel);
   if(!pad) return;
   const start=at===undefined?Tone.now():Tone.Time(at).toSeconds(), now=Tone.immediate();
   const frequencies=Array.isArray(notes)?notes.map(n=>Tone.Frequency(n).toFrequency()):null;
   if(frequencies && !frequencies.length) return;
-  const note={frequencies,scalar:frequencies?frequencies[0]:notes,dur,seconds:Math.max(0,Tone.Time(dur).toSeconds()),at:start,vel};
+  const note={frequencies,scalar:frequencies?frequencies[0]:notes,dur:hold,seconds:Math.max(0,Tone.Time(hold).toSeconds()),at:start,vel};
   for(let i=_chipPadPending.length-1;i>=0;i--) if(_chipPadPending[i].at<=now || _chipPadPending[i].at===start) _chipPadPending.splice(i,1);   // only not-yet-heard attacks need replay; a later volley owns an exactly equal snap
   _chipPadPending.push(note);
   _chipPadPending.sort((a,b)=>a.at-b.at);

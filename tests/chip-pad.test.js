@@ -7,7 +7,7 @@ const { extractFunction } = require("./chip-graph.js");
 const main = sourceFor("padChord");
 const declaration = main.split("\n").find(line => line.startsWith("let _chipPadAt="));
 assert.ok(declaration, "production owns the chip-only pending descriptors");
-const source = declaration + "\n" + ["padChord", "padChipSchedule", "padChipStop"].map(name => extractFunction(main, name)).join("\n");
+const source = declaration + "\n" + ["pianoHold", "padChord", "padChipSchedule", "padChipStop"].map(name => extractFunction(main, name)).join("\n");
 
 function harness(on = true, bpm = 60) {
   let nativeNow=0;

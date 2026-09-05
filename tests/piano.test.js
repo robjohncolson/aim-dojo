@@ -149,14 +149,15 @@ test("Piano graph is six shared-patch keyboard voices, the exact woodblock and n
     arp: [fm, lp, node("FeedbackDelay", { delayTime: "8n", feedback: 0.2, wet: 0.28 }), node("Volume", -9), ...bus],
     tapSynth: [fm, lp, node("Volume", -11), ...bus],
     pad: [node("PolySynth", { constructor: "FMSynth" }, expectedPatch), lp, node("Volume", -17), ...bus],
-    lead: [fm, lp, node("FeedbackDelay", { delayTime: "8n", feedback: 0.18, wet: 0.2 }), node("Volume", -8), ...bus],
+    lead: [node("PolySynth", { constructor: "FMSynth" }, expectedPatch), lp, node("FeedbackDelay", { delayTime: "8n", feedback: 0.18, wet: 0.2 }), node("Volume", -8), ...bus],
     leadLp: [lp, node("FeedbackDelay", { delayTime: "8n", feedback: 0.18, wet: 0.2 }), node("Volume", -8), ...bus],
     tune: [fm, lp, node("FeedbackDelay", { delayTime: "8n", feedback: 0.12, wet: 0.15 }), node("Volume", -5), ...bus]
   };
   assert.deepEqual(graph.routes, expected);
   assert.equal(graph.nodes.length, 23);
-  assert.equal(graph.nodes.filter(n => n.name === "FMSynth").length, 5);
-  assert.equal(graph.nodes.filter(n => n.name === "PolySynth").length, 1);
+  assert.equal(graph.nodes.filter(n => n.name === "FMSynth").length, 4);
+  assert.equal(graph.nodes.filter(n => n.name === "PolySynth").length, 2);
+  assert.deepEqual(graph.polyphony, { lead: 4 }, "the held root and its two grace keys have one spare voice");
   assert.equal(graph.nodes.filter(n => n.name === "Synth").length, 1, "only the woodblock remains a basic Synth");
   assert.equal(graph.nodes.some(n => ["NoiseSynth", "MembraneSynth"].includes(n.name)), false);
   assert.deepEqual(graph.routes.tick, captureGraph(beforePiano).routes.tick);
@@ -178,7 +179,7 @@ test("Piano patch controls reach all six voices and the five safety filters with
   const graph = captureGraph(main, { ...chipDefaults, piano: true }, { leadLpHz: 12345, bassDb: -30 }, { harm: 2, mod: 1.5, lpHz: 3600, bassDb: -10 });
   for (const voice of ["bass", "arp", "tapSynth", "pad", "lead", "tune"]) {
     const args = graph.routes[voice][0].args;
-    const patch = args[voice === "pad" ? 1 : 0];
+    const patch = args[voice === "pad" || voice === "lead" ? 1 : 0];
     assert.equal(patch.harmonicity, 2, voice);
     assert.equal(patch.modulationIndex, 1.5, voice);
     assert.deepEqual(patch.oscillator, { type: "sine" }, voice);
@@ -190,17 +191,18 @@ test("Piano patch controls reach all six voices and the five safety filters with
   assert.equal(graph.routes.bass[1].args[0], -10);
 });
 
-test("Piano pad forwards whole chords and exact caller arguments even with chip pad on, with no mono cleanup", () => {
+test("Piano pad forwards whole chords with a capped gate and unchanged notes, onset and velocity, without mono cleanup", () => {
   for (const chipPad of [false, true]) {
     const calls = [], token = {};
     const forbidden = new Proxy({}, { get(_target, key) { assert.fail(`poly pad entered mono ${String(key)}`); } });
     const pad = { triggerAttackRelease(...args) { calls.push(args); return token; } };
-    const ctx = vm.createContext({ PIANO: true, CHIP_PAD: chipPad, pad, Tone: forbidden, CFG: forbidden });
-    vm.runInContext(["padChord", "padChipStop"].map(name => extractFunction(main, name)).join("\n"), ctx);
+    const Tone = new Proxy({ Time(value) { return { toSeconds: () => typeof value === "number" ? value : 120 / 28 }; } }, { get(target, key) { return key in target ? target[key] : forbidden[key]; } });
+    const ctx = vm.createContext({ PIANO: true, CHIP_PAD: chipPad, pad, Tone, CFG: { piano: pianoDefaults, chip: forbidden }, Math });
+    vm.runInContext(["pianoHold", "padChord", "padChipStop"].map(name => extractFunction(main, name)).join("\n"), ctx);
     const chord = [220, 275, 330];
     assert.equal(ctx.padChord(chord, "2n", 4, 0.2), token);
     assert.equal(calls[0][0], chord, "the original chord array is forwarded by identity");
-    assert.deepEqual(calls[0], [chord, "2n", 4, 0.2]);
+    assert.deepEqual(calls[0], [chord, 0.84, 4, 0.2]);
     assert.equal(ctx.padChord("A3", 0.42, undefined, undefined), token);
     assert.deepEqual(calls[1], ["A3", 0.42, undefined, undefined]);
     ctx.padChipStop();

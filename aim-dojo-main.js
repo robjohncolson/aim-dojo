@@ -254,6 +254,12 @@ function pianoDur(q){
   const t=Math.max(0,Math.min(1,q));
   return lo+(hi-lo)*t;
 }   // key length follows arrival tightness; the off arm never calls this helper
+function pianoHold(dur){
+  if(!PIANO) return dur;
+  const sec=Math.max(0,Tone.Time(dur).toSeconds());
+  const cap=Math.max(+CFG.piano.longSec||0.42,0.42)*2;   // a held chord may ring longer than a kill, never a whole bar
+  return Math.min(sec,cap);
+}
 function pianoBass(n){
   return PIANO?Tone.Frequency(n).transpose(12).toFrequency():n;
 }   // one octave lets the piano root speak on laptop speakers; callers choose this OR the chip wrapper
@@ -275,12 +281,13 @@ function bassOut(n){ return PIANO?pianoBass(n):bassNote(n); }   // select exactl
 
 let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
 function padChord(notes,dur,at,vel){
-  if(PIANO || !CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);
+  const hold=pianoHold(dur);
+  if(PIANO || !CHIP_PAD) return pad.triggerAttackRelease(notes,hold,at,vel);
   if(!pad) return;
   const start=at===undefined?Tone.now():Tone.Time(at).toSeconds(), now=Tone.immediate();
   const frequencies=Array.isArray(notes)?notes.map(n=>Tone.Frequency(n).toFrequency()):null;
   if(frequencies && !frequencies.length) return;
-  const note={frequencies,scalar:frequencies?frequencies[0]:notes,dur,seconds:Math.max(0,Tone.Time(dur).toSeconds()),at:start,vel};
+  const note={frequencies,scalar:frequencies?frequencies[0]:notes,dur:hold,seconds:Math.max(0,Tone.Time(hold).toSeconds()),at:start,vel};
   for(let i=_chipPadPending.length-1;i>=0;i--) if(_chipPadPending[i].at<=now || _chipPadPending[i].at===start) _chipPadPending.splice(i,1);   // only not-yet-heard attacks need replay; a later volley owns an exactly equal snap
   _chipPadPending.push(note);
   _chipPadPending.sort((a,b)=>a.at-b.at);
@@ -5286,7 +5293,10 @@ function buildDrums(){
       try{ arp=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(CHIP_DRY?new Tone.Volume(-9).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }
       try{ tapSynth=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }
       try{ pad=new Tone.PolySynth(Tone.FMSynth,pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }
-      try{ leadLp=new Tone.Filter(CFG.piano.lpHz,'lowpass'); lead=new Tone.FMSynth(pianoPatch()).connect(leadLp.connect(CHIP_DRY?new Tone.Volume(-8).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; leadLp=null; }
+      try{
+        leadLp=new Tone.Filter(CFG.piano.lpHz,'lowpass'); lead=new Tone.PolySynth(Tone.FMSynth,pianoPatch()).connect(leadLp.connect(CHIP_DRY?new Tone.Volume(-8).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus))));
+        lead.maxPolyphony=4;   // root, fifth and octave hold separate keys, with one spare voice
+      }catch(e){ lead=null; leadLp=null; }
       try{ tune=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(CHIP_DRY?new Tone.Volume(-5).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.12,wet:0.15}).connect(new Tone.Volume(-5).connect(drumBus)))); }catch(e){ tune=null; }
     }else{
     kick=new Tone.MembraneSynth({pitchDecay:0.03,octaves:6,envelope:{attack:0.001,decay:0.22,sustain:0}}).connect(drumBus);

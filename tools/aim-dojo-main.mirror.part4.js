@@ -6847,6 +6847,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
 function cardLoad(){
   if(_cardLoaded) return; _cardLoaded=true;
   let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
