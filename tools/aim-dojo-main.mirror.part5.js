@@ -9328,13 +9328,60 @@
 
 
 
+function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
+  const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
+  if(!ts[2]){ if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); return; }
+  const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
+  lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
+  lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px'); lockBoxEl.style.setProperty('--pulse','1');
+  lockBoxEl.classList.add('on','lock'); lockBoxEl.classList.remove('decoy');
+}
+function updateFlickBonus(dt){
+  if(!bonusActive) return;
+  if(_bonusJustArmed){ _bonusJustArmed=false; clearProjectiles(); }                 // deferred: clear in-flight shots AFTER updateProjectiles' loop this frame (clearing mid-loop would corrupt its index)
+  const beat=currentRawBeat();
+  if(!_bonusResolving){                                                             // LOCK PHASE: preview the lockable orb + count the window down (in whole beats)
+    const tg=scopeLockTarget(true);
+    if(tg) showFlickBox(tg); else if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+    if(beat>=bonusEndsBeat) startFlickResolve(beat);
+  } else {                                                                          // RESOLVE PHASE: detonate one locked orb per beat, then unfreeze
+    if(beat>=_bonusCascadeBeat){
+      if(bonusLocks.length){ resolveFlickLock(bonusLocks.shift()); _bonusCascadeBeat=Math.floor(beat)+1; }
+      else endFlickBonus();
+    }
+  }
+}
+/* ---- wind HUD (free-play prototype): an arrow rotated to the wind direction RELATIVE TO YOUR VIEW + the strength ---- */
+const windHudEl=gid('windHud'), windArrowEl=windHudEl&&windHudEl.querySelector('.wh-arrow'), windMagEl=windHudEl&&windHudEl.querySelector('.wh-mag'), _windFwd=new THREE.Vector3();
+function updateWindHud(){
+  if(!windHudEl) return;
+  if(!(state.running && (windX||windZ))){ if(windHudEl.classList.contains('on')) windHudEl.classList.remove('on'); return; }
+  camera.getWorldDirection(_windFwd); const fl=Math.hypot(_windFwd.x,_windFwd.z)||1, dfx=_windFwd.x/fl, dfz=_windFwd.z/fl;   // horizontal forward
+  const wFwd=windX*dfx+windZ*dfz, wRight=windX*(-dfz)+windZ*dfx, ang=Math.atan2(wRight,wFwd)*RAD2DEG;   // wind vs view: 0=downrange (arrow up), + = pushes right (screen-right = (-fz,fx))
+  setStyle(windArrowEl,'transform','rotate('+ang.toFixed(0)+'deg)');
+  setText(windMagEl, Math.hypot(windX,windZ).toFixed(2));
+  if(!windHudEl.classList.contains('on')) windHudEl.classList.add('on');
+}
 
+/* ========================= HUD ========================= */
+function gid(id){ return document.getElementById(id); }
+const el={ speedVal:gid('speedVal'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
+  reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
+el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
+function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
+function setVar(node, name, value){ const key='_var_'+name; if(node[key]!==value){ node.style.setProperty(name, value); node[key]=value; } }   // change-guarded CSS custom property write (the --tx/--ty/--lx/--ly reticle anchors: skipped while neither the camera nor the orb moved)
+function setStyle(node, prop, value){ const key='_style_'+prop; if(node[key]!==value){ node.style[prop]=value; node[key]=value; } }
 
-
-
-
-
-
+let primaryKey='';
+function renderPrimary(up, flash){
+  const v=Math.round(state.bpm), key=''+v;
+  if(key!==primaryKey){ el.speedVal.innerHTML=v+'<span class="x">bpm</span>'; primaryKey=key; }
+  if(flash && !reduceMotion){ el.speedVal.classList.remove('up','down'); void el.speedVal.offsetWidth; el.speedVal.classList.add(up?'up':'down'); }
+}
+function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('fire'); void el.hitmark.offsetWidth; el.hitmark.classList.add('fire'); }
+let reticleBadT=0;
+function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
+let _spoilShown=false;
 function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
   const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;

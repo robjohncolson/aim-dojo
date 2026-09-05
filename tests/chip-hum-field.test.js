@@ -184,7 +184,8 @@ test('new field hooks preserve the old spawn, grading, chord arrangement and per
     assert.equal(crypto.createHash('sha256').update(original).digest('hex'),offFixture.hashes[name]);
     let current=extractFunction(main,name);
     if(name==='onGrid') current=pianoIntroOff(current);
-    if(name==='makeTargetSound') current=current.replace("if(PIANO && CFG.piano.hums) osc.type='sine'; else ", '').replace('(PIANO && CFG.piano.hums)||CHIP_HUMS?', 'CHIP_HUMS?').replace('!(PIANO && CFG.piano.hums) && !CHIP_HUMS', '!CHIP_HUMS');
+    if(name==='makeTargetSound') current=current.replace("  if(PIANO && CFG.piano.hums){ try{ THREE.MathUtils.generateUUID(); pickPenta(); if(!CHIP_HUMS) Math.random(); }catch(e){} return null; }   // retain the old audio-only draws while the shared piano owns every lesson and main-mode call\n", '').replace("if(PIANO && CFG.piano.hums) osc.type='sine'; else ", '').replace('(PIANO && CFG.piano.hums)||CHIP_HUMS?', 'CHIP_HUMS?').replace('!(PIANO && CFG.piano.hums) && !CHIP_HUMS', '!CHIP_HUMS');
+    if(name==='voiceTargetSound') current=current.replace("  if(PIANO && CFG.piano.hums){ if(listener && soundOn && kind===3) Math.random(); return; }   // all sphere colours use one keyboard, without legacy vibrato or detuned twins\n", '');
     if(hooks[name]){const lines=current.split('\n').filter(line=>line.startsWith(hooks[name]));assert.equal(lines.length,1,name);current=current.replace(lines[0]+'\n','');}
     if(name==='onGrid') current=current.replaceAll('bassOut(', 'bassNote(');
     assert.equal(current,original,name+' retains its complete non-field body');
@@ -214,7 +215,7 @@ test('harmony is a literal boot audition and hums remains opt-in with an H2 rest
   const c=vm.createContext({});vm.runInContext(extractFunction(main,'resolveHum'),c);
   for(const value of ['0','1','true','false','2','01','', '%31']){const cfg={humHarmony:true};c.resolveHum('?humHarmony='+value,cfg);assert.equal(cfg.humHarmony,value!=='0');}
   const cfg={humHarmony:false};c.resolveHum('#humHarmony=1',cfg);assert.equal(cfg.humHarmony,true);
-  assert.match(main,/const CHIP_FIELD=CHIP_HUMS && CFG\.chip\.humHarmony===true;/);
+  assert.match(main,/const CHIP_FIELD=\(PIANO && CFG\.piano\.hums\) \|\| \(CHIP_HUMS && CFG\.chip\.humHarmony===true\);/);
   const defaults=vm.runInNewContext('('+main.match(/\bchip:(\{[^\n]+?\})/)[1]+')');assert.equal(defaults.hums,true);assert.equal(defaults.humHarmony,true);
 });
 

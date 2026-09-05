@@ -144,7 +144,7 @@ test("Piano graph is seven shared-patch keyboard voices including the metronome,
   const lp = node("Filter", 4200, "lowpass");
   const expected = {
     drumBus: bus, kick: null, snare: null, hat: null, shotCue: null,
-    tick: [node("PolySynth", { constructor: "FMSynth" }, expectedPatch), node("Volume", 3), ...bus],
+    tick: [node("PolySynth", { constructor: "FMSynth" }, {...expectedPatch,volume:-9}), node("Volume", 3), ...bus],
     bass: [fm, node("Volume", -8), ...bus],
     arp: [fm, lp, node("FeedbackDelay", { delayTime: "8n", feedback: 0.2, wet: 0.28 }), node("Volume", -9), ...bus],
     tapSynth: [fm, lp, node("Volume", -11), ...bus],

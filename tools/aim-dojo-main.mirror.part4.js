@@ -6859,6 +6859,53 @@
 
 
 
+
+
+
+
+
+
+
+
+/* ---- NIGHT CARDS (wave 5a, parcel O) ----
+   The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
+   tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON
+   IT. No count, no BPM, no accuracy, no streak, no name, no rank: there is nothing here that could be read as a score,
+   which is the whole reason it is worth sending to a person.
+   NOTHING IS INVENTED, AND NOTHING IS DUPLICATED. The glyph is painted by bowGlyphPaint — the Bow's own drawing law,
+   extracted so the ceremony and the card cannot disagree about what a night looked like. The moon is drawn by
+   phasesDrawDisc — the Temple ring's own shape. The band is the REAL fixture the dome is drawing right now (the same
+   vertex buffer, read back to ecliptic lon/lat and laid out flat), so a star on the card is a star you can walk
+   outside and find. The rule is wave 4's own sentence fragment. This parcel's only new drawing is the composition.
+   CAPTURE is one write per completed Bow, after the session has landed on its report card, overwritten every night —
+   the paint is queued for browser idle and its PNG is encoded asynchronously, so neither task belongs to the ceremony.
+   The card is ephemeral by design, because the SKY is the permanent record and this is only how tonight leaves the house. A hitless night
+   writes nothing at all (a glyph with no dots is not a card any more than it is a ritual).
+   STORAGE IS UNTRUSTED (wave-3/4/5a discipline): the loader is a validator — a plain non-array object at v===1, a d
+   that is literally YYYY-MM-DD (the memory layer's one date grammar), buckets admitted only in 0..7, hits admitted
+   only as finite pairs and clamped, star ids admitted only under wave 3's own id grammar, everything capped at
+   maxDots. Anything else is a night that left no card, silently.
+   Kill-switch nightCard.on:false → nothing is captured, no listener is wired, the button (display:none in the markup)
+   can never appear, and the file is never opened from any surface. */
+const CARD_KEY='aimdojo.nightcard';
+const CARD_FONT='"Share Tech Mono",ui-monospace,monospace';   // the page's own face, named for the canvas (which cannot read a CSS variable)
+const CARD_MON_EN=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];   // EN ONLY, and deliberately: the JA date is 'cardDate' = '{y}年{m}月{d}日', which reads the NUMBER and never the month name, so there is no Japanese string here to be missing
+const CARD_LAT_DEG=38;   // the band's half-height in ecliptic latitude — the fixture's widest star sits at 32.5°, so this frames the whole zodiac with air above and below and never clips a figure
+let _card=null;          // tonight's summary as VALIDATED memory ({d, phase, rule, hb, hits:[{errMs,k}], stars:[id]}), or null for a browser that has never bowed
+let _cardLoaded=false;   // the file is opened at most once per page life, by whichever surface needs it first (the offer, or a Bow that overwrites it)
+let _cardOpen=false;     // the view is showing — so a second Bow tonight repaints what is already on screen instead of leaving last night's picture up
+const _cardStars=[];     // ids brightened THIS RUN, in the order the sky took them — the halo list, cleared by resetSession exactly like the Mandala's own ledger, and never persisted except inside one night's card
+let _cardCv;
+let _cardBlob=null;
+let _cardCaptureQueued=false, _cardCaptureSeq=0;
+function cardCanvasEl(){ if(_cardCv===undefined) _cardCv=(typeof document!=='undefined')?document.getElementById('nightCardCv'):null; return _cardCv; }
+function cardStar(id){
+  // Called from starLitGain, the ONE accretion path. First-come and deduped: a star that rises three levels tonight is
+  // one halo, not three, and past maxDots the night simply stops collecting — the halo is a night's work, not a ledger.
+  if(!id || _cardStars.length>=Math.max(1,CFG.nightCard.maxDots|0)) return;
+  if(_cardStars.indexOf(id)<0) _cardStars.push(id);
+}
+function cardInt(v,lo,hi){ return (typeof v==='number' && isFinite(v) && Math.floor(v)===v && v>=lo && v<=hi) ? v : null; }   // 1.1 amendment (M4): the senseiNum discipline for this envelope's integers — a TYPE test before a value test, and a fraction is a REJECTION rather than something to truncate. A null rejects the whole record at the call site, silently
 function cardLoad(){
   if(_cardLoaded) return; _cardLoaded=true;
   let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
@@ -9281,58 +9328,4 @@ function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus 
   if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
   playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
 }
-function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
-  const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
-  if(!ts[2]){ if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); return; }
-  const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
-  lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
-  lockBoxEl.style.setProperty('--lx', ts[0]+'px'); lockBoxEl.style.setProperty('--ly', ts[1]+'px'); lockBoxEl.style.setProperty('--pulse','1');
-  lockBoxEl.classList.add('on','lock'); lockBoxEl.classList.remove('decoy');
-}
-function updateFlickBonus(dt){
-  if(!bonusActive) return;
-  if(_bonusJustArmed){ _bonusJustArmed=false; clearProjectiles(); }                 // deferred: clear in-flight shots AFTER updateProjectiles' loop this frame (clearing mid-loop would corrupt its index)
-  const beat=currentRawBeat();
-  if(!_bonusResolving){                                                             // LOCK PHASE: preview the lockable orb + count the window down (in whole beats)
-    const tg=scopeLockTarget(true);
-    if(tg) showFlickBox(tg); else if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-    if(beat>=bonusEndsBeat) startFlickResolve(beat);
-  } else {                                                                          // RESOLVE PHASE: detonate one locked orb per beat, then unfreeze
-    if(beat>=_bonusCascadeBeat){
-      if(bonusLocks.length){ resolveFlickLock(bonusLocks.shift()); _bonusCascadeBeat=Math.floor(beat)+1; }
-      else endFlickBonus();
-    }
-  }
-}
-/* ---- wind HUD (free-play prototype): an arrow rotated to the wind direction RELATIVE TO YOUR VIEW + the strength ---- */
-const windHudEl=gid('windHud'), windArrowEl=windHudEl&&windHudEl.querySelector('.wh-arrow'), windMagEl=windHudEl&&windHudEl.querySelector('.wh-mag'), _windFwd=new THREE.Vector3();
-function updateWindHud(){
-  if(!windHudEl) return;
-  if(!(state.running && (windX||windZ))){ if(windHudEl.classList.contains('on')) windHudEl.classList.remove('on'); return; }
-  camera.getWorldDirection(_windFwd); const fl=Math.hypot(_windFwd.x,_windFwd.z)||1, dfx=_windFwd.x/fl, dfz=_windFwd.z/fl;   // horizontal forward
-  const wFwd=windX*dfx+windZ*dfz, wRight=windX*(-dfz)+windZ*dfx, ang=Math.atan2(wRight,wFwd)*RAD2DEG;   // wind vs view: 0=downrange (arrow up), + = pushes right (screen-right = (-fz,fx))
-  setStyle(windArrowEl,'transform','rotate('+ang.toFixed(0)+'deg)');
-  setText(windMagEl, Math.hypot(windX,windZ).toFixed(2));
-  if(!windHudEl.classList.contains('on')) windHudEl.classList.add('on');
-}
-
-/* ========================= HUD ========================= */
-function gid(id){ return document.getElementById(id); }
-const el={ speedVal:gid('speedVal'), hitFlash:gid('hitFlash'), dojoFlash:gid('dojoFlash'),
-  reticle:gid('reticle'), hitmark:gid('hitmark'), timing:gid('timing'), beatRing:gid('beatRing') };
-el.timingG=el.timing?el.timing.querySelector('.g'):null; el.timingS=el.timing?el.timing.querySelector('.s'):null; el.timingP=el.timing?el.timing.querySelector('.p'):null;
-function setText(node, value){ value=String(value); if(node._text!==value){ node.textContent=value; node._text=value; } }
-function setVar(node, name, value){ const key='_var_'+name; if(node[key]!==value){ node.style.setProperty(name, value); node[key]=value; } }   // change-guarded CSS custom property write (the --tx/--ty/--lx/--ly reticle anchors: skipped while neither the camera nor the orb moved)
-function setStyle(node, prop, value){ const key='_style_'+prop; if(node[key]!==value){ node.style[prop]=value; node[key]=value; } }
-
-let primaryKey='';
-function renderPrimary(up, flash){
-  const v=Math.round(state.bpm), key=''+v;
-  if(key!==primaryKey){ el.speedVal.innerHTML=v+'<span class="x">bpm</span>'; primaryKey=key; }
-  if(flash && !reduceMotion){ el.speedVal.classList.remove('up','down'); void el.speedVal.offsetWidth; el.speedVal.classList.add(up?'up':'down'); }
-}
-function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('fire'); void el.hitmark.offsetWidth; el.hitmark.classList.add('fire'); }
-let reticleBadT=0;
-function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
-let _spoilShown=false;
 })();

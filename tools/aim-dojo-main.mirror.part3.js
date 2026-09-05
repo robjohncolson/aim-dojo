@@ -5289,7 +5289,7 @@ function buildDrums(){
       snare=null;
       hat=null;
       shotCue=null;
-      tick=new Tone.PolySynth(Tone.FMSynth,pianoPatch()).connect(tickVol=new Tone.Volume(TICK_VOL_DB).connect(drumBus));   // the metronome plays the same piano; its held trim preserves the quiet-tick fade and return
+      tick=new Tone.PolySynth(Tone.FMSynth,{...pianoPatch(),volume:-9}).connect(tickVol=new Tone.Volume(TICK_VOL_DB).connect(drumBus));   // the count sits behind the played keys; voice trim survives every quiet-tick fade and session reset
       tick.maxPolyphony=4;   // the two existing downbeat notes can share an onset, with two voices left for overlapping cue tails
       bass=new Tone.FMSynth(pianoPatch()).connect(new Tone.Volume(CFG.piano.bassDb).connect(drumBus));
       try{ arp=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(CHIP_DRY?new Tone.Volume(-9).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }
@@ -5797,6 +5797,7 @@ function applyAudioState(){
 // Position-aware hum: the chip is a bare gated ping; the off arm keeps the sine's tremolo and distance reverb.
 function makeTargetSound(mesh){
   if(!listener || !soundOn) return null;
+  if(PIANO && CFG.piano.hums){ try{ THREE.MathUtils.generateUUID(); pickPenta(); if(!CHIP_HUMS) Math.random(); }catch(e){} return null; }   // retain the old audio-only draws while the shared piano owns every lesson and main-mode call
   if(CHIP_FIELD && !trainMode){ try{ THREE.MathUtils.generateUUID(); pickPenta(); }catch(e){} return null; }   // spend the old positional UUID and pitch draws at their original site; native shared carriers add none, so audio cannot shift the healthy pulse arm's spawn stream
   const ctx=listener.context;
   try{
@@ -5824,6 +5825,7 @@ function makeTargetSound(mesh){
 }
 // per-kind voice: same instrument family, small timbre shifts by orb color (called AFTER the kind roll so the rnd() spawn stream is untouched; audio-only)
 function voiceTargetSound(snd, kind){
+  if(PIANO && CFG.piano.hums){ if(listener && soundOn && kind===3) Math.random(); return; }   // all sphere colours use one keyboard, without legacy vibrato or detuned twins
   if(CHIP_FIELD && !trainMode){ if(listener && soundOn && kind===3) Math.random(); return; }   // SPEED's old modulation choice still spends its draw after the kind roll; the harmonious field has no detune or semitone pickup
   if(!snd || !listener || !kind) return;
   try{
@@ -5915,14 +5917,14 @@ function stopTargetSound(snd){
   try{ if(snd.send) snd.send.disconnect(); }catch(e){}
 }
 
-/* THE FIELD SINGS THE CHORD: two native pulse carriers, enabled only for the hums audition.
+/* THE FIELD SINGS THE CHORD: two shared piano keys, or the legacy native pulse carriers.
    The recurring calls use the existing Tone.Draw clock: frame-quantized, never dt-integrated; attacks over 50 ms late are skipped.
-   No added instrument, RNG draw, gameplay mutation, effect send, vibrato, semitone pickup or extra tail voice.
-   Whole-beat arrivals are opportunities, not deadlines. Fill-tagged tanks already own their drum figure.
+   The piano announces spawns in both modes; its fixed pool never grows with the target count.
+   The legacy branch keeps its original density, timing and fill exclusions.
    The five-rung chord ladder replaces absolute scale pitches; its register needs an ear test. */
 let _humField=CHIP_FIELD?{voices:null,ctx:null,active:false,epoch:0,serial:0,tags:new WeakMap(),harmony:[],appliedAt:-Infinity,ci:0,tier:0}:null;
 function humFieldLive(){
-  return CHIP_FIELD && soundOn && toneReady && state.running && !trainMode && !templeActive && _bow.stage<BOW.LAST && listener && rawCtx && listener.context;
+  return CHIP_FIELD && soundOn && toneReady && state.running && (!trainMode || (PIANO && CFG.piano.hums)) && !templeActive && _bow.stage<BOW.LAST && listener && rawCtx && listener.context;
 }
 function humFieldBeat(){
   try{ return Tone.Transport.getTicksAtTime(rawCtx.currentTime)/Tone.Transport.PPQ; }catch(e){ return NaN; }
@@ -5932,7 +5934,24 @@ function humFieldNativeTime(t){
 }
 function humFieldQuiet(v,at){
   v.gain.gain.cancelScheduledValues(at);v.gain.gain.setValueAtTime(0,at);
+  if(v.piano) v.osc.triggerRelease(at);
   v.osc.frequency.cancelScheduledValues(at);v.until=at;
+}
+function pianoFieldBuild(F,ctx){
+  const built=[];
+  try{
+    if(!F.toneContext){
+      F.toneContext=new Tone.Context({context:ctx,clockSource:'offline',lookAhead:0});
+      F.pianoTick=()=>F.toneContext.emit('tick'); Tone.getContext().on('tick',F.pianoTick);   // reuse Tone's existing timer to retire finished oscillators; this wrapper never owns or closes THREE's context
+    }
+    for(let i=0;i<2;i++){
+      const panner=ctx.createPanner(),gain=ctx.createGain();
+      const v={panner,gain,osc:null,piano:true,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,lastAttack:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
+      panner.panningModel='HRTF';panner.refDistance=5;panner.rolloffFactor=1;panner.distanceModel='inverse';panner.maxDistance=120;
+      v.osc=new Tone.FMSynth({...pianoPatch(),context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
+    }
+    F.ctx=ctx;F.voices=built;return true;
+  }catch(e){for(const v of built){try{if(v.osc)v.osc.dispose();v.gain.disconnect();v.panner.disconnect();}catch(ignore){}}return false;}
 }
 function humFieldRetireLegacy(){
   if(!humFieldLive())return;
@@ -5951,6 +5970,7 @@ function humFieldBuild(){
   const ctx=listener.context;
   if(F.voices)return F.ctx===ctx;
   if((ctx.state&&ctx.state!=='running')||(rawCtx.state&&rawCtx.state!=='running'))return false;
+  if(PIANO && CFG.piano.hums)return pianoFieldBuild(F,ctx);
   const built=[];
   try{
     for(let i=0;i<2;i++){
@@ -5965,7 +5985,7 @@ function humFieldBuild(){
   }catch(e){for(const v of built){try{v.gain.gain.value=0;v.osc.stop();v.osc.disconnect();v.gain.disconnect();v.panner.disconnect();}catch(ignore){}}return false;}
 }
 function humFieldEligible(tg){
-  return !!(tg && !tg.dead && tg.mesh && tg.idx>=0 && targets[tg.idx]===tg && state.t<tg.expireAt && tg.fill16<0 && tg.kind!==2);
+  return !!(tg && !tg.dead && tg.mesh && tg.idx>=0 && targets[tg.idx]===tg && state.t<tg.expireAt && (tg.fill16<0 || (PIANO && CFG.piano.hums)) && tg.kind!==2);
 }
 function humFieldMove(v,now,instant){
   if(!v.target||(!instant&&now<v.nextSpatial))return;
@@ -6037,8 +6057,34 @@ function humFieldBind(picked){
   }
   for(let j=0;j<2;j++)if(!used[j]){const v=voices[j];humFieldQuiet(v,F.ctx.currentTime);v.target=null;v.tag=0;}
 }
+function pianoFieldStrike(entry,event,only){
+  const F=_humField,now=F.ctx.currentTime,beat=humFieldBeat();if(!Number.isFinite(beat))return;
+  if(only){
+    const tag=F.tags.get(only);let v=F.voices.find(v=>v.target===only&&v.tag===tag);
+    if(!v){v=F.voices.find(v=>!v.target||v.until<=now)||F.voices.reduce((a,b)=>a.until<=b.until?a:b);humFieldQuiet(v,now);v.target=only;v.tag=tag;v.lastEvent=-Infinity;}
+  }else{
+    if(F.voices.some(v=>humFieldEligible(v.target)&&F.tags.get(v.target)===v.tag&&typeof v.lastEvent==='string'&&v.lastEvent.startsWith('spawn:')&&now-v.lastAttack<0.05))return;   // the due accompaniment yields to a sphere that just announced itself, before selection can steal its attack
+    humFieldBind(humFieldSelect(beat));
+  }
+  for(const v of F.voices){
+    if(!v.target||(only&&v.target!==only)||v.lastEvent===event||(v.lastEvent!==-Infinity&&now-v.lastAttack<0.05))continue;   // a spawn and its due grid pulse are one key attack
+    const f=humFieldPitch(v.target,entry.ci);if(!(f>0))continue;
+    const at=Math.max(now+0.002,v.lastAttack+0.001),hold=0.22;let end=at+hold+CFG.piano.release,next=null;
+    for(const e of F.harmony)if(e.time>rawCtx.currentTime&&e.ci!==entry.ci){const boundary=humFieldNativeTime(e.time);if(boundary<end){end=boundary;next=e;}}
+    if(end-at<0.02){
+      if(only&&next){const epoch=F.epoch,tag=F.tags.get(only),boundary=next.time;Tone.Draw.schedule(()=>{if(epoch===F.epoch&&F.tags.get(only)===tag&&humFieldEligible(only)&&rawCtx.currentTime-boundary<=0.05)humFieldStrike(humFieldDue(),event,only);},boundary+0.01);}   // a pickup too close to the chord change joins the new chord; epoch and life tag cancel it on stop or reuse
+      continue;
+    }
+    humFieldQuiet(v,now);humFieldMove(v,now,true);
+    v.osc.triggerAttackRelease(f,Math.min(hold,end-at),at,0.65);
+    const peak=Math.max(0,CFG.chip.humGain)*2;
+    v.gain.gain.linearRampToValueAtTime(peak,at);v.gain.gain.setValueAtTime(peak,Math.max(at,end-0.02));v.gain.gain.linearRampToValueAtTime(0,end);
+    v.ci=entry.ci;v.lastEvent=event;v.lastAttack=at;v.until=end;
+  }
+}
 function humFieldStrike(entry,event,only){
   if(!humFieldLive()||!humFieldApply(entry)||!humFieldBuild())return;
+  if(PIANO && CFG.piano.hums){pianoFieldStrike(entry,event,only);return;}
   const beat=humFieldBeat();if(!Number.isFinite(beat))return;
   humFieldBind(humFieldSelect(beat));
   const F=_humField,at=humFieldNativeTime(entry.time===-Infinity?rawCtx.currentTime:Math.max(entry.time,rawCtx.currentTime));
@@ -6059,6 +6105,7 @@ function humFieldSpawn(tg){
   if(!CHIP_FIELD||!humFieldLive()||!humFieldEligible(tg))return;
   const F=_humField;F.active=true;F.tags.set(tg,++F.serial);
   const entry=humFieldDue();humFieldApply(entry);
+  if(PIANO && CFG.piano.hums){humFieldStrike(entry,'spawn:'+F.serial,tg);return;}   // the sphere announces itself even when two older targets or a groove tier would suppress its call
   if(entry.tier===0)humFieldStrike(entry,'spawn:'+F.serial,tg);
   // A grid callback can run before the Draw callback that creates this orb on the same beat. Join only that due pulse.
   else if(rawCtx.currentTime-entry.time<=0.05 && ((entry.tier>=3&&entry.i%2===0)||(entry.tier<3&&entry.i%4===0)))humFieldStrike(entry,entry.time,tg);
@@ -6820,43 +6867,4 @@ function rememberWitness(){
   if(_rememberDay===today) return;   // a second session tonight writes nothing at all
   _rememberDay=today; rememberSaveSoon();   // in memory FIRST, so this same page's later thresholds already know the night is spoken for even if the write is refused
 }
-/* ---- NIGHT CARDS (wave 5a, parcel O) ----
-   The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
-   tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON
-   IT. No count, no BPM, no accuracy, no streak, no name, no rank: there is nothing here that could be read as a score,
-   which is the whole reason it is worth sending to a person.
-   NOTHING IS INVENTED, AND NOTHING IS DUPLICATED. The glyph is painted by bowGlyphPaint — the Bow's own drawing law,
-   extracted so the ceremony and the card cannot disagree about what a night looked like. The moon is drawn by
-   phasesDrawDisc — the Temple ring's own shape. The band is the REAL fixture the dome is drawing right now (the same
-   vertex buffer, read back to ecliptic lon/lat and laid out flat), so a star on the card is a star you can walk
-   outside and find. The rule is wave 4's own sentence fragment. This parcel's only new drawing is the composition.
-   CAPTURE is one write per completed Bow, after the session has landed on its report card, overwritten every night —
-   the paint is queued for browser idle and its PNG is encoded asynchronously, so neither task belongs to the ceremony.
-   The card is ephemeral by design, because the SKY is the permanent record and this is only how tonight leaves the house. A hitless night
-   writes nothing at all (a glyph with no dots is not a card any more than it is a ritual).
-   STORAGE IS UNTRUSTED (wave-3/4/5a discipline): the loader is a validator — a plain non-array object at v===1, a d
-   that is literally YYYY-MM-DD (the memory layer's one date grammar), buckets admitted only in 0..7, hits admitted
-   only as finite pairs and clamped, star ids admitted only under wave 3's own id grammar, everything capped at
-   maxDots. Anything else is a night that left no card, silently.
-   Kill-switch nightCard.on:false → nothing is captured, no listener is wired, the button (display:none in the markup)
-   can never appear, and the file is never opened from any surface. */
-const CARD_KEY='aimdojo.nightcard';
-const CARD_FONT='"Share Tech Mono",ui-monospace,monospace';   // the page's own face, named for the canvas (which cannot read a CSS variable)
-const CARD_MON_EN=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];   // EN ONLY, and deliberately: the JA date is 'cardDate' = '{y}年{m}月{d}日', which reads the NUMBER and never the month name, so there is no Japanese string here to be missing
-const CARD_LAT_DEG=38;   // the band's half-height in ecliptic latitude — the fixture's widest star sits at 32.5°, so this frames the whole zodiac with air above and below and never clips a figure
-let _card=null;          // tonight's summary as VALIDATED memory ({d, phase, rule, hb, hits:[{errMs,k}], stars:[id]}), or null for a browser that has never bowed
-let _cardLoaded=false;   // the file is opened at most once per page life, by whichever surface needs it first (the offer, or a Bow that overwrites it)
-let _cardOpen=false;     // the view is showing — so a second Bow tonight repaints what is already on screen instead of leaving last night's picture up
-const _cardStars=[];     // ids brightened THIS RUN, in the order the sky took them — the halo list, cleared by resetSession exactly like the Mandala's own ledger, and never persisted except inside one night's card
-let _cardCv;
-let _cardBlob=null;
-let _cardCaptureQueued=false, _cardCaptureSeq=0;
-function cardCanvasEl(){ if(_cardCv===undefined) _cardCv=(typeof document!=='undefined')?document.getElementById('nightCardCv'):null; return _cardCv; }
-function cardStar(id){
-  // Called from starLitGain, the ONE accretion path. First-come and deduped: a star that rises three levels tonight is
-  // one halo, not three, and past maxDots the night simply stops collecting — the halo is a night's work, not a ledger.
-  if(!id || _cardStars.length>=Math.max(1,CFG.nightCard.maxDots|0)) return;
-  if(_cardStars.indexOf(id)<0) _cardStars.push(id);
-}
-function cardInt(v,lo,hi){ return (typeof v==='number' && isFinite(v) && Math.floor(v)===v && v>=lo && v<=hi) ? v : null; }   // 1.1 amendment (M4): the senseiNum discipline for this envelope's integers — a TYPE test before a value test, and a fraction is a REJECTION rather than something to truncate. A null rejects the whole record at the call site, silently
 })();

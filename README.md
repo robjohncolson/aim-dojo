@@ -135,7 +135,7 @@ disables personal requests instead of falling through to another host. Set
 a Supabase service-role, secret, or JWT-signing key in this object or any
 browser file.
 
-Piano is the default night, including a piano metronome. `?piano=0` restores the chip/analog mix; `?pianoHums=0` restores the previous orb voices on a piano night. These URL overrides are not saved in preferences.
+Piano is the default night, with a quiet piano metronome and two shared piano voices for sphere calls in both the lesson and main play. `?piano=0` restores the chip/analog mix; `?pianoHums=0` restores the previous orb voices on a piano night. These URL overrides are not saved in preferences.
 
 ### Cloud play preferences
 

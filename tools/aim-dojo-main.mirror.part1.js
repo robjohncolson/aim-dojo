@@ -98,7 +98,7 @@ const CFG = {
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
   chip:{ lead:true, dry:true, bass:true, hums:true, pad:false, humHarmony:true, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums auditions a sparse chord-aware field, humHarmony:0 restores H2, and the rescued chorus stays human
-  piano:{ on:true, hums:true, harm:3, mod:2.2, attack:0.002, decay:1.1, sustain:0.04, release:0.55, shortSec:0.07, longSec:0.42, lpHz:4200, bassDb:-8 },   // the night is one keyboard; ?piano=0 restores the chip mix; hums are the orb calls as soft sines; tick stays the metronome
+  piano:{ on:true, hums:true, harm:3, mod:2.2, attack:0.002, decay:1.1, sustain:0.04, release:0.55, shortSec:0.07, longSec:0.42, lpHz:4200, bassDb:-8 },   // the night is one keyboard; ?piano=0 restores the chip mix; hums share two piano keys across the lesson and main play
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -242,8 +242,8 @@ const PIANO=resolvePiano(location.search+location.hash,CFG.piano);
 function resolvePianoHums(search,cfg){
   const m=String(search||'').match(/(?:^|[?&#])pianoHums=([01])(?:[&#]|$)/);
   if(m) cfg.hums=m[1]==='1';
-}   // an independent URL flip auditions the existing calls as soft sines without changing the piano boolean
-// Default orb calls keep native sine carriers and their existing timing; a per-orb FM pool would spend the field's audio budget.
+}   // an independent URL flip restores the old orb voices without changing the rest of the piano night
+// Orb calls share two piano voices across the lesson and the night; no instrument is allocated per sphere.
 if(PIANO) resolvePianoHums(location.search+location.hash,CFG.piano);
 function pianoPatch(){
   return {harmonicity:CFG.piano.harm, modulationIndex:CFG.piano.mod,
@@ -275,7 +275,7 @@ function resolveHum(search,cfg){
 }   // boot-only ear-test controls: invalid values leave the authored setting intact and octave stays in the three supported registers
 resolveHum(location.search+location.hash,CFG.chip);
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
-const CHIP_FIELD=CHIP_HUMS && CFG.chip.humHarmony===true;
+const CHIP_FIELD=(PIANO && CFG.piano.hums) || (CHIP_HUMS && CFG.chip.humHarmony===true);
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
 function bassOut(n){ return PIANO?pianoBass(n):bassNote(n); }   // select exactly one octave wrapper; piano always takes precedence over chip bass
