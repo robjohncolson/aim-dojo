@@ -307,16 +307,16 @@ test('C1 session entry stays silent in lessons and Temple and arms own, relay, r
   assert.match(extract(source,'resetSession'),/ghostSessionStart\(\);/);
 });
 
-test('C1 Bow mail boundary attempts each nonempty visitor once per epoch and isolates failures',async()=>{
-  const sends=[],c=core(source,{functions:['ghostShareFinalize']});c._ghostToken='d'.repeat(32);
-  c._ghostVisitors=[{id:'a'.repeat(32),mail:[[7,0]]},{id:'b'.repeat(32),mail:[]},{id:'c'.repeat(32),mail:[[9,2]]}];
+test('C4 Bow mail boundary attempts each shown visitor once per epoch and isolates failures',async()=>{
+  const sends=[],rows=[[7,0],[9,2]],c=core(source,{functions:['ghostShareFinalize'],extra:{GH_CHALK:true,_ghostMarksOut:rows}});c._ghostToken='d'.repeat(32);
+  c._ghostVisitors=[{id:'a'.repeat(32),shown:true},{id:'b'.repeat(32),shown:false},{id:'c'.repeat(32),shown:true}];
   c.ghostMailAttempt=(token,toId,catches)=>{sends.push({token,toId,catches});return toId[0]==='a'?Promise.reject(Error('quiet sibling failure')):Promise.resolve(true);};
   c.ghostShareFinalize();c.ghostShareFinalize();await new Promise(setImmediate);
-  assert.deepEqual(sends,[{token:'d'.repeat(32),toId:'a'.repeat(32),catches:[[7,0]]},{token:'d'.repeat(32),toId:'c'.repeat(32),catches:[[9,2]]}]);
+  assert.deepEqual(sends.map(send=>JSON.parse(JSON.stringify(send))),[{token:'d'.repeat(32),toId:'a'.repeat(32),catches:rows},{token:'d'.repeat(32),toId:'c'.repeat(32),catches:rows}]);
   c._ghostShareEpoch++;c.ghostShareFinalize();await new Promise(setImmediate);assert.equal(sends.length,4);
   c._ghostShareEpoch++;c._ghostVisitors=[];c.ghostShareFinalize();assert.equal(sends.length,4);
-  const off=core(source,{share:false,functions:['ghostShareFinalize'],extra:{ghostMailAttempt(){throw Error('share zero cannot send');},localStorage:{getItem(){throw Error('share zero cannot read a token');}}}});
-  off._ghostVisitors=[{id:'b'.repeat(32),mail:[[7,0]]}];off.ghostShareFinalize();
+  const off=core(source,{share:false,functions:['ghostShareFinalize'],extra:{GH_CHALK:true,_ghostMarksOut:rows,ghostMailAttempt(){throw Error('share zero cannot send');},localStorage:{getItem(){throw Error('share zero cannot read a token');}}}});
+  off._ghostVisitors=[{id:'b'.repeat(32),shown:true}];off.ghostShareFinalize();
   assert.match(extract(source,'bowFinish'),/if\(GH_SHARE\) ghostShareFinalize\(\);/);
 });
 

@@ -218,7 +218,7 @@ test("C2 mercy keeps inverse background pixels and paints normal chalk without a
 test("C3 three remembered strangers occupy stable fetch-order sources beside the own mark", () => {
   const own = night({ targets: [[0, 0, 0, 50, 1, 1], [0, 1, 1, 50, 0, null]] });
   for (const low of [false, true]) {
-    const visitors = JSON.parse(JSON.stringify(visitorsFixture.visitors)), before = JSON.stringify(visitors);
+    const visitors = JSON.parse(JSON.stringify(visitorsFixture.visitors)), before = JSON.stringify(visitors.map(v => v.record));
     const { context: c, values } = installer({ record: own, visitors, low });
     c.ghostChalkInstall();
     assert.deepEqual(values(0)[2], [-0.3 * 7.3, 1, -1, 1]);
@@ -231,7 +231,7 @@ test("C3 three remembered strangers occupy stable fetch-order sources beside the
       assert.ok(Math.abs(expiry[0] - offset * 7.3) < 1e-12); assert.equal(expiry[1], expected.back ? 3 : 0); assert.equal(expiry[3], 0.72);
       assert.ok(values(index + 1).filter((_v, k) => k !== 2 && k !== 3).every(v => v[3] === 0));
     }
-    assert.equal(JSON.stringify(visitors), before, "render installation does not reorder or mutate relay records");
+    assert.equal(JSON.stringify(visitors.map(v => v.record)), before, "render installation does not reorder or mutate relay records");
     c._ghostVisitors = visitors.slice(0, 1); c.ghostChalkInstall();
     for (const source of [2, 3]) assert.ok(values(source).every(v => v[3] === 0), "removed strangers leave no stale ink");
   }

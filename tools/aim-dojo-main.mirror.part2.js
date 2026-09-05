@@ -2304,10 +2304,12 @@ function roadSync(){
   if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
     U.uPulse.value=(ML_WALL_ECHO||ML_DOOR_CROSS)?r:((Math.abs(r-Math.round(r))<0.12)?1:0); // …and the bands PULSE IN PLACE on the heard beat. Either wall event reuses this existing object for raw r so its static glow can age; the emitted road shader reconstructs this exact binary law, while both-off keeps the shipped write
     roadImpSync(0);                                                       // the impostor reads the SAME pinned clock the geometry does, so the painted horizon is frozen with the standing ribbon — static, not merely slower
+    if(GH_CHALK) ghostChalkObserve(r);
     return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
   }
   U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r)*(1-ML_HEADING_KEEP)); roadHorizonSync(r);   // curveHeading keeps only its selected fraction of the tangent; the cached horizon samples this exact re-basing pair once here, never in gameplay
   roadImpSync(r);                                                         // …and AFTER them, because the impostor continues the very re-basing pair the line above just wrote
+  if(GH_CHALK) ghostChalkObserve(r);
 }
 
 /* ========================= THE MOONLINE — THE VOID (wave 8, parcel T · SPEC_MOONLINE §2) =========================

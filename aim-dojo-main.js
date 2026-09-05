@@ -2304,10 +2304,12 @@ function roadSync(){
   if(reduceMotion){                                                       // FIRST CLASS, not a degradation: uNow stays pinned at 0 (written above) so the road STANDS STILL as a ruler of the next eight beats…
     U.uPulse.value=(ML_WALL_ECHO||ML_DOOR_CROSS)?r:((Math.abs(r-Math.round(r))<0.12)?1:0); // …and the bands PULSE IN PLACE on the heard beat. Either wall event reuses this existing object for raw r so its static glow can age; the emitted road shader reconstructs this exact binary law, while both-off keeps the shipped write
     roadImpSync(0);                                                       // the impostor reads the SAME pinned clock the geometry does, so the painted horizon is frozen with the standing ribbon — static, not merely slower
+    if(GH_CHALK) ghostChalkObserve(r);
     return;                                                               // THE WAKE is identical on this path: it is static history, so there is no motion in it to reduce — it just sits behind the standing road
   }
   U.uNow.value=r; _roadBase.set(roadCourseX(r), roadCourseD(r)*(1-ML_HEADING_KEEP)); roadHorizonSync(r);   // curveHeading keeps only its selected fraction of the tangent; the cached horizon samples this exact re-basing pair once here, never in gameplay
   roadImpSync(r);                                                         // …and AFTER them, because the impostor continues the very re-basing pair the line above just wrote
+  if(GH_CHALK) ghostChalkObserve(r);
 }
 
 /* ========================= THE MOONLINE — THE VOID (wave 8, parcel T · SPEC_MOONLINE §2) =========================
@@ -7413,6 +7415,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
   let beats=wasdBeats();   // WASD grid shifted onto the "and" (groove phase); latency correction applied next
   const bps=60/Math.max(20,state.bpm), full=bps/nd, w=Math.min(full*0.5, Math.max(CFG.wasdWindow, full*CFG.wasdWindowFrac));
   const lat=audioLat(); beats-=lat/bps;   // grade in the HEARD timeline (audioLat = reported latency + user offset) -- without this, high-latency audio makes every tap grade BEHIND and PERFECT unreachable
+  if(GH_CHALK) try{ ghostChalkTap(k,beats,nd,bps,w); }catch(e){}   // a write-only mark sink; normal letter grading, sound and the independent door crossing stay unchanged
   if(pocketLive()) pocketSweepMisses(beats,nd,bps,w);   // close older mains first so a boundary tap cannot overtake a prior silent miss
   // Pocket-aware claim: at nd=4 a ±¼ tap is exactly one 16th early/late — must bind to the MAIN, not the adjacent bonus subdivision
   const claim=claimWasdNote(beats, nd, bps, w);
@@ -8126,7 +8129,9 @@ let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoc
 let _ghostOwn=null, _ghostVisitors=null, _ghostMailRows=null, _ghostMailSpoken=false;
 let _ghostLocalMailCount=0, _ghostLocalMailSpoken=false;
 const GH_MARK_WINDOW=0.25, GH_MARK_SPAN=0.55;
+const GH_MARK_LANES=[-0.6,-0.2,0.2,0.6];
 let _ghostDoorOrigin=NaN, _ghostChalkBeat0=0;
+let _ghostMarksOut=null, _ghostMercyMarks=null;
 
 function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
 function ghostRoadReset(){
@@ -8398,6 +8403,113 @@ function ghostDoorIndex(b){ return Math.floor(b/ML_ARCH_EVERY)-_ghostDoorOrigin-
 function ghostChalkReset(r){
   if(!GH_CHALK) return;
   _ghostDoorOrigin=Math.floor(Math.max(0,r)/ML_ARCH_EVERY); _ghostChalkBeat0=Math.floor(r);
+  _ghostMarksOut=[]; _ghostMercyMarks=new Map();
+  if(_ghostVisitors) for(const visitor of _ghostVisitors) visitor.shown=false;
+}
+// The visibility proof uses the wall's cached uniforms, then samples its real projected ink and the definite opaque bays in front of it.
+let _ghostChalkProbe=null;
+function ghostChalkPoint(U,b,x,y,out){
+  if(!GH_CHALK || !U || !out) return out;
+  const now=U.uNow.value, base=U.uBase.value, a=U.uA.value, w=U.uW.value, p=U.uP.value, db=b-now;
+  let cx=a.x*Math.sin(w.x*b+p.x)+a.y*Math.sin(w.y*b+p.y)+a.z*Math.sin(w.z*b+p.z)-base.x-base.y*db;
+  let cd=a.x*w.x*Math.cos(w.x*b+p.x)+a.y*w.y*Math.cos(w.y*b+p.y)+a.z*w.z*Math.cos(w.z*b+p.z)-base.y;
+  if(ML_BITE){ const bite=U.uBite.value; cx+=bite.x*Math.sin(bite.y*b+bite.z); cd+=bite.x*bite.y*Math.cos(bite.y*b+bite.z); }
+  const len=Math.hypot(ROAD_MPB,cd), lx=ROAD_MPB/len, lz=cd/len;
+  if(ML_TERRAIN){ const terrain=U.uTerrain.value, terrainBase=U.uTerrainBase.value; y+=terrain.y*(roadTerrainY(b,terrain.x)-terrainBase.x-terrainBase.y*db); }
+  return out.set(cx+lx*x,y,-db*ROAD_MPB+lz*x);
+}
+function ghostChalkTerrain(U,b,x){
+  if(!ML_TERRAIN || !ROAD_TERRAIN_HN) return 1;
+  const u=(b-U.uNow.value)*ROAD_MPB, au=Math.abs(u); if(au<6) return 1;
+  const horizon=U.uHorizon.value, axis=_ghostChalkProbe.axis; let left=1, right=1;
+  for(let edge=0;edge<2;edge++){
+    ghostChalkPoint(U,b,edge?ML_WALL_X:-ML_WALL_X,0,axis);
+    let hz=-1e6;
+    for(let i=0;i<ROAD_TERRAIN_HN;i++){
+      const d=(i+1)*ROAD_TERRAIN_HSTEP; if(d>=au-ROAD_TERRAIN_HSTEP*0.20) continue;
+      const j=i*4+(u>=0?0:2), cy=horizon[j], cx=horizon[j+1], rayX=axis.x*d/au;
+      if(Math.abs(rayX-cx)<ROAD_HALF_W+ROAD_TERRAIN_RAIL_SOFT) hz=Math.max(hz,(cy-EYE)/d);
+    }
+    const ray=(axis.y-EYE)/au, t=Math.max(0,Math.min(1,(ray-hz+0.0008)/0.0008)), vis=t*t*(3-2*t);
+    if(edge) right=vis; else left=vis;
+  }
+  // The wall shader computes visibility at the quad's two x edges, then interpolates that varying across the face.
+  return left+(right-left)*Math.max(0,Math.min(1,(x+ML_WALL_X)/(2*ML_WALL_X)));
+}
+function ghostChalkOccluded(U,b,point){
+  const plane=_ghostChalkProbe.plane, axis=_ghostChalkProbe.axis;
+  const matrix=camera.matrixWorld&&camera.matrixWorld.elements, eyeX=matrix?matrix[12]:camera.position.x, eyeY=matrix?matrix[13]:camera.position.y, eyeZ=matrix?matrix[14]:camera.position.z;
+  const dx=point.x-eyeX, dy=point.y-eyeY, dz=point.z-eyeZ, kinds=U.uK.value;
+  for(let k=0;k<ML_WALL_N;k++){
+    const wb=U.uArchN0.value+ML_ARCH_EVERY*k, kind=kinds[k], db=wb-U.uNow.value;
+    if(wb===b || !Number.isFinite(kind) || kind>0.5 || db<ML_WALL_REAR1) continue;
+    const ft=Math.max(0,Math.min(1,(Math.abs(db*ROAD_MPB)-ROAD_FADE0)/(ROAD_FADE1-ROAD_FADE0)));
+    if(1-ft*ft*(3-2*ft)<=0.004) continue;
+    ghostChalkPoint(U,wb,0,0,plane); ghostChalkPoint(U,wb,1,0,axis);
+    const lx=axis.x-plane.x, lz=axis.z-plane.z, nx=-lz, nz=lx, denom=dx*nx+dz*nz;
+    if(Math.abs(denom)<1e-8) continue;
+    const t=((plane.x-eyeX)*nx+(plane.z-eyeZ)*nz)/denom;
+    if(t<=0.00001 || t>=0.99999) continue;
+    const x=(eyeX+dx*t-plane.x)*lx+(eyeZ+dz*t-plane.z)*lz, y=eyeY+dy*t-plane.y;
+    if(Math.abs(x)>ML_WALL_X || y<ML_WALL_Y0 || y>ML_WALL_Y1) continue;
+    let aperture;
+    if(y<ML_WALL_SPRING){ aperture=Math.abs(x)-ML_WALL_DJ; if(y<0) aperture=Math.max(aperture,-y); }
+    else aperture=(Math.hypot(x/ML_WALL_DA,(y-ML_WALL_SPRING)/ML_WALL_DB)-1)*ML_WALL_DB;
+    if(aperture<0) continue;
+    const rx=Math.max(0,Math.abs(x)-ML_WALL_BAY_X), ry=Math.max(y-ML_WALL_BAY_Y1,ML_WALL_BAY_Y0-y,0); let radius=U.uWallDissolve.value;
+    if(ML_WALL_EXHALE){ const bars=Math.floor((kind-Math.floor(kind))*100+0.5), scale=bars>=3?1:(bars>=2?ML_WALL_EXHALE2:ML_WALL_EXHALE1); radius*=1+(scale-1)*ML_WALL_EXHALE; }
+    // Only a certain opaque bay blocks the ray; stochastic powder, partly retired walls and moving targets are left unclaimed.
+    if(Math.hypot(rx,ry)>radius-(LOW?0:ML_WALL_POWDER_NOISE*0.5) || ghostChalkTerrain(U,wb,x)<=0.5) continue;
+    return true;
+  }
+  return false;
+}
+function ghostChalkInk(x,y,markX,form,px){
+  let dx=Math.abs(x-markX);
+  if(form<0.5 || form>2.5){
+    let dy=Math.abs(y-0.18); if(form>2.5) dy=Math.min(dy,Math.abs(y-0.18-5*px));
+    return dx<=ML_WALL_APEX*0.07 && dy<=1.5*px;
+  }
+  if(form>1.5) dx=Math.abs(dx-2.5*px);
+  return dx<=1.5*px && Math.abs(y-ML_WALL_APEX*0.32)<=ML_WALL_APEX*0.07;
+}
+function ghostChalkVisible(b,x,form,source){
+  if(!GH_CHALK || !ML_WALLS || !state.running || trainMode || templeActive || !roadWall || !roadWall.visible || !roadWallMat || !camera) return false;
+  if(!Number.isFinite(b) || !Number.isFinite(x) || !Number.isInteger(form) || form<0 || form>3) return false;
+  if(source!==undefined && (!Number.isInteger(source) || source<0 || source>3)) return false;
+  const U=roadWallMat.uniforms, slot=(b-U.uArchN0.value)/ML_ARCH_EVERY, k=Math.round(slot);
+  if(Math.abs(slot-k)>0.00001 || k<0 || k>=ML_WALL_N) return false;
+  const kind=U.uK.value[k]; if(!Number.isFinite(kind) || kind>1.5 || kind<0) return false;
+  if(kind>0.5 && (!ML_MERCY_INVERSE || !roadMercyInverse || !roadMercyInverse.visible)) return false;
+  const db=b-U.uNow.value, d=Math.abs(db*ROAD_MPB), ft=Math.max(0,Math.min(1,(d-ROAD_FADE0)/(ROAD_FADE1-ROAD_FADE0))), rt=Math.max(0,Math.min(1,(db-ML_WALL_REAR0)/(ML_WALL_REAR1-ML_WALL_REAR0)));
+  if(1-ft*ft*(3-2*ft)<=0.004 || rt*rt*(3-2*rt)<=0.004) return false;
+  const focal=U.uMarkFocalPx&&U.uMarkFocalPx.value; if(!Number.isFinite(focal) || focal<=0) return false;
+  if(!_ghostChalkProbe) _ghostChalkProbe={point:new THREE.Vector3(),view:new THREE.Vector3(),plane:new THREE.Vector3(),axis:new THREE.Vector3()};
+  const point=_ghostChalkProbe.point, view=_ghostChalkProbe.view;
+  if(ghostChalkTerrain(U,b,x)<=0.5) return false;
+  const dash=form===0 || form===3, y=dash?0.18:ML_WALL_APEX*0.32;
+  ghostChalkPoint(U,b,x,y,point); view.copy(point).applyMatrix4(camera.matrixWorldInverse);
+  const depth=-view.z; if(depth<=0) return false;
+  const px=Math.max(0.00001,depth/focal), hw=dash?ML_WALL_APEX*0.07:1.5*px, hh=dash?1.5*px:ML_WALL_APEX*0.07, count=form>1?2:1;
+  for(let part=0;part<count;part++){
+    const mx=x+(form===2?(part?2.5:-2.5)*px:0), my=y+(form===3&&part?5*px:0);
+    for(let i=0;i<9;i++){
+      const q=i===0?4:i<=4?i-1:i, sx=q%3-1, sy=Math.floor(q/3)-1, sampleX=mx+sx*hw*0.98, sampleY=my+sy*hh*0.98;
+      ghostChalkPoint(U,b,sampleX,sampleY,point); view.copy(point).applyMatrix4(camera.matrixWorldInverse);
+      const z=-view.z; if(z<camera.near || z>camera.far) continue;
+      view.applyMatrix4(camera.projectionMatrix);
+      if(Math.abs(view.x)>1 || Math.abs(view.y)>1 || Math.abs(view.z)>1) continue;
+      const samplePx=1/Math.max(0.00001,focal/z); if(!ghostChalkInk(sampleX,sampleY,x,form,samplePx)) continue;
+      let covered=false;
+      if(source!==undefined) for(let s=source+1;s<4;s++){
+        const uniform=U['uMark'+s], mark=uniform&&uniform.value[k];
+        if(mark && mark.w>0 && ghostChalkInk(sampleX,sampleY,mark.x,mark.y,samplePx)){ covered=true; break; }
+      }
+      if(covered) continue;   // chalkOnDoor keeps the last source with ink at this fragment, even when its alpha is below one
+      if(!ghostChalkOccluded(U,b,point)) return true;
+    }
+  }
+  return false;
 }
 function ghostChalkHue(record){
   const color=ghostNightPalette(record,[0])[0], r=(color>>>16&255)/255, g=(color>>>8&255)/255, b=(color&255)/255;
@@ -8417,10 +8529,38 @@ function ghostChalkInstall(n0){
     for(let k=0;k<marks.length;k++){
       marks[k].set(0,0,-1,0);
       if(k>=ML_WALL_N) continue;
-      const mark=markFor(record,ghostDoorIndex(b0+ML_ARCH_EVERY*k));
+      const b=b0+ML_ARCH_EVERY*k, left=s===0&&_ghostMercyMarks?_ghostMercyMarks.get(b):null;
+      if(left){ marks[k].set(GH_MARK_LANES[left[1]]*ML_WALL_DJ,1,-1,1); continue; }
+      const mark=markFor(record,ghostDoorIndex(b));
       if(mark){ const kind=visitor&&visitor.back===true?(mark.kind===0?3:2):mark.kind; marks[k].set((mark.x+offset)*ML_WALL_DJ,kind,hue,s===0?1:0.72); }
     }
   }
+}
+function ghostChalkObserve(r){
+  if(!GH_CHALK || !_ghostVisitors || !roadWallMat) return;
+  const U=roadWallMat.uniforms; if(!U.uMark1) return;
+  for(let s=0;s<Math.min(3,_ghostVisitors.length);s++){
+    const visitor=_ghostVisitors[s]; if(!visitor || visitor.shown===true) continue;
+    const marks=U['uMark'+(s+1)].value;
+    for(let k=0;k<ML_WALL_N;k++){
+      const mark=marks[k]; if(mark.w>0 && ghostChalkVisible(U.uArchN0.value+ML_ARCH_EVERY*k,mark.x,mark.y,s+1)){ visitor.shown=true; break; }
+    }
+  }
+}
+function ghostChalkTap(k,beats,nd,bps,w){
+  if(!GH_CHALK || reduceMotion || !ML_MERCY_INVERSE || !state.running || trainMode || templeActive || bonusActive || _bow.stage>=BOW.LAST) return false;
+  if(!Number.isInteger(k) || k<0 || k>3 || !Number.isFinite(beats) || !(nd>0) || !(bps>0) || !(w>=0)) return false;
+  if(Math.abs(beats*nd-Math.round(beats*nd))*bps/nd>w || !_ghostMarksOut || !_ghostMercyMarks || _ghostMarksOut.length>=GH_CAP_MAIL || !roadWallMat) return false;
+  const U=roadWallMat.uniforms, r=beats+(CFG.grooveGroove?CFG.grooveFreezePhase:0);
+  for(let slot=0;slot<ML_WALL_N;slot++){
+    const b=U.uArchN0.value+ML_ARCH_EVERY*slot, kind=U.uK.value[slot], ahead=(b-r)*ROAD_MPB;
+    if(kind<0.5 || kind>=1.5 || ahead<=0 || ahead>=ROAD_FADE1) continue;
+    if(!ghostChalkVisible(b,GH_MARK_LANES[k]*ML_WALL_DJ,1)) continue;
+    if(_ghostMercyMarks.has(b)) return false;
+    const row=[ghostRoadTime(),k]; _ghostMarksOut.push(row); _ghostMercyMarks.set(b,row);
+    ghostChalkInstall(); return true;
+  }
+  return false;
 }
 function ghostOwnLoad(){
   _ghostOwn=null; _ghostLocalMailCount=0; _ghostLocalMailSpoken=false;
@@ -8505,12 +8645,13 @@ async function ghostMailAttempt(token,toId,catches){
   return !!(response&&response.ok);
 }
 function ghostShareFinalize(){
-  if(!GH_SHARE || _ghostShareSentEpoch===_ghostShareEpoch) return;
+  if(!GH_SHARE || !GH_CHALK || _ghostShareSentEpoch===_ghostShareEpoch || !_ghostMarksOut || !_ghostMarksOut.length) return;
   const pending=[];
-  if(_ghostVisitors) for(const visitor of _ghostVisitors){ const catches=visitor&&visitor.mail; if(visitor&&visitor.id&&Array.isArray(catches)&&catches.length) pending.push([visitor.id,catches]); }
+  if(_ghostVisitors) for(const visitor of _ghostVisitors){ if(visitor && visitor.id && visitor.shown===true && pending.indexOf(visitor.id)<0 && pending.length<GH_VISITOR_COUNT) pending.push(visitor.id); }
   if(!pending.length) return;
   const token=ghostToken(); if(!token) return;
-  _ghostShareSentEpoch=_ghostShareEpoch; for(const item of pending) ghostMailAttempt(token,item[0],item[1]).catch(()=>{});
+  const rows=_ghostMarksOut.slice(0,GH_CAP_MAIL).map(row=>row.slice());
+  _ghostShareSentEpoch=_ghostShareEpoch; for(const id of pending) if(id!==token) ghostMailAttempt(token,id,rows).catch(()=>{});
 }
 function ghostNightSeed(record){
   const date=record.date, key=(+date.slice(0,4)*10000+(+date.slice(5,7))*100+(+date.slice(8,10)))|0;
