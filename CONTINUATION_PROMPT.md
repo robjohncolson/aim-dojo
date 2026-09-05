@@ -1,4 +1,32 @@
-# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-04 · cycle 2)
+# CONTINUATION_PROMPT — Moon Chorus / aim-dojo (resume here, 2026-09-05 · cycle 2)
+
+## -28. 2026-09-04/05: DRY CHALK + THE CHIP live · THE GHOST LANES ARE GONE · chalk tried and switched off · the field sings in key
+**Two user decisions after a measured brainstorm** (`CODEX_PROMPT_BRAINSTORM_CRUNCH_AND_AUDIO.md`; HIGH at native 1920×1200 hitched ~1 frame
+in 40 on the user's Core Ultra 7 155U iGPU, LOW never — fill-bound; the reflection pass and sky fbm are NOT paid in the void by either tier):
+(1) **dry chalk is the look** — `CFG.crunchLook:true` makes the LOW render the default on every device (fixed 0.5 DPR unless `WEAK`,
+`?hi`/RESOLUTION pref `'0'` = the smooth escape hatch; gameplay/social budgets moved from `LOW` to `WEAK`); (2) **NES/Game Boy is the audio
+model** — `CFG.chip` knobs + the boot-only `?chip=` audition switch (`CODEX_PROMPT_DRY_CHALK_AND_THE_CHIP.md`): pulse lead with DUTY = arrival
+tightness (12.5 %→50 %, filter held at 9 kHz), dry (the three `'8n'` FeedbackDelays were a FIXED ≈0.25 s slap — converted before BPM is
+set — removed on the chip arm), triangle bass +12 unfiltered, thin-pulse hums (first try "a mosquito"; second try = 50 % square, no
+tremolo/reverb/gold twin, octave −1), mono chip-arp pad (default OFF, riskiest for zen). Pushed `66a1711..ad8a9a9` (six Codex commits).
+User: "sounds a lot better", "I really like the Game Boy sound aesthetic".
+**THE DOORS REMEMBER (`CODEX_PROMPT_THE_DOORS_REMEMBER.md`), pushed `ad8a9a9..d503ab1`:** the user found the ghost lanes "unintelligible… too
+far, too extra… messy" and had never knowingly seen a stranger (C0 proved the fetch works: 4 nights on the relay, all 🌗 — strangers were
+indistinguishable from the own ghost). C1 DELETED every seat/lane/gift/returning-star/silhouette/`ghostPhase` (29+12+6+5+4 helpers, 115
+consts, 73 state vars; the-gift tests gone; revival = git `ad8a9a9`); token, upload, fetch, validation, read-once mail, sigils, night card
+survive as data. C2–C5 painted timing chalk on the doorways (k-th door = k-th arrival, reconstructed beat phase; strangers in their hue;
+reached-back doubled; a mercy-approach WASD tap leaves a mark mailed via the deployed `[roadT,lane]` shape; received marks drawn). **User
+verdict: "I don't like the strokes on the doorways, feels odd… get rid of the chalk markings, it makes no sense."** → `ghostChalk:0`
+(`b92a05e`, plain doors; the chalk code is compiled out and dormant) and `ghostVisitorLine` now returns `''` when `!GH_CHALK` so no sentence
+claims chalk on plain doors. **Strangers have no home in the field now; presence, if it returns, belongs at REST (Bow/menu/night card) or
+nowhere.** The relay keeps accreting nights regardless.
+**THE FIELD SINGS IN KEY (`c67a3dc`):** the user heard the hums as discordant — pitches were chosen for INFORMATION (pentatonic degree = lead k)
+not harmony, and square waves exposed every clash with C♯m–A–E–B. Now `humHarmony:true`: hums snap to the CURRENT CHORD's tones (k stays
+ordinal within the chord), at most two voices sound, calls grow with groove (spawn-only → every other beat → every beat), no detune/vibrato/
+pickups. **Defaults now carry the whole chip on the normal URL: `lead, dry, bass, hums` on, `pad` off** (`?chip=0` = the old sound,
+`?chip=all` adds the pad, `&humHarmony=0` = the previous pulse hums). Suite 425. Law kept: change voicing, never note density.
+**Still owed:** the user's ear on the in-key field live; JA native review of the (now dormant) chalk lines at `index.html` ~809; a cleanup
+parcel deleting the dormant chalk code if the user confirms it is dead; wave-8 ruling for H is MOOT (H deleted with the lanes).
 
 ## -27. 2026-09-04: RELAY DEPLOYED — sidereal `d2c460f` live on Railway · THE CHORUS REMEMBERS WHO REACHED BACK
 **What shipped:** the wave-20 Parcel G relay half (`ghost_seen`, boolean `reachedBack` in `GET /api/ghosts`, mail
