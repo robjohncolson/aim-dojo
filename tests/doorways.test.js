@@ -113,6 +113,7 @@ function runRoadLatch(source, beats) {
   const uniform = (value = 0) => ({ value }), U = { uNow: uniform(), uPulse: uniform(), uBeat0: uniform(), uGlyph: uniform(null), uGlyphOn: uniform(), uMercyB: uniform(), uBreath: uniform() };
   let now = 0;
   const context = vm.createContext({
+    GH_CHALK: false,
     Math, Number, CFG: { road: { bandGlyphs: false, mercyBoost: 1 }, moonline: { breathMax: 0 } },
     ML_DOOR_CROSS: true, ML_ARCH_EVERY: 4, ML_RIBBON: false, ML_TERRAIN: false, ML_WALLS: false, ML_WALL_ECHO: false, ROAD_GLYPH_PASS: false, ROAD_WAKE: 14, ROAD_ALPHA: 0.55, ML_HEADING_KEEP: 0,
     trainMode: false, templeActive: false, reduceMotion: false, roadMesh: { visible: true }, roadMat: { uniforms: U }, roadSocket: null, roadImp: null, roadArch: null, roadDust: null, roadArchAccent: null, roadWall: null, roadWallAccent: null, roadWallVeil: null, roadVault: null, roadNaveVeil: null,

@@ -1645,41 +1645,43 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function buildNaveVault(){
+  /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
+     uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's
+     existing pin makes the whole painted vault stand. Private seeded generation preserves the gameplay random stream. */
+  const N=ML_NAVE_STARS, pos=new Float32Array(N*3), dat=new Float32Array(N*3), rr=mulberry32(0x51f15e9d);
+  for(let i=0;i<N;i++){
+    const canopy=i<Math.floor(N*0.76), anchor=rr()*ML_NAVE_VAULT_SPAN, u=anchor*ROAD_MPB; let x,y;
+    if(canopy){ x=(rr()*2-1)*34; const roof=Math.max(19,58-Math.abs(x)*0.78); y=15+Math.pow(rr(),1.25)*(roof-15); }
+    else { const side=rr()<0.5?-1:1; x=side*(9+24*Math.pow(rr(),1.4)); y=5.5+16*rr(); }
+    if(u>430){ const cone=3+(u-430)*0.028; if(Math.abs(x)<cone) x=(x<0?-1:1)*cone; }
+    const near=1-0.72*Math.max(0,Math.min(1,(u-90)/560)), sz=(canopy?0.18:0.14)+(canopy?0.68:0.46)*Math.pow(rr(),1.8), pick=rr();
+    pos[i*3]=anchor; pos[i*3+1]=x; pos[i*3+2]=y; dat[i*3]=sz; dat[i*3+1]=pick<0.16?1:(pick<0.24?2:0); dat[i*3+2]=(0.48+0.52*rr())*near;
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aData',new THREE.BufferAttribute(dat,3));
+  const U=roadMat.uniforms;
+  roadVaultMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,
+    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uBreath:U.uBreath},
+    vertexShader:[
+      'uniform float uNow,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; attribute vec3 aData; varying float vA,vT;',
+      ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
+      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+      'void main(){',
+      '  float ba=mod(position.x-uNow,'+_roadG(ML_NAVE_VAULT_SPAN)+')-'+_roadG(ML_NAVE_VAULT_BEHIND)+', b=uNow+ba;',
+      (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
+      (ML_TERRAIN?'  float u=ba*'+_roadG(ROAD_MPB)+', tv=terrainVis(u,cx+position.y,position.z); vec4 mv=viewMatrix*vec4(cx+position.y,position.z+cyAt(u),-u,1.0); gl_Position=projectionMatrix*mv;':'  float u=ba*'+_roadG(ROAD_MPB)+'; vec4 mv=viewMatrix*vec4(cx+position.y,position.z,-u,1.0); gl_Position=projectionMatrix*mv;'),
+      '  float px=clamp(aData.x*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),1.6,34.0); gl_PointSize=px; vT=aData.y; vA=aData.z*clamp(px/8.0,0.18,1.0)*smoothstep('+_roadG(-ROAD_MPB)+','+_roadG(-ROAD_MPB*0.45)+',u)*(1.0-smoothstep(560.0,690.0,u))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+')'+(ML_TERRAIN?'*tv':'')+';',
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      'varying float vA,vT; void main(){ vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*7.0); float a=core;'
+    ].concat(ML_ARCH_RICH?[
+      '  if(vT>0.5){ float r4=exp(-abs(q.x)*10.0)*exp(-q.y*q.y*3.5)+exp(-abs(q.y)*10.0)*exp(-q.x*q.x*3.5); a+=r4*0.55; if(vT>1.5){ vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); a+=(exp(-abs(d.x)*12.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*12.0)*exp(-d.x*d.x*4.0))*0.40; } }'
+    ]:[]).concat([
+      '  a*=vA; if(a<0.003) discard; vec3 c=mix(vec3(1.0,0.824,0.478),vec3(1.0,0.925,0.80),core*0.55); gl_FragColor=vec4(c*a,a); }'
+    ]).join('\n') });
+  roadVault=new THREE.Points(g,roadVaultMat); roadVault.frustumCulled=false; roadVault.renderOrder=-38.6; roadVault.visible=false; scene.add(roadVault);
+}
 function buildNaveVeil(){
   /* Mercy-only, one tiny indexed sheet draw. Each half owns geometry only on its side of the aim line; the lower opening is
      wider than the crown opening, so neither transparency nor a fold can ever cross the centre gap. Its swell borrows the
@@ -1703,11 +1705,29 @@ function buildNaveVeil(){
     ].join('\n') });
   roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
+function ghostChalkShader(){ return [
+  'uniform float uMarkFocalPx;',
+  'varying vec4 vMark0,vMark1,vMark2,vMark3;',
+  'vec3 chalkHue(float h){ if(h<0.0) return vec3(1.0,0.98,0.94); vec3 rgb=clamp(abs(fract(h+vec3(0.0,0.66666667,0.33333333))*6.0-3.0)-1.0,0.0,1.0); return mix(vec3(0.92),rgb,0.28); }',
+  'vec4 chalkStroke(vec4 mark,vec2 p,float px){',
+  '  if(mark.w<=0.0) return vec4(0.0);',
+  '  float dx=abs(p.x-mark.x), mask=0.0;',
+  '  if(mark.y<0.5) mask=step(dx,'+_roadG(ML_WALL_APEX*0.07)+')*step(abs(p.y-0.18),1.5*px);',
+  '  else { if(mark.y>1.5) dx=abs(dx-2.5*px); mask=step(dx,1.5*px)*step(abs(p.y-'+_roadG(ML_WALL_APEX*0.32)+'),'+_roadG(ML_WALL_APEX*0.07)+'); }',
+  '  float ink=mask*clamp(mark.w,0.0,1.0); return vec4(chalkHue(mark.z)*ink,ink);',
+  '}',
+  'vec4 chalkOnDoor(vec2 p){',
+  '  float px=1.0/max(0.00001,uMarkFocalPx*gl_FragCoord.w);',
+  '  vec4 a=chalkStroke(vMark0,p,px), b=chalkStroke(vMark1,p,px), c=chalkStroke(vMark2,p,px), d=chalkStroke(vMark3,p,px);',
+  '  vec4 ink=a; if(b.a>0.0) ink=b; if(c.a>0.0) ink=c; if(d.a>0.0) ink=d; return ink;',
+  '}'
+].join('\n'); }   // three backing pixels at every depth, without derivatives; doubled strokes have a two-pixel edge gap. The 0.14-door-height marks use the wall's own local coordinates and fade.
 function roadWallVertexShader(){ return [
   'uniform float uNow,uArchN0,uWallSeed'+((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
   ...(ML_BITE?['uniform vec3 uBite;']:[]),
   'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+  ...(GH_CHALK?['uniform vec4 uMark0['+ML_ARCH_N+'],uMark1['+ML_ARCH_N+'],uMark2['+ML_ARCH_N+'],uMark3['+ML_ARCH_N+']; varying vec4 vMark0,vMark1,vMark2,vMark3;']:[]),
   'void main(){',
   '  float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
   '  vec3 ph=uW*b+uP, sc=sin(ph), co=cos(ph); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);',
@@ -1715,6 +1735,7 @@ function roadWallVertexShader(){ return [
   '  vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x);',
   ...(ML_TERRAIN?['  vWallTerrain=terrainVis(u,P.x,0.0); P.y+=cyAt(u);']:[]),
   '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);'+(ML_WALL_ECHO?' vWallClock='+(reduceMotion?'uPulse':'uNow')+'; vWallLocal=1.0-step(1.5,abs(floor(b/'+_roadG(ML_ARCH_EVERY)+')-floor(uNow/'+_roadG(ML_ARCH_EVERY)+')));':'')+(ML_DOOR_CROSS?((ML_WALL_ECHO?'':' vWallClock='+(reduceMotion?'uPulse':'uNow')+';')+' vWallCrossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b));') : ''),   // event AGE follows reduced-motion's live uPulse clock; echo locality keeps its three-chamber answer, while crossing locality selects only the doorway behind the eye for the chamber just entered (uNow stays pinned under reduced motion)
+  ...(GH_CHALK?['  vMark0=uMark0[si]; vMark1=uMark1[si]; vMark2=uMark2[si]; vMark3=uMark3[si];']:[]),
   '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
   '}'
 ].join('\n'); }
@@ -1724,12 +1745,14 @@ function roadWallFragmentShader(){ return [
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
   ]:[]),
+  ...(GH_CHALK?[ghostChalkShader()]:[]),
   'void main(){',
   '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>'+(ML_MERCY_INVERSE?'0.5':'1.5')+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
   ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
+  ...(GH_CHALK?['  vec4 chalk=chalkOnDoor(vec2(x,y)); if(chalk.a>0.0){ gl_FragColor=vec4(chalk.rgb*vWallFade,1.0); return; }']:[]),   // the marks live inside the opening, so paint them before its discard
   '  if(d<0.0) discard;',
   '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
   ...(ML_WALL_EXHALE?['  float wallBars=floor(fract(vWallKind)*100.0+0.5), exhaleRadius=mix('+_roadG(ML_WALL_EXHALE1)+','+_roadG(ML_WALL_EXHALE2)+',step(1.5,wallBars)); exhaleRadius=mix(exhaleRadius,1.0,step(2.5,wallBars)); float wallDissolve=mix(uWallDissolve,uWallDissolve*exhaleRadius,'+_roadG(ML_WALL_EXHALE)+');']:[]),
@@ -1767,11 +1790,13 @@ function roadMercyInverseFragmentShader(){ return [
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
   ]:[]),
+  ...(GH_CHALK?[ghostChalkShader()]:[]),
   'void main(){',
   '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind<0.5 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
+  ...(GH_CHALK?['  vec4 chalk=chalkOnDoor(vec2(x,y)); if(chalk.a>0.0){ gl_FragColor=vec4(chalk.rgb*vWallFade,0.0); return; }']:[]),   // alpha selects normal chalk in the inverse draw's subtract blend; it is not transparent ink
   '  if(d<0.0) discard;',
   '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
   ...(!LOW?[
@@ -1788,16 +1813,25 @@ function buildRoadWalls(){
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
   const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_DOOR_CROSS?{uWallCross:_wallCross}:{}),...((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; every enabled event stamp and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
+  if(GH_CHALK){
+    for(let i=0;i<4;i++) WU['uMark'+i]={value:Array.from({length:ML_ARCH_N},()=>new THREE.Vector4())};
+    WU.uMarkFocalPx={value:1};
+  }
   const wallVS=roadWallVertexShader();
   roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
   roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
   if(ML_MERCY_INVERSE){
-    roadMercyInverseMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneMinusDstColorFactor,blendDst:THREE.ZeroFactor,uniforms:WU,vertexShader:wallVS,fragmentShader:roadMercyInverseFragmentShader()});
+    roadMercyInverseMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.CustomBlending,...(GH_CHALK?{blendEquation:THREE.SubtractEquation,blendSrc:THREE.OneFactor,blendDst:THREE.SrcAlphaFactor}:{blendEquation:THREE.AddEquation,blendSrc:THREE.OneMinusDstColorFactor,blendDst:THREE.ZeroFactor}),uniforms:WU,vertexShader:wallVS,fragmentShader:roadMercyInverseFragmentShader()});   // source - destination*sourceAlpha: vec4(1) still inverts; vec4(chalk,0) paints normal chalk in the same draw
     roadMercyInverse=new THREE.Mesh(g,roadMercyInverseMat);
     roadMercyInverse.frustumCulled=false;
     roadMercyInverse.renderOrder=6;
     roadMercyInverse.visible=false;
     roadWall.add(roadMercyInverse);   // opaque cores have already populated dst; road dust is promoted to 7 below, so its accepted additive sparkle stays normal instead of being inverted
+  }
+  if(GH_CHALK){
+    const chalkFocal=(drawRenderer,drawScene,drawCamera)=>{ const target=drawRenderer.getRenderTarget(); WU.uMarkFocalPx.value=(target?target.height:drawRenderer.domElement.height)*drawCamera.projectionMatrix.elements[5]*0.5; };
+    roadWall.onBeforeRender=chalkFocal;
+    if(roadMercyInverse) roadMercyInverse.onBeforeRender=chalkFocal;   // shared backing-pixel optics follow DPR, resize and FOV without another uniform writer in the frame loop
   }
   const sparkN=LOW?8:16, pn=ML_WALL_N*(3+sparkN), pp=new Float32Array(pn*3), pm=new Float32Array(pn), ps=new Float32Array(pn); let pv=0;
   for(let k=0;k<ML_WALL_N;k++){
@@ -1901,6 +1935,7 @@ function roadArchFill(n0){
   }   // reduceMotion keys kind, exhale state and colour to the pinned station, so no standing wall can swap identity on a live bar
   else for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // the inherited ring authority remains the exact Wave 10 assignment when the wall master is off
   AU.uArchN0.value=reduceMotion?-ML_ARCH_BEHIND:b0;                       // reduceMotion: the gates STAND STILL as a ruler of the coming bars while the mercy table scrolls through them — exactly how uBeat0 scrolls the band table under a standing ribbon
+  if(GH_CHALK) ghostChalkInstall(n0);
   if(ML_WALLS){ AU.uWallDissolve.value=Math.max(1,Math.min(199,+M.wallDissolve||95)); AU.uWallGlow.value=LOW?0:Math.max(0,+M.wallGlow||0); if(roadDustMat) roadDustMat.uniforms.uDustGlow.value=Math.max(0,+M.dustGlow||0); return; }
   AU.uArchH.value=Math.max(0.5,+M.archHeightM||ROAD_HALF_W);
   AU.uArchGlow.value=Math.max(0,+M.archGlow||0);
@@ -4058,84 +4093,5 @@ function paintStudySurface(pick, data, skeleton){
   // Temple owns investigation chrome; legacy dojo Listen card only when explicitly re-enabled.
   if(templeActive) fillTempleStudy(pick, data, skeleton);
   else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
-}
-function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
-  const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
-  if(!authMode&&!nid) return;
-  const core=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
-                                  : 'kind=sign&sign='+encodeURIComponent(pick.id));
-  const userKey=authMode&&_skyAuthSession&&_skyAuthSession.user ? String(_skyAuthSession.user.id||'user') : String(nid||'none');
-  const q=core+(authMode?'':('&natal_id='+encodeURIComponent(nid)));
-  const key=(authMode?'auth:':'desk:')+userKey+'|'+q+'|'+Math.floor(Date.now()/600000);   // identity + 10-min epoch bucket
-  const stillThis=()=>{
-    if(templeActive){
-      if(studySeq!==_templeStudySeq) return false;
-      const fp=_templeFocus&&(_templeFocus.kind==='body'||_templeFocus.kind==='sign')?_templeFocus.pick:null;
-      return !!(fp&&fp.kind===pick.kind&&fp.id===pick.id);
-    }
-    return _lsn.sel===pick;
-  };
-  if(_lsn.cache.has(key)){ if(stillThis()) paintStudySurface(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
-  const failed=()=>{ if(stillThis()) paintStudySurface(pick,Object.assign({},fallback||{},{_deskFailed:true}),false); };
-  let to=null, request;
-  if(authMode){
-    const personal=ensureSkyProfileController();
-    if(!personal||!personal.state.authenticated){ failed(); return; }   // never leak a remote pack's user id into the legacy localhost natal_id channel
-    request=personal.getListen({kind:pick.kind,body:pick.kind==='body'?pick.id:'',sign:pick.kind==='sign'?pick.id:(pick.meta&&pick.meta.sign)||'',tz:tz});
-  }else{
-    const ctl=(typeof AbortController!=='undefined')?new AbortController():null; to=setTimeout(()=>{ if(ctl) ctl.abort(); },CL.apiMs);
-    request=fetch(CL.api.replace(/\/+$/,'')+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz),ctl?{signal:ctl.signal}:{}).then(r=>r.ok?r.json():null);
-  }
-  Promise.resolve(request)
-    .then(j=>{ if(to) clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
-      const personal=ok&&ok.personal&&(ok.personal.available||ok.personal.title||ok.personal.text||(Array.isArray(ok.personal.highlights)&&ok.personal.highlights.length));
-      if(ok&&personal){ _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
-        if(stillThis()) paintStudySurface(pick,mergePersonalListen(ok,fallback),false); }
-      else failed(); })
-    .catch(()=>{ if(to) clearTimeout(to); failed(); });
-}
-function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is fading or a selection is held
-  const CL=CFG.skyListen;
-  if(_lsn.lineT>=0 && _lsn.line){ const k=(state.t-_lsn.lineT)/CL.lineSec;
-    if(k>=1){ _lsn.line.visible=false; _lsn.lineT=-1; }
-    else setScalarCached(_lsn.line.material,'opacity',0.55*(1-k)); }
-  if(CFG.skyTemple.legacyListenCard && _lsn.sel && state.t-_lsn.holdT>=CL.holdSec) clearListen(true);
-}
-
-/* ========================= SKY TEMPLE (silent select → investigate with full study HUD) ========================= */
-const _templeUi={
-  panel:document.getElementById('skyTemplePanel'), kicker:document.getElementById('skyTempleKicker'),
-  title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'),
-  body:document.getElementById('skyTempleBody'), hint:document.getElementById('skyTempleHint'),
-  guide:document.getElementById('skyTempleGuide'), controls:document.getElementById('skyTempleControls')
-};
-const _skyChatUi={
-  root:document.getElementById('skyTempleChat'), ask:document.getElementById('skyTempleChatAsk'),
-  dialog:document.getElementById('skyTempleChatDialog'), turns:document.getElementById('skyTempleChatTurns'),
-  status:document.getElementById('skyTempleChatStatus'), form:document.getElementById('skyTempleChatForm'),
-  input:document.getElementById('skyTempleChatInput'), send:document.getElementById('skyTempleChatSend')
-};
-if(_skyChatUi.input) _skyChatUi.input.maxLength=CFG.skyChat.maxMessageChars;
-if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPLE');
-// Controls strip is first in the chip — never bury how-to under study text.
-if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','SHIFT+E free mouse · T ask · FIRE investigate · E leave · ESC pause');
-if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blocks HUD clicks — free the mouse (Shift+E) to scroll this chip, or press T to ask (frees mouse + opens ask).');
-const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
-let _templeAspectMesh=null, _templeHighlight=null;
-const _templeAspects=[], _templeNatal=[];
-const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new THREE.Vector3(), _templeTmp=new THREE.Vector3();
-function _templeDisposeChildren(){
-  while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
-    if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
-    if(obj.material && obj.material.dispose){ obj.material.dispose(); const hz=_hzFadeMats.indexOf(obj.material); if(hz>=0) _hzFadeMats.splice(hz,1); }   // the aspect/highlight lines are horizonFadeMat() materials: drop the disposed one from the list setHorizonOpen walks every sky tick, or the list grows by two per Temple entry forever (perf audit 2026-08-18)
-  }
-  _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
-}
-function _templeAspectColor(id){
-  if(id==='square') return new THREE.Color(0xff8a78);
-  if(id==='opposition') return new THREE.Color(0x88bfff);
-  if(id==='trine') return new THREE.Color(0x8fe3c0);
-  if(id==='sextile') return new THREE.Color(0xa8d8ff);
-  return new THREE.Color(0xffd66f);
 }
 })();

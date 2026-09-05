@@ -62,6 +62,7 @@ const CFG = {
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
+  ghostChalk:1,   // the doors remember: 0 compiles out chalk and skips its computation, uniforms and interaction; 1 paints tonight-only marks without a gameplay read-back
   gateFirst:1,   // THE GATE FIRST (SPEC_THE_INVITATION C, load scheduling): raw flat kill-switch. 0 keeps the wave-18 boot order (one synchronous shader warm at idle, texture work racing the PLAY gate); 1 lights PLAY as soon as Tone is fetchable and sequences every heavy idle job — chunked shader warm, sticks/belt/milky textures, glossary, sky day, auth, boards — AFTER the gate
   calibSilent:1,   // THE SILENT CALIBRATION (SPEC_THE_INVITATION A): raw flat kill-switch. 0 never reads the accumulator outside the pause-card button; 1 folds a newcomer's measured tap residual into the offset once, wordlessly, at graduation or the first pause
   sensei2:1,   // MOON SENSEI II (SPEC_THE_INVITATION K): raw flat kill-switch. 0 never opens aimdojo.sensei2 and never speaks; 1 lets each post-graduation night dynamic teach itself in one line, once ever
@@ -209,6 +210,7 @@ const CFG = {
   // now-line — THE WAKE, the run you just played. The bend at your feet drives the camera instead of the old noise lissajous.
   road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1749; WAVE 8, PARCEL W: the Moonline's road is COLOUR-ONLY and emits no glyph pass at all, so under the ribbon this flag reaches nothing and the letter is at the crosshair whatever it says — it still governs wave 7's road under moonline.on:false) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
 };
+const GH_CHALK=!!CFG.ghostChalk;   // construction-time authority: the wall builders run before the record section initializes
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
 let rng=Math.random; function rnd(){ return rng(); }
@@ -1703,11 +1705,29 @@ function buildNaveVeil(){
     ].join('\n') });
   roadNaveVeil=new THREE.Mesh(g,roadNaveVeilMat); roadNaveVeil.frustumCulled=false; roadNaveVeil.renderOrder=-37.6; roadNaveVeil.visible=false; scene.add(roadNaveVeil);
 }
+function ghostChalkShader(){ return [
+  'uniform float uMarkFocalPx;',
+  'varying vec4 vMark0,vMark1,vMark2,vMark3;',
+  'vec3 chalkHue(float h){ if(h<0.0) return vec3(1.0,0.98,0.94); vec3 rgb=clamp(abs(fract(h+vec3(0.0,0.66666667,0.33333333))*6.0-3.0)-1.0,0.0,1.0); return mix(vec3(0.92),rgb,0.28); }',
+  'vec4 chalkStroke(vec4 mark,vec2 p,float px){',
+  '  if(mark.w<=0.0) return vec4(0.0);',
+  '  float dx=abs(p.x-mark.x), mask=0.0;',
+  '  if(mark.y<0.5) mask=step(dx,'+_roadG(ML_WALL_APEX*0.07)+')*step(abs(p.y-0.18),1.5*px);',
+  '  else { if(mark.y>1.5) dx=abs(dx-2.5*px); mask=step(dx,1.5*px)*step(abs(p.y-'+_roadG(ML_WALL_APEX*0.32)+'),'+_roadG(ML_WALL_APEX*0.07)+'); }',
+  '  float ink=mask*clamp(mark.w,0.0,1.0); return vec4(chalkHue(mark.z)*ink,ink);',
+  '}',
+  'vec4 chalkOnDoor(vec2 p){',
+  '  float px=1.0/max(0.00001,uMarkFocalPx*gl_FragCoord.w);',
+  '  vec4 a=chalkStroke(vMark0,p,px), b=chalkStroke(vMark1,p,px), c=chalkStroke(vMark2,p,px), d=chalkStroke(vMark3,p,px);',
+  '  vec4 ink=a; if(b.a>0.0) ink=b; if(c.a>0.0) ink=c; if(d.a>0.0) ink=d; return ink;',
+  '}'
+].join('\n'); }   // three backing pixels at every depth, without derivatives; doubled strokes have a two-pixel edge gap. The 0.14-door-height marks use the wall's own local coordinates and fade.
 function roadWallVertexShader(){ return [
   'uniform float uNow,uArchN0,uWallSeed'+((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
   ...(ML_BITE?['uniform vec3 uBite;']:[]),
   'varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
   ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+  ...(GH_CHALK?['uniform vec4 uMark0['+ML_ARCH_N+'],uMark1['+ML_ARCH_N+'],uMark2['+ML_ARCH_N+'],uMark3['+ML_ARCH_N+']; varying vec4 vMark0,vMark1,vMark2,vMark3;']:[]),
   'void main(){',
   '  float slot=position.x, x=position.y, y=position.z, b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
   '  vec3 ph=uW*b+uP, sc=sin(ph), co=cos(ph); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);',
@@ -1715,6 +1735,7 @@ function roadWallVertexShader(){ return [
   '  vec3 P=vec3(cx+lat.x*x,y,-u+lat.y*x);',
   ...(ML_TERRAIN?['  vWallTerrain=terrainVis(u,P.x,0.0); P.y+=cyAt(u);']:[]),
   '  int si=int(slot); vWallP=vec2(x,y); vWallKind=uK[si]; vWallCol=uWallCol[si]; vWallNext=uWallNext[si]; vWallSeed=uWallSeed+slot*13.7; vWallFade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u)); vWallRetire=smoothstep('+_roadG(ML_WALL_REAR0)+','+_roadG(ML_WALL_REAR1)+',b-uNow);'+(ML_WALL_ECHO?' vWallClock='+(reduceMotion?'uPulse':'uNow')+'; vWallLocal=1.0-step(1.5,abs(floor(b/'+_roadG(ML_ARCH_EVERY)+')-floor(uNow/'+_roadG(ML_ARCH_EVERY)+')));':'')+(ML_DOOR_CROSS?((ML_WALL_ECHO?'':' vWallClock='+(reduceMotion?'uPulse':'uNow')+';')+' vWallCrossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b));') : ''),   // event AGE follows reduced-motion's live uPulse clock; echo locality keeps its three-chamber answer, while crossing locality selects only the doorway behind the eye for the chamber just entered (uNow stays pinned under reduced motion)
+  ...(GH_CHALK?['  vMark0=uMark0[si]; vMark1=uMark1[si]; vMark2=uMark2[si]; vMark3=uMark3[si];']:[]),
   '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
   '}'
 ].join('\n'); }
@@ -1724,12 +1745,14 @@ function roadWallFragmentShader(){ return [
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
   ]:[]),
+  ...(GH_CHALK?[ghostChalkShader()]:[]),
   'void main(){',
   '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>'+(ML_MERCY_INVERSE?'0.5':'1.5')+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
   ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
+  ...(GH_CHALK?['  vec4 chalk=chalkOnDoor(vec2(x,y)); if(chalk.a>0.0){ gl_FragColor=vec4(chalk.rgb*vWallFade,1.0); return; }']:[]),   // the marks live inside the opening, so paint them before its discard
   '  if(d<0.0) discard;',
   '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
   ...(ML_WALL_EXHALE?['  float wallBars=floor(fract(vWallKind)*100.0+0.5), exhaleRadius=mix('+_roadG(ML_WALL_EXHALE1)+','+_roadG(ML_WALL_EXHALE2)+',step(1.5,wallBars)); exhaleRadius=mix(exhaleRadius,1.0,step(2.5,wallBars)); float wallDissolve=mix(uWallDissolve,uWallDissolve*exhaleRadius,'+_roadG(ML_WALL_EXHALE)+');']:[]),
@@ -1767,11 +1790,13 @@ function roadMercyInverseFragmentShader(){ return [
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
   ]:[]),
+  ...(GH_CHALK?[ghostChalkShader()]:[]),
   'void main(){',
   '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind<0.5 || vWallKind>1.5'+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
+  ...(GH_CHALK?['  vec4 chalk=chalkOnDoor(vec2(x,y)); if(chalk.a>0.0){ gl_FragColor=vec4(chalk.rgb*vWallFade,0.0); return; }']:[]),   // alpha selects normal chalk in the inverse draw's subtract blend; it is not transparent ink
   '  if(d<0.0) discard;',
   '  float rx=max(0.0,abs(x)-'+_roadG(ML_WALL_BAY_X)+'), ry=max(max(y-'+_roadG(ML_WALL_BAY_Y1)+','+_roadG(ML_WALL_BAY_Y0)+'-y),0.0), r=length(vec2(rx,ry));',
   ...(!LOW?[
@@ -1788,16 +1813,25 @@ function buildRoadWalls(){
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
   const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_DOOR_CROSS?{uWallCross:_wallCross}:{}),...((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; every enabled event stamp and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
+  if(GH_CHALK){
+    for(let i=0;i<4;i++) WU['uMark'+i]={value:Array.from({length:ML_ARCH_N},()=>new THREE.Vector4())};
+    WU.uMarkFocalPx={value:1};
+  }
   const wallVS=roadWallVertexShader();
   roadWallMat=new THREE.ShaderMaterial({transparent:false,depthWrite:true,depthTest:true,fog:false,side:THREE.DoubleSide,uniforms:WU,vertexShader:wallVS,fragmentShader:roadWallFragmentShader()});
   roadWall=new THREE.Mesh(g,roadWallMat); roadWall.frustumCulled=false; roadWall.renderOrder=-39; roadWall.visible=false; scene.add(roadWall);
   if(ML_MERCY_INVERSE){
-    roadMercyInverseMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneMinusDstColorFactor,blendDst:THREE.ZeroFactor,uniforms:WU,vertexShader:wallVS,fragmentShader:roadMercyInverseFragmentShader()});
+    roadMercyInverseMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,fog:false,side:THREE.DoubleSide,blending:THREE.CustomBlending,...(GH_CHALK?{blendEquation:THREE.SubtractEquation,blendSrc:THREE.OneFactor,blendDst:THREE.SrcAlphaFactor}:{blendEquation:THREE.AddEquation,blendSrc:THREE.OneMinusDstColorFactor,blendDst:THREE.ZeroFactor}),uniforms:WU,vertexShader:wallVS,fragmentShader:roadMercyInverseFragmentShader()});   // source - destination*sourceAlpha: vec4(1) still inverts; vec4(chalk,0) paints normal chalk in the same draw
     roadMercyInverse=new THREE.Mesh(g,roadMercyInverseMat);
     roadMercyInverse.frustumCulled=false;
     roadMercyInverse.renderOrder=6;
     roadMercyInverse.visible=false;
     roadWall.add(roadMercyInverse);   // opaque cores have already populated dst; road dust is promoted to 7 below, so its accepted additive sparkle stays normal instead of being inverted
+  }
+  if(GH_CHALK){
+    const chalkFocal=(drawRenderer,drawScene,drawCamera)=>{ const target=drawRenderer.getRenderTarget(); WU.uMarkFocalPx.value=(target?target.height:drawRenderer.domElement.height)*drawCamera.projectionMatrix.elements[5]*0.5; };
+    roadWall.onBeforeRender=chalkFocal;
+    if(roadMercyInverse) roadMercyInverse.onBeforeRender=chalkFocal;   // shared backing-pixel optics follow DPR, resize and FOV without another uniform writer in the frame loop
   }
   const sparkN=LOW?8:16, pn=ML_WALL_N*(3+sparkN), pp=new Float32Array(pn*3), pm=new Float32Array(pn), ps=new Float32Array(pn); let pv=0;
   for(let k=0;k<ML_WALL_N;k++){
@@ -1901,6 +1935,7 @@ function roadArchFill(n0){
   }   // reduceMotion keys kind, exhale state and colour to the pinned station, so no standing wall can swap identity on a live bar
   else for(let k=0;k<ML_ARCH_N;k++) _archKind[k]=(roadTideAt(b0+ML_ARCH_EVERY*k).m===1)?1:0;   // the inherited ring authority remains the exact Wave 10 assignment when the wall master is off
   AU.uArchN0.value=reduceMotion?-ML_ARCH_BEHIND:b0;                       // reduceMotion: the gates STAND STILL as a ruler of the coming bars while the mercy table scrolls through them — exactly how uBeat0 scrolls the band table under a standing ribbon
+  if(GH_CHALK) ghostChalkInstall(n0);
   if(ML_WALLS){ AU.uWallDissolve.value=Math.max(1,Math.min(199,+M.wallDissolve||95)); AU.uWallGlow.value=LOW?0:Math.max(0,+M.wallGlow||0); if(roadDustMat) roadDustMat.uniforms.uDustGlow.value=Math.max(0,+M.dustGlow||0); return; }
   AU.uArchH.value=Math.max(0.5,+M.archHeightM||ROAD_HALF_W);
   AU.uArchGlow.value=Math.max(0,+M.archGlow||0);
@@ -8090,6 +8125,8 @@ let _ghostRecord=null, _ghostRecordTargets=null, _ghostRecordSeq=0, _ghostRecord
 let _ghostToken='', _ghostShareEpoch=0, _ghostShareBucket=0, _ghostShareSentEpoch=-1;
 let _ghostOwn=null, _ghostVisitors=null, _ghostMailRows=null, _ghostMailSpoken=false;
 let _ghostLocalMailCount=0, _ghostLocalMailSpoken=false;
+const GH_MARK_WINDOW=0.25, GH_MARK_SPAN=0.55;
+let _ghostDoorOrigin=NaN, _ghostChalkBeat0=0;
 
 function ghostTime(value){ return Math.round(Math.max(0,+value||0)*1000)/1000; }
 function ghostRoadReset(){
@@ -8336,6 +8373,48 @@ function ghostWrapperValid(value){
   if(!ghost || !ghostMailValid(value.mail,ghost.dur)) return null;
   return value;
 }
+function ghostBeatAt(record,t){
+  // The former replay's beat-prefix integration, with explicit inputs instead of a cursor. The artifact omits initial Transport phase and 0.3 s BPM ramps; this is reconstructed phase, never recovered grading accuracy.
+  if(!record) return 0;
+  const curve=record.bpmCurve; let beat=0, prior=0, bpm=record.bpm0;
+  for(const row of curve){ if(row[0]>t) break; beat+=(row[0]-prior)*bpm/60; prior=row[0]; bpm=row[1]; }
+  return beat+Math.max(0,t-prior)*bpm/60;
+}
+function markFor(artifact,doorIndex){
+  if(!GH_CHALK || !artifact || !Number.isSafeInteger(doorIndex) || doorIndex<0) return null;
+  const row=artifact.targets[doorIndex]; if(!row) return null;
+  if(row[4]===0) return {x:0,kind:0,hue:-1,alpha:1};
+  if(row[4]!==1 || !Number.isFinite(row[5])) return null;
+  const beat=ghostBeatAt(artifact,row[5]), error=beat-Math.round(beat);
+  return {x:Math.max(-1,Math.min(1,error/GH_MARK_WINDOW))*GH_MARK_SPAN,kind:1,hue:-1,alpha:1};
+}
+function ghostLastNight(record,today){
+  if(!record) return false;
+  const a=record.date, b=today||phasesToday();
+  if(!realCivilDate(a) || !realCivilDate(b)) return false;
+  return Date.UTC(+b.slice(0,4),+b.slice(5,7)-1,+b.slice(8,10))-Date.UTC(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10))===86400000;
+}
+function ghostDoorIndex(b){ return Math.floor(b/ML_ARCH_EVERY)-_ghostDoorOrigin-1; }
+function ghostChalkReset(r){
+  if(!GH_CHALK) return;
+  _ghostDoorOrigin=Math.floor(Math.max(0,r)/ML_ARCH_EVERY); _ghostChalkBeat0=Math.floor(r);
+}
+function ghostChalkInstall(n0){
+  if(!GH_CHALK || !roadWallMat || !Number.isFinite(_ghostDoorOrigin)) return;
+  const U=roadWallMat.uniforms; if(!U.uMark0) return;
+  if(Number.isFinite(n0)) _ghostChalkBeat0=n0;
+  const b0=reduceMotion?ML_ARCH_EVERY*Math.floor((_ghostChalkBeat0-ML_ARCH_BEHIND)/ML_ARCH_EVERY):U.uArchN0.value;
+  const own=ghostLastNight(_ghostOwn)?_ghostOwn:null;
+  for(let s=0;s<4;s++){
+    const marks=U['uMark'+s].value;
+    for(let k=0;k<marks.length;k++){
+      marks[k].set(0,0,-1,0);
+      if(s!==0 || k>=ML_WALL_N) continue;
+      const mark=markFor(own,ghostDoorIndex(b0+ML_ARCH_EVERY*k));
+      if(mark) marks[k].set(mark.x*ML_WALL_DJ,mark.kind,mark.hue,mark.alpha);
+    }
+  }
+}
 function ghostOwnLoad(){
   _ghostOwn=null; _ghostLocalMailCount=0; _ghostLocalMailSpoken=false;
   if(!GH_RECORD) return null;
@@ -8439,10 +8518,11 @@ function ghostNightPalette(record,out){
 }
 function ghostSessionStart(){
   // Graduation is the real main-play boundary; recording and relay reads keep the same lifecycle entry.
-  if((!GH_RECORD&&!GH_SHARE) || trainMode || templeActive) return;
+  if((!GH_RECORD&&!GH_SHARE&&!GH_CHALK) || trainMode || templeActive) return;
   if(GH_RECORD) ghostOwnLoad();
   if(GH_SHARE) ghostShareReset();
   if(GH_RECORD) ghostRecordArm();
+  if(GH_CHALK){ if(!GH_RECORD&&!GH_SHARE) ghostRoadReset(); ghostChalkReset(roadBeatNow()); ghostChalkInstall(); }
 }
 
 /* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.

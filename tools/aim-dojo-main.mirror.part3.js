@@ -4094,50 +4094,85 @@
 
 
 
+function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
+  const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
+  if(!authMode&&!nid) return;
+  const core=(pick.kind==='body' ? 'kind=body&body='+encodeURIComponent(pick.id)+(pick.meta&&pick.meta.sign?('&sign='+encodeURIComponent(pick.meta.sign)):'')
+                                  : 'kind=sign&sign='+encodeURIComponent(pick.id));
+  const userKey=authMode&&_skyAuthSession&&_skyAuthSession.user ? String(_skyAuthSession.user.id||'user') : String(nid||'none');
+  const q=core+(authMode?'':('&natal_id='+encodeURIComponent(nid)));
+  const key=(authMode?'auth:':'desk:')+userKey+'|'+q+'|'+Math.floor(Date.now()/600000);   // identity + 10-min epoch bucket
+  const stillThis=()=>{
+    if(templeActive){
+      if(studySeq!==_templeStudySeq) return false;
+      const fp=_templeFocus&&(_templeFocus.kind==='body'||_templeFocus.kind==='sign')?_templeFocus.pick:null;
+      return !!(fp&&fp.kind===pick.kind&&fp.id===pick.id);
+    }
+    return _lsn.sel===pick;
+  };
+  if(_lsn.cache.has(key)){ if(stillThis()) paintStudySurface(pick,mergePersonalListen(_lsn.cache.get(key),fallback),false); return; }
+  const failed=()=>{ if(stillThis()) paintStudySurface(pick,Object.assign({},fallback||{},{_deskFailed:true}),false); };
+  let to=null, request;
+  if(authMode){
+    const personal=ensureSkyProfileController();
+    if(!personal||!personal.state.authenticated){ failed(); return; }   // never leak a remote pack's user id into the legacy localhost natal_id channel
+    request=personal.getListen({kind:pick.kind,body:pick.kind==='body'?pick.id:'',sign:pick.kind==='sign'?pick.id:(pick.meta&&pick.meta.sign)||'',tz:tz});
+  }else{
+    const ctl=(typeof AbortController!=='undefined')?new AbortController():null; to=setTimeout(()=>{ if(ctl) ctl.abort(); },CL.apiMs);
+    request=fetch(CL.api.replace(/\/+$/,'')+'/api/sky-listen?'+q+'&tz='+encodeURIComponent(tz),ctl?{signal:ctl.signal}:{}).then(r=>r.ok?r.json():null);
+  }
+  Promise.resolve(request)
+    .then(j=>{ if(to) clearTimeout(to); const ok=(j && j.type==='sky_listen')?j:null;
+      const personal=ok&&ok.personal&&(ok.personal.available||ok.personal.title||ok.personal.text||(Array.isArray(ok.personal.highlights)&&ok.personal.highlights.length));
+      if(ok&&personal){ _lsn.cache.set(key,ok); if(_lsn.cache.size>12) _lsn.cache.delete(_lsn.cache.keys().next().value);
+        if(stillThis()) paintStudySurface(pick,mergePersonalListen(ok,fallback),false); }
+      else failed(); })
+    .catch(()=>{ if(to) clearTimeout(to); failed(); });
+}
+function updateSkyListen(){   // from updateSky (~20 Hz), only while a line is fading or a selection is held
+  const CL=CFG.skyListen;
+  if(_lsn.lineT>=0 && _lsn.line){ const k=(state.t-_lsn.lineT)/CL.lineSec;
+    if(k>=1){ _lsn.line.visible=false; _lsn.lineT=-1; }
+    else setScalarCached(_lsn.line.material,'opacity',0.55*(1-k)); }
+  if(CFG.skyTemple.legacyListenCard && _lsn.sel && state.t-_lsn.holdT>=CL.holdSec) clearListen(true);
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* ========================= SKY TEMPLE (silent select → investigate with full study HUD) ========================= */
+const _templeUi={
+  panel:document.getElementById('skyTemplePanel'), kicker:document.getElementById('skyTempleKicker'),
+  title:document.getElementById('skyTempleTitle'), meta:document.getElementById('skyTempleMeta'),
+  body:document.getElementById('skyTempleBody'), hint:document.getElementById('skyTempleHint'),
+  guide:document.getElementById('skyTempleGuide'), controls:document.getElementById('skyTempleControls')
+};
+const _skyChatUi={
+  root:document.getElementById('skyTempleChat'), ask:document.getElementById('skyTempleChatAsk'),
+  dialog:document.getElementById('skyTempleChatDialog'), turns:document.getElementById('skyTempleChatTurns'),
+  status:document.getElementById('skyTempleChatStatus'), form:document.getElementById('skyTempleChatForm'),
+  input:document.getElementById('skyTempleChatInput'), send:document.getElementById('skyTempleChatSend')
+};
+if(_skyChatUi.input) _skyChatUi.input.maxLength=CFG.skyChat.maxMessageChars;
+if(_templeUi.kicker) _templeUi.kicker.textContent=T('skyTempleKicker','SKY TEMPLE');
+// Controls strip is first in the chip — never bury how-to under study text.
+if(_templeUi.hint) _templeUi.hint.textContent=T('skyTempleHint','SHIFT+E free mouse · T ask · FIRE investigate · E leave · ESC pause');
+if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blocks HUD clicks — free the mouse (Shift+E) to scroll this chip, or press T to ask (frees mouse + opens ask).');
+const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
+let _templeAspectMesh=null, _templeHighlight=null;
+const _templeAspects=[], _templeNatal=[];
+const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new THREE.Vector3(), _templeTmp=new THREE.Vector3();
+function _templeDisposeChildren(){
+  while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
+    if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
+    if(obj.material && obj.material.dispose){ obj.material.dispose(); const hz=_hzFadeMats.indexOf(obj.material); if(hz>=0) _hzFadeMats.splice(hz,1); }   // the aspect/highlight lines are horizonFadeMat() materials: drop the disposed one from the list setHorizonOpen walks every sky tick, or the list grows by two per Temple entry forever (perf audit 2026-08-18)
+  }
+  _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
+}
+function _templeAspectColor(id){
+  if(id==='square') return new THREE.Color(0xff8a78);
+  if(id==='opposition') return new THREE.Color(0x88bfff);
+  if(id==='trine') return new THREE.Color(0x8fe3c0);
+  if(id==='sextile') return new THREE.Color(0xa8d8ff);
+  return new THREE.Color(0xffd66f);
+}
 function rebuildSkyTempleGeometry(){
   const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
     :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}
@@ -6728,45 +6763,4 @@ function cardDownload(blob){
     cardNote(T('cardSaved','CARD SAVED')+' ✓');
   }catch(e){ cardNote(T('cardBlocked','THE CARD STAYED HERE')); }
 }
-function cardCopy(){
-  // Clipboard first, download second — both consume the Blob captured after the Bow, so sharing never repaints or
-  // re-encodes the card. Every failure lands on the download, and its own failure lands on one quiet line.
-  if(!cardFresh()) return;
-  const b=_cardBlob; if(!b) return;
-  cardNote('');
-  if(!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)){ cardDownload(b); return; }
-  try{
-    navigator.clipboard.write([new ClipboardItem({'image/png':b})]).then(()=>cardNote(T('cardCopied','CARD COPIED')+' ✓'), ()=>cardDownload(b));
-  }catch(e){ cardDownload(b); }
-}
-function cardCaptureSchedule(){
-  if(!CFG.nightCard.on || _cardCaptureQueued) return;
-  const rec=cardFresh(); if(!rec) return;
-  if(_cardBlob){ cardOffer(); return; }
-  if(state.running || (state.started&&!state.needsReset)) return;
-  const seq=_cardCaptureSeq;
-  _cardCaptureQueued=true;
-  runIdle(()=>{
-    if(seq!==_cardCaptureSeq){ _cardCaptureQueued=false; cardCaptureSchedule(); return; }
-    if(state.running || (state.started&&!state.needsReset) || cardFresh()!==rec){ _cardCaptureQueued=false; return; }
-    const cv=cardCanvasEl(); if(!cv || typeof cv.toBlob!=='function'){ _cardCaptureQueued=false; return; }
-    cardPaint();
-    try{
-      cv.toBlob(blob=>{
-        _cardCaptureQueued=false;
-        if(seq!==_cardCaptureSeq){ cardCaptureSchedule(); return; }
-        if(!blob || cardFresh()!==rec) return;
-        _cardBlob=blob;
-        cardOffer();
-      },'image/png');
-    }catch(e){ _cardCaptureQueued=false; }
-  },120,1800);
-}
-(function(){
-  if(!CFG.nightCard.on) return;   // raw boolean FIRST: with the parcel off no listener exists, no element is read, no file is opened, and the button stays exactly as the markup left it — display:none, forever
-  const b=gid('nightCardBtn'); if(!b) return;
-  b.addEventListener('click', ()=>{ _cardOpen?cardClose():cardOpen(); });
-  const c=gid('nightCardCopy'); if(c) c.addEventListener('click', cardCopy);
-  const d=gid('nightCardDownload'); if(d) d.addEventListener('click', ()=>{ cardDownload(_cardBlob); });
-})();
 })();

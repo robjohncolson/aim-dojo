@@ -47,7 +47,7 @@ function response(value,{declared,chunkSize=32768,stall=false,reads}={}){
 function core(s=source,{share=true,record=false,extra={},functions=[]}={}){
   const start=s.indexOf('const GH_RECORD=!!CFG.ghostRecord;'),end=s.indexOf('let _ghostRecord=',start);
   assert.ok(start>=0&&end>start,'ghost constants remain independently extractable');
-  const ctx=vm.createContext({Math,Number,JSON,Promise,Date,Set,Uint8Array,Uint16Array,Float32Array,TextDecoder,AbortController,
+  const ctx=vm.createContext({Math,Number,JSON,Promise,Date,Set,Uint8Array,Uint16Array,Float32Array,TextDecoder,AbortController,GH_CHALK:false,
     CFG:{ghostRecord:+record,ghostShare:+share,ghostChalk:0,skyDay:{api:'https://relay.example'}},LOW:false,WEAK:false,PITCH_LIMIT:88*Math.PI/180,
     _ghostToken:'',_ghostShareEpoch:4,_ghostShareSentEpoch:-1,_ghostVisitors:[],_ghostOwn:null,_ghostMailRows:[],_ghostMailSpoken:false,_ghostLocalMailCount:0,_ghostLocalMailSpoken:false,
     realCivilDate,localStorage:{getItem:()=>null,setItem(){}},setTimeout,clearTimeout,

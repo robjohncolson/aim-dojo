@@ -1,0 +1,7 @@
+{
+  "commit": "ad8a9a9",
+  "functions": {
+    "ghostSeatPrepare": "function ghostSeatPrepare(record){\n  _ghTargetCursor=0; _ghHitCursor=0; _ghFireCursor=0; _ghBpmCursor=0; _ghBurstNext=0; _ghCatchNext=0; _ghLastTime=0; _ghActiveTargets.length=0; _ghHitRows.length=0; _ghBeatPrefix.length=0;\n  for(const row of record.targets) if(row[4]===1) _ghHitRows.push(row);\n  _ghHitRows.sort((a,b)=>a[5]-b[5]);\n  const curve=record.bpmCurve;\n  if(curve.length){\n    _ghBeatPrefix[0]=curve[0][0]*record.bpm0/60;\n    for(let i=1;i<curve.length;i++) _ghBeatPrefix[i]=_ghBeatPrefix[i-1]+(curve[i][0]-curve[i-1][0])*curve[i-1][1]/60;\n  }\n  if(_ghBurstPool) for(const bird of _ghBurstPool) bird.on=false;\n  if(GH_GIFT){\n    if(_ghCatchPool) for(const effect of _ghCatchPool) effect.on=false;\n    _ghGiftLockedRow=null;\n  }\n  if(_ghostTargets) _ghostTargets.count=0;\n  if(_ghostBursts) _ghostBursts.count=0;\n  ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0);\n}",
+    "ghostSeatBeatAt": "function ghostSeatBeatAt(t){\n  const record=_ghostSeatRecord, curve=record&&record.bpmCurve;\n  if(!record) return 0;\n  if(!curve.length) return t*record.bpm0/60;\n  if(t<curve[0][0]) return t*record.bpm0/60;\n  while(_ghBpmCursor+1<curve.length && curve[_ghBpmCursor+1][0]<=t) _ghBpmCursor++;\n  const row=curve[_ghBpmCursor]; return _ghBeatPrefix[_ghBpmCursor]+Math.max(0,t-row[0])*row[1]/60;\n}"
+  }
+}

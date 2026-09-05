@@ -80,6 +80,7 @@ function runPalette(source, { tidePalette = false, walls = true, mercyInverse = 
   const col = Array.from({ length: 7 }, () => new Colour()), next = Array.from({ length: 7 }, () => new Colour()), paletteCalls = [], tintCalls = [];
   const pane = { visible: false }, depth = { visible: false }, uniform = () => ({ value: 0 }), uniforms = { uArchN0: uniform(), uWallDissolve: uniform(), uWallGlow: uniform(), uArchH: uniform(), uArchGlow: uniform(), uArchPrism: uniform(), uReflect: uniform(), uMercyRB: uniform() };
   const context = vm.createContext({
+    GH_CHALK: false,
     Math, Number, Float32Array,
     CFG: { tide: { on: true, riseBars: 6, peakBars: 2, mercyBars: 1 }, moonline: { tidePalette, doorCross, naveStreetGold: 1, wallDissolve: 95, wallGlow: 1, dustGlow: 1 } },
     ML_TIDE_COOL: sourceNumber(source, "ML_TIDE_COOL"), ML_TIDE_COOL_MAX: sourceNumber(source, "ML_TIDE_COOL_MAX"),

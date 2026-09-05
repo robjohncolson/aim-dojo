@@ -62,6 +62,7 @@ const CFG = {
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
+  ghostChalk:1,   // the doors remember: 0 compiles out chalk and skips its computation, uniforms and interaction; 1 paints tonight-only marks without a gameplay read-back
   gateFirst:1,   // THE GATE FIRST (SPEC_THE_INVITATION C, load scheduling): raw flat kill-switch. 0 keeps the wave-18 boot order (one synchronous shader warm at idle, texture work racing the PLAY gate); 1 lights PLAY as soon as Tone is fetchable and sequences every heavy idle job — chunked shader warm, sticks/belt/milky textures, glossary, sky day, auth, boards — AFTER the gate
   calibSilent:1,   // THE SILENT CALIBRATION (SPEC_THE_INVITATION A): raw flat kill-switch. 0 never reads the accumulator outside the pause-card button; 1 folds a newcomer's measured tap residual into the offset once, wordlessly, at graduation or the first pause
   sensei2:1,   // MOON SENSEI II (SPEC_THE_INVITATION K): raw flat kill-switch. 0 never opens aimdojo.sensei2 and never speaks; 1 lets each post-graduation night dynamic teach itself in one line, once ever
@@ -209,6 +210,7 @@ const CFG = {
   // now-line — THE WAKE, the run you just played. The bend at your feet drives the camera instead of the old noise lissajous.
   road:{ on:true, lookAheadBeats:8, widthM:14, bandGlyphs:true, mercyBoost:1.6, fillMark:true, holdDemo:false },   // lookAheadBeats = beats of road visible ahead (8 × ROAD_BAND_M 10 m = 80 m, exactly where the night fog reaches 0.60 — the last band the eye can still read) · widthM = ribbon width, swept about the night-seeded centreline · bandGlyphs = the lane letter rendered mid-band, the "and" (and THE ONE SWITCH that stands the crosshair letter down — ROAD_LANE_READY, index.html:1749; WAVE 8, PARCEL W: the Moonline's road is COLOUR-ONLY and emits no glyph pass at all, so under the ribbon this flag reaches nothing and the letter is at the crosshair whatever it says — it still governs wave 7's road under moonline.on:false) · mercyBoost = the mercy bar's luminance against the crest's 1.0, and it is a WIDE band because its four beats drop their interior "1" lines (you see the exhale 2.0 bars = 8.0 s at 60 bpm / 24.0 s at 20 bpm before it lands) · fillMark = the elected tank's OWED gate beats carry an amber edge-mark ("3, 4, 1" rolling in) · holdDemo = the hold scaffold's debug flag: the band model carries len>1 sustained bands with a release edge, and this proves the RENDER path with zero gameplay reads (see roadHoldAt)
 };
+const GH_CHALK=!!CFG.ghostChalk;   // construction-time authority: the wall builders run before the record section initializes
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* RNG — gameplay randomness goes through rnd() (plain Math.random; the seeded daily was removed) */
 let rng=Math.random; function rnd(){ return rng(); }
@@ -1642,42 +1644,5 @@ function buildRoadArches(){
     ]).join('\n') });
   roadArch=new THREE.Mesh(g,roadArchMat); roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);
   if(roadArchAccentMat){ roadArchAccent=new THREE.Mesh(g,roadArchAccentMat); roadArchAccent.frustumCulled=false; roadArchAccent.renderOrder=-37.8; roadArchAccent.visible=false; scene.add(roadArchAccent); }
-}
-function buildNaveVault(){
-  /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
-     uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's
-     existing pin makes the whole painted vault stand. Private seeded generation preserves the gameplay random stream. */
-  const N=ML_NAVE_STARS, pos=new Float32Array(N*3), dat=new Float32Array(N*3), rr=mulberry32(0x51f15e9d);
-  for(let i=0;i<N;i++){
-    const canopy=i<Math.floor(N*0.76), anchor=rr()*ML_NAVE_VAULT_SPAN, u=anchor*ROAD_MPB; let x,y;
-    if(canopy){ x=(rr()*2-1)*34; const roof=Math.max(19,58-Math.abs(x)*0.78); y=15+Math.pow(rr(),1.25)*(roof-15); }
-    else { const side=rr()<0.5?-1:1; x=side*(9+24*Math.pow(rr(),1.4)); y=5.5+16*rr(); }
-    if(u>430){ const cone=3+(u-430)*0.028; if(Math.abs(x)<cone) x=(x<0?-1:1)*cone; }
-    const near=1-0.72*Math.max(0,Math.min(1,(u-90)/560)), sz=(canopy?0.18:0.14)+(canopy?0.68:0.46)*Math.pow(rr(),1.8), pick=rr();
-    pos[i*3]=anchor; pos[i*3+1]=x; pos[i*3+2]=y; dat[i*3]=sz; dat[i*3+1]=pick<0.16?1:(pick<0.24?2:0); dat[i*3+2]=(0.48+0.52*rr())*near;
-  }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aData',new THREE.BufferAttribute(dat,3));
-  const U=roadMat.uniforms;
-  roadVaultMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,
-    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uBreath:U.uBreath},
-    vertexShader:[
-      'uniform float uNow,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; attribute vec3 aData; varying float vA,vT;',
-      ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
-      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
-      'void main(){',
-      '  float ba=mod(position.x-uNow,'+_roadG(ML_NAVE_VAULT_SPAN)+')-'+_roadG(ML_NAVE_VAULT_BEHIND)+', b=uNow+ba;',
-      (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
-      (ML_TERRAIN?'  float u=ba*'+_roadG(ROAD_MPB)+', tv=terrainVis(u,cx+position.y,position.z); vec4 mv=viewMatrix*vec4(cx+position.y,position.z+cyAt(u),-u,1.0); gl_Position=projectionMatrix*mv;':'  float u=ba*'+_roadG(ROAD_MPB)+'; vec4 mv=viewMatrix*vec4(cx+position.y,position.z,-u,1.0); gl_Position=projectionMatrix*mv;'),
-      '  float px=clamp(aData.x*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),1.6,34.0); gl_PointSize=px; vT=aData.y; vA=aData.z*clamp(px/8.0,0.18,1.0)*smoothstep('+_roadG(-ROAD_MPB)+','+_roadG(-ROAD_MPB*0.45)+',u)*(1.0-smoothstep(560.0,690.0,u))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+')'+(ML_TERRAIN?'*tv':'')+';',
-      '}'
-    ].join('\n'),
-    fragmentShader:[
-      'varying float vA,vT; void main(){ vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*7.0); float a=core;'
-    ].concat(ML_ARCH_RICH?[
-      '  if(vT>0.5){ float r4=exp(-abs(q.x)*10.0)*exp(-q.y*q.y*3.5)+exp(-abs(q.y)*10.0)*exp(-q.x*q.x*3.5); a+=r4*0.55; if(vT>1.5){ vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); a+=(exp(-abs(d.x)*12.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*12.0)*exp(-d.x*d.x*4.0))*0.40; } }'
-    ]:[]).concat([
-      '  a*=vA; if(a<0.003) discard; vec3 c=mix(vec3(1.0,0.824,0.478),vec3(1.0,0.925,0.80),core*0.55); gl_FragColor=vec4(c*a,a); }'
-    ]).join('\n') });
-  roadVault=new THREE.Points(g,roadVaultMat); roadVault.frustumCulled=false; roadVault.renderOrder=-38.6; roadVault.visible=false; scene.add(roadVault);
 }
 })();
