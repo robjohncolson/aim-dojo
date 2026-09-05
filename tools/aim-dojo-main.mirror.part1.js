@@ -266,6 +266,8 @@ const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.sea
 const CHIP_FIELD=CHIP_HUMS && CFG.chip.humHarmony===true;
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
+function bassOut(n){ return PIANO?pianoBass(n):bassNote(n); }   // select exactly one octave wrapper; piano always takes precedence over chip bass
+
 let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
 function padChord(notes,dur,at,vel){
   if(PIANO || !CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);

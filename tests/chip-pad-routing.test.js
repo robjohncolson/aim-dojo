@@ -22,7 +22,7 @@ test("all ten pad sites retain baseline guards, notes, timing and velocity throu
     assert.equal(current.split("padChord(").length - 1, calls, name);
     assert.equal(current.includes("pad.triggerAttackRelease("), false, name);
     // A3's independently tested octave wrapper is the only prior change in these functions.
-    const withoutBassWrapper = current.replace(/bassNote\(([^()]*)\)/g, "$1").replace(/\n  if\(CHIP_FIELD\) try\{ humFieldGrid\(time,ci,tier,i\); \}catch\(e\)\{\}/, "");
+    const withoutBassWrapper = current.replace(/bassOut\(([^()]*)\)/g, "$1").replace(/\n  if\(CHIP_FIELD\) try\{ humFieldGrid\(time,ci,tier,i\); \}catch\(e\)\{\}/, "");
     assert.equal(withoutBassWrapper, original.replaceAll("pad.triggerAttackRelease(", "padChord("), name);
   }
   assert.equal(count, 10);

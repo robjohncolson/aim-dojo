@@ -266,6 +266,8 @@ const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.sea
 const CHIP_FIELD=CHIP_HUMS && CFG.chip.humHarmony===true;
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
+function bassOut(n){ return PIANO?pianoBass(n):bassNote(n); }   // select exactly one octave wrapper; piano always takes precedence over chip bass
+
 let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
 function padChord(notes,dur,at,vel){
   if(PIANO || !CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);
@@ -5215,7 +5217,7 @@ function themeBreath(){   // opening breath of the song: soft pad triad + root s
   try{
     const t=Tone.now();
     if(pad && CHORD_TRIAD && CHORD_TRIAD[0]) padChord(CHORD_TRIAD[0], '2n', t, 0.14);
-    if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', t, 0.62);
+    if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassOut(CHORD_ROOT[0]), '2n', t, 0.62);
     if(tune && PENTA) tune.triggerAttackRelease(PENTA[Math.min(4,PENTA.length-1)], '4n', t+0.05, 0.55);   // a single high note = the song's "hello"
   }catch(e){}
 }
@@ -7044,7 +7046,7 @@ function onGrid(time){
       if(tick && andStep) tick.triggerAttackRelease(i===1?1760:1480,'32n',time, trainPhase===0?0.95:0.7);
       if(tick && i===0) tick.triggerAttackRelease(2093,'32n',time, 0.55);   // soft downbeat (shot pocket) — quieter in phase 0 so the letter pocket owns attention
       if(kick && i===0) kick.triggerAttackRelease('C1','8n',time, trainPhase===0?0.35:0.55);
-      if(bass && i===0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]), trainPhase===0?'2n':'4n', time, trainPhase===0?0.38:0.55);
+      if(bass && i===0) bass.triggerAttackRelease(bassOut(CHORD_ROOT[ci]), trainPhase===0?'2n':'4n', time, trainPhase===0?0.38:0.55);
       if(pad && i===0 && trainPhase>=1) padChord(CHORD_TRIAD[ci],'1n',time, 0.12);
       if(hat && trainPhase>=1 && andStep) hat.triggerAttackRelease('32n',time, 0.28);
       if(arp && trainPhase>=2 && (i===0||i===4)) arp.triggerAttackRelease(CHORD_TRIAD[ci][0]*2,'16n',time, 0.35);
@@ -7065,7 +7067,7 @@ function onGrid(time){
   }
   if(CFG.stars.on && (_starPend.length || _starDebt.length)) starFlyDrain(starBeatNow());   // THE SECOND OPPORTUNITY (1.2): the gap a return is stamped with belongs to the beat clock, so the beat clock gets to pay it too — whichever of this callback and the render frame reaches the due first. It grants nothing that is not due, allocates nothing (pooled records, one buffer repaint), builds no mesh and schedules no sound, and the trainer returned far above so the parcel stays inert there. Raw boolean first, and the length reads keep a quiet run at three numbers per eighth
   if(_bow.stage>=BOW.RIT){   // THE BOW, closing bars: play has ended, so the arrangement THINS to pad + root and resolves to the TONIC (chord index 0 of the active theme) while the Transport ritards. No drums, no tick, no arp, no hook, no spawns, no groove bookkeeping — and stage HOLD is silent, because the single held pad note was already struck at the resolution.
-    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', time, 0.42); if(pad && CHORD_TRIAD) padChord(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
+    try{ if(i===0 && _bow.stage===BOW.RIT){ if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassOut(CHORD_ROOT[0]), '2n', time, 0.42); if(pad && CHORD_TRIAD) padChord(CHORD_TRIAD[0], '1n', time, 0.14); } }catch(e){}
     grid8++; return;
   }
   // TIDES envelope (post-graduation only — the trainer returned above). Bar index rides the same 8-step grid as the
@@ -7097,12 +7099,12 @@ function onGrid(time){
     const _isTori=activeTheme&&activeTheme.name==='TORIYANSE';
     // TIER-0 HUM: faint root + soft tick before the full groove so the song identity is present from the first bars (very quiet — doesn't fight learning)
     if(tier===0){
-      if(bass && BASS && i===0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]), '4n', time, 0.28);
+      if(bass && BASS && i===0) bass.triggerAttackRelease(bassOut(CHORD_ROOT[ci]), '4n', time, 0.28);
       if(tick && i===0){ const tv=tickGain(i); if(tv>0) tick.triggerAttackRelease(1568,'32n',time, 0.35*tv); }   // QUIET TICK: ×1 unless the parcel is live (a downbeat only ever thins on a mercy-carry beat)
     }
-    if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]*bm), BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root
+    if(bass && tier>=1 && BASS){ const bm=BASS[i]; if(bm>0) bass.triggerAttackRelease(bassOut(CHORD_ROOT[ci]*bm), BASS_HOLD, time, tier>=2?0.88:0.72); }   // THEME BASSLINE: 8-step pattern × current bar root
     // TORIYANSE director's cut: at high groove, answering fifth chirps on the off-beats (the signal "talks back")
-    if(bass && _isTori && tier>=2 && (i===2||i===6)) bass.triggerAttackRelease(bassNote(CHORD_ROOT[ci]*1.5), '16n', time, 0.42);
+    if(bass && _isTori && tier>=2 && (i===2||i===6)) bass.triggerAttackRelease(bassOut(CHORD_ROOT[ci]*1.5), '16n', time, 0.42);
     if(arp && tier>=1 && (tier>=2 || i%2===0)) arp.triggerAttackRelease(CHORD_TRIAD[ci][ARP_TRI[i]]*2, '16n', time, (tier>=2?0.55:0.42)+tideLift);   // TIDES: the figure leans in as the swell rises (+0 with the parcel off)
     // HOOK with HOLD: repeated same-index steps do NOT retrigger — one sustained note until pitch changes or rest
     if(tune && tier>=1){

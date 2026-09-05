@@ -183,6 +183,7 @@ test('new field hooks preserve the old spawn, grading, chord arrangement and per
     assert.equal(crypto.createHash('sha256').update(original).digest('hex'),offFixture.hashes[name]);
     let current=extractFunction(main,name);
     if(hooks[name]){const lines=current.split('\n').filter(line=>line.startsWith(hooks[name]));assert.equal(lines.length,1,name);current=current.replace(lines[0]+'\n','');}
+    if(name==='onGrid') current=current.replaceAll('bassOut(', 'bassNote(');
     assert.equal(current,original,name+' retains its complete non-field body');
   }
   assert.ok(main.includes(offFixture.targetFrame));

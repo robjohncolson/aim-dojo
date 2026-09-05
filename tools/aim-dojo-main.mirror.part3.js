@@ -4122,6 +4122,8 @@
 
 
 
+
+
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -5215,7 +5217,7 @@ function themeBreath(){   // opening breath of the song: soft pad triad + root s
   try{
     const t=Tone.now();
     if(pad && CHORD_TRIAD && CHORD_TRIAD[0]) padChord(CHORD_TRIAD[0], '2n', t, 0.14);
-    if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassNote(CHORD_ROOT[0]), '2n', t, 0.62);
+    if(bass && CHORD_ROOT) bass.triggerAttackRelease(bassOut(CHORD_ROOT[0]), '2n', t, 0.62);
     if(tune && PENTA) tune.triggerAttackRelease(PENTA[Math.min(4,PENTA.length-1)], '4n', t+0.05, 0.55);   // a single high note = the song's "hello"
   }catch(e){}
 }
