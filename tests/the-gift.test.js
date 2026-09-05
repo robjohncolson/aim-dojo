@@ -84,7 +84,7 @@ class Vec3 {
 function runGhost(source, { gift = true, record = false, seat = false, extra = {}, body = "" } = {}) {
   const context = vm.createContext({
     Math, Number, JSON, WeakMap, Float32Array, Uint16Array, Set,
-    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, moonline: {}, projSpeedFast: 72, projGravity: 0, projRadius: 0.3, projLife: 14 }, LOW: false,
+    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, moonline: {}, projSpeedFast: 72, projGravity: 0, projRadius: 0.3, projLife: 14 }, LOW: false, WEAK: false,
     state: { t: 0, bpm: 60, running: true }, trainMode: false, templeActive: false, reduceMotion: false,
     Tone: { Transport: { seconds: 0 } }, audioLat: () => 0, PITCH_LIMIT: 88 * Math.PI / 180,
     PLAYER_POS: { x: 0, y: 1.7, z: 0 }, ML_ARCH_EVERY: 4, ROAD_MPB: 27,

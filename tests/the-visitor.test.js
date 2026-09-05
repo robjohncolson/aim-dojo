@@ -164,10 +164,10 @@ function relayResponse(value, { declared, chunkSize, stall = false, reads } = {}
   };
 }
 
-function runVisitor(source, { record = false, seat = false, gift = false, share = false, phase = false, low = false, extra = {}, body = "" } = {}) {
+function runVisitor(source, { record = false, seat = false, gift = false, share = false, phase = false, low = false, weak = low, extra = {}, body = "" } = {}) {
   const context = vm.createContext({
     Math, Number, JSON, Promise, Date, WeakMap, Set, Float32Array, Uint8Array, Uint16Array,
-    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, ghostShare: share ? 1 : 0, ghostPhase: phase ? 1 : 0, moonline: {}, skyDay: { api: "https://relay.example" }, rangeStart: 11, projGravity: 0, projLife: 10, projRadius: 0.1, flickBonus: { coneMul: 1 } }, LOW: low,
+    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, ghostShare: share ? 1 : 0, ghostPhase: phase ? 1 : 0, moonline: {}, skyDay: { api: "https://relay.example" }, rangeStart: 11, projGravity: 0, projLife: 10, projRadius: 0.1, flickBonus: { coneMul: 1 } }, LOW: low, WEAK: weak,
     state: { t: 0, bpm: 60, running: true }, trainMode: false, templeActive: false, reduceMotion: false,
     Tone: { Transport: { seconds: 0 } }, audioLat: () => 0, PITCH_LIMIT: 88 * Math.PI / 180,
     PLAYER_POS: { x: 0, y: 1.7, z: 0 }, ML_ARCH_EVERY: 4, ROAD_MPB: 27,
@@ -707,7 +707,7 @@ test("HIGH packs three full visitors and one honest fire-only silhouette while L
     assert.deepEqual(JSON.parse(JSON.stringify(await low.receive({ ghosts: records.slice(0, 4).map((record, index) => ({ id: ids[index], artifact: record })) }))), { n: 1, xs: [90, -90], silhouettes: null });
   };
   await assertContract(html);
-  let mutation = html.replace("GH_VISITOR_FETCH_COUNT=LOW?1:4", "GH_VISITOR_FETCH_COUNT=LOW?1:3");
+  let mutation = html.replace("GH_VISITOR_FETCH_COUNT=WEAK?1:4", "GH_VISITOR_FETCH_COUNT=WEAK?1:3");
   await mutationMustFail(assertContract, mutation, "the four-return oracle kills a HIGH fetch capped before the honest silhouette");
   mutation = replaceFunction(html, "ghostVisitorFetch", (fn) => fn.replace(/\n}$/, "\n  if(accepted===3 && body.ghosts.length===3) ghostSilhouetteAccept(epoch,'f'.repeat(32),body.ghosts[0].artifact);\n}"));
   await mutationMustFail(assertContract, mutation, "the exact-three oracle kills a fabricated fourth presence");
@@ -757,6 +757,63 @@ test("HIGH packs three full visitors and one honest fire-only silhouette while L
   await mutationMustFail(assertContract, mutation, "the staged-reveal oracle kills a silhouette cone left hidden");
   mutation = replaceFunction(html, "ghostSilhouettesUpdate", (fn) => fn.replace("seat.lastTime=t;", "seat.lastTime=t; ghostGiftCatch(seat.record.targets[0],t);"));
   await mutationMustFail(assertContract, mutation, "the ledger oracle kills a silhouette leaking into Gift catches");
+});
+
+test("crunch preserves strong-device visitors and replay budgets while geometry follows LOW", async () => {
+  const assertContract = async (source) => {
+    const records = [1, 2, 3, 4].map((moonBucket) => artifact({
+      moonBucket,
+      targets: Array.from({ length: 30 }, (_unused, index) => [0, index % 4, index, 10, index === 0 ? 1 : 0, index === 0 ? 5 : null]),
+    }));
+    for (const low of [true, false]) for (const weak of [false, true]) {
+      const THREE = threeHarness();
+      const context = runVisitor(source, {
+        seat: true, share: true, low, weak,
+        extra: { THREE, TARGET_CORE_GEO: new THREE.BufferGeometry(), _flockGeo: new THREE.BufferGeometry() },
+        body: `
+          const own=${JSON.stringify(artifact())}; _ghostSeatRecord=own; ghostSeatBuild(own); ghostSeatPrepare(own); _ghostOwnSeat=ghostSeatCapture({visitor:false}); _ghostSeats=[_ghostOwnSeat]; _ghostSeatRows=new WeakMap(); _ghostShareEpoch=63;
+          const records=${JSON.stringify(records)}, rows=records.map((record,index)=>({id:String(index+1).repeat(32),artifact:record})); let request='';
+          ghostRelayJson=path=>{ request=path; return Promise.resolve({ghosts:rows}); };
+          this.inspect=async()=>{
+            await ghostVisitorFetch(63,'f'.repeat(32),12);
+            const seat=_ghostVisitorSeats[0]; ghostSeatInstall(seat); ghostSeatAdvance(5);
+            return {request,visitors:_ghostVisitorCount,silhouettes:_ghostSilhouettes?_ghostSilhouettes.filter(value=>value.record).length:0,xs:_ghostVisitorSeats.slice(0,_ghostVisitorCount).map(value=>value.x),wall:!!seat.walls,halo:seat.avatarHalo.geometry.args.slice(1),targetMax:seat.targets.max,activeTargets:_ghActiveTargets.length,burstMax:seat.bursts?seat.bursts.max:0,burstPool:_ghBurstPool?_ghBurstPool.length:0,burstOn:_ghBurstPool?_ghBurstPool.filter(value=>value.on).length:0};
+          };
+        `,
+      });
+      assert.deepEqual(JSON.parse(JSON.stringify(await context.inspect())), {
+        request: `/api/ghosts?lon=12&n=${weak ? 1 : 4}`, visitors: weak ? 1 : 3, silhouettes: weak ? 0 : 1,
+        xs: weak ? [-90] : [-90, 180, -180], wall: !low, halo: low ? [6, 4] : [10, 8],
+        targetMax: weak ? 24 : 48, activeTargets: weak ? 24 : 30,
+        burstMax: weak ? 0 : 24, burstPool: weak ? 0 : 24, burstOn: weak ? 0 : 3,
+      }, `social and replay limits follow WEAK:${+weak}; drawn geometry follows LOW:${+low}`);
+    }
+  };
+  await assertContract(html);
+  await mutationMustFail(assertContract, html.replace("GH_VISITOR_COUNT=WEAK?1:3", "GH_VISITOR_COUNT=LOW?1:3"), "the independent tier matrix catches visitors coupled to render quality");
+  await mutationMustFail(assertContract, replaceFunction(html, "ghostSilhouetteAccept", (fn) => fn.replace("|| WEAK ||", "|| LOW ||")), "strong crunch retains the fourth honest presence");
+  await mutationMustFail(assertContract, replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("if(!WEAK){", "if(!LOW){")), "the replay test catches a nonzero burst cap without its pool");
+});
+
+test("a strong crunch visitor retries completely after its final burst material fails", async () => {
+  const assertContract = (source) => {
+    const THREE = threeHarness();
+    const context = runVisitor(source, {
+      seat: true, share: true, low: true, weak: false,
+      extra: { THREE, TARGET_CORE_GEO: new THREE.BufferGeometry(), _flockGeo: new THREE.BufferGeometry() },
+      body: `
+        const own=${JSON.stringify(artifact())}; _ghostSeatRecord=own; ghostSeatBuild(own); ghostSeatPrepare(own); _ghostOwnSeat=ghostSeatCapture({visitor:false}); _ghostSeats=[_ghostOwnSeat]; _ghostSeatRows=new WeakMap(); _ghostShareEpoch=64;
+        const ownRoot=_ghostSeatRoot, LiveShaderMaterial=THREE.ShaderMaterial, visitor=${JSON.stringify(artifact({ moonBucket: 7 }))}; let materialCalls=0;
+        THREE.ShaderMaterial=function(options){ if(++materialCalls===7) throw new Error('last burst material failed'); return new LiveShaderMaterial(options); };
+        const first=ghostVisitorAccept(64,'e'.repeat(32),visitor), restored=_ghostSeatRoot===ownRoot&&_ghostVisitorCount===0; THREE.ShaderMaterial=LiveShaderMaterial;
+        const retried=ghostVisitorAccept(64,'e'.repeat(32),visitor), seat=_ghostVisitorSeats[0];
+        this.result={first,restored,retried,wall:!!seat.walls,bursts:seat.bursts?seat.bursts.max:0,pool:seat.burstPool?seat.burstPool.length:0,ownRestored:_ghostSeatRoot===ownRoot};
+      `,
+    });
+    assert.deepEqual(JSON.parse(JSON.stringify(context.result)), { first: false, restored: true, retried: true, wall: false, bursts: 24, pool: 24, ownRestored: true });
+  };
+  assertContract(html);
+  await mutationMustFail(assertContract, replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("(LOW||_ghostWalls)&&(WEAK||_ghostBursts)", "LOW||(_ghostWalls&&_ghostBursts)")), "the failure path independently requires strong-device bursts and HIGH walls");
 });
 
 function visitorAlphaSnapshot(source, alpha, low) {
@@ -856,7 +913,7 @@ test("visitor weight is per-seat, construction-time, and excludes targets, hit/c
     [replaceFunction(html, "ghostSilhouetteBuild", (fn) => fn.replace("GH_AVATAR_BODY_ALPHA,visibility", "GH_AVATAR_BODY_ALPHA*GH_VISITOR_ALPHA,visibility")), "the silhouette oracle kills weighting a representation promised to stay honest"],
     [replaceFunction(html, "ghostSeatApplyVisibility", (fn) => fn.replace("_ghVis.value=open?v:0", "_ghVis.value=open?v*_ghSeatAlpha:0")), "the reveal oracle kills a shared-uniform weight that dims targets and bursts"],
     [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }", "}")), "the failure oracle kills a visitor register set left installed over the own seat"],
-    [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("LOW||(_ghostWalls&&_ghostBursts)", "LOW||_ghostWalls")), "the late-failure oracle kills a HIGH seat accepted without its burst family"],
+    [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("(LOW||_ghostWalls)&&(WEAK||_ghostBursts)", "(LOW||_ghostWalls)")), "the late-failure oracle kills a HIGH seat accepted without its burst family"],
     [replaceFunction(html, "ghostVisitorAccept", (fn) => fn.replace("if(!complete) ghostSeatClear(seat.x);", "")), "the retry oracle kills an incomplete cached seat that is not cleared"],
     [replaceFunction(html, "ghostSeatBuild", (fn) => fn.replace("  scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);\n", "").replace("_ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group();", "_ghostSeatRoot=new THREE.Group(); _ghostBeaconRoot=new THREE.Group(); scene.add(_ghostSeatRoot); scene.add(_ghostBeaconRoot);")), "the publication oracle kills roots attached before construction completes"],
   ];

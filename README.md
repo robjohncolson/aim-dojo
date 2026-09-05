@@ -145,7 +145,7 @@ When signed in, non-sensitive settings sync to Supabase table `aimdojo_prefs`
 | `sky_time` | `theatre` / `natural` |
 | `wasd_hud` | beat circle on/off |
 | `offset_ms` | audio offset |
-| `low_rez` | resolution preference |
+| `low_rez` | resolution preference; LOW-REZ crunch is the default, and `?hi` forces the smooth render |
 | `display_name` | records name |
 | `dojo_sort` | board sort (`peak_bpm` / `runtime`) |
 | `sky_mode` | `clocked` / `decorative` / `clocked_chart` (reload) |

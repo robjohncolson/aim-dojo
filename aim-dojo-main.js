@@ -98,6 +98,7 @@ const CFG = {
   // OPEN LENS BUBBLE: keep the classic additive shell but SMOKIER (lower opacity) and a bit LARGER while open — soft glass/smoke, not a bright neon flare.
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
+  crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -222,12 +223,13 @@ const canvas = document.getElementById('scene');
 const DEVICE_DPR = window.devicePixelRatio || 1;
 /* LOW-REZ MODE — N64-crunch/low-cost render for weak GPUs (e.g. a 2014 Mac Mini). Forced via ?low in the URL or CFG.lowRez; auto-detected on software rasterizers + old pre-Xe Intel iGPUs; ?hi forces it OFF (escape hatch for a false positive). Resolved HERE because antialias + the initial DPR are construction-time-only. Pure render cost — ZERO gameplay/timing/audio change. */
 function detectWeakGPU(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl) return true; const ext=gl.getExtension('WEBGL_debug_renderer_info'), r=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=gl.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(e){} if(/swiftshader|llvmpipe|software|mesa|microsoft basic/i.test(r)) return true; if(/intel/i.test(r) && /(hd graphics|iris)/i.test(r) && !/(xe|iris\W*(?:\(r\)|\(tm\))?\W*plus|uhd|hd graphics 6)/i.test(r)) return true; return false; }catch(e){ return false; } }   // conservative: software + old Intel HD/Iris (4000/5000-class); excludes UHD/Iris Plus/Xe. The Iris-Plus exclusion tolerates the (R)/(TM) marks real UNMASKED_RENDERER strings carry ("Iris(R) Plus Graphics 655") — the old literal "iris plus" never matched any real string, so Ice/Coffee-Lake Iris Plus machines were silently classed LOW (wave-8.1 dust investigation find)
-const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=auto-detect
+const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
+const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
 const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);
 const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false        // ?hi (this visit) wins
   : /(?:^|[?&#])low\b/.test(location.search+location.hash) ? true                // then ?low (this visit)
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
-  : (CFG.lowRez===true || detectWeakGPU());                                     // else auto-detect weak GPUs
+  : (CFG.crunchLook===true || CFG.lowRez===true || WEAK);                         // authored chalk first; crunchLook:false restores the old auto-detect resolver
 if(LOW){ CFG.shards=4; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (9→4 — wave 8 parcel V halved both rungs of this ladder, 18→9 and 8→4, to pay for the stardust), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
@@ -306,7 +308,7 @@ const SKY_DAY_API_BASE=(function(){   // valued URL override is PUBLIC sky-day o
   return cleanSkyApiBase(CFG.skyDay.api)||cleanSkyApiBase(CFG.skyListen.api)||'http://127.0.0.1:8742';
 })();
 function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15), 1|a); t=(t+Math.imul(t^(t>>>7), 61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }   // tiny seeded PRNG — clocked modes keep a STABLE star field across sessions (decorative keeps its fresh random sky)
-const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
+const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? (CFG.crunchLook===true&&!WEAK ? DPR_MAX : Math.min(DPR_MAX, 0.4)) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // authored chalk keeps one fixed pixel grid on strong hardware; weak GPUs and the disabled off arm retain the old adaptive floor
 let renderDpr = DPR_MAX;
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
 function syncViewport(){ viewW=innerWidth; viewH=innerHeight; viewCX=viewW/2; viewCY=viewH/2; }
@@ -8048,7 +8050,7 @@ const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','tap
 const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
 const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
-const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=LOW?1:3, GH_VISITOR_FETCH_COUNT=LOW?1:4;
+const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=WEAK?1:3, GH_VISITOR_FETCH_COUNT=WEAK?1:4;
 const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256, GH_GHOSTS_RESPONSE_MAX=GH_MAX_BYTES*GH_VISITOR_FETCH_COUNT+4096;
 const GH_SEAT_XS=GH_MULTI?[-90,180,-180]:null, GH_SILHOUETTE_XS=GH_SHARE?[270,-270]:null, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
 const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
@@ -8355,7 +8357,7 @@ const GH_SEAT_X=90, GH_MOON_BLUE=0x9fc2ec, GH_WHITE=0xffffff;
 const GH_ROAD_HALF=7, GH_ROAD_AHEAD=180, GH_ROAD_BEHIND=20, GH_ROAD_BEATS=12;
 const GH_WALL_SOLID=24, GH_WALL_POWDER=38, GH_WALL_Y0=-24, GH_WALL_Y1=21, GH_WALL_N=7;
 const GH_LOW_TARGET_MAX=24, GH_HIGH_TARGET_MAX=48, GH_LOW_BURST_MAX=0, GH_HIGH_BURST_MAX=24;
-const GH_TARGET_MAX=LOW?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=LOW?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
+const GH_TARGET_MAX=WEAK?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=WEAK?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
 const GH_TARGET_FAR=108, GH_TARGET_NEAR=8, GH_TARGET_Y=2.2, GH_TARGET_FADE=0.35, GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0;
 const GH_LANE_STEP=3.2, GH_LANE_MIX=0.56, GH_WALL_ALPHA=0.55, GH_WALL_SHADE_MIN=0.48, GH_BURST_LIFE=1.2;
 const GH_PALETTE_MOON_MIX=0.58, GH_ROAD_DECK_MOON_MIX=0.18, GH_ROAD_GOLD_MOON_MIX=0.38, GH_AVATAR_MOON_MIX=0.28;
@@ -8460,7 +8462,7 @@ function ghostSilhouettesReset(){
   for(const seat of _ghostSilhouettes){ seat.id=''; seat.sig=-1; seat.record=null; seat.fireCursor=0; seat.lastTime=0; seat.avatar.rotation.set(0,0,0,'YXZ'); ghostSilhouetteHide(seat); }
 }
 function ghostSilhouetteAccept(epoch,id,record){
-  if(!GH_SHARE || LOW || epoch!==_ghostShareEpoch || _ghostVisitorCount<GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
+  if(!GH_SHARE || WEAK || epoch!==_ghostShareEpoch || _ghostVisitorCount<GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
   if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
   if(_ghostSilhouettes && _ghostSilhouettes[0] && _ghostSilhouettes[0].record) return false;
   if(!_ghostSilhouettes) _ghostSilhouettes=[];
@@ -8553,7 +8555,7 @@ function ghostVisitorAccept(epoch,id,record,reachedBack,phaseSeat){
     ghostSeatPrepare(record); if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ');
     seat.id=phase?'':id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; seat.phase=phase; seat.back=!phase&&reachedBack===true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
   }catch(e){
-    if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||(_ghostWalls&&_ghostBursts))); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
+    if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||_ghostWalls)&&(WEAK||_ghostBursts)); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
   }finally{ _ghGiftLockedRow=heldGiftLock; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
   if(!accepted) return false;
   _ghostVisitorCount++;
@@ -8754,7 +8756,7 @@ function ghostSeatBuild(record){
   _ghostBeaconCols=new THREE.InstancedMesh(colGeo,beaconMat,GH_BEACON_DRAW_MAX); _ghostBeaconCols.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconCols.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_DRAW_MAX*3),3); _ghostBeaconCols.count=0; _ghostBeaconCols.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconCols);
   _ghostBeaconRings=new THREE.InstancedMesh(ringGeo,beaconMat,GH_BEACON_RING_DRAW_MAX); _ghostBeaconRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconRings.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_RING_DRAW_MAX*3),3); _ghostBeaconRings.count=0; _ghostBeaconRings.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconRings);
   _ghRingQuat.setFromAxisAngle(_ghXAxis,Math.PI*0.5);
-  if(!LOW){
+  if(!WEAK){
     _ghostBursts=new THREE.InstancedMesh(_flockGeo,ghostInstanceMaterial(GH_BURST_ALPHA,_ghVis),GH_BURST_MAX); _ghostBursts.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBursts.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BURST_MAX*3),3); _ghostBursts.count=0; _ghostBursts.frustumCulled=false; _ghostBursts.renderOrder=1.4; _ghostSeatRoot.add(_ghostBursts);
     _ghBurstPool=Array.from({length:GH_BURST_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,spin:0}));
   }

@@ -98,6 +98,7 @@ const CFG = {
   // OPEN LENS BUBBLE: keep the classic additive shell but SMOKIER (lower opacity) and a bit LARGER while open — soft glass/smoke, not a bright neon flare.
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
+  crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -222,12 +223,13 @@ const canvas = document.getElementById('scene');
 const DEVICE_DPR = window.devicePixelRatio || 1;
 /* LOW-REZ MODE — N64-crunch/low-cost render for weak GPUs (e.g. a 2014 Mac Mini). Forced via ?low in the URL or CFG.lowRez; auto-detected on software rasterizers + old pre-Xe Intel iGPUs; ?hi forces it OFF (escape hatch for a false positive). Resolved HERE because antialias + the initial DPR are construction-time-only. Pure render cost — ZERO gameplay/timing/audio change. */
 function detectWeakGPU(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl) return true; const ext=gl.getExtension('WEBGL_debug_renderer_info'), r=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=gl.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(e){} if(/swiftshader|llvmpipe|software|mesa|microsoft basic/i.test(r)) return true; if(/intel/i.test(r) && /(hd graphics|iris)/i.test(r) && !/(xe|iris\W*(?:\(r\)|\(tm\))?\W*plus|uhd|hd graphics 6)/i.test(r)) return true; return false; }catch(e){ return false; } }   // conservative: software + old Intel HD/Iris (4000/5000-class); excludes UHD/Iris Plus/Xe. The Iris-Plus exclusion tolerates the (R)/(TM) marks real UNMASKED_RENDERER strings carry ("Iris(R) Plus Graphics 655") — the old literal "iris plus" never matched any real string, so Ice/Coffee-Lake Iris Plus machines were silently classed LOW (wave-8.1 dust investigation find)
-const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=auto-detect
+const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
+const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
 const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);
 const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false        // ?hi (this visit) wins
   : /(?:^|[?&#])low\b/.test(location.search+location.hash) ? true                // then ?low (this visit)
   : _lowPref==='1' ? true : _lowPref==='0' ? false                              // then the persisted pause-menu choice
-  : (CFG.lowRez===true || detectWeakGPU());                                     // else auto-detect weak GPUs
+  : (CFG.crunchLook===true || CFG.lowRez===true || WEAK);                         // authored chalk first; crunchLook:false restores the old auto-detect resolver
 if(LOW){ CFG.shards=4; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (9→4 — wave 8 parcel V halved both rungs of this ladder, 18→9 and 8→4, to pay for the stardust), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
@@ -306,7 +308,7 @@ const SKY_DAY_API_BASE=(function(){   // valued URL override is PUBLIC sky-day o
   return cleanSkyApiBase(CFG.skyDay.api)||cleanSkyApiBase(CFG.skyListen.api)||'http://127.0.0.1:8742';
 })();
 function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15), 1|a); t=(t+Math.imul(t^(t>>>7), 61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }   // tiny seeded PRNG — clocked modes keep a STABLE star field across sessions (decorative keeps its fresh random sky)
-const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? Math.min(DPR_MAX, 0.4) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // LOW: start already chunky (0.5) and let the adaptive loop travel down to 0.4 — the floor it could never reach before
+const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? (CFG.crunchLook===true&&!WEAK ? DPR_MAX : Math.min(DPR_MAX, 0.4)) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // authored chalk keeps one fixed pixel grid on strong hardware; weak GPUs and the disabled off arm retain the old adaptive floor
 let renderDpr = DPR_MAX;
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
 function syncViewport(){ viewW=innerWidth; viewH=innerHeight; viewCX=viewW/2; viewCY=viewH/2; }

@@ -65,7 +65,7 @@ function testRealCivilDate(value) {
 function runGhost(source, { record = false, seat = false, gift = false, share = false, phase = false, low = false, extra = {}, body = "" } = {}) {
   const context = vm.createContext({
     Math, Number, JSON, WeakMap, Float32Array, Uint16Array,
-    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, ghostShare: share ? 1 : 0, ghostPhase: phase ? 1 : 0, moonline: {} }, LOW: low,
+    CFG: { ghostRecord: record ? 1 : 0, ghostSeat: seat ? 1 : 0, ghostGift: gift ? 1 : 0, ghostShare: share ? 1 : 0, ghostPhase: phase ? 1 : 0, moonline: {} }, LOW: low, WEAK: low,
     state: { t: 0, bpm: 60, running: true }, trainMode: false, templeActive: false, reduceMotion: false,
     Tone: { Transport: { seconds: 0 } }, audioLat: () => 0, PITCH_LIMIT: 88 * Math.PI / 180,
     PLAYER_POS: { x: 0, z: 0 }, ML_ARCH_EVERY: 4, ROAD_MPB: 27,

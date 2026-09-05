@@ -6701,6 +6701,8 @@
 
 
 
+
+
 function onGrid(time){
   if(!state.running || templeActive){ grid8++; return; }
   const rhythmEpoch=rhythmGeneration;
@@ -8048,7 +8050,7 @@ const GH_V1_KEYS=['v','date','moonBucket','bpm0','dur','bpmCurve','targets','tap
 const GH_WRAPPER_KEYS=['ghost','mail'];
 const GH_AIM_YAW_MAX=Math.PI, GH_AIM_PITCH_MAX=PITCH_LIMIT;
 const GH_TOKEN_KEY='aimdojo.ghostToken', GH_TOKEN_BYTES=16, GH_TOKEN_HEX=32;
-const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=LOW?1:3, GH_VISITOR_FETCH_COUNT=LOW?1:4;
+const GH_LON_BUCKETS=24, GH_LON_SHIFT=36, GH_MINUTES_PER_HOUR=60, GH_VISITOR_COUNT=WEAK?1:3, GH_VISITOR_FETCH_COUNT=WEAK?1:4;
 const GH_FETCH_TIMEOUT_MS=4000, GH_UPLOAD_RETRY_MS=30000, GH_KEEPALIVE_BUDGET=65536, GH_MAIL_RESPONSE_MAX=256, GH_GHOSTS_RESPONSE_MAX=GH_MAX_BYTES*GH_VISITOR_FETCH_COUNT+4096;
 const GH_SEAT_XS=GH_MULTI?[-90,180,-180]:null, GH_SILHOUETTE_XS=GH_SHARE?[270,-270]:null, GH_RETURN_MAX=16, GH_RETURN_PERIOD=60, GH_RETURN_LIFE=0.9, GH_RETURN_FADE=0.45, GH_RETURN_Y=0.18, GH_RETURN_SKY_Y=34, GH_RETURN_SKY_Z=-72, GH_RETURN_ROAD_Z=-2, GH_RETURN_TAIL=0.22, GH_RETURN_GLINT=0.42, GH_RETURN_ORDER=2;
 const GH_MOON_SIGILS='🌑🌒🌓🌔🌕🌖🌗🌘', GH_SIGIL_CODE_UNITS=2, GH_MAIL_ROW_SIZE=3;
@@ -8355,7 +8357,7 @@ const GH_SEAT_X=90, GH_MOON_BLUE=0x9fc2ec, GH_WHITE=0xffffff;
 const GH_ROAD_HALF=7, GH_ROAD_AHEAD=180, GH_ROAD_BEHIND=20, GH_ROAD_BEATS=12;
 const GH_WALL_SOLID=24, GH_WALL_POWDER=38, GH_WALL_Y0=-24, GH_WALL_Y1=21, GH_WALL_N=7;
 const GH_LOW_TARGET_MAX=24, GH_HIGH_TARGET_MAX=48, GH_LOW_BURST_MAX=0, GH_HIGH_BURST_MAX=24;
-const GH_TARGET_MAX=LOW?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=LOW?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
+const GH_TARGET_MAX=WEAK?GH_LOW_TARGET_MAX:GH_HIGH_TARGET_MAX, GH_BURST_MAX=WEAK?GH_LOW_BURST_MAX:GH_HIGH_BURST_MAX, GH_BEACON_MAX=8, GH_BEACON_RING_MAX=GH_BEACON_MAX*2;
 const GH_TARGET_FAR=108, GH_TARGET_NEAR=8, GH_TARGET_Y=2.2, GH_TARGET_FADE=0.35, GH_BEACON_LEAD=1.5, GH_GIFT_LEAD=3.0;
 const GH_LANE_STEP=3.2, GH_LANE_MIX=0.56, GH_WALL_ALPHA=0.55, GH_WALL_SHADE_MIN=0.48, GH_BURST_LIFE=1.2;
 const GH_PALETTE_MOON_MIX=0.58, GH_ROAD_DECK_MOON_MIX=0.18, GH_ROAD_GOLD_MOON_MIX=0.38, GH_AVATAR_MOON_MIX=0.28;
@@ -8460,7 +8462,7 @@ function ghostSilhouettesReset(){
   for(const seat of _ghostSilhouettes){ seat.id=''; seat.sig=-1; seat.record=null; seat.fireCursor=0; seat.lastTime=0; seat.avatar.rotation.set(0,0,0,'YXZ'); ghostSilhouetteHide(seat); }
 }
 function ghostSilhouetteAccept(epoch,id,record){
-  if(!GH_SHARE || LOW || epoch!==_ghostShareEpoch || _ghostVisitorCount<GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
+  if(!GH_SHARE || WEAK || epoch!==_ghostShareEpoch || _ghostVisitorCount<GH_VISITOR_COUNT || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
   if(_ghostVisitorSeats) for(let i=0;i<_ghostVisitorCount;i++) if(_ghostVisitorSeats[i]&&_ghostVisitorSeats[i].id===id) return false;
   if(_ghostSilhouettes && _ghostSilhouettes[0] && _ghostSilhouettes[0].record) return false;
   if(!_ghostSilhouettes) _ghostSilhouettes=[];
@@ -8553,7 +8555,7 @@ function ghostVisitorAccept(epoch,id,record,reachedBack,phaseSeat){
     ghostSeatPrepare(record); if(_ghostAvatar) _ghostAvatar.rotation.set(0,0,0,'YXZ');
     seat.id=phase?'':id; seat.sig=record.moonBucket; seat.spoken=false; seat.visitor=true; seat.phase=phase; seat.back=!phase&&reachedBack===true; ghostSeatCapture(seat); ghostSeatRememberRows(seat); accepted=true;
   }catch(e){
-    if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||(_ghostWalls&&_ghostBursts))); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
+    if(seat){ try{ const complete=!!(_ghostSeatRoot&&_ghostBeaconRoot&&_ghostRoad&&_ghostTargets&&_ghostAvatar&&_ghostAvatarBody&&_ghostAvatarHalo&&_ghostAvatarBow&&_ghostBeaconCols&&_ghostBeaconRings&&(LOW||_ghostWalls)&&(WEAK||_ghostBursts)); _ghostSeatRecord=null; ghostSeatApplyVisibility(0,0,0); ghostSeatBeaconVisibility(0); if(!complete) ghostSeatClear(seat.x); ghostSeatCapture(seat); }catch(_e){} }
   }finally{ _ghGiftLockedRow=heldGiftLock; if(_ghostOwnSeat) ghostSeatInstall(_ghostOwnSeat); }
   if(!accepted) return false;
   _ghostVisitorCount++;
@@ -8754,7 +8756,7 @@ function ghostSeatBuild(record){
   _ghostBeaconCols=new THREE.InstancedMesh(colGeo,beaconMat,GH_BEACON_DRAW_MAX); _ghostBeaconCols.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconCols.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_DRAW_MAX*3),3); _ghostBeaconCols.count=0; _ghostBeaconCols.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconCols);
   _ghostBeaconRings=new THREE.InstancedMesh(ringGeo,beaconMat,GH_BEACON_RING_DRAW_MAX); _ghostBeaconRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBeaconRings.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BEACON_RING_DRAW_MAX*3),3); _ghostBeaconRings.count=0; _ghostBeaconRings.frustumCulled=false; _ghostBeaconRoot.add(_ghostBeaconRings);
   _ghRingQuat.setFromAxisAngle(_ghXAxis,Math.PI*0.5);
-  if(!LOW){
+  if(!WEAK){
     _ghostBursts=new THREE.InstancedMesh(_flockGeo,ghostInstanceMaterial(GH_BURST_ALPHA,_ghVis),GH_BURST_MAX); _ghostBursts.instanceMatrix.setUsage(THREE.DynamicDrawUsage); _ghostBursts.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GH_BURST_MAX*3),3); _ghostBursts.count=0; _ghostBursts.frustumCulled=false; _ghostBursts.renderOrder=1.4; _ghostSeatRoot.add(_ghostBursts);
     _ghBurstPool=Array.from({length:GH_BURST_MAX},()=>({on:false,born:0,lane:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,spin:0}));
   }

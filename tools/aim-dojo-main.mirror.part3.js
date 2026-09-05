@@ -4150,6 +4150,8 @@
 
 
 
+
+
 function pickSkyTempleAspect(){
   if(!SKY_TEMPLE_DATA||!SKY_TEMPLE_DATA.rayToSegment) return null;
   let best=null,bestD=CFG.skyTemple.aspectPickPx||18;
