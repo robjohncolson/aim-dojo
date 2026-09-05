@@ -4152,6 +4152,15 @@
 
 
 
+
+
+
+
+
+
+
+
+
 function pickSkyTempleAspect(){
   if(!SKY_TEMPLE_DATA||!SKY_TEMPLE_DATA.rayToSegment) return null;
   let best=null,bestD=CFG.skyTemple.aspectPickPx||18;
@@ -5152,7 +5161,7 @@ function buildDrums(){
     try{ arp=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.16,sustain:0,release:0.14}}).connect(new Tone.Filter(4200,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }   // CHORD-ARP BED (pass 3: ducked vol -6→-9 so the new TUNE hook can cut through; still bright enough to carry harmony)
     try{ tapSynth=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.002,decay:0.13,sustain:0,release:0.08}}).connect(new Tone.Filter(3200,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }   // WASD taps get a VOICE (were silent): the off-beat "and" taps play a pentatonic counter-melody — playing well = playing music
     try{ pad=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}}).connect(new Tone.Filter(1400,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }   // sustained PAD swell — layers in on the downbeat at high groove (the "Rez build" ceiling above tier 3)
-    try{ leadLp=new Tone.Filter(3800,'lowpass'); lead=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.004,decay:0.2,sustain:0.12,release:0.22}}).connect(leadLp.connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; leadLp=null; }   // the lowpass is the same node and the same 3800 Hz as ever, only HELD now (leadLp) so THE LEAD INSTRUMENT can shade it per kill note. dedicated LEAD voice — the pentatonic-walking kills play through this (brighter + short echo) → a clean run reads as a real melody line ON TOP of the continuous TUNE hook (separate voice → no monophonic steal)
+    try{ leadLp=new Tone.Filter(CHIP_LEAD?CFG.chip.leadLpHz:3800,'lowpass'); lead=new Tone.Synth({oscillator:CHIP_LEAD?{type:'pulse',width:dutyToWidth(CFG.chip.dutyFull)}:{type:'triangle'},envelope:{attack:0.004,decay:0.2,sustain:0.12,release:0.22}}).connect(leadLp.connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; leadLp=null; }   // pulse duty carries tightness while the held filter stays at its safety cutoff; the off arm keeps the original triangle, 3800 Hz node and echo graph
     try{ tune=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.008,decay:0.18,sustain:0.08,release:0.28}}).connect(new Tone.Filter(5600,'lowpass').connect(new Tone.FeedbackDelay({delayTime:'8n',feedback:0.12,wet:0.15}).connect(new Tone.Volume(-5).connect(drumBus)))); }catch(e){ tune=null; }   // HOOK melody (pass 3): sine + longer notes + light delay, sits ABOVE the arp bed; own voice so kills never cut the phrase
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
@@ -5261,7 +5270,8 @@ function playHit(gradeIdx){                               // graded kill tone = 
   try{ const st=beatSnap(), s=Math.min(state.streak,23), root=PENTA[s%PENTA.length]*Math.pow(2,Math.floor(s/PENTA.length));
     if(shaped){
       const V=CFG.voice, q=voiceQ(), stack=Math.min(_voiceStack, Math.max(1,V.stackMax|0));
-      if(leadLp) leadLp.frequency.value=V.dullHz+(V.brightHz-V.dullHz)*q;   // ONE set-at-trigger write on the lowpass the lead voice was always built with: loose = dull and closed, tight = open and bright. It is the voice's SHARED colour, so the tank's walking notes ride whatever the last kill set — that is the point (the instrument stays where you left it), not a leak.
+      if(CHIP_LEAD){ if(lead) lead.oscillator.width.value=dutyToWidth(CFG.chip.dutyEdge+(CFG.chip.dutyFull-CFG.chip.dutyEdge)*q); }
+      else if(leadLp) leadLp.frequency.value=V.dullHz+(V.brightHz-V.dullHz)*q;   // one shared colour write per kill: pulse duty on the chip, the original cutoff off it; tank walking notes ride wherever the last kill left the instrument
       v.triggerAttackRelease(root, 0.16, st, V.breathyVel+(V.fullVel-V.breathyVel)*q);
       if(gradeIdx<=0){                                    // FLAWLESS: the octave sparkle, and from the 2nd consecutive one the consonance rolls up over it (grace notes, not a chord array — `lead` is monophonic)
         v.triggerAttackRelease(stack>=2?root*1.5:root*2, 0.08, st+0.05, 0.5);

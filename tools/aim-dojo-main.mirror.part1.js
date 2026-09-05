@@ -99,6 +99,7 @@ const CFG = {
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
+  chip:{ lead:true, dry:false, bass:false, hums:false, pad:false, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humGain:0.32, humHarmonics:32, padDuty:0.25, arpHz:30 },   // the player's chip is auditioned one voice at a time via ?chip=lead,dry; ?chip=0 restores today's sound, and the rescued chorus stays human
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -223,6 +224,14 @@ const canvas = document.getElementById('scene');
 const DEVICE_DPR = window.devicePixelRatio || 1;
 /* LOW-REZ MODE — N64-crunch/low-cost render for weak GPUs (e.g. a 2014 Mac Mini). Forced via ?low in the URL or CFG.lowRez; auto-detected on software rasterizers + old pre-Xe Intel iGPUs; ?hi forces it OFF (escape hatch for a false positive). Resolved HERE because antialias + the initial DPR are construction-time-only. Pure render cost — ZERO gameplay/timing/audio change. */
 function detectWeakGPU(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl) return true; const ext=gl.getExtension('WEBGL_debug_renderer_info'), r=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=gl.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(e){} if(/swiftshader|llvmpipe|software|mesa|microsoft basic/i.test(r)) return true; if(/intel/i.test(r) && /(hd graphics|iris)/i.test(r) && !/(xe|iris\W*(?:\(r\)|\(tm\))?\W*plus|uhd|hd graphics 6)/i.test(r)) return true; return false; }catch(e){ return false; } }   // conservative: software + old Intel HD/Iris (4000/5000-class); excludes UHD/Iris Plus/Xe. The Iris-Plus exclusion tolerates the (R)/(TM) marks real UNMASKED_RENDERER strings carry ("Iris(R) Plus Graphics 655") — the old literal "iris plus" never matched any real string, so Ice/Coffee-Lake Iris Plus machines were silently classed LOW (wave-8.1 dust investigation find)
+function resolveChip(search,cfg){
+  const names=['lead','dry','bass','hums','pad'], m=String(search||'').match(/(?:^|[?&#])chip=([^&#]*)/);
+  if(!m) return names.map(name=>cfg[name]===true);
+  let value=''; try{ value=decodeURIComponent(m[1]).toLowerCase(); }catch(e){}
+  const selected=value.split(','); return names.map(name=>value==='all'||selected.indexOf(name)>=0);
+}
+const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
+function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
 const LOW_FROM_URL=/(?:^|[?&#])(?:hi|low)\b/.test(location.search+location.hash);

@@ -1641,6 +1641,15 @@
 
 
 
+
+
+
+
+
+
+
+
+
 function roadWallVertexShader(){ return [
   'uniform float uNow,uArchN0,uWallSeed'+((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?',uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP,uWallCol['+ML_ARCH_N+'],uWallNext['+ML_ARCH_N+']; uniform float uK['+ML_ARCH_N+'];',
   ...(ML_BITE?['uniform vec3 uBite;']:[]),
