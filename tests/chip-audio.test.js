@@ -88,7 +88,7 @@ function hit(source, chip, q, options = {}) {
   const voice = { oscillator, triggerAttackRelease(...args) { calls.push(args); } };
   const cfgVoice = vm.runInNewContext(`({${main.match(/\bvoice:\{([^}]+)\}/)[1]}})`);
   const ctx = vm.createContext({
-    CHIP_LEAD: chip, CFG: { chip: { dutyFull: .5, dutyEdge: .125 }, voice: { ...cfgVoice, on: options.shaped !== false } },
+    PIANO: false, CHIP_LEAD: chip, CFG: { chip: { dutyFull: .5, dutyEdge: .125 }, voice: { ...cfgVoice, on: options.shaped !== false } },
     lead: options.fallback ? null : voice, synthHit: voice, leadLp, soundOn: true, toneReady: true,
     voiceLive: () => true, voiceMuted: () => !!options.muted, voiceQ: () => q, beatSnap: () => 4,
     state: { streak: 2 }, PENTA: [277.18, 329.63, 369.99], _voiceStack: options.stack || 0,

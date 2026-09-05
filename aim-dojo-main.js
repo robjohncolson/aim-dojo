@@ -5401,9 +5401,11 @@ function playHit(gradeIdx){                               // graded kill tone = 
   try{ const st=beatSnap(), s=Math.min(state.streak,23), root=PENTA[s%PENTA.length]*Math.pow(2,Math.floor(s/PENTA.length));
     if(shaped){
       const V=CFG.voice, q=voiceQ(), stack=Math.min(_voiceStack, Math.max(1,V.stackMax|0));
+      if(!PIANO){
       if(CHIP_LEAD){ if(lead) lead.oscillator.width.value=dutyToWidth(CFG.chip.dutyEdge+(CFG.chip.dutyFull-CFG.chip.dutyEdge)*q); }
       else if(leadLp) leadLp.frequency.value=V.dullHz+(V.brightHz-V.dullHz)*q;   // one shared colour write per kill: pulse duty on the chip, the original cutoff off it; tank walking notes ride wherever the last kill left the instrument
-      v.triggerAttackRelease(root, 0.16, st, V.breathyVel+(V.fullVel-V.breathyVel)*q);
+      }
+      v.triggerAttackRelease(root, PIANO?pianoDur(q):0.16, st, V.breathyVel+(V.fullVel-V.breathyVel)*q);
       if(gradeIdx<=0){                                    // FLAWLESS: the octave sparkle, and from the 2nd consecutive one the consonance rolls up over it (grace notes, not a chord array — `lead` is monophonic)
         v.triggerAttackRelease(stack>=2?root*1.5:root*2, 0.08, st+0.05, 0.5);
         if(stack>=3) v.triggerAttackRelease(root*2, 0.08, st+0.1, 0.45);
