@@ -5289,7 +5289,8 @@ function buildDrums(){
       snare=null;
       hat=null;
       shotCue=null;
-      tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(tickVol=new Tone.Volume(TICK_VOL_DB).connect(drumBus));   // the same woodblock and held trim keep the clock audible
+      tick=new Tone.PolySynth(Tone.FMSynth,pianoPatch()).connect(tickVol=new Tone.Volume(TICK_VOL_DB).connect(drumBus));   // the metronome plays the same piano; its held trim preserves the quiet-tick fade and return
+      tick.maxPolyphony=4;   // the two existing downbeat notes can share an onset, with two voices left for overlapping cue tails
       bass=new Tone.FMSynth(pianoPatch()).connect(new Tone.Volume(CFG.piano.bassDb).connect(drumBus));
       try{ arp=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(CHIP_DRY?new Tone.Volume(-9).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }
       try{ tapSynth=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }

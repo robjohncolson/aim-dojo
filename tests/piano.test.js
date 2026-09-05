@@ -136,7 +136,7 @@ test("Piano off preserves all 128 as-found chip node graphs, options and connect
   }
 });
 
-test("Piano graph is six shared-patch keyboard voices, the exact woodblock and no percussion", () => {
+test("Piano graph is seven shared-patch keyboard voices including the metronome, with no percussion", () => {
   const graph = captureGraph(main, { piano: true });
   const node = (name, ...args) => ({ name, args });
   const bus = [node("Volume", -5), node("Destination")];
@@ -144,7 +144,7 @@ test("Piano graph is six shared-patch keyboard voices, the exact woodblock and n
   const lp = node("Filter", 4200, "lowpass");
   const expected = {
     drumBus: bus, kick: null, snare: null, hat: null, shotCue: null,
-    tick: [node("Synth", { oscillator: { type: "triangle" }, envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 } }), node("Volume", 3), ...bus],
+    tick: [node("PolySynth", { constructor: "FMSynth" }, expectedPatch), node("Volume", 3), ...bus],
     bass: [fm, node("Volume", -8), ...bus],
     arp: [fm, lp, node("FeedbackDelay", { delayTime: "8n", feedback: 0.2, wet: 0.28 }), node("Volume", -9), ...bus],
     tapSynth: [fm, lp, node("Volume", -11), ...bus],
@@ -156,11 +156,11 @@ test("Piano graph is six shared-patch keyboard voices, the exact woodblock and n
   assert.deepEqual(graph.routes, expected);
   assert.equal(graph.nodes.length, 23);
   assert.equal(graph.nodes.filter(n => n.name === "FMSynth").length, 4);
-  assert.equal(graph.nodes.filter(n => n.name === "PolySynth").length, 2);
-  assert.deepEqual(graph.polyphony, { lead: 4 }, "the held root and its two grace keys have one spare voice");
-  assert.equal(graph.nodes.filter(n => n.name === "Synth").length, 1, "only the woodblock remains a basic Synth");
+  assert.equal(graph.nodes.filter(n => n.name === "PolySynth").length, 3);
+  assert.deepEqual(graph.polyphony, { tick: 4, lead: 4 }, "the tick can share a downbeat without restarting a voice, and lead graces retain their root");
+  assert.equal(graph.nodes.filter(n => n.name === "Synth").length, 0, "the metronome now uses the shared FM piano patch too");
   assert.equal(graph.nodes.some(n => ["NoiseSynth", "MembraneSynth"].includes(n.name)), false);
-  assert.deepEqual(graph.routes.tick, captureGraph(beforePiano).routes.tick);
+  assert.deepEqual(graph.routes.tick.slice(1), captureGraph(beforePiano).routes.tick.slice(1), "the metronome keeps its held trim and bus route");
 });
 
 test("Piano outranks every chip voicing combination while the existing dry switch alone chooses delay topology", () => {
@@ -175,11 +175,11 @@ test("Piano outranks every chip voicing combination while the existing dry switc
   assert.equal(wet.nodes.length - dry.nodes.length, 3);
 });
 
-test("Piano patch controls reach all six voices and the five safety filters without chip overrides", () => {
+test("Piano patch controls reach all seven voices and the five safety filters without chip overrides", () => {
   const graph = captureGraph(main, { ...chipDefaults, piano: true }, { leadLpHz: 12345, bassDb: -30 }, { harm: 2, mod: 1.5, lpHz: 3600, bassDb: -10 });
-  for (const voice of ["bass", "arp", "tapSynth", "pad", "lead", "tune"]) {
+  for (const voice of ["tick", "bass", "arp", "tapSynth", "pad", "lead", "tune"]) {
     const args = graph.routes[voice][0].args;
-    const patch = args[voice === "pad" || voice === "lead" ? 1 : 0];
+    const patch = args[voice === "tick" || voice === "pad" || voice === "lead" ? 1 : 0];
     assert.equal(patch.harmonicity, 2, voice);
     assert.equal(patch.modulationIndex, 1.5, voice);
     assert.deepEqual(patch.oscillator, { type: "sine" }, voice);
