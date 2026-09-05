@@ -4126,6 +4126,11 @@
 
 
 
+
+
+
+
+
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -5781,8 +5786,8 @@ function makeTargetSound(mesh){
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
-    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=CHIP_HUMS?pickPenta()*Math.pow(2,CFG.chip.humOctave):pickPenta();
-    const ampGain=ctx.createGain(); ampGain.gain.value=CHIP_HUMS?CFG.chip.humGain:0.55;
+    const osc=ctx.createOscillator(); if(PIANO && CFG.piano.hums) osc.type='sine'; else if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=CHIP_HUMS?pickPenta()*Math.pow(2,CFG.chip.humOctave):pickPenta();
+    const ampGain=ctx.createGain(); ampGain.gain.value=(PIANO && CFG.piano.hums)||CHIP_HUMS?CFG.chip.humGain:0.55;
     let lfo=null, lfoGain=null;
     if(!CHIP_HUMS){ lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2; lfoGain=ctx.createGain(); lfoGain.gain.value=0.22; }
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain
@@ -5793,7 +5798,7 @@ function makeTargetSound(mesh){
     pa.setNodeSource(outGain); mesh.add(pa);
     // reverb send (rises with distance for the "far = washy" cue) — tapped POST-gate so the reverb tail fills the rests between blips
     let send=null;
-    if(!CHIP_HUMS && reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
+    if(!(PIANO && CFG.piano.hums) && !CHIP_HUMS && reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
     osc.start(); if(lfo) lfo.start();
     const now=ctx.currentTime;
     outGain.gain.setValueAtTime(0.0001, now);
@@ -5936,7 +5941,8 @@ function humFieldBuild(){
       const panner=ctx.createPanner(),gain=ctx.createGain(),osc=ctx.createOscillator();
       const v={panner,gain,osc,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
       panner.panningModel='HRTF';panner.refDistance=5;panner.rolloffFactor=1;panner.distanceModel='inverse';panner.maxDistance=120;
-      osc.setPeriodicWave(pulseWave(ctx));osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
+      if(PIANO && CFG.piano.hums) osc.type='sine'; else osc.setPeriodicWave(pulseWave(ctx));
+      osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
       osc.start();
     }
     F.ctx=ctx;F.voices=built;return true;

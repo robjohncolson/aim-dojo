@@ -14,7 +14,7 @@ function harness({enabled=true,beat=0,raw=100,native=200}={}){
   const math=Object.create(Math);math.random=deny;
   const state=new Proxy({running:true},{get(t,k){if(k==='t')return trace.rawCtx.currentTime-raw;if(k!=='running')return deny();return t[k];},set:deny});
   let wave;
-  const c=vm.createContext({CHIP_FIELD:enabled,soundOn:true,toneReady:true,state,trainMode:false,templeActive:false,_bow:{stage:0},BOW:{LAST:3},
+  const c=vm.createContext({PIANO:false,CHIP_FIELD:enabled,soundOn:true,toneReady:true,state,trainMode:false,templeActive:false,_bow:{stage:0},BOW:{LAST:3},
     listener:trace.listener,rawCtx:trace.rawCtx,THREE:trace.THREE,TARGET_AUDIO_STEP:.05,quietAudioMatrixUpdates(){},pulseWave(ctx){return wave||(wave=ctx.createPeriodicWave(new Float32Array(2),new Float32Array([0,1]),{}));},
     CFG:{chip:{humHarmony:true,humGain:.22,humOctave:-1},sing:{on:true,degSpan:5}},CHORD_TRIAD:[[220,275,330],[196,245,294],[261.63,327.04,392.44]],PENTA:[110,137.5,165,220,275,330,440],
     singDegree:k=>({2:6,4:5,6:4,8:3,12:2})[k]??2,targets,Math:math,
@@ -182,6 +182,7 @@ test('new field hooks preserve the old spawn, grading, chord arrangement and per
   for(const [name,original]of Object.entries(offFixture.functions)){
     assert.equal(crypto.createHash('sha256').update(original).digest('hex'),offFixture.hashes[name]);
     let current=extractFunction(main,name);
+    if(name==='makeTargetSound') current=current.replace("if(PIANO && CFG.piano.hums) osc.type='sine'; else ", '').replace('(PIANO && CFG.piano.hums)||CHIP_HUMS?', 'CHIP_HUMS?').replace('!(PIANO && CFG.piano.hums) && !CHIP_HUMS', '!CHIP_HUMS');
     if(hooks[name]){const lines=current.split('\n').filter(line=>line.startsWith(hooks[name]));assert.equal(lines.length,1,name);current=current.replace(lines[0]+'\n','');}
     if(name==='onGrid') current=current.replaceAll('bassOut(', 'bassNote(');
     assert.equal(current,original,name+' retains its complete non-field body');

@@ -98,7 +98,7 @@ const CFG = {
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
   chip:{ lead:true, dry:true, bass:true, hums:true, pad:false, humHarmony:true, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums auditions a sparse chord-aware field, humHarmony:0 restores H2, and the rescued chorus stays human
-  piano:{ on:false, harm:3, mod:2.2, attack:0.002, decay:1.1, sustain:0.04, release:0.55, shortSec:0.07, longSec:0.42, lpHz:4200, bassDb:-8 },   // URL-only felted keyboard audition: one FM body, with tightness expressed by velocity and key length
+  piano:{ on:false, hums:false, harm:3, mod:2.2, attack:0.002, decay:1.1, sustain:0.04, release:0.55, shortSec:0.07, longSec:0.42, lpHz:4200, bassDb:-8 },   // URL-only felted keyboard audition: one FM body, with tightness expressed by velocity and key length; hums is the separate soft-call audition
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -239,6 +239,11 @@ function resolvePiano(search,cfg){
   return cfg.on===true;   // unknown values leave the authored default
 }
 const PIANO=resolvePiano(location.search+location.hash,CFG.piano);
+function resolvePianoHums(search,cfg){
+  const m=String(search||'').match(/(?:^|[?&#])pianoHums=([01])(?:[&#]|$)/);
+  if(m) cfg.hums=m[1]==='1';
+}   // an independent URL flip auditions the existing calls as soft sines without changing the piano boolean
+if(PIANO) resolvePianoHums(location.search+location.hash,CFG.piano);
 function pianoPatch(){
   return {harmonicity:CFG.piano.harm, modulationIndex:CFG.piano.mod,
     oscillator:{type:'sine'}, envelope:{attack:CFG.piano.attack, decay:CFG.piano.decay, sustain:CFG.piano.sustain, release:CFG.piano.release},
@@ -5781,8 +5786,8 @@ function makeTargetSound(mesh){
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
-    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=CHIP_HUMS?pickPenta()*Math.pow(2,CFG.chip.humOctave):pickPenta();
-    const ampGain=ctx.createGain(); ampGain.gain.value=CHIP_HUMS?CFG.chip.humGain:0.55;
+    const osc=ctx.createOscillator(); if(PIANO && CFG.piano.hums) osc.type='sine'; else if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=CHIP_HUMS?pickPenta()*Math.pow(2,CFG.chip.humOctave):pickPenta();
+    const ampGain=ctx.createGain(); ampGain.gain.value=(PIANO && CFG.piano.hums)||CHIP_HUMS?CFG.chip.humGain:0.55;
     let lfo=null, lfoGain=null;
     if(!CHIP_HUMS){ lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2; lfoGain=ctx.createGain(); lfoGain.gain.value=0.22; }
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain
@@ -5793,7 +5798,7 @@ function makeTargetSound(mesh){
     pa.setNodeSource(outGain); mesh.add(pa);
     // reverb send (rises with distance for the "far = washy" cue) — tapped POST-gate so the reverb tail fills the rests between blips
     let send=null;
-    if(!CHIP_HUMS && reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
+    if(!(PIANO && CFG.piano.hums) && !CHIP_HUMS && reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
     osc.start(); if(lfo) lfo.start();
     const now=ctx.currentTime;
     outGain.gain.setValueAtTime(0.0001, now);
@@ -5936,7 +5941,8 @@ function humFieldBuild(){
       const panner=ctx.createPanner(),gain=ctx.createGain(),osc=ctx.createOscillator();
       const v={panner,gain,osc,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
       panner.panningModel='HRTF';panner.refDistance=5;panner.rolloffFactor=1;panner.distanceModel='inverse';panner.maxDistance=120;
-      osc.setPeriodicWave(pulseWave(ctx));osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
+      if(PIANO && CFG.piano.hums) osc.type='sine'; else osc.setPeriodicWave(pulseWave(ctx));
+      osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
       osc.start();
     }
     F.ctx=ctx;F.voices=built;return true;
