@@ -6809,6 +6809,44 @@
 
 
 
+
+
+
+
+function cardLoad(){
+  if(_cardLoaded) return; _cardLoaded=true;
+  let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                       // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a night that left no card, silently
+  if(!realCivilDate(o.d)) return;                                                            // …and d is a REAL local civil date in the memory layer's one grammar (M5). A card with no honest date can never be shown to be tonight's, so it is not a card
+  // 1.1 amendment (wave 5a review, M4): STRICT ON THE WHOLE ENVELOPE. This used to be lenient in three ways at once —
+  // a missing or foreign hits/stars array coerced to empty and STILL offered a card, a fractional phase/rule/k was
+  // truncated into range, and a wild errMs or k was clamped. That is half-trust, and a half-trusted record is worse
+  // than none (senseiLoad's law): the picture would be honest about nothing. Now every field is checked and ANY
+  // failure drops the record entirely. Everything cardSave writes passes by construction: rounded errMs inside one
+  // beat, k straight out of the ledger (0 for the unquantized fallback — bowNote's own floor, so the floor here is 0
+  // and not 1), both lists capped at maxDots, -1 for a phase the sky would not name or a rule the deal never dealt.
+  const cap=Math.max(1,CFG.nightCard.maxDots|0);
+  const phase=cardInt(o.phase,-1,7), rule=cardInt(o.rule,-1,7);
+  if(phase==null || rule==null) return;                                                      // a bucket or the sky's own -1, and nothing between: -1 draws the empty outline and leaves the card wordless, which is honest for a night that was never named
+  if(typeof o.hb!=='number' || !isFinite(o.hb) || o.hb<0 || o.hb>10000) return;              // the half-beat the glyph's angles were measured against, in ms — 0 is this build's own "unknown" (the painter falls back to the live tempo), and anything outside a plausible tempo is not this build's write
+  if(!Array.isArray(o.hits) || o.hits.length>cap) return;                                    // the ledger is an ARRAY and it is already capped — an over-long one was not written here, and truncating it would be inventing which arrivals to keep
+  const hits=[];
+  for(const h of o.hits){
+    if(!Array.isArray(h) || h.length!==2) return;                                            // a pair, exactly: a nested object, a bare number, a triple — none of them is an arrival
+    const e=h[0], k=cardInt(h[1],0,999);
+    if(typeof e!=='number' || !isFinite(e) || e<-5000 || e>5000 || k==null) return;          // a null (what a NaN or an Infinity becomes the moment it is written), a numeric string, a fractional k: the whole night goes with any one of them
+    hits.push({errMs:e, k:k});                                                               // handed to bowGlyphPaint in the shape it takes live — validated, never clamped
+  }
+  if(!Array.isArray(o.stars) || o.stars.length>cap) return;
+  const stars=[];
+  for(const s of o.stars){
+    if(typeof s!=='string' || !STAR_ID_RE.test(s)) return;                                   // wave 3's OWN id grammar, reused: an id the lit sky would refuse cannot halo a star here either — and now it takes the record with it rather than being skipped
+    stars.push(s);
+  }
+  _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
+}
 function cardSave(){
   // ONE write per completed Bow, after state.running is false and the report card is visible. Not throttled and not
   // accreted: a night produces exactly one of these, and it REPLACES yesterday's outright.
@@ -9243,55 +9281,4 @@ function popHitMarker(){ if(reduceMotion) return; el.hitmark.classList.remove('f
 let reticleBadT=0;
 function flashReticleBad(){ el.reticle.classList.add('bad'); reticleBadT=0.12; }
 let _spoilShown=false;
-function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
-  const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
-  let spoil=false;
-  if(active && _spoilNote>=0){ const nd=wasdNoteDiv(); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
-  if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
-}
-function showTiming(grade, sub, cls, pathTxt, pathCls){
-  if(!el.timing) return;
-  el.timing.classList.remove('show','perfect','good','off'); void el.timing.offsetWidth;
-  if(el.timingG) el.timingG.textContent=grade; if(el.timingS) el.timingS.textContent=sub||'';
-  const pe=el.timingP;
-  if(pe){ pe.textContent=pathTxt||''; pe.className='p '+(pathCls||''); pe.style.display=pathTxt?'':'none'; }
-  el.timing.classList.add(cls||'good','show');
-}
-function pulseBeat(downbeat){
-  if(reduceMotion) return;
-  el.reticle.classList.add('beat'); setTimeout(()=>el.reticle.classList.remove('beat'),100);
-  if(downbeat && el.beatRing){ el.beatRing.classList.remove('pulse'); void el.beatRing.offsetWidth; el.beatRing.classList.add('pulse'); }
-}
-
-/* ========================= ASSIST ARROWS ========================= */
-const assistWrap=gid('assist'); const arrowPool=[];
-const _assistLocal=new THREE.Vector3(), _assistNdc=new THREE.Vector3();
-const ASSIST_NEAR2=64, ASSIST_FAR2=1156, ASSIST_FADE=0.65/(ASSIST_FAR2-ASSIST_NEAR2);
-const ASSIST_UPDATE_STEP=1/30; let assistAccum=ASSIST_UPDATE_STEP, assistShown=0;
-function getArrow(i){ while(arrowPool.length<=i){ const a=document.createElement('div'); a.className='arrow'; a.innerHTML='<span></span>'; a._shown=false; a._color=''; a._opacity=-1; a._sx=a._sy=a._ang=999999; assistWrap.appendChild(a); arrowPool.push(a);} return arrowPool[i]; }
-function hideAssistFrom(start){ for(let j=start;j<assistShown;j++){ const a=arrowPool[j]; if(a && a._shown){ a.style.display='none'; a._shown=false; } } assistShown=start; }
-function updateAssist(dt){
-  if(!CFG.audioAssist || !state.running || !targets.length){ hideAssistFrom(0); assistAccum=ASSIST_UPDATE_STEP; return; }
-  assistAccum+=dt; if(assistAccum<ASSIST_UPDATE_STEP) return; assistAccum=0;
-  const cx=viewCX, cy=viewCY; let idx=0;
-  for(const tg of targets){
-    if(tg.dead) continue;
-    _assistLocal.copy(tg.mesh.position).applyMatrix4(camera.matrixWorldInverse); const behind=_assistLocal.z>0;
-    _assistNdc.copy(_assistLocal).applyMatrix4(camera.projectionMatrix); let x=_assistNdc.x,y=_assistNdc.y;
-    if(!behind && Math.abs(x)<=1 && Math.abs(y)<=1) continue;
-    if(behind){ x=-x; y=-y; }
-    const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.86/Math.max(ax,ay); x*=s; y*=s;
-    const ap=tg.mesh.position, cp=camera.position, adx=ap.x-cp.x, ady=ap.y-cp.y, adz=ap.z-cp.z;
-    const sx=cx+x*cx, sy=cy-y*cy, ang=Math.atan2(-y,x), d2=adx*adx+ady*ady+adz*adz;
-    const a=getArrow(idx++); if(!a._shown){ a.style.display='block'; a._shown=true; }
-    const sxr=Math.round(sx), syr=Math.round(sy), ar=Math.round(ang*100)/100;
-    if(a._sx!==sxr || a._sy!==syr || a._ang!==ar){ a._sx=sxr; a._sy=syr; a._ang=ar; a.style.transform='translate('+sxr+'px,'+syr+'px) rotate('+ar+'rad)'; }
-    const color='var(--plasma)';   // both near + far direction arrows orange (distance still reads via opacity below)
-    if(a._color!==color){ a.style.setProperty('--c', color); a._color=color; }
-    const opacity=Math.round(Math.max(0.5,Math.min(1,1-(d2-ASSIST_NEAR2)*ASSIST_FADE))*1000)/1000;
-    if(a._opacity!==opacity){ a.style.opacity=opacity; a._opacity=opacity; }
-  }
-  hideAssistFrom(idx); if(idx>assistShown) assistShown=idx;
-}
-
 })();

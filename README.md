@@ -135,6 +135,8 @@ disables personal requests instead of falling through to another host. Set
 a Supabase service-role, secret, or JWT-signing key in this object or any
 browser file.
 
+`?piano=1` auditions the felted-keyboard night (metronome kept; chip mix otherwise). This URL-only audition is not saved in preferences.
+
 ### Cloud play preferences
 
 When signed in, non-sensitive settings sync to Supabase table `aimdojo_prefs`

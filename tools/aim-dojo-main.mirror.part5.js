@@ -9281,18 +9281,56 @@
 
 
 
+function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
+  const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
+  let spoil=false;
+  if(active && _spoilNote>=0){ const nd=wasdNoteDiv(); const beats=wasdBeats(); spoil=(Math.round(beats*nd)===_spoilNote); }   // LIVE in-focus note (on the "and" grid) == the spoiled one -> X held until it advances (matches drawWasdLane's spoiled)
+  if(_spoilShown!==spoil){ el.reticle.classList.toggle('spoil', spoil); _spoilShown=spoil; }
+}
+function showTiming(grade, sub, cls, pathTxt, pathCls){
+  if(!el.timing) return;
+  el.timing.classList.remove('show','perfect','good','off'); void el.timing.offsetWidth;
+  if(el.timingG) el.timingG.textContent=grade; if(el.timingS) el.timingS.textContent=sub||'';
+  const pe=el.timingP;
+  if(pe){ pe.textContent=pathTxt||''; pe.className='p '+(pathCls||''); pe.style.display=pathTxt?'':'none'; }
+  el.timing.classList.add(cls||'good','show');
+}
+function pulseBeat(downbeat){
+  if(reduceMotion) return;
+  el.reticle.classList.add('beat'); setTimeout(()=>el.reticle.classList.remove('beat'),100);
+  if(downbeat && el.beatRing){ el.beatRing.classList.remove('pulse'); void el.beatRing.offsetWidth; el.beatRing.classList.add('pulse'); }
+}
 
-
-
-
-
-
-
-
-
-
-
-
+/* ========================= ASSIST ARROWS ========================= */
+const assistWrap=gid('assist'); const arrowPool=[];
+const _assistLocal=new THREE.Vector3(), _assistNdc=new THREE.Vector3();
+const ASSIST_NEAR2=64, ASSIST_FAR2=1156, ASSIST_FADE=0.65/(ASSIST_FAR2-ASSIST_NEAR2);
+const ASSIST_UPDATE_STEP=1/30; let assistAccum=ASSIST_UPDATE_STEP, assistShown=0;
+function getArrow(i){ while(arrowPool.length<=i){ const a=document.createElement('div'); a.className='arrow'; a.innerHTML='<span></span>'; a._shown=false; a._color=''; a._opacity=-1; a._sx=a._sy=a._ang=999999; assistWrap.appendChild(a); arrowPool.push(a);} return arrowPool[i]; }
+function hideAssistFrom(start){ for(let j=start;j<assistShown;j++){ const a=arrowPool[j]; if(a && a._shown){ a.style.display='none'; a._shown=false; } } assistShown=start; }
+function updateAssist(dt){
+  if(!CFG.audioAssist || !state.running || !targets.length){ hideAssistFrom(0); assistAccum=ASSIST_UPDATE_STEP; return; }
+  assistAccum+=dt; if(assistAccum<ASSIST_UPDATE_STEP) return; assistAccum=0;
+  const cx=viewCX, cy=viewCY; let idx=0;
+  for(const tg of targets){
+    if(tg.dead) continue;
+    _assistLocal.copy(tg.mesh.position).applyMatrix4(camera.matrixWorldInverse); const behind=_assistLocal.z>0;
+    _assistNdc.copy(_assistLocal).applyMatrix4(camera.projectionMatrix); let x=_assistNdc.x,y=_assistNdc.y;
+    if(!behind && Math.abs(x)<=1 && Math.abs(y)<=1) continue;
+    if(behind){ x=-x; y=-y; }
+    const ax=Math.abs(x)||1e-3, ay=Math.abs(y)||1e-3, s=0.86/Math.max(ax,ay); x*=s; y*=s;
+    const ap=tg.mesh.position, cp=camera.position, adx=ap.x-cp.x, ady=ap.y-cp.y, adz=ap.z-cp.z;
+    const sx=cx+x*cx, sy=cy-y*cy, ang=Math.atan2(-y,x), d2=adx*adx+ady*ady+adz*adz;
+    const a=getArrow(idx++); if(!a._shown){ a.style.display='block'; a._shown=true; }
+    const sxr=Math.round(sx), syr=Math.round(sy), ar=Math.round(ang*100)/100;
+    if(a._sx!==sxr || a._sy!==syr || a._ang!==ar){ a._sx=sxr; a._sy=syr; a._ang=ar; a.style.transform='translate('+sxr+'px,'+syr+'px) rotate('+ar+'rad)'; }
+    const color='var(--plasma)';   // both near + far direction arrows orange (distance still reads via opacity below)
+    if(a._color!==color){ a.style.setProperty('--c', color); a._color=color; }
+    const opacity=Math.round(Math.max(0.5,Math.min(1,1-(d2-ASSIST_NEAR2)*ASSIST_FADE))*1000)/1000;
+    if(a._opacity!==opacity){ a.style.opacity=opacity; a._opacity=opacity; }
+  }
+  hideAssistFrom(idx); if(idx>assistShown) assistShown=idx;
+}
 
 /* ========================= AIM TRAIL (3D, per target) ========================= */
 // Each target paints its OWN trail: when it spawns the crosshair starts drawing on an invisible sphere; the

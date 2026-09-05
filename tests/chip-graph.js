@@ -37,12 +37,13 @@ function normalize(value) {
 
 const voices = ["drumBus", "kick", "snare", "hat", "tick", "shotCue", "bass", "arp", "tapSynth", "pad", "lead", "leadLp", "tune"];
 const chipDefaults = { lead: true, dry: true, bass: true, hums: true, pad: false, humHarmony: true, dutyFull: 0.5, dutyEdge: 0.125, leadLpHz: 9000, bassDb: -9, humDuty: 0.5, humOctave: -1, humGain: 0.22, humHarmonics: 32, padDuty: 0.25, arpHz: 30 };
+const pianoDefaults = { on: false, harm: 3, mod: 2.2, attack: 0.002, decay: 1.1, sustain: 0.04, release: 0.55, shortSec: 0.07, longSec: 0.42, lpHz: 4200, bassDb: -8 };
 
-function captureGraph(source, flags = {}, chip = {}) {
+function captureGraph(source, flags = {}, chip = {}, piano = {}) {
   const events = [], nodes = [], edges = [];
   const destination = { id: "destination" };
   const Tone = { Destination: destination };
-  for (const name of ["Volume", "Filter", "MembraneSynth", "NoiseSynth", "Synth", "PolySynth", "FeedbackDelay"]) {
+  for (const name of ["Volume", "Filter", "MembraneSynth", "NoiseSynth", "Synth", "FMSynth", "PolySynth", "FeedbackDelay"]) {
     const ctor = function (...args) {
       this.id = `n${nodes.length}`;
       this.name = name;
@@ -62,19 +63,22 @@ function captureGraph(source, flags = {}, chip = {}) {
     ctor.prototype.toDestination = function () { return this.connect(destination); };
     Tone[name] = ctor;
   }
-  const ctx = vm.createContext({ Tone, Math, Number, CFG: { chip: { ...chipDefaults, ...chip } }, ...Object.fromEntries(["LEAD", "DRY", "BASS", "HUMS", "PAD"].map(k => [`CHIP_${k}`, !!flags[k.toLowerCase()]])) });
-  const helper = source.includes("function dutyToWidth(") ? extractFunction(source, "dutyToWidth") : "";
+  const ctx = vm.createContext({ Tone, Math, Number, PIANO: !!flags.piano, CFG: { chip: { ...chipDefaults, ...chip }, piano: { ...pianoDefaults, ...piano } }, ...Object.fromEntries(["LEAD", "DRY", "BASS", "HUMS", "PAD"].map(k => [`CHIP_${k}`, !!flags[k.toLowerCase()]])) });
+  const helper = ["dutyToWidth", "pianoPatch"].filter(name => source.includes(`function ${name}(`)).map(name => extractFunction(source, name)).join("\n");
   vm.runInContext(`var ${voices.join(",")}, tickVol=null, drumsBuilt=false, toneReady=true, TICK_VOL_DB=3; ${helper}\n${extractFunction(source, "buildDrums")}\nbuildDrums();`, ctx);
   assert.equal(ctx.drumsBuilt, true, "buildDrums completed, rather than swallowing a stub failure");
-  for (const voice of voices) assert.ok(ctx[voice], `${voice} construction did not swallow an error`);
-  const roots = Object.fromEntries(voices.map(k => [k, ctx[k].id]));
+  for (const voice of voices) {
+    if (flags.piano && ["kick", "snare", "hat", "shotCue"].includes(voice)) assert.equal(ctx[voice], null, `${voice} is explicitly absent on Piano`);
+    else assert.ok(ctx[voice], `${voice} construction did not swallow an error`);
+  }
+  const roots = Object.fromEntries(voices.map(k => [k, ctx[k] === null ? null : ctx[k].id]));
   function route(id) {
     if (id === destination.id) return [{ name: "Destination", args: [] }];
     const node = nodes.find(n => n.id === id), targets = edges.filter(e => e.from === id);
     assert.equal(targets.length, 1, `${id} should have one outgoing edge`);
     return [{ name: node.name, args: node.args }, ...route(targets[0].to)];
   }
-  return { events, nodes, edges, roots, routes: Object.fromEntries(voices.map(k => [k, route(roots[k])])) };
+  return { events, nodes, edges, roots, routes: Object.fromEntries(voices.map(k => [k, roots[k] === null ? null : route(roots[k])])) };
 }
 
 function baselineSource(root) { return execFileSync("git", ["show", "589c3db:aim-dojo-main.js"], { cwd: root, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 }); }
@@ -124,4 +128,4 @@ function checkPadGraph(main, reference) {
   assert.equal(actual.nodes.length, reference.nodes.length, "one channel does not add instruments");
 }
 
-module.exports = { baselineSource, captureGraph, chipDefaults, extractFunction, normalize, checkOffGraph, checkLeadGraph, checkDryGraph, checkBassGraph, checkPadGraph };
+module.exports = { baselineSource, captureGraph, chipDefaults, pianoDefaults, extractFunction, normalize, checkOffGraph, checkLeadGraph, checkDryGraph, checkBassGraph, checkPadGraph };

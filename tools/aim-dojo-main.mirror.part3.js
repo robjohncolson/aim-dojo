@@ -4098,6 +4098,30 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -5242,6 +5266,19 @@ function buildDrums(){
   if(drumsBuilt || !toneReady) return;
   try{
     drumBus=new Tone.Volume(-5).toDestination();
+    if(PIANO){
+      kick=null;
+      snare=null;
+      hat=null;
+      shotCue=null;
+      tick=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.05,sustain:0,release:0.02}}).connect(tickVol=new Tone.Volume(TICK_VOL_DB).connect(drumBus));   // the same woodblock and held trim keep the clock audible
+      bass=new Tone.FMSynth(pianoPatch()).connect(new Tone.Volume(CFG.piano.bassDb).connect(drumBus));
+      try{ arp=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(CHIP_DRY?new Tone.Volume(-9).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.2,wet:0.28}).connect(new Tone.Volume(-9).connect(drumBus)))); }catch(e){ arp=null; }
+      try{ tapSynth=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(new Tone.Volume(-11).connect(drumBus))); }catch(e){ tapSynth=null; }
+      try{ pad=new Tone.PolySynth(Tone.FMSynth,pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }
+      try{ leadLp=new Tone.Filter(CFG.piano.lpHz,'lowpass'); lead=new Tone.FMSynth(pianoPatch()).connect(leadLp.connect(CHIP_DRY?new Tone.Volume(-8).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; leadLp=null; }
+      try{ tune=new Tone.FMSynth(pianoPatch()).connect(new Tone.Filter(CFG.piano.lpHz,'lowpass').connect(CHIP_DRY?new Tone.Volume(-5).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.12,wet:0.15}).connect(new Tone.Volume(-5).connect(drumBus)))); }catch(e){ tune=null; }
+    }else{
     kick=new Tone.MembraneSynth({pitchDecay:0.03,octaves:6,envelope:{attack:0.001,decay:0.22,sustain:0}}).connect(drumBus);
     const snFilt=new Tone.Filter(1800,'bandpass').connect(drumBus);
     snare=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.16,sustain:0}}).connect(snFilt);
@@ -5256,6 +5293,7 @@ function buildDrums(){
     try{ pad=(CHIP_PAD?new Tone.Synth({oscillator:{type:'pulse',width:dutyToWidth(CFG.chip.padDuty)},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}}):new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.35,decay:0.3,sustain:0.5,release:0.8}})).connect(new Tone.Filter(1400,'lowpass').connect(new Tone.Volume(-17).connect(drumBus))); }catch(e){ pad=null; }   // one pulse channel cycles the chord when auditioned; the off arm keeps the original polyphonic triangle, envelope, filter and trim
     try{ leadLp=new Tone.Filter(CHIP_LEAD?CFG.chip.leadLpHz:3800,'lowpass'); lead=new Tone.Synth({oscillator:CHIP_LEAD?{type:'pulse',width:dutyToWidth(CFG.chip.dutyFull)}:{type:'triangle'},envelope:{attack:0.004,decay:0.2,sustain:0.12,release:0.22}}).connect(leadLp.connect(CHIP_DRY?new Tone.Volume(-8).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.18,wet:0.2}).connect(new Tone.Volume(-8).connect(drumBus)))); }catch(e){ lead=null; leadLp=null; }   // pulse duty carries tightness while the held filter stays at its safety cutoff; the off arm keeps the original triangle, 3800 Hz node and echo graph
     try{ tune=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.008,decay:0.18,sustain:0.08,release:0.28}}).connect(new Tone.Filter(5600,'lowpass').connect(CHIP_DRY?new Tone.Volume(-5).connect(drumBus):new Tone.FeedbackDelay({delayTime:'8n',feedback:0.12,wet:0.15}).connect(new Tone.Volume(-5).connect(drumBus)))); }catch(e){ tune=null; }   // HOOK melody (pass 3): sine + longer notes + light delay, sits ABOVE the arp bed; own voice so kills never cut the phrase
+    }
     drumsBuilt=true;
   }catch(e){ drumsBuilt=false; }
 }
@@ -6775,38 +6813,4 @@ function cardStar(id){
   if(_cardStars.indexOf(id)<0) _cardStars.push(id);
 }
 function cardInt(v,lo,hi){ return (typeof v==='number' && isFinite(v) && Math.floor(v)===v && v>=lo && v<=hi) ? v : null; }   // 1.1 amendment (M4): the senseiNum discipline for this envelope's integers — a TYPE test before a value test, and a fraction is a REJECTION rather than something to truncate. A null rejects the whole record at the call site, silently
-function cardLoad(){
-  if(_cardLoaded) return; _cardLoaded=true;
-  let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                       // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a night that left no card, silently
-  if(!realCivilDate(o.d)) return;                                                            // …and d is a REAL local civil date in the memory layer's one grammar (M5). A card with no honest date can never be shown to be tonight's, so it is not a card
-  // 1.1 amendment (wave 5a review, M4): STRICT ON THE WHOLE ENVELOPE. This used to be lenient in three ways at once —
-  // a missing or foreign hits/stars array coerced to empty and STILL offered a card, a fractional phase/rule/k was
-  // truncated into range, and a wild errMs or k was clamped. That is half-trust, and a half-trusted record is worse
-  // than none (senseiLoad's law): the picture would be honest about nothing. Now every field is checked and ANY
-  // failure drops the record entirely. Everything cardSave writes passes by construction: rounded errMs inside one
-  // beat, k straight out of the ledger (0 for the unquantized fallback — bowNote's own floor, so the floor here is 0
-  // and not 1), both lists capped at maxDots, -1 for a phase the sky would not name or a rule the deal never dealt.
-  const cap=Math.max(1,CFG.nightCard.maxDots|0);
-  const phase=cardInt(o.phase,-1,7), rule=cardInt(o.rule,-1,7);
-  if(phase==null || rule==null) return;                                                      // a bucket or the sky's own -1, and nothing between: -1 draws the empty outline and leaves the card wordless, which is honest for a night that was never named
-  if(typeof o.hb!=='number' || !isFinite(o.hb) || o.hb<0 || o.hb>10000) return;              // the half-beat the glyph's angles were measured against, in ms — 0 is this build's own "unknown" (the painter falls back to the live tempo), and anything outside a plausible tempo is not this build's write
-  if(!Array.isArray(o.hits) || o.hits.length>cap) return;                                    // the ledger is an ARRAY and it is already capped — an over-long one was not written here, and truncating it would be inventing which arrivals to keep
-  const hits=[];
-  for(const h of o.hits){
-    if(!Array.isArray(h) || h.length!==2) return;                                            // a pair, exactly: a nested object, a bare number, a triple — none of them is an arrival
-    const e=h[0], k=cardInt(h[1],0,999);
-    if(typeof e!=='number' || !isFinite(e) || e<-5000 || e>5000 || k==null) return;          // a null (what a NaN or an Infinity becomes the moment it is written), a numeric string, a fractional k: the whole night goes with any one of them
-    hits.push({errMs:e, k:k});                                                               // handed to bowGlyphPaint in the shape it takes live — validated, never clamped
-  }
-  if(!Array.isArray(o.stars) || o.stars.length>cap) return;
-  const stars=[];
-  for(const s of o.stars){
-    if(typeof s!=='string' || !STAR_ID_RE.test(s)) return;                                   // wave 3's OWN id grammar, reused: an id the lit sky would refuse cannot halo a star here either — and now it takes the record with it rather than being skipped
-    stars.push(s);
-  }
-  _card={ d:o.d, phase:phase, rule:rule, hb:o.hb, hits:hits, stars:stars };
-}
 })();

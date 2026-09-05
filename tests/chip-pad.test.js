@@ -68,7 +68,7 @@ function harness(on = true, bpm = 60) {
       this.triggerAttack(note, at, vel); this.triggerRelease(at + seconds(duration)); return this;
     }
   };
-  const ctx = vm.createContext({ pad, CHIP_PAD: on, CFG: { chip: { arpHz: 30 } }, Tone: { Time: value => ({ toSeconds: () => seconds(value) }), Frequency: value => ({ toFrequency: () => hz(value) }), now: () => nativeNow+0.1, immediate: () => nativeNow }, Math, Number, Array });
+  const ctx = vm.createContext({ pad, PIANO: false, CHIP_PAD: on, CFG: { chip: { arpHz: 30 } }, Tone: { Time: value => ({ toSeconds: () => seconds(value) }), Frequency: value => ({ toFrequency: () => hz(value) }), now: () => nativeNow+0.1, immediate: () => nativeNow }, Math, Number, Array });
   vm.runInContext(source, ctx);
   return { ctx, calls, pitch, envelope, states, pad, advance: value=>nativeNow=value, tempo: value=>bpm=value };
 }

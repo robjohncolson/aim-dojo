@@ -98,6 +98,7 @@ const CFG = {
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
   chip:{ lead:true, dry:true, bass:true, hums:true, pad:false, humHarmony:true, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums auditions a sparse chord-aware field, humHarmony:0 restores H2, and the rescued chorus stays human
+  piano:{ on:false, harm:3, mod:2.2, attack:0.002, decay:1.1, sustain:0.04, release:0.55, shortSec:0.07, longSec:0.42, lpHz:4200, bassDb:-8 },   // URL-only felted keyboard audition: one FM body, with tightness expressed by velocity and key length
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -229,6 +230,28 @@ function resolveChip(search,cfg){
   let value=''; try{ value=decodeURIComponent(m[1]).toLowerCase(); }catch(e){}
   const selected=value.split(','); return names.map(name=>value==='all'||selected.indexOf(name)>=0);
 }
+function resolvePiano(search,cfg){
+  const m=String(search||'').match(/(?:^|[?&#])piano=([^&#]*)/);
+  if(!m) return cfg.on===true;
+  let value=''; try{ value=decodeURIComponent(m[1]).toLowerCase(); }catch(e){}
+  if(value==='' || value==='0' || value==='false' || value==='off') return false;
+  if(value==='1' || value==='true' || value==='on' || value==='all') return true;
+  return cfg.on===true;   // unknown values leave the authored default
+}
+const PIANO=resolvePiano(location.search+location.hash,CFG.piano);
+function pianoPatch(){
+  return {harmonicity:CFG.piano.harm, modulationIndex:CFG.piano.mod,
+    oscillator:{type:'sine'}, envelope:{attack:CFG.piano.attack, decay:CFG.piano.decay, sustain:CFG.piano.sustain, release:CFG.piano.release},
+    modulation:{type:'sine'}, modulationEnvelope:{attack:0.001, decay:0.28, sustain:0, release:0.18}};
+}   // Tone 14.8.49 FMSynth: one instrument definition, with a decaying modulator instead of a noise hammer
+function pianoDur(q){
+  const lo=+CFG.piano.shortSec||0.07, hi=+CFG.piano.longSec||0.42;
+  const t=Math.max(0,Math.min(1,q));
+  return lo+(hi-lo)*t;
+}   // key length follows arrival tightness; the off arm never calls this helper
+function pianoBass(n){
+  return PIANO?Tone.Frequency(n).transpose(12).toFrequency():n;
+}   // one octave lets the piano root speak on laptop speakers; callers choose this OR the chip wrapper
 function resolveHum(search,cfg){
   const harmony=String(search||'').match(/(?:^|[?&#])humHarmony=([01])(?:[&#]|$)/); if(harmony) cfg.humHarmony=harmony[1]==='1';
   for(const [param,key,lo,hi] of [['humDuty','humDuty',0.05,0.5],['humOct','humOctave',-2,0],['humGain','humGain',0.05,0.6]]){
@@ -245,7 +268,7 @@ function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
 let _chipPadAt=-Infinity, _chipPadPending=CHIP_PAD?[]:null;
 function padChord(notes,dur,at,vel){
-  if(!CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);
+  if(PIANO || !CHIP_PAD) return pad.triggerAttackRelease(notes,dur,at,vel);
   if(!pad) return;
   const start=at===undefined?Tone.now():Tone.Time(at).toSeconds(), now=Tone.immediate();
   const frequencies=Array.isArray(notes)?notes.map(n=>Tone.Frequency(n).toFrequency()):null;
@@ -267,6 +290,7 @@ function padChipSchedule(note,replay){
   pad.triggerRelease(note.at+note.seconds);
 }
 function padChipStop(at){
+  if(PIANO) return;   // the piano pad has independent polyphonic envelopes, never the mono pulse oscillator
   if(!CHIP_PAD || !pad) return;
   try{
     const t=at===undefined?Tone.immediate():Tone.Time(at).toSeconds();
