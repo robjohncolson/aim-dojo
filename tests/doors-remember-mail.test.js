@@ -50,7 +50,8 @@ test("C4 WASD adds one fail-soft heard-time sink while the C3 handler and door-c
   assert.equal(hook.length, 1); assert.match(hook[0], /^  if\(GH_CHALK\) try\{ ghostChalkTap\(k,beats,nd,bps,w\); \}catch\(e\)\{\}/);
   assert.equal(press.replace(`${hook[0]}\n`, ""), fixture.functions.wasdLanePress);
   assert.ok(press.indexOf(hook[0]) > press.indexOf("beats-=lat/bps;")); assert.ok(press.indexOf(hook[0]) < press.indexOf("const claim=claimWasdNote"));
-  assert.equal(extractFunction(main, "doorCross"), fixture.functions.doorCross);
+  const doorOff = extractFunction(main, "doorCross").replace("(!PIANO && !doorWhoosh)", "!doorWhoosh").replace("    if(!PIANO){\n", "").replace("    }\n    const tonic", "    const tonic");
+  assert.equal(doorOff, fixture.functions.doorCross);
   assert.equal(extractFunction(main, "roadSync").match(/  if\(ML_DOOR_CROSS\)\{\n[^]*?\n  \}/)[0], fixture.doorCrossBlock);
   for (const enabled of [false, true]) {
     const trace = [], c = vm.createContext({

@@ -2263,15 +2263,17 @@ function doorCross(bar){
   // cycle from this absolute bar without moving grid8, Transport, spawning, grading, or the private course/palette streams.
   if(!ML_DOOR_CROSS || !roadLive() || trainMode || templeActive) return;
   _wallCross.value=(reduceMotion?roadMat.uniforms.uPulse:roadMat.uniforms.uNow).value;
-  if(!soundOn || !toneReady || !doorWhoosh || !(CFG.tide && CFG.tide.on)) return;
+  if(!soundOn || !toneReady || (!PIANO && !doorWhoosh) || !(CFG.tide && CFG.tide.on)) return;
   const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), mercyN=Math.max(0,TD.mercyBars|0), cyc=rise+peak+mercyN;
   if(!mercyN || !cyc) return;
   const cb=((bar%cyc)+cyc)%cyc, mercy=roadTideAt(bar*ML_ARCH_EVERY).m===1, barsToMercy=((rise+peak-cb)%cyc+cyc)%cyc;
   if(!mercy && barsToMercy>=3) return;
   try{
     const at=beatSnap(), velocity=barsToMercy===2?Math.pow(10,-6/20):1;
+    if(!PIANO){
     doorWhoosh.triggerAttackRelease(DOOR_WHOOSH_HZ[0],DOOR_WHOOSH_SEC,at,velocity);
     doorWhoosh.frequency.cancelScheduledValues(at); doorWhoosh.frequency.setValueAtTime(DOOR_WHOOSH_HZ[0],at); doorWhoosh.frequency.linearRampToValueAtTime(DOOR_WHOOSH_HZ[1],at+DOOR_WHOOSH_SEC);
+    }
     const tonic=mercy&&pad&&CHORD_TRIAD&&CHORD_TRIAD[0]&&CHORD_TRIAD[0][0];
     if(tonic) padChord(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
   }catch(e){}
@@ -4944,6 +4946,7 @@ let kick=null, snare=null, hat=null, tick=null, tickVol=null, bass=null, arp=nul
 let gridId=null, grid8=0, cd=0, restSlots=0, rhythmGeneration=0;   // invalidates Tone.Draw work queued across Temple/pause/session boundaries
 let synthHit, synthLow, synthLvl, noiseFire, chordSynth, arcWhoosh, fireMuzzle=null, firePluck=null;
 let doorWhoosh=null;
+let pianoSfx=null;   // one shared FM miss voice keeps feedback from stealing a held kill
 /* ========================= TUNE LIBRARY =========================
    Each THEME bundles the things the whole audio engine reads: a melodic SCALE (kills/tank/WASD-taps/tune all
    index it — the old PENTA), a chord PROGRESSION as sub-bass ROOTs + voice-led pad TRIADs (one chord per bar, cycled
@@ -5339,6 +5342,18 @@ function initAudio(){
   try{
     Tone.start();
     rawCtx = (Tone.getContext && Tone.getContext().rawContext) ? Tone.getContext().rawContext : null;
+    if(PIANO){
+      pianoSfx=new Tone.FMSynth(pianoPatch()).connect(new Tone.Volume(-12).toDestination());
+      synthHit=pianoSfx;
+      synthLow=null;
+      synthLvl=null;
+      noiseFire=null;
+      arcWhoosh=null;
+      doorWhoosh=null;
+      fireMuzzle=null;
+      firePluck=null;
+      try{ chordSynth=new Tone.PolySynth(Tone.FMSynth,pianoPatch()).connect(new Tone.Volume(-13).toDestination()); }catch(e){ chordSynth=null; }   // existing hit and bonus chords keep their notes on the same keyboard
+    }else{
     const out=new Tone.Volume(-6).toDestination();
     synthHit=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.001,decay:0.09,sustain:0,release:0.02}}).connect(out);
     synthLow=new Tone.Synth({oscillator:{type:'square'},envelope:{attack:0.001,decay:0.14,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination());
@@ -5349,6 +5364,7 @@ function initAudio(){
     if(ML_DOOR_CROSS) try{ doorWhoosh=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.13,sustain:0.18,release:0.06}}).connect(new Tone.Volume(DOOR_WHOOSH_DB).toDestination()); }catch(e){ doorWhoosh=null; }   // ONE build-time doorway voice: the per-crossing call only sweeps this shared triangle; the flat switch builds no node
     try{ fireMuzzle=new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.001,decay:0.04,sustain:0,release:0.02}}).connect(new Tone.Filter(1600,'lowpass').connect(new Tone.Volume(-13).toDestination())); }catch(e){ fireMuzzle=null; }   // soft muzzle thump (brown noise — not a harsh white crack)
     try{ firePluck=new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.07,sustain:0,release:0.03}}).connect(new Tone.Volume(-10).toDestination()); }catch(e){ firePluck=null; }   // in-key pluck so the launch sits with the song
+    }
     toneReady=true;
   }catch(e){ toneReady=false; audioInit=false; }
   applyAudioState();
@@ -5356,6 +5372,10 @@ function initAudio(){
 }
 function sfx(kind){
   if(!soundOn || !toneReady) return;
+  if(PIANO){
+    try{ const note=kind==='expire'?110:kind==='offbeat'?220:kind==='whiff'?165:0; if(note && pianoSfx) pianoSfx.triggerAttackRelease(note,CFG.piano.shortSec,Tone.now(),0.35); }catch(e){}
+    return;   // hit already has a kill note; level changes add no extra strike
+  }
   try{
     const now=Tone.now();
     if(kind==='hit'){ synthHit.triggerAttackRelease(880*Math.pow(2,Math.min(state.streak,12)/24),0.06,now); }
@@ -7531,6 +7551,7 @@ function missGrooveDuck(heavy){   // short musical flinch (lighter than v1 — h
 }
 function playClankSfx(){   // one metal thud (no triple-layer stack)
   if(!soundOn || !toneReady) return;
+  if(PIANO) return sfx('offbeat');
   try{
     const now=Tone.now();
     if(shotCue) shotCue.triggerAttackRelease(72, '16n', now, 0.75);
@@ -7539,6 +7560,7 @@ function playClankSfx(){   // one metal thud (no triple-layer stack)
 }
 function playWhiffSfx(){   // soft air miss only
   if(!soundOn || !toneReady) return;
+  if(PIANO) return sfx('whiff');
   try{ if(noiseFire) noiseFire.triggerAttackRelease(0.05, Tone.now(), 0.45); }catch(e){}
 }
 function missCamKick(strong){   // subtle FOV only — trauma carries the rest
@@ -7610,7 +7632,8 @@ function onExpire(tg){
   if(tg.kind===2){ removeTarget(tg); return; }
   if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly
   removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
-  playWhiffSfx(); missGrooveDuck(false);
+  if(PIANO) sfx('expire'); else playWhiffSfx();
+  missGrooveDuck(false);
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.14);
 }
 function fire(){
@@ -7796,6 +7819,7 @@ function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
 function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter in-key whoosh (sits with the theme, doesn't fight the bed)
   if(!soundOn || !toneReady) return;
+  if(PIANO) return;
   try{
     const now=Tone.now();
     const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)

@@ -16,7 +16,8 @@ test("all ten pad sites retain baseline guards, notes, timing and velocity throu
   let count = 0;
   for (const name of names) {
     const original = extractFunction(baseline, name);
-    const current = extractFunction(sourceFor(name), name);
+    let current = extractFunction(sourceFor(name), name);
+    if (name === "doorCross") current = current.replace("(!PIANO && !doorWhoosh)", "!doorWhoosh").replace("    if(!PIANO){\n", "").replace("    }\n    const tonic", "    const tonic");
     const calls = original.split("pad.triggerAttackRelease(").length - 1;
     count += calls;
     assert.equal(current.split("padChord(").length - 1, calls, name);

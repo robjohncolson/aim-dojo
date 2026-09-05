@@ -6817,6 +6817,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function cardLoad(){
   if(_cardLoaded) return; _cardLoaded=true;
   let raw=null; try{ raw=localStorage.getItem(CARD_KEY); }catch(e){ return; }
@@ -7531,6 +7551,7 @@ function missGrooveDuck(heavy){   // short musical flinch (lighter than v1 — h
 }
 function playClankSfx(){   // one metal thud (no triple-layer stack)
   if(!soundOn || !toneReady) return;
+  if(PIANO) return sfx('offbeat');
   try{
     const now=Tone.now();
     if(shotCue) shotCue.triggerAttackRelease(72, '16n', now, 0.75);
@@ -7539,6 +7560,7 @@ function playClankSfx(){   // one metal thud (no triple-layer stack)
 }
 function playWhiffSfx(){   // soft air miss only
   if(!soundOn || !toneReady) return;
+  if(PIANO) return sfx('whiff');
   try{ if(noiseFire) noiseFire.triggerAttackRelease(0.05, Tone.now(), 0.45); }catch(e){}
 }
 function missCamKick(strong){   // subtle FOV only — trauma carries the rest
@@ -7610,7 +7632,8 @@ function onExpire(tg){
   if(tg.kind===2){ removeTarget(tg); return; }
   if(CFG.tank.fillOnly && tg.fill16>=0){ removeTarget(tg); return; }   // THE TANK IS A DRUM FILL, unfinished: the fill you did not play simply closes and departs at mercy end — NO penalty beyond departure (SPEC §5, v1.1 amendment). Modelled on the decoy branch above and deliberately as quiet: no streak reset, no pushEvent (so it never enters the adaptive accuracy window or the Quiet Tick ledger), no FADED, no whiff, no groove duck, no trauma. A figure is an OFFER; the generic expiry path below would charge you for declining it. Raw kill-switch first, so with fillOnly:false this line costs one read and every orb keeps today's expiry exactly
   removeTarget(tg); state.streak=0; pushEvent(false); showTiming(T('faded','FADED'),T('fadedSub','listen for the next'),'off');
-  playWhiffSfx(); missGrooveDuck(false);
+  if(PIANO) sfx('expire'); else playWhiffSfx();
+  missGrooveDuck(false);
   if(!reduceMotion) addTrauma(CFG.hitTrauma*0.14);
 }
 function fire(){
@@ -7796,6 +7819,7 @@ function acquireProjectileMesh(){ const m=projectileMeshPool.pop() || new THREE.
 function releaseProjectileMesh(m){ if(!m) return; m.visible=false; scene.remove(m); projectileMeshPool.push(m); }
 function playFireLaunch(flightT){   // two-layer launch: soft muzzle + quieter in-key whoosh (sits with the theme, doesn't fight the bed)
   if(!soundOn || !toneReady) return;
+  if(PIANO) return;
   try{
     const now=Tone.now();
     const lo=(PENTA&&PENTA.length)?PENTA[0]:220;                 // theme scale root (or fallback A3)

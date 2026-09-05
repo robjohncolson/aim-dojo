@@ -86,7 +86,7 @@ function emittedDoorFamily(source, doorCross, reduced = false) {
 function runDoorCross(source, { live = true, train = false, temple = false, sound = true, ready = true, reduced = false } = {}) {
   const sweep = [], frequency = [], padNotes = [], snaps = [];
   const context = vm.createContext({
-    Math, Number, ML_DOOR_CROSS: true, ML_ARCH_EVERY: 4, ML_CROSS_LIFT: 0.18, ML_CROSS_BEATS: 1,
+    Math, Number, PIANO: false, ML_DOOR_CROSS: true, ML_ARCH_EVERY: 4, ML_CROSS_LIFT: 0.18, ML_CROSS_BEATS: 1,
     DOOR_WHOOSH_DB: -26, DOOR_WHOOSH_SEC: 0.22, DOOR_WHOOSH_HZ: [520, 140],
     CFG: { tide: { on: true, riseBars: 6, peakBars: 2, mercyBars: 1, padPeakVel: 0.12 } },
     _roadTide0: { m: 0, i: 1 }, _roadTideR: { m: 0, i: 1 }, _wallCross: { value: -1e9 },

@@ -2263,15 +2263,17 @@ function doorCross(bar){
   // cycle from this absolute bar without moving grid8, Transport, spawning, grading, or the private course/palette streams.
   if(!ML_DOOR_CROSS || !roadLive() || trainMode || templeActive) return;
   _wallCross.value=(reduceMotion?roadMat.uniforms.uPulse:roadMat.uniforms.uNow).value;
-  if(!soundOn || !toneReady || !doorWhoosh || !(CFG.tide && CFG.tide.on)) return;
+  if(!soundOn || !toneReady || (!PIANO && !doorWhoosh) || !(CFG.tide && CFG.tide.on)) return;
   const TD=CFG.tide, rise=Math.max(1,TD.riseBars|0), peak=Math.max(0,TD.peakBars|0), mercyN=Math.max(0,TD.mercyBars|0), cyc=rise+peak+mercyN;
   if(!mercyN || !cyc) return;
   const cb=((bar%cyc)+cyc)%cyc, mercy=roadTideAt(bar*ML_ARCH_EVERY).m===1, barsToMercy=((rise+peak-cb)%cyc+cyc)%cyc;
   if(!mercy && barsToMercy>=3) return;
   try{
     const at=beatSnap(), velocity=barsToMercy===2?Math.pow(10,-6/20):1;
+    if(!PIANO){
     doorWhoosh.triggerAttackRelease(DOOR_WHOOSH_HZ[0],DOOR_WHOOSH_SEC,at,velocity);
     doorWhoosh.frequency.cancelScheduledValues(at); doorWhoosh.frequency.setValueAtTime(DOOR_WHOOSH_HZ[0],at); doorWhoosh.frequency.linearRampToValueAtTime(DOOR_WHOOSH_HZ[1],at+DOOR_WHOOSH_SEC);
+    }
     const tonic=mercy&&pad&&CHORD_TRIAD&&CHORD_TRIAD[0]&&CHORD_TRIAD[0][0];
     if(tonic) padChord(tonic,'16n',at,Math.max(0,+TD.padPeakVel||0));
   }catch(e){}

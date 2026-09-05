@@ -182,7 +182,7 @@ test("ordinary orb expiry releases the target and records a miss", () => {
   const pushed = [];
   const state = { streak: 3 };
   const context = vm.createContext({
-    CFG: { tank: { fillOnly: true }, hitTrauma: 0 }, state, reduceMotion: true,
+    PIANO: false, CFG: { tank: { fillOnly: true }, hitTrauma: 0 }, state, reduceMotion: true,
     GH_RECORD: false, ghostRecordTargetOutcome: () => {},
     removeTarget: () => { removed += 1; }, pushEvent: (value) => { pushed.push(value); },
     showTiming: () => {}, playWhiffSfx: () => {}, missGrooveDuck: () => {}, addTrauma: () => {},
