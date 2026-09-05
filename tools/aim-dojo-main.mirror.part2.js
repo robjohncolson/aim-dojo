@@ -1646,34 +1646,43 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function buildNaveVault(){
+  /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
+     uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's
+     existing pin makes the whole painted vault stand. Private seeded generation preserves the gameplay random stream. */
+  const N=ML_NAVE_STARS, pos=new Float32Array(N*3), dat=new Float32Array(N*3), rr=mulberry32(0x51f15e9d);
+  for(let i=0;i<N;i++){
+    const canopy=i<Math.floor(N*0.76), anchor=rr()*ML_NAVE_VAULT_SPAN, u=anchor*ROAD_MPB; let x,y;
+    if(canopy){ x=(rr()*2-1)*34; const roof=Math.max(19,58-Math.abs(x)*0.78); y=15+Math.pow(rr(),1.25)*(roof-15); }
+    else { const side=rr()<0.5?-1:1; x=side*(9+24*Math.pow(rr(),1.4)); y=5.5+16*rr(); }
+    if(u>430){ const cone=3+(u-430)*0.028; if(Math.abs(x)<cone) x=(x<0?-1:1)*cone; }
+    const near=1-0.72*Math.max(0,Math.min(1,(u-90)/560)), sz=(canopy?0.18:0.14)+(canopy?0.68:0.46)*Math.pow(rr(),1.8), pick=rr();
+    pos[i*3]=anchor; pos[i*3+1]=x; pos[i*3+2]=y; dat[i*3]=sz; dat[i*3+1]=pick<0.16?1:(pick<0.24?2:0); dat[i*3+2]=(0.48+0.52*rr())*near;
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aData',new THREE.BufferAttribute(dat,3));
+  const U=roadMat.uniforms;
+  roadVaultMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,
+    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uBreath:U.uBreath},
+    vertexShader:[
+      'uniform float uNow,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; attribute vec3 aData; varying float vA,vT;',
+      ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
+      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+      'void main(){',
+      '  float ba=mod(position.x-uNow,'+_roadG(ML_NAVE_VAULT_SPAN)+')-'+_roadG(ML_NAVE_VAULT_BEHIND)+', b=uNow+ba;',
+      (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
+      (ML_TERRAIN?'  float u=ba*'+_roadG(ROAD_MPB)+', tv=terrainVis(u,cx+position.y,position.z); vec4 mv=viewMatrix*vec4(cx+position.y,position.z+cyAt(u),-u,1.0); gl_Position=projectionMatrix*mv;':'  float u=ba*'+_roadG(ROAD_MPB)+'; vec4 mv=viewMatrix*vec4(cx+position.y,position.z,-u,1.0); gl_Position=projectionMatrix*mv;'),
+      '  float px=clamp(aData.x*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),1.6,34.0); gl_PointSize=px; vT=aData.y; vA=aData.z*clamp(px/8.0,0.18,1.0)*smoothstep('+_roadG(-ROAD_MPB)+','+_roadG(-ROAD_MPB*0.45)+',u)*(1.0-smoothstep(560.0,690.0,u))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+')'+(ML_TERRAIN?'*tv':'')+';',
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      'varying float vA,vT; void main(){ vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*7.0); float a=core;'
+    ].concat(ML_ARCH_RICH?[
+      '  if(vT>0.5){ float r4=exp(-abs(q.x)*10.0)*exp(-q.y*q.y*3.5)+exp(-abs(q.y)*10.0)*exp(-q.x*q.x*3.5); a+=r4*0.55; if(vT>1.5){ vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); a+=(exp(-abs(d.x)*12.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*12.0)*exp(-d.x*d.x*4.0))*0.40; } }'
+    ]:[]).concat([
+      '  a*=vA; if(a<0.003) discard; vec3 c=mix(vec3(1.0,0.824,0.478),vec3(1.0,0.925,0.80),core*0.55); gl_FragColor=vec4(c*a,a); }'
+    ]).join('\n') });
+  roadVault=new THREE.Points(g,roadVaultMat); roadVault.frustumCulled=false; roadVault.renderOrder=-38.6; roadVault.visible=false; scene.add(roadVault);
+}
 function buildNaveVeil(){
   /* Mercy-only, one tiny indexed sheet draw. Each half owns geometry only on its side of the aim line; the lower opening is
      wider than the crown opening, so neither transparency nor a fold can ever cross the centre gap. Its swell borrows the
@@ -4117,19 +4126,4 @@ if(_templeUi.guide) _templeUi.guide.textContent=T('skyTempleGuide','Aim lock blo
 const _templeGroup=new THREE.Group(); _templeGroup.visible=false; skySphere.add(_templeGroup);
 let _templeAspectMesh=null, _templeHighlight=null;
 const _templeAspects=[], _templeNatal=[];
-const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new THREE.Vector3(), _templeTmp=new THREE.Vector3();
-function _templeDisposeChildren(){
-  while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
-    if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
-    if(obj.material && obj.material.dispose){ obj.material.dispose(); const hz=_hzFadeMats.indexOf(obj.material); if(hz>=0) _hzFadeMats.splice(hz,1); }   // the aspect/highlight lines are horizonFadeMat() materials: drop the disposed one from the list setHorizonOpen walks every sky tick, or the list grows by two per Temple entry forever (perf audit 2026-08-18)
-  }
-  _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
-}
-function _templeAspectColor(id){
-  if(id==='square') return new THREE.Color(0xff8a78);
-  if(id==='opposition') return new THREE.Color(0x88bfff);
-  if(id==='trine') return new THREE.Color(0x8fe3c0);
-  if(id==='sextile') return new THREE.Color(0xa8d8ff);
-  return new THREE.Color(0xffd66f);
-}
 })();

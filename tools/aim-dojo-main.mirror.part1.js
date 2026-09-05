@@ -99,7 +99,7 @@ const CFG = {
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
-  chip:{ lead:true, dry:false, bass:false, hums:false, pad:false, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humGain:0.32, humHarmonics:32, padDuty:0.25, arpHz:30 },   // the player's chip is auditioned one voice at a time via ?chip=lead,dry; ?chip=0 restores today's sound, and the rescued chorus stays human
+  chip:{ lead:true, dry:true, bass:true, hums:false, pad:false, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums stays an audition, ?chip=0 restores the old sound, and the rescued chorus stays human
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -230,6 +230,15 @@ function resolveChip(search,cfg){
   let value=''; try{ value=decodeURIComponent(m[1]).toLowerCase(); }catch(e){}
   const selected=value.split(','); return names.map(name=>value==='all'||selected.indexOf(name)>=0);
 }
+function resolveHum(search,cfg){
+  for(const [param,key,lo,hi] of [['humDuty','humDuty',0.05,0.5],['humOct','humOctave',-2,0],['humGain','humGain',0.05,0.6]]){
+    const m=String(search||'').match(new RegExp('(?:^|[?&#])'+param+'=([^&#]*)')); if(!m) continue;
+    let raw=''; try{ raw=decodeURIComponent(m[1]); }catch(e){ continue; }
+    const value=Number(raw); if(!raw.trim() || !Number.isFinite(value)) continue;
+    cfg[key]=Math.max(lo,Math.min(hi,key==='humOctave'?Math.round(value):value));
+  }
+}   // boot-only ear-test controls: invalid values leave the authored setting intact and octave stays in the three supported registers
+resolveHum(location.search+location.hash,CFG.chip);
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
@@ -275,9 +284,9 @@ function pulseCoefficients(duty,harmonics){
 }
 function pulseWave(ctx){
   if(ctx._aimDojoChipPulseWave) return ctx._aimDojoChipPulseWave;
-  const c=pulseCoefficients(CFG.chip.dutyEdge,CFG.chip.humHarmonics);
+  const c=pulseCoefficients(CFG.chip.humDuty,CFG.chip.humHarmonics);
   ctx._aimDojoChipPulseWave=ctx.createPeriodicWave(c.real,c.imag,{disableNormalization:false});
-  return ctx._aimDojoChipPulseWave;   // the listener owns one shared table: base hum and gold twin reuse it within the same native context
+  return ctx._aimDojoChipPulseWave;   // every bare orb ping shares the listener's boot-authored duty table within the same native context
 }
 const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
@@ -1636,42 +1645,5 @@ function buildRoadArches(){
     ]).join('\n') });
   roadArch=new THREE.Mesh(g,roadArchMat); roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);
   if(roadArchAccentMat){ roadArchAccent=new THREE.Mesh(g,roadArchAccentMat); roadArchAccent.frustumCulled=false; roadArchAccent.renderOrder=-37.8; roadArchAccent.visible=false; scene.add(roadArchAccent); }
-}
-function buildNaveVault(){
-  /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
-     uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's
-     existing pin makes the whole painted vault stand. Private seeded generation preserves the gameplay random stream. */
-  const N=ML_NAVE_STARS, pos=new Float32Array(N*3), dat=new Float32Array(N*3), rr=mulberry32(0x51f15e9d);
-  for(let i=0;i<N;i++){
-    const canopy=i<Math.floor(N*0.76), anchor=rr()*ML_NAVE_VAULT_SPAN, u=anchor*ROAD_MPB; let x,y;
-    if(canopy){ x=(rr()*2-1)*34; const roof=Math.max(19,58-Math.abs(x)*0.78); y=15+Math.pow(rr(),1.25)*(roof-15); }
-    else { const side=rr()<0.5?-1:1; x=side*(9+24*Math.pow(rr(),1.4)); y=5.5+16*rr(); }
-    if(u>430){ const cone=3+(u-430)*0.028; if(Math.abs(x)<cone) x=(x<0?-1:1)*cone; }
-    const near=1-0.72*Math.max(0,Math.min(1,(u-90)/560)), sz=(canopy?0.18:0.14)+(canopy?0.68:0.46)*Math.pow(rr(),1.8), pick=rr();
-    pos[i*3]=anchor; pos[i*3+1]=x; pos[i*3+2]=y; dat[i*3]=sz; dat[i*3+1]=pick<0.16?1:(pick<0.24?2:0); dat[i*3+2]=(0.48+0.52*rr())*near;
-  }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aData',new THREE.BufferAttribute(dat,3));
-  const U=roadMat.uniforms;
-  roadVaultMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, blending:THREE.AdditiveBlending, premultipliedAlpha:true,
-    uniforms:{uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uBreath:U.uBreath},
-    vertexShader:[
-      'uniform float uNow,uBreath; uniform vec2 uBase; uniform vec3 uA,uW,uP; attribute vec3 aData; varying float vA,vT;',
-      ...(ML_BITE ? ['uniform vec3 uBite;'] : []),
-      ...(ML_TERRAIN?[roadTerrainShader()]:[]),
-      'void main(){',
-      '  float ba=mod(position.x-uNow,'+_roadG(ML_NAVE_VAULT_SPAN)+')-'+_roadG(ML_NAVE_VAULT_BEHIND)+', b=uNow+ba;',
-      (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
-      (ML_TERRAIN?'  float u=ba*'+_roadG(ROAD_MPB)+', tv=terrainVis(u,cx+position.y,position.z); vec4 mv=viewMatrix*vec4(cx+position.y,position.z+cyAt(u),-u,1.0); gl_Position=projectionMatrix*mv;':'  float u=ba*'+_roadG(ROAD_MPB)+'; vec4 mv=viewMatrix*vec4(cx+position.y,position.z,-u,1.0); gl_Position=projectionMatrix*mv;'),
-      '  float px=clamp(aData.x*'+_roadG(ML_FOCAL_PX*3)+'/max(1.0,length(mv.xyz)),1.6,34.0); gl_PointSize=px; vT=aData.y; vA=aData.z*clamp(px/8.0,0.18,1.0)*smoothstep('+_roadG(-ROAD_MPB)+','+_roadG(-ROAD_MPB*0.45)+',u)*(1.0-smoothstep(560.0,690.0,u))*(1.0+uBreath*'+_roadG(ML_NAVE_BREATH)+')'+(ML_TERRAIN?'*tv':'')+';',
-      '}'
-    ].join('\n'),
-    fragmentShader:[
-      'varying float vA,vT; void main(){ vec2 q=gl_PointCoord*2.0-1.0; float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*7.0); float a=core;'
-    ].concat(ML_ARCH_RICH?[
-      '  if(vT>0.5){ float r4=exp(-abs(q.x)*10.0)*exp(-q.y*q.y*3.5)+exp(-abs(q.y)*10.0)*exp(-q.x*q.x*3.5); a+=r4*0.55; if(vT>1.5){ vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); a+=(exp(-abs(d.x)*12.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*12.0)*exp(-d.x*d.x*4.0))*0.40; } }'
-    ]:[]).concat([
-      '  a*=vA; if(a<0.003) discard; vec3 c=mix(vec3(1.0,0.824,0.478),vec3(1.0,0.925,0.80),core*0.55); gl_FragColor=vec4(c*a,a); }'
-    ]).join('\n') });
-  roadVault=new THREE.Points(g,roadVaultMat); roadVault.frustumCulled=false; roadVault.renderOrder=-38.6; roadVault.visible=false; scene.add(roadVault);
 }
 })();

@@ -99,7 +99,7 @@ const CFG = {
   openShellScale:1.55, openShellScalePeak:1.92, openShellOpacityFloor:0.04, openShellOpacityPeak:0.42,
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
-  chip:{ lead:true, dry:false, bass:false, hums:false, pad:false, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humGain:0.32, humHarmonics:32, padDuty:0.25, arpHz:30 },   // the player's chip is auditioned one voice at a time via ?chip=lead,dry; ?chip=0 restores today's sound, and the rescued chorus stays human
+  chip:{ lead:true, dry:true, bass:true, hums:false, pad:false, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums stays an audition, ?chip=0 restores the old sound, and the rescued chorus stays human
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -230,6 +230,15 @@ function resolveChip(search,cfg){
   let value=''; try{ value=decodeURIComponent(m[1]).toLowerCase(); }catch(e){}
   const selected=value.split(','); return names.map(name=>value==='all'||selected.indexOf(name)>=0);
 }
+function resolveHum(search,cfg){
+  for(const [param,key,lo,hi] of [['humDuty','humDuty',0.05,0.5],['humOct','humOctave',-2,0],['humGain','humGain',0.05,0.6]]){
+    const m=String(search||'').match(new RegExp('(?:^|[?&#])'+param+'=([^&#]*)')); if(!m) continue;
+    let raw=''; try{ raw=decodeURIComponent(m[1]); }catch(e){ continue; }
+    const value=Number(raw); if(!raw.trim() || !Number.isFinite(value)) continue;
+    cfg[key]=Math.max(lo,Math.min(hi,key==='humOctave'?Math.round(value):value));
+  }
+}   // boot-only ear-test controls: invalid values leave the authored setting intact and octave stays in the three supported registers
+resolveHum(location.search+location.hash,CFG.chip);
 const [CHIP_LEAD,CHIP_DRY,CHIP_BASS,CHIP_HUMS,CHIP_PAD]=resolveChip(location.search+location.hash,CFG.chip);   // boot-only exact selection; no persistence, UI or audio-thread polling
 function dutyToWidth(d){ return 2*Math.max(0.05,Math.min(0.5,d))-1; }   // Tone 14.8.49 PulseOscillator thresholds triangle + width: negative width narrows HIGH, so duty=(width+1)/2
 function bassNote(n){ return CHIP_BASS?Tone.Frequency(n).transpose(12).toFrequency():n; }   // the chip triangle speaks an octave higher on laptop speakers; the off arm preserves the original note value and type
@@ -275,9 +284,9 @@ function pulseCoefficients(duty,harmonics){
 }
 function pulseWave(ctx){
   if(ctx._aimDojoChipPulseWave) return ctx._aimDojoChipPulseWave;
-  const c=pulseCoefficients(CFG.chip.dutyEdge,CFG.chip.humHarmonics);
+  const c=pulseCoefficients(CFG.chip.humDuty,CFG.chip.humHarmonics);
   ctx._aimDojoChipPulseWave=ctx.createPeriodicWave(c.real,c.imag,{disableNormalization:false});
-  return ctx._aimDojoChipPulseWave;   // the listener owns one shared table: base hum and gold twin reuse it within the same native context
+  return ctx._aimDojoChipPulseWave;   // every bare orb ping shares the listener's boot-authored duty table within the same native context
 }
 const WEAK = detectWeakGPU();   // one probe owns hardware budgets; choosing the chalk image must not reduce a strong device's visitors
 const _lowPref = (function(){ try{ return localStorage.getItem('aimdojo.lowRez'); }catch(e){ return null; } })();   // pause-menu RESOLUTION setting: '1'=force LOW · '0'=force HIGH · null/other=authored default
@@ -5665,31 +5674,31 @@ function applyAudioState(){
   try{ if(window.Tone&&Tone.Destination) Tone.Destination.mute=!!(templeActive||!soundOn); }catch(e){}   // silence direct-routed combat notes already scheduled before Temple entry
 }
 
-// continuous, position-aware hum: osc -> tremolo -> lowpass -> [dry: panner] + [wet send -> reverb]
+// Position-aware hum: the chip is a bare gated ping; the off arm keeps the sine's tremolo and distance reverb.
 function makeTargetSound(mesh){
   if(!listener || !soundOn) return null;
   const ctx=listener.context;
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
-    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=pickPenta();
+    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=CHIP_HUMS?pickPenta()*Math.pow(2,CFG.chip.humOctave):pickPenta();
     const ampGain=ctx.createGain(); ampGain.gain.value=CHIP_HUMS?CFG.chip.humGain:0.55;
-    const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2;
-    const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
+    let lfo=null, lfoGain=null;
+    if(!CHIP_HUMS){ lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2; lfoGain=ctx.createGain(); lfoGain.gain.value=0.22; }
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain
     const outGain=ctx.createGain(); outGain.gain.value=0.0001;
     const gateGain=ctx.createGain(); gateGain.gain.value = 1;   // rhythmic 16th-note gate (driven each frame per-target from its OWN spawn phase); opens at spawn; stays 1 (continuous) when targetPulse is off
-    osc.connect(ampGain); lfo.connect(lfoGain); lfoGain.connect(ampGain.gain);
+    osc.connect(ampGain); if(lfo){ lfo.connect(lfoGain); lfoGain.connect(ampGain.gain); }
     ampGain.connect(lowpass); lowpass.connect(gateGain); gateGain.connect(outGain);
     pa.setNodeSource(outGain); mesh.add(pa);
     // reverb send (rises with distance for the "far = washy" cue) — tapped POST-gate so the reverb tail fills the rests between blips
     let send=null;
-    if(reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
-    osc.start(); lfo.start();
+    if(!CHIP_HUMS && reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
+    osc.start(); if(lfo) lfo.start();
     const now=ctx.currentTime;
     outGain.gain.setValueAtTime(0.0001, now);
     outGain.gain.exponentialRampToValueAtTime(0.8, now+0.12);
-    return {pa, osc, lfo, ampGain, lowpass, gateGain, outGain, send, osc2:null, lfo2:null, lfo2Gain:null, dBucket:-1, stopped:false};   // lfo2Gain: the MOVER's existing detune-depth gain, kept so SINGING can re-scale its vibrato onto the new pitch without building a node
+    return {pa, osc, lfo, ampGain, lowpass, gateGain, outGain, send, osc2:null, lfo2:null, lfo2Gain:null, dBucket:-1, stopped:false};   // lfo2Gain owns kind-specific pitch vibrato; the base chip ping allocates neither tremolo nor a reverb send
   }catch(e){ return null; }
 }
 // per-kind voice: same instrument family, small timbre shifts by orb color (called AFTER the kind roll so the rnd() spawn stream is untouched; audio-only)
@@ -5697,14 +5706,15 @@ function voiceTargetSound(snd, kind){
   if(!snd || !listener || !kind) return;
   try{
     const ctx=listener.context, f=snd.osc.frequency.value;
-    if(kind===1){        // GOLD: a faint detuned sine twin through the same tremolo -> gentle beating shimmer
+    if(kind===1){        // GOLD: chip register supplies the old voice; the off arm keeps its faint detuned sine twin
       snd.lowpass.frequency.value=f*3.8;
-      const o2=ctx.createOscillator(); if(CHIP_HUMS) o2.setPeriodicWave(pulseWave(ctx)); else o2.type='sine'; o2.frequency.value=f*1.004;
-      const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2;
+      if(!CHIP_HUMS){ const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.004; const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2; }
     }else if(kind===2){  // DECOY (dormant): slower pulse -- faintly "wrong" (timbre now matches the others; the sluggish 1.4 Hz tremolo is the tell)
-      snd.lowpass.frequency.value=f*2.0; snd.lfo.frequency.value=1.4;
+      snd.lowpass.frequency.value=f*2.0; if(snd.lfo) snd.lfo.frequency.value=1.4;
     }else if(kind===3){  // SPEED: an octave up with a quicker flutter -- light + urgent, filter keeps it airy not piercing
-      snd.osc.frequency.value=f*2; snd.lowpass.frequency.value=f*2*2.4; snd.lfo.frequency.value=4.5+Math.random()*1.5;
+      snd.osc.frequency.value=f*2; snd.lowpass.frequency.value=f*2*2.4;
+      if(CHIP_HUMS){ const l2=ctx.createOscillator(); l2.type='sine'; l2.frequency.value=4.5+Math.random()*1.5; const lg=ctx.createGain(); lg.gain.value=f*2*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2; snd.lfo2Gain=lg; }   // without amplitude tremolo, SPEED keeps its flutter as small fast pitch vibrato through the existing kind-modulation ownership path
+      else if(snd.lfo) snd.lfo.frequency.value=4.5+Math.random()*1.5;
     }else if(kind===4){  // MOVER: dreamy slow pitch wobble (a few cents at 0.7 Hz)
       const l2=ctx.createOscillator(); l2.type='sine'; l2.frequency.value=0.7;
       const lg=ctx.createGain(); lg.gain.value=f*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2; snd.lfo2Gain=lg;
@@ -5753,11 +5763,11 @@ function singTargetSound(snd, kind, k, call){
   try{
     const S=CFG.sing, deg=singDegree(k); if(deg<0) return;
     const f0=snd.osc.frequency.value; if(!(f0>0)) return;
-    let f=PENTA[deg]; if(kind===1 && S.goldOctDown) f*=0.5;   // GOLD (Ancient): its degree an octave under — a deeper, older voice
+    let f=CHIP_HUMS?PENTA[deg]*Math.pow(2,CFG.chip.humOctave):PENTA[deg]; if(kind===1 && S.goldOctDown) f*=0.5;   // transpose every re-sung degree by the same register as the initial pick; GOLD keeps its additional octave-down law
     const now=listener.context.currentTime;
     // lowpass is deliberately NOT touched: the per-frame distance buckets (animate, ~5643) own its cutoff absolutely, so the dry/close-vs-washy/far spatial model stays exactly as it is today — pitch adds information, it never replaces the space.
     if(snd.osc2){ const r2=snd.osc2.frequency.value/f0; if(r2>0) snd.osc2.frequency.value=f*r2; }          // gold's detuned twin keeps beating at the same rate
-    if(snd.lfo2Gain) snd.lfo2Gain.gain.value=f*(Math.pow(2,(S.moverVibCents||0)/1200)-1);                  // MOVER: re-scale the vibrato the mover ALREADY carries to ±moverVibCents at the new pitch
+    if(snd.lfo2Gain) snd.lfo2Gain.gain.value=f*(Math.pow(2,(S.moverVibCents||0)/1200)-1);                  // re-scale existing kind pitch vibrato to the same small cents depth after every register or degree change
     if(kind===3 && S.speedGlideMs>0){                        // SPEED (Quick): a grace-note pickup — start a semitone under and settle UP into pitch. One scheduled ramp at spawn, never a per-frame write.
       const fr=snd.osc.frequency;
       fr.cancelScheduledValues(now); fr.setValueAtTime(f*0.94387, now); fr.linearRampToValueAtTime(f, now+S.speedGlideMs/1000);
@@ -5776,7 +5786,7 @@ function stopTargetSound(snd){
       snd.outGain.gain.cancelScheduledValues(now);
       snd.outGain.gain.setValueAtTime(Math.max(0.0001,snd.outGain.gain.value),now);
       snd.outGain.gain.exponentialRampToValueAtTime(0.0001, now+0.06);
-      snd.osc.stop(now+0.09); snd.lfo.stop(now+0.09);
+      snd.osc.stop(now+0.09); if(snd.lfo) snd.lfo.stop(now+0.09);
       if(snd.osc2) snd.osc2.stop(now+0.09); if(snd.lfo2) snd.lfo2.stop(now+0.09);
     }catch(e){}
   }

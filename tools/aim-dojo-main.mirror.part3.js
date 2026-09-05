@@ -4126,12 +4126,21 @@
 
 
 
-
-
-
-
-
-
+const _templeA=new THREE.Vector3(), _templeB=new THREE.Vector3(), _templeFwd=new THREE.Vector3(), _templeTmp=new THREE.Vector3();
+function _templeDisposeChildren(){
+  while(_templeGroup.children.length){ const obj=_templeGroup.children[_templeGroup.children.length-1]; _templeGroup.remove(obj);
+    if(obj.isLine && obj.geometry && obj.geometry.dispose) obj.geometry.dispose();   // THREE sprites share one internal geometry; only temple-owned line buffers may be disposed
+    if(obj.material && obj.material.dispose){ obj.material.dispose(); const hz=_hzFadeMats.indexOf(obj.material); if(hz>=0) _hzFadeMats.splice(hz,1); }   // the aspect/highlight lines are horizonFadeMat() materials: drop the disposed one from the list setHorizonOpen walks every sky tick, or the list grows by two per Temple entry forever (perf audit 2026-08-18)
+  }
+  _templeAspectMesh=null; _templeHighlight=null; _templeAspects.length=0; _templeNatal.length=0;
+}
+function _templeAspectColor(id){
+  if(id==='square') return new THREE.Color(0xff8a78);
+  if(id==='opposition') return new THREE.Color(0x88bfff);
+  if(id==='trine') return new THREE.Color(0x8fe3c0);
+  if(id==='sextile') return new THREE.Color(0xa8d8ff);
+  return new THREE.Color(0xffd66f);
+}
 function rebuildSkyTempleGeometry(){
   const priorFocus=_templeFocus&&(_templeFocus.kind==='aspect'?{kind:'aspect',key:_templeFocus.record&&_templeFocus.record.key}
     :(_templeFocus.kind==='natal'?{kind:'natal',id:_templeFocus.id}
@@ -5665,31 +5674,31 @@ function applyAudioState(){
   try{ if(window.Tone&&Tone.Destination) Tone.Destination.mute=!!(templeActive||!soundOn); }catch(e){}   // silence direct-routed combat notes already scheduled before Temple entry
 }
 
-// continuous, position-aware hum: osc -> tremolo -> lowpass -> [dry: panner] + [wet send -> reverb]
+// Position-aware hum: the chip is a bare gated ping; the off arm keeps the sine's tremolo and distance reverb.
 function makeTargetSound(mesh){
   if(!listener || !soundOn) return null;
   const ctx=listener.context;
   try{
     const pa=new THREE.PositionalAudio(listener); quietAudioMatrixUpdates(pa,true);
     pa.setRefDistance(5); pa.setRolloffFactor(1.0); pa.setDistanceModel('inverse'); pa.setMaxDistance(120);
-    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=pickPenta();
+    const osc=ctx.createOscillator(); if(CHIP_HUMS) osc.setPeriodicWave(pulseWave(ctx)); else osc.type='sine'; osc.frequency.value=CHIP_HUMS?pickPenta()*Math.pow(2,CFG.chip.humOctave):pickPenta();
     const ampGain=ctx.createGain(); ampGain.gain.value=CHIP_HUMS?CFG.chip.humGain:0.55;
-    const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2;
-    const lfoGain=ctx.createGain(); lfoGain.gain.value=0.22;
+    let lfo=null, lfoGain=null;
+    if(!CHIP_HUMS){ lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2+Math.random()*2; lfoGain=ctx.createGain(); lfoGain.gain.value=0.22; }
     const lowpass=ctx.createBiquadFilter(); lowpass.type='lowpass'; lowpass.frequency.value=osc.frequency.value*3.2;   // near-transparent for a pure sine; kept so the per-kind voices can still shade cutoff without rebuilding the chain
     const outGain=ctx.createGain(); outGain.gain.value=0.0001;
     const gateGain=ctx.createGain(); gateGain.gain.value = 1;   // rhythmic 16th-note gate (driven each frame per-target from its OWN spawn phase); opens at spawn; stays 1 (continuous) when targetPulse is off
-    osc.connect(ampGain); lfo.connect(lfoGain); lfoGain.connect(ampGain.gain);
+    osc.connect(ampGain); if(lfo){ lfo.connect(lfoGain); lfoGain.connect(ampGain.gain); }
     ampGain.connect(lowpass); lowpass.connect(gateGain); gateGain.connect(outGain);
     pa.setNodeSource(outGain); mesh.add(pa);
     // reverb send (rises with distance for the "far = washy" cue) — tapped POST-gate so the reverb tail fills the rests between blips
     let send=null;
-    if(reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
-    osc.start(); lfo.start();
+    if(!CHIP_HUMS && reverbInput){ send=ctx.createGain(); send.gain.value=0.12; gateGain.connect(send); send.connect(reverbInput); }
+    osc.start(); if(lfo) lfo.start();
     const now=ctx.currentTime;
     outGain.gain.setValueAtTime(0.0001, now);
     outGain.gain.exponentialRampToValueAtTime(0.8, now+0.12);
-    return {pa, osc, lfo, ampGain, lowpass, gateGain, outGain, send, osc2:null, lfo2:null, lfo2Gain:null, dBucket:-1, stopped:false};   // lfo2Gain: the MOVER's existing detune-depth gain, kept so SINGING can re-scale its vibrato onto the new pitch without building a node
+    return {pa, osc, lfo, ampGain, lowpass, gateGain, outGain, send, osc2:null, lfo2:null, lfo2Gain:null, dBucket:-1, stopped:false};   // lfo2Gain owns kind-specific pitch vibrato; the base chip ping allocates neither tremolo nor a reverb send
   }catch(e){ return null; }
 }
 // per-kind voice: same instrument family, small timbre shifts by orb color (called AFTER the kind roll so the rnd() spawn stream is untouched; audio-only)
@@ -5697,14 +5706,15 @@ function voiceTargetSound(snd, kind){
   if(!snd || !listener || !kind) return;
   try{
     const ctx=listener.context, f=snd.osc.frequency.value;
-    if(kind===1){        // GOLD: a faint detuned sine twin through the same tremolo -> gentle beating shimmer
+    if(kind===1){        // GOLD: chip register supplies the old voice; the off arm keeps its faint detuned sine twin
       snd.lowpass.frequency.value=f*3.8;
-      const o2=ctx.createOscillator(); if(CHIP_HUMS) o2.setPeriodicWave(pulseWave(ctx)); else o2.type='sine'; o2.frequency.value=f*1.004;
-      const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2;
+      if(!CHIP_HUMS){ const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.004; const g2=ctx.createGain(); g2.gain.value=0.35; o2.connect(g2); g2.connect(snd.ampGain); o2.start(); snd.osc2=o2; }
     }else if(kind===2){  // DECOY (dormant): slower pulse -- faintly "wrong" (timbre now matches the others; the sluggish 1.4 Hz tremolo is the tell)
-      snd.lowpass.frequency.value=f*2.0; snd.lfo.frequency.value=1.4;
+      snd.lowpass.frequency.value=f*2.0; if(snd.lfo) snd.lfo.frequency.value=1.4;
     }else if(kind===3){  // SPEED: an octave up with a quicker flutter -- light + urgent, filter keeps it airy not piercing
-      snd.osc.frequency.value=f*2; snd.lowpass.frequency.value=f*2*2.4; snd.lfo.frequency.value=4.5+Math.random()*1.5;
+      snd.osc.frequency.value=f*2; snd.lowpass.frequency.value=f*2*2.4;
+      if(CHIP_HUMS){ const l2=ctx.createOscillator(); l2.type='sine'; l2.frequency.value=4.5+Math.random()*1.5; const lg=ctx.createGain(); lg.gain.value=f*2*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2; snd.lfo2Gain=lg; }   // without amplitude tremolo, SPEED keeps its flutter as small fast pitch vibrato through the existing kind-modulation ownership path
+      else if(snd.lfo) snd.lfo.frequency.value=4.5+Math.random()*1.5;
     }else if(kind===4){  // MOVER: dreamy slow pitch wobble (a few cents at 0.7 Hz)
       const l2=ctx.createOscillator(); l2.type='sine'; l2.frequency.value=0.7;
       const lg=ctx.createGain(); lg.gain.value=f*0.008; l2.connect(lg); lg.connect(snd.osc.frequency); l2.start(); snd.lfo2=l2; snd.lfo2Gain=lg;
@@ -5753,11 +5763,11 @@ function singTargetSound(snd, kind, k, call){
   try{
     const S=CFG.sing, deg=singDegree(k); if(deg<0) return;
     const f0=snd.osc.frequency.value; if(!(f0>0)) return;
-    let f=PENTA[deg]; if(kind===1 && S.goldOctDown) f*=0.5;   // GOLD (Ancient): its degree an octave under — a deeper, older voice
+    let f=CHIP_HUMS?PENTA[deg]*Math.pow(2,CFG.chip.humOctave):PENTA[deg]; if(kind===1 && S.goldOctDown) f*=0.5;   // transpose every re-sung degree by the same register as the initial pick; GOLD keeps its additional octave-down law
     const now=listener.context.currentTime;
     // lowpass is deliberately NOT touched: the per-frame distance buckets (animate, ~5643) own its cutoff absolutely, so the dry/close-vs-washy/far spatial model stays exactly as it is today — pitch adds information, it never replaces the space.
     if(snd.osc2){ const r2=snd.osc2.frequency.value/f0; if(r2>0) snd.osc2.frequency.value=f*r2; }          // gold's detuned twin keeps beating at the same rate
-    if(snd.lfo2Gain) snd.lfo2Gain.gain.value=f*(Math.pow(2,(S.moverVibCents||0)/1200)-1);                  // MOVER: re-scale the vibrato the mover ALREADY carries to ±moverVibCents at the new pitch
+    if(snd.lfo2Gain) snd.lfo2Gain.gain.value=f*(Math.pow(2,(S.moverVibCents||0)/1200)-1);                  // re-scale existing kind pitch vibrato to the same small cents depth after every register or degree change
     if(kind===3 && S.speedGlideMs>0){                        // SPEED (Quick): a grace-note pickup — start a semitone under and settle UP into pitch. One scheduled ramp at spawn, never a per-frame write.
       const fr=snd.osc.frequency;
       fr.cancelScheduledValues(now); fr.setValueAtTime(f*0.94387, now); fr.linearRampToValueAtTime(f, now+S.speedGlideMs/1000);
@@ -5776,7 +5786,7 @@ function stopTargetSound(snd){
       snd.outGain.gain.cancelScheduledValues(now);
       snd.outGain.gain.setValueAtTime(Math.max(0.0001,snd.outGain.gain.value),now);
       snd.outGain.gain.exponentialRampToValueAtTime(0.0001, now+0.06);
-      snd.osc.stop(now+0.09); snd.lfo.stop(now+0.09);
+      snd.osc.stop(now+0.09); if(snd.lfo) snd.lfo.stop(now+0.09);
       if(snd.osc2) snd.osc2.stop(now+0.09); if(snd.lfo2) snd.lfo2.stop(now+0.09);
     }catch(e){}
   }

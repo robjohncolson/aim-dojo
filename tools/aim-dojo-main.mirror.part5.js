@@ -9132,6 +9132,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
 const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
 const _scScreen=[0,0,false];
 /* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */

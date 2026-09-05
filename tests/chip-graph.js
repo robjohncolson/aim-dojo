@@ -36,7 +36,7 @@ function normalize(value) {
 }
 
 const voices = ["drumBus", "kick", "snare", "hat", "tick", "shotCue", "bass", "arp", "tapSynth", "pad", "lead", "leadLp", "tune"];
-const chipDefaults = { lead: true, dry: false, bass: false, hums: false, pad: false, dutyFull: 0.5, dutyEdge: 0.125, leadLpHz: 9000, bassDb: -9, humGain: 0.32, humHarmonics: 32, padDuty: 0.25, arpHz: 30 };
+const chipDefaults = { lead: true, dry: true, bass: true, hums: false, pad: false, dutyFull: 0.5, dutyEdge: 0.125, leadLpHz: 9000, bassDb: -9, humDuty: 0.5, humOctave: -1, humGain: 0.22, humHarmonics: 32, padDuty: 0.25, arpHz: 30 };
 
 function captureGraph(source, flags = {}, chip = {}) {
   const events = [], nodes = [], edges = [];
