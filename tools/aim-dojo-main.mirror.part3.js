@@ -5947,7 +5947,7 @@ function pianoFieldBuild(F,ctx){
     for(let i=0;i<2;i++){
       const panner=ctx.createPanner(),gain=ctx.createGain();
       const v={panner,gain,osc:null,piano:true,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,lastAttack:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
-      panner.panningModel='HRTF';panner.refDistance=5;panner.rolloffFactor=1;panner.distanceModel='inverse';panner.maxDistance=120;
+      panner.panningModel='HRTF';panner.refDistance=8;panner.rolloffFactor=0.25;panner.distanceModel='inverse';panner.maxDistance=120;   // keep the bearing, but let far piano calls remain audible beside the accompaniment
       v.osc=new Tone.FMSynth({...pianoPatch(),context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
     }
     F.ctx=ctx;F.voices=built;return true;
@@ -6014,7 +6014,7 @@ function humFieldPitch(tg,ci){
   const rung=Math.max(0,Math.min(span-1,degree-(n-span)));
   // Ordered authored triads, repeated upward by octaves: every rung is an exact current chord tone.
   // The +1 uses the existing humOctave=-1 as the lower chord register; a four-k vocabulary remains distinct.
-  return tri[rung%3]*Math.pow(2,Math.floor(rung/3)+1+CFG.chip.humOctave);
+  return tri[rung%3]*Math.pow(2,Math.floor(rung/3)+1+CFG.chip.humOctave+((PIANO && CFG.piano.hums)?1:0));   // the piano call sits above the bass; low lesson roots otherwise disappear into the same-register accompaniment
 }
 function humFieldRemember(time,ci,tier,i){
   const F=_humField,H=F.harmony,now=rawCtx.currentTime;
