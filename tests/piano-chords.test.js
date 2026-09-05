@@ -6,6 +6,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 const { main } = require("./source.js");
 const { captureGraph, extractFunction, pianoDefaults } = require("./chip-graph.js");
+const { pianoIntroOff } = require("./piano-intro-source.js");
 const fixture = require("./fixtures/piano-chords-off.json");
 
 test("Piano chord fixture authenticates all ten callers and preserves their notes, onsets and velocities exactly", () => {
@@ -14,7 +15,8 @@ test("Piano chord fixture authenticates all ten callers and preserves their note
   assert.equal(createHash("sha256").update(fixture.committedOnGrid).digest("hex"), "28ade9178108a8681167546e95e373aaaf1d069bfea117b3e70bdd1830596d3c");
   let count = 0;
   for (const name of ["doorCross", "themeBreath", "volleyNote", "bowEnterHold", "onGrid"]) {
-    const current = extractFunction(main, name).replace(/\r\n/g, "\n");
+    const body = extractFunction(main, name).replace(/\r\n/g, "\n");
+    const current = name === "onGrid" ? pianoIntroOff(body) : body;
     if (name === "onGrid") {
       assert.ok(current === fixture.functions.onGrid || current === fixture.committedOnGrid, "onGrid matches exactly one authenticated authored body; only the pending chip kick callee differs");
     } else {

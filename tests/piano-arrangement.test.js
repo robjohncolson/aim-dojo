@@ -6,6 +6,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 const { main } = require("./source.js");
 const { extractFunction } = require("./chip-graph.js");
+const { pianoIntroOff } = require("./piano-intro-source.js");
 const fixture = require("./fixtures/piano-arrangement-off.json");
 
 test("Piano arrangement fixture authenticates the pre-Piano clock and musical call sites", () => {
@@ -45,7 +46,8 @@ test("Piano bass routing preserves off-arm note identity and raises exactly one 
 test("Piano changes only the bass wrapper at all six sites, preserving the full grid clock and opening breath", () => {
   let sites = 0;
   for (const [name, expectedSites] of [["onGrid", 5], ["themeBreath", 1]]) {
-    const current = extractFunction(main, name).replace(/\r\n/g, "\n");
+    const body = extractFunction(main, name).replace(/\r\n/g, "\n");
+    const current = name === "onGrid" ? pianoIntroOff(body) : body;
     const before = fixture.functions[name];
     assert.equal((current.match(/bass\.triggerAttackRelease\(bassOut\(/g) || []).length, expectedSites, name);
     assert.equal((before.match(/bass\.triggerAttackRelease\(bassNote\(/g) || []).length, expectedSites, name);

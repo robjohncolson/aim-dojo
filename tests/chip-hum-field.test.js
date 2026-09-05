@@ -3,6 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const {makeTrace}=require('./hum-field-trace.js');
 const {main}=require('./source.js');
 const {extractFunction}=require('./chip-graph.js');
+const {pianoIntroOff}=require('./piano-intro-source.js');
 const fieldNames=['humFieldLive','humFieldBeat','humFieldNativeTime','humFieldQuiet','humFieldRetireLegacy','humFieldBuild','humFieldEligible','humFieldMove','humFieldSelect','humFieldPitch','humFieldRemember','humFieldDue','humFieldApply','humFieldBind','humFieldStrike','humFieldSpawn','humFieldGrid','humFieldDrain','humFieldUpdate','humFieldStop'];
 const declaration=main.match(/let _humField=CHIP_FIELD\?[^;\n]+;/);
 assert.ok(declaration,'field state is allocated only for the enabled arm');
@@ -182,6 +183,7 @@ test('new field hooks preserve the old spawn, grading, chord arrangement and per
   for(const [name,original]of Object.entries(offFixture.functions)){
     assert.equal(crypto.createHash('sha256').update(original).digest('hex'),offFixture.hashes[name]);
     let current=extractFunction(main,name);
+    if(name==='onGrid') current=pianoIntroOff(current);
     if(name==='makeTargetSound') current=current.replace("if(PIANO && CFG.piano.hums) osc.type='sine'; else ", '').replace('(PIANO && CFG.piano.hums)||CHIP_HUMS?', 'CHIP_HUMS?').replace('!(PIANO && CFG.piano.hums) && !CHIP_HUMS', '!CHIP_HUMS');
     if(hooks[name]){const lines=current.split('\n').filter(line=>line.startsWith(hooks[name]));assert.equal(lines.length,1,name);current=current.replace(lines[0]+'\n','');}
     if(name==='onGrid') current=current.replaceAll('bassOut(', 'bassNote(');

@@ -7085,8 +7085,12 @@ function onGrid(time){
   if(trainMode){
     try{
       const andStep=(i%2===1);   // the "and" (WASD pocket) — louder tick so letters lock to the same cue as the floor colour
+      if(PIANO){
+        if(tick && i%2===0) tick.triggerAttackRelease(i===0?2093:1568,'32n',time,0.55);   // count the main beats; the learner alone plays the lower answer between them
+      }else{
       if(tick && andStep) tick.triggerAttackRelease(i===1?1760:1480,'32n',time, trainPhase===0?0.95:0.7);
       if(tick && i===0) tick.triggerAttackRelease(2093,'32n',time, 0.55);   // soft downbeat (shot pocket) — quieter in phase 0 so the letter pocket owns attention
+      }
       if(kick && i===0) kick.triggerAttackRelease('C1','8n',time, trainPhase===0?0.35:0.55);
       if(bass && i===0) bass.triggerAttackRelease(bassOut(CHORD_ROOT[ci]), trainPhase===0?'2n':'4n', time, trainPhase===0?0.38:0.55);
       if(pad && i===0 && trainPhase>=1) padChord(CHORD_TRIAD[ci],'1n',time, 0.12);

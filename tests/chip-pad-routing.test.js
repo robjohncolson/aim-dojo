@@ -5,6 +5,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 const { ROOT, main, sourceFor } = require("./source.js");
 const { baselineSource, extractFunction, checkOffGraph, checkPadGraph } = require("./chip-graph.js");
+const { pianoIntroOff } = require("./piano-intro-source.js");
 
 test("chip pad replaces only the polyphonic triangle with one pulse in the voice graph", () => {
   checkPadGraph(main, checkOffGraph(main, ROOT));
@@ -17,6 +18,7 @@ test("all ten pad sites retain baseline guards, notes, timing and velocity throu
   for (const name of names) {
     const original = extractFunction(baseline, name);
     let current = extractFunction(sourceFor(name), name);
+    if (name === "onGrid") current = pianoIntroOff(current);
     if (name === "doorCross") current = current.replace("(!PIANO && !doorWhoosh)", "!doorWhoosh").replace("    if(!PIANO){\n", "").replace("    }\n    const tonic", "    const tonic");
     const calls = original.split("pad.triggerAttackRelease(").length - 1;
     count += calls;
