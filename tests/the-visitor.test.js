@@ -184,7 +184,7 @@ test('C1 stores three validated strangers without geometry and ignores a fourth 
   assert.equal(c._ghostVisitors.length,3);assert.deepEqual(Array.from(c._ghostVisitors,v=>v.id),ghosts.slice(0,3).map(v=>v.id));
   assert.deepEqual(Array.from(c._ghostVisitors,v=>v.back),[false,true,false]);
   assert.deepEqual(Array.from(c._ghostVisitors,v=>v.sig),[0,3,7]);
-  assert.equal(c.ghostVisitorLine(),'3 visitors ride tonight · 🌔\u2009🌑\u2009🌘');assert.equal(c.ghostVisitorLine(),'');
+  assert.equal(c.ghostVisitorLine(),'chalk from 3 strangers is on the doors tonight · 🌔\u2009🌑\u2009🌘');assert.equal(c.ghostVisitorLine(),'');
 });
 
 test('C1 reachedBack accepts only true boolean and preserves anonymous singular copy',async()=>{
@@ -192,8 +192,27 @@ test('C1 reachedBack accepts only true boolean and preserves anonymous singular 
     const item={id:'b'.repeat(32),artifact:artifact({moonBucket:7})};if(field!==undefined)item.reachedBack=field;
     const c=data({fetch:()=>Promise.resolve(response({ghosts:[item]}))});await c.ghostVisitorFetch(4,'a'.repeat(32),8);
     assert.equal(c._ghostVisitors[0].back,expected);
-    assert.equal(c.ghostVisitorLine(),expected?'a visitor who reached back rides tonight · 🌘':'a visitor rides tonight · 🌘');
+    assert.equal(c.ghostVisitorLine(),expected?'a stranger who reached back has chalked the doors · 🌘':"a stranger's chalk is on the doors tonight · 🌘");
   }
+});
+
+test('C3 accepted strangers refresh marks after admission while rejected, disabled and failed paints stay isolated',()=>{
+  const lengths=[];let c;
+  c=data({GH_CHALK:true,ghostChalkInstall(){lengths.push(c._ghostVisitors.length);}});
+  const record=artifact();
+  assert.equal(c.ghostVisitorStore(3,'b'.repeat(32),record,false),false);
+  assert.equal(c.ghostVisitorStore(4,'invalid',record,false),false);
+  assert.equal(c.ghostVisitorStore(4,'b'.repeat(32),{...record,extra:true},false),false);
+  assert.deepEqual(lengths,[]);
+  for(const id of ['b','c','d'])assert.equal(c.ghostVisitorStore(4,id.repeat(32),record,false),true);
+  assert.equal(c.ghostVisitorStore(4,'b'.repeat(32),record,false),false);
+  assert.equal(c.ghostVisitorStore(4,'e'.repeat(32),record,false),false);
+  assert.deepEqual(lengths,[1,2,3], 'each accepted record exists before its one refresh');
+  let calls=0;
+  const off=data({GH_CHALK:false,ghostChalkInstall(){calls++;}});
+  assert.equal(off.ghostVisitorStore(4,'b'.repeat(32),record,false),true);assert.equal(calls,0);
+  const failed=data({GH_CHALK:true,ghostChalkInstall(){throw Error('quiet painting failure');}});
+  assert.equal(failed.ghostVisitorStore(4,'b'.repeat(32),record,false),true);assert.equal(failed._ghostVisitors.length,1);
 });
 
 test('C1 rejects duplicate ids, stale responses and over-budget artifacts before validation',async()=>{
@@ -305,10 +324,10 @@ test('C1 threshold renders one line in comeback, mail, visitor, deal order witho
   for(const entry of [
     "ghostGiftMail:'きみは 手をのばした · {n}この音を つかまえた'",
     "ghostVisitorMail:'きみの音を {n}こ だれかが つかまえた · {sigil}'",
-    "ghostVisitorBack:'手をのばしてくれた旅人が今夜ならぶ · {sigil}'",
-    "ghostVisitorLine:'今夜 たびびとが となりを走る · {sigil}'",
-    "ghostVisitorsLine:'{n}人の旅人が今夜ならぶ · {sigils}'"
-  ])assert.ok(html.includes(entry),`C1 preserves the existing Japanese threshold: ${entry}`);
+    "ghostVisitorBack:'手をのばしてくれた旅人が戸口にしるしを残した · {sigil}'",
+    "ghostVisitorLine:'今夜の戸口には旅人のしるしがある · {sigil}'",
+    "ghostVisitorsLine:'今夜の戸口には{n}人の旅人のしるしがある · {sigils}'"
+  ])assert.ok(html.includes(entry),`the Japanese threshold retains its contracted form: ${entry}`);
   for(let bits=0;bits<32;bits++){
     const lines={comeback:bits&1?'comeback':'',mail:bits&2?'mail':'',local:bits&4?'local-mail':'',visitor:bits&8?'visitor':'',deal:bits&16?'deal':''};
     const calls=[];let rendered='',breaths=0;

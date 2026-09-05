@@ -7,6 +7,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 const { main } = require("./source.js");
 const beatFixture = JSON.parse(fs.readFileSync(path.join(__dirname, "doors-remember-beat.fixture.json"), "utf8"));
+const visitorsFixture = JSON.parse(fs.readFileSync(path.join(__dirname, "doors-remember-visitors.fixture.json"), "utf8"));
 
 function extractFunction(source, name) {
   const match = new RegExp(`\\bfunction\\s+${name}\\s*\\(`).exec(source);
@@ -116,16 +117,17 @@ function wallFamily({ low = false, reduced = false, chalk = true } = {}) {
   return context.emit(main, context.options(), { low, reduced, chalk });
 }
 
-function installer({ enabled = true, reduced = false, low = true, record = night(), origin = 20.25, arch0 = 16 } = {}) {
+function installer({ enabled = true, reduced = false, low = true, record = night(), visitors = [], origin = 20.25, arch0 = 16 } = {}) {
   const uniform = value => ({ value });
   const uniforms = { uArchN0: uniform(arch0) };
   for (let source = 0; source < 4; source++) uniforms[`uMark${source}`] = uniform(Array.from({ length: 11 }, () => ({
     x: 99, y: 99, z: 99, w: 99,
     set(x, y, z, w) { this.x = x; this.y = y; this.z = z; this.w = w; },
   })));
-  const context = marks({ enabled, functions: ["realCivilDate", "ghostLastNight", "ghostDoorIndex", "ghostChalkReset", "ghostChalkInstall"], extra: {
+  const context = marks({ enabled, functions: ["realCivilDate", "ghostLastNight", "ghostDoorIndex", "ghostChalkReset", "ghostChalkInstall", "ghostChalkHue", "ghostNightPalette", "ghostNightSeed", "mulberry32"], extra: {
     ML_ARCH_EVERY: 4, ML_ARCH_BEHIND: 8, ML_WALL_DJ: 7.3, ML_WALL_N: low ? 7 : 11, reduceMotion: reduced,
-    _ghostOwn: record, _ghostDoorOrigin: NaN, _ghostChalkBeat0: 0, roadWallMat: { uniforms }, phasesToday: () => "2026-09-05",
+    CFG: { moonline: { wallPalette: null } }, ML_WALL_CHALK: visitorsFixture.palette,
+    _ghostOwn: record, _ghostVisitors: visitors, _ghostDoorOrigin: NaN, _ghostChalkBeat0: 0, roadWallMat: { uniforms }, phasesToday: () => "2026-09-05",
   } });
   context.ghostChalkReset(origin);
   return { context, uniforms, values: source => uniforms[`uMark${source}`].value.map(v => [v.x, v.y, v.z, v.w]) };
@@ -144,8 +146,8 @@ test("C2 slot installation numbers the first next-boundary door zero and clears 
   assert.deepEqual([20, 23.99, 24, 28, 32].map(c.ghostDoorIndex), [-1, -1, 0, 1, 2]);
   const references = uniforms.uMark0.value.slice();
   c.ghostChalkInstall();
-  assert.ok(Math.abs(values(0)[2][0] - 0.275 * 7.3) < 1e-12); assert.deepEqual(values(0)[2].slice(1), [1, -1, 1]);
-  assert.deepEqual(values(0)[3], [0, 0, -1, 1]);
+  assert.ok(Math.abs(values(0)[2][0] - (0.275 - 0.3) * 7.3) < 1e-12); assert.deepEqual(values(0)[2].slice(1), [1, -1, 1]);
+  assert.deepEqual(values(0)[3], [-0.3 * 7.3, 0, -1, 1]);
   for (const index of [0, 1, 4, 5, 6, 7, 8, 9, 10]) assert.deepEqual(values(0)[index], [0, 0, -1, 0]);
   for (const source of [1, 2, 3]) assert.ok(values(source).every(v => JSON.stringify(v) === "[0,0,-1,0]"));
   c._ghostOwn = night({ date: "2026-09-03", targets: record.targets }); c.ghostChalkInstall();
@@ -197,7 +199,8 @@ test("C2 three-pixel chalk optics follow backing height, FOV and reflection targ
   const shader = family.wallMat.fragmentShader;
   assert.match(shader, /float px=1\.0\/max\(0\.00001,uMarkFocalPx\*gl_FragCoord\.w\)/);
   assert.match(shader, /mask=step\(dx,1\.5\*px\)/); assert.match(shader, /abs\(p\.y-5\.44000\),1\.19000/);
-  assert.match(shader, /mark\.y<0\.5[\s\S]*abs\(p\.y-0\.18\),1\.5\*px/);
+  assert.match(shader, /mark\.y<0\.5[\s\S]*float dy=abs\(p\.y-0\.18\)/);
+  assert.match(shader, /step\(dy,1\.5\*px\)/);
   assert.match(shader, /if\(mark\.w<=0\.0\) return vec4\(0\.0\)/);
   assert.match(shader, /if\(h<0\.0\) return vec3\(1\.0,0\.98,0\.94\)/);
 });
@@ -210,4 +213,71 @@ test("C2 mercy keeps inverse background pixels and paints normal chalk without a
   const destination = [0.2, 0.4, 0.6], chalk = [1, 0.98, 0.94];
   assert.deepEqual(destination.map(value => 1 - value * 1), [0.8, 0.6, 0.4]);
   assert.deepEqual(destination.map((value, i) => chalk[i] - value * 0), chalk);
+});
+
+test("C3 three remembered strangers occupy stable fetch-order sources beside the own mark", () => {
+  const own = night({ targets: [[0, 0, 0, 50, 1, 1], [0, 1, 1, 50, 0, null]] });
+  for (const low of [false, true]) {
+    const visitors = JSON.parse(JSON.stringify(visitorsFixture.visitors)), before = JSON.stringify(visitors);
+    const { context: c, values } = installer({ record: own, visitors, low });
+    c.ghostChalkInstall();
+    assert.deepEqual(values(0)[2], [-0.3 * 7.3, 1, -1, 1]);
+    assert.deepEqual(values(0)[3], [-0.3 * 7.3, 0, -1, 1]);
+    for (let index = 0; index < 3; index++) {
+      const expected = visitorsFixture.visitors[index], hit = values(index + 1)[2], expiry = values(index + 1)[3], offset = [-0.1, 0.1, 0.3][index];
+      assert.ok(Math.abs(hit[0] - (expected.expectedTimingX + offset) * 7.3) < 1e-12);
+      assert.ok(Math.abs(hit[2] - expected.expectedHue) < 1e-12);
+      assert.equal(hit[1], expected.back ? 2 : 1); assert.equal(hit[3], 0.72);
+      assert.ok(Math.abs(expiry[0] - offset * 7.3) < 1e-12); assert.equal(expiry[1], expected.back ? 3 : 0); assert.equal(expiry[3], 0.72);
+      assert.ok(values(index + 1).filter((_v, k) => k !== 2 && k !== 3).every(v => v[3] === 0));
+    }
+    assert.equal(JSON.stringify(visitors), before, "render installation does not reorder or mutate relay records");
+    c._ghostVisitors = visitors.slice(0, 1); c.ghostChalkInstall();
+    for (const source of [2, 3]) assert.ok(values(source).every(v => v[3] === 0), "removed strangers leave no stale ink");
+  }
+});
+
+test("C3 hue belongs to the artifact's private prior-night palette, never its id or a gameplay RNG", () => {
+  const visitors = visitorsFixture.visitors.map(value => ({
+    record: structuredClone(value.record), back: value.back,
+    get id() { throw Error("a visual identity cannot read a relay id"); },
+  }));
+  const { context: c, values } = installer({ visitors });
+  const before = JSON.stringify(visitors.map(v => v.record));
+  c.ghostChalkInstall();
+  for (let index = 0; index < visitors.length; index++) {
+    const expected = visitorsFixture.visitors[index];
+    assert.equal(c.ghostNightPalette(visitors[index].record, [0])[0], expected.expectedPigment);
+    assert.ok(Math.abs(c.ghostChalkHue(visitors[index].record) - expected.expectedHue) < 1e-12);
+  }
+  const first = [1, 2, 3].map(source => values(source)[2][2]);
+  c._ghostVisitors = visitors.slice().reverse(); c.ghostChalkInstall();
+  assert.deepEqual([1, 2, 3].map(source => values(source)[2][2]), first.slice().reverse(), "colours follow artifacts through a changed fetch order");
+  assert.equal(JSON.stringify(visitors.map(v => v.record)), before);
+});
+
+test("C3 only a strict reached-back boolean doubles hits and expired sill marks", () => {
+  for (const back of [undefined, null, false, 0, 1, "true", {}, true]) {
+    const visitor = { record: visitorsFixture.visitors[0].record, back };
+    const { context: c, values } = installer({ visitors: [visitor] }); c.ghostChalkInstall();
+    assert.equal(values(1)[2][1], back === true ? 2 : 1);
+    assert.equal(values(1)[3][1], back === true ? 3 : 0);
+  }
+  const unreadable = new Proxy([], { get() { throw Error("chalk off cannot inspect stranger data"); } });
+  const off = installer({ enabled: false, visitors: unreadable }); off.context.ghostChalkInstall();
+  assert.ok(off.values(1).every(v => v[0] === 99 && v[3] === 99));
+});
+
+test("C3 doubled expiry keeps two three-pixel sill strokes separated by a two-pixel gap", () => {
+  for (const low of [false, true]) {
+    const shader = wallFamily({ low }).wallMat.fragmentShader;
+    const branch = shader.match(/if\(mark\.y<0\.5 \|\| mark\.y>2\.5\)\{([^}]+)\}/);
+    assert.ok(branch, "the emitted dash and double-dash branch is extractable");
+    const mask = new Function("mark", "p", "px", "abs", "min", "step", `let dx=abs(p.x-mark.x),mask=0; ${branch[1].replace(/\bfloat\b/g, "let")} return mask;`);
+    const at = (kind, pixelOffset, px) => mask({ x: 0, y: kind }, { x: 0, y: 0.18 + pixelOffset * px }, px, Math.abs, Math.min, (edge, value) => value < edge ? 0 : 1);
+    for (const px of [0.02, 0.2]) {
+      assert.deepEqual([-1.51, -1.49, 0, 1.49, 1.51, 2.5, 3.49, 3.51, 5, 6.49, 6.51].map(y => at(3, y, px)), [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0]);
+      assert.equal(at(0, 0, px), 1); assert.equal(at(0, 5, px), 0, "ordinary expiry keeps its single dash");
+    }
+  }
 });

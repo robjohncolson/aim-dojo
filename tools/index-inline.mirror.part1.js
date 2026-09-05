@@ -806,9 +806,10 @@ window.JA={
   phasesEighth:'八つめの夜 · 月は そのすべてを 見ていた',
   rememberLine:'{n}夜が めぐった · {star} が きみの席を まもっていた', rememberAlone:'道場は きみの場所を あけて まっていた',
   ghostGiftMail:'きみは 手をのばした · {n}この音を つかまえた',
-  ghostVisitorMail:'きみの音を {n}こ だれかが つかまえた · {sigil}', ghostVisitorBack:'手をのばしてくれた旅人が今夜ならぶ · {sigil}',
-  ghostVisitorLine:'今夜 たびびとが となりを走る · {sigil}',
-  ghostPhaseLine:'このまえの{sigil}の夜がとなりを走る', ghostVisitorsLine:'{n}人の旅人が今夜ならぶ · {sigils}',
+  // C3 chalk threshold strings: Japanese wording pending native review.
+  ghostVisitorMail:'きみの音を {n}こ だれかが つかまえた · {sigil}', ghostVisitorBack:'手をのばしてくれた旅人が戸口にしるしを残した · {sigil}',
+  ghostVisitorLine:'今夜の戸口には旅人のしるしがある · {sigil}',
+  ghostPhaseLine:'このまえの{sigil}の夜がとなりを走る', ghostVisitorsLine:'今夜の戸口には{n}人の旅人のしるしがある · {sigils}',
   rememberAnchortaurus:'アルデバラン', rememberAnchorleo:'レグルス', rememberAnchorvirgo:'スピカ', rememberAnchorscorpius:'アンタレス',
   rememberFigaries:'おひつじ', rememberFigtaurus:'おうし', rememberFiggemini:'ふたご', rememberFigcancer:'かに', rememberFigleo:'しし', rememberFigvirgo:'おとめ', rememberFiglibra:'てんびん',
   rememberFigscorpius:'さそり', rememberFigophiuchus:'へびつかい', rememberFigsagittarius:'いて', rememberFigcapricornus:'やぎ', rememberFigaquarius:'みずがめ', rememberFigpisces:'うお',

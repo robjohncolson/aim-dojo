@@ -1712,7 +1712,7 @@ function ghostChalkShader(){ return [
   'vec4 chalkStroke(vec4 mark,vec2 p,float px){',
   '  if(mark.w<=0.0) return vec4(0.0);',
   '  float dx=abs(p.x-mark.x), mask=0.0;',
-  '  if(mark.y<0.5) mask=step(dx,'+_roadG(ML_WALL_APEX*0.07)+')*step(abs(p.y-0.18),1.5*px);',
+  '  if(mark.y<0.5 || mark.y>2.5){ float dy=abs(p.y-0.18); if(mark.y>2.5) dy=min(dy,abs(p.y-0.18-5.0*px)); mask=step(dx,'+_roadG(ML_WALL_APEX*0.07)+')*step(dy,1.5*px); }',   // the second sill dash sits above the first, clear of the existing deck depth guard
   '  else { if(mark.y>1.5) dx=abs(dx-2.5*px); mask=step(dx,1.5*px)*step(abs(p.y-'+_roadG(ML_WALL_APEX*0.32)+'),'+_roadG(ML_WALL_APEX*0.07)+'); }',
   '  float ink=mask*clamp(mark.w,0.0,1.0); return vec4(chalkHue(mark.z)*ink,ink);',
   '}',

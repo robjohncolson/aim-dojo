@@ -1,0 +1,119 @@
+{
+  "paletteCommit": "09cb452",
+  "palette": [
+    12547206,
+    7311804,
+    7904107,
+    12163657,
+    9269420,
+    12878949,
+    7252117
+  ],
+  "visitors": [
+    {
+      "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "record": {
+        "v": 1,
+        "date": "2026-08-31",
+        "moonBucket": 1,
+        "bpm0": 60,
+        "dur": 64,
+        "bpmCurve": [],
+        "targets": [
+          [
+            0,
+            0,
+            17,
+            50,
+            1,
+            1.125
+          ],
+          [
+            0,
+            1,
+            30,
+            50,
+            0,
+            null
+          ]
+        ],
+        "taps": [],
+        "fires": []
+      },
+      "back": false,
+      "expectedPigment": 9269420,
+      "expectedHue": 0.7472222222222222,
+      "expectedTimingX": 0.275
+    },
+    {
+      "id": "cccccccccccccccccccccccccccccccc",
+      "record": {
+        "v": 1,
+        "date": "2026-09-01",
+        "moonBucket": 5,
+        "bpm0": 60,
+        "dur": 64,
+        "bpmCurve": [],
+        "targets": [
+          [
+            0,
+            1,
+            18,
+            50,
+            1,
+            0.875
+          ],
+          [
+            0,
+            2,
+            31,
+            50,
+            0,
+            null
+          ]
+        ],
+        "taps": [],
+        "fires": []
+      },
+      "back": true,
+      "expectedPigment": 12547206,
+      "expectedHue": 0.96,
+      "expectedTimingX": -0.275
+    },
+    {
+      "id": "dddddddddddddddddddddddddddddddd",
+      "record": {
+        "v": 1,
+        "date": "2026-09-02",
+        "moonBucket": 7,
+        "bpm0": 60,
+        "dur": 64,
+        "bpmCurve": [],
+        "targets": [
+          [
+            0,
+            2,
+            19,
+            50,
+            1,
+            1
+          ],
+          [
+            0,
+            3,
+            32,
+            50,
+            0,
+            null
+          ]
+        ],
+        "taps": [],
+        "fires": []
+      },
+      "back": false,
+      "expectedPigment": 12163657,
+      "expectedHue": 0.12053571428571429,
+      "expectedTimingX": 0
+    }
+  ]
+}

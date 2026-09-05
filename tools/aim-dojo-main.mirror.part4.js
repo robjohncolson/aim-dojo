@@ -8399,6 +8399,12 @@ function ghostChalkReset(r){
   if(!GH_CHALK) return;
   _ghostDoorOrigin=Math.floor(Math.max(0,r)/ML_ARCH_EVERY); _ghostChalkBeat0=Math.floor(r);
 }
+function ghostChalkHue(record){
+  const color=ghostNightPalette(record,[0])[0], r=(color>>>16&255)/255, g=(color>>>8&255)/255, b=(color&255)/255;
+  const hi=Math.max(r,g,b), lo=Math.min(r,g,b), d=hi-lo; if(d===0) return 0;
+  const h=hi===r?(g-b)/d:hi===g?(b-r)/d+2:(r-g)/d+4;
+  return ((h/6)%1+1)%1;
+}
 function ghostChalkInstall(n0){
   if(!GH_CHALK || !roadWallMat || !Number.isFinite(_ghostDoorOrigin)) return;
   const U=roadWallMat.uniforms; if(!U.uMark0) return;
@@ -8406,12 +8412,13 @@ function ghostChalkInstall(n0){
   const b0=reduceMotion?ML_ARCH_EVERY*Math.floor((_ghostChalkBeat0-ML_ARCH_BEHIND)/ML_ARCH_EVERY):U.uArchN0.value;
   const own=ghostLastNight(_ghostOwn)?_ghostOwn:null;
   for(let s=0;s<4;s++){
-    const marks=U['uMark'+s].value;
+    const visitor=s>0&&_ghostVisitors?_ghostVisitors[s-1]:null, record=s===0?own:visitor&&visitor.record;
+    const hue=s===0?-1:(record?ghostChalkHue(record):-1), offset=s===0?-0.3:s===1?-0.1:s===2?0.1:0.3, marks=U['uMark'+s].value;
     for(let k=0;k<marks.length;k++){
       marks[k].set(0,0,-1,0);
-      if(s!==0 || k>=ML_WALL_N) continue;
-      const mark=markFor(own,ghostDoorIndex(b0+ML_ARCH_EVERY*k));
-      if(mark) marks[k].set(mark.x*ML_WALL_DJ,mark.kind,mark.hue,mark.alpha);
+      if(k>=ML_WALL_N) continue;
+      const mark=markFor(record,ghostDoorIndex(b0+ML_ARCH_EVERY*k));
+      if(mark){ const kind=visitor&&visitor.back===true?(mark.kind===0?3:2):mark.kind; marks[k].set((mark.x+offset)*ML_WALL_DJ,kind,hue,s===0?1:0.72); }
     }
   }
 }
@@ -8453,8 +8460,8 @@ function ghostVisitorLine(){
   }
   if(!visitors.length || visitors.every(visitor=>visitor.spoken)) return '';
   for(const visitor of visitors) visitor.spoken=true;
-  if(visitors.length===1 && reachedBack===0) return TF('ghostVisitorBack','a visitor who reached back rides tonight · {sigil}',{sigil:sigils[0]}); if(visitors.length===1) return TF('ghostVisitorLine','a visitor rides tonight · {sigil}',{sigil:sigils[0]});
-  if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','{n} visitors ride tonight · {sigils}',{n:visitors.length,sigils:sigils.join('\u2009')});
+  if(visitors.length===1 && reachedBack===0) return TF('ghostVisitorBack','a stranger who reached back has chalked the doors · {sigil}',{sigil:sigils[0]}); if(visitors.length===1) return TF('ghostVisitorLine','a stranger\'s chalk is on the doors tonight · {sigil}',{sigil:sigils[0]});
+  if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','chalk from {n} strangers is on the doors tonight · {sigils}',{n:visitors.length,sigils:sigils.join('\u2009')});
 }
 function ghostMailRowsValid(value){
   if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
@@ -8466,6 +8473,7 @@ function ghostVisitorStore(epoch,id,record,reachedBack){
   if(!_ghostVisitors) _ghostVisitors=[];
   if(_ghostVisitors.length>=GH_VISITOR_COUNT || _ghostVisitors.some(visitor=>visitor.id===id)) return false;
   _ghostVisitors.push({id:id,record:record,sig:record.moonBucket,back:reachedBack===true,spoken:false,mail:[]});
+  if(GH_CHALK) try{ ghostChalkInstall(); }catch(e){}
   return true;
 }
 async function ghostVisitorFetch(epoch,token,bucket){
