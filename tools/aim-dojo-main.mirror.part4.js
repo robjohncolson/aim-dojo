@@ -6867,6 +6867,7 @@
 
 
 
+
 /* ---- NIGHT CARDS (wave 5a, parcel O) ----
    The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
    tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON
@@ -7130,6 +7131,7 @@ function onGrid(time){
   const ci=Math.floor(grid8/8)%CHORD_ROOT.length;   // HARMONIC MOVEMENT: chord index into the ACTIVE theme's progression (8 grid steps = 1 bar); length varies (dojo/moonlight/icaros=4 bars, canon=8)
   // TRAINER SOUNDTRACK: spare, didactic — loud "and" ticks so WASD syncs with the floor flash; full Moonlight arrangement only after graduation
   if(trainMode){
+    if(PIANO && CFG.piano.hums) try{ humFieldGrid(time,ci,0,i); }catch(e){}   // share the lesson's upcoming chord before an early Draw spawn can strike a key that the next frame cuts off
     try{
       const andStep=(i%2===1);   // the "and" (WASD pocket) — louder tick so letters lock to the same cue as the floor colour
       if(PIANO){
@@ -9319,13 +9321,5 @@ function endFlickBonus(){
   if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
   if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-}
-function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
-  if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
-  tg.dead=true; tg._flickLocked=false;
-  const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
-  recordHit(tg);
-  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
-  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
 }
 })();

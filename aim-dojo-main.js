@@ -98,7 +98,7 @@ const CFG = {
   lowRez:false,   // LOW-REZ MODE manual override: true forces the N64-crunch/low-cost render everywhere. Default false = auto-detect weak GPUs only (or force per-visit with ?low in the URL, ?hi to force off).
   crunchLook:true,   // dry chalk is the authored image — LOW-REZ render on every device; ?hi or RESOLUTION pref '0' still force the smooth path; false = today's auto-detect behavior exactly
   chip:{ lead:true, dry:true, bass:true, hums:true, pad:false, humHarmony:true, dutyFull:0.5, dutyEdge:0.125, leadLpHz:9000, bassDb:-9, humDuty:0.5, humOctave:-1, humGain:0.22, humHarmonics:32, padDuty:0.25, arpHz:30 },   // lead + dry + bass are the accepted instrument; hums auditions a sparse chord-aware field, humHarmony:0 restores H2, and the rescued chorus stays human
-  piano:{ on:true, hums:true, harm:3, mod:2.2, attack:0.002, decay:1.1, sustain:0.04, release:0.55, shortSec:0.07, longSec:0.42, lpHz:4200, bassDb:-8 },   // the night is one keyboard; ?piano=0 restores the chip mix; hums share two piano keys across the lesson and main play
+  piano:{ on:true, hums:true, harm:3, mod:2.2, attack:0.002, decay:1.1, sustain:0.04, release:0.55, shortSec:0.07, longSec:0.42, lpHz:4200, bassDb:-8, orbHoldSec:1.2, orbDecay:2, orbSustain:0.08, orbRelease:1.2 },   // the night is one keyboard; ?piano=0 restores the chip mix; two sphere keys ring longer while the metronome stays brief
   // rhythm spawn pattern (orbs land ON beats, ~3-4 beats apart for an orient/track/shoot cadence)
   densityScale:1.00, minGap:5, maxRestSlots:9, patternConcurrency:3, rhythmLifeBeats:5,   // densityScale = orb density (default 1.0)
   // TIDES (session shape): the run BREATHES instead of ratcheting. One envelope tideI 0..1 cycles rise(riseBars) → peak(peakBars) → mercy(mercyBars), derived from the BAR position of the same 8n grid the chords ride, and is read as a MULTIPLIER at existing sites (density / dolly / wander+juke / clutch / pad velocity) — no second state machine, no dt or Transport scaling. The mercy bar closes the SPAWN gate (in-flight orbs and grading are untouched), blooms the pad, and exhales the floor tint. The adaptive BPM step also moves here: once per swell at the mercy→rise boundary, so tempo never lurches mid-wave.
@@ -5948,7 +5948,8 @@ function pianoFieldBuild(F,ctx){
       const panner=ctx.createPanner(),gain=ctx.createGain();
       const v={panner,gain,osc:null,piano:true,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,lastAttack:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
       panner.panningModel='HRTF';panner.refDistance=8;panner.rolloffFactor=0.25;panner.distanceModel='inverse';panner.maxDistance=120;   // keep the bearing, but let far piano calls remain audible beside the accompaniment
-      v.osc=new Tone.FMSynth({...pianoPatch(),context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
+      const patch=pianoPatch();patch.envelope={...patch.envelope,decay:CFG.piano.orbDecay,sustain:CFG.piano.orbSustain,release:CFG.piano.orbRelease};   // keep the accepted hammer and harmonics, with time for the sphere's string to ring
+      v.osc=new Tone.FMSynth({...patch,context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
     }
     F.ctx=ctx;F.voices=built;return true;
   }catch(e){for(const v of built){try{if(v.osc)v.osc.dispose();v.gain.disconnect();v.panner.disconnect();}catch(ignore){}}return false;}
@@ -6063,13 +6064,13 @@ function pianoFieldStrike(entry,event,only){
     const tag=F.tags.get(only);let v=F.voices.find(v=>v.target===only&&v.tag===tag);
     if(!v){v=F.voices.find(v=>!v.target||v.until<=now)||F.voices.reduce((a,b)=>a.until<=b.until?a:b);humFieldQuiet(v,now);v.target=only;v.tag=tag;v.lastEvent=-Infinity;}
   }else{
-    if(F.voices.some(v=>humFieldEligible(v.target)&&F.tags.get(v.target)===v.tag&&typeof v.lastEvent==='string'&&v.lastEvent.startsWith('spawn:')&&now-v.lastAttack<0.05))return;   // the due accompaniment yields to a sphere that just announced itself, before selection can steal its attack
+    if(F.voices.some(v=>humFieldEligible(v.target)&&F.tags.get(v.target)===v.tag&&v.until>now))return;   // leave ringing keys alone before selection can steal them; fresh spawns still take one of the two seats
     humFieldBind(humFieldSelect(beat));
   }
   for(const v of F.voices){
     if(!v.target||(only&&v.target!==only)||v.lastEvent===event||(v.lastEvent!==-Infinity&&now-v.lastAttack<0.05))continue;   // a spawn and its due grid pulse are one key attack
     const f=humFieldPitch(v.target,entry.ci);if(!(f>0))continue;
-    const at=Math.max(now+0.002,v.lastAttack+0.001),hold=0.22;let end=at+hold+CFG.piano.release,next=null;
+    const at=Math.max(now+0.002,v.lastAttack+0.001),hold=CFG.piano.orbHoldSec;let end=at+hold+CFG.piano.orbRelease,next=null;
     for(const e of F.harmony)if(e.time>rawCtx.currentTime&&e.ci!==entry.ci){const boundary=humFieldNativeTime(e.time);if(boundary<end){end=boundary;next=e;}}
     if(end-at<0.02){
       if(only&&next){const epoch=F.epoch,tag=F.tags.get(only),boundary=next.time;Tone.Draw.schedule(()=>{if(epoch===F.epoch&&F.tags.get(only)===tag&&humFieldEligible(only)&&rawCtx.currentTime-boundary<=0.05)humFieldStrike(humFieldDue(),event,only);},boundary+0.01);}   // a pickup too close to the chord change joins the new chord; epoch and life tag cancel it on stop or reuse
@@ -7130,6 +7131,7 @@ function onGrid(time){
   const ci=Math.floor(grid8/8)%CHORD_ROOT.length;   // HARMONIC MOVEMENT: chord index into the ACTIVE theme's progression (8 grid steps = 1 bar); length varies (dojo/moonlight/icaros=4 bars, canon=8)
   // TRAINER SOUNDTRACK: spare, didactic — loud "and" ticks so WASD syncs with the floor flash; full Moonlight arrangement only after graduation
   if(trainMode){
+    if(PIANO && CFG.piano.hums) try{ humFieldGrid(time,ci,0,i); }catch(e){}   // share the lesson's upcoming chord before an early Draw spawn can strike a key that the next frame cuts off
     try{
       const andStep=(i%2===1);   // the "and" (WASD pocket) — louder tick so letters lock to the same cue as the floor colour
       if(PIANO){

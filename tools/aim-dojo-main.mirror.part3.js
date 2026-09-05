@@ -5948,7 +5948,8 @@ function pianoFieldBuild(F,ctx){
       const panner=ctx.createPanner(),gain=ctx.createGain();
       const v={panner,gain,osc:null,piano:true,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,lastAttack:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
       panner.panningModel='HRTF';panner.refDistance=8;panner.rolloffFactor=0.25;panner.distanceModel='inverse';panner.maxDistance=120;   // keep the bearing, but let far piano calls remain audible beside the accompaniment
-      v.osc=new Tone.FMSynth({...pianoPatch(),context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
+      const patch=pianoPatch();patch.envelope={...patch.envelope,decay:CFG.piano.orbDecay,sustain:CFG.piano.orbSustain,release:CFG.piano.orbRelease};   // keep the accepted hammer and harmonics, with time for the sphere's string to ring
+      v.osc=new Tone.FMSynth({...patch,context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
     }
     F.ctx=ctx;F.voices=built;return true;
   }catch(e){for(const v of built){try{if(v.osc)v.osc.dispose();v.gain.disconnect();v.panner.disconnect();}catch(ignore){}}return false;}
@@ -6063,13 +6064,13 @@ function pianoFieldStrike(entry,event,only){
     const tag=F.tags.get(only);let v=F.voices.find(v=>v.target===only&&v.tag===tag);
     if(!v){v=F.voices.find(v=>!v.target||v.until<=now)||F.voices.reduce((a,b)=>a.until<=b.until?a:b);humFieldQuiet(v,now);v.target=only;v.tag=tag;v.lastEvent=-Infinity;}
   }else{
-    if(F.voices.some(v=>humFieldEligible(v.target)&&F.tags.get(v.target)===v.tag&&typeof v.lastEvent==='string'&&v.lastEvent.startsWith('spawn:')&&now-v.lastAttack<0.05))return;   // the due accompaniment yields to a sphere that just announced itself, before selection can steal its attack
+    if(F.voices.some(v=>humFieldEligible(v.target)&&F.tags.get(v.target)===v.tag&&v.until>now))return;   // leave ringing keys alone before selection can steal them; fresh spawns still take one of the two seats
     humFieldBind(humFieldSelect(beat));
   }
   for(const v of F.voices){
     if(!v.target||(only&&v.target!==only)||v.lastEvent===event||(v.lastEvent!==-Infinity&&now-v.lastAttack<0.05))continue;   // a spawn and its due grid pulse are one key attack
     const f=humFieldPitch(v.target,entry.ci);if(!(f>0))continue;
-    const at=Math.max(now+0.002,v.lastAttack+0.001),hold=0.22;let end=at+hold+CFG.piano.release,next=null;
+    const at=Math.max(now+0.002,v.lastAttack+0.001),hold=CFG.piano.orbHoldSec;let end=at+hold+CFG.piano.orbRelease,next=null;
     for(const e of F.harmony)if(e.time>rawCtx.currentTime&&e.ci!==entry.ci){const boundary=humFieldNativeTime(e.time);if(boundary<end){end=boundary;next=e;}}
     if(end-at<0.02){
       if(only&&next){const epoch=F.epoch,tag=F.tags.get(only),boundary=next.time;Tone.Draw.schedule(()=>{if(epoch===F.epoch&&F.tags.get(only)===tag&&humFieldEligible(only)&&rawCtx.currentTime-boundary<=0.05)humFieldStrike(humFieldDue(),event,only);},boundary+0.01);}   // a pickup too close to the chord change joins the new chord; epoch and life tag cancel it on stop or reuse

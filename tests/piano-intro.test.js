@@ -8,7 +8,7 @@ const {pianoIntroOff}=require('./piano-intro-source.js');
 const legacyGrid=extractFunction(pianoIntroOff(source),'onGrid');
 // Actual source functions below; only audio, rendering, spawning, latency and UI are stubs.
 function harness(piano,phase,bpm,gridBody=extractFunction(source,'onGrid')){
- const audio=[],visual=[],c=vm.createContext({Math,Number,Set,console});
+ const audio=[],visual=[],harmony=[],c=vm.createContext({Math,Number,Set,console});
  const voice=name=>({triggerAttackRelease:(...args)=>audio.push({source:name,args})});
  Object.assign(c,{
   PIANO:piano,trainMode:true,trainPhase:phase,trainWasd:0,TRAIN_NEED_WASD:3,
@@ -17,7 +17,8 @@ function harness(piano,phase,bpm,gridBody=extractFunction(source,'onGrid')){
   PENTA:[277.18,329.63,369.99,415.30,493.88,554.37,659.25,739.99],activeTheme:{name:'MOONLIGHT'},
   tick:voice('tick'),tapSynth:voice('tapSynth'),lead:voice('lead'),pianoSfx:voice('pianoSfx'),
   kick:piano?null:voice('kick'),bass:voice('bass'),pad:voice('pad'),hat:piano?null:voice('hat'),arp:voice('arp'),
-  CFG:{patternConcurrency:0,wasdRhythm:true,wasdNoteDivs:[2,4,8],wasdNoteT:[.75,1.01],minBpm:20,maxBpm:60,wasdWindow:.16,wasdWindowFrac:.4,grooveGroove:true,grooveFreezePhase:.5,groovePocket:true},
+  CFG:{piano:{hums:true},patternConcurrency:0,wasdRhythm:true,wasdNoteDivs:[2,4,8],wasdNoteT:[.75,1.01],minBpm:20,maxBpm:60,wasdWindow:.16,wasdWindowFrac:.4,grooveGroove:true,grooveFreezePhase:.5,groovePocket:true},
+  humFieldGrid:(...args)=>harmony.push(args),
   bonusActive:false,activeTargetCount:()=>0,cd:99,restSlots:0,CHIP_FIELD:false,
   bowTouch:()=>{},_bow:{stage:0},BOW:{LAST:2},MOBILE:false,GH_CHALK:false,GH_RECORD:false,
   soundOn:true,toneReady:true,reduceMotion:true,FLOCK:{rainbowCombo:8},
@@ -35,7 +36,7 @@ function harness(piano,phase,bpm,gridBody=extractFunction(source,'onGrid')){
  vm.runInContext(names.map(name=>extractFunction(source,name)).join('\n')+'\n'+gridBody,c);
  function step(i){c.grid8=i;c.now=100+i*.5*60/bpm;c.state.t=c.now-100;c.Tone.Transport.ticks=i*.5*192;c.onGrid(c.now);}
  function press(k){c.wasdLanePress(k);}
- return {c,audio,visual,step,press};
+ return {c,audio,visual,harmony,step,press};
 }
 const tickEvents=h=>h.audio.filter(x=>x.source==='tick');
 const tapEvents=h=>h.audio.filter(x=>x.source==='tapSynth');
@@ -43,12 +44,12 @@ for(const bpm of [28,60])for(const phase of [0,1,2]){
  test('piano whole-beat clock '+bpm+'/'+phase,()=>{
   const h=harness(true,phase,bpm);for(let i=0;i<8;i++)h.step(i);
   const expected=[0,2,4,6].map(i=>({source:'tick',args:[i===0?2093:1568,'32n',100+i*.5*60/bpm,.55]}));
-  assert.deepEqual(tickEvents(h),expected);assert.equal(h.c.grid8,8);
+  assert.deepEqual(tickEvents(h),expected);assert.equal(h.c.grid8,8);assert.deepEqual(h.harmony,Array.from({length:8},(_,i)=>[100+i*.5*60/bpm,0,0,i]),"lesson shares only chord history at tier zero");
  });
  test('legacy exact audio and visual schedule '+bpm+'/'+phase,()=>{
   const now=harness(false,phase,bpm),old=harness(false,phase,bpm,legacyGrid);
   for(let i=0;i<8;i++){now.step(i);old.step(i);}
-  assert.deepEqual(now.audio,old.audio);assert.deepEqual(now.visual,old.visual);
+  assert.deepEqual(now.audio,old.audio);assert.deepEqual(now.visual,old.visual);assert.deepEqual(now.harmony,[],"legacy lesson never enters the piano field clock");
   assert.deepEqual(tickEvents(now).map(x=>x.args),[
    [2093,'32n',100,.55],
    ...[1,3,5,7].map(i=>[i===1?1760:1480,'32n',100+i*.5*60/bpm,phase===0?.95:.7])

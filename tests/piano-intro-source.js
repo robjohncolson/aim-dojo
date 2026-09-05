@@ -15,7 +15,9 @@ const pianoTicks = [
 
 function pianoIntroOff(source) {
   assert.equal(source.split(pianoTicks).length, 2, "exactly one isolated piano lesson tick branch exists");
-  return source.replace(pianoTicks, legacyTicks);
+  const pianoHarmony = "    if(PIANO && CFG.piano.hums) try{ humFieldGrid(time,ci,0,i); }catch(e){}   // share the lesson's upcoming chord before an early Draw spawn can strike a key that the next frame cuts off\n";
+  assert.equal(source.split(pianoHarmony).length, 2, "exactly one piano-only lesson harmony hook exists; its early Draw behavior is tested with the real field");
+  return source.replace(pianoTicks, legacyTicks).replace(pianoHarmony, "");
 }
 
 module.exports = { pianoIntroOff };

@@ -85,7 +85,8 @@ test("piano orb pool is exactly two reusable dry shared-patch FM voices on the l
  const h=field({piano:true,hums:true}),a=h.target("a"),b=h.target("b",4);h.c.humFieldSpawn(a);h.trace.advance(100.1);h.c.humFieldSpawn(b);
  assert.equal(h.contexts.length,1);assert.equal(h.contexts[0].rawContext,h.trace.native);assert.equal(h.contexts[0].options.clockSource,"offline");assert.equal(h.clockListeners.length,1);
  assert.equal(h.instruments.length,2);assert.equal(h.trace.nodes.filter(n=>n.name==="Gain").length,2);assert.equal(h.trace.nodes.filter(n=>n.name==="Panner").length,2);assert.equal(h.trace.nodes.filter(n=>n.name==="Oscillator").length,0);assert.equal(h.trace.waves.length,0);
- const expected=json(h.c.pianoPatch());for(const v of h.c.field().voices){const {context,...patch}=v.osc.options;assert.equal(context,h.contexts[0]);assert.deepEqual(json(patch),expected);assert.equal(v.piano,true);assert.ok(h.trace.events.some(e=>e.op==="connect"&&e.from===v.osc.id&&e.to===v.gain.id));assert.ok(h.trace.events.some(e=>e.op==="connect"&&e.from===v.panner.id&&e.to==="listenerInput"));}
+ const expected=json(h.c.pianoPatch());expected.envelope={attack:0.002,decay:2,sustain:0.08,release:1.2};for(const v of h.c.field().voices){const {context,...patch}=v.osc.options;assert.equal(context,h.contexts[0]);assert.deepEqual(json(patch),expected);assert.equal(v.piano,true);assert.ok(h.trace.events.some(e=>e.op==="connect"&&e.from===v.osc.id&&e.to===v.gain.id));assert.ok(h.trace.events.some(e=>e.op==="connect"&&e.from===v.panner.id&&e.to==="listenerInput"));}
+ assert.deepEqual(json(h.c.pianoPatch().envelope),{attack:0.002,decay:1.1,sustain:0.04,release:0.55},"the longer sphere envelope cannot mutate the metronome or other shared-patch instruments");
  h.clockListeners[0].fn();assert.ok(h.trace.events.some(e=>e.op==="contextEmit"&&e.name==="tick"));assert.deepEqual(h.touched,[]);
 });
 
@@ -121,7 +122,8 @@ test("due-grid and spawn callbacks cannot double strike the same sphere",()=>{
  for(const order of ["spawn-first","grid-first"]){
   const h=field({piano:true,hums:true});h.c.humFieldGrid(100,0,3,0);
   if(order==="spawn-first"){h.c.humFieldSpawn(h.target("one"));h.trace.drain(100);}else{h.trace.drain(100);h.c.humFieldSpawn(h.target("one"));}
-  assert.equal(h.attacks().length,1,order);h.trace.advance(100.4);h.c.humFieldGrid(100.4,0,3,2);h.trace.drain(100.4);assert.equal(h.attacks().length,2,order+" retains the next recurrence");
+  assert.equal(h.attacks().length,1,order);h.trace.advance(100.4);h.c.humFieldGrid(100.4,0,3,2);h.trace.drain(100.4);assert.equal(h.attacks().length,1,order+" lets the note ring");
+  h.trace.advance(102.5);h.c.humFieldGrid(102.5,0,3,4);h.trace.drain(102.5);assert.equal(h.attacks().length,2,order+" retains recurrence after the tail finishes");
  }
 });
 
@@ -131,6 +133,36 @@ test("a due recurrence cannot steal a new sphere's voice before its piano attack
  const voice=h.c.field().voices.find(v=>v.target===fresh),attack=h.attacks().at(-1),before=h.trace.events.length;assert.equal(attack.hz,660);
  h.trace.drain(100.2);assert.equal(voice.target,fresh);assert.equal(h.attacks().filter(e=>e.id===voice.osc.id).at(-1),attack);
  assert.ok(!h.trace.events.slice(before).some(e=>e.id===voice.gain.gain.id&&e.op==="cancelScheduledValues"&&e.at<=attack.at),"the announced spawn cannot be muted before its attack");assert.deepEqual(h.touched,[]);
+});
+
+for(const bpm of [28,60])test("piano sphere sustain survives recurring accompaniment at "+bpm+" BPM",()=>{
+ const h=field({piano:true,hums:true}),a=h.target("held",2);h.c.humFieldSpawn(a);
+ const voice=h.c.field().voices.find(v=>v.target===a),attack=h.attacks()[0],end=voice.until;
+ assert.equal(attack.duration,1.2);assert.ok(Math.abs(end-attack.at-2.4)<1e-9,"the key gets its full hold and release");
+ const before=h.trace.events.length,step=30/bpm;
+ for(let t=step;t<2.4;t+=step){h.trace.advance(100+t);h.c.humFieldGrid(100+t,0,3,2);h.trace.drain(100+t);h.c.humFieldUpdate();}
+ assert.equal(h.attacks().length,1);assert.equal(voice.until,end);assert.equal(voice.target,a);
+ assert.ok(!h.trace.events.slice(before).some(e=>e.id===voice.osc.id&&e.op==="pianoRelease"||e.id===voice.gain.gain.id&&e.op==="cancelScheduledValues"),"recurrence cannot truncate a ringing key");
+ h.trace.advance(102.5);h.c.humFieldGrid(102.5,0,3,4);h.trace.drain(102.5);assert.equal(h.attacks().length,2);
+ const repeated=h.attacks()[1];h.trace.advance(103);h.c.humFieldGrid(103,0,3,6);h.trace.drain(103);assert.equal(h.attacks().at(-1),repeated,"recurring keys also get their full tail");
+ assert.equal(h.instruments.length,2);assert.deepEqual(h.touched,[]);
+});
+
+test("a third sphere reuses the oldest ringing key while the other sustained note survives",()=>{
+ const h=field({piano:true,hums:true}),a=h.target("first",2),b=h.target("second",4);h.c.humFieldSpawn(a);h.trace.advance(100.1);h.c.humFieldSpawn(b);
+ const kept=h.c.field().voices.find(v=>v.target===b),end=kept.until,before=h.trace.events.length;
+ h.trace.advance(100.5);const fresh=h.target("third",6);h.c.humFieldSpawn(fresh);
+ assert.equal(h.attacks().length,3);assert.equal(h.instruments.length,2);assert.equal(h.c.field().voices.some(v=>v.target===a),false);assert.ok(h.c.field().voices.some(v=>v.target===fresh));assert.equal(kept.until,end);
+ assert.ok(!h.trace.events.slice(before).some(e=>e.id===kept.osc.id&&e.op==="pianoRelease"),"the second string is left ringing");
+ h.c.humFieldGrid(100.5,0,3,2);h.trace.drain(100.5);assert.equal(h.attacks().length,3);assert.ok(h.c.field().voices.some(v=>v.target===fresh),"selection cannot steal the longer fresh tail");
+});
+
+test("a newly announced chord boundary ends a sustained sphere on the native clock",()=>{
+ const h=field({piano:true,hums:true}),a=h.target("held",2);h.c.humFieldSpawn(a);const voice=h.c.field().voices.find(v=>v.target===a);
+ h.trace.advance(100.4);h.c.humFieldGrid(100.5,1,0,0);assert.ok(Math.abs(voice.until-200.5)<1e-9);
+ assert.ok(h.trace.events.some(e=>e.id===voice.gain.gain.id&&e.op==="linearRampToValueAtTime"&&e.value===0&&Math.abs(e.at-200.5)<1e-9),"old harmony reaches silence at the boundary even before Draw");
+ h.trace.drain(100.5);h.trace.advance(100.6);h.c.humFieldGrid(100.6,1,3,2);h.trace.drain(100.6);
+ assert.equal(h.attacks().length,2);assert.equal(h.attacks()[1].hz,980);assert.equal(h.attacks()[1].duration,1.2);
 });
 
 test("piano notes follow the due chord without a lookahead retune or RNG draw",()=>{
@@ -143,6 +175,19 @@ test("a sphere born just before a chord boundary waits briefly and announces the
  const h=field({piano:true,hums:true,beat:3.9});h.c.humFieldGrid(100.1,1,0,0);h.trace.advance(100.09);h.c.humFieldSpawn(h.target("pickup",2));
  assert.equal(h.attacks().length,0,"no microscopic old-chord note");h.trace.drain(100.1);assert.equal(h.attacks().length,0);
  h.trace.drain(100.11);assert.equal(h.attacks().length,1);assert.equal(h.attacks()[0].hz,980);assert.ok(h.attacks()[0].at>=200.1);assert.deepEqual(h.touched,[]);
+});
+
+test("the real lesson scheduler announces its chord before an early Draw sphere is born",()=>{
+ const h=field({piano:true,hums:true,train:true,beat:3.9});
+ Object.assign(h.c,{rhythmGeneration:1,grid8:8,trainPhase:1,CHORD_ROOT:[110,98,130.8],tick:null,kick:null,bass:null,pad:null,hat:null,arp:null,bonusActive:false,activeTargetCount:()=>0,cd:0,restSlots:0,metricWeight:()=>1,rnd:()=>0,pulseBeat:()=>{},spawnRhythmOrb:()=>h.c.humFieldSpawn(h.target("lesson-pickup"))});
+ Object.assign(h.c.CFG,{patternConcurrency:3,densityScale:1,maxRestSlots:9,minGap:5});
+ vm.runInContext(extractFunction(main,"onGrid"),h.c);h.c.onGrid(100.1);
+ assert.equal(h.c.field().harmony.length,1);assert.deepEqual(json(h.c.field().harmony[0]),{time:100.1,ci:1,tier:0,i:0,armed:false,done:false});assert.equal(h.c.grid8,9);assert.equal(h.trace.draws.length,3);
+ h.trace.advance(100.095);for(const draw of h.trace.draws.splice(0))draw.fn();
+ assert.equal(h.targets.length,1);assert.equal(h.attacks().length,0,"an early visual spawn must not strike a microscopic old-chord key");
+ h.trace.drain(100.1);h.c.humFieldUpdate();assert.equal(h.attacks().length,0);
+ h.trace.drain(100.11);assert.equal(h.attacks().length,1);assert.equal(h.attacks()[0].hz,980);assert.equal(h.attacks()[0].duration,1.2);
+ h.trace.advance(100.6);h.c.humFieldUpdate();assert.equal(h.attacks().length,1);assert.ok(h.c.field().voices.some(v=>v.target&&v.until>201.3),"the announcement sustains into the new chord");
 });
 
 test("deferred boundary calls respect pause, death, target identity, lifetime tags and late-frame fences",()=>{
