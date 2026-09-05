@@ -9329,6 +9329,7 @@
 
 
 
+
 function updateWasdCursor(){   // cursor-level WASD feedback: a red X (with the + crosshair = asterisk) while the in-focus note is spoiled by a wrong key (the tap-accuracy % moved into the above-ring readout -- under the cursor it crowded the key letter)
   const active = !templeActive && !MOBILE && CFG.wasdRhythm && CFG.beatQuant && toneReady && state.running && Tone.Transport.state==='started';
   let spoil=false;

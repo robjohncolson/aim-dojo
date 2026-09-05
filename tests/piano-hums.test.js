@@ -77,3 +77,40 @@ test("piano shared waveform preserves chord boundaries, frequency, density, enve
 test("piano hums does not enable the shared field or allocate nodes when CHIP_FIELD is false",()=>{
  const h=field({piano:true,hums:true,enabled:false}),a=h.target("a");h.c.humFieldSpawn(a);h.c.humFieldGrid(100.1,1,3,0);h.c.humFieldUpdate();h.c.humFieldStop();assert.equal(h.c.field(),null);assert.deepEqual(h.trace.events,[]);assert.deepEqual(h.trace.draws,[]);assert.deepEqual(h.touched,[]);
 });
+
+function bootHumFlags(search){
+ const cfg={};for(const key of ["piano","chip"]){const literal=main.match(new RegExp("^\\s*"+key+":\\s*(\\{[^\\n]+?\\})","m"));assert.ok(literal,"the authored "+key+" config is present");cfg[key]=vm.runInNewContext("("+literal[1]+")");}
+ const hashAt=search.indexOf("#"),location={search:hashAt<0?search:search.slice(0,hashAt),hash:hashAt<0?"":search.slice(hashAt)};
+ const boot=[/^const PIANO=resolvePiano\([^\n]+/m,/^if\(PIANO\) resolvePianoHums\([^\n]+/m,/^resolveHum\([^\n]+/m,/^const \[CHIP_LEAD[^\n]+/m,/^const CHIP_FIELD=[^\n]+/m].map(pattern=>{const match=main.match(pattern);assert.ok(match,"the real boot statement is present: "+pattern);return match[0];});
+ const c=vm.createContext({CFG:cfg,location});
+ vm.runInContext([...["resolvePiano","resolvePianoHums","resolveHum","resolveChip"].map(name=>extractFunction(main,name)),...boot,"globalThis.flags={piano:PIANO,hums:CFG.piano.hums,chip:CHIP_HUMS,enabled:CHIP_FIELD,cfg:CFG};"].join("\n"),c);
+ return json(c.flags);
+}
+
+test("piano authored boot selects two native sine field carriers and explicit escapes restore the live pulse graph",()=>{
+ const defaults=bootHumFlags("");assert.deepEqual({piano:defaults.piano,hums:defaults.hums,chip:defaults.chip,enabled:defaults.enabled},{piano:true,hums:true,chip:true,enabled:true});
+ const h=field(defaults);h.c.CFG.chip=defaults.cfg.chip;h.c.CFG.piano=defaults.cfg.piano;exerciseField(h);
+ assert.equal(h.trace.nodes.filter(n=>n.name==="Oscillator").length,2);assert.equal(h.trace.nodes.filter(n=>n.name==="Panner").length,2);assert.equal(h.trace.waves.length,0);
+ assert.ok(h.c.field().voices.every(v=>v.osc.type==="sine"));assert.ok(h.trace.nodes.every(n=>["Oscillator","Gain","Panner"].includes(n.name)));assert.deepEqual(h.touched,[]);
+ const legacy=exerciseField(field());
+ for(const search of ["?pianoHums=0","#pianoHums=0","?piano=0","?piano=0&pianoHums=0"]){
+  const flags=bootHumFlags(search);assert.equal(flags.chip,true,search);assert.equal(flags.enabled,true,search);
+  if(search.startsWith("?piano=0")){assert.equal(flags.piano,false);assert.equal(flags.hums,true,"pianoHums overrides are not applied on a piano-off boot");}else{assert.equal(flags.piano,true);assert.equal(flags.hums,false);}
+  const control=field(flags);control.c.CFG.chip=flags.cfg.chip;control.c.CFG.piano=flags.cfg.piano;exerciseField(control);
+  assert.deepEqual(control.trace.events,legacy.trace.events,search+" restores the prior graph and schedule");assert.equal(control.trace.waves.length,1);assert.equal(control.trace.nodes.filter(n=>n.name==="Oscillator").length,2,"the escape restores carriers rather than silencing them");assert.deepEqual(control.touched,[]);
+ }
+});
+
+test("piano boot keeps chip-list selection and humHarmony independent, routing excluded fields through native per-target calls",()=>{
+ for(const [search,piano,chip]of [["?chip=lead,bass,pad",true,false],["?humHarmony=0",true,true],["?piano=0&chip=lead,bass,pad",false,false],["?pianoHums=0&chip=lead,bass,pad",true,false]]){
+  const flags=bootHumFlags(search);assert.equal(flags.piano,piano,search);assert.equal(flags.chip,chip,search);assert.equal(flags.enabled,false,search);
+  // The reused per-target recorder constructs immediately; verify its native
+  // tuning inputs equal the authored boot values before comparing that graph.
+  for(const key of ["humDuty","humOctave","humGain","humHarmonics"])assert.equal(flags.cfg.chip[key],chipDefaults[key],key);
+  const h=finishTargets(perTarget(flags));
+  assert.equal(h.sounds.length,5);assert.ok(h.nodes.every(n=>["Oscillator","Gain","BiquadFilter","PositionalAudio"].includes(n.name)),"every per-target voice remains native, with no FM instrument");
+  if(flags.piano&&flags.hums){assert.equal(h.waves.length,0);for(const s of h.sounds){assert.equal(s.osc.type,"sine");assert.equal(s.ampGain.gain.value,flags.cfg.chip.humGain);assert.equal(s.send,null);}}
+  else{const legacy=finishTargets(perTarget({chip}));assert.deepEqual(h.events,legacy.events,search);assert.deepEqual(h.draws,legacy.draws,search);}
+  const disabled=field(flags),target=disabled.target("no-field");disabled.c.humFieldSpawn(target);disabled.c.humFieldUpdate();assert.equal(disabled.c.field(),null);assert.deepEqual(disabled.trace.events,[],"per-target selection never allocates the shared two-carrier pool");
+ }
+});

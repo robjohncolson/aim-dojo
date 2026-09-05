@@ -243,6 +243,7 @@ function resolvePianoHums(search,cfg){
   const m=String(search||'').match(/(?:^|[?&#])pianoHums=([01])(?:[&#]|$)/);
   if(m) cfg.hums=m[1]==='1';
 }   // an independent URL flip auditions the existing calls as soft sines without changing the piano boolean
+// Default orb calls keep native sine carriers and their existing timing; a per-orb FM pool would spend the field's audio budget.
 if(PIANO) resolvePianoHums(location.search+location.hash,CFG.piano);
 function pianoPatch(){
   return {harmonicity:CFG.piano.harm, modulationIndex:CFG.piano.mod,
