@@ -62,6 +62,7 @@ const DEFAULT_SKY_SUPABASE_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
 const DEFAULT_SKY_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
 const CFG = {
   pianoNativeContext:1,   // R1 off switch: 0 keeps the pinned bundled context and original singleton owners
+  pianoFirstUse:1,   // R3 off switch: 0 keeps lazy piano voices and the original PLAY-cancels-warm behavior
   // rhythm tempo
   // THE SIXTY CAP (wave 6, parcel P): difficulty stops escalating through TEMPO and starts escalating through rhythmic COMPLEXITY. maxBpm 172 -> 60. One constant; diffT() does the rest, because every skill-scaled system in the game reads that one ramp — so the whole mountain compresses into 20..60 and its summit becomes a real, reachable, SUSTAINABLE state instead of a number nobody arrives at. 60 is not "the slow end of the old range": it is full mastery, and every expert value (tightest grooveOpenSec, fastest projSpeedNow, deepest beatQuantDivs, full dolly) is now genuinely reached there. NOTHING ELSE MOVED: minBpm/startBpm stay 20 (the sacred dead-slow ramp), the adaptive law (upThreshold/bpmUp/bpmDown + the tide-boundary step) is untouched and simply tops out sooner, and state.maxBpm bookkeeping + the dojo board are unchanged — LEGACY >60 PEAK-BPM ROWS ARE HISTORY AND RENDER UNTOUCHED (there is no clamp anywhere on the read path); new runs simply cap.
   // MEASURED (solver against the shipped constants, SENSEI_PACK merged): a flawless climb is 7 swells / ~6.2 min from startBpm 28 to 60 at bpmUp 2.5 x tide.bpmUpMul 2.0 (it was 29 swells to 172); dT at the 28bpm start is now 0.200, not 0.053; beatQuantDivs steps up at bpm 36 and bpm 50 (it was 80.8 and 134.0 — i.e. the 1/8-beat strobe was effectively unreachable and is now the expert state it was written to be).
@@ -5379,10 +5380,78 @@ function pianoContextAlign(){
   try{previous.dispose();}catch(e){}
   return candidate;
 }
+let _pianoWarmPools=null, _pianoWarmPending=false, _pianoGraphWarm=false, _pianoWarmRunPending=false, _pianoWarmRunToken=0;
+function pianoWarmPool(poly,count){
+  if(!poly) return false;
+  if(_pianoWarmPools && _pianoWarmPools.has(poly)) return true;
+  if(poly.activeVoices || typeof poly._getNextAvailableVoice!=='function' || !Array.isArray(poly._availableVoices)) return false;
+  const wanted=Math.min(count|0,poly.maxPolyphony|0), got=[];
+  if(wanted<1) return false;
+  let complete=false;
+  try{
+    for(let i=0;i<wanted;i++){ const voice=poly._getNextAvailableVoice(); if(!voice) break; got.push(voice); }
+    complete=got.length===wanted;
+  }catch(e){} finally{ for(const voice of got) poly._availableVoices.push(voice); }
+  if(!complete) return false;
+  try{
+    if(poly._gcTimeout>=0){
+      if(!poly.context || typeof poly.context.clearInterval!=='function') return false;
+      poly.context.clearInterval(poly._gcTimeout); poly._gcTimeout=-1;
+    }
+  }catch(e){ return false; }
+  if(!_pianoWarmPools) _pianoWarmPools=new WeakSet();
+  _pianoWarmPools.add(poly); return true;
+}
+function pianoWarmGraph(){
+  if(!(CFG.pianoFirstUse && PIANO && LOW) || !toneReady || !rawCtx || rawCtx.state!=='running' || !listener || !listener.context || listener.context.state!=='running') return false;
+  if(_pianoGraphWarm) return true;
+  buildDrums();
+  let ready=!CFG.chorus.on || !!chorusEnsure();
+  // Same silent borrow/return contract as chorusWarm in pinned Tone 14.8.49. No attack, clock or cap changes.
+  // Keeping these pools warm retains their eventual high-water voices, bounded by the existing authored caps.
+  ready=pianoWarmPool(tick,4) && ready;
+  ready=pianoWarmPool(lead,4) && ready;
+  ready=pianoWarmPool(pad,8) && ready;
+  ready=pianoWarmPool(chordSynth,4) && ready;
+  if(CFG.piano.hums && _humField && !_humField.voices) ready=pianoFieldBuild(_humField,listener.context) && ready;
+  _pianoGraphWarm=ready; return ready;
+}
+function pianoWarmAfterUnlock(){
+  if(!(CFG.pianoFirstUse && PIANO && LOW) || !toneReady || !rawCtx || !listener || !listener.context) return;
+  if(typeof navigator!=='undefined' && navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+  if(pianoWarmGraph() || _pianoWarmPending) return;
+  _pianoWarmPending=true;
+  try{
+    Promise.all([rawCtx.resume(),listener.context.resume()]).then(()=>{
+      _pianoWarmPending=false; pianoWarmGraph();
+    }).catch(()=>{ _pianoWarmPending=false; });
+  }catch(e){ _pianoWarmPending=false; }
+}
+function pianoWarmStartRun(viaPad){
+  if(!(CFG.pianoFirstUse && PIANO && LOW) || !toneReady || !rawCtx || !listener || !listener.context) return false;
+  if(typeof navigator!=='undefined' && navigator.userActivation && !navigator.userActivation.hasBeenActive) return false;
+  if(pianoWarmGraph()) return false;
+  // An incompatible optional prewarm must fall back to the accepted lazy graph, never block a valid note.
+  if(rawCtx.state==='running' && listener.context.state==='running') return false;
+  if(_pianoWarmRunPending) return true;
+  _pianoWarmRunPending=true;
+  const token=++_pianoWarmRunToken;
+  const finish=ok=>{
+    if(token!==_pianoWarmRunToken || !_pianoWarmRunPending) return;
+    _pianoWarmRunPending=false; clearTimeout(timeout);
+    if(document.hidden || templeActive || state.running || padBeginBlocked()) return;
+    if(!ok || rawCtx.state!=='running' || listener.context.state!=='running'){ showToneBlock('start'); return; }
+    pianoWarmGraph(); startRun(viaPad);
+  };
+  const timeout=setTimeout(()=>finish(false),3000);
+  try{ Promise.all([rawCtx.resume(),listener.context.resume()]).then(()=>finish(true)).catch(()=>finish(false)); }
+  catch(e){ finish(false); }
+  return true;
+}
 function initAudio(){
   ensureListener();
   if(!reverbInput && listener && !state.running){ try{ buildReverb(); }catch(e){} } else scheduleReverbBuild();
-  if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
+  if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } if(CFG.pianoFirstUse && PIANO && LOW) pianoWarmAfterUnlock(); return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
   if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
   audioInit=true;
   try{
@@ -5416,6 +5485,7 @@ function initAudio(){
   }catch(e){ toneReady=false; audioInit=false; }
   applyAudioState();
   if(CFG.chorus.on){ chorusSaltRefresh(); chorusEnsure(); }   // THE STANDING CHORUS is built WITH the graph, never on demand: its first moment used to be a mercy downbeat, so a PolySynth, a filter and a Volume were being constructed inside the Transport callback that had just asked it to sing. Built here it is born muted and costs nothing but memory until a moment opens the gate, and the salt is warm before any pick. Raw boolean first — parcel off builds no node
+  if(CFG.pianoFirstUse && PIANO && LOW) pianoWarmAfterUnlock();
 }
 function sfx(kind){
   if(!soundOn || !toneReady) return;
@@ -10700,6 +10770,7 @@ function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
   initAudio();
   if(!toneReady){ showToneBlock('start'); return; }
+  if(CFG.pianoFirstUse && PIANO && LOW && pianoWarmStartRun(viaPad)) return;
   if(viaPad===true){ cancelLockRetry(); _runNeedsRelock=false;   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
     if(rawCtx && rawCtx.state!=='running'){
       const t0=performance.now(); let ok=false;
@@ -11240,7 +11311,37 @@ function warmShaders(){
   for(const f of back){ try{ f(); }catch(e){} }
 }
 const WARM_SLICE_MS=40;   // THE GATE FIRST: one idle slice links program families until this budget is spent, then yields — a click on PLAY, or Tone's then-callback, is never queued behind the whole scene's links (measured 2.0 s on a real Windows driver)
+function pianoWarmShadersStart(){
+  const back=[], critical=[roadMesh,roadWall,roadWallAccent,roadWallVeil,roadVault,roadDust,roadArch,roadArchAccent,roadNaveVeil];
+  try{ ensureArcObjs(); hideArc(); critical.push(arcRibbon,arcLand,arcPulseA,arcPulseB,arcApex); }catch(e){}
+  try{ ensureStarTethers(); critical.push(_tethMesh); }catch(e){}
+  try{ const m=ensureTargetMark(0); m.ring.visible=false; m.drop.visible=false; critical.push(m.ring,m.drop); }catch(e){}
+  try{ const tm=acquireTargetMesh(); tm.visible=false; critical.push(tm); back.push(()=>releaseTargetMesh(tm)); }catch(e){}
+  try{ const sh=acquireShards(Math.max(1,CFG.shards|0), TOXIC); sh.pts.visible=false; critical.push(sh.pts); back.push(()=>releaseShards(sh)); }catch(e){}
+  try{ const fl=acquireFlash(TOXIC); fl.visible=false; critical.push(fl); back.push(()=>releaseFlash(fl)); }catch(e){}
+  const all=scene.children, lights=all.filter(o=>o&&o.isLight), roots=new Set();
+  for(let child of critical){
+    if(!child) continue;
+    while(child.parent && child.parent!==scene) child=child.parent;
+    if(all.includes(child)) roots.add(child);
+  }
+  const queue=all.filter(o=>roots.has(o)), decorative=all.filter(o=>o&&!o.isLight&&!roots.has(o));
+  // Return parked resources before yielding: PLAY can reuse them without an extra mesh/UUID allocation.
+  // The queue keeps material representatives even when a pooled object is temporarily outside the scene.
+  for(const release of back){ try{ release(); }catch(e){} }
+  const slice=()=>{
+    const t0=performance.now();
+    while(performance.now()-t0<WARM_SLICE_MS){
+      if(state.started || state.running) decorative.length=0;
+      const child=queue.length?queue.shift():decorative.shift(); if(!child) return;
+      try{ scene.children=lights.concat([child]); renderer.compile(scene,camera); }catch(e){} finally{ scene.children=all; }
+    }
+    if(queue.length || decorative.length) runIdle(slice,0,500);
+  };
+  slice();
+}
 function warmShadersStart(){   // the chunked warm: same on-demand kinds parked invisible as warmShaders, but renderer.compile runs per TOP-LEVEL CHILD (lights ride along in every chunk so no program is linked against a lightless scene) across idle slices; PLAY cancels the rest — a run that beats the warm simply gets the old lazy links, exactly the promise warmShaders already made
+  if(CFG.pianoFirstUse && PIANO && LOW){ pianoWarmShadersStart(); return; }
   const back=[];
   try{ ensureArcObjs(); hideArc(); }catch(e){}
   try{ ensureStarTethers(); }catch(e){}

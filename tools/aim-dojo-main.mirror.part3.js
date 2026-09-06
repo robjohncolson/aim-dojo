@@ -4148,6 +4148,7 @@
 
 
 
+
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -5379,10 +5380,78 @@ function pianoContextAlign(){
   try{previous.dispose();}catch(e){}
   return candidate;
 }
+let _pianoWarmPools=null, _pianoWarmPending=false, _pianoGraphWarm=false, _pianoWarmRunPending=false, _pianoWarmRunToken=0;
+function pianoWarmPool(poly,count){
+  if(!poly) return false;
+  if(_pianoWarmPools && _pianoWarmPools.has(poly)) return true;
+  if(poly.activeVoices || typeof poly._getNextAvailableVoice!=='function' || !Array.isArray(poly._availableVoices)) return false;
+  const wanted=Math.min(count|0,poly.maxPolyphony|0), got=[];
+  if(wanted<1) return false;
+  let complete=false;
+  try{
+    for(let i=0;i<wanted;i++){ const voice=poly._getNextAvailableVoice(); if(!voice) break; got.push(voice); }
+    complete=got.length===wanted;
+  }catch(e){} finally{ for(const voice of got) poly._availableVoices.push(voice); }
+  if(!complete) return false;
+  try{
+    if(poly._gcTimeout>=0){
+      if(!poly.context || typeof poly.context.clearInterval!=='function') return false;
+      poly.context.clearInterval(poly._gcTimeout); poly._gcTimeout=-1;
+    }
+  }catch(e){ return false; }
+  if(!_pianoWarmPools) _pianoWarmPools=new WeakSet();
+  _pianoWarmPools.add(poly); return true;
+}
+function pianoWarmGraph(){
+  if(!(CFG.pianoFirstUse && PIANO && LOW) || !toneReady || !rawCtx || rawCtx.state!=='running' || !listener || !listener.context || listener.context.state!=='running') return false;
+  if(_pianoGraphWarm) return true;
+  buildDrums();
+  let ready=!CFG.chorus.on || !!chorusEnsure();
+  // Same silent borrow/return contract as chorusWarm in pinned Tone 14.8.49. No attack, clock or cap changes.
+  // Keeping these pools warm retains their eventual high-water voices, bounded by the existing authored caps.
+  ready=pianoWarmPool(tick,4) && ready;
+  ready=pianoWarmPool(lead,4) && ready;
+  ready=pianoWarmPool(pad,8) && ready;
+  ready=pianoWarmPool(chordSynth,4) && ready;
+  if(CFG.piano.hums && _humField && !_humField.voices) ready=pianoFieldBuild(_humField,listener.context) && ready;
+  _pianoGraphWarm=ready; return ready;
+}
+function pianoWarmAfterUnlock(){
+  if(!(CFG.pianoFirstUse && PIANO && LOW) || !toneReady || !rawCtx || !listener || !listener.context) return;
+  if(typeof navigator!=='undefined' && navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+  if(pianoWarmGraph() || _pianoWarmPending) return;
+  _pianoWarmPending=true;
+  try{
+    Promise.all([rawCtx.resume(),listener.context.resume()]).then(()=>{
+      _pianoWarmPending=false; pianoWarmGraph();
+    }).catch(()=>{ _pianoWarmPending=false; });
+  }catch(e){ _pianoWarmPending=false; }
+}
+function pianoWarmStartRun(viaPad){
+  if(!(CFG.pianoFirstUse && PIANO && LOW) || !toneReady || !rawCtx || !listener || !listener.context) return false;
+  if(typeof navigator!=='undefined' && navigator.userActivation && !navigator.userActivation.hasBeenActive) return false;
+  if(pianoWarmGraph()) return false;
+  // An incompatible optional prewarm must fall back to the accepted lazy graph, never block a valid note.
+  if(rawCtx.state==='running' && listener.context.state==='running') return false;
+  if(_pianoWarmRunPending) return true;
+  _pianoWarmRunPending=true;
+  const token=++_pianoWarmRunToken;
+  const finish=ok=>{
+    if(token!==_pianoWarmRunToken || !_pianoWarmRunPending) return;
+    _pianoWarmRunPending=false; clearTimeout(timeout);
+    if(document.hidden || templeActive || state.running || padBeginBlocked()) return;
+    if(!ok || rawCtx.state!=='running' || listener.context.state!=='running'){ showToneBlock('start'); return; }
+    pianoWarmGraph(); startRun(viaPad);
+  };
+  const timeout=setTimeout(()=>finish(false),3000);
+  try{ Promise.all([rawCtx.resume(),listener.context.resume()]).then(()=>finish(true)).catch(()=>finish(false)); }
+  catch(e){ finish(false); }
+  return true;
+}
 function initAudio(){
   ensureListener();
   if(!reverbInput && listener && !state.running){ try{ buildReverb(); }catch(e){} } else scheduleReverbBuild();
-  if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
+  if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } if(CFG.pianoFirstUse && PIANO && LOW) pianoWarmAfterUnlock(); return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
   if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
   audioInit=true;
   try{
@@ -5416,6 +5485,7 @@ function initAudio(){
   }catch(e){ toneReady=false; audioInit=false; }
   applyAudioState();
   if(CFG.chorus.on){ chorusSaltRefresh(); chorusEnsure(); }   // THE STANDING CHORUS is built WITH the graph, never on demand: its first moment used to be a mercy downbeat, so a PolySynth, a filter and a Volume were being constructed inside the Transport callback that had just asked it to sing. Built here it is born muted and costs nothing but memory until a moment opens the gate, and the salt is warm before any pick. Raw boolean first — parcel off builds no node
+  if(CFG.pianoFirstUse && PIANO && LOW) pianoWarmAfterUnlock();
 }
 function sfx(kind){
   if(!soundOn || !toneReady) return;
@@ -6854,48 +6924,5 @@ function rememberGap(from,to){
   const a=from.split('-'), b=to.split('-');
   const n=Math.round((new Date(+b[0],+b[1]-1,+b[2]) - new Date(+a[0],+a[1]-1,+a[2]))/86400000);
   return isFinite(n)?n:0;   // a hand-written "2026-99-99" rolls into a real date rather than throwing; a NaN is simply no gap, and no gap is no greeting
-}
-function rememberStar(){
-  // WHOSE seat it was: one of the player's OWN lit stars, preferring the four anchors, chosen deterministically by
-  // the date (the way the Bow picks its phrasing) so one night has one voice — and so two returns a month apart are
-  // greeted by two different stars without a single random draw. Never a level, never a count, never a comparison.
-  if(!CFG.stars.on) return '';   // raw boolean first: with the lit sky off there is no lit set to name, and this parcel falls to its starless variant
-  const lit=Object.create(null);
-  for(const id in _starLit){ const i=id.indexOf(':'); if(i>0) lit[id.slice(0,i)]=true; }   // the figure half of "<figureKey>:<starIndex>" — every key here already passed wave 3's grammar, and a figure this build does not know simply never matches the tables below
-  const anchors=[], others=[];
-  for(const k of REMEMBER_FIGS){ if(!lit[k]) continue; (REMEMBER_ANCHOR_EN[k]?anchors:others).push(k); }
-  const pool=anchors.length?anchors:others;
-  if(!pool.length) return '';
-  const k=pool[Math.abs(Math.floor(Date.now()/86400000))%pool.length];
-  return anchors.length ? T('rememberAnchor'+k, REMEMBER_ANCHOR_EN[k]) : T('rememberFig'+k, REMEMBER_FIG_EN[k]);
-}
-function rememberLine(){
-  // THE TOP OF THE THRESHOLD'S CHAIN, and the whole text budget of this parcel: one sentence, once, on the first run
-  // of a day that follows a real absence. '' every other night — which is what hands the threshold back to the deal.
-  if(_rememberSaid || trainMode) return '';   // post-graduation only (the trainer is a lesson, not a life) — defence in depth: flashTheme is never reached in the trainer anyway
-  rememberLoad();
-  if(!_rememberDay) return '';                // a fresh, corrupt or absent file: the sky has no seat to have kept, and says so by saying nothing
-  const today=phasesToday();                  // ONE calendar for the memory layer (a pure local-civil-date helper — it opens no file, so it belongs to neither parcel's kill-switch)
-  if(_rememberDay===today) return '';         // already played tonight: the second run of a night is not a return
-  const n=rememberGap(_rememberDay, today);
-  if(n < Math.max(1, CFG.remember.gapDays|0)) return '';   // under the threshold — and a FUTURE date (a clock wound back) lands at n<=0 here, so a wrong clock greets nobody instead of greeting everybody
-  _rememberSaid=true;                         // latched at the moment it is SPOKEN, never before: a night that says nothing has spent nothing
-  const star=rememberStar();
-  return star ? TF('rememberLine','✦ {n} NIGHTS TURNED · {star} HELD YOUR SEAT', {n:n, star:star})   // n >= gapDays >= 1 nights, so the plural is always the true one and no singular case can exist
-              : T('rememberAlone','✦ THE DOJO KEPT YOUR PLACE');                                     // nothing lit yet: the room itself does the remembering, and no star is invented to speak
-}
-function rememberWitness(){
-  // "Tonight was played" — the same witness the ring stamps by, taken at the FIRST scoring arrival OF EACH DAY. One
-  // attempt per played DAY (1.1 amendment, M3 — the latch is the stamped date, so the page life is irrelevant and a
-  // tab alive across midnight witnesses the new night too): the call site reads the raw kill-switch, the latched mode
-  // and that same day before it ever reaches here, so a night with the parcel off — or any hit after the first of the
-  // day — costs a compare and no call.
-  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both (the call site's wasTrain latch, H1, is what keeps the GRADUATING hit out)
-  const today=phasesToday();
-  if(_rememberStampedDay===today) return;   // this day's attempt is spent, whatever it decided
-  _rememberStampedDay=today;
-  rememberLoad();
-  if(_rememberDay===today) return;   // a second session tonight writes nothing at all
-  _rememberDay=today; rememberSaveSoon();   // in memory FIRST, so this same page's later thresholds already know the night is spoken for even if the write is refused
 }
 })();

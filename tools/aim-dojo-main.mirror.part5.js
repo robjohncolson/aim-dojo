@@ -9371,6 +9371,76 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
+  if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
+  if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
+  if(state.t-_bonusLast<CFG.flickBonus.cooldown) return;                           // keep it a treat, not a strobe (mirrors clutch)
+  try{ updatePocketMisses(); }catch(e){}                                           // close the normal-input frontier immediately before bonus takes ownership
+  bonusActive=true; _bonusResolving=false; _bonusJustArmed=true; bonusLocks.length=0;   // _bonusJustArmed → updateFlickBonus clears in-flight projectiles NEXT (safely, after updateProjectiles' loop this frame)
+  _bonusGrace=CFG.flickBonus.graceMisses;
+  _bonusEntryBeat=currentRawBeat(); bonusEndsBeat=_bonusEntryBeat+CFG.flickBonus.baseBeats;
+  if(soundOn && toneReady){ try{ const t=beatSnap(); if(lead){ lead.triggerAttackRelease(PENTA[4],'8n',t,0.7); lead.triggerAttackRelease(PENTA[6],'8n',t+0.06,0.6); } if(chordSynth) chordSynth.triggerAttackRelease([PENTA[0],PENTA[2],PENTA[4]],'4n',t,0.4); }catch(e){} }   // a rising two-note "mode on" flourish + an open chord
+}
+function abortFlickBonus(){   // pause / reset: drop the mode with NO cascade payoff — un-flag locked orbs, unfreeze the field (they resume with full life)
+  if(!bonusActive) return;
+  try{ updatePocketMisses(); }catch(e){}   // freeze pocket progress through the final pre-pause center before clearing bonusActive
+  for(const tg of bonusLocks) if(tg) tg._flickLocked=false;
+  bonusLocks.length=0; bonusActive=false; _bonusResolving=false; _bonusJustArmed=false;
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+}
+function flickLockPress(){   // a WASD/pad-face tap DURING the bonus: on-beat AND crosshair on an orb = LOCK; anything else = a missed attempt (one grace, then the cascade rolls)
+  if(_bonusResolving) return;                                                      // cascade already rolling — taps do nothing
+  const tg=scopeLockTarget(true);                                                  // tight, size-aware cone; skips already-locked orbs + decoys
+  if(tg && orbOpen()){                                                             // ON the beat (orb glowing) AND the crosshair is literally on an orb
+    tg._flickLocked=true; bonusLocks.push(tg);
+    bonusEndsBeat=Math.min(_bonusEntryBeat+CFG.flickBonus.capBeats, bonusEndsBeat+CFG.flickBonus.extendBeats);   // each lock buys +extendBeats, capped at capBeats from entry
+    if(soundOn && toneReady){ try{ const s=Math.min(bonusLocks.length-1,PENTA.length-1); if(lead) lead.triggerAttackRelease(PENTA[s],'16n',beatSnap(),0.72); if(tick) tick.triggerAttackRelease(1568,'32n',Tone.now(),0.6); }catch(e){} }   // lock chime climbs the pentatonic with each lock
+    if(!reduceMotion) popHitMarker();
+  } else {                                                                         // whiffed flick (no orb under the crosshair) or off-beat tap = a missed attempt
+    if(_bonusGrace>0){ _bonusGrace--; flashReticleBad(); if(soundOn&&toneReady) sfx('offbeat'); }   // one forgiven fumble so entering with nothing centered doesn't instantly end the mode
+    else startFlickResolve(currentRawBeat());                                      // no-lock resolves exit through endFlickBonus, which advances the frozen pocket frontier first
+  }
+}
+function startFlickResolve(atBeat){
+  _bonusResolving=true; _bonusCascadeBeat=Math.floor(atBeat)+1;                     // first detonation on the next whole beat
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+  if(!bonusLocks.length) endFlickBonus();                                           // nothing locked → just exit (no cascade, streak intact)
+}
+function endFlickBonus(){
+  if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
+  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
+  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+}
 function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
   if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
   tg.dead=true; tg._flickLocked=false;
@@ -10700,6 +10770,7 @@ function startRun(viaPad){
   if(!window.Tone){ loadToneOnce().catch(()=>{}); showToneBlock('load'); return; }
   initAudio();
   if(!toneReady){ showToneBlock('start'); return; }
+  if(CFG.pianoFirstUse && PIANO && LOW && pianoWarmStartRun(viaPad)) return;
   if(viaPad===true){ cancelLockRetry(); _runNeedsRelock=false;   // gamepad start (strict ===true: the click listener passes the MouseEvent here). No pointer lock — and a pad press is NOT a browser user activation, so the context may still be suspended (autoplay policy); entering anyway = a silent run where the Transport never ticks and no orb ever spawns
     if(rawCtx && rawCtx.state!=='running'){
       const t0=performance.now(); let ok=false;
@@ -11240,7 +11311,37 @@ function warmShaders(){
   for(const f of back){ try{ f(); }catch(e){} }
 }
 const WARM_SLICE_MS=40;   // THE GATE FIRST: one idle slice links program families until this budget is spent, then yields — a click on PLAY, or Tone's then-callback, is never queued behind the whole scene's links (measured 2.0 s on a real Windows driver)
+function pianoWarmShadersStart(){
+  const back=[], critical=[roadMesh,roadWall,roadWallAccent,roadWallVeil,roadVault,roadDust,roadArch,roadArchAccent,roadNaveVeil];
+  try{ ensureArcObjs(); hideArc(); critical.push(arcRibbon,arcLand,arcPulseA,arcPulseB,arcApex); }catch(e){}
+  try{ ensureStarTethers(); critical.push(_tethMesh); }catch(e){}
+  try{ const m=ensureTargetMark(0); m.ring.visible=false; m.drop.visible=false; critical.push(m.ring,m.drop); }catch(e){}
+  try{ const tm=acquireTargetMesh(); tm.visible=false; critical.push(tm); back.push(()=>releaseTargetMesh(tm)); }catch(e){}
+  try{ const sh=acquireShards(Math.max(1,CFG.shards|0), TOXIC); sh.pts.visible=false; critical.push(sh.pts); back.push(()=>releaseShards(sh)); }catch(e){}
+  try{ const fl=acquireFlash(TOXIC); fl.visible=false; critical.push(fl); back.push(()=>releaseFlash(fl)); }catch(e){}
+  const all=scene.children, lights=all.filter(o=>o&&o.isLight), roots=new Set();
+  for(let child of critical){
+    if(!child) continue;
+    while(child.parent && child.parent!==scene) child=child.parent;
+    if(all.includes(child)) roots.add(child);
+  }
+  const queue=all.filter(o=>roots.has(o)), decorative=all.filter(o=>o&&!o.isLight&&!roots.has(o));
+  // Return parked resources before yielding: PLAY can reuse them without an extra mesh/UUID allocation.
+  // The queue keeps material representatives even when a pooled object is temporarily outside the scene.
+  for(const release of back){ try{ release(); }catch(e){} }
+  const slice=()=>{
+    const t0=performance.now();
+    while(performance.now()-t0<WARM_SLICE_MS){
+      if(state.started || state.running) decorative.length=0;
+      const child=queue.length?queue.shift():decorative.shift(); if(!child) return;
+      try{ scene.children=lights.concat([child]); renderer.compile(scene,camera); }catch(e){} finally{ scene.children=all; }
+    }
+    if(queue.length || decorative.length) runIdle(slice,0,500);
+  };
+  slice();
+}
 function warmShadersStart(){   // the chunked warm: same on-demand kinds parked invisible as warmShaders, but renderer.compile runs per TOP-LEVEL CHILD (lights ride along in every chunk so no program is linked against a lightless scene) across idle slices; PLAY cancels the rest — a run that beats the warm simply gets the old lazy links, exactly the promise warmShaders already made
+  if(CFG.pianoFirstUse && PIANO && LOW){ pianoWarmShadersStart(); return; }
   const back=[];
   try{ ensureArcObjs(); hideArc(); }catch(e){}
   try{ ensureStarTethers(); }catch(e){}

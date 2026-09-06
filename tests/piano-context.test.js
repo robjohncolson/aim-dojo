@@ -84,7 +84,7 @@ function contextHarness({ piano = true, enabled = true, lazy = false } = {}) {
   const cfg = contextCfg(); cfg.pianoNativeContext = enabled ? 1 : 0; cfg.chorus.on = false;
   const c = vm.createContext({
     window: { Tone: lazy ? undefined : library, AudioContext: NativeContext }, Proxy, Math, Number,
-    CFG: cfg, PIANO: piano, CHIP_BASS: true, audioInit: false, toneReady: false, rawCtx: null,
+    CFG: cfg, PIANO: piano, LOW: false, CHIP_BASS: true, audioInit: false, toneReady: false, rawCtx: null,
     state: { running: false, bpm: 28, streak: 2 }, listener: { context: { owner: "sphere" } }, reverbInput: {},
     ensureListener: () => {}, scheduleReverbBuild: () => {}, buildReverb: () => {}, applyAudioState: () => {},
     loadToneOnce: () => { events.push(["loadToneOnce"]); return Promise.resolve(); },

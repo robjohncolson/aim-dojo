@@ -6898,6 +6898,76 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function rememberStar(){
+  // WHOSE seat it was: one of the player's OWN lit stars, preferring the four anchors, chosen deterministically by
+  // the date (the way the Bow picks its phrasing) so one night has one voice — and so two returns a month apart are
+  // greeted by two different stars without a single random draw. Never a level, never a count, never a comparison.
+  if(!CFG.stars.on) return '';   // raw boolean first: with the lit sky off there is no lit set to name, and this parcel falls to its starless variant
+  const lit=Object.create(null);
+  for(const id in _starLit){ const i=id.indexOf(':'); if(i>0) lit[id.slice(0,i)]=true; }   // the figure half of "<figureKey>:<starIndex>" — every key here already passed wave 3's grammar, and a figure this build does not know simply never matches the tables below
+  const anchors=[], others=[];
+  for(const k of REMEMBER_FIGS){ if(!lit[k]) continue; (REMEMBER_ANCHOR_EN[k]?anchors:others).push(k); }
+  const pool=anchors.length?anchors:others;
+  if(!pool.length) return '';
+  const k=pool[Math.abs(Math.floor(Date.now()/86400000))%pool.length];
+  return anchors.length ? T('rememberAnchor'+k, REMEMBER_ANCHOR_EN[k]) : T('rememberFig'+k, REMEMBER_FIG_EN[k]);
+}
+function rememberLine(){
+  // THE TOP OF THE THRESHOLD'S CHAIN, and the whole text budget of this parcel: one sentence, once, on the first run
+  // of a day that follows a real absence. '' every other night — which is what hands the threshold back to the deal.
+  if(_rememberSaid || trainMode) return '';   // post-graduation only (the trainer is a lesson, not a life) — defence in depth: flashTheme is never reached in the trainer anyway
+  rememberLoad();
+  if(!_rememberDay) return '';                // a fresh, corrupt or absent file: the sky has no seat to have kept, and says so by saying nothing
+  const today=phasesToday();                  // ONE calendar for the memory layer (a pure local-civil-date helper — it opens no file, so it belongs to neither parcel's kill-switch)
+  if(_rememberDay===today) return '';         // already played tonight: the second run of a night is not a return
+  const n=rememberGap(_rememberDay, today);
+  if(n < Math.max(1, CFG.remember.gapDays|0)) return '';   // under the threshold — and a FUTURE date (a clock wound back) lands at n<=0 here, so a wrong clock greets nobody instead of greeting everybody
+  _rememberSaid=true;                         // latched at the moment it is SPOKEN, never before: a night that says nothing has spent nothing
+  const star=rememberStar();
+  return star ? TF('rememberLine','✦ {n} NIGHTS TURNED · {star} HELD YOUR SEAT', {n:n, star:star})   // n >= gapDays >= 1 nights, so the plural is always the true one and no singular case can exist
+              : T('rememberAlone','✦ THE DOJO KEPT YOUR PLACE');                                     // nothing lit yet: the room itself does the remembering, and no star is invented to speak
+}
+function rememberWitness(){
+  // "Tonight was played" — the same witness the ring stamps by, taken at the FIRST scoring arrival OF EACH DAY. One
+  // attempt per played DAY (1.1 amendment, M3 — the latch is the stamped date, so the page life is irrelevant and a
+  // tab alive across midnight witnesses the new night too): the call site reads the raw kill-switch, the latched mode
+  // and that same day before it ever reaches here, so a night with the parcel off — or any hit after the first of the
+  // day — costs a compare and no call.
+  if(trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both (the call site's wasTrain latch, H1, is what keeps the GRADUATING hit out)
+  const today=phasesToday();
+  if(_rememberStampedDay===today) return;   // this day's attempt is spent, whatever it decided
+  _rememberStampedDay=today;
+  rememberLoad();
+  if(_rememberDay===today) return;   // a second session tonight writes nothing at all
+  _rememberDay=today; rememberSaveSoon();   // in memory FIRST, so this same page's later thresholds already know the night is spoken for even if the write is refused
+}
 /* ---- NIGHT CARDS (wave 5a, parcel O) ----
    The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
    tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON
@@ -9331,44 +9401,4 @@ function updateScope(dt){
    the window. When it ends the locked orbs detonate in a one-per-beat cascade, each a scored bonus
    kill. Trains FLICK — the complement to the core LEAD skill. No auto-aim. */
 function currentRawBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b; }   // raw whole-beat clock (no groove phase-shift) — drives the window countdown + cascade cadence
-function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
-  if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
-  if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
-  if(state.t-_bonusLast<CFG.flickBonus.cooldown) return;                           // keep it a treat, not a strobe (mirrors clutch)
-  try{ updatePocketMisses(); }catch(e){}                                           // close the normal-input frontier immediately before bonus takes ownership
-  bonusActive=true; _bonusResolving=false; _bonusJustArmed=true; bonusLocks.length=0;   // _bonusJustArmed → updateFlickBonus clears in-flight projectiles NEXT (safely, after updateProjectiles' loop this frame)
-  _bonusGrace=CFG.flickBonus.graceMisses;
-  _bonusEntryBeat=currentRawBeat(); bonusEndsBeat=_bonusEntryBeat+CFG.flickBonus.baseBeats;
-  if(soundOn && toneReady){ try{ const t=beatSnap(); if(lead){ lead.triggerAttackRelease(PENTA[4],'8n',t,0.7); lead.triggerAttackRelease(PENTA[6],'8n',t+0.06,0.6); } if(chordSynth) chordSynth.triggerAttackRelease([PENTA[0],PENTA[2],PENTA[4]],'4n',t,0.4); }catch(e){} }   // a rising two-note "mode on" flourish + an open chord
-}
-function abortFlickBonus(){   // pause / reset: drop the mode with NO cascade payoff — un-flag locked orbs, unfreeze the field (they resume with full life)
-  if(!bonusActive) return;
-  try{ updatePocketMisses(); }catch(e){}   // freeze pocket progress through the final pre-pause center before clearing bonusActive
-  for(const tg of bonusLocks) if(tg) tg._flickLocked=false;
-  bonusLocks.length=0; bonusActive=false; _bonusResolving=false; _bonusJustArmed=false;
-  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-}
-function flickLockPress(){   // a WASD/pad-face tap DURING the bonus: on-beat AND crosshair on an orb = LOCK; anything else = a missed attempt (one grace, then the cascade rolls)
-  if(_bonusResolving) return;                                                      // cascade already rolling — taps do nothing
-  const tg=scopeLockTarget(true);                                                  // tight, size-aware cone; skips already-locked orbs + decoys
-  if(tg && orbOpen()){                                                             // ON the beat (orb glowing) AND the crosshair is literally on an orb
-    tg._flickLocked=true; bonusLocks.push(tg);
-    bonusEndsBeat=Math.min(_bonusEntryBeat+CFG.flickBonus.capBeats, bonusEndsBeat+CFG.flickBonus.extendBeats);   // each lock buys +extendBeats, capped at capBeats from entry
-    if(soundOn && toneReady){ try{ const s=Math.min(bonusLocks.length-1,PENTA.length-1); if(lead) lead.triggerAttackRelease(PENTA[s],'16n',beatSnap(),0.72); if(tick) tick.triggerAttackRelease(1568,'32n',Tone.now(),0.6); }catch(e){} }   // lock chime climbs the pentatonic with each lock
-    if(!reduceMotion) popHitMarker();
-  } else {                                                                         // whiffed flick (no orb under the crosshair) or off-beat tap = a missed attempt
-    if(_bonusGrace>0){ _bonusGrace--; flashReticleBad(); if(soundOn&&toneReady) sfx('offbeat'); }   // one forgiven fumble so entering with nothing centered doesn't instantly end the mode
-    else startFlickResolve(currentRawBeat());                                      // no-lock resolves exit through endFlickBonus, which advances the frozen pocket frontier first
-  }
-}
-function startFlickResolve(atBeat){
-  _bonusResolving=true; _bonusCascadeBeat=Math.floor(atBeat)+1;                     // first detonation on the next whole beat
-  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-  if(!bonusLocks.length) endFlickBonus();                                           // nothing locked → just exit (no cascade, streak intact)
-}
-function endFlickBonus(){
-  if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
-  bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
-  if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-}
 })();
