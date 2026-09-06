@@ -7,15 +7,18 @@ const { sourceFor } = require("./source.js");
 const source = sourceFor("detectWeakGPU");
 const resolver = source.match(/const LOW =[^;]+;/)[0];
 const bounds = source.match(/const DPR_MAX =[^;]+;/)[0];
+const deviceBudget = require('../device-budget.js');
+const boundResolver = source.match(/const DPR_BOUNDS=[^;]+;/)[0];
 
 function resolve(search, pref, cfg, weak) {
   const context = vm.createContext({ location: { search, hash: "" }, _lowPref: pref, CFG: cfg, WEAK: weak });
   return new vm.Script(`${resolver}\nLOW`).runInContext(context);
 }
 
-function dpr(low, weak, crunchLook, device = 1, mobile = false) {
-  const context = vm.createContext({ LOW: low, WEAK: weak, CFG: { crunchLook }, DEVICE_DPR: device, MOBILE: mobile });
-  return Array.from(new vm.Script(`${bounds}\n[DPR_MAX,DPR_MIN]`).runInContext(context));
+function dpr(low, weak, crunchLook, device = 1, mobile = false, preference = 'auto') {
+  const context = vm.createContext({ LOW: low, WEAK: weak, CFG: { crunchLook }, DEVICE_DPR: device, MOBILE: mobile,
+    DEVICE_BUDGET_API: deviceBudget, DEVICE_BUDGET: deviceBudget.resolve({weak,mobile,preference}) });
+  return Array.from(new vm.Script(`${boundResolver}\n${bounds}\n[DPR_MAX,DPR_MIN]`).runInContext(context));
 }
 
 test("crunch look preserves URL and saved preference precedence", () => {
@@ -43,14 +46,16 @@ test("disabled crunch resolver reproduces every legacy preference combination", 
         }
 });
 
-test("authored chalk fixes strong-device DPR while weak and disabled ranges remain adaptive", () => {
-  assert.deepEqual(dpr(true, false, true), [.5, .5]);
-  assert.deepEqual(dpr(true, true, true), [.5, .4]);
-  assert.deepEqual(dpr(true, false, false), [.5, .4]);
-  assert.deepEqual(dpr(true, true, false), [.5, .4]);
+test("device budgets permit a lower next-session grid independently of the authored look", () => {
+  assert.deepEqual(dpr(true, false, true), [.5, .35]);
+  assert.deepEqual(dpr(true, true, true), [.5, .35]);
+  assert.deepEqual(dpr(true, false, false), [.5, .35]);
+  assert.deepEqual(dpr(true, true, false), [.5, .35]);
+  assert.deepEqual(dpr(true, false, true, 2, false, 'full'), [.5, .5]);
   assert.deepEqual(dpr(true, false, true, .3), [.3, .3]);
   assert.deepEqual(dpr(false, false, true, 2), [1.5, .9]);
-  assert.deepEqual(dpr(false, true, true, 2, true), [1.25, .8]);
+  assert.deepEqual(dpr(false, true, true, 2, true), [1, .6]);
+  assert.deepEqual(dpr(false, true, true, 2, true, 'full'), [1.25, .8]);
 });
 
 test("hardware probe is shared and remembered visitor capacities are identical on every device", () => {

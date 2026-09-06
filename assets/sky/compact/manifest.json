@@ -1,0 +1,242 @@
+{
+  "recipe": {
+    "pillow": "11.2.1",
+    "jpegCodec": "8.0",
+    "resampling": "Lanczos",
+    "quality": 88,
+    "subsampling": 0,
+    "progressive": true,
+    "optimize": true,
+    "colorAdjustment": "none"
+  },
+  "assets": [
+    {
+      "source": {
+        "path": "assets/sky/2k_jupiter.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 498976,
+        "sha256": "b0f04d005350252636b0e3396fc592548cbd9e9126b269d32d5c6abd4b0e4f2b"
+      },
+      "compact": {
+        "path": "assets/sky/compact/jupiter.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 33883,
+        "sha256": "40f2cce2c6a065a45ed3191d397c7c0fd9c5c41dd607964a22b9fd0f9ccddd81"
+      },
+      "preservedMetadata": [
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_mars.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 750547,
+        "sha256": "2d187f3e77a98eaa8cea5f4cc722f633c122ef170b9e94ace6b5fb6cbc3f8e01"
+      },
+      "compact": {
+        "path": "assets/sky/compact/mars.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 43138,
+        "sha256": "4c307c972e9ef1d04b26820ad54efbcb4b039f179f34aa4d6a1e486dd1c50cb0"
+      },
+      "preservedMetadata": [
+        "exif",
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_mercury.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 872555,
+        "sha256": "5a5c80607f643496bac9a631e71957def35ed788895f18b678ac849c2b38e48a"
+      },
+      "compact": {
+        "path": "assets/sky/compact/mercury.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 34529,
+        "sha256": "846fa6ad8790650a7e569a2f2fb9028ab8e8761dfd2b8fcd797ff2b6bfec35c9"
+      },
+      "preservedMetadata": [
+        "exif",
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_moon.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 1053869,
+        "sha256": "2764ba6535ea0481a062846ee033cc7a909dae05b31a8fd13f3e98f3a7fd92bd"
+      },
+      "compact": {
+        "path": "assets/sky/compact/moon.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 43845,
+        "sha256": "611c99e6ece33f3aa9b4f0858df99a929e6e981c6c581e2821f240585d513c3b"
+      },
+      "preservedMetadata": [
+        "exif",
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_neptune.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 241580,
+        "sha256": "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6"
+      },
+      "compact": {
+        "path": "assets/sky/compact/neptune.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 9394,
+        "sha256": "764000e98c41497eb4c4c21ae968fc913f413262906458d38e85f257d3da74d7"
+      },
+      "preservedMetadata": [
+        "exif"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_pluto.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 517322,
+        "sha256": "136a7bbabb841a3abb41392de7433e7a11c904892be22f12fc0f9c77ffded4cc"
+      },
+      "compact": {
+        "path": "assets/sky/compact/pluto.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 41007,
+        "sha256": "6c9b7ad6af3f17094df012ecfbaba857722387111bb73f3978d62e01f4df8068"
+      },
+      "preservedMetadata": []
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_saturn.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 199916,
+        "sha256": "54a900ca9bf7ab62e70f862852759abdf342e6d6436a95a2fe9ebdb6bcd3bbac"
+      },
+      "compact": {
+        "path": "assets/sky/compact/saturn.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 15374,
+        "sha256": "4abb3b46b49a33ffebef97848dc028741291d8b457fb7a55734bfa2dd6f59bd7"
+      },
+      "preservedMetadata": [
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_sun.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 822427,
+        "sha256": "ff0f076ba65e03b5ab518451bc96699325be38e3ccbdd5869ee1c00f3a0c8816"
+      },
+      "compact": {
+        "path": "assets/sky/compact/sun.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 61363,
+        "sha256": "243455af93034fe5e07c5a5dfd588b4d226219679fe7cef7e6330fb1a55f74df"
+      },
+      "preservedMetadata": [
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_uranus.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 77751,
+        "sha256": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d"
+      },
+      "compact": {
+        "path": "assets/sky/compact/uranus.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 4665,
+        "sha256": "1526b5c401f7e7407694b905beac7956b98d079e0d5ddb8271b44d2cf1859769"
+      },
+      "preservedMetadata": [
+        "exif"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_venus_atmosphere.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 229696,
+        "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac"
+      },
+      "compact": {
+        "path": "assets/sky/compact/venus-atmosphere.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 17262,
+        "sha256": "726afc133e13a4537532e93d65177a4a9b427a99981789f95fdf720e897d9ee2"
+      },
+      "preservedMetadata": [
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/2k_venus_surface.jpg",
+        "width": 2048,
+        "height": 1024,
+        "bytes": 885075,
+        "sha256": "dbe5db1c794a8ab4cbf7dd6bf193540c400fc833ce1e6cc399318aa68026278b"
+      },
+      "compact": {
+        "path": "assets/sky/compact/venus-surface.jpg",
+        "width": 512,
+        "height": 256,
+        "bytes": 48441,
+        "sha256": "307c048804cb11cd27bd60bbe2cc31ed71013b827ff7fd663e706031441e40a0"
+      },
+      "preservedMetadata": [
+        "exif",
+        "xmp"
+      ]
+    },
+    {
+      "source": {
+        "path": "assets/sky/8k_stars_milky_way.jpg",
+        "width": 3072,
+        "height": 1536,
+        "bytes": 184115,
+        "sha256": "8c3bef9ad0d447bfb03582547ba9196dd388dc43b9dfd28bd2e00cc007e2e486"
+      },
+      "compact": {
+        "path": "assets/sky/compact/milky-way.jpg",
+        "width": 1024,
+        "height": 512,
+        "bytes": 26981,
+        "sha256": "caaf1f7aee3844f28bf8b305698d1cb2f0ec6142b2a8facc963039c1910706e3"
+      },
+      "preservedMetadata": []
+    }
+  ]
+}

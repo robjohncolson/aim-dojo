@@ -359,6 +359,13 @@ const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false       
 if(LOW){ CFG.shards=4; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (9→4 — wave 8 parcel V halved both rungs of this ladder, 18→9 and 8→4, to pay for the stardust), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
+const DEVICE_BUDGET_API=window.AimDojoDeviceBudget;
+const _budgetPref=(()=>{ try{return localStorage.getItem('aimdojo.performance');}catch(e){return null;} })();
+const _framePref=(()=>{ try{return localStorage.getItem('aimdojo.renderFps');}catch(e){return null;} })();
+const DEVICE_BUDGET=DEVICE_BUDGET_API.resolve({search:location.search,preference:_budgetPref,framePreference:_framePref,mobile:MOBILE,weak:WEAK,cores:navigator.hardwareConcurrency,memory:navigator.deviceMemory,saveData:!!(navigator.connection&&navigator.connection.saveData)});
+const PIANO_PANNING=DEVICE_BUDGET.panningModel;
+let renderFps=DEVICE_BUDGET.renderFps, renderFrameDue=true;
+const renderGate=DEVICE_BUDGET_API.createRenderGate(renderFps);
 /* ========================= SKY MODE (personal planetarium — SPEC_PERSONAL_PLANETARIUM.md, Parcel B) =========================
    Public default: clocked (static zodiac + Meeus ☉/☽ offline, upgraded by the optional public day API). decorative = legacy art sky.
    clocked_chart = personal pack (local/dev or future Railway). Resolve: ?sky= > localStorage > clocked.
@@ -434,8 +441,10 @@ const SKY_DAY_API_BASE=(function(){   // valued URL override is PUBLIC sky-day o
   return cleanSkyApiBase(CFG.skyDay.api)||cleanSkyApiBase(CFG.skyListen.api)||'http://127.0.0.1:8742';
 })();
 function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15), 1|a); t=(t+Math.imul(t^(t>>>7), 61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }   // tiny seeded PRNG — clocked modes keep a STABLE star field across sessions (decorative keeps its fresh random sky)
-const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? (CFG.crunchLook===true&&!WEAK ? DPR_MAX : Math.min(DPR_MAX, 0.4)) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // authored chalk keeps one fixed pixel grid on strong hardware; weak GPUs and the disabled off arm retain the old adaptive floor
-let renderDpr = DPR_MAX;
+const DPR_BOUNDS=DEVICE_BUDGET_API.dprBounds({low:LOW,mobile:MOBILE,deviceDpr:DEVICE_DPR,budget:DEVICE_BUDGET});
+const DPR_MAX = DPR_BOUNDS.max, DPR_MIN = DPR_BOUNDS.min;
+let renderDpr = DPR_BOUNDS.start;
+const renderQuality=DEVICE_BUDGET_API.createQualityMonitor(DPR_BOUNDS);
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
 function syncViewport(){ viewW=innerWidth; viewH=innerHeight; viewCX=viewW/2; viewCY=viewH/2; }
 const renderer = new THREE.WebGLRenderer({canvas, antialias:!MOBILE && !LOW, powerPreference:'high-performance'});   // LOW: MSAA OFF — it costs 20-40% of frame time on weak iGPUs and fights the wanted crunchy edges

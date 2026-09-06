@@ -1568,6 +1568,15 @@
 
 
 
+
+
+
+
+
+
+
+
+
 function buildRoadArches(){
   if(!ML_NAVE){
   /* THE RAIL-SPLIT ARCHES, THE MERCY RING AND THE REFLECTIONS — ONE indexed mesh, ONE draw call, built ONCE (SPEC §4).
@@ -2604,14 +2613,13 @@ const mirrorCam=new THREE.PerspectiveCamera(); mirrorCam.matrixAutoUpdate=false;
 const REFL_M=new THREE.Matrix4().makeScale(1,-1,1);          // reflect about the floor plane y=0
 const REFL_FLIP_X=new THREE.Matrix4().makeScale(-1,1,1);      // …and reverse the mirror camera's LOCAL x so its frame is a proper rotation again (det (−1)·(−1)=+1). A det<0 camera flips every triangle's screen winding, and r128 only compensates winding per OBJECT (frontFaceCW = object.matrixWorld.determinant()<0), so the BackSide skyDome/milkyShell were culled out of the mirror entirely — the floor reflected the flat scene.background instead of the dome (verified: RT pixel stats identical to dome.visible=false). Rigid camera + the x-flipped RT sample in the floor shader (index.html:1539) = the same planar mirror, with culling correct.
 const REFL_SCALE = MOBILE ? 0.22 : 0.28, REFL_INTERVAL = MOBILE ? 1/6 : 1/8, REFL_IDLE_INTERVAL = 1/3;
-let reflResDirty=true, lastReflT=-999;
+let reflResDirty=true, lastReflT=-999, reflectionPending=false;
 function sizeRefl(){
   const pr=renderer.getPixelRatio();
   reflRT.setSize(Math.max(2,Math.round(viewW*pr*REFL_SCALE)), Math.max(2,Math.round(viewH*pr*REFL_SCALE)));
   reflResDirty=true; lastReflT=-999;   // setSize disposes the RT's texture → it reads black until the next mirror pass; -999 makes renderReflection re-render on the very next sky tick instead of up to 125 ms (idle: 333 ms) later, so an adaptive-DPR step or a resize can't blink the far floor's reflection
 }
 sizeRefl();
-let frameAvg=1/60, perfCooldown=0;
 function setRenderDpr(next){
   next=Math.max(DPR_MIN, Math.min(DPR_MAX, Math.round(next*100)/100));
   if(Math.abs(next-renderDpr)<0.01) return false;
@@ -2619,11 +2627,8 @@ function setRenderDpr(next){
   return true;
 }
 function updateRenderQuality(dt){
-  if(!state.running) return;
-  frameAvg += (dt-frameAvg)*0.035;
-  if(perfCooldown>0){ perfCooldown-=dt; return; }
-  if(frameAvg>1/45 && renderDpr>DPR_MIN+0.01){ if(setRenderDpr(renderDpr-0.15)) perfCooldown=1.5; }
-  else if(frameAvg<1/58 && renderDpr<DPR_MAX-0.01){ if(setRenderDpr(renderDpr+0.10)) perfCooldown=4.0; }
+  const next=renderQuality.sample(dt,state.running,renderDpr);
+  if(next!==null) setRenderDpr(next);   // sustained frame evidence is applied only while paused
 }
 function syncReflUniformSize(){
   const fsh=dayFloor && dayFloor.material.userData.sh;
@@ -2631,6 +2636,8 @@ function syncReflUniformSize(){
   renderer.getDrawingBufferSize(_dbs); fsh.uniforms.uRes.value.copy(_dbs); reflResDirty=false;
 }
 function renderReflection(){
+  if(!renderFrameDue){ reflectionPending=true; return; }
+  reflectionPending=false;   // sky updates can fall between draws on high-refresh screens
   if(LOW) return;   // LOW: skip the entire second scene render (the mirror sky) — the biggest single GPU saving; uMirN=1e6 above makes the floor ignore the (unrendered) reflection RT and just fade to fog
   if(skyT-lastReflT<(state.running?REFL_INTERVAL:REFL_IDLE_INTERVAL)) return;
   lastReflT=skyT;
@@ -2913,7 +2920,7 @@ function loadSkyTexture(url, onReady, onError){
   }catch(e){ try{ console.warn('[temple-orbs] texture loader threw:', resolved, e); }catch(_e){} if(onError) try{ onError(); }catch(_e2){} return null; }
   return tex;
 }
-const _skyMapOpts={ low:LOW, mobile:MOBILE };
+const _skyMapOpts={ low:LOW, mobile:MOBILE, textureTier:DEVICE_BUDGET.textureTier };
 /* --- inner milky-way sky shell (child of skySphere → co-rotates with stars/sticks) --- */
 let milkyShell=null, _milkyReady=false;
 function ensureMilkyShell(){
@@ -2943,7 +2950,9 @@ function ensureMilkyShell(){
   milkyShell.frustumCulled=false; milkyShell.renderOrder=-50;   // with real depth, order is secondary; still after gradient dome
   milkyShell.visible=false; if(!LOW) milkyShell.layers.enable(1);   // reflection layer (skipped under LOW, matching dome/stars)
   skySphere.add(milkyShell);
-  loadSkyTexture((CFG.skyMaps.milkyPath)||SKY_MAPS.MILKY_PATH, t=>{ if(milkyShell){ mat.map=t; mat.needsUpdate=true; _milkyReady=true; } });
+  const configured=CFG.skyMaps.milkyPath;
+  const path=configured && configured!==SKY_MAPS.MILKY_PATH ? configured : SKY_MAPS.milkyPath(_skyMapOpts);
+  loadSkyTexture(path, t=>{ if(milkyShell){ mat.map=t; mat.needsUpdate=true; _milkyReady=true; } });
   return milkyShell;
 }
 /* --- sky-anchored planet globe (sits ON the focused body in the celestial sphere, not on the reticle) --- */
@@ -3046,7 +3055,7 @@ function showTempleGlobe(bodyId){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.globeEnabled===false){ hideTempleGlobe(); return; }
   if(!templeActive){ hideTempleGlobe(); return; }
   const id=String(bodyId==null?'':bodyId).trim().toLowerCase();
-  const url=SKY_MAPS.mapForBody(id, { venusMap:CFG.skyMaps.venusMap });
+  const url=SKY_MAPS.mapForBody(id, { venusMap:CFG.skyMaps.venusMap, textureTier:DEVICE_BUDGET.textureTier });
   if(!url){ hideTempleGlobe(); return; }   // nodes / unknown → glyph + HUD only
   ensureGlobeRig(); if(!globeRoot||!planetMat||!planetMesh) return;
   if(!templeGlobeAnchorLocal(id)){ hideTempleGlobe(); return; }   // need a sky anchor
@@ -3953,14 +3962,5 @@ function pickCelestial(){   // priority: transit body within bodyPx, else sign w
     _lsnW.copy(s.pos).applyQuaternion(skySphere.quaternion); if(!openSphere && _lsnW.y<HZ_HI) continue;
     const d=_lsnScreenPx(_lsnW); if(d<bestD){ bestD=d; best={kind:'sign', id:id, meta:s, world:_lsnW.clone()}; } }
   return best;
-}
-function rebindSkySelection(selected){
-  if(!selected||!_lsnMeta) return false;
-  const meta=selected.kind==='body'?_lsnMeta.bodies[selected.id]:(selected.kind==='sign'?_lsnMeta.signs[selected.id]:null);
-  if(!meta||!meta.pos) return false;
-  const pick={kind:selected.kind,id:selected.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
-  _skySel=pick; _lsn.sel=pick; _lsn.holdT=state.t;
-  goldFigure(pick.kind==='sign'?pick.id:pick.meta.sign); emphasizeListenGlyphs(pick);
-  return true;
 }
 })();

@@ -6788,6 +6788,15 @@
 
 
 
+
+
+
+
+
+
+
+
+function senseiWeightLive(){ return _senseiWeak>=0 && _tideCycle>=0 && _tideCycle<(CFG.sensei.weightSwells|0); }   // the OPENING swells only, counted by the tide's own cycle latch (no second clock). With TIDES off _tideCycle rests at -1 forever: there are no swells to ride, so the drill simply never applies
 function senseiPickK(u, okK){
   // The bias, and the whole of it: the SAME uniform number the unweighted pick used, walked across a weighted CDF
   // instead of a flat one. No second draw, no reroll, no reordering of the feasible set — a weak-bin k is simply
@@ -9284,10 +9293,5 @@ function ghostVisitorLine(){
   for(const visitor of visitors) visitor.spoken=true;
   if(visitors.length===1 && reachedBack===0) return TF('ghostVisitorBack','a stranger who reached back has chalked the doors · {sigil}',{sigil:sigils[0]}); if(visitors.length===1) return TF('ghostVisitorLine','a stranger\'s chalk is on the doors tonight · {sigil}',{sigil:sigils[0]});
   if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','chalk from {n} strangers is on the doors tonight · {sigils}',{n:visitors.length,sigils:sigils.join('\u2009')});
-}
-function ghostMailRowsValid(value){
-  if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
-  for(const row of value) if(!Array.isArray(row) || row.length!==GH_MAIL_ROW_SIZE || !Number.isFinite(row[0]) || row[0]<0 || !Number.isInteger(row[1]) || row[1]<0 || row[1]>3 || !ghostMoonSigil(row[2])) return null;
-  return value;
 }
 })();

@@ -28,7 +28,7 @@
       ]
     },
     {
-      "source": "/(observer-location|local-sky|sky-temple|sky-maps|save-my-sky|aim-dojo-main)\\.js",
+      "source": "/(observer-location|local-sky|sky-temple|sky-maps|save-my-sky|aim-dojo-main|device-budget)\\.js",
       "headers": [
         {
           "key": "Cache-Control",

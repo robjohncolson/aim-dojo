@@ -9290,6 +9290,15 @@
 
 
 
+
+
+
+
+function ghostMailRowsValid(value){
+  if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
+  for(const row of value) if(!Array.isArray(row) || row.length!==GH_MAIL_ROW_SIZE || !Number.isFinite(row[0]) || row[0]<0 || !Number.isInteger(row[1]) || row[1]<0 || row[1]>3 || !ghostMoonSigil(row[2])) return null;
+  return value;
+}
 function ghostVisitorStore(epoch,id,record,reachedBack){
   if(!GH_SHARE || epoch!==_ghostShareEpoch || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
   if(!_ghostVisitors) _ghostVisitors=[];
@@ -9686,13 +9695,25 @@ const clock=new THREE.Clock();
 const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30;
 const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
 let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
-const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
+const fpsEl=gid('fps'); const _showFps=!!fpsEl && /(?:^|[?&#])fps(?:[=&#]|$)/.test(location.search+location.hash); let _fpsLast=0, _fpsFrames=0;
+function noteRenderedFrame(now){
+  if(!_showFps) return;
+  if(!_fpsLast){ _fpsLast=now; _fpsFrames=0; return; }
+  _fpsFrames++;
+  const elapsed=now-_fpsLast;
+  if(elapsed>=500){
+    setText(fpsEl,Math.round(_fpsFrames*1000/elapsed)+' fps · dpr '+renderDpr.toFixed(2));
+    if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on');
+    _fpsLast=now; _fpsFrames=0;
+  }
+}
 function animate(frameNow){
   requestAnimationFrame(animate);
-  if(document.hidden){ clock.getDelta(); return; }
+  if(document.hidden){ clock.getDelta(); renderGate.reset(); _fpsLast=0; return; }
   if(frameNow==null) frameNow=performance.now();
   if(!state.running && explosions.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
-  if(!state.running) lastIdleFrame=frameNow;
+  if(!state.running){ lastIdleFrame=frameNow; renderGate.reset(); }
+  renderFrameDue=!state.running || renderGate.due(frameNow);
   _audioFrame++;   // AUDIO AUTOMATION DIET: one listener push per frame, however many times the camera's children get walked
   const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
   if(!state.running || templeActive) updateStreakFlow(0);
@@ -9706,8 +9727,6 @@ function animate(frameNow){
   if(CFG.bow.on) bowClock(dt);   // THE BOW: holster clock while idle, ceremony clock once committed. The kill-switch is read HERE so bow.on:false costs one boolean per frame and not a call (bowClock's own guards stay as defense in depth).
   pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
   updateRenderQuality(dt);
-  if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
-    fpsAccum+=dt; if(fpsAccum>=0.25){ fpsAccum=0; setText(fpsEl, Math.round(fpsEMA)+' fps · dpr '+renderer.getPixelRatio().toFixed(2)); if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on'); } }
 
   // camera = aim base + recoil kick + trauma shake (all decay back to the true aim)
   const rf=Math.exp(-dt*CFG.recoilReturn); recoilPitch*=rf; recoilYaw*=rf;
@@ -9920,14 +9939,14 @@ function animate(frameNow){
   try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
   try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
-  try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
+  try{ if(renderFrameDue) drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // draw ceiling leaves beat/input/Flow updates above on every callback
   try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
   if(state.running && !templeActive && rtCh) broadcastAim();  // temple investigation stays out of the dojo reticle channel
   if(rtCh || remotes.size) updateRemotes(dt);   // draw live reticles only when realtime state exists
-  renderer.render(scene,camera);
+  if(renderFrameDue){ if(reflectionPending) renderReflection(); renderer.render(scene,camera); noteRenderedFrame(frameNow); }
 }
 // NOTE: animate() is kicked off at the very end of the IIFE (after all module-scope const/let exist) — see bootstrap below.
 window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH; camera.updateProjectionMatrix(); renderer.setSize(viewW,viewH); sizeRefl(); });
@@ -10074,6 +10093,7 @@ function wirePauseScrollOnExpand(){
   });
 }
 function refreshSettings(){
+  refreshDeviceSettings();
   if(!settingsBox) return;
   wireSettingsTabs();
   wirePauseScrollOnExpand();
@@ -10108,6 +10128,26 @@ function refreshSettings(){
     else { calibHint.textContent=''; calibHint.style.minHeight='0'; }
   }
 }
+function refreshDeviceSettings(){
+  const performanceSelect=gid('performanceSelect'), frameSelect=gid('renderFpsSelect');
+  if(performanceSelect) performanceSelect.value=DEVICE_BUDGET.mode;
+  if(frameSelect) frameSelect.value=renderFps===60?'60':'native';
+}
+const performanceSelect=gid('performanceSelect'), renderFpsSelect=gid('renderFpsSelect');
+if(performanceSelect) performanceSelect.addEventListener('change',()=>{
+  const value=performanceSelect.value;
+  if(!['auto','lean','full'].includes(value)) return;
+  try{localStorage.setItem('aimdojo.performance',value);}catch(e){}
+  const url=new URL(location.href); url.searchParams.set('performance',value);
+  location.replace(url.href);   // texture residency and the initial pixel grid are chosen at boot
+});
+if(renderFpsSelect) renderFpsSelect.addEventListener('change',()=>{
+  const value=renderFpsSelect.value;
+  if(value!=='60'&&value!=='native') return;
+  renderFps=value==='60'?60:0; renderGate.setFps(renderFps); _fpsLast=0;
+  try{localStorage.setItem('aimdojo.renderFps',value);}catch(e){}
+  try{const url=new URL(location.href); url.searchParams.set('renderfps',value); history.replaceState(null,'',url.href);}catch(e){}
+});
 if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is construction-time (MSAA + DPR) → persist + reload. Strip ?low/?hi so URL flags can't override the saved choice.
   e.preventDefault(); e.stopPropagation();
   const wantLow = !LOW;

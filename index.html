@@ -321,6 +321,8 @@ body.overlay-paused #pauseStats{order:0}
 #settingsBox{max-width:400px!important;margin-top:8px!important;width:100%}
 #settingsBox .set-row{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0}
 #settingsBox .set-row>span:first-child{letter-spacing:.12em;flex:0 0 auto}
+#settingsBox .set-row>label{letter-spacing:.12em;flex:0 0 auto}
+#settingsBox .set-row>select{min-width:0;background:#0d110f;color:var(--bone);padding:9px 7px;letter-spacing:.07em}
 .settings-tabs{display:flex;gap:0;border:1px solid var(--menu-panel-edge);background:rgba(8,10,18,.75);margin:0}
 .settings-tab{flex:1;pointer-events:auto;cursor:pointer;border:0;border-right:1px solid var(--menu-panel-edge);background:transparent;color:var(--bone-dim);font:10.5px var(--mono);letter-spacing:.12em;padding:9px 6px}
 .settings-tab:last-child{border-right:0}
@@ -520,6 +522,9 @@ body.overlay-paused #pauseStats{order:0}
       </div>
       <div class="settings-panel on" role="tabpanel" id="playSettingsPanel" data-tab="play" aria-labelledby="playSettingsSummary">
         <div class="set-row"><span id="resolutionLabel">RESOLUTION</span><button type="button" class="ghost" id="resToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
+        <div class="set-row"><label for="performanceSelect">PERFORMANCE</label><select id="performanceSelect" class="ghost" title="Lean uses smaller backgrounds and less rendering. Changing this reloads the game."><option value="auto">AUTO</option><option value="lean">LEAN</option><option value="full">FULL</option></select></div>
+        <div style="font-size:10px;color:var(--bone-dim)">Performance changes restart the game.</div>
+        <div class="set-row"><label for="renderFpsSelect">FRAME RATE</label><select id="renderFpsSelect" class="ghost" title="60 FPS reduces drawing on high-refresh screens."><option value="60">UP TO 60 FPS</option><option value="native">SCREEN RATE</option></select></div>
         <div class="set-row" id="beatCircleRow"><span id="beatCircleLabel">BEAT&nbsp;CIRCLE</span><button type="button" class="ghost" id="beatCircleToggle" style="min-width:150px;pointer-events:auto;cursor:pointer">—</button></div>
         <div class="set-row"><span id="offsetLabel" style="white-space:nowrap">AUDIO&nbsp;OFFSET</span><input type="range" id="offSlider" min="-120" max="320" step="5" value="0" style="flex:1;min-width:0;pointer-events:auto"><span id="offVal" style="min-width:52px;text-align:right;color:#cfe">0 ms</span></div>
         <div style="margin:6px 0 2px"><button class="ghost" id="calibBtn" style="width:100%"><span aria-hidden="true">🎧</span> <span id="calibLabel">calibrate from my taps</span></button></div>
@@ -910,6 +915,7 @@ window.JA={
 <script src="sky-maps.js"></script>
 <script src="save-my-sky.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="window.__threeFailed=1"></script>
+<script src="device-budget.js"></script>
 <script defer src="aim-dojo-main.js"></script>
 </body>
 </html>

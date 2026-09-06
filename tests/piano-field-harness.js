@@ -23,7 +23,7 @@ function pianoFieldHarness({piano=true,hums=true,enabled=true,train=false,beat=0
  const cfg={};for(const key of ["piano","chip"])cfg[key]=vm.runInNewContext("("+main.match(new RegExp("^\\s*"+key+":\\s*(\\{[^\\n]+?\\})","m"))[1]+")");
  cfg.piano.hums=hums;cfg.sing={on:true,degSpan:5};
  const state=new Proxy({running:true},{get(t,k){if(k==="t")return trace.rawCtx.currentTime-raw;if(k!=="running")return deny();return t[k];},set(t,k,v){if(k!=="running")return deny();t[k]=v;return true;}});
- const c=vm.createContext({PIANO:piano,CHIP_FIELD:enabled,soundOn:true,toneReady:true,state,trainMode:train,templeActive:false,_bow:{stage:0},BOW:{LAST:3},
+ const c=vm.createContext({PIANO:piano,PIANO_PANNING:'HRTF',CHIP_FIELD:enabled,soundOn:true,toneReady:true,state,trainMode:train,templeActive:false,_bow:{stage:0},BOW:{LAST:3},
   listener:trace.listener,rawCtx:trace.rawCtx,THREE:trace.THREE,TARGET_AUDIO_STEP:.05,quietAudioMatrixUpdates(){},pulseWave(ctx){return wave||(wave=ctx.createPeriodicWave(new Float32Array(2),new Float32Array([0,1]),{}));},
   CFG:cfg,CHORD_TRIAD:[[220,275,330],[196,245,294],[261.63,327.04,392.44]],PENTA:[110,137.5,165,220,275,330,440],singDegree:k=>({2:6,4:5,6:4,8:3,12:2})[k]??2,targets,Math:math,
   Tone:{Context,FMSynth,getContext:()=>globalContext,Transport:{PPQ:192,getTicksAtTime:t=>(beat+t-raw)*192,start:deny,stop:deny,cancel:deny},Draw:trace.Draw},rnd:deny,pushEvent:deny,spawnTarget:deny,localStorage:new Proxy({},{get:deny}),fetch:deny});

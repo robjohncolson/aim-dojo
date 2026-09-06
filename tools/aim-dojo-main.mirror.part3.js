@@ -3963,6 +3963,15 @@
 
 
 
+function rebindSkySelection(selected){
+  if(!selected||!_lsnMeta) return false;
+  const meta=selected.kind==='body'?_lsnMeta.bodies[selected.id]:(selected.kind==='sign'?_lsnMeta.signs[selected.id]:null);
+  if(!meta||!meta.pos) return false;
+  const pick={kind:selected.kind,id:selected.id,meta:meta,world:_lsnW.copy(meta.pos).applyQuaternion(skySphere.quaternion).clone()};
+  _skySel=pick; _lsn.sel=pick; _lsn.holdT=state.t;
+  goldFigure(pick.kind==='sign'?pick.id:pick.meta.sign); emphasizeListenGlyphs(pick);
+  return true;
+}
 function skyListenTry(){   // true consumes an intentional held-E selection gesture; ordinary fire never enters this path
   if(!CFG.skyTemple.enabled) return false;
   if(CFG.skyTemple.selectRequiresHold && !_skySelectHeld) return false;
@@ -6093,7 +6102,7 @@ function pianoFieldBuild(F,ctx){
     for(let i=0;i<2;i++){
       const panner=ctx.createPanner(),gain=ctx.createGain();
       const v={panner,gain,osc:null,piano:true,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,lastAttack:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
-      panner.panningModel='HRTF';panner.refDistance=8;panner.rolloffFactor=0.25;panner.distanceModel='inverse';panner.maxDistance=120;   // keep the bearing, but let far piano calls remain audible beside the accompaniment
+      panner.panningModel=PIANO_PANNING;panner.refDistance=8;panner.rolloffFactor=0.25;panner.distanceModel='inverse';panner.maxDistance=120;   // ?panning=equalpower is an explicit spatial-audio comparison; default remains HRTF
       const patch=pianoPatch();patch.envelope={...patch.envelope,decay:CFG.piano.orbDecay,sustain:CFG.piano.orbSustain,release:CFG.piano.orbRelease};   // keep the accepted hammer and harmonics, with time for the sphere's string to ring
       v.osc=new Tone.FMSynth({...patch,context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
     }
@@ -6787,5 +6796,4 @@ function senseiArm(){
   const r=senseiLoad(); if(!r) return;
   _senseiPrev={bin:r.bin, dir:r.dir}; _senseiWeak=r.bin;
 }
-function senseiWeightLive(){ return _senseiWeak>=0 && _tideCycle>=0 && _tideCycle<(CFG.sensei.weightSwells|0); }   // the OPENING swells only, counted by the tide's own cycle latch (no second clock). With TIDES off _tideCycle rests at -1 forever: there are no swells to ride, so the drill simply never applies
 })();

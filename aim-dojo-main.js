@@ -359,6 +359,13 @@ const LOW = /(?:^|[?&#])hi\b/.test(location.search+location.hash) ? false       
 if(LOW){ CFG.shards=4; if(canvas) try{ canvas.style.imageRendering='pixelated'; }catch(e){} }   // LOW: fewer explosion shards (9→4 — wave 8 parcel V halved both rungs of this ladder, 18→9 and 8→4, to pay for the stardust), and a crunchy square-pixel upscale of the sub-native buffer (authentic N64/emulator look, vs bilinear blur)
 /* GLOW LOOK (default since 2026-07-09, user verdict — flag removed): key-art night treatment — baked halo plane under the night grid, bigger moon corona, milkier night haze + faint night mist, bolder rainbow ribbon. All BAKED (textures/constants) — no post-processing, no new render passes. LOW always skips: glow is exactly the cost LOW exists to shed. Known cost: the night mist keeps the sky-dome FBM branch live at night (same per-pixel cost the day sky already pays; the mirror pass stays day-gated so it never renders mist at night). */
 const GLOW = !LOW;
+const DEVICE_BUDGET_API=window.AimDojoDeviceBudget;
+const _budgetPref=(()=>{ try{return localStorage.getItem('aimdojo.performance');}catch(e){return null;} })();
+const _framePref=(()=>{ try{return localStorage.getItem('aimdojo.renderFps');}catch(e){return null;} })();
+const DEVICE_BUDGET=DEVICE_BUDGET_API.resolve({search:location.search,preference:_budgetPref,framePreference:_framePref,mobile:MOBILE,weak:WEAK,cores:navigator.hardwareConcurrency,memory:navigator.deviceMemory,saveData:!!(navigator.connection&&navigator.connection.saveData)});
+const PIANO_PANNING=DEVICE_BUDGET.panningModel;
+let renderFps=DEVICE_BUDGET.renderFps, renderFrameDue=true;
+const renderGate=DEVICE_BUDGET_API.createRenderGate(renderFps);
 /* ========================= SKY MODE (personal planetarium — SPEC_PERSONAL_PLANETARIUM.md, Parcel B) =========================
    Public default: clocked (static zodiac + Meeus ☉/☽ offline, upgraded by the optional public day API). decorative = legacy art sky.
    clocked_chart = personal pack (local/dev or future Railway). Resolve: ?sky= > localStorage > clocked.
@@ -434,8 +441,10 @@ const SKY_DAY_API_BASE=(function(){   // valued URL override is PUBLIC sky-day o
   return cleanSkyApiBase(CFG.skyDay.api)||cleanSkyApiBase(CFG.skyListen.api)||'http://127.0.0.1:8742';
 })();
 function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15), 1|a); t=(t+Math.imul(t^(t>>>7), 61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }   // tiny seeded PRNG — clocked modes keep a STABLE star field across sessions (decorative keeps its fresh random sky)
-const DPR_MAX = LOW ? Math.min(DEVICE_DPR, 0.5) : Math.min(DEVICE_DPR, MOBILE ? 1.25 : 1.5), DPR_MIN = LOW ? (CFG.crunchLook===true&&!WEAK ? DPR_MAX : Math.min(DPR_MAX, 0.4)) : Math.min(DPR_MAX, MOBILE ? 0.8 : 0.9);   // authored chalk keeps one fixed pixel grid on strong hardware; weak GPUs and the disabled off arm retain the old adaptive floor
-let renderDpr = DPR_MAX;
+const DPR_BOUNDS=DEVICE_BUDGET_API.dprBounds({low:LOW,mobile:MOBILE,deviceDpr:DEVICE_DPR,budget:DEVICE_BUDGET});
+const DPR_MAX = DPR_BOUNDS.max, DPR_MIN = DPR_BOUNDS.min;
+let renderDpr = DPR_BOUNDS.start;
+const renderQuality=DEVICE_BUDGET_API.createQualityMonitor(DPR_BOUNDS);
 let viewW=innerWidth, viewH=innerHeight, viewCX=viewW/2, viewCY=viewH/2;
 function syncViewport(){ viewW=innerWidth; viewH=innerHeight; viewCX=viewW/2; viewCY=viewH/2; }
 const renderer = new THREE.WebGLRenderer({canvas, antialias:!MOBILE && !LOW, powerPreference:'high-performance'});   // LOW: MSAA OFF — it costs 20-40% of frame time on weak iGPUs and fights the wanted crunchy edges
@@ -2604,14 +2613,13 @@ const mirrorCam=new THREE.PerspectiveCamera(); mirrorCam.matrixAutoUpdate=false;
 const REFL_M=new THREE.Matrix4().makeScale(1,-1,1);          // reflect about the floor plane y=0
 const REFL_FLIP_X=new THREE.Matrix4().makeScale(-1,1,1);      // …and reverse the mirror camera's LOCAL x so its frame is a proper rotation again (det (−1)·(−1)=+1). A det<0 camera flips every triangle's screen winding, and r128 only compensates winding per OBJECT (frontFaceCW = object.matrixWorld.determinant()<0), so the BackSide skyDome/milkyShell were culled out of the mirror entirely — the floor reflected the flat scene.background instead of the dome (verified: RT pixel stats identical to dome.visible=false). Rigid camera + the x-flipped RT sample in the floor shader (index.html:1539) = the same planar mirror, with culling correct.
 const REFL_SCALE = MOBILE ? 0.22 : 0.28, REFL_INTERVAL = MOBILE ? 1/6 : 1/8, REFL_IDLE_INTERVAL = 1/3;
-let reflResDirty=true, lastReflT=-999;
+let reflResDirty=true, lastReflT=-999, reflectionPending=false;
 function sizeRefl(){
   const pr=renderer.getPixelRatio();
   reflRT.setSize(Math.max(2,Math.round(viewW*pr*REFL_SCALE)), Math.max(2,Math.round(viewH*pr*REFL_SCALE)));
   reflResDirty=true; lastReflT=-999;   // setSize disposes the RT's texture → it reads black until the next mirror pass; -999 makes renderReflection re-render on the very next sky tick instead of up to 125 ms (idle: 333 ms) later, so an adaptive-DPR step or a resize can't blink the far floor's reflection
 }
 sizeRefl();
-let frameAvg=1/60, perfCooldown=0;
 function setRenderDpr(next){
   next=Math.max(DPR_MIN, Math.min(DPR_MAX, Math.round(next*100)/100));
   if(Math.abs(next-renderDpr)<0.01) return false;
@@ -2619,11 +2627,8 @@ function setRenderDpr(next){
   return true;
 }
 function updateRenderQuality(dt){
-  if(!state.running) return;
-  frameAvg += (dt-frameAvg)*0.035;
-  if(perfCooldown>0){ perfCooldown-=dt; return; }
-  if(frameAvg>1/45 && renderDpr>DPR_MIN+0.01){ if(setRenderDpr(renderDpr-0.15)) perfCooldown=1.5; }
-  else if(frameAvg<1/58 && renderDpr<DPR_MAX-0.01){ if(setRenderDpr(renderDpr+0.10)) perfCooldown=4.0; }
+  const next=renderQuality.sample(dt,state.running,renderDpr);
+  if(next!==null) setRenderDpr(next);   // sustained frame evidence is applied only while paused
 }
 function syncReflUniformSize(){
   const fsh=dayFloor && dayFloor.material.userData.sh;
@@ -2631,6 +2636,8 @@ function syncReflUniformSize(){
   renderer.getDrawingBufferSize(_dbs); fsh.uniforms.uRes.value.copy(_dbs); reflResDirty=false;
 }
 function renderReflection(){
+  if(!renderFrameDue){ reflectionPending=true; return; }
+  reflectionPending=false;   // sky updates can fall between draws on high-refresh screens
   if(LOW) return;   // LOW: skip the entire second scene render (the mirror sky) — the biggest single GPU saving; uMirN=1e6 above makes the floor ignore the (unrendered) reflection RT and just fade to fog
   if(skyT-lastReflT<(state.running?REFL_INTERVAL:REFL_IDLE_INTERVAL)) return;
   lastReflT=skyT;
@@ -2913,7 +2920,7 @@ function loadSkyTexture(url, onReady, onError){
   }catch(e){ try{ console.warn('[temple-orbs] texture loader threw:', resolved, e); }catch(_e){} if(onError) try{ onError(); }catch(_e2){} return null; }
   return tex;
 }
-const _skyMapOpts={ low:LOW, mobile:MOBILE };
+const _skyMapOpts={ low:LOW, mobile:MOBILE, textureTier:DEVICE_BUDGET.textureTier };
 /* --- inner milky-way sky shell (child of skySphere → co-rotates with stars/sticks) --- */
 let milkyShell=null, _milkyReady=false;
 function ensureMilkyShell(){
@@ -2943,7 +2950,9 @@ function ensureMilkyShell(){
   milkyShell.frustumCulled=false; milkyShell.renderOrder=-50;   // with real depth, order is secondary; still after gradient dome
   milkyShell.visible=false; if(!LOW) milkyShell.layers.enable(1);   // reflection layer (skipped under LOW, matching dome/stars)
   skySphere.add(milkyShell);
-  loadSkyTexture((CFG.skyMaps.milkyPath)||SKY_MAPS.MILKY_PATH, t=>{ if(milkyShell){ mat.map=t; mat.needsUpdate=true; _milkyReady=true; } });
+  const configured=CFG.skyMaps.milkyPath;
+  const path=configured && configured!==SKY_MAPS.MILKY_PATH ? configured : SKY_MAPS.milkyPath(_skyMapOpts);
+  loadSkyTexture(path, t=>{ if(milkyShell){ mat.map=t; mat.needsUpdate=true; _milkyReady=true; } });
   return milkyShell;
 }
 /* --- sky-anchored planet globe (sits ON the focused body in the celestial sphere, not on the reticle) --- */
@@ -3046,7 +3055,7 @@ function showTempleGlobe(bodyId){
   if(!SKY_MAPS || !CFG.skyMaps || CFG.skyMaps.enabled===false || CFG.skyMaps.globeEnabled===false){ hideTempleGlobe(); return; }
   if(!templeActive){ hideTempleGlobe(); return; }
   const id=String(bodyId==null?'':bodyId).trim().toLowerCase();
-  const url=SKY_MAPS.mapForBody(id, { venusMap:CFG.skyMaps.venusMap });
+  const url=SKY_MAPS.mapForBody(id, { venusMap:CFG.skyMaps.venusMap, textureTier:DEVICE_BUDGET.textureTier });
   if(!url){ hideTempleGlobe(); return; }   // nodes / unknown → glyph + HUD only
   ensureGlobeRig(); if(!globeRoot||!planetMat||!planetMesh) return;
   if(!templeGlobeAnchorLocal(id)){ hideTempleGlobe(); return; }   // need a sky anchor
@@ -6093,7 +6102,7 @@ function pianoFieldBuild(F,ctx){
     for(let i=0;i<2;i++){
       const panner=ctx.createPanner(),gain=ctx.createGain();
       const v={panner,gain,osc:null,piano:true,target:null,tag:0,ci:-1,until:0,lastEvent:-Infinity,lastAttack:-Infinity,x:NaN,y:NaN,z:NaN,nextSpatial:0};built.push(v);gain.gain.value=0;
-      panner.panningModel='HRTF';panner.refDistance=8;panner.rolloffFactor=0.25;panner.distanceModel='inverse';panner.maxDistance=120;   // keep the bearing, but let far piano calls remain audible beside the accompaniment
+      panner.panningModel=PIANO_PANNING;panner.refDistance=8;panner.rolloffFactor=0.25;panner.distanceModel='inverse';panner.maxDistance=120;   // ?panning=equalpower is an explicit spatial-audio comparison; default remains HRTF
       const patch=pianoPatch();patch.envelope={...patch.envelope,decay:CFG.piano.orbDecay,sustain:CFG.piano.orbSustain,release:CFG.piano.orbRelease};   // keep the accepted hammer and harmonics, with time for the sphere's string to ring
       v.osc=new Tone.FMSynth({...patch,context:F.toneContext});v.osc.connect(gain);gain.connect(panner);panner.connect(listener.getInput());
     }
@@ -9686,13 +9695,25 @@ const clock=new THREE.Clock();
 const IDLE_FRAME_MS=MOBILE ? 1000/15 : 1000/20, SKY_UPDATE_STEP=1/20, STAR_UPDATE_STEP=MOBILE ? 1/8 : 1/10, TARGET_AUDIO_STEP=1/20, SHELL_UPDATE_STEP=1/30;
 const TARGET_AUDIO_BUCKETS=28, TARGET_AUDIO_NEAR2=36, TARGET_AUDIO_BUCKET_SCALE=TARGET_AUDIO_BUCKETS/(784-TARGET_AUDIO_NEAR2);
 let lastIdleFrame=0, skyAccum=SKY_UPDATE_STEP, starAccum=999, shellAccum=999;
-const fpsEl=gid('fps'); const _showFps=!!fpsEl && (location.search+location.hash).indexOf('fps')>=0; let _fpsLast=0, fpsEMA=60, fpsAccum=0;   // visit ...?fps → live FPS + adaptive-DPR readout (cross-device perf check)
+const fpsEl=gid('fps'); const _showFps=!!fpsEl && /(?:^|[?&#])fps(?:[=&#]|$)/.test(location.search+location.hash); let _fpsLast=0, _fpsFrames=0;
+function noteRenderedFrame(now){
+  if(!_showFps) return;
+  if(!_fpsLast){ _fpsLast=now; _fpsFrames=0; return; }
+  _fpsFrames++;
+  const elapsed=now-_fpsLast;
+  if(elapsed>=500){
+    setText(fpsEl,Math.round(_fpsFrames*1000/elapsed)+' fps · dpr '+renderDpr.toFixed(2));
+    if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on');
+    _fpsLast=now; _fpsFrames=0;
+  }
+}
 function animate(frameNow){
   requestAnimationFrame(animate);
-  if(document.hidden){ clock.getDelta(); return; }
+  if(document.hidden){ clock.getDelta(); renderGate.reset(); _fpsLast=0; return; }
   if(frameNow==null) frameNow=performance.now();
   if(!state.running && explosions.length===0 && _flock.length===0 && _flockGhosts.length===0 && frameNow-lastIdleFrame<IDLE_FRAME_MS){ if(_gpIndex!==null) pollGamepad(0); return; }   // pad connected → STILL poll every rAF even at the card (a quick sub-50ms START tap must not fall between two 20 Hz idle samples) — but only the poll: dt=0 is only ever consumed by the stick-aim branch, which needs state.running, so the button edges are sampled exactly as before while the sky/HUD/mirror pass/render stay at the idle rate instead of running full-frame at 60 Hz+ on the card and pause screen whenever a pad is plugged in (perf audit 2026-08-18); a live star-flock keeps full-rate frames so it dissolves smoothly across a pause/game-over (mirrors explosions/ghosts)
-  if(!state.running) lastIdleFrame=frameNow;
+  if(!state.running){ lastIdleFrame=frameNow; renderGate.reset(); }
+  renderFrameDue=!state.running || renderGate.due(frameNow);
   _audioFrame++;   // AUDIO AUTOMATION DIET: one listener push per frame, however many times the camera's children get walked
   const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
   if(!state.running || templeActive) updateStreakFlow(0);
@@ -9706,8 +9727,6 @@ function animate(frameNow){
   if(CFG.bow.on) bowClock(dt);   // THE BOW: holster clock while idle, ceremony clock once committed. The kill-switch is read HERE so bow.on:false costs one boolean per frame and not a call (bowClock's own guards stay as defense in depth).
   pollGamepad(dt);   // gamepad: stick aim + face/D-pad lanes + trigger fire
   updateRenderQuality(dt);
-  if(_showFps){ if(_fpsLast){ const inst=1000/Math.max(1,frameNow-_fpsLast); fpsEMA+=(inst-fpsEMA)*0.12; } _fpsLast=frameNow;
-    fpsAccum+=dt; if(fpsAccum>=0.25){ fpsAccum=0; setText(fpsEl, Math.round(fpsEMA)+' fps · dpr '+renderer.getPixelRatio().toFixed(2)); if(!fpsEl.classList.contains('on')) fpsEl.classList.add('on'); } }
 
   // camera = aim base + recoil kick + trauma shake (all decay back to the true aim)
   const rf=Math.exp(-dt*CFG.recoilReturn); recoilPitch*=rf; recoilYaw*=rf;
@@ -9920,14 +9939,14 @@ function animate(frameNow){
   try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
   try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
-  try{ drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // WASD-rhythm HUD — one-time log so a throw can't silently render nothing (build-blind safety)
+  try{ if(renderFrameDue) drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // draw ceiling leaves beat/input/Flow updates above on every callback
   try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
   try{ updateEdgeTints(dt); }catch(e){}                       // conveyor-belt red edge tints (deviation cue), scrolled at 60fps
   if(windX||windZ) updateWindHud(); else if(windHudEl && windHudEl.classList.contains('on')) windHudEl.classList.remove('on');   // wind indicator (free-play prototype)
   if(state.running && !templeActive && rtCh) broadcastAim();  // temple investigation stays out of the dojo reticle channel
   if(rtCh || remotes.size) updateRemotes(dt);   // draw live reticles only when realtime state exists
-  renderer.render(scene,camera);
+  if(renderFrameDue){ if(reflectionPending) renderReflection(); renderer.render(scene,camera); noteRenderedFrame(frameNow); }
 }
 // NOTE: animate() is kicked off at the very end of the IIFE (after all module-scope const/let exist) — see bootstrap below.
 window.addEventListener('resize',()=>{ syncViewport(); camera.aspect=viewW/viewH; camera.updateProjectionMatrix(); renderer.setSize(viewW,viewH); sizeRefl(); });
@@ -10074,6 +10093,7 @@ function wirePauseScrollOnExpand(){
   });
 }
 function refreshSettings(){
+  refreshDeviceSettings();
   if(!settingsBox) return;
   wireSettingsTabs();
   wirePauseScrollOnExpand();
@@ -10108,6 +10128,26 @@ function refreshSettings(){
     else { calibHint.textContent=''; calibHint.style.minHeight='0'; }
   }
 }
+function refreshDeviceSettings(){
+  const performanceSelect=gid('performanceSelect'), frameSelect=gid('renderFpsSelect');
+  if(performanceSelect) performanceSelect.value=DEVICE_BUDGET.mode;
+  if(frameSelect) frameSelect.value=renderFps===60?'60':'native';
+}
+const performanceSelect=gid('performanceSelect'), renderFpsSelect=gid('renderFpsSelect');
+if(performanceSelect) performanceSelect.addEventListener('change',()=>{
+  const value=performanceSelect.value;
+  if(!['auto','lean','full'].includes(value)) return;
+  try{localStorage.setItem('aimdojo.performance',value);}catch(e){}
+  const url=new URL(location.href); url.searchParams.set('performance',value);
+  location.replace(url.href);   // texture residency and the initial pixel grid are chosen at boot
+});
+if(renderFpsSelect) renderFpsSelect.addEventListener('change',()=>{
+  const value=renderFpsSelect.value;
+  if(value!=='60'&&value!=='native') return;
+  renderFps=value==='60'?60:0; renderGate.setFps(renderFps); _fpsLast=0;
+  try{localStorage.setItem('aimdojo.renderFps',value);}catch(e){}
+  try{const url=new URL(location.href); url.searchParams.set('renderfps',value); history.replaceState(null,'',url.href);}catch(e){}
+});
 if(resToggle) resToggle.addEventListener('click', (e)=>{   // resolution is construction-time (MSAA + DPR) → persist + reload. Strip ?low/?hi so URL flags can't override the saved choice.
   e.preventDefault(); e.stopPropagation();
   const wantLow = !LOW;

@@ -34,9 +34,30 @@
     surface: BASE + "2k_venus_surface.jpg",
   });
 
+  // Compact assets keep the same equirectangular projection and color treatment.
+  // Device capacity selects these paths independently of the authored crunchy look.
+  var COMPACT_BASE = BASE + "compact/";
+  var COMPACT_PLANET_MAPS = Object.freeze({
+    sun: COMPACT_BASE + "sun.jpg",
+    moon: COMPACT_BASE + "moon.jpg",
+    mercury: COMPACT_BASE + "mercury.jpg",
+    venus: COMPACT_BASE + "venus-atmosphere.jpg",
+    mars: COMPACT_BASE + "mars.jpg",
+    jupiter: COMPACT_BASE + "jupiter.jpg",
+    saturn: COMPACT_BASE + "saturn.jpg",
+    uranus: COMPACT_BASE + "uranus.jpg",
+    neptune: COMPACT_BASE + "neptune.jpg",
+    pluto: COMPACT_BASE + "pluto.jpg",
+  });
+  var COMPACT_VENUS_MAPS = Object.freeze({
+    atmosphere: COMPACT_BASE + "venus-atmosphere.jpg",
+    surface: COMPACT_BASE + "venus-surface.jpg",
+  });
+
   // Inner sky shell (the milky-way band the player sits inside). The "8k" name is the
-  // upstream asset label; the shipped file is ~1.9 MB — safe to load on every tier.
+  // upstream asset label; the full file is 3072x1536, compact is 1024x512.
   var MILKY_PATH = BASE + "8k_stars_milky_way.jpg";
+  var COMPACT_MILKY_PATH = COMPACT_BASE + "milky-way.jpg";
 
   // Rings: alpha strip sampled across the ring width. innerScale/outerScale are multiples of
   // the globe radius. tiltX/tiltY/tiltZ tip the whole globe+rings (Uranus ~90° axial tilt).
@@ -121,11 +142,17 @@
   function mapForBody(bodyId, options) {
     var id = canonicalId(bodyId);
     if (!id) return null;
+    var compact = options && options.textureTier === "compact";
     if (id === "venus") {
       var mode = options && options.venusMap === "surface" ? "surface" : "atmosphere";
-      return VENUS_MAPS[mode];
+      return (compact ? COMPACT_VENUS_MAPS : VENUS_MAPS)[mode];
     }
-    return Object.prototype.hasOwnProperty.call(PLANET_MAPS, id) ? PLANET_MAPS[id] : null;
+    var maps = compact ? COMPACT_PLANET_MAPS : PLANET_MAPS;
+    return Object.prototype.hasOwnProperty.call(maps, id) ? maps[id] : null;
+  }
+
+  function milkyPath(options) {
+    return options && options.textureTier === "compact" ? COMPACT_MILKY_PATH : MILKY_PATH;
   }
 
   function hasMap(bodyId) {
@@ -207,14 +234,15 @@
   }
 
   // Shipped required assets (planets + milky + rings). Zodiac art is optional drop-in — not required on disk.
-  function allAssetPaths() {
+  function allAssetPaths(options) {
     var seen = Object.create(null);
     var out = [];
     function add(p) { if (p && !seen[p]) { seen[p] = true; out.push(p); } }
-    add(MILKY_PATH);
+    add(milkyPath(options));
     Object.keys(RINGS).forEach(function (k) { add(RINGS[k].map); });
-    Object.keys(PLANET_MAPS).forEach(function (k) { add(PLANET_MAPS[k]); });
-    Object.keys(VENUS_MAPS).forEach(function (k) { add(VENUS_MAPS[k]); });
+    Object.keys(PLANET_MAPS).forEach(function (k) { add(mapForBody(k, options)); });
+    var venusMaps = options && options.textureTier === "compact" ? COMPACT_VENUS_MAPS : VENUS_MAPS;
+    Object.keys(venusMaps).forEach(function (k) { add(venusMaps[k]); });
     return out;
   }
 
@@ -233,6 +261,7 @@
     PLANET_MAPS: PLANET_MAPS,
     VENUS_MAPS: VENUS_MAPS,
     MILKY_PATH: MILKY_PATH,
+    milkyPath: milkyPath,
     RING: RING,
     RINGS: RINGS,
     NO_MAP: NO_MAP,
