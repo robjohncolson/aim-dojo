@@ -9404,6 +9404,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
   if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
   if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
@@ -9713,9 +9729,9 @@ function animate(frameNow){
         if(CFG.wasdRhythm && strobe){ const nd=wasdNoteDiv();   // THE FORTY FIX: the lane's OWN ladder (wasdNoteDiv) — no longer half the orb-jump rate, so the strobe can deepen to 1/8 at 50 bpm without conscripting the fingers
           syncWasdResolutionGrid(nd);
           const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
-          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; _wasdCombo=0; }   // DE-COERCION (parcel R): only a MAIN leaving unresolved costs damping AND combo. A skipped in-between note is a declined invitation, so it cannot zero _wasdCombo — pressing once per beat is a clean run at every tempo. (Rolling main misses still come from the all-pocket sweep.)
+          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; }   // DE-COERCION (parcel R): only a MAIN leaving unresolved costs damping AND combo. A skipped in-between note is a declined invitation, so it cannot zero _wasdCombo — pressing once per beat is a clean run at every tempo. (Rolling main misses still come from the all-pocket sweep.)
             if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
-        } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _resolved.clear(); }
+        } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; _resolved.clear(); }
         const _raw=wasdMul(); _mulEff = _raw<_mulEff ? _raw : Math.min(_raw, _mulEff+0.35); }   // asymmetric envelope: calm lands INSTANTLY, punishment ramps +0.35/snap (a miss wakes the field over ~3 snaps instead of one full-amplitude jump-scare)
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
@@ -10917,7 +10933,7 @@ function resetSession(){
   if(CFG.stars.on) starFlyClear();   // a new night never inherits a voice still in the air — its level was already paid at drain (v1.3); only unpaid pending/debt get paid here before the visuals drop
   clearRings();
   _ringEchoAt=-1e9;   // the Transport rewinds below, so retire the run-local confirm before state.t can make an old timestamp young again
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
   _gradSnap={t:0,hits:0};   // parcel M: a fresh run has no graduation yet
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1; _polyK=-1; _polyPairing=false;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives). POLYRHYTHM PAIRS rides along: the try/finally in polyPairSpawn already makes both of these unreachable-when-set outside its own synchronous body, so this is belt-and-braces for a run that begins while nothing is half-built — and it is the line that guarantees "one pair live" starts every night at zero, since the targets it counted were freed above

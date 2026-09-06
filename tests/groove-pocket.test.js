@@ -107,6 +107,7 @@ function loadPocketSandbox(overrides = {}) {
     var _pocketBuffer = [], _expectedPocket = 'on', _pocketBarCount = 0;
     var _pocketCandidate = null, _pocketCandidateStreak = 0, _pocketMissScan = null;
     var _resolved = new Set(), _resolvedNd = null, _pocketResolvedMains = new Set(), _baseMul = 1, _wasdCombo = 0;
+    var _pipSetN = 0, _pipSetFlashT = -999;
     var _curCi = -1, _curMain = true, _spoilNote = -1, _hitNote = -1;
     var toasts = [];
     function T(_key, fallback) { return fallback; }
@@ -144,7 +145,11 @@ function bonusAccessSandbox(bpm = 28) {
   const frameAt = html.indexOf("if(CFG.wasdRhythm && strobe){ const nd=wasdNoteDiv();");
   assert.ok(frameAt > 0, "animate's note-resolution block is present");
   const frameOpen = html.indexOf("{", frameAt);
-  const frame = new vm.Script(html.slice(frameAt, closingDelimiter(html, frameOpen) + 1));
+  const frameClose = closingDelimiter(html, frameOpen);
+  const frameElse = /^\s*else\s*\{/.exec(html.slice(frameClose + 1));
+  assert.ok(frameElse, "animate's disabled-lane reset branch is present");
+  const elseOpen = frameClose + frameElse[0].length;
+  const frame = new vm.Script(html.slice(frameAt, closingDelimiter(html, elseOpen) + 1));
   const grid = extractFunction("onGrid");
   const rewardAt = grid.indexOf("const _acc=windowAccuracy()");
   const tierAt = grid.indexOf("const tier =", rewardAt);
@@ -156,8 +161,68 @@ function bonusAccessSandbox(bpm = 28) {
     frame.runInContext(context);
   };
   context.rewardStep = () => reward.runInContext(context);
+  // Run the actual contiguous WASD reset portion, including a fresh combo and pocket reset.
+  // The rest of resetSession owns unrelated scene, score and audio setup.
+  const reset = extractFunction("resetSession");
+  const resetAt = reset.indexOf("_curCi=-1;");
+  const resetEnd = reset.indexOf(" tideI=1;", resetAt);
+  assert.ok(resetAt > 0 && resetEnd > resetAt, "session's WASD reset segment is present");
+  const resetWasd = new vm.Script(reset.slice(resetAt, resetEnd));
+  context.resetFlock = () => {};
+  vm.runInContext(extractFunction("makeWasdCombo"), context);
+  context.resetWasdSession = () => resetWasd.runInContext(context);
   context.audio = audio;
   return context;
+}
+
+function pipRendererSandbox(bpm = 28) {
+  const context = bonusAccessSandbox(bpm);
+  const operations = [], glyphs = [];
+  Object.assign(context.CFG, { wasdHud: true, wasdLetter: true, wasdTapText: false, pocketCircleCue: false });
+  Object.assign(context, {
+    HUD_CSS: 560, HUD_CX: 280, HUD_K: 1, ROAD_LANE_READY: false,
+    ML_RING_ECHO: false, ML_RING_ECHO_T: .30, ML_RING_IN: .18,
+    Tone: { Transport: { state: "started" } }, WASD_COL: ["lane-w", "lane-a", "lane-s", "lane-d"],
+    dayAmt: 0, _spoilOff: 0, _hitOff: 0,
+    hudCanvas: { style: { display: "block" } },
+    roadLive: () => false, moonlineVoid: () => false, wasdBeatCueOn: () => false,
+    wasdBeatsHeard: () => context._beats,
+    showWasdGlyph: (key, spoiled, on, ghost, glow) => glyphs.push({ key, spoiled, on, ghost, glow }),
+    hudCtx: {
+      globalAlpha: 1, lineWidth: 1, strokeStyle: "", fillStyle: "", _path: [],
+      beginPath() { this._path = []; },
+      arc(x, y, radius) { this._path.push({ x, y, radius }); },
+      fill() { operations.push({ kind: "fill", color: this.fillStyle, alpha: this.globalAlpha, path: this._path.slice() }); },
+      stroke() { operations.push({ kind: "stroke", color: this.strokeStyle, width: this.lineWidth, path: this._path.slice() }); },
+      fillText(text, x, y) {
+        operations.push({ kind: "fillText", text, x, y, color: this.fillStyle, font: this.font, align: this.textAlign, baseline: this.textBaseline });
+      },
+      strokeText(text, x, y) {
+        operations.push({ kind: "strokeText", text, x, y, color: this.strokeStyle, width: this.lineWidth, font: this.font });
+      },
+      clearRect() {}, setTransform() {},
+    },
+  });
+  vm.runInContext(["ARC", "drawWasdLane"].map(extractFunction).join("\n"), context);
+  context.draw = () => {
+    operations.length = 0; glyphs.length = 0;
+    context.drawWasdLane();
+    return {
+      pips: operations.filter((op) => op.kind === "fill" && op.color === "#74e84a"),
+      backing: operations.filter((op) => op.kind === "fill" && op.color === "rgba(0,0,0,0.7)"),
+      numerals: operations.filter((op) => op.kind === "fillText"),
+      outlines: operations.filter((op) => op.kind === "strokeText"),
+      glyph: glyphs.at(-1),
+    };
+  };
+  return context;
+}
+
+function pressMainStreak(context, count, firstBeat = 0) {
+  for (let beat = firstBeat; beat < firstBeat + count; beat += 1) {
+    context.step(beat);
+    context.wasdLanePress(context._combo[beat % context._combo.length]);
+  }
 }
 
 function appendScores(context, count, { on, push, layback }) {
@@ -188,7 +253,7 @@ function floorFrame(expected, beats, pocketEnabled = true) {
       // THE FORTY FIX (parcel R): the lane reads its OWN ladder now, so the floor-tint sandbox must carry it. diffT() is stubbed at 0 below,
       // so wasdNoteDiv() returns 1 exactly as the old inline beatQuantT expression did — every expectation in these tests is unchanged.
       wasdNoteDivs: [2, 4, 8],
-      wasdNoteT: [0.75, 1.01],
+      wasdNoteT: [1.01, 1.02],
       floorBeat: true,
       floorBeatDayMul: 2.2,
       floorBeatMax: 0.45,
@@ -237,10 +302,11 @@ function floorFrame(expected, beats, pocketEnabled = true) {
   return { amount: amount.value, color: seen.color };
 }
 
-test("early bonus access: main mode offers one optional half-beat throughout 20-60 bpm", () => {
+test("on-beat pace: main mode has one required note throughout 20-60 bpm", () => {
   const cfg = extractCfg();
   assert.equal(cfg.wasdNoteDivs.join(","), "2,4,8", "lane divs mirror the strobe's shape");
-  assert.equal(cfg.wasdNoteT.join(","), "0,1.01", "the bonus is available from entry; the next subdivision stays unreachable");
+  assert.equal(cfg.wasdNoteT.join(","), "1.01,1.02", "both denser subdivisions are above the clamped difficulty ceiling");
+  assert.equal(cfg.wasdPipN, 16, "one visible set contains sixteen credited main beats");
   assert.equal(cfg.beatQuantT.join(","), "0.4,0.75", "the ORB STROBE's audited 36/50 deepening is untouched by the decoupling");
 
   const context = vm.createContext({ Math, Number, CFG: cfg });
@@ -249,35 +315,35 @@ test("early bonus access: main mode offers one optional half-beat throughout 20-
   const diffT = (bpm) => Math.max(0, Math.min(1, (bpm - cfg.minBpm) / (cfg.maxBpm - cfg.minBpm)));
   const nd = (bpm) => vm.runInContext(`wasdNoteDiv(${diffT(bpm)})`, context);
 
-  for (let bpm = 20; bpm <= 60; bpm += 0.5) assert.equal(nd(bpm), 2, `one main and one optional ghost at ${bpm} bpm`);
-  assert.equal(nd(60), 2, "the summit never asks for four presses a beat (240/min is a mash test)");
-  assert.equal(nd(1e6), 2, "diffT clamps at 1.00, so wasdNoteT[1]=1.01 is out of the world by construction");
+  for (let bpm = 20; bpm <= 60; bpm += 0.5) assert.equal(nd(bpm), 1, `one required main at ${bpm} bpm`);
+  assert.equal(nd(60), 1, "the summit retains one note per beat");
+  assert.equal(nd(1e6), 1, "even an out-of-range BPM clamps to difficulty 1 before density selection");
 });
 
-test("early bonus access: live lessons retain one note while explicit density probes describe main mode", () => {
+test("on-beat pace: live main, lessons and explicit clamped difficulty probes all retain one note", () => {
   const cfg = extractCfg();
   const context = vm.createContext({ Math, Number, CFG: cfg, state: { bpm: 28 }, trainMode: false });
   vm.runInContext(`${extractFunction("diffT")}\n${extractFunction("wasdNoteDiv")}`, context);
   for (const bpm of [20, 28, 40, 50, 60]) {
     context.state.bpm = bpm;
     context.trainMode = false;
-    assert.equal(context.wasdNoteDiv(), 2, `live main density at ${bpm}`);
+    assert.equal(context.wasdNoteDiv(), 1, `live main density at ${bpm}`);
     context.trainMode = true;
     for (const probe of [undefined, null, NaN, Infinity]) assert.equal(context.wasdNoteDiv(probe), 1, `live trainer density at ${bpm}`);
-    assert.equal(context.wasdNoteDiv(context.diffT()), 2, "an explicit finite probe remains independent of training state");
+    assert.equal(context.wasdNoteDiv(context.diffT()), 1, "an explicit finite probe remains independent of training state");
   }
 });
 
-test("DE-COERCION: an in-between note is claimable and skipping it cannot break the combo (R)", () => {
-  // The lane draw ghosts a bonus note (dim ring + dim letter) and animate's combo reset is gated on _curMain.
+test("DE-COERCION: unreachable denser probes retain ghost styling and main-only miss handling (R)", () => {
+  // These legacy branches remain testable under explicit denser probes; live play is always nd1.
   assert.match(html, /const lw=main\?4\.5:2\.0, ghost=main\?1:0\.45;/, "bonus ring renders as a ghost");
   // laneCue is THE STAR ROAD's note-lane gate (wave 7, parcel S) — !roadLive(), so it is `true` with road.on:false and the
   // ghost/dim contract below is unchanged. The de-coercion this test guards is the ghostNote argument, still last and still there.
   // PARCEL W appends the beat-glow amount as a FIFTH argument; ghostNote is still fourth and still there, which is the
   // de-coercion this test guards.
-  assert.match(html, /showWasdGlyph\(letterKey, spoiled, laneCue && \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld, ghostNote, cueGlow\)/, "bonus letter renders as a ghost");
-  assert.match(html, /if\(_curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)\{ _baseMul=1; _wasdCombo=0; \}/, "only a MAIN going unresolved zeroes the bonus combo");
-  assert.match(html, /else if\(acc>0\) _wasdCombo\+\+;/, "claiming a bonus note still credits the combo");
+  assert.match(html, /showWasdGlyph\(letterKey, spoiled, laneCue && \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld && !flashing, ghostNote, cueGlow\)/, "legacy ghost styling survives the set-flash glyph gate");
+  assert.match(html, /if\(_curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)\{ _baseMul=1; _wasdCombo=0;/, "only a MAIN going unresolved zeroes the streak");
+  assert.match(html, /else if\(acc>0\) _wasdCombo\+\+;/, "the unreachable bonus-credit branch is retained");
   // 6 -> 8: THE MEANING (wave 7, parcel S2) added two READERS of the lane's density — roadLaneAt (which beat-band shows
   // which key) and roadWakeLatch (is this resolved note a MAIN?). Both call the one helper, which is what this line pins;
   // the "no duplicated inline density expression survives" assertion below is the half that must never move.
@@ -286,66 +352,93 @@ test("DE-COERCION: an in-between note is claimable and skipping it cannot break 
   assert.equal((html.match(/spb=dT<t\[0\]\?d\[0\]:\(dT<t\[1\]\?d\[1\]:d\[2\]\)/g) || []).length, 1, "the one surviving tier expression is the ORB STROBE's own");
 });
 
-test("early bonus access: real claims credit bonus effects, skipped bonuses are free, and a main miss still resets", () => {
-  for (const bpm of [20, 28, 60]) {
+test("on-beat pace: real mains earn streak credit, duplicates cannot farm, and on-law midpoints earn no credit", () => {
+  for (const bpm of [20, 28, 60]) for (const pocketEnabled of [false, true]) {
     const c = bonusAccessSandbox(bpm);
+    c.CFG.groovePocket = pocketEnabled;
     c.step(0); c.wasdLanePress(0);
-    assert.equal(c._wasdCombo, 0, "a required main never earns optional bonus credit");
+    assert.equal(c._wasdCombo, 1, "a credited free-play main earns the first pip");
     assert.equal(c._baseMul, 0, "a clean main earns its existing damping");
-    c.step(.5); c.wasdLanePress(1);
-    assert.equal(c._wasdCombo, 1, `the first optional note is claimable at ${bpm} BPM`);
-    assert.equal(c._sparkPend.key, 1);
+    assert.equal(c._sparkPend.key, 0);
     assert.equal(c._sparkPend.acc, 100, "the real press requests the existing visual burst");
     assert.equal(c._sparkPend.rainbow, false);
-    c.wasdLanePress(1);
-    assert.equal(c._wasdCombo, 1, "a duplicate cannot farm bonus credit");
-    assert.equal(c.audio.length, 2, "only the two accepted presses sound");
-    c.step(1); c.wasdLanePress(2);
-    c.step(1.5); // Intentionally skip this optional note.
-    c.step(2);
-    assert.equal(c._wasdCombo, 1, "a skipped bonus preserves the earned combo");
-    assert.equal(c._baseMul, 0, "a skipped bonus preserves main damping");
     c.wasdLanePress(0);
-    c.step(2.5); c.step(3); c.step(3.5); // Skip another bonus, then a required main.
-    assert.equal(c._wasdCombo, 0, "an unresolved main still costs the combo");
+    assert.equal(c._wasdCombo, 1, "a duplicate cannot farm main credit");
+    assert.equal(c.audio.length, 1, "only the accepted press sounds");
+    c.step(.5);
+    const claim = c.claimWasdNote(.5, c.wasdNoteDiv(), 60 / bpm, 60 / bpm * c.CFG.wasdWindowFrac);
+    if (pocketEnabled) {
+      assert.equal(claim.main, true, "overlapping pocket windows may claim an adjacent MAIN, never an interstitial bonus");
+      assert.equal(claim.mainBeat, 1, "the already resolved main cannot be claimed again");
+      c.wasdLanePress(1);
+      assert.equal(c._tapAcc, 0, "a half beat is outside the current on-law accuracy window");
+      assert.equal(c._wasdCombo, 0, "a claimed main with zero credit breaks the consecutive streak");
+      c.wasdLanePress(1);
+      assert.equal(c._tapOffN, 2, "the midpoint's main cannot be farmed by a duplicate either");
+      c.step(1); c.wasdLanePress(1);
+      assert.equal(c._tapOffN, 2, "the main resolved at the midpoint stays consumed at its center");
+    } else {
+      assert.equal(claim, null, "default nd1 play has no note at the midpoint");
+      c.wasdLanePress(1); c.wasdLanePress(1);
+      assert.equal(c._wasdCombo, 1, "unclaimed midpoint presses neither earn credit nor break a clean streak");
+      assert.equal(c._tapOffN, 1);
+      c.step(1); c.wasdLanePress(1);
+      assert.equal(c._wasdCombo, 2, "the next main remains available at its center");
+    }
+    c.step(2); c.wasdLanePress(2);
+    assert.equal(c._wasdCombo, pocketEnabled ? 1 : 3, "only credited mains contribute to the streak");
+    c.step(3); c.step(3.6);
+    assert.equal(c._wasdCombo, 0, "an unresolved main still costs the streak");
     assert.equal(c._baseMul, 1, "an unresolved main still releases damping");
-    assert.equal(c._tapOffN, 4, "only claimed correct notes were graded");
+    assert.equal(c._pipSetN, 0);
+    assert.equal(c._pipSetFlashT, -999);
   }
 });
 
-test("early bonus access: one main press per beat stays clean at entry, with the existing narrower nd2 window", () => {
+test("on-beat pace: one main press per beat stays clean at entry with the 857 ms nd1 accuracy window", () => {
   const c = bonusAccessSandbox();
   for (let beat = 0; beat < 4; beat += 1) {
-    c.step(beat); c.wasdLanePress((beat * 2) % 4); c.step(beat + .5);
+    c.step(beat); c.wasdLanePress(beat % 4); c.step(beat + .5);
     assert.equal(c._baseMul, 0);
-    assert.equal(c._wasdCombo, 0);
+    assert.equal(c._wasdCombo, beat + 1, "passing a midpoint without pressing cannot break the streak");
   }
   c.step(4);
-  assert.equal(c._baseMul, 0, "four required presses suffice despite all four bonus notes being skipped");
+  assert.equal(c._baseMul, 0, "four required presses suffice without any midpoint presses");
   assert.equal(c._tapOffN, 4);
   assert.equal(c.audio.length, 4);
   const bps = 60 / 28;
-  const w = bps / 2 * c.CFG.wasdWindowFrac;
-  assert.equal(Math.round(w * 1000), 429, "entry uses the existing nd2 window, not the former 857 ms nd1 window");
+  const w = bps * c.CFG.wasdWindowFrac;
+  assert.equal(Math.round(w * 1000), 857, "entry uses the existing nd1 window arithmetic");
   const inside = bonusAccessSandbox(), outside = bonusAccessSandbox();
   inside.step((w - .001) / bps); inside.wasdLanePress(0);
   outside.step((w + .001) / bps); outside.wasdLanePress(0);
   assert.equal(inside._tapOffN, 1, "just inside the main window is graded");
-  assert.equal(outside._tapOffN, 0, "just outside cannot claim the main or adjacent bonus");
+  assert.equal(inside._wasdCombo, 1, "positive accuracy earns streak credit even when the displayed percentage rounds to zero");
+  assert.equal(outside._tapOffN, 0, "default play leaves a press just outside the main window unclaimed");
+  const pocketOutside = bonusAccessSandbox();
+  pocketOutside.CFG.groovePocket = true;
+  pocketOutside.pocketArmMissFrontier(0, bps, w); // Pocket was active before this main began; no activation-time skip.
+  pocketOutside.step((w + .001) / bps); pocketOutside.wasdLanePress(0);
+  assert.equal(pocketOutside._tapOffN, 1, "opted-in pocket windows still allow an adjacent feel to claim this main");
+  assert.equal(pocketOutside._wasdCombo, 0, "outside the on-law accuracy window the pocket claim earns no streak credit");
 });
 
-test("early music: nine earned bonuses reach the authored top tier at 28 BPM without shot hits", () => {
-  const c = bonusAccessSandbox();
+test("early music: nine credited mains draw nine pips and reach the authored top tier at 28 BPM without shot hits", () => {
+  const c = pipRendererSandbox();
   assert.equal(c.rewardStep().tier, 0, "idle entry has no unearned music reward");
   for (let beat = 0; beat < 9; beat += 1) {
-    c.step(beat); c.wasdLanePress((beat * 2) % 4); c.rewardStep();
-    const key = (beat * 2 + 1) % 4;
-    c.step(beat + .5); c.wasdLanePress(key); c.rewardStep();
+    const key = beat % 4;
+    c.step(beat); c.wasdLanePress(key); c.rewardStep();
     assert.equal(c._wasdCombo, beat + 1);
-    assert.equal(c._sparkPend.rainbow, beat + 1 >= 6, "the existing six-bonus rainbow threshold is retained");
-    assert.equal(c.audio.at(-1)[0], c.PENTA[key * 2] * (beat + 1 >= 8 ? 2 : 1), "the existing eighth-bonus octave is retained");
+    assert.equal(c._sparkPend.rainbow, beat + 1 >= 6, "the existing six-hit rainbow threshold reads the main streak");
+    assert.equal(c.audio.at(-1)[0], c.PENTA[key * 2] * (beat + 1 >= 8 ? 2 : 1), "the existing eighth-hit octave reads the same streak");
+    const drawing = c.draw();
+    assert.equal(drawing.pips.length, beat + 1, "each credited main adds one rendered inner pip");
+    assert.equal(drawing.numerals.length, 0, "a partial set has no numeral");
   }
-  assert.ok(c.state.t < 20, "nine optional successes fit in the first twenty seconds at entry tempo");
+  assert.ok(c.state.t < 20, "nine main successes fit in the first twenty seconds at entry tempo");
+  assert.equal(c._pipSetN, 0);
+  assert.equal(c._pipSetFlashT, -999);
   let result;
   for (let i = 0; i < 4; i += 1) result = c.rewardStep();
   assert.ok(Math.abs(result.target - 2.7) < 1e-12, "WASD reward stops at its authored contribution cap");
@@ -354,6 +447,161 @@ test("early music: nine earned bonuses reach the authored top tier at 28 BPM wit
   assert.equal(c.state.bpm, 28);
   assert.equal(c.state.hits, 0);
   assert.equal(c.state.streak, 0);
+});
+
+test("on-beat pips: the sixteenth and thirty-second mains fill the same sixteen slots and flash sets 1 and 2", () => {
+  for (const bpm of [28, 60]) {
+    const c = pipRendererSandbox(bpm);
+    for (const set of [1, 2]) {
+      pressMainStreak(c, 16, (set - 1) * 16);
+      assert.equal(c._wasdCombo, set * 16);
+      assert.equal(c._pipSetN, set);
+      assert.equal(c._pipSetFlashT, c.state.t, "completion latches the actual press time");
+      const d = c.draw();
+      assert.equal(d.pips.length, 16);
+      assert.equal(d.backing.length, 16);
+      for (let i = 0; i < 16; i += 1) {
+        const pip = d.pips[i].path[0], backing = d.backing[i].path[0];
+        const angle = -Math.PI / 2 + i * Math.PI / 8;
+        assert.ok(Math.abs(pip.x - (280 + Math.cos(angle) * 36)) < 1e-9, "slots run clockwise from twelve o'clock");
+        assert.ok(Math.abs(pip.y - (280 + Math.sin(angle) * 36)) < 1e-9, "pips stay on the existing Rin-10 radius");
+        assert.equal(pip.radius, 2.6);
+        assert.deepEqual(backing, { x: pip.x, y: pip.y, radius: 3.4 }, "each green dot keeps its black backing");
+      }
+      assert.equal(d.numerals.length, 1, "only the bare completed-set numeral is drawn");
+      assert.equal(d.numerals[0].text, String(set));
+      assert.deepEqual([d.numerals[0].x, d.numerals[0].y, d.numerals[0].align, d.numerals[0].baseline], [280, 280, "center", "middle"]);
+      const fontSize = Number(/(\d+)px/.exec(d.numerals[0].font)?.[1]);
+      assert.ok(fontSize >= 64 && fontSize <= 90, "the numeral is large in the existing 560-space canvas");
+      assert.equal(d.outlines.length, 1);
+      assert.equal(d.outlines[0].text, String(set));
+      assert.equal(d.outlines[0].color, "rgba(0,0,0,0.85)", "a black stroke keeps the set readable");
+      assert.ok(d.outlines[0].width >= 3);
+      assert.equal(d.glyph.on, false);
+    }
+  }
+});
+
+test("on-beat pips: a completed set expires to an empty ring, then the seventeenth main draws one pip", () => {
+  for (const bpm of [20, 28, 60]) {
+    const c = pipRendererSandbox(bpm);
+    pressMainStreak(c, 16);
+    const flashedAt = c._pipSetFlashT;
+    c.wasdLanePress(c._combo[15 % c._combo.length]);
+    assert.equal(c._wasdCombo, 16, "a duplicate completion press cannot create another set");
+    assert.equal(c._pipSetFlashT, flashedAt, "a duplicate cannot extend the numeral's lifetime");
+    c.step(15 + .999 * bpm / 60);
+    assert.equal(c.draw().pips.length, 16, "the full ring is held through the bounded flash");
+    assert.equal(c.draw().numerals[0].text, "1");
+    c.step(15 + 1.001 * bpm / 60);
+    assert.equal(c._wasdCombo, 16);
+    assert.equal(c.draw().pips.length, 0, "sixteen modulo sixteen becomes empty after the one-second live-tempo cap");
+    assert.equal(c.draw().numerals.length, 0);
+    pressMainStreak(c, 1, 16);
+    assert.equal(c._wasdCombo, 17);
+    assert.equal(c._pipSetN, 1, "set history is retained without drawing a running counter");
+    assert.equal(c.draw().pips.length, 1);
+    assert.equal(c.draw().numerals.length, 0);
+  }
+});
+
+test("on-beat pips: flash alone hides an otherwise visible next letter and remains static under reduced motion", () => {
+  const c = pipRendererSandbox(60);
+  pressMainStreak(c, 16);
+  c.step(15.6); // The next MAIN is in focus, while the previous set's one-second flash is still alive.
+  assert.equal(c._hitNote, -1, "the ordinary consumed-note glyph gate is no longer active");
+  const normal = c.draw();
+  assert.equal(normal.glyph.on, false, "the numeral itself suppresses the next required letter");
+  c.reduceMotion = true;
+  const reduced = c.draw();
+  assert.deepEqual(reduced.pips, normal.pips);
+  assert.deepEqual(reduced.numerals, normal.numerals, "reduced motion preserves the same static numeral");
+  assert.equal(reduced.glyph.on, false);
+  c.step(16.001);
+  assert.equal(c.draw().numerals.length, 0);
+  assert.equal(c.draw().glyph.on, true, "the pending main letter returns when the set flash expires");
+});
+
+test("on-beat pips: an unresolved main clears a partial set and a completed set", () => {
+  for (const count of [15, 16]) {
+    const c = pipRendererSandbox();
+    pressMainStreak(c, count);
+    assert.equal(c.draw().pips.length, count, "the earned set is visible before the miss");
+    c.step(count); c.step(count + .6);
+    assert.equal(c._wasdCombo, 0);
+    assert.equal(c._pipSetN, 0);
+    assert.equal(c._pipSetFlashT, -999);
+    assert.equal(c.draw().pips.length, 0);
+    assert.equal(c.draw().numerals.length, 0, "a miss cannot leave a completed-set numeral behind");
+  }
+});
+
+test("on-beat pips: the silent pocket sweep independently clears a completed set", () => {
+  const c = pipRendererSandbox();
+  c.CFG.groovePocket = true;
+  pressMainStreak(c, 16);
+  c._beats = 16.7;
+  c.state.t = (c._beats + .5) * 60 / c.state.bpm;
+  c.updatePocketMisses(); // No animation resolution step and no input are needed for this path.
+  assert.equal(c._wasdCombo, 0);
+  assert.equal(c._pipSetN, 0);
+  assert.equal(c._pipSetFlashT, -999);
+  assert.equal(c.draw().pips.length, 0);
+  assert.equal(c.draw().numerals.length, 0);
+});
+
+test("on-beat pips: wrong keys, explicit weak credit and zero-credit mains clear the set latch", () => {
+  for (const failure of ["wrong key", "weak credit", "zero credit"]) {
+    const c = pipRendererSandbox();
+    pressMainStreak(c, 16);
+    c.step(16);
+    const w = 60 / c.state.bpm * c.CFG.wasdWindowFrac;
+    if (failure === "wrong key") c.wasdLanePress(1);
+    else if (failure === "weak credit") c._wasdResolve(0, true, w, { fullCredit: false, weakAcc: .25 });
+    else c._wasdResolve(w + .001, true, w);
+    assert.equal(c._wasdCombo, 0, failure);
+    assert.equal(c._pipSetN, 0, failure);
+    assert.equal(c._pipSetFlashT, -999, failure);
+    assert.equal(c.draw().pips.length, 0, failure);
+    assert.equal(c.draw().numerals.length, 0, failure);
+  }
+});
+
+test("on-beat pips: initialization, a new session and a disabled lane start without inherited set state", () => {
+  const initial = /\blet _combo=[^\n]+/.exec(html);
+  assert.ok(initial, "the real WASD state declaration is present");
+  const defaults = vm.createContext({});
+  vm.runInContext(initial[0].replace(/^let /, "var "), defaults);
+  assert.deepEqual([defaults._wasdCombo, defaults._pipSetN, defaults._pipSetFlashT], [0, 0, -999]);
+  for (const reset of ["session", "disabled lane"]) {
+    const c = pipRendererSandbox();
+    pressMainStreak(c, 16);
+    if (reset === "session") c.resetWasdSession();
+    else { c.strobe = false; c.step(15); }
+    assert.equal(c._wasdCombo, 0, reset);
+    assert.equal(c._pipSetN, 0, reset);
+    assert.equal(c._pipSetFlashT, -999, reset);
+    assert.equal(c.draw().pips.length, 0, reset);
+    assert.equal(c.draw().numerals.length, 0, reset);
+  }
+});
+
+test("on-beat pips: lessons and a hidden beat circle suppress pips and numerals independently of stale main state", () => {
+  const c = pipRendererSandbox(60);
+  pressMainStreak(c, 16);
+  c.step(15.6);
+  c.trainMode = true;
+  assert.equal(c.draw().pips.length, 0, "lesson rendering never borrows a free-play pip ring");
+  assert.equal(c.draw().numerals.length, 0, "lesson rendering never borrows a free-play set flash");
+  assert.equal(c.draw().glyph.on, true, "the lesson's required letter is still shown");
+  c.trainMode = false;
+  c.CFG.wasdHud = false;
+  assert.equal(c.draw().pips.length, 0);
+  assert.equal(c.draw().numerals.length, 0);
+  assert.equal(c.draw().glyph.on, true, "a hidden canvas cannot hide the letter for an invisible numeral");
+  c.CFG.wasdHud = true;
+  c.state.t = c._pipSetFlashT - .001;
+  assert.equal(c.draw().numerals.length, 0, "a clock rebase before the recorded flash cannot resurrect it");
 });
 
 test("early music: rewarded shooting reaches full music equally at 28 and 60 BPM and remains bounded", () => {
@@ -444,8 +692,8 @@ test("THE MEANING: every band channel is a pure read of the state the game plays
 
 test("THE MEANING: the wake's verdict is already final when a band leaves the now-line (S)", () => {
   // wasdLanePress grades with w = min(full*0.5, max(wasdWindow, full*0.4)), full = bps/nd. Over the whole reachable ladder
-  // that is 0.400 note-intervals. With nd2 throughout main mode, the main at R=n-0.5 closes at R=n-0.3
-  // and the next main opens at R=n+0.3. Bonus windows do not write wake history; the main-note gap is 0.600 beat.
+  // that is 0.400 note-intervals. With nd1 throughout main mode, the main at R=n-0.5 closes at R=n-0.1
+  // and the next main opens at R=n+0.1. The main-note accuracy-window gap is 0.200 beat.
   const cfg = extractCfg();
   const context = vm.createContext({ Math, Number, CFG: cfg });
   vm.runInContext(extractFunction("wasdNoteDiv"), context);
@@ -459,7 +707,7 @@ test("THE MEANING: the wake's verdict is already final when a band leaves the no
     minDead = Math.min(minDead, (0.5 - fracBeat) * 2);
   }
   assert.ok(minDead > 0, `a dead zone exists at every reachable tempo (min ${minDead.toFixed(3)} beat)`);
-  assert.equal(minDead.toFixed(3), "0.600", "the main-note gap is 0.600 beat throughout the reachable nd2 ladder");
+  assert.equal(minDead.toFixed(3), "0.200", "the main-note accuracy-window gap is 0.200 beat throughout the reachable nd1 ladder");
   // Only a MAIN writes history: a bonus ghost is an invitation, and declining one is not a miss.
   assert.match(html, /if\(\(\(\(_hitNote%nd\)\+nd\)%nd\)!==0\) return;/, "roadWakeLatch ignores in-between notes");
   assert.match(html, /_roadWake\[\(\(n%ROAD_WAKE\)\+ROAD_WAKE\)%ROAD_WAKE\] = judged \? \(_roadHitBeat===n \? 1 : 2\) : 0;/, "landed = the lane's own _hitNote, reduced to its main beat");
@@ -1839,7 +2087,7 @@ function glowSandbox(overrides) {
   // wasdBeatCueOn / wasdBeatGlow lifted verbatim out of index.html, so this sandbox cannot drift from the shipped law.
   const context = vm.createContext({ Math, Number });
   const prelude = `
-    var CFG = { floorBeat:true, wasdRhythm:true, beatQuant:true, floorBeatMax:0.45, wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01], moonline:{ breathMax:0.45 } };
+    var CFG = { floorBeat:true, wasdRhythm:true, beatQuant:true, floorBeatMax:0.45, wasdNoteDivs:[2,4,8], wasdNoteT:[1.01,1.02], moonline:{ breathMax:0.45 } };
     var MOBILE = false, templeActive = false, trainMode = false, reduceMotion = false, toneReady = true;
     var state = { running:true, bpm:60 };
     var Tone = { Transport:{ state:'started' } };

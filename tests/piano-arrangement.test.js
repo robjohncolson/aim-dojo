@@ -69,7 +69,15 @@ test("Piano changes only the bass wrapper at all six sites, preserving the full 
 test("Piano keeps WASD notes, volley chords and the Bow resolution unchanged", () => {
   for (const name of ["wasdLanePress", "volleyNote", "bowEnterHold"]) {
     const current = extractFunction(main, name).replace(/\r\n/g, "\n");
-    assert.equal(current, fixture.functions[name], `${name}: original grading, notes, schedules and velocities`);
+    let expected = fixture.functions[name];
+    if (name === "wasdLanePress") {
+      // The frozen fixture stays authenticated; only the new pip-flash reset is added
+      // to its expectation. All original note, grading and scheduling bytes stay exact.
+      const oldReset = "_wasdCombo=0; _noteFlashT=state.t;";
+      assert.equal(expected.split(oldReset).length, 2, "one frozen wrong-key reset exists");
+      expected = expected.replace(oldReset, "_wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; _noteFlashT=state.t;");
+    }
+    assert.equal(current, expected, `${name}: original grading, notes, schedules and velocities with the authorized pip reset`);
     assert.doesNotMatch(current, /new\s+Tone\./, `${name} reuses the built voices`);
   }
   assert.equal((fixture.functions.volleyNote.match(/padChord\(/g) || []).length, 2);

@@ -216,15 +216,19 @@ test("actual bass and hit helpers preserve note identity and grace offsets on th
   }
 });
 
-test("context alignment retains every earlier-bloom knob and the live lesson density branch", () => {
+test("offbeat pacing retains shooting groove and uses one live note per beat with sixteen streak pips", () => {
   const cfg = contextCfg();
-  assert.deepEqual(Array.from(cfg.wasdNoteT), [0, 1.01]);
+  assert.deepEqual(Array.from(cfg.wasdNoteT), [1.01, 1.02]);
+  assert.deepEqual(Array.from(cfg.wasdNoteDivs), [2, 4, 8]);
+  assert.deepEqual(Array.from(cfg.beatQuantT), [.4, .75]);
+  assert.equal(cfg.wasdPipN, 16);
   assert.equal(cfg.wasdGrooveGain, .30); assert.equal(cfg.wasdGrooveMax, 2.7);
   assert.equal(cfg.grooveStreakFull, 3); assert.equal(cfg.grooveHitsFull, 12); assert.equal(cfg.grooveAccHi, .8);
   const c = vm.createContext({ CFG: cfg, Number, Math, state: { bpm: 28 }, trainMode: true });
   vm.runInContext(["diffT", "wasdNoteDiv"].map(name => extractFunction(main, name)).join("\n"), c);
-  assert.equal(c.wasdNoteDiv(), 1);
-  assert.equal(c.wasdNoteDiv(c.diffT()), 2, "explicit density probes retain main-mode access");
-  c.trainMode = false;
-  for (const bpm of [20, 28, 60]) { c.state.bpm = bpm; assert.equal(c.wasdNoteDiv(), 2); }
+  for (const lesson of [true, false]) for (const bpm of [20, 28, 40, 50, 60, 1e6]) {
+    c.trainMode = lesson; c.state.bpm = bpm;
+    assert.equal(c.wasdNoteDiv(), 1, `live ${lesson ? "lesson" : "free play"} at ${bpm} BPM`);
+    assert.equal(c.wasdNoteDiv(c.diffT()), 1, "the explicit clamped difficulty probe also stays at one note per beat");
+  }
 });

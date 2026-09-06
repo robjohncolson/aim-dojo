@@ -21,13 +21,13 @@ function harness(piano,phase,bpm,gridBody=extractFunction(source,'onGrid')){
   PENTA:[277.18,329.63,369.99,415.30,493.88,554.37,659.25,739.99],activeTheme:{name:'MOONLIGHT'},
   tick:voice('tick'),tapSynth:voice('tapSynth'),lead:voice('lead'),pianoSfx:voice('pianoSfx'),
   kick:piano?null:voice('kick'),bass:voice('bass'),pad:voice('pad'),hat:piano?null:voice('hat'),arp:voice('arp'),
-  CFG:{piano:{hums:true},patternConcurrency:0,wasdRhythm:true,wasdNoteDivs:[2,4,8],wasdNoteT:[0,1.01],minBpm:20,maxBpm:60,wasdWindow:Number(wasdWindow),wasdWindowFrac:Number(wasdWindowFrac),grooveGroove:true,grooveFreezePhase:.5,groovePocket:true},
+  CFG:{piano:{hums:true},patternConcurrency:0,wasdRhythm:true,wasdNoteDivs:[2,4,8],wasdNoteT:[1.01,1.02],wasdPipN:16,minBpm:20,maxBpm:60,wasdWindow:Number(wasdWindow),wasdWindowFrac:Number(wasdWindowFrac),grooveGroove:true,grooveFreezePhase:.5,groovePocket:true},
   humFieldGrid:(...args)=>harmony.push(args),
   bonusActive:false,activeTargetCount:()=>0,cd:99,restSlots:0,CHIP_FIELD:false,
   bowTouch:()=>{},_bow:{stage:0},BOW:{LAST:2},MOBILE:false,GH_CHALK:false,GH_RECORD:false,
   soundOn:true,toneReady:true,reduceMotion:true,FLOCK:{rainbowCombo:8},
   _combo:[0,1,2,3,0,1,2,3],_resolved:new Set(),_resolvedNd:null,_pocketResolvedMains:new Set(),
-  _curCi:-1,_curMain:true,_spoilNote:-1,_hitNote:-1,_wasdCombo:0,_baseMul:1,
+  _curCi:-1,_curMain:true,_spoilNote:-1,_hitNote:-1,_wasdCombo:0,_baseMul:1,_pipSetN:0,_pipSetFlashT:-999,
   _tapOffSum:0,_tapOffN:0,_tapAcc:0,_tapShowT:0,_noteFlashT:0,_noteFlashHit:false,
   audioLat:()=>0,now:100,
   TF:(key,fallback,values)=>({key,values}),showTrainCoach:()=>{},setTrainPhase:next=>visual.push({source:'phase',next}),
@@ -59,7 +59,7 @@ for(const bpm of [28,60])for(const phase of [0,1,2]){
    ...[1,3,5,7].map(i=>[i===1?1760:1480,'32n',100+i*.5*60/bpm,phase===0?.95:.7])
   ]);
  });
- test('every lesson offbeat has one lane note, with duplicate and wrong silent '+bpm+'/'+phase,()=>{
+ test('every required lesson beat has one lane note, with duplicate and wrong silent '+bpm+'/'+phase,()=>{
   for(const i of [1,3,5,7]){
    const h=harness(true,phase,bpm),silent=harness(true,phase,bpm);h.step(i);silent.step(i);
    assert.equal(h.c.wasdNoteDiv(),1,'the live trainer has no optional subdivisions');
@@ -70,12 +70,14 @@ for(const bpm of [28,60])for(const phase of [0,1,2]){
    assert.deepEqual(tickEvents(h),tickEvents(silent));assert.equal(tickEvents(h).length,0);
    assert.equal(h.c._tapAcc,100);assert.equal(h.c._tapOffN,1);assert.equal(h.c._baseMul,0);
    assert.equal(h.c.trainWasd,phase===0?1:0);
+   assert.equal(h.c._wasdCombo,0,'credited lesson mains never fill streak pips');
+   assert.equal(h.c._pipSetN,0);assert.equal(h.c._pipSetFlashT,-999,'lesson credit never starts a set flash');
    h.press(k);assert.equal(h.audio.length,beforePress+1,'duplicate note is silent');
    const wrong=harness(true,phase,bpm);wrong.step(i);const n=wrong.audio.length;wrong.press((k+1)%4);
    assert.equal(wrong.audio.length,n,'wrong key is silent');wrong.press(k);assert.equal(wrong.audio.length,n,'wrong key resolves the note; retry does not sound');
   }
  });
- test('lesson midpoints cannot earn bonus credit or progress '+bpm+'/'+phase,()=>{
+ test('lesson midpoints cannot earn streak credit or progress '+bpm+'/'+phase,()=>{
   for(const i of [2,4,6]){
    const h=harness(true,phase,bpm);
    h.step(i);const before=h.audio.length;
@@ -95,7 +97,8 @@ for(const bpm of [28,60])for(const phase of [0,1,2]){
     for(const k of [0,1,2,3])h.press(k);
     assert.equal(h.c._tapOffN,0);assert.equal(h.audio.length,before);
    }
-   assert.equal(h.c._wasdCombo,0,'an edge main never earns optional bonus credit');
+   assert.equal(h.c._wasdCombo,0,'an edge main never earns streak credit');
+   assert.equal(h.c._pipSetN,0);assert.equal(h.c._pipSetFlashT,-999,'a midpoint cannot flash a completed set');
    assert.equal(h.c.trainWasd,0,'zero-accuracy edge attempts never advance lesson progress');
    assert.deepEqual(h.visual.filter(x=>x.source==='phase'),[],'midpoint attempts cannot advance the lesson');
   }
@@ -109,7 +112,22 @@ test('phase zero still requires three correct lesson mains to progress',()=>{
    assert.equal(h.c.trainWasd,k+1,'one credited main per lesson beat despite duplicate presses');
   }
   assert.deepEqual(h.visual.filter(x=>x.source==='phase'),[{source:'phase',next:1}]);
-  assert.equal(h.c._wasdCombo,0,'required lesson notes never become bonus rewards');
+  assert.equal(h.c._wasdCombo,0,'required lesson notes never become streak rewards');
+  assert.equal(h.c._pipSetN,0);assert.equal(h.c._pipSetFlashT,-999);
+ }
+});
+
+test('each fixed lesson phase keeps its streak and set-flash latches empty through thirty-two credited mains',()=>{
+ for(const bpm of [28,60])for(const phase of [0,1,2]){
+  const h=harness(true,phase,bpm);
+  // The phase transition is observed, not applied, so every phase's local credit path
+  // is checked past both free-play set boundaries without changing lesson grading.
+  for(let beat=0;beat<32;beat++){
+   h.step(beat*2+1);h.press(h.c._combo[beat%h.c._combo.length]);
+   assert.equal(h.c._tapAcc,100);assert.equal(h.c._tapOffN,beat+1);
+   assert.equal(h.c._wasdCombo,0);assert.equal(h.c._pipSetN,0);assert.equal(h.c._pipSetFlashT,-999);
+  }
+  assert.equal(tapEvents(h).length,32,'every credited lesson main retains its existing tap sound');
  }
 });
 test('PIANO lesson retains every non-tick schedule from baseline',()=>{

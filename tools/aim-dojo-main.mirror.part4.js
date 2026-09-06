@@ -6928,6 +6928,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 function rememberStar(){
   // WHOSE seat it was: one of the player's OWN lit stars, preferring the four anchors, chosen deterministically by
   // the date (the way the Bow picks its phrasing) so one night has one voice — and so two returns a month apart are
@@ -7867,7 +7879,7 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
       if(activeTheme&&activeTheme.name==='TORIYANSE'&&!main&&_tapAcc>=100){ const ch=PENTA[Math.min(4,PENTA.length-1)]; tapSynth.triggerAttackRelease(ch,'32n',t0+0.04,0.58); tapSynth.triggerAttackRelease(ch,'32n',t0+0.10,0.48); }
     }catch(e){} }
   }
-  else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample. INVARIANT (parcel R): a well-timed MAIN press can never be claimed against an adjacent ghost because w <= full*0.5 strictly (verified at bpm 50/60: 0.24<0.30, 0.20<0.25) — if wasdWindow/wasdWindowFrac are ever retuned past that bound, gate this _wasdCombo=0 on `main` or ghosts regain the power to break the combo
+  else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample. INVARIANT (parcel R): a well-timed MAIN press can never be claimed against an adjacent ghost because w <= full*0.5 strictly (verified at bpm 50/60: 0.24<0.30, 0.20<0.25) — if wasdWindow/wasdWindowFrac are ever retuned past that bound, gate this _wasdCombo=0 on `main` or ghosts regain the power to break the combo
   if(GH_RECORD) ghostRecordTap(k,k===ckey?_tapAcc:-1);   // NIGHT GHOSTS: accepted note claims write the pressed lane plus the grade already decided above; the lane never consults the ledger
 }
 function isTypingTarget(t){ return !!(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))); }
@@ -8377,7 +8389,7 @@ function drawWasdLane(){
   if(showHud){ hudCtx.globalAlpha=0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
     hudCtx.globalAlpha=0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0&&!pocketTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
   // ---- the IN-FOCUS note: optional legacy circle converges at expected; an explicitly enabled colored target instead keeps the raw path so both rings cross there. ----
-  let letterKey=_combo[0], spoiled=false, hitHeld=false, ghostNote=false;   // ghostNote: the in-focus note is an in-between (bonus) one — available at nd>1 throughout the main night
+  let letterKey=_combo[0], spoiled=false, hitHeld=false, ghostNote=false;   // one required note per beat live; ghostNote only serves unreachable denser probes
   { const nd=wasdNoteDiv();
     syncWasdResolutionGrid(nd);
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
@@ -8423,15 +8435,19 @@ function drawWasdLane(){
   // and the letter is byte-identically the one wave 7 shipped.
   const _cueMax=+CFG.floorBeatMax||0;
   const cueGlow=(_cueMax>0 && wasdBeatCueOn() && moonlineVoid()) ? wasdBeatGlow()/_cueMax : -1;
-  showWasdGlyph(letterKey, spoiled, laneCue && (CFG.wasdLetter || reduceMotion) && !hitHeld, ghostNote, cueGlow);
+  const pipN=Math.max(1, CFG.wasdPipN||16), flashDur=Math.max(0.35,Math.min(1,60/Math.max(20,state.bpm)));
+  const flashing=showHud && !trainMode && _wasdCombo>0 && _pipSetN>0 && state.t>=_pipSetFlashT && state.t-_pipSetFlashT<flashDur;
+  showWasdGlyph(letterKey, spoiled, laneCue && (CFG.wasdLetter || reduceMotion) && !hitHeld && !flashing, ghostNote, cueGlow);
   // ---- consumed-note STAR BURST now lives in the 3D scene: the correct tap set _sparkPend; updateFlock() (flock block below) reads it and bursts a flock of plus-star "birds" that fly downrange + dissolve into the distance. ----
-  // ---- bonus combo pips ringing the hit line (off-beat streak -> calmer field + groove) ----
-  if(showHud && _wasdCombo>0){ const n=Math.min(12,_wasdCombo); hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/12*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
+  // ---- 16 inner pips count consecutive credited main beats; a full ring briefly shows its completed set number ----
+  const n=trainMode?0:(flashing?pipN:(_wasdCombo%pipN));
+  if(showHud && n>0){ hudCtx.globalAlpha=0.95; for(let i=0;i<n;i++){ const ang=-Math.PI/2+i/pipN*PI2, rr=Rin-10, px=cx+Math.cos(ang)*rr, py=cy+Math.sin(ang)*rr; hudCtx.fillStyle='rgba(0,0,0,0.7)'; hudCtx.beginPath(); hudCtx.arc(px,py,3.4,0,PI2); hudCtx.fill(); hudCtx.fillStyle='#74e84a'; hudCtx.beginPath(); hudCtx.arc(px,py,2.6,0,PI2); hudCtx.fill(); } }
+  if(flashing){ hudCtx.globalAlpha=1; hudCtx.font='bold 72px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.85)'; hudCtx.strokeText(String(_pipSetN),cx,cy); hudCtx.fillStyle='#e6ebf5'; hudCtx.fillText(String(_pipSetN),cx,cy); }   // same full ring and numeral under reduceMotion; no scale pulse
   if(CFG.wasdTapText && state.t-_tapShowT<1.0){ const ab=Math.abs(_tapOffMs), lbl=(ab<=25?T('tapPerfect','PERFECT'):(_tapOffMs<0?T('tapAhead','AHEAD '):T('tapBehind','BEHIND '))+ab+'ms')+' · '+_tapAcc+'%', col=ab<=25?'#74e84a':ab<=70?'#ffd36b':'#ff8a5a'; hudCtx.globalAlpha=Math.min(1,(1-(state.t-_tapShowT))*2.5); hudCtx.font=IS_JA?'bold 16px "Share Tech Mono","Hiragino Kaku Gothic ProN","Yu Gothic Medium",Meiryo,"Noto Sans JP",monospace':'bold 16px monospace'; hudCtx.textAlign='center'; hudCtx.textBaseline='middle'; hudCtx.lineWidth=3; const ty=cy-Rin-20; hudCtx.strokeStyle='rgba(0,0,0,0.8)'; hudCtx.strokeText(lbl,cx,ty); hudCtx.fillStyle=col; hudCtx.fillText(lbl,cx,ty); }   // 1s readout ABOVE the ring: ms + accuracy % in one line (the old under-cursor % crowded the key letter; 'Tap timing readout' toggles this off)
   hudCtx.globalAlpha=1;
 }
 /* ===== CONSUMED-NOTE STAR FLOCK (3D): a correct WASD tap bursts the just-vanished letter into a flock of glowing plus-star "birds" that fly downrange, bank apart on a per-bird swirl, twinkle + spin, drop comet-trail afterimages, occasionally branch, and dissolve into the distance (~3s). REPLACES the old flat canvas sparks. Pooled + hard-capped (taps land on every beat); reduceMotion → no flock (the _sparkPend trigger is already gated on it). Tune the whole feel via FLOCK. ===== */
-const FLOCK={ max:95, ghostMax:30, burstBase:4, burstAcc:0.03, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 4..7; rainbow flock once the bonus combo is this hot. HALVED BY WAVE 8, PARCEL V (max 190→95 · ghostMax 60→30 · burstBase 8→4 · burstAcc 0.06→0.03, so the 8..14 range halves to 4..7 exactly): this is the OTHER half of what pays for the stardust. Every bird is its own additive Mesh = its own draw call, so the peak flock cost drops from 250 draw calls / 6000 triangles to 125 / 3000 — and the whole of parcel V (arches AND dust) adds exactly 2 draw calls and 2464 constant triangles. No behaviour changed: the same burst, the same orbit, the same dissolve, with half the birds in it
+const FLOCK={ max:95, ghostMax:30, burstBase:4, burstAcc:0.03, rainbowCombo:6,   // count = burstBase + acc*burstAcc → 4..7; rainbow flock once the on-beat streak is this hot. HALVED BY WAVE 8, PARCEL V (max 190→95 · ghostMax 60→30 · burstBase 8→4 · burstAcc 0.06→0.03, so the 8..14 range halves to 4..7 exactly): this is the OTHER half of what pays for the stardust. Every bird is its own additive Mesh = its own draw call, so the peak flock cost drops from 250 draw calls / 6000 triangles to 125 / 3000 — and the whole of parcel V (arches AND dust) adds exactly 2 draw calls and 2464 constant triangles. No behaviour changed: the same burst, the same orbit, the same dissolve, with half the birds in it
 
   spawnDist:2.6, riseY:0.6, minY:EYE+0.6, cone:0.42, speed:[3.6,6.2], up:[0.8,1.8], // SKY-SIDE INVARIANT: keep every star ABOVE EYE LEVEL. A world point with y > camera.y always projects above the horizon line (any pitch), and above the horizon there is only sky — so a star can NEVER be drawn against the floor, and the ground read can't be corrupted. This is the actual fix for "stars under the floor": they were never below y=0 (old pads 0.55→1.6 chased a position bug that didn't exist). The real cause is that these are additive + depthWrite:false + fog:false = zero depth cues, so a bright near blob over the far fogged floor reads as sitting IN the ground. Keeping them sky-side removes the confusion entirely. minY is eye+0.6 so even a star pinned at the pad clears the horizon: its max world radius is 0.33 (geom radius 0.3165 x max scale 1.037) and camera shake lifts the eye by at most CFG.shakePos=0.14 -> lowest tip 4.27 > highest eye 4.14. If you ever raise base/shakePos, re-check that margin.
   swirl:0.85, dragPerSec:0.55, grav:0.35, bob:3.2, jitter:0.06,                      // softer grav so they don't dive; lighter jitter

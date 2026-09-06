@@ -48,7 +48,13 @@ test("C4 WASD adds one fail-soft heard-time sink while the C3 handler and door-c
   const press = extractFunction(main, "wasdLanePress");
   const hook = press.split("\n").filter(line => line.includes("ghostChalkTap("));
   assert.equal(hook.length, 1); assert.match(hook[0], /^  if\(GH_CHALK\) try\{ ghostChalkTap\(k,beats,nd,bps,w\); \}catch\(e\)\{\}/);
-  assert.equal(press.replace(`${hook[0]}\n`, ""), fixture.functions.wasdLanePress);
+  // Extend the authenticated expectation only with the authorized pip-flash reset.
+  // Every original grading, audio, timing and chalk-isolation byte remains compared.
+  const oldReset = "_wasdCombo=0; _noteFlashT=state.t;";
+  assert.equal(fixture.functions.wasdLanePress.split(oldReset).length, 2, "one frozen wrong-key reset exists");
+  const expectedPress = fixture.functions.wasdLanePress.replace(oldReset,
+    "_wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; _noteFlashT=state.t;");
+  assert.equal(press.replace(`${hook[0]}\n`, ""), expectedPress);
   assert.ok(press.indexOf(hook[0]) > press.indexOf("beats-=lat/bps;")); assert.ok(press.indexOf(hook[0]) < press.indexOf("const claim=claimWasdNote"));
   const doorOff = extractFunction(main, "doorCross").replace("(!PIANO && !doorWhoosh)", "!doorWhoosh").replace("    if(!PIANO){\n", "").replace("    }\n    const tonic", "    const tonic");
   assert.equal(doorOff, fixture.functions.doorCross);
