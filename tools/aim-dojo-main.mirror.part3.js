@@ -5450,7 +5450,10 @@ function pianoWarmStartRun(viaPad){
 }
 function initAudio(){
   ensureListener();
-  if(!reverbInput && listener && !state.running){ try{ buildReverb(); }catch(e){} } else scheduleReverbBuild();
+  // R4: IR used Math.random before combo/wind; piano nights skip it and accept a new opening sequence. No daily seed.
+  if(!PIANO){
+    if(!reverbInput && listener && !state.running){ try{ buildReverb(); }catch(e){} } else scheduleReverbBuild();
+  }
   if(audioInit){ if(rawCtx && rawCtx.state!=='running'){ try{ rawCtx.resume().catch(()=>{}); }catch(e){} } if(CFG.pianoFirstUse && PIANO && LOW) pianoWarmAfterUnlock(); return; }   // retry the context resume: a pad-first start lacks the user gesture, and Firefox REJECTS that first resume outright — the next real click/keypress lands here and must issue a fresh one
   if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
   audioInit=true;

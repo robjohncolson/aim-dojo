@@ -9401,6 +9401,9 @@
 
 
 
+
+
+
 function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
   if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
   if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak
@@ -10750,7 +10753,7 @@ function exitRunning(){
   if(trainCoachEl) trainCoachEl.classList.remove('on');   // coach is in-world only
   try{ pocketUpdateLawHud(); }catch(e){}   // hide LAW while paused
   showPause();
-  scheduleReverbBuild(120);
+  if(!PIANO) scheduleReverbBuild(120);
 }
 document.addEventListener('visibilitychange',()=>{
   transitEssayVisibilityChanged(); skyBriefVisibilityChanged(); skyChatVisibilityChanged();

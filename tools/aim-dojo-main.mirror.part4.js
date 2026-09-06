@@ -6925,6 +6925,9 @@
 
 
 
+
+
+
 function rememberStar(){
   // WHOSE seat it was: one of the player's OWN lit stars, preferring the four anchors, chosen deterministically by
   // the date (the way the Bow picks its phrasing) so one night has one voice — and so two returns a month apart are
