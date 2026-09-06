@@ -3963,6 +3963,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function rebindSkySelection(selected){
   if(!selected||!_lsnMeta) return false;
   const meta=selected.kind==='body'?_lsnMeta.bodies[selected.id]:(selected.kind==='sign'?_lsnMeta.signs[selected.id]:null);

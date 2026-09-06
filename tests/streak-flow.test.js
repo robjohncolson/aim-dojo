@@ -30,10 +30,11 @@ function flowSourceFunction(name) {
 function flowSandbox(bpm = 28) {
   const context = vm.createContext({
     Math, Number, console,
-    CFG: { streakFlow: true, wasdRhythm: true, grooveGroove: true, grooveVuln: true, wasdPipN: 16, hitTrauma: .1 },
+    CFG: { streakFlow: true, streakGrace: true, streakMissLimit: 2, wasdRhythm: true, grooveGroove: true, grooveVuln: true, wasdPipN: 16, hitTrauma: .1 },
     state: { t: 10, bpm, running: true, shots: 0, streak: 4 },
     trainMode: false, templeActive: false, bonusActive: false, reduceMotion: false, LOW: false,
     _wasdCombo: 0, _pipSetN: 0, _pipSetFlashT: -999,
+    _streakNotice: { misses: 0, kind: "", at: -999, hits: 0 },
     _flowGlow: { value: 0 }, _flowPhase: { value: 0 }, _flowActive: false, _flowGraceUntil: -999,
     _openAmt: 0, _baseMul: 1, _noteFlashT: -999, _noteFlashHit: false,
     _tapOffMs: 0, _tapOffSum: 0, _tapOffN: 0, _tapAcc: 0, _tapShowT: -999,
@@ -42,6 +43,7 @@ function flowSandbox(bpm = 28) {
   });
   vm.runInContext([
     "streakFlowLevel", "updateStreakFlow", "resetStreakFlow", "streakFlowOpen",
+    "wasdStreakMiss", "wasdStreakRecover", "resetWasdStreakNotice",
     "wasdTapAccuracy", "_wasdResolve", "orbOpen", "onWhiff",
   ].map(flowSourceFunction).join("\n"), context);
   context.credit = (count) => {
@@ -131,13 +133,24 @@ test("later set numbers deepen the sheen to a bounded ceiling while the first se
   assert.ok(Math.abs(values[3] - values[5]) < 1e-8, "large streak numbers do not keep brightening the room");
 });
 
-test("weak and zero-credit main taps end Flow with a quarter-beat grace at every supported tempo", () => {
+test("weak and zero-credit mains warn once, then end Flow with quarter-beat grace at every supported tempo", () => {
   for (const bpm of [20, 28, 40, 50, 60]) {
     for (const weak of [true, false]) {
       const c = flowSandbox(bpm);
       c.credit(16);
       c._wasdResolve(weak ? 0 : .2, true, .2, weak ? { fullCredit: false, weakAcc: .25 } : undefined);
+      assert.equal(c._wasdCombo, 16, "the first failed main preserves the earned hit count");
+      assert.equal(c._pipSetN, 1);
+      assert.equal(c._streakNotice.kind, "warning");
+      assert.equal(c._streakNotice.misses, 1);
+      assert.equal(c._streakNotice.hits, 16);
+      assert.equal(c.streakFlowOpen(), true);
+      assert.ok(c._flowGraceUntil < 0, "a warning does not start shield-closing grace");
+      c.state.t += 60 / bpm;
+      c._wasdResolve(weak ? 0 : .2, true, .2, weak ? { fullCredit: false, weakAcc: .25 } : undefined);
       const brokenAt = c.state.t, grace = .25 * 60 / bpm;
+      assert.equal(c._streakNotice.kind, "ended");
+      assert.equal(c._streakNotice.hits, 16);
       assert.equal(c._pipSetN, 0);
       assert.equal(c.streakFlowLevel(), 0);
       assert.equal(c.streakFlowOpen(), true, "the break does not slam shields on an arriving shot");
@@ -166,6 +179,56 @@ test("a keyboard streak break fades the visual reward rather than abruptly clear
   for (let i = 0; i < 300; i += 1) c.updateStreakFlow(1 / 60);
   assert.ok(c._flowGlow.value < .001);
   assert.equal(c.streakFlowOpen(), false);
+});
+
+test("only a credited main clears a Flow warning and preserves the accumulated correct-hit total", () => {
+  const c = flowSandbox(); c.credit(23);
+  c._wasdResolve(.2, true, .2);
+  assert.equal(c._streakNotice.misses, 1);
+  assert.equal(c._streakNotice.hits, 23);
+  c.onWhiff();
+  assert.equal(c._streakNotice.misses, 1, "shooting misses cannot spend or restore WASD protection");
+  c._wasdResolve(0, false, .2);
+  assert.equal(c._streakNotice.misses, 1, "the retained optional-note branch cannot clear a main warning");
+  c.credit(1);
+  assert.equal(c._streakNotice.kind, "");
+  assert.equal(c._streakNotice.misses, 0);
+  assert.equal(c._streakNotice.hits, 0);
+  assert.equal(c._wasdCombo, 25, "legacy optional credit and both sides of the forgiven main remain accounted for");
+  assert.equal(c.streakFlowOpen(), true);
+});
+
+test("the warning budget applies only to earned free-play Flow and can be disabled", () => {
+  assert.match(source, /\bstreakGrace\s*:\s*true\b/);
+  assert.match(source, /\bstreakMissLimit\s*:\s*2\b/);
+  for (const variant of ["partial", "lesson", "disabled"]) {
+    const c = flowSandbox();
+    c.credit(variant === "partial" ? 15 : 16);
+    if (variant === "lesson") c.trainMode = true;
+    if (variant === "disabled") c.CFG.streakGrace = false;
+    c._wasdResolve(.2, true, .2);
+    assert.equal(c._wasdCombo, 0, variant);
+    assert.equal(c._pipSetN, 0, variant);
+    assert.equal(c._streakNotice.kind, "", variant);
+    assert.equal(c._streakNotice.misses, 0, variant);
+  }
+});
+
+test("hiding Flow in pause, Temple or flick bonus preserves a pending warning for the next normal main", () => {
+  for (const mode of ["pause", "temple", "bonus"]) {
+    const c = flowSandbox(); c.credit(16); c.wasdStreakMiss();
+    const before = { ...c._streakNotice };
+    if (mode === "pause") c.state.running = false;
+    if (mode === "temple") c.templeActive = true;
+    if (mode === "bonus") c.bonusActive = true;
+    c.updateStreakFlow(0);
+    assert.equal(c.streakFlowOpen(), false, mode);
+    assert.deepEqual({ ...c._streakNotice }, before, mode);
+    c.state.running = true; c.templeActive = false; c.bonusActive = false;
+    assert.equal(c.streakFlowOpen(), true, mode);
+    c.credit(1);
+    assert.equal(c._streakNotice.misses, 0, mode);
+  }
 });
 
 test("missing a shot changes the shooting streak but preserves the earned WASD Flow", () => {

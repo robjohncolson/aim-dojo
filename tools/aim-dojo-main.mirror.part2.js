@@ -1577,6 +1577,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function buildRoadArches(){
   if(!ML_NAVE){
   /* THE RAIL-SPLIT ARCHES, THE MERCY RING AND THE REFLECTIONS — ONE indexed mesh, ONE draw call, built ONCE (SPEC §4).

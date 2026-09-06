@@ -102,12 +102,13 @@ function loadPocketSandbox(overrides = {}) {
 
   const prelude = `
     var CFG = ${JSON.stringify({ ...bufferCfg, ...overrides })};
-    var trainMode = false, MOBILE = false;
+    var trainMode = false, MOBILE = false, templeActive = false, bonusActive = false;
     var state = { running: true, t: 0, bpm: 120 };
     var _pocketBuffer = [], _expectedPocket = 'on', _pocketBarCount = 0;
     var _pocketCandidate = null, _pocketCandidateStreak = 0, _pocketMissScan = null;
     var _resolved = new Set(), _resolvedNd = null, _pocketResolvedMains = new Set(), _baseMul = 1, _wasdCombo = 0;
     var _pipSetN = 0, _pipSetFlashT = -999;
+    var _streakNotice = { misses: 0, kind: '', at: -999, hits: 0 };
     var _curCi = -1, _curMain = true, _spoilNote = -1, _hitNote = -1;
     var toasts = [];
     function T(_key, fallback) { return fallback; }
@@ -115,6 +116,7 @@ function loadPocketSandbox(overrides = {}) {
   `;
   const context = vm.createContext({ Math, Number, Set, console });
   vm.runInContext(prelude + source, context);
+  vm.runInContext(["streakFlowLevel", "wasdStreakMiss", "wasdStreakRecover", "resetWasdStreakNotice"].map(extractFunction).join("\n"), context);
   context.read = (expression) => vm.runInContext(expression, context);
   context.write = (statement) => vm.runInContext(statement, context);
   return context;
@@ -135,6 +137,7 @@ function bonusAccessSandbox(bpm = 28) {
     FLOCK: { rainbowCombo: Number(rainbow[1]) }, PENTA: [277.18, 329.63, 369.99, 415.30, 493.88, 554.37, 659.25, 739.99],
     activeTheme: { name: "MOONLIGHT" }, tapSynth: { triggerAttackRelease: (...args) => audio.push(args) },
     bowTouch: () => {}, audioLat: () => 0, grooveI: 0, accuracy: null, strobe: true,
+    Tone: { Transport: { state: "started" } },
   });
   context.wasdBeats = () => context._beats;
   context.beatSnap = () => context.state.t;
@@ -158,7 +161,8 @@ function bonusAccessSandbox(bpm = 28) {
   context.step = (beats) => {
     context._beats = beats;
     context.state.t = (beats + .5) * 60 / bpm;
-    frame.runInContext(context);
+    if (context.state.running && !context.templeActive) context.updatePocketMisses();
+    if (context.state.running && !context.templeActive && !context.bonusActive) frame.runInContext(context);
   };
   context.rewardStep = () => reward.runInContext(context);
   // Run the actual contiguous WASD reset portion, including a fresh combo and pocket reset.
@@ -343,7 +347,7 @@ test("DE-COERCION: unreachable denser probes retain ghost styling and main-only 
   // PARCEL W appends the beat-glow amount as a FIFTH argument; ghostNote is still fourth and still there, which is the
   // de-coercion this test guards.
   assert.match(html, /showWasdGlyph\(letterKey, spoiled, laneCue && \(CFG\.wasdLetter \|\| reduceMotion\) && !hitHeld && !flashing, ghostNote, cueGlow\)/, "legacy ghost styling survives the set-flash glyph gate");
-  assert.match(html, /if\(_curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)\{ _baseMul=1; _wasdCombo=0;/, "only a MAIN going unresolved zeroes the streak");
+  assert.match(html, /if\(!pocketLive\(\) && _curCi>=0 && !_resolved\.has\(_curCi\) && _curMain\)/, "only a MAIN can miss at departure, and the pocket sweep owns its full late window");
   assert.match(html, /else if\(acc>0\) _wasdCombo\+\+;/, "the unreachable bonus-credit branch is retained");
   // 6 -> 8: THE MEANING (wave 7, parcel S2) added two READERS of the lane's density — roadLaneAt (which beat-band shows
   // which key) and roadWakeLatch (is this resolved note a MAIN?). Both call the one helper, which is what this line pins;
@@ -388,7 +392,7 @@ test("on-beat pace: real mains earn streak credit, duplicates cannot farm, and o
     }
     c.step(2); c.wasdLanePress(2);
     assert.equal(c._wasdCombo, pocketEnabled ? 1 : 3, "only credited mains contribute to the streak");
-    c.step(3); c.step(3.6);
+    c.step(3); c.step(pocketEnabled ? 3.7 : 3.6);
     assert.equal(c._wasdCombo, 0, "an unresolved main still costs the streak");
     assert.equal(c._baseMul, 1, "an unresolved main still releases damping");
     assert.equal(c._pipSetN, 0);
@@ -523,12 +527,21 @@ test("on-beat pips: flash alone hides an otherwise visible next letter and remai
   assert.equal(c.draw().glyph.on, true, "the pending main letter returns when the set flash expires");
 });
 
-test("on-beat pips: an unresolved main clears a partial set and a completed set", () => {
+test("on-beat pips: an unresolved main clears a partial set and warns an earned full set", () => {
   for (const count of [15, 16]) {
     const c = pipRendererSandbox();
     pressMainStreak(c, count);
     assert.equal(c.draw().pips.length, count, "the earned set is visible before the miss");
     c.step(count); c.step(count + .6);
+    if (count === 16) {
+      assert.equal(c._wasdCombo, 16);
+      assert.equal(c._pipSetN, 1);
+      assert.equal(c._streakNotice.kind, "warning");
+      assert.equal(c._streakNotice.misses, 1);
+      c.step(count + 1); c.step(count + 1.6);
+      assert.equal(c._streakNotice.kind, "ended");
+      assert.equal(c._streakNotice.hits, 16);
+    }
     assert.equal(c._wasdCombo, 0);
     assert.equal(c._pipSetN, 0);
     assert.equal(c._pipSetFlashT, -999);
@@ -537,21 +550,32 @@ test("on-beat pips: an unresolved main clears a partial set and a completed set"
   }
 });
 
-test("on-beat pips: the silent pocket sweep independently clears a completed set", () => {
+test("on-beat pips: target-free silent sweeps warn, then end a completed set", () => {
   const c = pipRendererSandbox();
   c.CFG.groovePocket = true;
   pressMainStreak(c, 16);
   c._beats = 16.7;
   c.state.t = (c._beats + .5) * 60 / c.state.bpm;
   c.updatePocketMisses(); // No animation resolution step and no input are needed for this path.
+  assert.equal(c._wasdCombo, 16);
+  assert.equal(c._pipSetN, 1);
+  assert.equal(c._streakNotice.kind, "warning");
+  assert.equal(c._streakNotice.misses, 1);
+  c.updatePocketMisses();
+  assert.equal(c._streakNotice.misses, 1, "repeated frames cannot count the same missed main twice");
+  c._beats = 17.7;
+  c.state.t = (c._beats + .5) * 60 / c.state.bpm;
+  c.updatePocketMisses();
   assert.equal(c._wasdCombo, 0);
   assert.equal(c._pipSetN, 0);
   assert.equal(c._pipSetFlashT, -999);
+  assert.equal(c._streakNotice.kind, "ended");
+  assert.equal(c._streakNotice.hits, 16);
   assert.equal(c.draw().pips.length, 0);
   assert.equal(c.draw().numerals.length, 0);
 });
 
-test("on-beat pips: wrong keys, explicit weak credit and zero-credit mains clear the set latch", () => {
+test("on-beat pips: wrong keys, weak credit and zero-credit mains preserve one earned-set warning", () => {
   for (const failure of ["wrong key", "weak credit", "zero credit"]) {
     const c = pipRendererSandbox();
     pressMainStreak(c, 16);
@@ -560,12 +584,110 @@ test("on-beat pips: wrong keys, explicit weak credit and zero-credit mains clear
     if (failure === "wrong key") c.wasdLanePress(1);
     else if (failure === "weak credit") c._wasdResolve(0, true, w, { fullCredit: false, weakAcc: .25 });
     else c._wasdResolve(w + .001, true, w);
+    assert.equal(c._wasdCombo, 16, failure);
+    assert.equal(c._pipSetN, 1, failure);
+    assert.equal(c._streakNotice.kind, "warning", failure);
+    assert.equal(c._streakNotice.misses, 1, failure);
+    if (failure !== "wrong key") c._resolved.add(16); // The real claim reserves this main before calling _wasdResolve.
+    c.step(17);
+    if (failure === "wrong key") c.wasdLanePress(2);
+    else if (failure === "weak credit") c._wasdResolve(0, true, w, { fullCredit: false, weakAcc: .25 });
+    else c._wasdResolve(w + .001, true, w);
     assert.equal(c._wasdCombo, 0, failure);
     assert.equal(c._pipSetN, 0, failure);
     assert.equal(c._pipSetFlashT, -999, failure);
+    assert.equal(c._streakNotice.kind, "ended", failure);
+    assert.equal(c._streakNotice.hits, 16, failure);
     assert.equal(c.draw().pips.length, 0, failure);
     assert.equal(c.draw().numerals.length, 0, failure);
   }
+});
+
+test("streak warning: a wrong accepted key, duplicates and its later pocket sweep count one miss", () => {
+  const c = bonusAccessSandbox(); c.CFG.groovePocket = true;
+  pressMainStreak(c, 16);
+  c.step(16); c.wasdLanePress(1);
+  assert.equal(c._streakNotice.misses, 1);
+  assert.equal(c._wasdCombo, 16);
+  c.wasdLanePress(1); c.wasdLanePress(0);
+  assert.equal(c._streakNotice.misses, 1, "neither a repeated wrong key nor a rescue duplicate gets another claim");
+  c.step(16.7); c.updatePocketMisses();
+  assert.equal(c._streakNotice.misses, 1, "the stable main id excludes the accepted miss from silent scoring");
+  assert.equal(c._wasdCombo, 16);
+  c.step(17); c.wasdLanePress(1);
+  assert.equal(c._streakNotice.misses, 0);
+  assert.equal(c._streakNotice.kind, "");
+  assert.equal(c._wasdCombo, 17, "a correct next main restores the streak without losing earned hits");
+  c.step(18.7);
+  assert.equal(c._streakNotice.kind, "warning", "a later isolated miss gets a fresh warning");
+  assert.equal(c._streakNotice.misses, 1);
+});
+
+test("streak warning: a legal layback hit survives the legacy midpoint departure without a premature miss", () => {
+  const c = bonusAccessSandbox(); c.CFG.groovePocket = true;
+  pressMainStreak(c, 16);
+  c.pocketSetExpected("layback");
+  c.step(16); c.step(16.5);
+  assert.equal(c._streakNotice.misses, 0, "the next focused letter cannot close the older legal pocket window");
+  assert.equal(c._wasdCombo, 16);
+  c.step(16.6); c.wasdLanePress(0);
+  assert.ok(c._tapAcc > 0, "0.6 beats is still inside the learned layback accuracy window");
+  assert.equal(c._wasdCombo, 17);
+  assert.equal(c._streakNotice.kind, "");
+  c.step(16.7);
+  assert.equal(c._wasdCombo, 17);
+  assert.equal(c._streakNotice.misses, 0);
+});
+
+test("streak warning: optional wrong keys and unclaimed presses cannot spend or restore protection", () => {
+  const c = bonusAccessSandbox();
+  pressMainStreak(c, 16);
+  c.step(16); c.wasdLanePress(1);
+  assert.equal(c._streakNotice.misses, 1);
+  c.step(16.5); c.wasdLanePress(0);
+  assert.equal(c._streakNotice.misses, 1, "a midpoint with no live note remains ignored");
+  c.wasdNoteDiv = () => 2; // Explicit legacy density probe; live play remains one main per beat.
+  c.wasdLanePress(2); // ci=33 asks for lane 1 and is optional.
+  assert.equal(c._streakNotice.misses, 1, "an accepted optional wrong key cannot consume main protection");
+  assert.equal(c._wasdCombo, 16);
+  assert.equal(c._pipSetN, 1);
+  c._beats = 17.5; c.wasdLanePress(3); // ci=35 is an optional success; isolate its claim from unplayed intervening mains.
+  assert.equal(c._streakNotice.misses, 1, "an optional success cannot reset the main warning chain");
+  assert.equal(c._streakNotice.kind, "warning");
+});
+
+test("streak warning: flick ownership skips mains and pause time never manufactures a second strike", () => {
+  const c = bonusAccessSandbox(); c.CFG.groovePocket = true;
+  pressMainStreak(c, 16); c.step(16.7);
+  assert.equal(c._streakNotice.misses, 1);
+  c.state.running = false;
+  for (let frame = 0; frame < 5; frame += 1) c.updatePocketMisses();
+  assert.equal(c._streakNotice.misses, 1);
+  c.state.running = true;
+  c.bonusActive = true; c.step(21.7);
+  assert.equal(c._streakNotice.misses, 1, "bonus-owned mains do not spend normal streak protection");
+  c.bonusActive = false;
+  c.step(22); c.wasdLanePress(2);
+  assert.equal(c._wasdCombo, 17);
+  assert.equal(c._streakNotice.misses, 0);
+  assert.equal(c._streakNotice.kind, "");
+});
+
+test("streak ending keeps the exact credited-main total while a new ring starts", () => {
+  const c = bonusAccessSandbox(); c.CFG.groovePocket = true;
+  pressMainStreak(c, 16); c.step(16.7);
+  pressMainStreak(c, 3, 17);
+  assert.equal(c._wasdCombo, 19, "forgiven silence adds no credit and loses no prior correct hit");
+  c.step(20.7); c.step(21.7);
+  assert.equal(c._wasdCombo, 0);
+  assert.equal(c._streakNotice.kind, "ended");
+  assert.equal(c._streakNotice.hits, 19);
+  const endedAt = c._streakNotice.at;
+  c.step(22); c.wasdLanePress(2);
+  assert.equal(c._wasdCombo, 1);
+  assert.equal(c._streakNotice.kind, "ended");
+  assert.equal(c._streakNotice.hits, 19, "a new streak cannot overwrite the previous result");
+  assert.equal(c._streakNotice.at, endedAt, "the new hit cannot extend the ending notice");
 });
 
 test("on-beat pips: initialization, a new session and a disabled lane start without inherited set state", () => {
@@ -577,11 +699,14 @@ test("on-beat pips: initialization, a new session and a disabled lane start with
   for (const reset of ["session", "disabled lane"]) {
     const c = pipRendererSandbox();
     pressMainStreak(c, 16);
+    c.wasdStreakMiss();
+    assert.equal(c._streakNotice.kind, "warning");
     if (reset === "session") c.resetWasdSession();
     else { c.strobe = false; c.step(15); }
     assert.equal(c._wasdCombo, 0, reset);
     assert.equal(c._pipSetN, 0, reset);
     assert.equal(c._pipSetFlashT, -999, reset);
+    assert.deepEqual({ ...c._streakNotice }, { misses: 0, kind: "", at: -999, hits: 0 }, reset);
     assert.equal(c.draw().pips.length, 0, reset);
     assert.equal(c.draw().numerals.length, 0, reset);
   }

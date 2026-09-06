@@ -9294,6 +9294,49 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function ghostVisitorMailLine(){
+  if(!GH_SHARE || _ghostMailSpoken || !_ghostMailRows || _ghostMailRows.length<1) return '';
+  const sigils=[]; let seen=0;
+  for(const row of _ghostMailRows){
+    const bucket=row&&row[2], sigil=ghostMoonSigil(bucket); if(!sigil) continue;
+    const bit=1<<bucket; if(seen&bit) continue; seen|=bit; sigils.push(sigil);
+  }
+  if(!sigils.length) return '';
+  _ghostMailSpoken=true;
+  if(sigils.length===1) return TF('ghostVisitorMail','someone left a mark at your door · {sigil}',{sigil:sigils[0]});
+  return TF('ghostVisitorsMail','strangers left marks at your door · {sigils}',{sigils:sigils.join('\u2009')});
+}
+function ghostVisitorLine(){
+  if(!GH_SHARE || !GH_CHALK) return '';   // plain doors carry no chalk, so no sentence may claim they do (the user: "it makes no sense") — strangers stay silent until presence has a home again
+  const visitors=[], sigils=[]; let reachedBack=-1;
+  if(_ghostVisitors) for(const visitor of _ghostVisitors){
+    const sigil=visitor&&visitor.record?ghostMoonSigil(visitor.sig):'';
+    if(!visitor || !sigil) return '';
+    visitors.push(visitor); sigils.push(sigil); if(reachedBack<0 && visitor.back===true) reachedBack=visitors.length-1;
+  }
+  if(!visitors.length || visitors.every(visitor=>visitor.spoken)) return '';
+  for(const visitor of visitors) visitor.spoken=true;
+  if(visitors.length===1 && reachedBack===0) return TF('ghostVisitorBack','a stranger who reached back has chalked the doors · {sigil}',{sigil:sigils[0]}); if(visitors.length===1) return TF('ghostVisitorLine','a stranger\'s chalk is on the doors tonight · {sigil}',{sigil:sigils[0]});
+  if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','chalk from {n} strangers is on the doors tonight · {sigils}',{n:visitors.length,sigils:sigils.join('\u2009')});
+}
 function ghostMailRowsValid(value){
   if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
   for(const row of value) if(!Array.isArray(row) || row.length!==GH_MAIL_ROW_SIZE || !Number.isFinite(row[0]) || row[0]<0 || !Number.isInteger(row[1]) || row[1]<0 || row[1]>3 || !ghostMoonSigil(row[2])) return null;
@@ -9829,9 +9872,9 @@ function animate(frameNow){
         if(CFG.wasdRhythm && strobe){ const nd=wasdNoteDiv();   // THE FORTY FIX: the lane's OWN ladder (wasdNoteDiv) — no longer half the orb-jump rate, so the strobe can deepen to 1/8 at 50 bpm without conscripting the fingers
           syncWasdResolutionGrid(nd);
           const nb=wasdBeats(); const ci=Math.round(nb*nd);   // IN-FOCUS note on the "and" grid (groove); the circle converges to it then diverges (the late window)
-          if(ci!==_curCi){ if(_curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; }   // DE-COERCION (parcel R): only a MAIN leaving unresolved costs damping AND combo. A skipped in-between note is a declined invitation, so it cannot zero _wasdCombo — pressing once per beat is a clean run at every tempo. (Rolling main misses still come from the all-pocket sweep.)
+          if(ci!==_curCi){ if(!pocketLive() && _curCi>=0 && !_resolved.has(_curCi) && _curMain){ _baseMul=1; if(CFG.streakGrace) wasdStreakMiss(); else { _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; } }   // pocket mode owns silence only after its full late window; legacy departure must not charge it early or twice
             if(_spoilNote===_curCi) _spoilNote=-1; if(_hitNote===_curCi) _hitNote=-1; _resolved.forEach(c=>{ if(c<ci-1) _resolved.delete(c); }); _curCi=ci; _curMain=((((ci%nd)+nd)%nd)===0); }   // drop the spoil/hit freeze + prune stale resolved indices when we leave that note
-        } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; _resolved.clear(); }
+        } else { _curCi=-1; _baseMul=1; _mulEff=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; if(CFG.streakGrace) resetWasdStreakNotice(); _resolved.clear(); }
         const _raw=wasdMul(); _mulEff = _raw<_mulEff ? _raw : Math.min(_raw, _mulEff+0.35); }   // asymmetric envelope: calm lands INSTANTLY, punishment ramps +0.35/snap (a miss wakes the field over ~3 snaps instead of one full-amplitude jump-scare)
       for(let i=targets.length-1;i>=0;i--){
         const tg=targets[i];
@@ -9939,6 +9982,7 @@ function animate(frameNow){
   try{ updateStarTethers(); }catch(e){ if(!updateStarTethers._e){ updateStarTethers._e=1; console.error('updateStarTethers',e); } }   // STAR-TETHERS (parcel W): the thread from each star-bound Echo to its origin star. Runs AFTER the field's shell opacities were written above, because the thread's brightness IS that opacity — one law, one frame, no lag. One boolean read with the parcel off
   try{ roadSync(); }catch(e){ if(!roadSync._e){ roadSync._e=1; console.error('roadSync',e); } }   // THE STAR ROAD: three float uniforms — the latency-corrected transport beat and the course's re-basing pair. No allocation, no gameplay read, and one null check with road.on:false
   try{ updateFloorBeat(); }catch(e){} try{ updateWasdCursor(); }catch(e){} try{ updateFireRing(); }catch(e){}   // WASD floor/cursor/fire cues; guarded so a throw can't kill the frame
+  updateWasdStreakNotice();   // event text changes only on a warning/recovery/break; independent of the optional beat-circle canvas
   try{ if(renderFrameDue) drawWasdLane(); }catch(e){ if(!drawWasdLane._e){ drawWasdLane._e=1; console.error('drawWasdLane',e); } }   // draw ceiling leaves beat/input/Flow updates above on every callback
   try{ updateFlock(dt); }catch(e){ if(!updateFlock._e){ updateFlock._e=1; console.error('updateFlock',e); } }   // 3D star-flock: correct-tap "birds" fly downrange + dissolve (pooled, capped, reduceMotion-off)
   try{ updateLandRings(dt); }catch(e){ if(!updateLandRings._e){ updateLandRings._e=1; console.error('updateLandRings',e); } }   // expanding ring where a shot hits the ground
@@ -11055,7 +11099,7 @@ function resetSession(){
   if(CFG.stars.on) starFlyClear();   // a new night never inherits a voice still in the air — its level was already paid at drain (v1.3); only unpaid pending/debt get paid here before the visuals drop
   clearRings();
   _ringEchoAt=-1e9;   // the Transport rewinds below, so retire the run-local confirm before state.t can make an old timestamp young again
-  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
+  events.length=0; eventsGood=0; eventsHead=0; sinceAdjust=0; _quantIdx=-1; _jukeIdx=-1; _quantT=0; grooveI=0; glowI=0; _clutchLast=-999; _curCi=-1; _curMain=true; _resolved.clear(); _resolvedNd=null; _baseMul=1; _mulEff=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; if(CFG.streakGrace) resetWasdStreakNotice(); resetFlock(); _sparkPend=null; _noteFlashT=-999; _spoilNote=-1; _spoilOff=0; _hitNote=-1; _hitOff=0; _tapOffMs=0; _tapShowT=-999; _tapAcc=0; _combo=makeWasdCombo(); resetPocketState(); tideI=1; tideMercy=false; _tideCycle=-1; _tideTint=0; fillReset(); tickI=0; tickVolReset(); bowReset(); _bowHits.length=0; voiceReset(); volleyReset();   // fresh balanced WASD combo + pocket language state per run; TIDES rests neutral until onGrid rebuilds the swell from bar 0 (teardownTransport zeroes grid8 below); QUIET TICK is re-earned from scratch each run (silence is never inherited) with the tick node back at full voice; THE LEAD INSTRUMENT opens every night with a clean consonance stack and no clank mute outstanding, and CHORD VOLLEYS opens with no beat claimed (the Transport restarts at 0, so a stale beat index could otherwise read as "the same beat" on the first arrival of the new night), and THE DRUM FILL forgets which fill bar already spent its tank (grid8 restarts at 0, so a stale one would both block the new night's first fill and leave a pending election to hand a stale figure to whatever spawns next)
   _gradSnap={t:0,hits:0};   // parcel M: a fresh run has no graduation yet
   _dojoBest=loadDojoBests(); _dojoRecHit={far:false,high:false,streak:false};   // refresh personal bests + arm the ★ NEW RECORD flash for this run
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; bonusLocks.length=0; _bonusLast=-999; _bonusGrace=0; bonusEndsBeat=0; _bonusEntryBeat=0; _bonusCascadeBeat=0; _fireGrid=-1; _polyK=-1; _polyPairing=false;   // RAIL-FLICK BONUS: fresh state per run (targets already freed above, so no stale _flickLocked survives). POLYRHYTHM PAIRS rides along: the try/finally in polyPairSpawn already makes both of these unreachable-when-set outside its own synchronous body, so this is belt-and-braces for a run that begins while nothing is half-built — and it is the line that guarantees "one pair live" starts every night at zero, since the targets it counted were freed above

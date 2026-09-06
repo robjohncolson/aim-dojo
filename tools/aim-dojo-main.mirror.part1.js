@@ -79,6 +79,7 @@ const CFG = {
   wasdNoteDivs:[2,4,8], wasdNoteT:[1.01,1.02],   // One required note per beat; half-beats are unreachable. Inner pips count a 16-beat free-play streak; completing a ring flashes the set count on the circle. Orb motion keeps its separate 36/50 BPM ladder.
   wasdPipN:16,
   streakFlow:true,   // completing the first pip ring opens ordinary shields while the credited WASD streak lasts
+  streakGrace:true, streakMissLimit:2,   // after the first full ring, consecutive missed mains warn before ending Flow; a credited main clears the warning
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.30, wasdGrooveMax:2.7,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostTrimFast:1,   // R2 off switch: 0 restores whole-record serialization after every removed row
@@ -499,6 +500,23 @@ function learnWasdGlyph(k, key){ const ch=(key||'').toLocaleUpperCase(); if(ch.l
 try{ if(navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(m=>{ WASD_CODES.forEach((c,i)=>learnWasdGlyph(i,m.get(c))); }).catch(()=>{}); }catch(e){}
 let _combo=[0,1,2,3], _curCi=-1, _curMain=true, _baseMul=1, _mulEff=1, _wasdCombo=0, _pipSetN=0, _pipSetFlashT=-999, _noteFlashT=-999, _noteFlashHit=false, _spoilNote=-1, _spoilOff=0, _hitNote=-1, _hitOff=0, _tapOffMs=0, _tapShowT=-999, _tapAcc=0;   // WASD TAP notes: combo seq + current note index/key/window, is-main(on-beat), _baseMul=field damping from last main tap, _wasdCombo=consecutive credited free-play mains, _spoilNote/_hitNote=the frozen wrong/correct note + its off (beat-fraction), tap flash
 const _resolved=new Set();   // resolved note indices (one-press lock + miss-detection); replaces the single _resolvedIdx so a same-frame double-tap can claim the ADJACENT note instead of being eaten
+const _streakNotice={misses:0,kind:'',at:-999,hits:0};
+function resetWasdStreakNotice(){ _streakNotice.misses=0; _streakNotice.kind=''; _streakNotice.at=-999; _streakNotice.hits=0; }
+function wasdStreakRecover(){
+  _streakNotice.misses=0;
+  if(_streakNotice.kind==='warning') resetWasdStreakNotice();   // an ended streak's frozen total can finish displaying while a new ring starts
+}
+function wasdStreakMiss(){
+  if(CFG.streakGrace && streakFlowLevel()>0){
+    const limit=Math.max(2,Math.min(3,Math.floor(Number(CFG.streakMissLimit)||2)));
+    _streakNotice.misses++; _streakNotice.at=state.t; _streakNotice.hits=_wasdCombo;
+    _streakNotice.kind=_streakNotice.misses<limit?'warning':'ended';
+    if(_streakNotice.misses<limit) return false;   // keep earned pips, music lift and open shields through this miss
+  } else if(_streakNotice.kind==='warning') resetWasdStreakNotice();
+  _streakNotice.misses=0;
+  _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999;
+  return true;
+}
 let _resolvedNd=null;   // subdivision density attached to _resolved/_curCi/_hitNote/_spoilNote; remapped when difficulty crosses a grid threshold
 let _sparkPend=null;   // correct-tap → 3D star-flock burst signal {key,acc,rainbow}; consumed once by updateFlock, then nulled
 /* ---- ROLLING GROOVE POCKET (SPEC_POCKET_BUFFER): 16 main events continuously teach three clocks; one stable expected pocket governs freeze + floor phase for the next bar. ---- */
@@ -637,7 +655,8 @@ function pocketSweepMisses(beats, nd, bps, w){   // mains past the full legal la
     if(_pocketResolvedMains.has(m)) continue;
     _pocketResolvedMains.add(m);
     _resolved.add(ci);
-    _baseMul=1; _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999;
+    _baseMul=1;
+    if(CFG.streakGrace) wasdStreakMiss(); else { _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; }
     pocketOnMainMiss();
   }
   _pocketMissScan=due;
@@ -755,9 +774,10 @@ function _wasdResolve(offSec, main, win, opts){
   _noteFlashT=state.t; _noteFlashHit=true; _tapOffMs=Math.round(offSec*1000); _tapOffSum+=offSec; _tapOffN++; _tapAcc=Math.round(acc*100); _tapShowT=state.t;
   if(main){
     _baseMul=Math.pow(1-acc,1.5);
-    if(opts.fullCredit===false || acc<=0){ _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; }   // no credit breaks a consecutive credited-main streak, even if the pocket claim resolved the note
+    if(opts.fullCredit===false || acc<=0){ if(CFG.streakGrace) wasdStreakMiss(); else { _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; } }   // a resolved but uncredited main uses the same warning law as silence
     else if(acc>0 && !trainMode){
       _wasdCombo++;
+      if(CFG.streakGrace) wasdStreakRecover();
       const pipN=Math.max(1, CFG.wasdPipN||16);
       if(_wasdCombo%pipN===0){ _pipSetN=_wasdCombo/pipN; _pipSetFlashT=state.t; }
     }

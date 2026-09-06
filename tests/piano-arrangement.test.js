@@ -71,13 +71,23 @@ test("Piano keeps WASD notes, volley chords and the Bow resolution unchanged", (
     const current = extractFunction(main, name).replace(/\r\n/g, "\n");
     let expected = fixture.functions[name];
     if (name === "wasdLanePress") {
-      // The frozen fixture stays authenticated; only the new pip-flash reset is added
-      // to its expectation. All original note, grading and scheduling bytes stay exact.
-      const oldReset = "_wasdCombo=0; _noteFlashT=state.t;";
-      assert.equal(expected.split(oldReset).length, 2, "one frozen wrong-key reset exists");
-      expected = expected.replace(oldReset, "_wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; _noteFlashT=state.t;");
+      // Keep the authenticated fixture and extend only its exact wrong-key branch
+      // for streak protection; note, claim, scheduling and audio bytes stay compared.
+      const oldWrong = expected.split("\n").filter(line => line.startsWith("  else { _spoilNote=ci;"));
+      assert.equal(oldWrong.length, 1, "one frozen wrong-key branch exists");
+      assert.ok(oldWrong[0].includes("_wasdCombo=0; _noteFlashT=state.t; _noteFlashHit=false;"));
+      const streakWrong = [
+        "  else {",
+        "    _spoilNote=ci; _spoilOff=offBeats;",
+        "    if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); }",
+        "    if(CFG.streakGrace){ if(main || streakFlowLevel()<=0) wasdStreakMiss(); }   // optional notes never spend or restore an earned streak's warning",
+        "    else { _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; }",
+        "    _noteFlashT=state.t; _noteFlashHit=false;",
+        "  }   // wrong mains still dilute pocket history; stable resolved ids prevent an overdue second charge",
+      ].join("\n");
+      expected = expected.replace(oldWrong[0], streakWrong);
     }
-    assert.equal(current, expected, `${name}: original grading, notes, schedules and velocities with the authorized pip reset`);
+    assert.equal(current, expected, `${name}: original grading, notes, schedules and velocities with the authorized streak branch`);
     assert.doesNotMatch(current, /new\s+Tone\./, `${name} reuses the built voices`);
   }
   assert.equal((fixture.functions.volleyNote.match(/padChord\(/g) || []).length, 2);

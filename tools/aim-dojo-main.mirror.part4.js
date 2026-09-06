@@ -6796,6 +6796,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function senseiWeightLive(){ return _senseiWeak>=0 && _tideCycle>=0 && _tideCycle<(CFG.sensei.weightSwells|0); }   // the OPENING swells only, counted by the tide's own cycle latch (no second clock). With TIDES off _tideCycle rests at -1 forever: there are no swells to ride, so the drill simply never applies
 function senseiPickK(u, okK){
   // The bias, and the whole of it: the SAME uniform number the unweighted pick used, walked across a weighted CDF
@@ -7945,7 +7965,13 @@ function wasdLanePress(k){   // k = lane 0..3 (W/A/S/D). Shared by keyboard AND 
       if(activeTheme&&activeTheme.name==='TORIYANSE'&&!main&&_tapAcc>=100){ const ch=PENTA[Math.min(4,PENTA.length-1)]; tapSynth.triggerAttackRelease(ch,'32n',t0+0.04,0.58); tapSynth.triggerAttackRelease(ch,'32n',t0+0.10,0.48); }
     }catch(e){} }
   }
-  else { _spoilNote=ci; _spoilOff=offBeats; if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); } _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; _noteFlashT=state.t; _noteFlashHit=false; }   // WRONG key -> spoil; a main appends an all-zero intent sample. INVARIANT (parcel R): a well-timed MAIN press can never be claimed against an adjacent ghost because w <= full*0.5 strictly (verified at bpm 50/60: 0.24<0.30, 0.20<0.25) — if wasdWindow/wasdWindowFrac are ever retuned past that bound, gate this _wasdCombo=0 on `main` or ghosts regain the power to break the combo
+  else {
+    _spoilNote=ci; _spoilOff=offBeats;
+    if(main){ _baseMul=1; if(pocketLive()) pocketOnMainMiss(offBeats); }
+    if(CFG.streakGrace){ if(main || streakFlowLevel()<=0) wasdStreakMiss(); }   // optional notes never spend or restore an earned streak's warning
+    else { _wasdCombo=0; _pipSetN=0; _pipSetFlashT=-999; }
+    _noteFlashT=state.t; _noteFlashHit=false;
+  }   // wrong mains still dilute pocket history; stable resolved ids prevent an overdue second charge
   if(GH_RECORD) ghostRecordTap(k,k===ckey?_tapAcc:-1);   // NIGHT GHOSTS: accepted note claims write the pressed lane plus the grade already decided above; the lane never consults the ledger
 }
 function isTypingTarget(t){ return !!(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))); }
@@ -8438,6 +8464,23 @@ const HUD_CX=HUD_CSS/2;
 const ML_RING_ECHO=!!CFG.ringEcho, ML_RING_ECHO_T=0.30, ML_RING_IN=0.18;   // raw boolean first; echo seconds are capped again at capture time by 60% of the live note interval
 let _ringEchoAt=-1e9, _ringEchoR=0, _ringEchoKey=0, _ringEchoDur=0, _ringEchoMain=true;   // time + stored geometry/key: no note index exists here for an nd remap to resurrect
 function ARC(r){ hudCtx.beginPath(); hudCtx.arc(HUD_CX,HUD_CX,Math.max(0.5,r),0,Math.PI*2); hudCtx.stroke(); }   // hoisted out of drawWasdLane (was a fresh closure per frame; cx===cy===HUD_CSS/2 are constants)
+const streakNoticeEl=gid('streakNotice'), streakNoticeTitle=gid('streakNoticeTitle'), streakNoticeCount=gid('streakNoticeCount'), streakNoticeHint=gid('streakNoticeHint');
+let _streakNoticeKey='';
+function updateWasdStreakNotice(){
+  if(!streakNoticeEl) return;
+  const eligible=CFG.streakGrace && CFG.streakFlow && CFG.wasdRhythm && CFG.grooveGroove && CFG.grooveVuln && state.running && !trainMode && !templeActive && !bonusActive;
+  const warning=eligible && _streakNotice.kind==='warning' && _streakNotice.misses>0 && streakFlowLevel()>0;
+  const ended=eligible && _streakNotice.kind==='ended' && state.t>=_streakNotice.at && state.t-_streakNotice.at<2.4;
+  const limit=Math.max(2,Math.min(3,Math.floor(Number(CFG.streakMissLimit)||2)));
+  const key=warning?'warning:'+_streakNotice.misses+':'+limit:ended?'ended:'+_streakNotice.hits:'';
+  if(key===_streakNoticeKey) return;
+  _streakNoticeKey=key;
+  if(!key){ streakNoticeEl.classList.remove('on','ended'); return; }
+  setText(streakNoticeTitle,warning?(IS_JA?'ストリーク注意':'STREAK AT RISK'):(IS_JA?'ストリーク終了':'STREAK ENDED'));
+  setText(streakNoticeCount,warning?_streakNotice.misses+' / '+limit:String(_streakNotice.hits));
+  setText(streakNoticeHint,warning?(IS_JA?'次の正しい入力で回復':'Hit the next note to recover'):(IS_JA?'正しい入力の合計':'CORRECT HITS'));
+  streakNoticeEl.classList.toggle('ended',!!ended); streakNoticeEl.classList.add('on');
+}
 function drawStreakFlow(cx,cy,radius){
   if(!CFG.streakFlow || !hudCtx || _flowGlow.value<=0.005) return;
   const glow=Math.min(1,_flowGlow.value), r=radius+9, turn=Math.PI*2/3, phase=(LOW||reduceMotion)?0:_flowPhase.value;
@@ -9268,30 +9311,5 @@ function ghostLocalMailLine(){
 function ghostMoonSigil(bucket){
   if(!Number.isInteger(bucket) || bucket<0 || bucket>7) return '';
   const at=bucket*GH_SIGIL_CODE_UNITS; return GH_MOON_SIGILS.slice(at,at+GH_SIGIL_CODE_UNITS);
-}
-function ghostVisitorMailLine(){
-  if(!GH_SHARE || _ghostMailSpoken || !_ghostMailRows || _ghostMailRows.length<1) return '';
-  const sigils=[]; let seen=0;
-  for(const row of _ghostMailRows){
-    const bucket=row&&row[2], sigil=ghostMoonSigil(bucket); if(!sigil) continue;
-    const bit=1<<bucket; if(seen&bit) continue; seen|=bit; sigils.push(sigil);
-  }
-  if(!sigils.length) return '';
-  _ghostMailSpoken=true;
-  if(sigils.length===1) return TF('ghostVisitorMail','someone left a mark at your door · {sigil}',{sigil:sigils[0]});
-  return TF('ghostVisitorsMail','strangers left marks at your door · {sigils}',{sigils:sigils.join('\u2009')});
-}
-function ghostVisitorLine(){
-  if(!GH_SHARE || !GH_CHALK) return '';   // plain doors carry no chalk, so no sentence may claim they do (the user: "it makes no sense") — strangers stay silent until presence has a home again
-  const visitors=[], sigils=[]; let reachedBack=-1;
-  if(_ghostVisitors) for(const visitor of _ghostVisitors){
-    const sigil=visitor&&visitor.record?ghostMoonSigil(visitor.sig):'';
-    if(!visitor || !sigil) return '';
-    visitors.push(visitor); sigils.push(sigil); if(reachedBack<0 && visitor.back===true) reachedBack=visitors.length-1;
-  }
-  if(!visitors.length || visitors.every(visitor=>visitor.spoken)) return '';
-  for(const visitor of visitors) visitor.spoken=true;
-  if(visitors.length===1 && reachedBack===0) return TF('ghostVisitorBack','a stranger who reached back has chalked the doors · {sigil}',{sigil:sigils[0]}); if(visitors.length===1) return TF('ghostVisitorLine','a stranger\'s chalk is on the doors tonight · {sigil}',{sigil:sigils[0]});
-  if(reachedBack>0) sigils.unshift(sigils.splice(reachedBack,1)[0]); return TF('ghostVisitorsLine','chalk from {n} strangers is on the doors tonight · {sigils}',{n:visitors.length,sigils:sigils.join('\u2009')});
 }
 })();

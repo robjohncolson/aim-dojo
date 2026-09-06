@@ -73,6 +73,13 @@ html[lang=ja] #pocketLaw .pl-main,html[lang=ja] #pocketLaw .pl-sub{letter-spacin
 #bowMandala{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;height:340px;max-width:76vmin;max-height:76vmin;z-index:5;pointer-events:none;display:none}   /* THE BOW: the closing Mandala glyph — one dot per arrival this run, moonlight monochrome, no axes/labels/numbers. Shown only by the Bow sequence (display flipped in JS), never a HUD. */
 #wasdGlyph{position:fixed;left:50%;top:calc(50% + 50px);transform:translate(-50%,-50%);min-width:72px;text-align:center;z-index:7;pointer-events:none;display:none;font:bold 58px/1 var(--mono);letter-spacing:0;text-shadow:0 0 4px #000,0 0 10px rgba(0,0,0,.95),0 2px 2px #000;will-change:color}
 #wasdGlyph.on{display:block}
+#streakNotice{position:fixed;left:50%;top:max(100px,calc(50% - 100px));transform:translate(-50%,-100%);z-index:8;pointer-events:none;box-sizing:border-box;width:220px;max-width:calc(100vw - 28px);padding:9px 14px;text-align:center;font-family:var(--mono);color:#ffd184;background:rgba(8,10,18,.84);border:1px solid currentColor;opacity:0;visibility:hidden;transition:opacity .12s ease}
+#streakNotice.on{opacity:1;visibility:visible}
+#streakNotice.ended{color:#ffc0ad}
+#streakNoticeTitle{font-size:11px;letter-spacing:.13em;line-height:1.4}
+#streakNoticeCount{font-size:30px;line-height:1.25;font-weight:bold;letter-spacing:.03em}
+#streakNoticeHint{font-size:10px;line-height:1.4;letter-spacing:.02em}
+@media(prefers-reduced-motion:reduce){#streakNotice{transition:none}}
 #lockBox{position:fixed;left:0;top:0;box-sizing:border-box;border:1.5px solid rgba(150,190,230,.45);border-radius:3px;pointer-events:none;z-index:5;display:none;transform:translate(var(--lx,50vw),var(--ly,50vh)) translate(-50%,-50%) scale(var(--pulse,1));will-change:transform,width,height}
 #lockBox.on{display:block}
 #lockBox.lock{border-color:rgba(255,205,90,.95);box-shadow:0 0 12px rgba(255,205,90,.55),inset 0 0 8px rgba(255,205,90,.22)}
@@ -441,6 +448,7 @@ body.overlay-paused #pauseStats{order:0}
 <canvas id="wasdHud" width="560" height="560" aria-hidden="true"></canvas>
 <canvas id="bowMandala" width="560" height="560" aria-hidden="true"></canvas>
 <div id="wasdGlyph" aria-hidden="true"></div>
+<div id="streakNotice" role="status" aria-live="polite" aria-atomic="true"><div id="streakNoticeTitle"></div><div id="streakNoticeCount"></div><div id="streakNoticeHint"></div></div>
 <div id="windHud" aria-hidden="true"><span class="wh-arrow">↑</span><span class="wh-mag"></span></div>
 <div id="hitmark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <div id="timing" aria-hidden="true"><div class="g"></div><div class="s"></div><div class="p"></div></div>
