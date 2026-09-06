@@ -9290,131 +9290,181 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function ghostVisitorStore(epoch,id,record,reachedBack){
+  if(!GH_SHARE || epoch!==_ghostShareEpoch || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
+  if(!_ghostVisitors) _ghostVisitors=[];
+  if(_ghostVisitors.length>=GH_VISITOR_COUNT || _ghostVisitors.some(visitor=>visitor.id===id)) return false;
+  _ghostVisitors.push({id:id,record:record,sig:record.moonBucket,back:reachedBack===true,spoken:false,mail:[]});
+  if(GH_CHALK) try{ ghostChalkInstall(); }catch(e){}
+  return true;
+}
+async function ghostVisitorFetch(epoch,token,bucket){
+  const path=GH_GHOSTS_PATH+'?lon='+bucket+'&n='+GH_VISITOR_FETCH_COUNT, body=await ghostRelayJson(path,{headers:ghostRelayHeaders(token,false)},GH_GHOSTS_RESPONSE_MAX);
+  if(epoch!==_ghostShareEpoch || !body || !Array.isArray(body.ghosts) || !body.ghosts.length) return;
+  let accepted=0;
+  for(let i=0;i<body.ghosts.length && i<GH_VISITOR_FETCH_COUNT;i++){
+    const item=body.ghosts[i]; if(!item || !ghostTokenValid(item.id) || ghostSerializedBytes(item.artifact)>GH_MAX_BYTES) continue;
+    const record=ghostArtifactValid(item.artifact); if(!record) continue; const reachedBack=typeof item.reachedBack==='boolean'?item.reachedBack:false;
+    if(accepted<GH_VISITOR_COUNT){ if(ghostVisitorStore(epoch,item.id,record,reachedBack)) accepted++; }
+  }
+}
+async function ghostMailFetch(epoch,token){
+  // Read-once is intentional ephemerality: the relay clears this mailbox before it answers, so a crash after this boundary loses the notes and no client cache tries to resurrect them.
+  const body=await ghostRelayJson(GH_MAIL_PATH,{headers:ghostRelayHeaders(token,false)});
+  if(epoch!==_ghostShareEpoch) return;
+  const rows=body&&ghostSerializedBytes(body)<=GH_MAX_BYTES?ghostMailRowsValid(body.catches):null;
+  if(rows && rows.length) _ghostMailRows=rows;
+  if(GH_CHALK) try{ ghostMailArrive(rows||[]); }catch(e){}   // empty, rejected and timed-out reads also close the bounded prefetch history; no receipt is persisted or retried
+}
+function ghostShareReset(){
+  if(!GH_SHARE) return;
+  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=ghostLonBucket();
+  _ghostVisitors=[]; _ghostMailRows=[]; _ghostMailSpoken=false;
+  const epoch=_ghostShareEpoch, bucket=_ghostShareBucket, token=ghostToken(); if(!token) return;
+  ghostVisitorFetch(epoch,token,bucket).catch(()=>{}); ghostMailFetch(epoch,token).catch(()=>{});
+}
+async function ghostMailAttempt(token,toId,catches){
+  const response=await ghostRelayFetch(GH_MAIL_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({toId:toId,catches:catches})});
+  return !!(response&&response.ok);
+}
+function ghostShareFinalize(){
+  if(!GH_SHARE || !GH_CHALK || _ghostShareSentEpoch===_ghostShareEpoch || !_ghostMarksOut || !_ghostMarksOut.length) return;
+  const pending=[];
+  if(_ghostVisitors) for(const visitor of _ghostVisitors){ if(visitor && visitor.id && visitor.shown===true && pending.indexOf(visitor.id)<0 && pending.length<GH_VISITOR_COUNT) pending.push(visitor.id); }
+  if(!pending.length) return;
+  const token=ghostToken(); if(!token) return;
+  const rows=_ghostMarksOut.slice(0,GH_CAP_MAIL).map(row=>row.slice());
+  _ghostShareSentEpoch=_ghostShareEpoch; for(const id of pending) if(id!==token) ghostMailAttempt(token,id,rows).catch(()=>{});
+}
+function ghostNightSeed(record){
+  const date=record.date, key=(+date.slice(0,4)*10000+(+date.slice(5,7))*100+(+date.slice(8,10)))|0;
+  return (key^Math.imul(record.moonBucket+1,0x9e3779b9))>>>0;
+}
+function ghostNightPalette(record,out){
+  const over=CFG.moonline&&CFG.moonline.wallPalette, src=Array.isArray(over)&&over.length?over:ML_WALL_CHALK, rr=mulberry32(ghostNightSeed(record)), n=Math.max(1,src.length); let prev=-1;
+  for(let i=0;i<out.length;i++){
+    const a=Math.min(n-1,(rr()*n)|0), turn=Math.min(Math.max(0,n-2),(rr()*Math.max(1,n-1))|0), pick=(n>1&&a===prev)?(a+1+turn)%n:a;
+    out[i]=Number(src[pick])>>>0; prev=pick;
+  }
+  return out;
+}
+function ghostSessionStart(){
+  // Graduation is the real main-play boundary; recording and relay reads keep the same lifecycle entry.
+  if((!GH_RECORD&&!GH_SHARE&&!GH_CHALK) || trainMode || templeActive) return;
+  if(GH_RECORD) ghostOwnLoad();
+  if(GH_SHARE) ghostShareReset();
+  if(GH_RECORD) ghostRecordArm();
+  if(GH_CHALK){ if(!GH_RECORD&&!GH_SHARE) ghostRoadReset(); ghostChalkReset(roadBeatNow()); ghostChalkInstall(); }
+}
+
+/* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
+   THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
+   report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
+   the key that was due, and the road subsumed it because two beat clocks on screen is clutter. THE VOID has no floor left to
+   wash — and it is also where the required LETTER came home to the crosshair — so the identical envelope now lights the
+   LETTER instead, and the cue is MOVED rather than deleted for the second time in two waves.
+   RESTORED, NOT REINVENTED: the timing law below is the shipped one, lifted whole into wasdBeatGlow() and called by both
+   renderers, so there is no second copy of it to drift. The floor path's arithmetic is character-for-character what it was
+   (maxAmt*env*env, in that order, with the trainer's discrete reduced-motion flash intact); the crosshair reads the SAME
+   return and normalises it to 0..1 for its bloom. The two can never both run: the floor asks for !roadLive(), the crosshair
+   for moonlineVoid() ≡ moonline.on && roadLive(), which are disjoint by construction.
+   reduceMotion is inherited verbatim, and that is the honest restoration: the pre-wave-7 cue was OFF in free play under
+   reduced motion (only the trainer kept a discrete flash), so the void's crosshair bloom is off there too — a reduced-motion
+   player loses nothing they ever had, and the letter itself is still shown (CFG.wasdLetter || reduceMotion).
+   [WAVE 8.1 — THE BREATH, SPEC_MOONLINE §1.1. The letter was only HALF of what the wash did. First light said so: "the
+   playing field was the color and it had a mesmerizing increase in saturation up until the correct fire time, and that
+   helped gauge timing — without it, it's hard." A letter cannot be a FIELD. So the CURVE below is now shared three ways
+   rather than two, by beatSwell(): the trainer's floor, the crosshair's letter, and — through roadBreath(), on the road's
+   own latency-corrected clock — the whole Moonline ribbon, which is the biggest surface a floorless world has. The floor
+   and the road still can never both run (!roadLive() vs the road's own live path). The road and the LETTER deliberately
+   DO run together and are not a contradiction: they are two cues for two different actions on the same grid — the letter
+   peaks on the "and", where the WASD tap is due (wasdBeats() carries grooveFreezePhase), and the road peaks on the "one",
+   where the shot must LAND (roadBeatNow() is the raw heard beat). See roadBreath for the full expansion.] ---- */
+const _floorBeatCol=new THREE.Color();
+let _beatGlowKey=0;   // the lane the last wasdBeatGlow() call was about — an int, written where the hue is already computed, so neither renderer needs a second pass over the combo
+function wasdBeatCueOn(){ return !templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started' && (!reduceMotion || trainMode); }   // EVERY condition of the shipped floor-beat gate except which SURFACE is asking: trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). Both callers append their own surface test, and updateFloorBeat's is still `&& !roadLive()`, so its gate reduces character-for-character to the one that shipped
+function beatSwell(maxAmt, off){ const env=Math.max(0,1-off*2); return maxAmt*env*env; }   // THE CURVE, and the ONLY copy of it: a linear ramp off the beat, squared. Lifted out of wasdBeatGlow by wave 8.1 unchanged — same expression, same multiply order, so every caller's product is bit-for-bit what it was — because the RIBBON now needs the same shape on a different clock (roadBreath) and a second transcription of a loved curve is how two cues start disagreeing. Three renderers, one law: the trainer's floor, the crosshair's letter, the Moonline's road
+function wasdBeatGlow(){   // THE ENVELOPE, verbatim: |beats − round(beats)| against a linear ramp, squared. Returns floor-beat units (0..CFG.floorBeatMax) so the floor path's product is bit-for-bit unchanged; the crosshair divides by the same max
+  let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
+  const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
+  beats-=cueI;
+  const nd=wasdNoteDiv();
+  // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
+  const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length;
+  _beatGlowKey=_combo[(((biKey*nd)%len)+len)%len];
+  const bi=Math.round(beats), off=Math.abs(beats-bi);
+  const maxAmt=CFG.floorBeatMax;
+  if(trainMode && reduceMotion) return off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
+  return beatSwell(maxAmt, off);   // …and the soft envelope, now the one shared copy above (same operands, same order: bit-identical to the line that stood here)
+}
+function updateFloorBeat(){
+  let amt=0;
+  const floorCueOn=wasdBeatCueOn() && !roadLive();   // THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
+  if(floorCueOn){
+    amt=wasdBeatGlow();
+    _floorBeatCol.setHex(WASD_HEX[_beatGlowKey]);
+  }
+  const fsh=dayFloor&&dayFloor.material.userData.sh;
+  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
+  const gsh=nightGrid&&nightGrid.material.userData.shBeat;
+  if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
+}
+let _fireHot=false;
+function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens on the beat. That "LAUNCH now" cue rewarded pulling the trigger ON the beat — the exact instinct that fights landing the shot on the beat. Now the ORB GLOW is the sole "land it here now" cue (the beat pulse + audio carry the anticipation); the player LEADS the release and guesses the flight time. To bring the crosshair cue back as a PREDICTIVE "release now → land on beat" light, gate `hot` on a flight-time lookahead instead of `_openAmt>0`.
+  const hot = false;
+  if(hot!==_fireHot){ _fireHot=hot; if(el.reticle) el.reticle.classList.toggle('fire',hot); }
+}
+/* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
+const landRingPool=[];
+function spawnLandRing(x,z){
+  if(moonlineVoid()) return;   // NOTHING BESIDE THE ROAD BUT SPACE (wave 8, G2a · SPEC §1). This ring is a y=0.03 disc on the RETIRED plane — in the void it is a blue circle hanging in mid-air over the celestial shell's lower half, marking a floor that is not there. The gate is HERE, on the visual, and NOT at the call site: updateProjectiles' `pr.pos.y<=0.04` termination, its onWhiff and its retire are ballistics and stay byte-identical, so in the void a missed shot simply falls out of the world and is graded exactly as it always was (THE TREADMILL LAW). The trainer keeps its land rings (moonlineVoid() reads !trainMode), the Temple never reaches here (templeActive gates updateProjectiles), and moonline.on:false keeps them everywhere
+  let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
+  if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
+  lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
+}
+function updateLandRings(dt){
+  for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
+    if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
+    const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
+}
+function clearLandRings(){   // the twin of clearRings for the OTHER floor-plane pool, and the only way to retire one EARLY: updateLandRings above is unconditional in animate (no state.running, no !templeActive), so a live ring otherwise runs its full 0.55 s wherever the player has been taken in the meantime
+  for(const lr of landRingPool){ if(lr.active){ lr.active=false; lr.mesh.visible=false; } }
+}
+
+/* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
+const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
+let scopeAccum=SCOPE_STEP;
+const lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
+const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
+const _scScreen=[0,0,false];
+/* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
+let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
+const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85, EDGE_FLOW=34;   // deviation -> edge-tint opacity (0 within EDGE_TOL m, full by ~3m). EDGE_FLOW = conveyor scroll speed in px/s per metre of |delta|.
+const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints that CONVEY toward the aim-correction direction
+let _devY=0, _devX=0, _devShow=false, _eTopP=0, _eBotP=0, _eLeftP=0, _eRightP=0;
+function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
+function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
+function hideEdgeTints(){ _devShow=false; }
+function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
+  const dy=_devShow?_devY:0, dx=_devShow?_devX:0, scroll=!reduceMotion;   // reduced-motion: keep the static edge tint (opacity), freeze the conveyor scroll
+  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0 && scroll){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
+  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0 && scroll){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
+  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0 && scroll){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
+  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
+}
+function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
+function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
+  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
+function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
+function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
+  for(const tg of targets){ if(tg.dead) continue;
+    if(tight && (tg._flickLocked || tg.kind===2)) continue;   // flick can't re-lock a locked orb, and you never flick-lock a decoy
+    _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included in the normal path -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
+    const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d;
+    if(tight){ if(dot>=Math.cos(Math.atan2(tg.radius*tg.sc*CFG.flickBonus.coneMul, d)) && dot>bestDot){ bestDot=dot; best=tg; } }   // dot >= cos(angular radius) == the crosshair is inside the orb's silhouette
+    else if(dot>bestDot){ bestDot=dot; best=tg; } }
+  return best;
+}
 function updateScope(dt){
   if(!(CFG.projectile && CFG.scope && state.running && !templeActive)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
   if(bonusActive){ hideScope(); scopeAccum=SCOPE_STEP; return; }   // RAIL-FLICK BONUS: updateFlickBonus owns lockBoxEl (the gold "lockable now" mark) during the bonus
@@ -9645,6 +9695,7 @@ function animate(frameNow){
   if(!state.running) lastIdleFrame=frameNow;
   _audioFrame++;   // AUDIO AUTOMATION DIET: one listener push per frame, however many times the camera's children get walked
   const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
+  if(!state.running || templeActive) updateStreakFlow(0);
   if(_trainCoachT>0){
     _trainCoachT-=dt;
     if(_trainCoachT<=0){
@@ -9703,6 +9754,9 @@ function animate(frameNow){
 
   if(state.running && !templeActive){
     state.t+=dt;
+    try{ updatePocketMisses(); }catch(e){}   // resolve overdue WASD mains before the reward and its shield cue
+    updateStreakFlow(dt);
+    const _flowOpen=CFG.streakFlow && streakFlowOpen();
     let _fb=NaN; const frameBeat=()=>{ if(_fb!==_fb){ _fb=0; try{ _fb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} } return _fb; };   // ONE transport read per frame for the two consumers below (perf audit 2026-08-18): Tone's `Transport.ticks` getter walks the state timeline with allocations on every read, and the vuln glow + the strobe grid asked it twice for one value. Lazy, so a build with both consumers off gains no read; the sample is the same render quantum either way. Input grading (fire/keydown) never comes through here.
     _fillAmt=-1;   // THE FILL'S OWN PULSE rests at "nothing is asking" every frame and is re-earned inside the vuln branch below, so a build with the vuln mechanic off (or reduced motion on top of it) can never read a stale amount off a previous frame
     if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
@@ -9717,7 +9771,9 @@ function animate(frameNow){
       const _floor=CFG.openShellOpacityFloor!=null?CFG.openShellOpacityFloor:0.04;
       const _peak=CFG.openShellOpacityPeak!=null?CFG.openShellOpacityPeak:0.42;
       const _so=_openAmt>0?Math.min(_peak, (_floor+(_peak-_floor)*_openAmt)*(CFG.openGlowBoost||1)):_floor;
-      TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
+      const _flowSo=_flowOpen?Math.min(_peak,_peak*(CFG.openGlowBoost||1)):_so;
+      TARGET_SHELL_MAT.opacity=_flowSo; GOLD_SHELL_MAT.opacity=_flowSo; SPEED_SHELL_MAT.opacity=_flowSo; MOVER_SHELL_MAT.opacity=_flowSo;
+      DECOY_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
       // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2 amendment T4). The shipped tank wore the FIELD's whole-beat glow, so
       // the one orb that answers to a count of gates lit up identically on gates it still needed and gates it had already
       // spent — the middle gate of the 3-figure was, visually, dark: nothing on screen said "again, now". blinkWin was the
@@ -9729,7 +9785,6 @@ function animate(frameNow){
       _fillAmt = CFG.tank.fillOnly ? fillGlowAmt() : -1;
       if(_fillAmt>=0) TANK_SHELL_MAT.opacity = _fillAmt>0 ? Math.min(_peak, (_floor+(_peak-_floor)*_fillAmt)*(CFG.openGlowBoost||1)) : _floor;   // the identical opacity law as _so above, on the fill's clock instead of the beat's
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
-    try{ updatePocketMisses(); }catch(e){}   // unconditional on target presence: close overdue main events before this frame's field work
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
       // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
@@ -9766,7 +9821,7 @@ function animate(frameNow){
         const _sh=tg.mesh.userData.shell;
         if(_sh){
           const base=CFG.openShellScale!=null?CFG.openShellScale:1.55, peak=CFG.openShellScalePeak!=null?CFG.openShellScalePeak:1.92;
-          const a=(CFG.grooveGroove&&CFG.grooveVuln)?((_fillAmt>=0 && tg.fill16>=0)?_fillAmt:_openAmt):0;   // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2, T4): the bubble inflates with the same amount its opacity was just shaped from, so the tank's shell reads as ONE cue and not a light arguing with a size. _fillAmt is -1 on every frame of a fillOnly:false build and tg.fill16 is -1 on every orb that is not the fill, so this is _openAmt verbatim for everything else
+          const a=(CFG.grooveGroove&&CFG.grooveVuln)?((_fillAmt>=0 && tg.fill16>=0)?_fillAmt:(_flowOpen && tg.hpMax<=1 && tg.kind!==2?1:_openAmt)):0;   // only ordinary orbs hold the open pose during Flow; tanks keep their own musical cue
           const pulse=a>0?(base+(peak-base)*a*(0.94+0.06*Math.sin(state.t*9+(tg.idx||0)))):base;
           _sh.scale.setScalar(pulse);
         }
@@ -10941,6 +10996,7 @@ function chorusBootGesture(e){
 if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown',chorusBootGesture,true); document.addEventListener('keydown',chorusBootGesture,true); }   // raw boolean first: with the parcel off nothing is armed, no listener exists, and audio still starts exactly where it does today (inside startRun). Capture phase so a handler that stops propagation cannot swallow the one gesture the graph is waiting for
 
 function resetSession(){
+  if(CFG.streakFlow) resetStreakFlow();   // grace and visual state never carry into a new night
   if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
   skyChatReset();
   rhythmGeneration++;

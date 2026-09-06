@@ -78,6 +78,7 @@ const CFG = {
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdNoteDivs:[2,4,8], wasdNoteT:[1.01,1.02],   // One required note per beat; half-beats are unreachable. Inner pips count a 16-beat free-play streak; completing a ring flashes the set count on the circle. Orb motion keeps its separate 36/50 BPM ladder.
   wasdPipN:16,
+  streakFlow:true,   // completing the first pip ring opens ordinary shields while the credited WASD streak lasts
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.30, wasdGrooveMax:2.7,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostTrimFast:1,   // R2 off switch: 0 restores whole-record serialization after every removed row
@@ -456,6 +457,27 @@ let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap
 let _jukeIdx=-1;   // last whole-beat index an orb-JUKE fired on (groove Phase 1)
 function wasdBeats(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b - (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // WASD note grid, phase-shifted onto the "and" so the freeze PEAKS off-beat; the metronome / orb-strobe / juke / shot all stay on the RAW whole beat
 let _openAmt=1;   // orb-vulnerability glow 0..1 (peaks on the beat); recomputed each frame in the run loop
+const _flowGlow={value:0}, _flowPhase={value:0};   // shared wall uniforms; the reticle reads the same eased reward
+let _flowActive=false, _flowGraceUntil=-999;
+function streakFlowLevel(){
+  if(!CFG.streakFlow || !CFG.wasdRhythm || !CFG.grooveGroove || !CFG.grooveVuln || !state.running || trainMode || templeActive || bonusActive || _wasdCombo<=0) return 0;
+  return Math.min(3,Math.max(0,Math.floor(_pipSetN)));   // the actual completed-ring signal; optional taps cannot unlock Flow
+}
+function resetStreakFlow(){ _flowActive=false; _flowGraceUntil=-999; _flowGlow.value=0; _flowPhase.value=0; }
+function updateStreakFlow(dt){
+  if(!CFG.streakFlow || !CFG.wasdRhythm || !CFG.grooveGroove || !CFG.grooveVuln || !state.running || trainMode || templeActive || bonusActive){ resetStreakFlow(); return; }
+  const level=streakFlowLevel();
+  if(level>0){ _flowActive=true; _flowGraceUntil=-999; }
+  else if(_flowActive){ _flowActive=false; _flowGraceUntil=state.t+0.25*60/Math.max(20,state.bpm); }   // a quarter beat to hear the break before ordinary shields return
+  const target=level>0?0.58+0.21*(level-1):0;
+  _flowGlow.value+=(target-_flowGlow.value)*(1-Math.exp(-Math.max(0,dt)*(target>_flowGlow.value?7:5)));
+  if(_flowGlow.value<0.001 && !level) _flowGlow.value=0;
+  _flowPhase.value=(LOW || reduceMotion)?0:state.t*0.16;   // slow pearl drift; still color under reduced motion and LOW
+}
+function streakFlowOpen(){
+  updateStreakFlow(0);   // input can arrive between frames; resolve activation/break before recording a launch
+  return _flowActive || state.t<_flowGraceUntil;
+}
 function orbOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || _openAmt>0; }   // a shot only KILLS while the orb glows OPEN (on the beat); an off-beat hit clanks off the shield
 let _fillAmt=-1;   // THE FILL'S OWN PULSE (spec 1.2, T4): 0..1 nearness to the live drum-fill tank's next playable remaining gate, or -1 = "no fill tank is asking for anything right now", which is every frame of a fillOnly:false build. Written once per frame beside _openAmt in the run loop and read by the two places the shell is shaped (TANK_SHELL_MAT opacity, and that one target's shell scale) — so the tank blinks on its FIGURE while the field blinks on the beat. The three husks that used to live on this line (tankBeatPhase/tankOpen/tankGlow — the wide whole-beat tank window) were deleted here: nothing had called them since the tank became a fill, and CFG.tank.blinkWin now feeds this cue instead of that one.
 let _fireGrid=-1;   // FIRE QUANTIZE: last 1/fireQuantDiv-beat grid index a shot launched on (so at most one shot per grid step)
@@ -1802,8 +1824,10 @@ function roadWallVertexShader(){ return [
   '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
   '}'
 ].join('\n'); }
-function roadWallFragmentShader(){ return [
+function roadWallFragmentShader(){ const flow=typeof CFG!=='undefined' && !!CFG.streakFlow; return [
   'uniform float uWallDissolve,uWallGlow'+(ML_WALL_ECHO?',uWallHit,uWallMiss':'')+(ML_DOOR_CROSS?',uWallCross':'')+'; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(flow?['uniform float uFlowGlow,uFlowPhase;',
+  'vec3 flowPearlAt(vec2 p){ return '+(LOW||reduceMotion?'mix(vec3(0.70,0.94,0.96),vec3(0.94,0.80,0.96),clamp((p.x+p.y)*0.035+0.5,0.0,1.0))':'vec3(0.80)+vec3(0.20)*cos(vec3(0.0,2.1,4.2)+p.x*0.12+p.y*0.10+uFlowPhase)')+'; }']:[]),
   ...(!LOW?[
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
@@ -1813,7 +1837,7 @@ function roadWallFragmentShader(){ return [
   '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>'+(ML_MERCY_INVERSE?'0.5':'1.5')+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
-  ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
+  ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core);'+(flow?' if(uFlowGlow>0.005) marble=mix(marble,flowPearlAt(vec2(x,y)),uFlowGlow*0.55);':'')+' if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
   ...(GH_CHALK?['  vec4 chalk=chalkOnDoor(vec2(x,y)); if(chalk.a>0.0){ gl_FragColor=vec4(chalk.rgb*vWallFade,1.0); return; }']:[]),   // the marks live inside the opening, so paint them before its discard
   '  if(d<0.0) discard;',
@@ -1844,11 +1868,13 @@ function roadWallFragmentShader(){ return [
   '  float crossFront='+(reduceMotion?'1.0':'1.0-smoothstep('+_roadG(ML_WALL_ECHO_WIDTH*0.5)+','+_roadG(ML_WALL_ECHO_WIDTH)+',abs(d-crossAge*'+_roadG(ML_WALL_ECHO_SPEED)+'))')+', crossEvent=crossEnv*crossFront*vWallCrossLocal*powder*step(0.0,y);',
   '  vec3 crossWarm=vec3(1.0,0.97,0.90); float crossLum=dot(col,vec3(0.2126,0.7152,0.0722)), crossWarmLum=dot(crossWarm,vec3(0.2126,0.7152,0.0722)); float crossLift=min(crossLum*'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEvent,max(0.0,(1.0-crossLum)/crossWarmLum)); col+=crossWarm*crossLift;'
   ]:[]),
+  ...(flow?['  float flowEdge=uFlowGlow*(1.0-smoothstep(0.0,2.2,d))*step(0.0,y); if(flowEdge>0.005) col=mix(col,flowPearlAt(vec2(x,y)),flowEdge*0.55);']:[]),   // only a visible pearl rim evaluates the hue; no new pass, geometry, clock or noise
   '  gl_FragColor=vec4(col*vWallFade,1.0);',
   '}'
 ].join('\n'); }
-function roadMercyInverseFragmentShader(){ return [
+function roadMercyInverseFragmentShader(){ const flow=typeof CFG!=='undefined' && !!CFG.streakFlow; return [
   'uniform float uWallDissolve; varying vec2 vWallP; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(flow?['uniform float uFlowGlow,uFlowPhase;']:[]),
   ...(!LOW?[
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
@@ -1867,7 +1893,11 @@ function roadMercyInverseFragmentShader(){ return [
   ]:[
   '  float powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r); if(powder<0.5) discard;'
   ]),
-  '  gl_FragColor=vec4(1.0);',
+  ...(flow?[
+  '  float flowEdge=uFlowGlow*(1.0-smoothstep(0.0,2.2,d))*step(0.0,y); vec3 flowCol=vec3(1.0);',
+  '  if(flowEdge>0.005){ vec3 flowPearl='+(LOW||reduceMotion?'mix(vec3(0.70,0.94,0.96),vec3(0.94,0.80,0.96),clamp((x+y)*0.035+0.5,0.0,1.0))':'vec3(0.80)+vec3(0.20)*cos(vec3(0.0,2.1,4.2)+x*0.12+y*0.10+uFlowPhase)')+'; flowCol=mix(flowCol,flowPearl,flowEdge*0.55); }',
+  '  gl_FragColor=vec4(flowCol,1.0);'   // keep the inverse blend and alpha intact; only a visible edge evaluates the pearl hue
+  ]:['  gl_FragColor=vec4(1.0);']),
   '}'
 ].join('\n'); }
 function buildRoadWalls(){
@@ -1876,6 +1906,7 @@ function buildRoadWalls(){
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
   const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_DOOR_CROSS?{uWallCross:_wallCross}:{}),...((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; every enabled event stamp and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
+  if(CFG.streakFlow){ WU.uFlowGlow=_flowGlow; WU.uFlowPhase=_flowPhase; }   // one eased reward shared by ordinary and mercy edges; opt-out keeps the old uniform layout
   if(GH_CHALK){
     for(let i=0;i<4;i++) WU['uMark'+i]={value:Array.from({length:ML_ARCH_N},()=>new THREE.Vector4())};
     WU.uMarkFocalPx={value:1};
@@ -8058,7 +8089,8 @@ function spawnProjectile(fireRow){
   const _T=computeShotPlan(pr.pos, pr.vel);
   playFireLaunch(_T);
   pr.fireRow=fireRow; pr.life=0;
-  // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
+  pr.flow=!!(CFG.streakFlow && streakFlowOpen());   // a shot launched through open Flow shields keeps that permission through its flight; overwrite pooled records every time
+  // Outside earned Flow, vulnerability is still judged at ARRIVAL: lead the shot so it lands while the orb glows on the beat. The launch flag above is a streak reward, never a fire-on-the-beat grade.
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
   if(projectiles.length>64){ onWhiff(); retireProjectile(0); }   // hard cap against rapid-fire spam
@@ -8082,7 +8114,7 @@ function updateProjectiles(dt){
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
       if(hit.hpMax>1){ handleTankHit(hit, pr.pos, pr.fireRow); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
-      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos, false, pr.fireRow); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(hit.kind!==2 && !orbOpen() && !(CFG.streakFlow && !trainMode && !templeActive && !bonusActive && (pr.flow || streakFlowOpen()))){ clankShot(hit, pr.pos, false, pr.fireRow); retireProjectile(i); continue; }   // ordinary orbs accept Flow arrivals and shots launched during Flow/grace; tanks above retain their figure, and decoys retain their penalty
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos, undefined, undefined, pr.fireRow); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm); fireRow only identifies the recorder row and never enters grading
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04 && (!ML_ARC_VOID || !moonlineVoid())) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(); retireProjectile(i); continue; }   // ordinary ballistic termination and the void floor-ring rule stay unchanged
@@ -8397,6 +8429,23 @@ const HUD_CX=HUD_CSS/2;
 const ML_RING_ECHO=!!CFG.ringEcho, ML_RING_ECHO_T=0.30, ML_RING_IN=0.18;   // raw boolean first; echo seconds are capped again at capture time by 60% of the live note interval
 let _ringEchoAt=-1e9, _ringEchoR=0, _ringEchoKey=0, _ringEchoDur=0, _ringEchoMain=true;   // time + stored geometry/key: no note index exists here for an nd remap to resurrect
 function ARC(r){ hudCtx.beginPath(); hudCtx.arc(HUD_CX,HUD_CX,Math.max(0.5,r),0,Math.PI*2); hudCtx.stroke(); }   // hoisted out of drawWasdLane (was a fresh closure per frame; cx===cy===HUD_CSS/2 are constants)
+function drawStreakFlow(cx,cy,radius){
+  if(!CFG.streakFlow || !hudCtx || _flowGlow.value<=0.005) return;
+  const glow=Math.min(1,_flowGlow.value), r=radius+9, turn=Math.PI*2/3, phase=(LOW||reduceMotion)?0:_flowPhase.value;
+  hudCtx.save();
+  hudCtx.globalAlpha=glow*0.32; hudCtx.lineWidth=9; hudCtx.strokeStyle='rgba(0,0,0,0.65)';
+  hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,Math.PI*2); hudCtx.stroke();
+  hudCtx.lineCap='round';
+  for(let i=0;i<3;i++){
+    const a=-Math.PI/2+i*turn+phase;
+    hudCtx.strokeStyle=i===0?'#acf1ef':(i===1?'#dbc0ff':'#ffe5af');
+    hudCtx.globalAlpha=glow*0.13; hudCtx.lineWidth=7;
+    hudCtx.beginPath(); hudCtx.arc(cx,cy,r,a-0.015,a+turn+0.015); hudCtx.stroke();
+    hudCtx.globalAlpha=glow*0.68; hudCtx.lineWidth=2.5;
+    hudCtx.beginPath(); hudCtx.arc(cx,cy,r,a-0.015,a+turn+0.015); hudCtx.stroke();
+  }
+  hudCtx.restore();   // fixed radius outside the hit line; the letter, count and sixteen inner pips keep their space
+}
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
   const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD may subsume the NOTE LANE — but only when it CARRIES it (ROAD_LANE_READY is bound to the very flags that draw the glyph, index.html:1749) — and UNDER THE MOONLINE IT NEVER DOES: SPEC_MOONLINE §1's cue contract, from the user's own regression report, leaves the road COLOUR-ONLY and puts the required LETTER back at the CROSSHAIR, where the pre-wave-7 pulsating beat glow is now waiting for it (parcel W). So laneCue is TRUE on every shipped Moonline configuration and on every tier, and true again in the trainer, in the Temple, with bandGlyphs:false and under the raw kill-switch road.on:false — which means both gates below are the pre-road expressions, verbatim, in every world this build can reach. The BEAT CIRCLE (wasdHud) is deliberately untouched by the road's arithmetic — it is the player's own training wheel, not the lane; wave 8.2 (Y3) only changed what it DEFAULTS to, never who decides. The false branch survives for moonline.on:false, the one world where the pavement letter still exists
@@ -8407,6 +8456,7 @@ function drawWasdLane(){
   else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
   if(showHud){ hudCtx.setTransform(HUD_K,0,0,HUD_K,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
+  if(CFG.streakFlow && showHud) drawStreakFlow(cx,cy,Rin);
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
   const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketTarget=!!(pocketCueOn && pocketExpected()!=='on');
   const pocketDim=Number.isFinite(CFG.pocketMainDim)?Math.max(0,Math.min(1,CFG.pocketMainDim)):0.28;
@@ -9645,6 +9695,7 @@ function animate(frameNow){
   if(!state.running) lastIdleFrame=frameNow;
   _audioFrame++;   // AUDIO AUTOMATION DIET: one listener push per frame, however many times the camera's children get walked
   const dt=Math.min(clock.getDelta(),0.05);   // MUST precede coach timer (TDZ crash froze every trainer frame — dt was read before declaration)
+  if(!state.running || templeActive) updateStreakFlow(0);
   if(_trainCoachT>0){
     _trainCoachT-=dt;
     if(_trainCoachT<=0){
@@ -9703,6 +9754,9 @@ function animate(frameNow){
 
   if(state.running && !templeActive){
     state.t+=dt;
+    try{ updatePocketMisses(); }catch(e){}   // resolve overdue WASD mains before the reward and its shield cue
+    updateStreakFlow(dt);
+    const _flowOpen=CFG.streakFlow && streakFlowOpen();
     let _fb=NaN; const frameBeat=()=>{ if(_fb!==_fb){ _fb=0; try{ _fb=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} } return _fb; };   // ONE transport read per frame for the two consumers below (perf audit 2026-08-18): Tone's `Transport.ticks` getter walks the state timeline with allocations on every read, and the vuln glow + the strobe grid asked it twice for one value. Lazy, so a build with both consumers off gains no read; the sample is the same render quantum either way. Input grading (fire/keydown) never comes through here.
     _fillAmt=-1;   // THE FILL'S OWN PULSE rests at "nothing is asking" every frame and is re-earned inside the vuln branch below, so a build with the vuln mechanic off (or reduced motion on top of it) can never read a stale amount off a previous frame
     if(CFG.grooveGroove && CFG.grooveVuln){                                   // ORB glow = the FIRE cue: shells bloom on the beat ("the one"), dim between. FIRE your shot WHILE they glow → the shot is charged + kills; fire off-beat → a dud that clanks. (Functional cue, shown under reduceMotion too.)
@@ -9717,7 +9771,9 @@ function animate(frameNow){
       const _floor=CFG.openShellOpacityFloor!=null?CFG.openShellOpacityFloor:0.04;
       const _peak=CFG.openShellOpacityPeak!=null?CFG.openShellOpacityPeak:0.42;
       const _so=_openAmt>0?Math.min(_peak, (_floor+(_peak-_floor)*_openAmt)*(CFG.openGlowBoost||1)):_floor;
-      TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
+      const _flowSo=_flowOpen?Math.min(_peak,_peak*(CFG.openGlowBoost||1)):_so;
+      TARGET_SHELL_MAT.opacity=_flowSo; GOLD_SHELL_MAT.opacity=_flowSo; SPEED_SHELL_MAT.opacity=_flowSo; MOVER_SHELL_MAT.opacity=_flowSo;
+      DECOY_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so;
       // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2 amendment T4). The shipped tank wore the FIELD's whole-beat glow, so
       // the one orb that answers to a count of gates lit up identically on gates it still needed and gates it had already
       // spent — the middle gate of the 3-figure was, visually, dark: nothing on screen said "again, now". blinkWin was the
@@ -9729,7 +9785,6 @@ function animate(frameNow){
       _fillAmt = CFG.tank.fillOnly ? fillGlowAmt() : -1;
       if(_fillAmt>=0) TANK_SHELL_MAT.opacity = _fillAmt>0 ? Math.min(_peak, (_floor+(_peak-_floor)*_fillAmt)*(CFG.openGlowBoost||1)) : _floor;   // the identical opacity law as _so above, on the fill's clock instead of the beat's
     } else if(!reduceMotion){ shellAccum+=dt; if(shellAccum>=SHELL_UPDATE_STEP){ const _so=0.13+0.06*Math.sin(state.t*4); TARGET_SHELL_MAT.opacity=_so; GOLD_SHELL_MAT.opacity=_so; DECOY_SHELL_MAT.opacity=_so; SPEED_SHELL_MAT.opacity=_so; MOVER_SHELL_MAT.opacity=_so; TANK_SHELL_MAT.opacity=_so; shellAccum=0; } }
-    try{ updatePocketMisses(); }catch(e){}   // unconditional on target presence: close overdue main events before this frame's field work
     if(targets.length){
       const _actx=listener&&listener.context, _gateRate=dt*(state.bpm/60)*4;   // 16th-note target-tone gate: each target advances its OWN phase (started at its spawn) by this rate -> targets pulse offset by when they spawned (audio only)
       // beat-quantized motion: the orb HOLDS position+velocity, then STEPS on the beat grid, so the cursor + aim guide can actually settle.
@@ -9766,7 +9821,7 @@ function animate(frameNow){
         const _sh=tg.mesh.userData.shell;
         if(_sh){
           const base=CFG.openShellScale!=null?CFG.openShellScale:1.55, peak=CFG.openShellScalePeak!=null?CFG.openShellScalePeak:1.92;
-          const a=(CFG.grooveGroove&&CFG.grooveVuln)?((_fillAmt>=0 && tg.fill16>=0)?_fillAmt:_openAmt):0;   // THE FILL BLINKS ON ITS OWN FIGURE (spec 1.2, T4): the bubble inflates with the same amount its opacity was just shaped from, so the tank's shell reads as ONE cue and not a light arguing with a size. _fillAmt is -1 on every frame of a fillOnly:false build and tg.fill16 is -1 on every orb that is not the fill, so this is _openAmt verbatim for everything else
+          const a=(CFG.grooveGroove&&CFG.grooveVuln)?((_fillAmt>=0 && tg.fill16>=0)?_fillAmt:(_flowOpen && tg.hpMax<=1 && tg.kind!==2?1:_openAmt)):0;   // only ordinary orbs hold the open pose during Flow; tanks keep their own musical cue
           const pulse=a>0?(base+(peak-base)*a*(0.94+0.06*Math.sin(state.t*9+(tg.idx||0)))):base;
           _sh.scale.setScalar(pulse);
         }
@@ -10941,6 +10996,7 @@ function chorusBootGesture(e){
 if(CFG.chorus.on){ _chorusBootArmed=true; document.addEventListener('pointerdown',chorusBootGesture,true); document.addEventListener('keydown',chorusBootGesture,true); }   // raw boolean first: with the parcel off nothing is armed, no listener exists, and audio still starts exactly where it does today (inside startRun). Capture phase so a handler that stops propagation cannot swallow the one gesture the graph is waiting for
 
 function resetSession(){
+  if(CFG.streakFlow) resetStreakFlow();   // grace and visual state never carry into a new night
   if(templeActive) exitSkyTemple({resume:false,toast:false,audio:false});
   skyChatReset();
   rhythmGeneration++;

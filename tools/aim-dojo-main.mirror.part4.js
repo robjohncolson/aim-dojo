@@ -6788,163 +6788,194 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function senseiPickK(u, okK){
+  // The bias, and the whole of it: the SAME uniform number the unweighted pick used, walked across a weighted CDF
+  // instead of a flat one. No second draw, no reroll, no reordering of the feasible set — a weak-bin k is simply
+  // wider under the same u. Nothing weak-bin feasible → every weight is 1 → this returns floor(u*len), the pick that shipped.
+  const w=Math.max(0,+CFG.sensei.weightMul||1), n=okK.length;
+  let tot=0; for(let i=0;i<n;i++) tot+=(senseiBin(okK[i])===_senseiWeak?w:1);
+  if(!(tot>0)) return (u*n)|0;
+  let x=u*tot;
+  for(let i=0;i<n;i++){ x-=(senseiBin(okK[i])===_senseiWeak?w:1); if(x<0) return i; }
+  return n-1;   // floating-point tail only
+}
+function senseiDiagnose(){
+  // Per-bin MEAN SIGNED error over this night's ledger. A bin speaks only with minSamples behind it and a mean at
+  // least biasMs off the beat; of those, the worst one speaks. Signed means a night that is half early and half late
+  // averages to nothing and says nothing — which is correct: that is not a habit, it is spread.
+  const S=CFG.sensei, need=Math.max(1,S.minSamples|0), bias=Math.max(0,+S.biasMs||0);
+  const sum=[0,0,0], cnt=[0,0,0];
+  for(const h of _bowHits){ const b=senseiBin(h.k); if(b<0) continue; sum[b]+=h.errMs; cnt[b]++; }
+  let bin=-1, worst=-1;
+  for(let b=0;b<3;b++){ if(cnt[b]<need) continue; const m=Math.abs(sum[b]/cnt[b]); if(m>=bias && m>worst){ worst=m; bin=b; } }
+  if(bin<0) return null;
+  return {bin:bin, dir:(sum[bin]<0?0:1), n:cnt[bin]};
+}
+function senseiBowLine(){
+  // THE Bow's one line, and this parcel's whole text budget: the observation REPLACES the sky fact, never joins it.
+  // The memory is written whichever line ends up showing — a repeat is still tonight's reading, so tomorrow still
+  // drills it; only the SPEAKING has a cooldown, because being told the same thing twice is nagging, not noticing.
+  try{
+    if(!CFG.sensei.on || trainMode) return bowSkyLine();   // own guard as defence in depth; the call site reads the raw boolean first
+    const d=senseiDiagnose();
+    if(!d) return bowSkyLine();                            // nothing the game can honestly claim to have noticed → the night ends on the sky, exactly as it did in wave 1
+    const repeat=!!(_senseiPrev && _senseiPrev.bin===d.bin && _senseiPrev.dir===d.dir);
+    senseiSave(d);
+    if(repeat) return bowSkyLine();
+    return T('sensei'+(d.dir?'Late':'Early')+SENSEI_BINS[d.bin], SENSEI_LINE_EN[d.dir*3+d.bin]);
+  }catch(e){ return bowSkyLine(); }   // the ritual keeps its line whatever the reading does
+}
+/* ---- PHASES WITNESSED (wave 5a, parcel M) ----
+   The only record this parcel keeps is WHICH MOON WAS UP on a night you played: the first scoring hit of a
+   post-graduation run stamps today's elongation bucket (moonPhaseBucket — one phase authority, shared with the deal
+   and the Bow) with the local civil date, and that stamp is permanent. ACCRETION ONLY: the bucket keeps its FIRST
+   date forever, so a second session the same night writes nothing at all, and there is no delete path, no decay, no
+   upkeep. Nothing here counts, compares, or notices an absence — a night nobody played leaves no mark of any kind,
+   which is the whole point: the ring fills, it never empties, and it cannot be behind.
+   STORAGE IS UNTRUSTED (wave-3/4 discipline): the loader is a validator — a plain non-array object at v===1, an st
+   that is a plain map, and eight keys "0".."7" whose values are literally YYYY-MM-DD. Anything else is a player who
+   has witnessed nothing, silently. Writes are trailing-throttled and can never throw into a run.
+   THE RING is drawn once on Temple entry (never per frame), and the eighth stamp earns exactly one sentence, once in
+   a player's life, at the TOP of the Bow's priority chain. Kill-switch phases.on:false → the file is never opened
+   from any surface, the canvas is never un-hidden, and the Bow's chain is wave 4's expression verbatim. */
+const PHASES_KEY='aimdojo.phases';
+const PHASES_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;   // THE WHOLE GRAMMAR for a stamp: this build writes phasesToday() and nothing else, so nothing else is a date here — no ISO timestamps, no epoch numbers, no ' ' padding
+const PHASES_SAVE_MS=1200;                    // trailing throttle, in the starLitSaveSoon shape. Not a CFG knob: the spec's literal is {on:true} exactly, and a night can only ever produce one stamp plus (once in a life) one completion flag — this exists so those two land in ONE write, not so anyone tunes it
+let _phases=null;          // bucket 0..7 -> "YYYY-MM-DD" of the FIRST night that bucket was witnessed; null until the file is read (and never read at all with the parcel off)
+let _phasesLoaded=false;   // the file is opened at most once per page life, by whichever surface needs it first (a stamp, the Bow's line, the Temple ring)
+let _phasesSaid=false;     // the one-time eighth-stamp line has been SPOKEN — the only thing the envelope's flag records, because completeness itself is derivable from the eight stamps
+let _phasesRun=false;      // this run has already taken its stamp attempt (reset by resetSession) — so every hit after the first costs one boolean read and nothing else
+let _phasesSaveT=0, _phasesDirty=false;
+function phasesToday(){
+  const d=new Date(), m=d.getMonth()+1, dd=d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;   // the LOCAL CIVIL DATE — the same calendar dealPackIsToday's freshness gate and dealWind's seed turn over on, so "tonight" means one thing across the build
+}
+function realCivilDate(s){
+  // 1.1 amendment (wave 5a review, M5): THE DATE GATE for the whole memory layer — the ring's stamps, the greeting's
+  // last night and the Night Card's date all come through here. PHASES_DATE_RE is a SHAPE test, not a date test: it
+  // admits 2026-02-31 and 2026-13-01 happily, and a day that does not exist cannot be a night anybody played — left
+  // unchecked it could stamp a bucket forever or seed rememberGap off a month that rolled. So: shape first, then a
+  // round-trip through the SAME local-midnight constructor rememberGap measures with, demanding all three components
+  // back unchanged (Feb 31 comes back as Mar 3, and Mar 3 is not the date the file claimed). Two-digit years fail too,
+  // because new Date(50,0,1) is 1950 — correct, since this build only ever writes phasesToday().
+  if(typeof s!=='string' || !PHASES_DATE_RE.test(s)) return false;
+  const y=+s.slice(0,4), m=+s.slice(5,7), d=+s.slice(8,10);
+  const t=new Date(Date.UTC(y, m-1, d));   // UTC calendar, not local: a visitor whose timezone once SKIPPED a civil day (Pacific/Apia, 2011-12-30) must not have that Gregorian date rejected — the Ghost Relay's server mirror validates the same way (relay review finding 8)
+  return t.getUTCFullYear()===y && t.getUTCMonth()===m-1 && t.getUTCDate()===d;
+}
+function phasesLoad(){
+  if(_phasesLoaded) return; _phasesLoaded=true;
+  _phases=Object.create(null);
+  let raw=null; try{ raw=localStorage.getItem(PHASES_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;   // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a string, a future v:2 — every one of them is "witnessed nothing", silently
+  const src=o.st;
+  if(!src || typeof src!=='object' || Array.isArray(src)) return;        // …and st is a plain MAP of buckets. An array of dates carries no buckets, so it can only ever be someone else's data
+  const st=Object.create(null);
+  for(let b=0;b<8;b++){ const v=src[b]; if(realCivilDate(v)) st[b]=v; }   // the eight buckets ARE the key whitelist: a hand-written "9" or "full" is not read at all, and a value that is not a REAL local civil date (M5 — 2026-02-31 is a shape, not a night) is not a stamp. Per-entry: one impossible date drops its own bucket and the other seven stand, because a stamp is not evidence about any bucket but its own
+  _phases=st; _phasesSaid=(o.c===1);   // c is admitted at exactly 1: a truthy string, a 2, a future flag shape all read as "not yet spoken", which at worst offers the line to a completed ring one more time — never a repeat of a line that is silently lost
+}
+function phasesFlush(){
+  if(_phasesSaveT){ clearTimeout(_phasesSaveT); _phasesSaveT=0; }
+  if(!_phasesDirty) return; _phasesDirty=false;
+  const st={}; for(let b=0;b<8;b++) if(_phases && _phases[b]) st[b]=_phases[b];   // written from the VALIDATED map, so a hand-edited file is rewritten clean rather than carried forward
+  try{ localStorage.setItem(PHASES_KEY, JSON.stringify({v:1, st:st, c:_phasesSaid?1:0})); }catch(e){}   // a full or blocked quota loses the write, never the run
+}
+function phasesSaveSoon(){
+  if(_phasesDirty) return;
+  _phasesDirty=true; _phasesSaveT=setTimeout(phasesFlush, PHASES_SAVE_MS);   // trailing: the (very rare) night that both stamps a bucket and completes the ring spends ONE write
+}
+function phasesComplete(){ if(!_phases) return false; for(let b=0;b<8;b++) if(!_phases[b]) return false; return true; }   // caller loads first — this asks the map, never the file
+function phasesWitness(){
+  // ONE attempt per run, taken at the FIRST scoring hit: a run you actually played, however briefly. The call site
+  // reads the raw kill-switch and this latch before it ever reaches here, so a night with the parcel off — or the
+  // second hit of any night — costs nothing at all.
+  if(_phasesRun || trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both
+  _phasesRun=true;                                      // latched whatever the answer, so an unreadable sky is not retried once per hit for the rest of the night
+  const b=moonPhaseBucket(); if(b<0) return;
+  phasesLoad();
+  if(_phases[b]) return;   // ACCRETION ONLY, and idempotent: this bucket already keeps its first night, and a first night is not something a later night may overwrite
+  _phases[b]=phasesToday();
+  phasesSaveSoon();
+}
+function phasesBowLine(){
+  // The TOP of the Bow's priority chain, and the only sentence this parcel will ever speak: the eighth distinct phase
+  // has stamped, so the ring is closed. It replaces the night's other line (never joins it) and it fires exactly once
+  // in a player's life — the flag is persisted the moment it is spoken, and '' every other night forever after.
+  if(_phasesSaid) return '';
+  phasesLoad();
+  if(_phasesSaid || !phasesComplete()) return '';
+  _phasesSaid=true; phasesSaveSoon();   // in memory FIRST: a blocked quota must still stop this same page from saying it twice
+  return T('phasesEighth','THE EIGHTH NIGHT · THE MOON HAS WATCHED THEM ALL');
+}
+let _phasesCv;
+function phasesCanvasEl(){ if(_phasesCv===undefined) _phasesCv=(typeof document!=='undefined')?document.getElementById('templePhaseRing'):null; return _phasesCv; }
+function phasesDrawDisc(g,cx,cy,r,b){
+  // The bucket's OWN shape: the lit limb is a semicircle and the terminator is a half-ellipse whose width is |cos| of
+  // the phase angle — a crescent when the terminator bulges toward the lit limb, a gibbous when it bulges away. Waxing
+  // buckets are lit on the right, waning on the left (the northern convention the Bow's names already assume).
+  if(b===0) return;   // NEW MOON's true shape is no lit limb at all — the brighter outline is the whole stamp, because drawing light there would be the ring lying about which moon was up
+  const c=Math.cos(b*Math.PI/4), a=r*Math.abs(c), waxing=(b>=1&&b<=3);
+  g.beginPath();
+  if(waxing) g.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false); else g.arc(cx,cy,r,Math.PI/2,Math.PI*1.5,false);
+  g.ellipse(cx,cy,a,r,0, waxing?Math.PI/2:-Math.PI/2, waxing?-Math.PI/2:Math.PI/2, c>0);   // c>0 (the two crescents) sweeps the terminator across the LIT side; c<0 (the two gibbous) across the dark. c===0 is a quarter: a===0, so the sweep is the straight terminator either way
+  g.closePath();
+  g.fillStyle='rgba(198,216,246,.72)'; g.fill();   // the Mandala's moonlight monochrome — one palette for everything this game draws about the moon
+}
+function phasesRingDraw(){
+  // Once, on Temple entry. No labels, no counts, no interaction, no per-frame work — and identical for a player who
+  // stamped over eight days and one who stamped over eight months, because the ring holds no dates, only witnesses.
+  const cv=phasesCanvasEl(); if(!cv) return;
+  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
+  phasesLoad();
+  const W=cv.width, cx=W/2, cy=cv.height/2, ring=W*0.355, r=W*0.105;
+  g.clearRect(0,0,W,cv.height);
+  if(phasesComplete()){ g.beginPath(); g.arc(cx,cy,ring,0,6.2831853); g.strokeStyle='rgba(198,216,246,.32)'; g.lineWidth=1; g.stroke(); }   // THE RING CLOSES: one continuous circle behind the eight, and the only thing about this drawing that ever changes twice
+  for(let b=0;b<8;b++){
+    const th=-Math.PI/2+b*Math.PI/4, dx=cx+Math.cos(th)*ring, dy=cy+Math.sin(th)*ring;   // bucket 0 (new) at the top, waxing clockwise — the order the sky walks
+    g.beginPath(); g.arc(dx,dy,r,0,6.2831853);
+    g.strokeStyle=_phases[b]?'rgba(198,216,246,.46)':'rgba(198,216,246,.15)'; g.lineWidth=1; g.stroke();   // unstamped is a faint outline: a place the sky still has, not a thing you are missing
+    if(_phases[b]) phasesDrawDisc(g,dx,dy,r,b);
+  }
+  cv.hidden=false;
+}
+/* ---- THE SKY REMEMBERS YOU (wave 5a, parcel N) ----
+   ONE date, one greeting. localStorage['aimdojo.lastNight'] holds the local civil date of the last night that was
+   actually PLAYED (the same witness parcel M stamps by: the first scoring arrival of a post-graduation run), and at
+   the threshold of the first run of a later day it buys exactly one warm sentence — how many nights turned, and which
+   of the player's own lit stars kept the seat. That is the entire feature. It counts nothing, compares nothing to
+   anybody, and has no opposite: a long absence is a bigger welcome, never a smaller anything, and the words "missed",
+   "streak", "lost" and "again" are not in this parcel's vocabulary in either language.
+   THE STAR NAME IS A DELIBERATE, SPEC'D EXCEPTION (SPEC_MEMORY_SOLO §3) to wave 3's rule that a star is never NAMED
+   during play: that rule guards the FIELD, where a proper name would turn sky into a HUD label. This is the doorway —
+   the greeting lands in the threshold flash before the first spawn, once, and no name is ever spoken again for the
+   rest of the night. The four zodiac anchors (Aldebaran/Regulus/Spica/Antares) are preferred because a real person
+   can walk outside and find them; any other lit figure is greeted by its own creature-name instead.
+   THE THRESHOLD'S PRIORITY CHAIN, enforced at the one call site in flashTheme: comeback (this parcel) > the deal's
+   line (wave 4) > the song name. Exactly one line, never two — and the deal still DEALS on a greeted night (its rules
+   were resolved at resetSession); the only thing this parcel takes from it is the sentence.
+   STORAGE IS UNTRUSTED (wave-3/4 discipline): a plain non-array object at v===1 whose d is literally YYYY-MM-DD, and
+   nothing else is a date. Corrupt, absent, or dated in the FUTURE (a clock wound back) = a fresh player who is
+   greeted by nothing, silently. Writes are trailing-throttled and can never throw into a run.
+   Kill-switch remember.on:false → the file is never opened from any surface and the threshold is wave 4's exactly. */
+const REMEMBER_KEY='aimdojo.lastNight';
+const REMEMBER_FIGS=['aries','taurus','gemini','cancer','leo','virgo','libra','scorpius','ophiuchus','sagittarius','capricornus','aquarius','pisces'];   // the fixture's OWN figure keys, in the fixture's own order — the greeting picks out of this fixed list rather than out of _starLit's key order, so which star speaks can never depend on the order a save file happened to be written in
+const REMEMBER_ANCHOR_EN={taurus:'ALDEBARAN', leo:'REGULUS', virgo:'SPICA', scorpius:'ANTARES'};   // the four zodiac anchors that carry a proper name in the lore AND in the real sky: the greeting prefers these because they are findable from a driveway
+const REMEMBER_FIG_EN={aries:'THE RAM', taurus:'THE BULL', gemini:'THE TWINS', cancer:'THE CRAB', leo:'THE LION', virgo:'THE MAIDEN', libra:'THE SCALES', scorpius:'THE SCORPION', ophiuchus:'THE SERPENT-BEARER', sagittarius:'THE ARCHER', capricornus:'THE SEA-GOAT', aquarius:'THE WATER-BEARER', pisces:'THE FISHES'};   // all thirteen carry a name so the fallback is TOTAL — the four anchor figures never reach this table while their anchor names exist above it, but the dictionary is complete rather than clever
+let _rememberDay=null;        // "YYYY-MM-DD" of the last night actually played, or null for a player this browser has never witnessed
+let _rememberLoaded=false;    // the file is opened at most once per page life, by whichever surface needs it first (the threshold, or the night's first scoring hit)
+let _rememberSaid=false;      // the greeting has been SPOKEN this page life — a hitless restart must not re-greet, because a welcome twice is not a welcome
+let _rememberStampedDay='';   // the local civil date this page has already taken its "tonight was played" write attempt for ('' = none yet). 1.1 amendment (wave 5a review, M3): a DAY, not a boolean — a tab left open across local midnight kept a page-lifetime latch closed forever, so the new night was never recorded and lastNight could lag a day the player really played (and later fabricate a comeback out of it). Exactly once per played DAY, whatever the tab's lifetime, and every hit after the first costs one string compare
+let _rememberSaveT=0, _rememberDirty=false;
+function rememberLoad(){
+  if(_rememberLoaded) return; _rememberLoaded=true;
+  let raw=null; try{ raw=localStorage.getItem(REMEMBER_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
+  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                 // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a player the sky has yet to meet, silently
+  if(realCivilDate(o.d)) _rememberDay=o.d;                                             // …and d is a REAL local civil date in this build's own grammar (realCivilDate — one date authority for the whole memory layer, M5). An epoch number, an ISO timestamp, ' ' padding, a 2026-02-31: not a night, and a night nobody could have played is greeted by nothing
+}
 function rememberFlush(){
   if(_rememberSaveT){ clearTimeout(_rememberSaveT); _rememberSaveT=0; }
   if(!_rememberDirty) return; _rememberDirty=false;
@@ -8058,7 +8089,8 @@ function spawnProjectile(fireRow){
   const _T=computeShotPlan(pr.pos, pr.vel);
   playFireLaunch(_T);
   pr.fireRow=fireRow; pr.life=0;
-  // groove VULN is judged at ARRIVAL, not the trigger: a shot KILLS only if the orb is OPEN (glowing on the beat) at the instant the bullet CONNECTS (gate in updateProjectiles). So you LEAD in TIME as well as space — release early enough to LAND the bullet on the beat. No fire-time charge + no bright/dud trigger cue (that rewarded pulling ON the beat, the very instinct arrival-timing must unlearn); the feedback lives at the landing (connect thud vs clank bonk).
+  pr.flow=!!(CFG.streakFlow && streakFlowOpen());   // a shot launched through open Flow shields keeps that permission through its flight; overwrite pooled records every time
+  // Outside earned Flow, vulnerability is still judged at ARRIVAL: lead the shot so it lands while the orb glows on the beat. The launch flag above is a streak reward, never a fire-on-the-beat grade.
   pr.mesh=acquireProjectileMesh(); pr.mesh.position.copy(pr.pos);   // always visible — the bullet IS the feedback (not a reduce-motion flourish)
   projectiles.push(pr);
   if(projectiles.length>64){ onWhiff(); retireProjectile(0); }   // hard cap against rapid-fire spam
@@ -8082,7 +8114,7 @@ function updateProjectiles(dt){
       if(segDistSq(_prev, pr.pos, tg.mesh.position) <= rr*rr){ hit=tg; break; } }
     if(hit){
       if(hit.hpMax>1){ handleTankHit(hit, pr.pos, pr.fireRow); retireProjectile(i); continue; }   // RHYTHMIC-COMBO TANK: its own timing gate (whole-beat to OPEN, then the 8th/triplet sub-nodes)
-      if(hit.kind!==2 && !orbOpen()){ clankShot(hit, pr.pos, false, pr.fireRow); retireProjectile(i); continue; }   // ARRIVAL VULN: the bullet LANDED while the orb was SHIELDED (off the beat) → CLANK: no kill. You must put the shot ONTO the orb while it GLOWS. DECOYS (kind 2) exempt so their "don't shoot" penalty can't be dodged off-beat.
+      if(hit.kind!==2 && !orbOpen() && !(CFG.streakFlow && !trainMode && !templeActive && !bonusActive && (pr.flow || streakFlowOpen()))){ clankShot(hit, pr.pos, false, pr.fireRow); retireProjectile(i); continue; }   // ordinary orbs accept Flow arrivals and shots launched during Flow/grace; tanks above retain their figure, and decoys retain their penalty
       if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }   // CONNECT (on-beat landing): ARC impact thud (weight on connect)
       gradeRhythmHit(hit, pr.pos, undefined, undefined, pr.fireRow); retireProjectile(i); continue; }   // resolve at IMPACT time/tempo (atT/atBpm default to now/state.bpm); fireRow only identifies the recorder row and never enters grading
     if(pr.life>=CFG.projLife || pr.pos.y<=0.04 || Math.abs(pr.pos.x)>ROOM_HALF_W || Math.abs(pr.pos.z)>ROOM_HALF_D){ if(pr.pos.y<=0.04 && (!ML_ARC_VOID || !moonlineVoid())) spawnLandRing(pr.pos.x, pr.pos.z); onWhiff(); retireProjectile(i); continue; }   // ordinary ballistic termination and the void floor-ring rule stay unchanged
@@ -8397,6 +8429,23 @@ const HUD_CX=HUD_CSS/2;
 const ML_RING_ECHO=!!CFG.ringEcho, ML_RING_ECHO_T=0.30, ML_RING_IN=0.18;   // raw boolean first; echo seconds are capped again at capture time by 60% of the live note interval
 let _ringEchoAt=-1e9, _ringEchoR=0, _ringEchoKey=0, _ringEchoDur=0, _ringEchoMain=true;   // time + stored geometry/key: no note index exists here for an nd remap to resurrect
 function ARC(r){ hudCtx.beginPath(); hudCtx.arc(HUD_CX,HUD_CX,Math.max(0.5,r),0,Math.PI*2); hudCtx.stroke(); }   // hoisted out of drawWasdLane (was a fresh closure per frame; cx===cy===HUD_CSS/2 are constants)
+function drawStreakFlow(cx,cy,radius){
+  if(!CFG.streakFlow || !hudCtx || _flowGlow.value<=0.005) return;
+  const glow=Math.min(1,_flowGlow.value), r=radius+9, turn=Math.PI*2/3, phase=(LOW||reduceMotion)?0:_flowPhase.value;
+  hudCtx.save();
+  hudCtx.globalAlpha=glow*0.32; hudCtx.lineWidth=9; hudCtx.strokeStyle='rgba(0,0,0,0.65)';
+  hudCtx.beginPath(); hudCtx.arc(cx,cy,r,0,Math.PI*2); hudCtx.stroke();
+  hudCtx.lineCap='round';
+  for(let i=0;i<3;i++){
+    const a=-Math.PI/2+i*turn+phase;
+    hudCtx.strokeStyle=i===0?'#acf1ef':(i===1?'#dbc0ff':'#ffe5af');
+    hudCtx.globalAlpha=glow*0.13; hudCtx.lineWidth=7;
+    hudCtx.beginPath(); hudCtx.arc(cx,cy,r,a-0.015,a+turn+0.015); hudCtx.stroke();
+    hudCtx.globalAlpha=glow*0.68; hudCtx.lineWidth=2.5;
+    hudCtx.beginPath(); hudCtx.arc(cx,cy,r,a-0.015,a+turn+0.015); hudCtx.stroke();
+  }
+  hudCtx.restore();   // fixed radius outside the hit line; the letter, count and sixteen inner pips keep their space
+}
 function drawWasdLane(){
   if(!hudCtx){ showWasdGlyph(0,false,false); return; }
   const laneCue=!(roadLive() && ROAD_LANE_READY);   // THE STAR ROAD may subsume the NOTE LANE — but only when it CARRIES it (ROAD_LANE_READY is bound to the very flags that draw the glyph, index.html:1749) — and UNDER THE MOONLINE IT NEVER DOES: SPEC_MOONLINE §1's cue contract, from the user's own regression report, leaves the road COLOUR-ONLY and puts the required LETTER back at the CROSSHAIR, where the pre-wave-7 pulsating beat glow is now waiting for it (parcel W). So laneCue is TRUE on every shipped Moonline configuration and on every tier, and true again in the trainer, in the Temple, with bandGlyphs:false and under the raw kill-switch road.on:false — which means both gates below are the pre-road expressions, verbatim, in every world this build can reach. The BEAT CIRCLE (wasdHud) is deliberately untouched by the road's arithmetic — it is the player's own training wheel, not the lane; wave 8.2 (Y3) only changed what it DEFAULTS to, never who decides. The false branch survives for moonline.on:false, the one world where the pavement letter still exists
@@ -8407,6 +8456,7 @@ function drawWasdLane(){
   else if(hudCanvas.style.display!=='none') hudCanvas.style.display='none';
   const W=HUD_CSS, H=HUD_CSS, cx=W/2, cy=H/2, PI2=Math.PI*2, Rin=46, maxR=Math.min(cx,cy)-8, span=maxR-Rin, len=_combo.length, LY=cy+94;
   if(showHud){ hudCtx.setTransform(HUD_K,0,0,HUD_K,0,0); hudCtx.clearRect(0,0,W,H); }   // only clear/transform when the ring will actually be drawn
+  if(CFG.streakFlow && showHud) drawStreakFlow(cx,cy,Rin);
   const fa=reduceMotion?0:1-(state.t-_noteFlashT)/0.18;   // tap flash on the hit-line ring
   const pocketCueOn=!!(showHud && pocketLive() && CFG.pocketCircleCue), pocketTarget=!!(pocketCueOn && pocketExpected()!=='on');
   const pocketDim=Number.isFinite(CFG.pocketMainDim)?Math.max(0,Math.min(1,CFG.pocketMainDim)):0.28;
@@ -9239,180 +9289,5 @@ function ghostMailRowsValid(value){
   if(!Array.isArray(value) || value.length>GH_MAIL_RESPONSE_MAX) return null;
   for(const row of value) if(!Array.isArray(row) || row.length!==GH_MAIL_ROW_SIZE || !Number.isFinite(row[0]) || row[0]<0 || !Number.isInteger(row[1]) || row[1]<0 || row[1]>3 || !ghostMoonSigil(row[2])) return null;
   return value;
-}
-function ghostVisitorStore(epoch,id,record,reachedBack){
-  if(!GH_SHARE || epoch!==_ghostShareEpoch || !ghostTokenValid(id) || !ghostArtifactValid(record)) return false;
-  if(!_ghostVisitors) _ghostVisitors=[];
-  if(_ghostVisitors.length>=GH_VISITOR_COUNT || _ghostVisitors.some(visitor=>visitor.id===id)) return false;
-  _ghostVisitors.push({id:id,record:record,sig:record.moonBucket,back:reachedBack===true,spoken:false,mail:[]});
-  if(GH_CHALK) try{ ghostChalkInstall(); }catch(e){}
-  return true;
-}
-async function ghostVisitorFetch(epoch,token,bucket){
-  const path=GH_GHOSTS_PATH+'?lon='+bucket+'&n='+GH_VISITOR_FETCH_COUNT, body=await ghostRelayJson(path,{headers:ghostRelayHeaders(token,false)},GH_GHOSTS_RESPONSE_MAX);
-  if(epoch!==_ghostShareEpoch || !body || !Array.isArray(body.ghosts) || !body.ghosts.length) return;
-  let accepted=0;
-  for(let i=0;i<body.ghosts.length && i<GH_VISITOR_FETCH_COUNT;i++){
-    const item=body.ghosts[i]; if(!item || !ghostTokenValid(item.id) || ghostSerializedBytes(item.artifact)>GH_MAX_BYTES) continue;
-    const record=ghostArtifactValid(item.artifact); if(!record) continue; const reachedBack=typeof item.reachedBack==='boolean'?item.reachedBack:false;
-    if(accepted<GH_VISITOR_COUNT){ if(ghostVisitorStore(epoch,item.id,record,reachedBack)) accepted++; }
-  }
-}
-async function ghostMailFetch(epoch,token){
-  // Read-once is intentional ephemerality: the relay clears this mailbox before it answers, so a crash after this boundary loses the notes and no client cache tries to resurrect them.
-  const body=await ghostRelayJson(GH_MAIL_PATH,{headers:ghostRelayHeaders(token,false)});
-  if(epoch!==_ghostShareEpoch) return;
-  const rows=body&&ghostSerializedBytes(body)<=GH_MAX_BYTES?ghostMailRowsValid(body.catches):null;
-  if(rows && rows.length) _ghostMailRows=rows;
-  if(GH_CHALK) try{ ghostMailArrive(rows||[]); }catch(e){}   // empty, rejected and timed-out reads also close the bounded prefetch history; no receipt is persisted or retried
-}
-function ghostShareReset(){
-  if(!GH_SHARE) return;
-  ghostRoadReset(); _ghostShareEpoch++; _ghostShareSentEpoch=-1; _ghostShareBucket=ghostLonBucket();
-  _ghostVisitors=[]; _ghostMailRows=[]; _ghostMailSpoken=false;
-  const epoch=_ghostShareEpoch, bucket=_ghostShareBucket, token=ghostToken(); if(!token) return;
-  ghostVisitorFetch(epoch,token,bucket).catch(()=>{}); ghostMailFetch(epoch,token).catch(()=>{});
-}
-async function ghostMailAttempt(token,toId,catches){
-  const response=await ghostRelayFetch(GH_MAIL_PATH,{method:'POST',headers:ghostRelayHeaders(token,true),body:JSON.stringify({toId:toId,catches:catches})});
-  return !!(response&&response.ok);
-}
-function ghostShareFinalize(){
-  if(!GH_SHARE || !GH_CHALK || _ghostShareSentEpoch===_ghostShareEpoch || !_ghostMarksOut || !_ghostMarksOut.length) return;
-  const pending=[];
-  if(_ghostVisitors) for(const visitor of _ghostVisitors){ if(visitor && visitor.id && visitor.shown===true && pending.indexOf(visitor.id)<0 && pending.length<GH_VISITOR_COUNT) pending.push(visitor.id); }
-  if(!pending.length) return;
-  const token=ghostToken(); if(!token) return;
-  const rows=_ghostMarksOut.slice(0,GH_CAP_MAIL).map(row=>row.slice());
-  _ghostShareSentEpoch=_ghostShareEpoch; for(const id of pending) if(id!==token) ghostMailAttempt(token,id,rows).catch(()=>{});
-}
-function ghostNightSeed(record){
-  const date=record.date, key=(+date.slice(0,4)*10000+(+date.slice(5,7))*100+(+date.slice(8,10)))|0;
-  return (key^Math.imul(record.moonBucket+1,0x9e3779b9))>>>0;
-}
-function ghostNightPalette(record,out){
-  const over=CFG.moonline&&CFG.moonline.wallPalette, src=Array.isArray(over)&&over.length?over:ML_WALL_CHALK, rr=mulberry32(ghostNightSeed(record)), n=Math.max(1,src.length); let prev=-1;
-  for(let i=0;i<out.length;i++){
-    const a=Math.min(n-1,(rr()*n)|0), turn=Math.min(Math.max(0,n-2),(rr()*Math.max(1,n-1))|0), pick=(n>1&&a===prev)?(a+1+turn)%n:a;
-    out[i]=Number(src[pick])>>>0; prev=pick;
-  }
-  return out;
-}
-function ghostSessionStart(){
-  // Graduation is the real main-play boundary; recording and relay reads keep the same lifecycle entry.
-  if((!GH_RECORD&&!GH_SHARE&&!GH_CHALK) || trainMode || templeActive) return;
-  if(GH_RECORD) ghostOwnLoad();
-  if(GH_SHARE) ghostShareReset();
-  if(GH_RECORD) ghostRecordArm();
-  if(GH_CHALK){ if(!GH_RECORD&&!GH_SHARE) ghostRoadReset(); ghostChalkReset(roadBeatNow()); ghostChalkInstall(); }
-}
-
-/* ---- WASD BEAT-TINT: HUE always names the in-focus letter; only the envelope clock shifts to the rolling expected pocket. reduceMotion-gated except trainer.
-   THE PULSATING GLOW, ONE LAW, TWO SURFACES (wave 8, parcel W — SPEC_MOONLINE §1's cue contract, from the user's regression
-   report). Pre-wave-7 this cue washed the FLOOR (the checker by day, the night lattice) on every heard beat, in the colour of
-   the key that was due, and the road subsumed it because two beat clocks on screen is clutter. THE VOID has no floor left to
-   wash — and it is also where the required LETTER came home to the crosshair — so the identical envelope now lights the
-   LETTER instead, and the cue is MOVED rather than deleted for the second time in two waves.
-   RESTORED, NOT REINVENTED: the timing law below is the shipped one, lifted whole into wasdBeatGlow() and called by both
-   renderers, so there is no second copy of it to drift. The floor path's arithmetic is character-for-character what it was
-   (maxAmt*env*env, in that order, with the trainer's discrete reduced-motion flash intact); the crosshair reads the SAME
-   return and normalises it to 0..1 for its bloom. The two can never both run: the floor asks for !roadLive(), the crosshair
-   for moonlineVoid() ≡ moonline.on && roadLive(), which are disjoint by construction.
-   reduceMotion is inherited verbatim, and that is the honest restoration: the pre-wave-7 cue was OFF in free play under
-   reduced motion (only the trainer kept a discrete flash), so the void's crosshair bloom is off there too — a reduced-motion
-   player loses nothing they ever had, and the letter itself is still shown (CFG.wasdLetter || reduceMotion).
-   [WAVE 8.1 — THE BREATH, SPEC_MOONLINE §1.1. The letter was only HALF of what the wash did. First light said so: "the
-   playing field was the color and it had a mesmerizing increase in saturation up until the correct fire time, and that
-   helped gauge timing — without it, it's hard." A letter cannot be a FIELD. So the CURVE below is now shared three ways
-   rather than two, by beatSwell(): the trainer's floor, the crosshair's letter, and — through roadBreath(), on the road's
-   own latency-corrected clock — the whole Moonline ribbon, which is the biggest surface a floorless world has. The floor
-   and the road still can never both run (!roadLive() vs the road's own live path). The road and the LETTER deliberately
-   DO run together and are not a contradiction: they are two cues for two different actions on the same grid — the letter
-   peaks on the "and", where the WASD tap is due (wasdBeats() carries grooveFreezePhase), and the road peaks on the "one",
-   where the shot must LAND (roadBeatNow() is the raw heard beat). See roadBreath for the full expansion.] ---- */
-const _floorBeatCol=new THREE.Color();
-let _beatGlowKey=0;   // the lane the last wasdBeatGlow() call was about — an int, written where the hue is already computed, so neither renderer needs a second pass over the combo
-function wasdBeatCueOn(){ return !templeActive && !MOBILE && CFG.floorBeat && CFG.wasdRhythm && CFG.beatQuant && state.running && toneReady && Tone.Transport.state==='started' && (!reduceMotion || trainMode); }   // EVERY condition of the shipped floor-beat gate except which SURFACE is asking: trainer keeps a functional colour cue under reduced-motion (no spatial bloom — discrete on/off). Both callers append their own surface test, and updateFloorBeat's is still `&& !roadLive()`, so its gate reduces character-for-character to the one that shipped
-function beatSwell(maxAmt, off){ const env=Math.max(0,1-off*2); return maxAmt*env*env; }   // THE CURVE, and the ONLY copy of it: a linear ramp off the beat, squared. Lifted out of wasdBeatGlow by wave 8.1 unchanged — same expression, same multiply order, so every caller's product is bit-for-bit what it was — because the RIBBON now needs the same shape on a different clock (roadBreath) and a second transcription of a loved curve is how two cues start disagreeing. Three renderers, one law: the trainer's floor, the crosshair's letter, the Moonline's road
-function wasdBeatGlow(){   // THE ENVELOPE, verbatim: |beats − round(beats)| against a linear ramp, squared. Returns floor-beat units (0..CFG.floorBeatMax) so the floor path's product is bit-for-bit unchanged; the crosshair divides by the same max
-  let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: same heard timeline as letter HUD + input
-  const cueI=pocketLive()?pocketIdeal(pocketExpected()):0;
-  beats-=cueI;
-  const nd=wasdNoteDiv();
-  // Letter hue follows the unshifted grid; expected changes only when this wash peaks, never its color.
-  const rawBeats=beats+cueI, biKey=Math.round(rawBeats), len=_combo.length;
-  _beatGlowKey=_combo[(((biKey*nd)%len)+len)%len];
-  const bi=Math.round(beats), off=Math.abs(beats-bi);
-  const maxAmt=CFG.floorBeatMax;
-  if(trainMode && reduceMotion) return off<0.12?maxAmt:0;   // discrete flash (no soft envelope)
-  return beatSwell(maxAmt, off);   // …and the soft envelope, now the one shared copy above (same operands, same order: bit-identical to the line that stood here)
-}
-function updateFloorBeat(){
-  let amt=0;
-  const floorCueOn=wasdBeatCueOn() && !roadLive();   // THE STAR ROAD subsumes this flash: the surfaces it tints (checker + lattice) are hidden under the road and the beat is now the band edge at the now-line — two beat clocks on screen is clutter. roadLive() reads the raw kill-switch first, so road.on:false leaves this gate character-for-character the one that shipped
-  if(floorCueOn){
-    amt=wasdBeatGlow();
-    _floorBeatCol.setHex(WASD_HEX[_beatGlowKey]);
-  }
-  const fsh=dayFloor&&dayFloor.material.userData.sh;
-  if(fsh&&fsh.uniforms.uBeatAmt){ fsh.uniforms.uBeatAmt.value=Math.min(1, amt*dayAmt*CFG.floorBeatDayMul); fsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // checker tints in daylight (boosted + clamped: bright tiles + daylight wash out a soft tint)
-  const gsh=nightGrid&&nightGrid.material.userData.shBeat;
-  if(gsh&&gsh.uniforms.uBeatAmt){ gsh.uniforms.uBeatAmt.value=amt*(1-dayAmt); gsh.uniforms.uBeatCol.value.copy(_floorBeatCol); }   // grid tints at night
-}
-let _fireHot=false;
-function updateFireRing(){   // ARRIVAL-TIMING: the crosshair NO LONGER greens on the beat. That "LAUNCH now" cue rewarded pulling the trigger ON the beat — the exact instinct that fights landing the shot on the beat. Now the ORB GLOW is the sole "land it here now" cue (the beat pulse + audio carry the anticipation); the player LEADS the release and guesses the flight time. To bring the crosshair cue back as a PREDICTIVE "release now → land on beat" light, gate `hot` on a flight-time lookahead instead of `_openAmt>0`.
-  const hot = false;
-  if(hot!==_fireHot){ _fireHot=hot; if(el.reticle) el.reticle.classList.toggle('fire',hot); }
-}
-/* ---- projectile ground-impact: a big ring radiates out where a shot hits the floor ---- */
-const landRingPool=[];
-function spawnLandRing(x,z){
-  if(moonlineVoid()) return;   // NOTHING BESIDE THE ROAD BUT SPACE (wave 8, G2a · SPEC §1). This ring is a y=0.03 disc on the RETIRED plane — in the void it is a blue circle hanging in mid-air over the celestial shell's lower half, marking a floor that is not there. The gate is HERE, on the visual, and NOT at the call site: updateProjectiles' `pr.pos.y<=0.04` termination, its onWhiff and its retire are ballistics and stay byte-identical, so in the void a missed shot simply falls out of the world and is graded exactly as it always was (THE TREADMILL LAW). The trainer keeps its land rings (moonlineVoid() reads !trainMode), the Temple never reaches here (templeActive gates updateProjectiles), and moonline.on:false keeps them everywhere
-  let lr=null; for(const r of landRingPool){ if(!r.active){ lr=r; break; } }
-  if(!lr){ const mesh=new THREE.LineLoop(_arcRingGeo, new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending})); mesh.frustumCulled=false; scene.add(mesh); lr={mesh,age:0,active:false}; landRingPool.push(lr); }
-  lr.mesh.position.set(x,0.03,z); lr.age=0; lr.active=true; lr.mesh.visible=true;
-}
-function updateLandRings(dt){
-  for(const lr of landRingPool){ if(!lr.active) continue; lr.age+=dt; const k=lr.age/0.55;
-    if(k>=1){ lr.active=false; lr.mesh.visible=false; continue; }
-    const r=0.5+k*3.4; lr.mesh.scale.set(r,r,r); lr.mesh.material.opacity=0.85*(1-k); }
-}
-function clearLandRings(){   // the twin of clearRings for the OTHER floor-plane pool, and the only way to retire one EARLY: updateLandRings above is unconditional in animate (no state.running, no !templeActive), so a live ring otherwise runs its full 0.55 s wherever the player has been taken in the meantime
-  for(const lr of landRingPool){ if(lr.active){ lr.active=false; lr.mesh.visible=false; } }
-}
-
-/* ========================= BALLISTIC SCOPE (ARC firing computer — aim-pip + seeking/LOCK reticle + θ/range/flight HUD) ========================= */
-const SCOPE_STEP=1/30, M2FT=3.28084, RAD2DEG=180/Math.PI;
-let scopeAccum=SCOPE_STEP;
-const lockBoxEl=gid('lockBox'); let _pulsePhase=0;   // _pulsePhase: drives the LOCKED reticle's breathe (one expand/contract per projectile flight = the time-to-hit)
-const _scAim=new THREE.Vector3(), _scTo=new THREE.Vector3(), _scPP=new THREE.Vector3(), _scM=new THREE.Vector3(), _scV=new THREE.Vector3();
-const _scScreen=[0,0,false];
-/* ---- deviation EDGE TINTS: a red glow on the screen edge to aim TOWARD. TOP = aim up (vMiss<0) / BOTTOM = aim down (vMiss>0); LEFT = aim left (lat>0) / RIGHT = aim right (lat<0). opacity ∝ |delta| (driveEdgeTints in updateScope). ---- */
-let _scVMiss=0, _scVMissOn=false, _scMissX=0, _scMissZ=0;   // closest-approach miss of YOUR shot vs the locked target (set by simShotHits): _scVMiss = shot.y-target.y (vertical); _scMissX/_scMissZ = horizontal miss components -> projected to a signed left/right lateral miss in updateScope
-const EDGE_TOL=0.3, EDGE_K=0.30, EDGE_MAX=0.85, EDGE_FLOW=34;   // deviation -> edge-tint opacity (0 within EDGE_TOL m, full by ~3m). EDGE_FLOW = conveyor scroll speed in px/s per metre of |delta|.
-const edgeTop=gid('edgeTop'), edgeBot=gid('edgeBot'), edgeLeft=gid('edgeLeft'), edgeRight=gid('edgeRight');   // screen-edge red tints that CONVEY toward the aim-correction direction
-let _devY=0, _devX=0, _devShow=false, _eTopP=0, _eBotP=0, _eLeftP=0, _eRightP=0;
-function edgeOp(mag){ return Math.round(Math.max(0, Math.min(EDGE_MAX, (mag-EDGE_TOL)*EDGE_K))*100)/100; }
-function driveEdgeTints(vMiss, lat){ _devY=vMiss; _devX=lat; _devShow=true; }   // store the deviation; updateEdgeTints (every frame) does opacity + the conveyor scroll
-function hideEdgeTints(){ _devShow=false; }
-function updateEdgeTints(dt){   // red edge tints that UNDULATE toward the aim-correction direction; scroll speed ∝ |delta| -> slows + fades as you centre, gone at lock. dy<0 -> TOP (flow up); dy>0 -> BOTTOM (down); dx>0 -> LEFT; dx<0 -> RIGHT.
-  const dy=_devShow?_devY:0, dx=_devShow?_devX:0, scroll=!reduceMotion;   // reduced-motion: keep the static edge tint (opacity), freeze the conveyor scroll
-  const tOp=dy<0?edgeOp(-dy):0; if(tOp>0 && scroll){ _eTopP  -= EDGE_FLOW*(-dy)*dt; setStyle(edgeTop,  'backgroundPositionY', _eTopP.toFixed(1)+'px'); } setStyle(edgeTop,  'opacity', tOp);
-  const bOp=dy>0?edgeOp(dy):0;  if(bOp>0 && scroll){ _eBotP  += EDGE_FLOW*dy*dt;    setStyle(edgeBot,  'backgroundPositionY', _eBotP.toFixed(1)+'px'); } setStyle(edgeBot,  'opacity', bOp);
-  const lOp=dx>0?edgeOp(dx):0;  if(lOp>0 && scroll){ _eLeftP -= EDGE_FLOW*dx*dt;    setStyle(edgeLeft, 'backgroundPositionX', _eLeftP.toFixed(1)+'px'); } setStyle(edgeLeft, 'opacity', lOp);
-  const rOp=dx<0?edgeOp(-dx):0; if(rOp>0 && scroll){ _eRightP+= EDGE_FLOW*(-dx)*dt; setStyle(edgeRight,'backgroundPositionX', _eRightP.toFixed(1)+'px'); } setStyle(edgeRight,'opacity', rOp);
-}
-function hideScope(){ if(lockBoxEl){ lockBoxEl.classList.remove('on','lock','decoy'); lockBoxEl.style.setProperty('--pulse','1'); } _pulsePhase=0; hideEdgeTints(); }
-function projectPointScope(p){ _scPP.copy(p).applyMatrix4(camera.matrixWorldInverse); const behind=_scPP.z>0; _scPP.applyMatrix4(camera.projectionMatrix);
-  _scScreen[0]=viewCX+_scPP.x*viewCX; _scScreen[1]=viewCY-_scPP.y*viewCY; _scScreen[2]=!behind && Math.abs(_scPP.x)<1.3 && Math.abs(_scPP.y)<1.3; return _scScreen; }
-function fmtDist(m){ return CFG.scopeUnits==='ft' ? (m*M2FT).toFixed(1)+' ft' : m.toFixed(1)+' m'; }
-function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null, bestDot=tight?-2:0.72;   // normal: nearest the crosshair within ~44°. tight (FLICK BONUS): crosshair literally ON the orb (size-aware cone), skipping already-locked orbs + decoys.
-  for(const tg of targets){ if(tg.dead) continue;
-    if(tight && (tg._flickLocked || tg.kind===2)) continue;   // flick can't re-lock a locked orb, and you never flick-lock a decoy
-    _scTo.subVectors(tg.mesh.position, PLAYER_POS); const d=_scTo.length(); if(d<1) continue;   // decoys included in the normal path -> they get a RED 'AVOID' reticle (no gold lock, no aim gauges) so you can SEE + dodge them
-    const dot=(_scTo.x*_scAim.x+_scTo.y*_scAim.y+_scTo.z*_scAim.z)/d;
-    if(tight){ if(dot>=Math.cos(Math.atan2(tg.radius*tg.sc*CFG.flickBonus.coneMul, d)) && dot>bestDot){ bestDot=dot; best=tg; } }   // dot >= cos(angular radius) == the crosshair is inside the orb's silhouette
-    else if(dot>bestDot){ bestDot=dot; best=tg; } }
-  return best;
 }
 })();

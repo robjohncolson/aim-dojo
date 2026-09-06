@@ -1568,146 +1568,168 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function buildRoadArches(){
+  if(!ML_NAVE){
+  /* THE RAIL-SPLIT ARCHES, THE MERCY RING AND THE REFLECTIONS — ONE indexed mesh, ONE draw call, built ONCE (SPEC §4).
+     Every arch on screen, its crossing partner, both junction pairs, the mirrored pass below the road plane and the mercy
+     ring are the same 44 ribbon strips: the VERTEX shader places each station from tonight's course at its OWN beat, so
+     the gates are spline-mapped exactly as the ribbon is — they lean with the bends and their feet land on the rails to
+     the millimetre, with no geometry to rebuild and nothing to evaluate on the CPU. The attributes ARE the parameters:
+     position = (slot, t, side) and aMW = (mirror, ribbon-side). There is no vertex position in this buffer at all. */
+  const HW=_roadG(ROAD_HALF_W), SEG=ML_ARCH_SEG, NS=ML_ARCH_N*4, vc=NS*2*(SEG+1);
+  const pos=new Float32Array(vc*3), amw=new Float32Array(vc*2), idx=new Uint16Array(NS*SEG*6);
+  let v=0, ii=0;
+  for(let k=0;k<ML_ARCH_N;k++) for(let si=0;si<2;si++) for(let mi=0;mi<2;mi++){
+    const side=si?1:-1, mir=mi?-1:1, base=v;                             // side = which rail this strand leaves · mir = +1 the arch, −1 its mirror (a reflection, or the mercy ring's lower half)
+    for(let s=0;s<=SEG;s++){ const t=(s/SEG)*2-1;
+      for(let wi=0;wi<2;wi++){ pos[v*3]=k; pos[v*3+1]=t; pos[v*3+2]=side; amw[v*2]=mir; amw[v*2+1]=wi?1:-1; v++; } }
+    for(let s=0;s<SEG;s++){ const a=base+s*2; idx[ii++]=a; idx[ii++]=a+1; idx[ii++]=a+2; idx[ii++]=a+1; idx[ii++]=a+3; idx[ii++]=a+2; }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('aMW', new THREE.BufferAttribute(amw,2));
+  g.setIndex(new THREE.BufferAttribute(idx,1));
+  const U=roadMat.uniforms, M=CFG.moonline;
+  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
+    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}),   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes — and wave 8.1's BREATH joins them on the same terms, so the gold cannot swell a frame before or after the ribbon it is grown from. The doorway pair is emitted only on its own arm and borrows the same clock/stamp objects
+               uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)},
+               uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))},
+               uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind}, uCol:{value:new THREE.Color(ML_GOLD)} },
+    vertexShader:[
+      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+      'attribute vec2 aMW; varying float vV,vNode,vAmt,vTh;',
+      'void main(){',
+      '  float t=position.y, side=position.z, mir=aMW.x, w=aMW.y;',
+      '  float b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x+'+_roadG(ML_ARCH_SPREAD)+'*t;',                    // THE STATION'S OWN BEAT: the bar line, plus a quarter-beat of branch either side. Distance IS time here too
+      '  float th=1.57079633*t, xl=side*'+HW+'*sin(th), yl=mir*uArchH*cos(th);',                                  // (xl/halfW)² + (yl/archHeightM)² = 1 EXACTLY: a true ellipse in the front view, a true semicircle at archHeightM 7
+      '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);',                                    // the RE-BASED centreline, the identical expression the ribbon's fragment shader evaluates — one course, now four readers
+      '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+';',
+      '  vec3 Pc=vec3(cx+xl, yl, -u);',
+      '  float d=length((viewMatrix*vec4(Pc,1.0)).xyz);',
+      '  float hw=clamp('+_roadG(ML_ARCH_PX)+'*d/'+_roadG(ML_FOCAL_PX)+','+_roadG(ML_ARCH_WMIN)+','+_roadG(ML_ARCH_WMAX)+');',   // constant on SCREEN, by the shipped optics — a beam near, a thread far
+      '  vec2 rad=normalize(vec2(xl,yl)+vec2(0.0,1e-4));',                                                        // the strip widens along the arc's own RADIUS, so "inner" and "outer" are properties of the ARCH and not of where the camera happens to be
+      '  gl_Position=projectionMatrix*viewMatrix*vec4(Pc+vec3(rad*(hw*w),0.0),1.0);',
+      '  float mercy=uK[int(position.x)];',                                                                       // this bar OPENS the mercy phase → the mirror half stops being a reflection and closes the circle
+      ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, gateB=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x, crossLocal=step(0.0,uNow-gateB)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-gateB)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
+      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',                       // the arches die exactly where the ribbon does — the same ramp, so there is no gate hanging over a road that has ended
+      '  float hlf=mix(1.0, mix(uReflect,1.0,mercy), step(mir,0.0));',                                            // reflectAlpha:0 silences every reflection and leaves the RING untouched: its lower half is not a reflection of anything
+      '  vV=w; vTh=th; vNode=smoothstep(0.86,1.0,abs(t));',                                                       // THE JUNCTION NODES, for free: the bright gold is the strand's own last 14%, which is exactly where it meets the rail
+      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',   // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon. THE BREATH rides here, per VERTEX, on the amount that already scales every fragment of this strand: 45% of the ribbon's swell. A crossing adds its envelope INSIDE that same term, never replaces it; the off arm emits the prior expression character-for-character
+      '}'
+    ].join('\n'),
+    // THE PRISM AND THE AURORA ARE NOT EMITTED ON LOW (ML_ARCH_RICH — the ROAD_GLYPH_PASS pattern): SPEC §4 asks for "plain
+    // arcs" there, and a uniform set to zero would still pay for both exp() on every fragment of every arch. What LOW draws
+    // is the gaussian core and its junction nodes, which is the arch's INFORMATION; the rest is its face.
+    fragmentShader:[
+      'uniform vec3 uCol; uniform float uArchPrism; varying float vV,vNode,vAmt,vTh;',
+      'void main(){',
+      '  if(vAmt<=0.003) discard;',                                                                               // cheapest rejection first: a faded slot, a silenced reflection or archGlow:0 never reaches a single exp()
+      '  float core=exp(-vV*vV*'+_roadG(ML_ARCH_CORE)+')*(1.0+'+_roadG(ML_ARCH_NODE)+'*vNode);',
+      '  vec3 col=uCol;'
+    ].concat(ML_ARCH_RICH?[
+      '  float o=max(vV,0.0), q=vV-('+_roadG(ML_ARCH_PRISM_AT)+');',                                              // o = the OUTER half of the strand · q = how far this fragment is from where the prismatic rim sits
+      '  float ie=exp(-q*q*'+_roadG(ML_ARCH_PRISM_K)+');',                                                        // …a thin rim just INSIDE the core. Its own statement on purpose: reading a name from earlier in the SAME declaration list is legal GLSL and is still the first thing a strict mobile compiler argues about
+      '  float aur=exp(-o*o*'+_roadG(ML_ARCH_AUR)+')*step(0.001,o)*0.34;',                                        // AURORA-SOFT OUTER: the bleed lives on the outside only, so the arch's inner edge stays a crisp opening you fly through
+      '  col=mix(col, vec3(0.58)+0.42*cos(vec3(vTh*2.4)+vec3(0.0,2.094,4.189)), clamp(uArchPrism*ie,0.0,1.0));',  // SLIGHTLY PRISMATIC: the rim's hue walks the spectrum along the arc's own angle, so the rainbow bends with the gate instead of sitting on it
+      '  float a=(core+aur+ie*0.30)*vAmt;'
+    ]:[
+      '  float a=core*vAmt;'
+    ]).concat([
+      '  if(a<=0.003) discard;',
+      '  gl_FragColor=vec4(col*a, a);',
+      '}'
+    ]).join('\n') });
+  roadArch=new THREE.Mesh(g, roadArchMat);
+  roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);   // −39: straight after the ribbon (−40) and still before every other transparent thing, with depthTest untouched — an opaque Echo occludes a gate exactly as it occludes the road under it
+    return;
+  }
+  /* THE NAVE — TWO DRAWS, ONE PARAMETRIC BUFFER, ZERO PER-FRAME CPU (SPEC_MOONLINE_NAVE §2–§3).
+     The normal-blended stone and the additive alabaster/gold overlay share this indexed geometry and every uniform object.
+     Attributes remain parameters, never world positions: slot + primitive coordinates are placed from the course spline in
+     the vertex shader. Shipped desktop submits 2 × 2,200 triangles in two arch calls; LOW submits 1 × 1,232 and never
+     builds the accent material, compiling out coffers, stone glow and sparkles. Vault and veil are separate +1 calls by contract. */
+  const SEG=ML_NAVE_SEG, p=[], kd=[], mr=[], uv=[], ix=[]; let nv=0;
+  function nq(k,kind,x0,x1,y0,y1,mir){ const b=nv, q=[[x0,y0,0,0],[x1,y0,1,0],[x1,y1,1,1],[x0,y1,0,1]]; for(let i=0;i<4;i++){ p.push(k,q[i][0],q[i][1]); kd.push(kind); mr.push(mir); uv.push(q[i][2],q[i][3]); nv++; } ix.push(b,b+1,b+2,b,b+2,b+3); }
+  function nb(k,mir){ const b=nv; for(let s=0;s<=SEG;s++){ const t=s/SEG; for(let r=0;r<2;r++){ p.push(k,t,r); kd.push(0); mr.push(mir); uv.push(t,r); nv++; } } for(let s=0;s<SEG;s++){ const a=b+s*2; ix.push(a,a+1,a+2,a+1,a+3,a+2); } }
+  for(let k=0;k<ML_ARCH_N;k++){
+    nb(k,1); nb(k,-1);
+    for(const side of [-1,1]) for(const mir of [1,-1]){ const xc=side*7.65; nq(k,1,xc-0.65,xc+0.65,0.02,8.65,mir); nq(k,2,xc-0.92,xc+0.92,0,0.9,mir); nq(k,3,xc-1.02,xc+1.02,8.65,9.5,mir); const xm=side*10.8; nq(k,4,xm-1.05,xm+1.05,0,1,mir); }
+    nq(k,5,0,0,0,0,1); nq(k,5,0,0,0,0,-1);
+    nq(k,10,-1,1,-1,1,1); nq(k,11,-1,1,-1,1,1);
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(p,3)); g.setAttribute('aKind',new THREE.Float32BufferAttribute(kd,1)); g.setAttribute('aMir',new THREE.Float32BufferAttribute(mr,1)); g.setAttribute('aUV',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(ix);
+  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBite:U.uBite, uTerrain:U.uTerrain, uTerrainBase:U.uTerrainBase, uHorizon:U.uHorizon, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}), uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };   // terrain, cached horizon and bite are the road's uniform OBJECTS, never copies; the old shader text simply does not name them when either switch is off. Door-cross on borrows the same stamp and clock objects as the classic arch
+  const naveVert=[
+    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
+    ...(ML_BITE?['uniform vec3 uBite;']:[]),
+    'attribute float aKind,aMir; attribute vec2 aUV; varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
+    ...(ML_TERRAIN?[roadTerrainShader()]:[]),
+    'void main(){',
+    '  float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
+    ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, crossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
+    '  float xl=position.y, yl=position.z, th=0.0, show=1.0;',
+    '  if(aKind<0.5){ th=3.14159265*position.y; float r=mix(mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy),mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy),position.z); xl=r*cos(th); yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+r*sin(th); }',
+    '  else if(aKind<3.5){ show=1.0-mercy; }',
+    '  else if(aKind<4.5){ show=mercy; }',
+    '  else if(aKind<5.5){ float kt=aUV.y, r1=mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy), r2=mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy), kw=mix(0.55,0.78,kt); xl=(aUV.x-0.5)*2.0*kw; yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+mix(r1-0.55,r2+0.35,kt); }',
+    '  else if(aKind<10.5){ float sz=mix(2.05,2.20,mercy); xl=position.y*sz; yl=mix(18.65,14.45,mercy)+position.z*sz; }',
+    '  else { show=mercy; xl=position.y*7.0; yl=12.45+position.z*7.0; }',
+    '  if(aKind<9.5) yl*=aMir;',
+    (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
+    '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',
+    '  float refl=aMir>0.0?1.0:mix(0.50*exp(-abs(yl)/6.0),0.66*exp(-abs(yl)/26.0),mercy);',
+    ...(ML_TERRAIN?['  vTerrainVis=terrainVis(u,cx+xl,yl); yl+=cyAt(u);']:[]),
+    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',
+    '  gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,yl,-u+(aKind>9.5?0.12:0.0),1.0);',
+    '}'
+  ].join('\n');
+  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:true, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.NormalBlending, uniforms:NU, vertexShader:naveVert,
+    fragmentShader:[
+      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
+      'void main(){',
+      '  if(vShow<=0.004 || vFade<=0.004 || vKind>9.5'+(ML_TERRAIN?' || vTerrainVis<=0.004':'')+') discard;',
+      '  float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0;',
+      '  float crest=exp(-edge*edge*2.2);',
+      '  vec3 cool=vec3(0.725,0.753,0.800), warm=mix(vec3(0.957,0.937,0.902),vec3(1.0,0.980,0.940),crest);',
+      '  vec3 col=mix(cool,warm,0.38+0.62*crest); col=mix(col,vec3(1.0),crest*0.34);'
+    ].concat(ML_ARCH_RICH?[
+      '  float rec=0.0, lip=0.0;',
+      '  if(vKind<0.5){ float dth=abs(vTh-1.57079633), n=mix(10.0,12.0,vMercy), cell=(dth-0.11)/(1.46079633/n), fc=abs(fract(cell)-0.5)*2.0, rr=abs(vR-0.5)*2.0; rec=step(0.0,cell)*(1.0-smoothstep(0.42,0.78,fc))*(1.0-smoothstep(0.34,0.72,rr))*(1.0-smoothstep(120.0,250.0,vDist)); lip=smoothstep(0.05,0.24,rec)*(1.0-smoothstep(0.30,0.62,rec)); }',
+      '  vec3 recess=mix(vec3(0.565,0.605,0.675),warm,0.50); col=mix(col,recess,rec*0.396); col=mix(col,vec3(1.0,0.985,0.950),lip*0.06);'
+    ]:[]).concat([
+      '  float key=step(4.5,vKind)*step(vKind,5.5), gild=key*(0.25+0.20*vMercy)*(1.0-smoothstep(220.0,560.0,vDist)); col=mix(col,vec3(1.0,0.885,0.60),gild);',
+      '  gl_FragColor=vec4(col,clamp(0.97*vShow*vFade'+(ML_TERRAIN?'*vTerrainVis':'')+',0.0,0.995));',
+      '}'
+    ]).join('\n') });
+  if(ML_ARCH_RICH) roadArchAccentMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, uniforms:NU, vertexShader:naveVert,
+    fragmentShader:[
+      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
+      'void main(){',
+      '  if(vShow<=0.003 || vFade<=0.003'+(ML_TERRAIN?' || vTerrainVis<=0.003':'')+') discard;',
+      '  vec2 q=vUV*2.0-1.0; float a=0.0; vec3 col=vec3(1.0,0.824,0.478);',
+      '  if(vKind<9.5){'
+    ].concat(ML_ARCH_RICH?[
+      '    float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0, near=1.0-smoothstep(260.0,540.0,vDist); a=(0.035+0.075*exp(-edge*edge*2.0))*near*vShow*vFade; col=mix(vec3(1.0,0.86,0.66),vec3(1.0,0.965,0.90),exp(-edge*edge*2.0));'
+    ]:[
+      '    discard;'
+    ]).concat([
+      '  } else if(vKind<10.5){',
+      '    float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0), honey=exp(-r2*2.0), r4=exp(-abs(q.x)*18.0)*exp(-q.y*q.y*3.0)+exp(-abs(q.y)*18.0)*exp(-q.x*q.x*3.0);'
+    ]).concat(ML_ARCH_RICH?[
+      '    vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*20.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*20.0)*exp(-d.x*d.x*4.0); a=(core*1.20+r4*0.62+r8*0.46+honey*0.18)*vShow*sqrt(sqrt(max(vFade,0.0)));'
+    ]:[
+      '    a=(core+r4*0.30)*vShow*vFade;'
+    ]).concat([
+      '    col=mix(vec3(1.0,0.72,0.30),vec3(1.0,0.925,0.80),core);',
+      '  } else {',
+      '    float r=length(q), ang=atan(q.y,q.x), petR=0.24+0.10*(0.5+0.5*cos(10.0*ang)); float petals=(1.0-smoothstep(petR,petR+0.055,r))*smoothstep(0.055,0.12,r); float spoke=abs(fract((ang/6.28318531)*19.0+0.5)-0.5), rays=(1.0-smoothstep(0.0,0.12,spoke))*smoothstep(0.28,0.36,r)*(1.0-smoothstep(0.83,1.0,r))*(1.0-r); float heart=exp(-r*r*46.0); a=(heart+petals*0.70+rays*0.65)*vShow*vFade; col=mix(vec3(1.0,0.66,0.24),vec3(1.0,0.95,0.82),heart);',
+      '  }',
+      '  a*=0.72'+(ML_TERRAIN?'*vTerrainVis':'')+'; if(a<=0.003) discard; gl_FragColor=vec4(col,a);',
+      '}'
+    ]).join('\n') });
+  roadArch=new THREE.Mesh(g,roadArchMat); roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);
+  if(roadArchAccentMat){ roadArchAccent=new THREE.Mesh(g,roadArchAccentMat); roadArchAccent.frustumCulled=false; roadArchAccent.renderOrder=-37.8; roadArchAccent.visible=false; scene.add(roadArchAccent); }
+}
 function buildNaveVault(){
   /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
      uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's
@@ -1802,8 +1824,10 @@ function roadWallVertexShader(){ return [
   '  gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
   '}'
 ].join('\n'); }
-function roadWallFragmentShader(){ return [
+function roadWallFragmentShader(){ const flow=typeof CFG!=='undefined' && !!CFG.streakFlow; return [
   'uniform float uWallDissolve,uWallGlow'+(ML_WALL_ECHO?',uWallHit,uWallMiss':'')+(ML_DOOR_CROSS?',uWallCross':'')+'; varying vec2 vWallP; varying vec3 vWallCol,vWallNext; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_WALL_ECHO?',vWallLocal,vWallClock':(ML_DOOR_CROSS?',vWallClock':''))+(ML_DOOR_CROSS?',vWallCrossLocal':'')+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(flow?['uniform float uFlowGlow,uFlowPhase;',
+  'vec3 flowPearlAt(vec2 p){ return '+(LOW||reduceMotion?'mix(vec3(0.70,0.94,0.96),vec3(0.94,0.80,0.96),clamp((p.x+p.y)*0.035+0.5,0.0,1.0))':'vec3(0.80)+vec3(0.20)*cos(vec3(0.0,2.1,4.2)+p.x*0.12+p.y*0.10+uFlowPhase)')+'; }']:[]),
   ...(!LOW?[
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
@@ -1813,7 +1837,7 @@ function roadWallFragmentShader(){ return [
   '  if(vWallFade<=0.004 || vWallRetire<=0.004 || vWallKind>'+(ML_MERCY_INVERSE?'0.5':'1.5')+(ML_TERRAIN?' || vWallTerrain<=0.5':'')+') discard;',
   '  float x=vWallP.x, y=vWallP.y;',
   ...(!LOW?['  if(vWallRetire<wallVn(vec2(x,y)*5.3+19.1)) discard;']:['  float retirePowder=0.5+0.25*sin(x*0.37)+0.25*sin(y*0.53); if(vWallRetire<retirePowder) discard;']),
-  ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core); if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
+  ...(ML_MERCY_INVERSE?[]:['  if(vWallKind>0.5){ float ring=abs(length(vec2(x,y))-'+_roadG((ML_WALL_RING_R1+ML_WALL_RING_R2)*0.5)+'); if(ring>'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+') discard; float core=1.0-smoothstep(0.0,'+_roadG((ML_WALL_RING_R2-ML_WALL_RING_R1)*0.5)+',ring); vec3 marble=mix(vec3(0.66,0.70,0.78),vec3(1.0,0.98,0.94),0.55+0.45*core);'+(flow?' if(uFlowGlow>0.005) marble=mix(marble,flowPearlAt(vec2(x,y)),uFlowGlow*0.55);':'')+' if(y<0.0) marble*=0.66*exp(y*0.04); gl_FragColor=vec4(marble*vWallFade,1.0); return; }']),
   '  float d; if(y<'+_roadG(ML_WALL_SPRING)+'){ d=abs(x)-'+_roadG(ML_WALL_DJ)+'; if(y<0.0) d=max(d,-y); } else { float e=length(vec2(x/'+_roadG(ML_WALL_DA)+',(y-'+_roadG(ML_WALL_SPRING)+')/'+_roadG(ML_WALL_DB)+')); d=(e-1.0)*'+_roadG(ML_WALL_DB)+'; }',
   ...(GH_CHALK?['  vec4 chalk=chalkOnDoor(vec2(x,y)); if(chalk.a>0.0){ gl_FragColor=vec4(chalk.rgb*vWallFade,1.0); return; }']:[]),   // the marks live inside the opening, so paint them before its discard
   '  if(d<0.0) discard;',
@@ -1844,11 +1868,13 @@ function roadWallFragmentShader(){ return [
   '  float crossFront='+(reduceMotion?'1.0':'1.0-smoothstep('+_roadG(ML_WALL_ECHO_WIDTH*0.5)+','+_roadG(ML_WALL_ECHO_WIDTH)+',abs(d-crossAge*'+_roadG(ML_WALL_ECHO_SPEED)+'))')+', crossEvent=crossEnv*crossFront*vWallCrossLocal*powder*step(0.0,y);',
   '  vec3 crossWarm=vec3(1.0,0.97,0.90); float crossLum=dot(col,vec3(0.2126,0.7152,0.0722)), crossWarmLum=dot(crossWarm,vec3(0.2126,0.7152,0.0722)); float crossLift=min(crossLum*'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEvent,max(0.0,(1.0-crossLum)/crossWarmLum)); col+=crossWarm*crossLift;'
   ]:[]),
+  ...(flow?['  float flowEdge=uFlowGlow*(1.0-smoothstep(0.0,2.2,d))*step(0.0,y); if(flowEdge>0.005) col=mix(col,flowPearlAt(vec2(x,y)),flowEdge*0.55);']:[]),   // only a visible pearl rim evaluates the hue; no new pass, geometry, clock or noise
   '  gl_FragColor=vec4(col*vWallFade,1.0);',
   '}'
 ].join('\n'); }
-function roadMercyInverseFragmentShader(){ return [
+function roadMercyInverseFragmentShader(){ const flow=typeof CFG!=='undefined' && !!CFG.streakFlow; return [
   'uniform float uWallDissolve; varying vec2 vWallP; varying float vWallKind,vWallFade,vWallRetire,vWallSeed'+(ML_TERRAIN?',vWallTerrain':'')+';',
+  ...(flow?['uniform float uFlowGlow,uFlowPhase;']:[]),
   ...(!LOW?[
   'float wallHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7))+vWallSeed)*43758.5453); }',
   'float wallVn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); float a=wallHash(i),b=wallHash(i+vec2(1.0,0.0)),c=wallHash(i+vec2(0.0,1.0)),d=wallHash(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }'
@@ -1867,7 +1893,11 @@ function roadMercyInverseFragmentShader(){ return [
   ]:[
   '  float powder=1.0-smoothstep(uWallDissolve,'+_roadG(ML_WALL_POWDER1)+',r); if(powder<0.5) discard;'
   ]),
-  '  gl_FragColor=vec4(1.0);',
+  ...(flow?[
+  '  float flowEdge=uFlowGlow*(1.0-smoothstep(0.0,2.2,d))*step(0.0,y); vec3 flowCol=vec3(1.0);',
+  '  if(flowEdge>0.005){ vec3 flowPearl='+(LOW||reduceMotion?'mix(vec3(0.70,0.94,0.96),vec3(0.94,0.80,0.96),clamp((x+y)*0.035+0.5,0.0,1.0))':'vec3(0.80)+vec3(0.20)*cos(vec3(0.0,2.1,4.2)+x*0.12+y*0.10+uFlowPhase)')+'; flowCol=mix(flowCol,flowPearl,flowEdge*0.55); }',
+  '  gl_FragColor=vec4(flowCol,1.0);'   // keep the inverse blend and alpha intact; only a visible edge evaluates the pearl hue
+  ]:['  gl_FragColor=vec4(1.0);']),
   '}'
 ].join('\n'); }
 function buildRoadWalls(){
@@ -1876,6 +1906,7 @@ function buildRoadWalls(){
   for(let k=0;k<ML_WALL_N;k++){ const b=k*4; for(const q of [[ML_WALL_X,ML_WALL_Y0],[ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y1],[-ML_WALL_X,ML_WALL_Y0]]){ pos[po++]=k; pos[po++]=q[0]; pos[po++]=q[1]; } idx[io++]=b; idx[io++]=b+1; idx[io++]=b+2; idx[io++]=b; idx[io++]=b+2; idx[io++]=b+3; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setIndex(new THREE.BufferAttribute(idx,1));
   const U=roadMat.uniforms, WU={uNow:U.uNow,uBase:U.uBase,uA:U.uA,uW:U.uW,uP:U.uP,uBite:U.uBite,uTerrain:U.uTerrain,uTerrainBase:U.uTerrainBase,uHorizon:U.uHorizon,uArchN0:{value:-ML_ARCH_BEHIND},uK:{value:_archKind},uWallCol:{value:_wallCol},uWallNext:{value:_wallNext},uWallSeed:{value:0},uWallDissolve:{value:Math.max(1,Math.min(199,+CFG.moonline.wallDissolve||95))},uWallGlow:{value:Math.max(0,+CFG.moonline.wallGlow||0)},...(ML_WALL_ECHO?{uWallHit:_wallHit,uWallMiss:_wallMiss}:{}),...(ML_DOOR_CROSS?{uWallCross:_wallCross}:{}),...((ML_WALL_ECHO||ML_DOOR_CROSS)&&reduceMotion?{uPulse:U.uPulse}:{})};   // palette and seed stay inert until roadSync's first LIVE roadCourse call; every enabled event stamp and reduced-motion's already-written road clock are shared uniform OBJECTS, never copies
+  if(CFG.streakFlow){ WU.uFlowGlow=_flowGlow; WU.uFlowPhase=_flowPhase; }   // one eased reward shared by ordinary and mercy edges; opt-out keeps the old uniform layout
   if(GH_CHALK){
     for(let i=0;i<4;i++) WU['uMark'+i]={value:Array.from({length:ML_ARCH_N},()=>new THREE.Vector4())};
     WU.uMarkFocalPx={value:1};
@@ -3931,234 +3962,5 @@ function rebindSkySelection(selected){
   _skySel=pick; _lsn.sel=pick; _lsn.holdT=state.t;
   goldFigure(pick.kind==='sign'?pick.id:pick.meta.sign); emphasizeListenGlyphs(pick);
   return true;
-}
-function skyListenTry(){   // true consumes an intentional held-E selection gesture; ordinary fire never enters this path
-  if(!CFG.skyTemple.enabled) return false;
-  if(CFG.skyTemple.selectRequiresHold && !_skySelectHeld) return false;
-  if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta) return false;   // natural + theatre; even missing glossary/day assets may fall through to honest stick/Meeus geometry copy
-  if(_lsnOrbBlocksSky()){ showGhostToast(T('skyBlockedByEcho','AN ECHO IS IN THE WAY')); return false; }   // Echo between you and the sky → always launch a projectile, never a zodiac Listen. THE REFUSAL SPEAKS (1.4): the gesture and the shot look identical from the player's chair, so a silent block reads as a broken key — one line names the thing that took the shot. Gesture feedback in the existing toast channel; the session-boundary text budget is untouched
-  const pick=pickCelestial();
-  if(!pick){
-    showGhostToast(T('skyNoMark','NOTHING IN THE SKY THERE'));   // held-E on bare sky is a real answer, not a no-op: it says why the mark just went away (1.4)
-    clearListen(true); return true;   // held-E empty sky clears the mark and never leaks into combat
-  }
-  startListen(pick); return true;
-}
-function _lsnMuzzle(out){   // same muzzle as computeShotPlan's M — WITHOUT touching the shared plan globals (_arcI/_planLanded stay combat-only)
-  camera.getWorldDirection(_lsnDir2);
-  _lsnRt.crossVectors(_lsnDir2,_LSN_UP); if(_lsnRt.lengthSq()<1e-6) _lsnRt.set(1,0,0); else _lsnRt.normalize();
-  return out.set(PLAYER_POS.x+_lsnRt.x*BLADE_DX+_lsnDir2.x*BLADE_DZ, PLAYER_POS.y-BLADE_DY+_lsnDir2.y*BLADE_DZ, PLAYER_POS.z+_lsnRt.z*BLADE_DX+_lsnDir2.z*BLADE_DZ);
-}
-function startListen(pick){
-  clearListen(false);
-  _lsn.sel=pick; _skySel=pick; _lsn.holdT=state.t;
-  if(!_lsn.line){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
-    _lsn.line=new THREE.Line(g, new THREE.LineBasicMaterial({color:0x9fd8ff, transparent:true, opacity:0.55, depthWrite:false, fog:false, blending:THREE.AdditiveBlending}));
-    _lsn.line.frustumCulled=false; scene.add(_lsn.line); }
-  const lp=_lsn.line.geometry.attributes.position; _lsnMuzzle(_lsnP);
-  lp.setXYZ(0,_lsnP.x,_lsnP.y,_lsnP.z); lp.setXYZ(1,pick.world.x,pick.world.y,pick.world.z); lp.needsUpdate=true;
-  _lsn.line.material.opacity=0.55; _lsn.line.visible=true; _lsn.lineT=state.t;
-  goldFigure(pick.kind==='sign' ? pick.id : pick.meta.sign);
-  emphasizeListenGlyphs(pick);
-  if(CFG.skyTemple.legacyListenCard){
-    const fallback=glossaryListenData(pick); showListenCard(pick,fallback,false);
-    if(_personalListenExpected || _lsnNatalId()) fetchListen(pick,fallback);
-  }else if(_lsn.card) _lsn.card.style.display='none';
-}
-function clearListen(hideCard){
-  _lsn.sel=null; _skySel=null; _lsn.holdT=-1; _lsn.seq++;
-  if(_lsn.line){ _lsn.line.visible=false; } _lsn.lineT=-1;
-  restoreListenGlyphs(); hideListenGhost();
-  restoreFigures();
-  if(hideCard!==false && _lsn.card) _lsn.card.style.display='none';
-}
-function emphasizeListenGlyphs(pick){   // Parcel L: mutate the existing sprites — no duplicate globe/planet representation
-  restoreListenGlyphs(); const C=SKY_CHART;
-  if(pick.kind==='body'){
-    emphasizeListenGlyph(pick.meta.sprite, C.mover.listenScale);
-    const sign=pick.meta.sign&&_lsnMeta.signs[pick.meta.sign]; if(sign) emphasizeListenGlyph(sign.sprite, C.sign.listenScale);
-  }else emphasizeListenGlyph(pick.meta.sprite, C.sign.listenScale);
-}
-function emphasizeListenGlyph(sp,scale){
-  if(!sp || !sp.material || _lsn.emphasis.some(e=>e.sp===sp)) return;
-  const fi=sp.userData.chartFadeIndex, fade=(fi==null?null:_chartFade[fi]);
-  _lsn.emphasis.push({sp:sp, sx:sp.scale.x, sy:sp.scale.y, col:sp.material.color.clone(), fade:fade, a0:fade?fade.a0:null});
-  sp.userData.listenSelected=true; sp.material.color.copy(LSN_GOLD); sp.scale.set(scale,scale,1);
-  if(fade) fade.a0=Math.max(0.95,fade.a0);   // updateChartSky owns opacity; boost its source rather than fighting the 20 Hz fade pass
-}
-function restoreListenGlyphs(){
-  for(const e of _lsn.emphasis){ e.sp.material.color.copy(e.col); e.sp.scale.set(e.sx,e.sy,1); e.sp.userData.listenSelected=false; if(e.fade) e.fade.a0=e.a0; }
-  _lsn.emphasis.length=0;
-}
-function hideListenGhost(){ if(!_lsn.ghost) return; const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=false; _lsn.ghost.visible=false; }
-function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(let i=i0;i<i1;i++){ a.setXYZ(i,r,g,b); } a.needsUpdate=true; }
-function goldFigure(signId){   // selected figure gold, the rest dimmed — pure vertex-colour rewrite, zero extra draw calls; additive blending makes darker = dimmer
-  restoreFigures();
-  if(!signId || !_stickFig) return;
-  const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
-  const S=SKY_CHART.stick, lb=new THREE.Color(S.lnCol);
-  _lsn.goldFig=fid;   // set BEFORE the paint so the lit-sky repaint below sees which figure is gold (nothing between here and the old assignment ever read it)
-  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: the identical dim+gold paint, with each star's own lit level riding through it
-  else{
-    const pb=new THREE.Color(S.ptCol);
-    _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
-    _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
-  }
-  if(_stickFig.lGeo){
-    _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
-    _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
-  }
-}
-function restoreFigures(){
-  if(_lsn.goldFig==null || !_stickFig) return;
-  _lsn.goldFig=null;   // cleared FIRST for the same reason goldFigure sets it first: starLitRepaint reads it to decide what "restored" means
-  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: restore means back to the LIT baseline, not back to flat white — accretion is never painted away
-  else _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, 1,1,1);
-  if(_stickFig.lGeo) _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, 1,1,1);
-}
-function _lsnCap(s){ s=String(s); return s.charAt(0).toUpperCase()+s.slice(1); }
-function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if(style) d.style.cssText=style; d.textContent=txt; parent.appendChild(d); return d; }
-function _lsnClip(s, max){   // prefer end-of-sentence within max; avoid mid-word chops (Ophiuchus essays were dying mid-clause)
-  s=String(s==null?'':s).replace(/\s+/g,' ').trim(); if(!s) return '';
-  if(s.length<=max) return s;
-  const head=s.slice(0,max);
-  let cut=-1;
-  for(const re of [/[.!?…]["')\]]?\s/g, /;\s/g, /,\s/g]){ let m; while((m=re.exec(head))) cut=m.index+m[0].length; if(cut>Math.floor(max*0.45)) break; }
-  if(cut<Math.floor(max*0.45)){ const sp=head.lastIndexOf(' '); cut=sp>Math.floor(max*0.45)?sp:max; }
-  return s.slice(0,cut).trim()+(cut<s.length?'…':'');
-}
-function _lsnNatalId(){   // pack natal_id for personal transit block — meta first, then live pack fallback
-  if(_lsnMeta && typeof _lsnMeta.natalId==='string' && _lsnMeta.natalId) return _lsnMeta.natalId;
-  if(_skypack && typeof _skypack.natal_id==='string' && _skypack.natal_id) return _skypack.natal_id;
-  return null;
-}
-function _listenPersonalExpected(){ return !!(_personalListenExpected || _lsnNatalId()); }
-function glossaryListenData(pick){
-  const G=_skyGlossary; if(!G||!pick) return null; const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign);
-  const S=SKY_SIGN_SET[signId]?G.signs[signId]:null;
-  if(pick.kind==='sign') return S?{type:'sky_glossary',placement:{status:'ready',title:S.title,text:S.text},personal:{available:false}}:null;
-  const P=G.planets[pick.id], exact=S&&G.planet_in_sign[pick.id+':'+signId]; if(!P&&!S) return null;
-  let title=exact&&exact.title, text=exact&&exact.text;
-  if(!text && P && S){ const pk=Array.isArray(P.keywords)?P.keywords:[], sk=Array.isArray(S.keywords)?S.keywords:[];
-    title=P.title+' in '+S.title;
-    text=(pk.length>=2&&sk.length>=2)?(title+' traditionally joins '+pk[0]+' and '+pk[1]+' with '+sk[0]+' and '+sk[1]+'. It is a symbolic lens for reflection, not a fixed character claim or prediction.'):(P.text+' '+S.text); }
-  else if(!text){ const one=P||S; title=one.title; text=one.text; }
-  return {type:'sky_glossary',placement:{status:'ready',title:title,text:text},personal:{available:false}};
-}
-function templeAspectStudyData(record){
-  // Descriptive chip for a transit→natal chord: geometry + glossary on both ends (no DeepSeek).
-  if(!record||!record.transit||!record.natal) return null;
-  const G=_skyGlossary, t=record.transit, n=record.natal;
-  const tSign=t.sign||null, nSign=n.sign||null;
-  const tPick={kind:'body',id:t.id,meta:{name:t.label||t.id,glyph:t.glyph,sign:tSign,lon:t.lonJ2000}};
-  const nPick={kind:'body',id:n.id,meta:{name:n.label||n.id,glyph:n.glyph,sign:nSign,lon:n.lonJ2000}};
-  const tGloss=glossaryListenData(tPick), nGloss=glossaryListenData(nPick);
-  const aspectLabel=record.aspectLabel||record.aspectId||'aspect';
-  const title='Transit '+(t.label||t.id)+' '+aspectLabel+' natal '+(n.label||n.id);
-  let text='A symbolic contact between moving '+(t.label||t.id)+' and natal '+(n.label||n.id)+' ('+aspectLabel+').';
-  if(record.motionLabel) text+=' The aspect is '+record.motionLabel+'.';
-  if(isFinite(record.orbDeg)) text+=' Orb '+(+record.orbDeg).toFixed(1)+'°.';
-  text+=' Use it as a reflective lens, not a prediction.';
-  const parts=[];
-  if(tGloss&&tGloss.placement&&tGloss.placement.text) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:tGloss.placement.title, text:tGloss.placement.text});
-  else if(G&&G.planets[t.id]) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:G.planets[t.id].title, text:G.planets[t.id].text});
-  if(nGloss&&nGloss.placement&&nGloss.placement.text) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:nGloss.placement.title, text:nGloss.placement.text});
-  else if(G&&G.planets[n.id]) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:G.planets[n.id].title, text:G.planets[n.id].text});
-  return {type:'temple_aspect',placement:{status:'ready',title:title,text:text},personal:{available:false},parts:parts};
-}
-function mergePersonalListen(data,fallback){
-  if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
-}
-function ensureListenCardShell(){
-  // Card body stays pointer-events:none so aim is free; only the × dismiss control is clickable.
-  if(_lsn.card) return _lsn.card;
-  const d=document.createElement('div'); d.id='skyListenCard';
-  d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;padding-right:34px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
-  const x=document.createElement('button'); x.type='button'; x.id='skyListenDismiss';
-  x.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
-  x.textContent='×';
-  x.style.cssText='position:absolute;top:4px;right:4px;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--bone-dim);font:18px/28px var(--mono);cursor:pointer;pointer-events:auto;z-index:1;opacity:.85';
-  x.addEventListener('mouseenter',()=>{ x.style.color='var(--bone)'; x.style.opacity='1'; });
-  x.addEventListener('mouseleave',()=>{ x.style.color='var(--bone-dim)'; x.style.opacity='.85'; });
-  x.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); clearListen(true); });
-  // Don't let mousedown steal pointer-lock / aim
-  x.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); });
-  d.appendChild(x);
-  const body=document.createElement('div'); body.id='skyListenCardBody';
-  body.style.cssText='pointer-events:none;';
-  d.appendChild(body);
-  document.body.appendChild(d);
-  _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
-  return d;
-}
-function showListenCard(pick, data, skeleton){
-  // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
-  // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
-  const card=ensureListenCardShell();
-  const body=_lsn.cardBody||card;
-  if(_lsn.cardBody) body.textContent=''; else card.textContent='';
-  // Re-ensure dismiss button if we wiped card text (legacy path)
-  if(!_lsn.cardBody){ _lsn.card=null; ensureListenCardShell(); return showListenCard(pick,data,skeleton); }
-  card.style.display='block';
-  if(_lsn.dismissBtn){
-    _lsn.dismissBtn.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
-    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','R-CLICK or X to close'):'R-CLICK or X to close';
-  }
-  // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
-  if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
-  const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
-  const signGlyph=signMeta?signMeta.glyph:(SKY_SIGN_GLYPHS[signId]||'');
-  const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
-  const A=data&&data.placement, P=data&&data.personal;
-  // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
-  const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
-  // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
-  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
-  if(skeleton){
-    _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
-    _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
-                                      : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
-    _lsnLine(body, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
-  }
-  // YOUR CHART appears only after the optional personal desk actually returns content; a natal pack alone never displaces or nags over the glossary.
-  if(hasPersonal){
-    _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
-    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
-    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
-    if(P.text) _lsnLine(body, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
-    if(Array.isArray(P.highlights) && P.highlights.length){
-      _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
-      for(const h of P.highlights.slice(0,3)){
-        if(!h) continue;
-        const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
-        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
-        else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
-        if(h.text) _lsnLine(body,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
-        else if(!h.title) _lsnLine(body,seal,'color:var(--bone-dim);');
-      }
-    }
-  }
-  // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
-  _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
-  _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
-                                    : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
-  if(A && (A.title||A.text)){
-    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
-    if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
-  } else if(pick.kind==='body') _lsnLine(body, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
-  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
-    for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
-    for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
-    if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
-    if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
-  }
-  if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
-  _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
-  _lsnLine(body, T('skyListenDismissHint','R-CLICK or X to close · empty sky also works'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
-}
-function paintStudySurface(pick, data, skeleton){
-  // Temple owns investigation chrome; legacy dojo Listen card only when explicitly re-enabled.
-  if(templeActive) fillTempleStudy(pick, data, skeleton);
-  else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
 }
 })();

@@ -181,6 +181,7 @@ function pipRendererSandbox(bpm = 28) {
   Object.assign(context.CFG, { wasdHud: true, wasdLetter: true, wasdTapText: false, pocketCircleCue: false });
   Object.assign(context, {
     HUD_CSS: 560, HUD_CX: 280, HUD_K: 1, ROAD_LANE_READY: false,
+    LOW: false, _flowGlow: { value: 0 }, _flowPhase: { value: 0 },
     ML_RING_ECHO: false, ML_RING_ECHO_T: .30, ML_RING_IN: .18,
     Tone: { Transport: { state: "started" } }, WASD_COL: ["lane-w", "lane-a", "lane-s", "lane-d"],
     dayAmt: 0, _spoilOff: 0, _hitOff: 0,
@@ -203,7 +204,7 @@ function pipRendererSandbox(bpm = 28) {
       clearRect() {}, setTransform() {},
     },
   });
-  vm.runInContext(["ARC", "drawWasdLane"].map(extractFunction).join("\n"), context);
+  vm.runInContext(["ARC", "drawStreakFlow", "drawWasdLane"].map(extractFunction).join("\n"), context);
   context.draw = () => {
     operations.length = 0; glyphs.length = 0;
     context.drawWasdLane();

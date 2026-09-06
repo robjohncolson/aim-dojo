@@ -78,6 +78,7 @@ const CFG = {
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
   wasdNoteDivs:[2,4,8], wasdNoteT:[1.01,1.02],   // One required note per beat; half-beats are unreachable. Inner pips count a 16-beat free-play streak; completing a ring flashes the set count on the circle. Orb motion keeps its separate 36/50 BPM ladder.
   wasdPipN:16,
+  streakFlow:true,   // completing the first pip ring opens ordinary shields while the credited WASD streak lasts
   wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.30, wasdGrooveMax:2.7,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostTrimFast:1,   // R2 off switch: 0 restores whole-record serialization after every removed row
@@ -456,6 +457,27 @@ let _quantIdx=-1, _quantT=0, _snapInterval=0.5;   // beat-grid strobe: last snap
 let _jukeIdx=-1;   // last whole-beat index an orb-JUKE fired on (groove Phase 1)
 function wasdBeats(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b - (CFG.grooveGroove?CFG.grooveFreezePhase:0); }   // WASD note grid, phase-shifted onto the "and" so the freeze PEAKS off-beat; the metronome / orb-strobe / juke / shot all stay on the RAW whole beat
 let _openAmt=1;   // orb-vulnerability glow 0..1 (peaks on the beat); recomputed each frame in the run loop
+const _flowGlow={value:0}, _flowPhase={value:0};   // shared wall uniforms; the reticle reads the same eased reward
+let _flowActive=false, _flowGraceUntil=-999;
+function streakFlowLevel(){
+  if(!CFG.streakFlow || !CFG.wasdRhythm || !CFG.grooveGroove || !CFG.grooveVuln || !state.running || trainMode || templeActive || bonusActive || _wasdCombo<=0) return 0;
+  return Math.min(3,Math.max(0,Math.floor(_pipSetN)));   // the actual completed-ring signal; optional taps cannot unlock Flow
+}
+function resetStreakFlow(){ _flowActive=false; _flowGraceUntil=-999; _flowGlow.value=0; _flowPhase.value=0; }
+function updateStreakFlow(dt){
+  if(!CFG.streakFlow || !CFG.wasdRhythm || !CFG.grooveGroove || !CFG.grooveVuln || !state.running || trainMode || templeActive || bonusActive){ resetStreakFlow(); return; }
+  const level=streakFlowLevel();
+  if(level>0){ _flowActive=true; _flowGraceUntil=-999; }
+  else if(_flowActive){ _flowActive=false; _flowGraceUntil=state.t+0.25*60/Math.max(20,state.bpm); }   // a quarter beat to hear the break before ordinary shields return
+  const target=level>0?0.58+0.21*(level-1):0;
+  _flowGlow.value+=(target-_flowGlow.value)*(1-Math.exp(-Math.max(0,dt)*(target>_flowGlow.value?7:5)));
+  if(_flowGlow.value<0.001 && !level) _flowGlow.value=0;
+  _flowPhase.value=(LOW || reduceMotion)?0:state.t*0.16;   // slow pearl drift; still color under reduced motion and LOW
+}
+function streakFlowOpen(){
+  updateStreakFlow(0);   // input can arrive between frames; resolve activation/break before recording a launch
+  return _flowActive || state.t<_flowGraceUntil;
+}
 function orbOpen(){ return !(CFG.grooveGroove && CFG.grooveVuln) || _openAmt>0; }   // a shot only KILLS while the orb glows OPEN (on the beat); an off-beat hit clanks off the shield
 let _fillAmt=-1;   // THE FILL'S OWN PULSE (spec 1.2, T4): 0..1 nearness to the live drum-fill tank's next playable remaining gate, or -1 = "no fill tank is asking for anything right now", which is every frame of a fillOnly:false build. Written once per frame beside _openAmt in the run loop and read by the two places the shell is shaped (TANK_SHELL_MAT opacity, and that one target's shell scale) — so the tank blinks on its FIGURE while the field blinks on the beat. The three husks that used to live on this line (tankBeatPhase/tankOpen/tankGlow — the wide whole-beat tank window) were deleted here: nothing had called them since the tank became a fill, and CFG.tank.blinkWin now feeds this cue instead of that one.
 let _fireGrid=-1;   // FIRE QUANTIZE: last 1/fireQuantDiv-beat grid index a shot launched on (so at most one shot per grid step)
@@ -1545,167 +1567,5 @@ function roadImpSync(r){
   roadImp.position.x=x0+sl*(ROAD_IMP_D-ROAD_DRAW_M);                       // the quad stands where the straight continuation actually is at its own distance…
   roadImpMat.uniforms.uApex.value=sl*ROAD_DRAW_M-x0;                       // …and leans to where that continuation vanishes (xa − xb, which is independent of ROAD_IMP_D — the algebra cancels)
   roadImpMat.uniforms.uAmt.value=amt;
-}
-function buildRoadArches(){
-  if(!ML_NAVE){
-  /* THE RAIL-SPLIT ARCHES, THE MERCY RING AND THE REFLECTIONS — ONE indexed mesh, ONE draw call, built ONCE (SPEC §4).
-     Every arch on screen, its crossing partner, both junction pairs, the mirrored pass below the road plane and the mercy
-     ring are the same 44 ribbon strips: the VERTEX shader places each station from tonight's course at its OWN beat, so
-     the gates are spline-mapped exactly as the ribbon is — they lean with the bends and their feet land on the rails to
-     the millimetre, with no geometry to rebuild and nothing to evaluate on the CPU. The attributes ARE the parameters:
-     position = (slot, t, side) and aMW = (mirror, ribbon-side). There is no vertex position in this buffer at all. */
-  const HW=_roadG(ROAD_HALF_W), SEG=ML_ARCH_SEG, NS=ML_ARCH_N*4, vc=NS*2*(SEG+1);
-  const pos=new Float32Array(vc*3), amw=new Float32Array(vc*2), idx=new Uint16Array(NS*SEG*6);
-  let v=0, ii=0;
-  for(let k=0;k<ML_ARCH_N;k++) for(let si=0;si<2;si++) for(let mi=0;mi<2;mi++){
-    const side=si?1:-1, mir=mi?-1:1, base=v;                             // side = which rail this strand leaves · mir = +1 the arch, −1 its mirror (a reflection, or the mercy ring's lower half)
-    for(let s=0;s<=SEG;s++){ const t=(s/SEG)*2-1;
-      for(let wi=0;wi<2;wi++){ pos[v*3]=k; pos[v*3+1]=t; pos[v*3+2]=side; amw[v*2]=mir; amw[v*2+1]=wi?1:-1; v++; } }
-    for(let s=0;s<SEG;s++){ const a=base+s*2; idx[ii++]=a; idx[ii++]=a+1; idx[ii++]=a+2; idx[ii++]=a+1; idx[ii++]=a+3; idx[ii++]=a+2; }
-  }
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  g.setAttribute('aMW', new THREE.BufferAttribute(amw,2));
-  g.setIndex(new THREE.BufferAttribute(idx,1));
-  const U=roadMat.uniforms, M=CFG.moonline;
-  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
-    uniforms:{ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}),   // THE SAME UNIFORM OBJECTS roadMat holds, not copies: the three floats roadSync already writes each frame drive this shader too, so the gates can never be a frame out of step with the road they stand on and this parcel costs ZERO per-frame writes — and wave 8.1's BREATH joins them on the same terms, so the gold cannot swell a frame before or after the ribbon it is grown from. The doorway pair is emitted only on its own arm and borrows the same clock/stamp objects
-               uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)},
-               uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))},
-               uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind}, uCol:{value:new THREE.Color(ML_GOLD)} },
-    vertexShader:[
-      'uniform float uNow,uArchN0,uArchH,uArchGlow,uMercyRB,uReflect,uAmt,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
-      'attribute vec2 aMW; varying float vV,vNode,vAmt,vTh;',
-      'void main(){',
-      '  float t=position.y, side=position.z, mir=aMW.x, w=aMW.y;',
-      '  float b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x+'+_roadG(ML_ARCH_SPREAD)+'*t;',                    // THE STATION'S OWN BEAT: the bar line, plus a quarter-beat of branch either side. Distance IS time here too
-      '  float th=1.57079633*t, xl=side*'+HW+'*sin(th), yl=mir*uArchH*cos(th);',                                  // (xl/halfW)² + (yl/archHeightM)² = 1 EXACTLY: a true ellipse in the front view, a true semicircle at archHeightM 7
-      '  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)-uBase.x-uBase.y*(b-uNow);',                                    // the RE-BASED centreline, the identical expression the ribbon's fragment shader evaluates — one course, now four readers
-      '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+';',
-      '  vec3 Pc=vec3(cx+xl, yl, -u);',
-      '  float d=length((viewMatrix*vec4(Pc,1.0)).xyz);',
-      '  float hw=clamp('+_roadG(ML_ARCH_PX)+'*d/'+_roadG(ML_FOCAL_PX)+','+_roadG(ML_ARCH_WMIN)+','+_roadG(ML_ARCH_WMAX)+');',   // constant on SCREEN, by the shipped optics — a beam near, a thread far
-      '  vec2 rad=normalize(vec2(xl,yl)+vec2(0.0,1e-4));',                                                        // the strip widens along the arc's own RADIUS, so "inner" and "outer" are properties of the ARCH and not of where the camera happens to be
-      '  gl_Position=projectionMatrix*viewMatrix*vec4(Pc+vec3(rad*(hw*w),0.0),1.0);',
-      '  float mercy=uK[int(position.x)];',                                                                       // this bar OPENS the mercy phase → the mirror half stops being a reflection and closes the circle
-      ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, gateB=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*position.x, crossLocal=step(0.0,uNow-gateB)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-gateB)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
-      '  float fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',                       // the arches die exactly where the ribbon does — the same ramp, so there is no gate hanging over a road that has ended
-      '  float hlf=mix(1.0, mix(uReflect,1.0,mercy), step(mir,0.0));',                                            // reflectAlpha:0 silences every reflection and leaves the RING untouched: its lower half is not a reflection of anything
-      '  vV=w; vTh=th; vNode=smoothstep(0.86,1.0,abs(t));',                                                       // THE JUNCTION NODES, for free: the bright gold is the strand's own last 14%, which is exactly where it meets the rail
-      '  vAmt=uAmt*uArchGlow*mix(fade,sqrt(fade),mercy)*mix(1.0,uMercyRB,mercy)*hlf*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',   // …and the one complete circle fades as √fade so it is still legible from the far end of the ribbon. THE BREATH rides here, per VERTEX, on the amount that already scales every fragment of this strand: 45% of the ribbon's swell. A crossing adds its envelope INSIDE that same term, never replaces it; the off arm emits the prior expression character-for-character
-      '}'
-    ].join('\n'),
-    // THE PRISM AND THE AURORA ARE NOT EMITTED ON LOW (ML_ARCH_RICH — the ROAD_GLYPH_PASS pattern): SPEC §4 asks for "plain
-    // arcs" there, and a uniform set to zero would still pay for both exp() on every fragment of every arch. What LOW draws
-    // is the gaussian core and its junction nodes, which is the arch's INFORMATION; the rest is its face.
-    fragmentShader:[
-      'uniform vec3 uCol; uniform float uArchPrism; varying float vV,vNode,vAmt,vTh;',
-      'void main(){',
-      '  if(vAmt<=0.003) discard;',                                                                               // cheapest rejection first: a faded slot, a silenced reflection or archGlow:0 never reaches a single exp()
-      '  float core=exp(-vV*vV*'+_roadG(ML_ARCH_CORE)+')*(1.0+'+_roadG(ML_ARCH_NODE)+'*vNode);',
-      '  vec3 col=uCol;'
-    ].concat(ML_ARCH_RICH?[
-      '  float o=max(vV,0.0), q=vV-('+_roadG(ML_ARCH_PRISM_AT)+');',                                              // o = the OUTER half of the strand · q = how far this fragment is from where the prismatic rim sits
-      '  float ie=exp(-q*q*'+_roadG(ML_ARCH_PRISM_K)+');',                                                        // …a thin rim just INSIDE the core. Its own statement on purpose: reading a name from earlier in the SAME declaration list is legal GLSL and is still the first thing a strict mobile compiler argues about
-      '  float aur=exp(-o*o*'+_roadG(ML_ARCH_AUR)+')*step(0.001,o)*0.34;',                                        // AURORA-SOFT OUTER: the bleed lives on the outside only, so the arch's inner edge stays a crisp opening you fly through
-      '  col=mix(col, vec3(0.58)+0.42*cos(vec3(vTh*2.4)+vec3(0.0,2.094,4.189)), clamp(uArchPrism*ie,0.0,1.0));',  // SLIGHTLY PRISMATIC: the rim's hue walks the spectrum along the arc's own angle, so the rainbow bends with the gate instead of sitting on it
-      '  float a=(core+aur+ie*0.30)*vAmt;'
-    ]:[
-      '  float a=core*vAmt;'
-    ]).concat([
-      '  if(a<=0.003) discard;',
-      '  gl_FragColor=vec4(col*a, a);',
-      '}'
-    ]).join('\n') });
-  roadArch=new THREE.Mesh(g, roadArchMat);
-  roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);   // −39: straight after the ribbon (−40) and still before every other transparent thing, with depthTest untouched — an opaque Echo occludes a gate exactly as it occludes the road under it
-    return;
-  }
-  /* THE NAVE — TWO DRAWS, ONE PARAMETRIC BUFFER, ZERO PER-FRAME CPU (SPEC_MOONLINE_NAVE §2–§3).
-     The normal-blended stone and the additive alabaster/gold overlay share this indexed geometry and every uniform object.
-     Attributes remain parameters, never world positions: slot + primitive coordinates are placed from the course spline in
-     the vertex shader. Shipped desktop submits 2 × 2,200 triangles in two arch calls; LOW submits 1 × 1,232 and never
-     builds the accent material, compiling out coffers, stone glow and sparkles. Vault and veil are separate +1 calls by contract. */
-  const SEG=ML_NAVE_SEG, p=[], kd=[], mr=[], uv=[], ix=[]; let nv=0;
-  function nq(k,kind,x0,x1,y0,y1,mir){ const b=nv, q=[[x0,y0,0,0],[x1,y0,1,0],[x1,y1,1,1],[x0,y1,0,1]]; for(let i=0;i<4;i++){ p.push(k,q[i][0],q[i][1]); kd.push(kind); mr.push(mir); uv.push(q[i][2],q[i][3]); nv++; } ix.push(b,b+1,b+2,b,b+2,b+3); }
-  function nb(k,mir){ const b=nv; for(let s=0;s<=SEG;s++){ const t=s/SEG; for(let r=0;r<2;r++){ p.push(k,t,r); kd.push(0); mr.push(mir); uv.push(t,r); nv++; } } for(let s=0;s<SEG;s++){ const a=b+s*2; ix.push(a,a+1,a+2,a+1,a+3,a+2); } }
-  for(let k=0;k<ML_ARCH_N;k++){
-    nb(k,1); nb(k,-1);
-    for(const side of [-1,1]) for(const mir of [1,-1]){ const xc=side*7.65; nq(k,1,xc-0.65,xc+0.65,0.02,8.65,mir); nq(k,2,xc-0.92,xc+0.92,0,0.9,mir); nq(k,3,xc-1.02,xc+1.02,8.65,9.5,mir); const xm=side*10.8; nq(k,4,xm-1.05,xm+1.05,0,1,mir); }
-    nq(k,5,0,0,0,0,1); nq(k,5,0,0,0,0,-1);
-    nq(k,10,-1,1,-1,1,1); nq(k,11,-1,1,-1,1,1);
-  }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(p,3)); g.setAttribute('aKind',new THREE.Float32BufferAttribute(kd,1)); g.setAttribute('aMir',new THREE.Float32BufferAttribute(mr,1)); g.setAttribute('aUV',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(ix);
-  const U=roadMat.uniforms, M=CFG.moonline, NU={ uNow:U.uNow, uBase:U.uBase, uA:U.uA, uW:U.uW, uP:U.uP, uBite:U.uBite, uTerrain:U.uTerrain, uTerrainBase:U.uTerrainBase, uHorizon:U.uHorizon, uBreath:U.uBreath, ...(ML_DOOR_CROSS?{uWallCross:_wallCross,uPulse:U.uPulse}:{}), uArchN0:{value:-ML_ARCH_BEHIND}, uArchH:{value:Math.max(0.5,+M.archHeightM||ROAD_HALF_W)}, uArchGlow:{value:Math.max(0,+M.archGlow||0)}, uArchPrism:{value:Math.max(0,Math.min(1,+M.archPrism||0))}, uReflect:{value:Math.max(0,Math.min(1,+M.reflectAlpha||0))}, uMercyRB:{value:Math.max(1,+M.mercyRingBoost||1)}, uVeil:{value:ML_NAVE_VEIL}, uAmt:{value:ML_ARCH_INK}, uK:{value:_archKind} };   // terrain, cached horizon and bite are the road's uniform OBJECTS, never copies; the old shader text simply does not name them when either switch is off. Door-cross on borrows the same stamp and clock objects as the classic arch
-  const naveVert=[
-    'uniform float uNow,uArchN0,uArchGlow,uMercyRB,uBreath'+(ML_DOOR_CROSS?',uWallCross,uPulse':'')+'; uniform vec2 uBase; uniform vec3 uA,uW,uP; uniform float uK['+ML_ARCH_N+'];',
-    ...(ML_BITE?['uniform vec3 uBite;']:[]),
-    'attribute float aKind,aMir; attribute vec2 aUV; varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
-    ...(ML_TERRAIN?[roadTerrainShader()]:[]),
-    'void main(){',
-    '  float slot=position.x, mercy=uK[int(slot)], b=uArchN0+'+_roadG(ML_ARCH_EVERY)+'*slot;',
-    ...(ML_DOOR_CROSS?['  float crossClock='+(reduceMotion?'uPulse':'uNow')+', crossAge=crossClock-uWallCross, crossLocal=step(0.0,uNow-b)*(1.0-step('+_roadG(ML_ARCH_EVERY)+',uNow-b)), crossEnv=(1.0-smoothstep(0.0,'+_roadG(ML_CROSS_BEATS)+',crossAge))*step(0.0,crossAge)*crossLocal;']:[]),
-    '  float xl=position.y, yl=position.z, th=0.0, show=1.0;',
-    '  if(aKind<0.5){ th=3.14159265*position.y; float r=mix(mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy),mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy),position.z); xl=r*cos(th); yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+r*sin(th); }',
-    '  else if(aKind<3.5){ show=1.0-mercy; }',
-    '  else if(aKind<4.5){ show=mercy; }',
-    '  else if(aKind<5.5){ float kt=aUV.y, r1=mix('+_roadG(ML_NAVE_R1)+','+_roadG(ML_NAVE_RM1)+',mercy), r2=mix('+_roadG(ML_NAVE_R2)+','+_roadG(ML_NAVE_RM2)+',mercy), kw=mix(0.55,0.78,kt); xl=(aUV.x-0.5)*2.0*kw; yl=mix('+_roadG(ML_NAVE_SPRING)+',0.0,mercy)+mix(r1-0.55,r2+0.35,kt); }',
-    '  else if(aKind<10.5){ float sz=mix(2.05,2.20,mercy); xl=position.y*sz; yl=mix(18.65,14.45,mercy)+position.z*sz; }',
-    '  else { show=mercy; xl=position.y*7.0; yl=12.45+position.z*7.0; }',
-    '  if(aKind<9.5) yl*=aMir;',
-    (LOW?('  float cx=uA.x*sin(uW.x*b+uP.x)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);'):('  vec3 sc=sin(uW*b+uP); float cx=dot(uA,sc)'+(ML_BITE?'+uBite.x*sin(uBite.y*b+uBite.z)':'')+'-uBase.x-uBase.y*(b-uNow);')),
-    '  float u=(b-uNow)*'+_roadG(ROAD_MPB)+', fade=1.0-smoothstep('+_roadG(ROAD_FADE0)+','+_roadG(ROAD_FADE1)+',abs(u));',
-    '  float refl=aMir>0.0?1.0:mix(0.50*exp(-abs(yl)/6.0),0.66*exp(-abs(yl)/26.0),mercy);',
-    ...(ML_TERRAIN?['  vTerrainVis=terrainVis(u,cx+xl,yl); yl+=cyAt(u);']:[]),
-    '  vUV=aUV; vKind=aKind; vMercy=mercy; vTh=th; vR=aUV.y; vDist=abs(u); vFade=mix(fade,sqrt(max(fade,0.0)),mercy); vShow=show*refl*uArchGlow*mix(1.0,min(1.25,uMercyRB*0.65),mercy)*(1.0+'+(ML_DOOR_CROSS?'(uBreath+'+_roadG(reduceMotion?0.06:ML_CROSS_LIFT)+'*crossEnv)':'uBreath')+'*'+_roadG(ML_ARCH_BREATH)+');',
-    '  gl_Position=projectionMatrix*viewMatrix*vec4(cx+xl,yl,-u+(aKind>9.5?0.12:0.0),1.0);',
-    '}'
-  ].join('\n');
-  roadArchMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:true, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.NormalBlending, uniforms:NU, vertexShader:naveVert,
-    fragmentShader:[
-      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
-      'void main(){',
-      '  if(vShow<=0.004 || vFade<=0.004 || vKind>9.5'+(ML_TERRAIN?' || vTerrainVis<=0.004':'')+') discard;',
-      '  float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0;',
-      '  float crest=exp(-edge*edge*2.2);',
-      '  vec3 cool=vec3(0.725,0.753,0.800), warm=mix(vec3(0.957,0.937,0.902),vec3(1.0,0.980,0.940),crest);',
-      '  vec3 col=mix(cool,warm,0.38+0.62*crest); col=mix(col,vec3(1.0),crest*0.34);'
-    ].concat(ML_ARCH_RICH?[
-      '  float rec=0.0, lip=0.0;',
-      '  if(vKind<0.5){ float dth=abs(vTh-1.57079633), n=mix(10.0,12.0,vMercy), cell=(dth-0.11)/(1.46079633/n), fc=abs(fract(cell)-0.5)*2.0, rr=abs(vR-0.5)*2.0; rec=step(0.0,cell)*(1.0-smoothstep(0.42,0.78,fc))*(1.0-smoothstep(0.34,0.72,rr))*(1.0-smoothstep(120.0,250.0,vDist)); lip=smoothstep(0.05,0.24,rec)*(1.0-smoothstep(0.30,0.62,rec)); }',
-      '  vec3 recess=mix(vec3(0.565,0.605,0.675),warm,0.50); col=mix(col,recess,rec*0.396); col=mix(col,vec3(1.0,0.985,0.950),lip*0.06);'
-    ]:[]).concat([
-      '  float key=step(4.5,vKind)*step(vKind,5.5), gild=key*(0.25+0.20*vMercy)*(1.0-smoothstep(220.0,560.0,vDist)); col=mix(col,vec3(1.0,0.885,0.60),gild);',
-      '  gl_FragColor=vec4(col,clamp(0.97*vShow*vFade'+(ML_TERRAIN?'*vTerrainVis':'')+',0.0,0.995));',
-      '}'
-    ]).join('\n') });
-  if(ML_ARCH_RICH) roadArchAccentMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, depthTest:true, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, uniforms:NU, vertexShader:naveVert,
-    fragmentShader:[
-      'varying vec2 vUV; varying float vKind,vMercy,vTh,vR,vDist,vShow,vFade'+(ML_TERRAIN?',vTerrainVis':'')+';',
-      'void main(){',
-      '  if(vShow<=0.003 || vFade<=0.003'+(ML_TERRAIN?' || vTerrainVis<=0.003':'')+') discard;',
-      '  vec2 q=vUV*2.0-1.0; float a=0.0; vec3 col=vec3(1.0,0.824,0.478);',
-      '  if(vKind<9.5){'
-    ].concat(ML_ARCH_RICH?[
-      '    float edge=vKind<0.5?abs(vR-0.5)*2.0:abs(vUV.x-0.5)*2.0, near=1.0-smoothstep(260.0,540.0,vDist); a=(0.035+0.075*exp(-edge*edge*2.0))*near*vShow*vFade; col=mix(vec3(1.0,0.86,0.66),vec3(1.0,0.965,0.90),exp(-edge*edge*2.0));'
-    ]:[
-      '    discard;'
-    ]).concat([
-      '  } else if(vKind<10.5){',
-      '    float r2=dot(q,q); if(r2>1.0) discard; float core=exp(-r2*8.0), honey=exp(-r2*2.0), r4=exp(-abs(q.x)*18.0)*exp(-q.y*q.y*3.0)+exp(-abs(q.y)*18.0)*exp(-q.x*q.x*3.0);'
-    ]).concat(ML_ARCH_RICH?[
-      '    vec2 d=vec2((q.x+q.y)*0.7071,(q.x-q.y)*0.7071); float r8=exp(-abs(d.x)*20.0)*exp(-d.y*d.y*4.0)+exp(-abs(d.y)*20.0)*exp(-d.x*d.x*4.0); a=(core*1.20+r4*0.62+r8*0.46+honey*0.18)*vShow*sqrt(sqrt(max(vFade,0.0)));'
-    ]:[
-      '    a=(core+r4*0.30)*vShow*vFade;'
-    ]).concat([
-      '    col=mix(vec3(1.0,0.72,0.30),vec3(1.0,0.925,0.80),core);',
-      '  } else {',
-      '    float r=length(q), ang=atan(q.y,q.x), petR=0.24+0.10*(0.5+0.5*cos(10.0*ang)); float petals=(1.0-smoothstep(petR,petR+0.055,r))*smoothstep(0.055,0.12,r); float spoke=abs(fract((ang/6.28318531)*19.0+0.5)-0.5), rays=(1.0-smoothstep(0.0,0.12,spoke))*smoothstep(0.28,0.36,r)*(1.0-smoothstep(0.83,1.0,r))*(1.0-r); float heart=exp(-r*r*46.0); a=(heart+petals*0.70+rays*0.65)*vShow*vFade; col=mix(vec3(1.0,0.66,0.24),vec3(1.0,0.95,0.82),heart);',
-      '  }',
-      '  a*=0.72'+(ML_TERRAIN?'*vTerrainVis':'')+'; if(a<=0.003) discard; gl_FragColor=vec4(col,a);',
-      '}'
-    ]).join('\n') });
-  roadArch=new THREE.Mesh(g,roadArchMat); roadArch.frustumCulled=false; roadArch.renderOrder=-39; roadArch.visible=false; scene.add(roadArch);
-  if(roadArchAccentMat){ roadArchAccent=new THREE.Mesh(g,roadArchAccentMat); roadArchAccent.frustumCulled=false; roadArchAccent.renderOrder=-37.8; roadArchAccent.visible=false; scene.add(roadArchAccent); }
 }
 })();

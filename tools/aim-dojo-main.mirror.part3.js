@@ -3963,204 +3963,235 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function skyListenTry(){   // true consumes an intentional held-E selection gesture; ordinary fire never enters this path
+  if(!CFG.skyTemple.enabled) return false;
+  if(CFG.skyTemple.selectRequiresHold && !_skySelectHeld) return false;
+  if((SKY_MODE!=='clocked'&&SKY_MODE!=='clocked_chart') || !_lsnMeta) return false;   // natural + theatre; even missing glossary/day assets may fall through to honest stick/Meeus geometry copy
+  if(_lsnOrbBlocksSky()){ showGhostToast(T('skyBlockedByEcho','AN ECHO IS IN THE WAY')); return false; }   // Echo between you and the sky → always launch a projectile, never a zodiac Listen. THE REFUSAL SPEAKS (1.4): the gesture and the shot look identical from the player's chair, so a silent block reads as a broken key — one line names the thing that took the shot. Gesture feedback in the existing toast channel; the session-boundary text budget is untouched
+  const pick=pickCelestial();
+  if(!pick){
+    showGhostToast(T('skyNoMark','NOTHING IN THE SKY THERE'));   // held-E on bare sky is a real answer, not a no-op: it says why the mark just went away (1.4)
+    clearListen(true); return true;   // held-E empty sky clears the mark and never leaks into combat
+  }
+  startListen(pick); return true;
+}
+function _lsnMuzzle(out){   // same muzzle as computeShotPlan's M — WITHOUT touching the shared plan globals (_arcI/_planLanded stay combat-only)
+  camera.getWorldDirection(_lsnDir2);
+  _lsnRt.crossVectors(_lsnDir2,_LSN_UP); if(_lsnRt.lengthSq()<1e-6) _lsnRt.set(1,0,0); else _lsnRt.normalize();
+  return out.set(PLAYER_POS.x+_lsnRt.x*BLADE_DX+_lsnDir2.x*BLADE_DZ, PLAYER_POS.y-BLADE_DY+_lsnDir2.y*BLADE_DZ, PLAYER_POS.z+_lsnRt.z*BLADE_DX+_lsnDir2.z*BLADE_DZ);
+}
+function startListen(pick){
+  clearListen(false);
+  _lsn.sel=pick; _skySel=pick; _lsn.holdT=state.t;
+  if(!_lsn.line){ const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
+    _lsn.line=new THREE.Line(g, new THREE.LineBasicMaterial({color:0x9fd8ff, transparent:true, opacity:0.55, depthWrite:false, fog:false, blending:THREE.AdditiveBlending}));
+    _lsn.line.frustumCulled=false; scene.add(_lsn.line); }
+  const lp=_lsn.line.geometry.attributes.position; _lsnMuzzle(_lsnP);
+  lp.setXYZ(0,_lsnP.x,_lsnP.y,_lsnP.z); lp.setXYZ(1,pick.world.x,pick.world.y,pick.world.z); lp.needsUpdate=true;
+  _lsn.line.material.opacity=0.55; _lsn.line.visible=true; _lsn.lineT=state.t;
+  goldFigure(pick.kind==='sign' ? pick.id : pick.meta.sign);
+  emphasizeListenGlyphs(pick);
+  if(CFG.skyTemple.legacyListenCard){
+    const fallback=glossaryListenData(pick); showListenCard(pick,fallback,false);
+    if(_personalListenExpected || _lsnNatalId()) fetchListen(pick,fallback);
+  }else if(_lsn.card) _lsn.card.style.display='none';
+}
+function clearListen(hideCard){
+  _lsn.sel=null; _skySel=null; _lsn.holdT=-1; _lsn.seq++;
+  if(_lsn.line){ _lsn.line.visible=false; } _lsn.lineT=-1;
+  restoreListenGlyphs(); hideListenGhost();
+  restoreFigures();
+  if(hideCard!==false && _lsn.card) _lsn.card.style.display='none';
+}
+function emphasizeListenGlyphs(pick){   // Parcel L: mutate the existing sprites — no duplicate globe/planet representation
+  restoreListenGlyphs(); const C=SKY_CHART;
+  if(pick.kind==='body'){
+    emphasizeListenGlyph(pick.meta.sprite, C.mover.listenScale);
+    const sign=pick.meta.sign&&_lsnMeta.signs[pick.meta.sign]; if(sign) emphasizeListenGlyph(sign.sprite, C.sign.listenScale);
+  }else emphasizeListenGlyph(pick.meta.sprite, C.sign.listenScale);
+}
+function emphasizeListenGlyph(sp,scale){
+  if(!sp || !sp.material || _lsn.emphasis.some(e=>e.sp===sp)) return;
+  const fi=sp.userData.chartFadeIndex, fade=(fi==null?null:_chartFade[fi]);
+  _lsn.emphasis.push({sp:sp, sx:sp.scale.x, sy:sp.scale.y, col:sp.material.color.clone(), fade:fade, a0:fade?fade.a0:null});
+  sp.userData.listenSelected=true; sp.material.color.copy(LSN_GOLD); sp.scale.set(scale,scale,1);
+  if(fade) fade.a0=Math.max(0.95,fade.a0);   // updateChartSky owns opacity; boost its source rather than fighting the 20 Hz fade pass
+}
+function restoreListenGlyphs(){
+  for(const e of _lsn.emphasis){ e.sp.material.color.copy(e.col); e.sp.scale.set(e.sx,e.sy,1); e.sp.userData.listenSelected=false; if(e.fade) e.fade.a0=e.a0; }
+  _lsn.emphasis.length=0;
+}
+function hideListenGhost(){ if(!_lsn.ghost) return; const fade=_chartFade[_lsn.ghost.userData.chartFadeIndex]; if(fade) fade.enabled=false; _lsn.ghost.visible=false; }
+function _paintRange(geo, i0, i1, r, g, b){ const a=geo.attributes.color; for(let i=i0;i<i1;i++){ a.setXYZ(i,r,g,b); } a.needsUpdate=true; }
+function goldFigure(signId){   // selected figure gold, the rest dimmed — pure vertex-colour rewrite, zero extra draw calls; additive blending makes darker = dimmer
+  restoreFigures();
+  if(!signId || !_stickFig) return;
+  const fid=LSN_SIGN_FIG[signId]||String(signId), f=_stickFig.map[fid]; if(!f) return;
+  const S=SKY_CHART.stick, lb=new THREE.Color(S.lnCol);
+  _lsn.goldFig=fid;   // set BEFORE the paint so the lit-sky repaint below sees which figure is gold (nothing between here and the old assignment ever read it)
+  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: the identical dim+gold paint, with each star's own lit level riding through it
+  else{
+    const pb=new THREE.Color(S.ptCol);
+    _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.pGeo, f.p0, f.p1, LSN_GOLD.r/pb.r, LSN_GOLD.g/pb.g, LSN_GOLD.b/pb.b);   // vc × material colour = gold (channels >1 are fine in additive)
+  }
+  if(_stickFig.lGeo){
+    _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, LSN_DIM, LSN_DIM, LSN_DIM);
+    _paintRange(_stickFig.lGeo, f.v0, f.v1, LSN_GOLD.r/lb.r, LSN_GOLD.g/lb.g, LSN_GOLD.b/lb.b);
+  }
+}
+function restoreFigures(){
+  if(_lsn.goldFig==null || !_stickFig) return;
+  _lsn.goldFig=null;   // cleared FIRST for the same reason goldFigure sets it first: starLitRepaint reads it to decide what "restored" means
+  if(CFG.stars.on&&_starLitMul) starLitRepaint();   // parcel H: restore means back to the LIT baseline, not back to flat white — accretion is never painted away
+  else _paintRange(_stickFig.pGeo, 0, _stickFig.pGeo.attributes.color.count, 1,1,1);
+  if(_stickFig.lGeo) _paintRange(_stickFig.lGeo, 0, _stickFig.lGeo.attributes.color.count, 1,1,1);
+}
+function _lsnCap(s){ s=String(s); return s.charAt(0).toUpperCase()+s.slice(1); }
+function _lsnLine(parent, txt, style){ const d=document.createElement('div'); if(style) d.style.cssText=style; d.textContent=txt; parent.appendChild(d); return d; }
+function _lsnClip(s, max){   // prefer end-of-sentence within max; avoid mid-word chops (Ophiuchus essays were dying mid-clause)
+  s=String(s==null?'':s).replace(/\s+/g,' ').trim(); if(!s) return '';
+  if(s.length<=max) return s;
+  const head=s.slice(0,max);
+  let cut=-1;
+  for(const re of [/[.!?…]["')\]]?\s/g, /;\s/g, /,\s/g]){ let m; while((m=re.exec(head))) cut=m.index+m[0].length; if(cut>Math.floor(max*0.45)) break; }
+  if(cut<Math.floor(max*0.45)){ const sp=head.lastIndexOf(' '); cut=sp>Math.floor(max*0.45)?sp:max; }
+  return s.slice(0,cut).trim()+(cut<s.length?'…':'');
+}
+function _lsnNatalId(){   // pack natal_id for personal transit block — meta first, then live pack fallback
+  if(_lsnMeta && typeof _lsnMeta.natalId==='string' && _lsnMeta.natalId) return _lsnMeta.natalId;
+  if(_skypack && typeof _skypack.natal_id==='string' && _skypack.natal_id) return _skypack.natal_id;
+  return null;
+}
+function _listenPersonalExpected(){ return !!(_personalListenExpected || _lsnNatalId()); }
+function glossaryListenData(pick){
+  const G=_skyGlossary; if(!G||!pick) return null; const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign);
+  const S=SKY_SIGN_SET[signId]?G.signs[signId]:null;
+  if(pick.kind==='sign') return S?{type:'sky_glossary',placement:{status:'ready',title:S.title,text:S.text},personal:{available:false}}:null;
+  const P=G.planets[pick.id], exact=S&&G.planet_in_sign[pick.id+':'+signId]; if(!P&&!S) return null;
+  let title=exact&&exact.title, text=exact&&exact.text;
+  if(!text && P && S){ const pk=Array.isArray(P.keywords)?P.keywords:[], sk=Array.isArray(S.keywords)?S.keywords:[];
+    title=P.title+' in '+S.title;
+    text=(pk.length>=2&&sk.length>=2)?(title+' traditionally joins '+pk[0]+' and '+pk[1]+' with '+sk[0]+' and '+sk[1]+'. It is a symbolic lens for reflection, not a fixed character claim or prediction.'):(P.text+' '+S.text); }
+  else if(!text){ const one=P||S; title=one.title; text=one.text; }
+  return {type:'sky_glossary',placement:{status:'ready',title:title,text:text},personal:{available:false}};
+}
+function templeAspectStudyData(record){
+  // Descriptive chip for a transit→natal chord: geometry + glossary on both ends (no DeepSeek).
+  if(!record||!record.transit||!record.natal) return null;
+  const G=_skyGlossary, t=record.transit, n=record.natal;
+  const tSign=t.sign||null, nSign=n.sign||null;
+  const tPick={kind:'body',id:t.id,meta:{name:t.label||t.id,glyph:t.glyph,sign:tSign,lon:t.lonJ2000}};
+  const nPick={kind:'body',id:n.id,meta:{name:n.label||n.id,glyph:n.glyph,sign:nSign,lon:n.lonJ2000}};
+  const tGloss=glossaryListenData(tPick), nGloss=glossaryListenData(nPick);
+  const aspectLabel=record.aspectLabel||record.aspectId||'aspect';
+  const title='Transit '+(t.label||t.id)+' '+aspectLabel+' natal '+(n.label||n.id);
+  let text='A symbolic contact between moving '+(t.label||t.id)+' and natal '+(n.label||n.id)+' ('+aspectLabel+').';
+  if(record.motionLabel) text+=' The aspect is '+record.motionLabel+'.';
+  if(isFinite(record.orbDeg)) text+=' Orb '+(+record.orbDeg).toFixed(1)+'°.';
+  text+=' Use it as a reflective lens, not a prediction.';
+  const parts=[];
+  if(tGloss&&tGloss.placement&&tGloss.placement.text) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:tGloss.placement.title, text:tGloss.placement.text});
+  else if(G&&G.planets[t.id]) parts.push({hdr:'TRANSIT · '+(t.label||t.id).toUpperCase(), title:G.planets[t.id].title, text:G.planets[t.id].text});
+  if(nGloss&&nGloss.placement&&nGloss.placement.text) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:nGloss.placement.title, text:nGloss.placement.text});
+  else if(G&&G.planets[n.id]) parts.push({hdr:'NATAL · '+(n.label||n.id).toUpperCase(), title:G.planets[n.id].title, text:G.planets[n.id].text});
+  return {type:'temple_aspect',placement:{status:'ready',title:title,text:text},personal:{available:false},parts:parts};
+}
+function mergePersonalListen(data,fallback){
+  if(!fallback) return data; return Object.assign({},fallback,data,{placement:(data&&data.placement)||fallback.placement,personal:(data&&data.personal)||fallback.personal});
+}
+function ensureListenCardShell(){
+  // Card body stays pointer-events:none so aim is free; only the × dismiss control is clickable.
+  if(_lsn.card) return _lsn.card;
+  const d=document.createElement('div'); d.id='skyListenCard';
+  d.style.cssText='position:fixed;right:14px;top:96px;z-index:6;width:min(400px,42vw);max-width:calc(100vw - 28px);max-height:calc(100vh - 110px);overflow:hidden;padding:10px 12px;padding-right:34px;border:1px solid var(--panel-edge);background:rgba(10,14,12,.92);color:var(--bone);font-family:var(--mono);font-size:10.5px;line-height:1.45;letter-spacing:.03em;pointer-events:none;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.45)';
+  const x=document.createElement('button'); x.type='button'; x.id='skyListenDismiss';
+  x.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
+  x.textContent='×';
+  x.style.cssText='position:absolute;top:4px;right:4px;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--bone-dim);font:18px/28px var(--mono);cursor:pointer;pointer-events:auto;z-index:1;opacity:.85';
+  x.addEventListener('mouseenter',()=>{ x.style.color='var(--bone)'; x.style.opacity='1'; });
+  x.addEventListener('mouseleave',()=>{ x.style.color='var(--bone-dim)'; x.style.opacity='.85'; });
+  x.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); clearListen(true); });
+  // Don't let mousedown steal pointer-lock / aim
+  x.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); });
+  d.appendChild(x);
+  const body=document.createElement('div'); body.id='skyListenCardBody';
+  body.style.cssText='pointer-events:none;';
+  d.appendChild(body);
+  document.body.appendChild(d);
+  _lsn.card=d; _lsn.cardBody=body; _lsn.dismissBtn=x;
+  return d;
+}
+function showListenCard(pick, data, skeleton){
+  // Aim owns the mouse — no scrollbar. Park under BPM; grow down the right gutter; no overflow:auto.
+  // Wider + taller than the first clip pass so sign essays (e.g. Ophiuchus) fit; text uses sentence-aware _lsnClip.
+  const card=ensureListenCardShell();
+  const body=_lsn.cardBody||card;
+  if(_lsn.cardBody) body.textContent=''; else card.textContent='';
+  // Re-ensure dismiss button if we wiped card text (legacy path)
+  if(!_lsn.cardBody){ _lsn.card=null; ensureListenCardShell(); return showListenCard(pick,data,skeleton); }
+  card.style.display='block';
+  if(_lsn.dismissBtn){
+    _lsn.dismissBtn.setAttribute('aria-label', typeof T==='function'?T('skyListenDismiss','Dismiss sky note'):'Dismiss sky note');
+    _lsn.dismissBtn.title=typeof T==='function'?T('skyListenDismissHint','R-CLICK or X to close'):'R-CLICK or X to close';
+  }
+  // Hold timer starts when the readable card is up — not on the fire click (API can eat 1–3s of a short window).
+  if(!skeleton && _lsn.sel===pick) _lsn.holdT=state.t;
+  const m=pick.meta||{}, signId=canonicalSkySign(pick.kind==='sign'?pick.id:m.sign), signMeta=signId&&_lsnMeta&&_lsnMeta.signs&&_lsnMeta.signs[signId];
+  const signGlyph=signMeta?signMeta.glyph:(SKY_SIGN_GLYPHS[signId]||'');
+  const HDR='color:var(--bone-dim);letter-spacing:.14em;font-size:10px;', TTL='margin:2px 0 6px;color:var(--bone);font-size:12px;';
+  const A=data&&data.placement, P=data&&data.personal;
+  // Treat personal as present if the desk sent title/text/highlights (don't require a strict available===true)
+  const hasPersonal=!!(P && (P.available===true || P.available===1 || P.title || P.text || (Array.isArray(P.highlights)&&P.highlights.length)));
+  // Budget: sign-only listens get almost the whole card for placement; body listens share with personal.
+  const placeMax=hasPersonal?420:900, deskFailed=!!(data&&data._deskFailed&&_listenPersonalExpected()&&!hasPersonal);
+  if(skeleton){
+    _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR);
+    _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                      : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+    _lsnLine(body, T('skyListening','listening…'), 'color:var(--bone-dim);'); return;
+  }
+  // YOUR CHART appears only after the optional personal desk actually returns content; a natal pack alone never displaces or nags over the glossary.
+  if(hasPersonal){
+    _lsnLine(body, T('yourChartHdr','YOUR CHART'), HDR);
+    if(P.title) _lsnLine(body, _lsnClip(P.title, 110), TTL);
+    if(P.delta_deg!=null && isFinite(+P.delta_deg)) _lsnLine(body, 'Δ '+Math.round(+P.delta_deg)+'° same-body from natal'+(P.natal_house!=null?(' · house '+P.natal_house):''), 'color:var(--bone-dim);margin-bottom:3px;');
+    if(P.text) _lsnLine(body, _lsnClip(P.text, 220), 'color:var(--bone-dim);margin-bottom:5px;');
+    if(Array.isArray(P.highlights) && P.highlights.length){
+      _lsnLine(body, T('skySealsHdr','TRANSIT SEALS'), HDR+'margin-top:4px;');
+      for(const h of P.highlights.slice(0,3)){
+        if(!h) continue;
+        const seal=(h.aspect_glyph||'·')+' '+(h.natal_point?_lsnCap(String(h.natal_point).replace(/_/g,' ')):'')+(isFinite(+h.orb)?(' · '+(+h.orb).toFixed(1)+'°'):'');
+        if(h.title) _lsnLine(body, _lsnClip((h.aspect_glyph?h.aspect_glyph+' ':'')+h.title,100), 'margin-top:4px;color:var(--rail);font-size:11px;');
+        else _lsnLine(body,seal,'margin-top:4px;color:var(--rail);font-size:11px;');
+        if(h.text) _lsnLine(body,_lsnClip(h.text,280),'color:var(--bone-dim);margin-bottom:3px;');
+        else if(!h.title) _lsnLine(body,seal,'color:var(--bone-dim);');
+      }
+    }
+  }
+  // SKY · NOW — full-ish placement for sign picks (Ophiuchus etc.); shorter when personal already ate space
+  _lsnLine(body, T('skyNowHdr','SKY · NOW'), HDR+(hasPersonal?'margin-top:6px;':''));
+  _lsnLine(body, pick.kind==='body' ? (m.glyph+' '+_lsnCap(m.name||pick.id)+(signId?('  ·  '+signGlyph+' '+_lsnCap(signId)):'')+'  (Midpoint)')
+                                    : (signGlyph+' '+_lsnCap(pick.id)+'  (Midpoint)'), TTL);
+  if(A && (A.title||A.text)){
+    if(A.title && (!hasPersonal || A.title!==P.title)) _lsnLine(body, _lsnClip(A.title, 100));
+    if(A.text) _lsnLine(body, _lsnClip(A.text, placeMax), 'color:var(--bone-dim);margin-bottom:4px;');
+  } else if(pick.kind==='body') _lsnLine(body, 'lon '+Math.round(m.lon)+'°'+(signId?(' · '+_lsnCap(signId)):''), 'color:var(--bone-dim);margin-bottom:4px;');
+  else { const natal=[], now=[], ghosts=(_lsnMeta&&_lsnMeta.ghostLon)||{}, bodies=(_lsnMeta&&_lsnMeta.bodies)||{};
+    for(const id in ghosts){ if(_lsnMeta.signOf(ghosts[id])===pick.id) natal.push((bodies[id]||{}).glyph||id); }
+    for(const id in bodies){ if(bodies[id].sign===pick.id) now.push(bodies[id].glyph); }
+    if(now.length) _lsnLine(body, 'sky now  '+now.join(' '), 'color:var(--bone-dim);');
+    if(_lsnNatalId()&&natal.length) _lsnLine(body, 'your natal  '+natal.join(' '), 'color:var(--bone-dim);margin-bottom:6px;');
+  }
+  if(deskFailed) _lsnLine(body, T('skyPersonalUnavailable','personal notes unavailable · showing sky now'), 'margin-top:5px;color:var(--bone-dim);opacity:.75;');
+  _lsnLine(body, T('skyEpistemic','symbolic study notes · not predictions'), 'margin-top:7px;color:var(--bone-dim);opacity:.7;font-size:10px;');
+  _lsnLine(body, T('skyListenDismissHint','R-CLICK or X to close · empty sky also works'), 'margin-top:5px;color:var(--bone-dim);opacity:.55;font-size:9.5px;letter-spacing:.06em;');
+}
+function paintStudySurface(pick, data, skeleton){
+  // Temple owns investigation chrome; legacy dojo Listen card only when explicitly re-enabled.
+  if(templeActive) fillTempleStudy(pick, data, skeleton);
+  else if(CFG.skyTemple.legacyListenCard) showListenCard(pick, data, skeleton);
+}
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -6757,192 +6788,4 @@ function senseiArm(){
   _senseiPrev={bin:r.bin, dir:r.dir}; _senseiWeak=r.bin;
 }
 function senseiWeightLive(){ return _senseiWeak>=0 && _tideCycle>=0 && _tideCycle<(CFG.sensei.weightSwells|0); }   // the OPENING swells only, counted by the tide's own cycle latch (no second clock). With TIDES off _tideCycle rests at -1 forever: there are no swells to ride, so the drill simply never applies
-function senseiPickK(u, okK){
-  // The bias, and the whole of it: the SAME uniform number the unweighted pick used, walked across a weighted CDF
-  // instead of a flat one. No second draw, no reroll, no reordering of the feasible set — a weak-bin k is simply
-  // wider under the same u. Nothing weak-bin feasible → every weight is 1 → this returns floor(u*len), the pick that shipped.
-  const w=Math.max(0,+CFG.sensei.weightMul||1), n=okK.length;
-  let tot=0; for(let i=0;i<n;i++) tot+=(senseiBin(okK[i])===_senseiWeak?w:1);
-  if(!(tot>0)) return (u*n)|0;
-  let x=u*tot;
-  for(let i=0;i<n;i++){ x-=(senseiBin(okK[i])===_senseiWeak?w:1); if(x<0) return i; }
-  return n-1;   // floating-point tail only
-}
-function senseiDiagnose(){
-  // Per-bin MEAN SIGNED error over this night's ledger. A bin speaks only with minSamples behind it and a mean at
-  // least biasMs off the beat; of those, the worst one speaks. Signed means a night that is half early and half late
-  // averages to nothing and says nothing — which is correct: that is not a habit, it is spread.
-  const S=CFG.sensei, need=Math.max(1,S.minSamples|0), bias=Math.max(0,+S.biasMs||0);
-  const sum=[0,0,0], cnt=[0,0,0];
-  for(const h of _bowHits){ const b=senseiBin(h.k); if(b<0) continue; sum[b]+=h.errMs; cnt[b]++; }
-  let bin=-1, worst=-1;
-  for(let b=0;b<3;b++){ if(cnt[b]<need) continue; const m=Math.abs(sum[b]/cnt[b]); if(m>=bias && m>worst){ worst=m; bin=b; } }
-  if(bin<0) return null;
-  return {bin:bin, dir:(sum[bin]<0?0:1), n:cnt[bin]};
-}
-function senseiBowLine(){
-  // THE Bow's one line, and this parcel's whole text budget: the observation REPLACES the sky fact, never joins it.
-  // The memory is written whichever line ends up showing — a repeat is still tonight's reading, so tomorrow still
-  // drills it; only the SPEAKING has a cooldown, because being told the same thing twice is nagging, not noticing.
-  try{
-    if(!CFG.sensei.on || trainMode) return bowSkyLine();   // own guard as defence in depth; the call site reads the raw boolean first
-    const d=senseiDiagnose();
-    if(!d) return bowSkyLine();                            // nothing the game can honestly claim to have noticed → the night ends on the sky, exactly as it did in wave 1
-    const repeat=!!(_senseiPrev && _senseiPrev.bin===d.bin && _senseiPrev.dir===d.dir);
-    senseiSave(d);
-    if(repeat) return bowSkyLine();
-    return T('sensei'+(d.dir?'Late':'Early')+SENSEI_BINS[d.bin], SENSEI_LINE_EN[d.dir*3+d.bin]);
-  }catch(e){ return bowSkyLine(); }   // the ritual keeps its line whatever the reading does
-}
-/* ---- PHASES WITNESSED (wave 5a, parcel M) ----
-   The only record this parcel keeps is WHICH MOON WAS UP on a night you played: the first scoring hit of a
-   post-graduation run stamps today's elongation bucket (moonPhaseBucket — one phase authority, shared with the deal
-   and the Bow) with the local civil date, and that stamp is permanent. ACCRETION ONLY: the bucket keeps its FIRST
-   date forever, so a second session the same night writes nothing at all, and there is no delete path, no decay, no
-   upkeep. Nothing here counts, compares, or notices an absence — a night nobody played leaves no mark of any kind,
-   which is the whole point: the ring fills, it never empties, and it cannot be behind.
-   STORAGE IS UNTRUSTED (wave-3/4 discipline): the loader is a validator — a plain non-array object at v===1, an st
-   that is a plain map, and eight keys "0".."7" whose values are literally YYYY-MM-DD. Anything else is a player who
-   has witnessed nothing, silently. Writes are trailing-throttled and can never throw into a run.
-   THE RING is drawn once on Temple entry (never per frame), and the eighth stamp earns exactly one sentence, once in
-   a player's life, at the TOP of the Bow's priority chain. Kill-switch phases.on:false → the file is never opened
-   from any surface, the canvas is never un-hidden, and the Bow's chain is wave 4's expression verbatim. */
-const PHASES_KEY='aimdojo.phases';
-const PHASES_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;   // THE WHOLE GRAMMAR for a stamp: this build writes phasesToday() and nothing else, so nothing else is a date here — no ISO timestamps, no epoch numbers, no ' ' padding
-const PHASES_SAVE_MS=1200;                    // trailing throttle, in the starLitSaveSoon shape. Not a CFG knob: the spec's literal is {on:true} exactly, and a night can only ever produce one stamp plus (once in a life) one completion flag — this exists so those two land in ONE write, not so anyone tunes it
-let _phases=null;          // bucket 0..7 -> "YYYY-MM-DD" of the FIRST night that bucket was witnessed; null until the file is read (and never read at all with the parcel off)
-let _phasesLoaded=false;   // the file is opened at most once per page life, by whichever surface needs it first (a stamp, the Bow's line, the Temple ring)
-let _phasesSaid=false;     // the one-time eighth-stamp line has been SPOKEN — the only thing the envelope's flag records, because completeness itself is derivable from the eight stamps
-let _phasesRun=false;      // this run has already taken its stamp attempt (reset by resetSession) — so every hit after the first costs one boolean read and nothing else
-let _phasesSaveT=0, _phasesDirty=false;
-function phasesToday(){
-  const d=new Date(), m=d.getMonth()+1, dd=d.getDate();
-  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;   // the LOCAL CIVIL DATE — the same calendar dealPackIsToday's freshness gate and dealWind's seed turn over on, so "tonight" means one thing across the build
-}
-function realCivilDate(s){
-  // 1.1 amendment (wave 5a review, M5): THE DATE GATE for the whole memory layer — the ring's stamps, the greeting's
-  // last night and the Night Card's date all come through here. PHASES_DATE_RE is a SHAPE test, not a date test: it
-  // admits 2026-02-31 and 2026-13-01 happily, and a day that does not exist cannot be a night anybody played — left
-  // unchecked it could stamp a bucket forever or seed rememberGap off a month that rolled. So: shape first, then a
-  // round-trip through the SAME local-midnight constructor rememberGap measures with, demanding all three components
-  // back unchanged (Feb 31 comes back as Mar 3, and Mar 3 is not the date the file claimed). Two-digit years fail too,
-  // because new Date(50,0,1) is 1950 — correct, since this build only ever writes phasesToday().
-  if(typeof s!=='string' || !PHASES_DATE_RE.test(s)) return false;
-  const y=+s.slice(0,4), m=+s.slice(5,7), d=+s.slice(8,10);
-  const t=new Date(Date.UTC(y, m-1, d));   // UTC calendar, not local: a visitor whose timezone once SKIPPED a civil day (Pacific/Apia, 2011-12-30) must not have that Gregorian date rejected — the Ghost Relay's server mirror validates the same way (relay review finding 8)
-  return t.getUTCFullYear()===y && t.getUTCMonth()===m-1 && t.getUTCDate()===d;
-}
-function phasesLoad(){
-  if(_phasesLoaded) return; _phasesLoaded=true;
-  _phases=Object.create(null);
-  let raw=null; try{ raw=localStorage.getItem(PHASES_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;   // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a string, a future v:2 — every one of them is "witnessed nothing", silently
-  const src=o.st;
-  if(!src || typeof src!=='object' || Array.isArray(src)) return;        // …and st is a plain MAP of buckets. An array of dates carries no buckets, so it can only ever be someone else's data
-  const st=Object.create(null);
-  for(let b=0;b<8;b++){ const v=src[b]; if(realCivilDate(v)) st[b]=v; }   // the eight buckets ARE the key whitelist: a hand-written "9" or "full" is not read at all, and a value that is not a REAL local civil date (M5 — 2026-02-31 is a shape, not a night) is not a stamp. Per-entry: one impossible date drops its own bucket and the other seven stand, because a stamp is not evidence about any bucket but its own
-  _phases=st; _phasesSaid=(o.c===1);   // c is admitted at exactly 1: a truthy string, a 2, a future flag shape all read as "not yet spoken", which at worst offers the line to a completed ring one more time — never a repeat of a line that is silently lost
-}
-function phasesFlush(){
-  if(_phasesSaveT){ clearTimeout(_phasesSaveT); _phasesSaveT=0; }
-  if(!_phasesDirty) return; _phasesDirty=false;
-  const st={}; for(let b=0;b<8;b++) if(_phases && _phases[b]) st[b]=_phases[b];   // written from the VALIDATED map, so a hand-edited file is rewritten clean rather than carried forward
-  try{ localStorage.setItem(PHASES_KEY, JSON.stringify({v:1, st:st, c:_phasesSaid?1:0})); }catch(e){}   // a full or blocked quota loses the write, never the run
-}
-function phasesSaveSoon(){
-  if(_phasesDirty) return;
-  _phasesDirty=true; _phasesSaveT=setTimeout(phasesFlush, PHASES_SAVE_MS);   // trailing: the (very rare) night that both stamps a bucket and completes the ring spends ONE write
-}
-function phasesComplete(){ if(!_phases) return false; for(let b=0;b<8;b++) if(!_phases[b]) return false; return true; }   // caller loads first — this asks the map, never the file
-function phasesWitness(){
-  // ONE attempt per run, taken at the FIRST scoring hit: a run you actually played, however briefly. The call site
-  // reads the raw kill-switch and this latch before it ever reaches here, so a night with the parcel off — or the
-  // second hit of any night — costs nothing at all.
-  if(_phasesRun || trainMode || templeActive) return;   // post-graduation only, and the Temple neither spawns nor scores: defence in depth for both
-  _phasesRun=true;                                      // latched whatever the answer, so an unreadable sky is not retried once per hit for the rest of the night
-  const b=moonPhaseBucket(); if(b<0) return;
-  phasesLoad();
-  if(_phases[b]) return;   // ACCRETION ONLY, and idempotent: this bucket already keeps its first night, and a first night is not something a later night may overwrite
-  _phases[b]=phasesToday();
-  phasesSaveSoon();
-}
-function phasesBowLine(){
-  // The TOP of the Bow's priority chain, and the only sentence this parcel will ever speak: the eighth distinct phase
-  // has stamped, so the ring is closed. It replaces the night's other line (never joins it) and it fires exactly once
-  // in a player's life — the flag is persisted the moment it is spoken, and '' every other night forever after.
-  if(_phasesSaid) return '';
-  phasesLoad();
-  if(_phasesSaid || !phasesComplete()) return '';
-  _phasesSaid=true; phasesSaveSoon();   // in memory FIRST: a blocked quota must still stop this same page from saying it twice
-  return T('phasesEighth','THE EIGHTH NIGHT · THE MOON HAS WATCHED THEM ALL');
-}
-let _phasesCv;
-function phasesCanvasEl(){ if(_phasesCv===undefined) _phasesCv=(typeof document!=='undefined')?document.getElementById('templePhaseRing'):null; return _phasesCv; }
-function phasesDrawDisc(g,cx,cy,r,b){
-  // The bucket's OWN shape: the lit limb is a semicircle and the terminator is a half-ellipse whose width is |cos| of
-  // the phase angle — a crescent when the terminator bulges toward the lit limb, a gibbous when it bulges away. Waxing
-  // buckets are lit on the right, waning on the left (the northern convention the Bow's names already assume).
-  if(b===0) return;   // NEW MOON's true shape is no lit limb at all — the brighter outline is the whole stamp, because drawing light there would be the ring lying about which moon was up
-  const c=Math.cos(b*Math.PI/4), a=r*Math.abs(c), waxing=(b>=1&&b<=3);
-  g.beginPath();
-  if(waxing) g.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false); else g.arc(cx,cy,r,Math.PI/2,Math.PI*1.5,false);
-  g.ellipse(cx,cy,a,r,0, waxing?Math.PI/2:-Math.PI/2, waxing?-Math.PI/2:Math.PI/2, c>0);   // c>0 (the two crescents) sweeps the terminator across the LIT side; c<0 (the two gibbous) across the dark. c===0 is a quarter: a===0, so the sweep is the straight terminator either way
-  g.closePath();
-  g.fillStyle='rgba(198,216,246,.72)'; g.fill();   // the Mandala's moonlight monochrome — one palette for everything this game draws about the moon
-}
-function phasesRingDraw(){
-  // Once, on Temple entry. No labels, no counts, no interaction, no per-frame work — and identical for a player who
-  // stamped over eight days and one who stamped over eight months, because the ring holds no dates, only witnesses.
-  const cv=phasesCanvasEl(); if(!cv) return;
-  let g=null; try{ g=cv.getContext('2d'); }catch(e){} if(!g) return;
-  phasesLoad();
-  const W=cv.width, cx=W/2, cy=cv.height/2, ring=W*0.355, r=W*0.105;
-  g.clearRect(0,0,W,cv.height);
-  if(phasesComplete()){ g.beginPath(); g.arc(cx,cy,ring,0,6.2831853); g.strokeStyle='rgba(198,216,246,.32)'; g.lineWidth=1; g.stroke(); }   // THE RING CLOSES: one continuous circle behind the eight, and the only thing about this drawing that ever changes twice
-  for(let b=0;b<8;b++){
-    const th=-Math.PI/2+b*Math.PI/4, dx=cx+Math.cos(th)*ring, dy=cy+Math.sin(th)*ring;   // bucket 0 (new) at the top, waxing clockwise — the order the sky walks
-    g.beginPath(); g.arc(dx,dy,r,0,6.2831853);
-    g.strokeStyle=_phases[b]?'rgba(198,216,246,.46)':'rgba(198,216,246,.15)'; g.lineWidth=1; g.stroke();   // unstamped is a faint outline: a place the sky still has, not a thing you are missing
-    if(_phases[b]) phasesDrawDisc(g,dx,dy,r,b);
-  }
-  cv.hidden=false;
-}
-/* ---- THE SKY REMEMBERS YOU (wave 5a, parcel N) ----
-   ONE date, one greeting. localStorage['aimdojo.lastNight'] holds the local civil date of the last night that was
-   actually PLAYED (the same witness parcel M stamps by: the first scoring arrival of a post-graduation run), and at
-   the threshold of the first run of a later day it buys exactly one warm sentence — how many nights turned, and which
-   of the player's own lit stars kept the seat. That is the entire feature. It counts nothing, compares nothing to
-   anybody, and has no opposite: a long absence is a bigger welcome, never a smaller anything, and the words "missed",
-   "streak", "lost" and "again" are not in this parcel's vocabulary in either language.
-   THE STAR NAME IS A DELIBERATE, SPEC'D EXCEPTION (SPEC_MEMORY_SOLO §3) to wave 3's rule that a star is never NAMED
-   during play: that rule guards the FIELD, where a proper name would turn sky into a HUD label. This is the doorway —
-   the greeting lands in the threshold flash before the first spawn, once, and no name is ever spoken again for the
-   rest of the night. The four zodiac anchors (Aldebaran/Regulus/Spica/Antares) are preferred because a real person
-   can walk outside and find them; any other lit figure is greeted by its own creature-name instead.
-   THE THRESHOLD'S PRIORITY CHAIN, enforced at the one call site in flashTheme: comeback (this parcel) > the deal's
-   line (wave 4) > the song name. Exactly one line, never two — and the deal still DEALS on a greeted night (its rules
-   were resolved at resetSession); the only thing this parcel takes from it is the sentence.
-   STORAGE IS UNTRUSTED (wave-3/4 discipline): a plain non-array object at v===1 whose d is literally YYYY-MM-DD, and
-   nothing else is a date. Corrupt, absent, or dated in the FUTURE (a clock wound back) = a fresh player who is
-   greeted by nothing, silently. Writes are trailing-throttled and can never throw into a run.
-   Kill-switch remember.on:false → the file is never opened from any surface and the threshold is wave 4's exactly. */
-const REMEMBER_KEY='aimdojo.lastNight';
-const REMEMBER_FIGS=['aries','taurus','gemini','cancer','leo','virgo','libra','scorpius','ophiuchus','sagittarius','capricornus','aquarius','pisces'];   // the fixture's OWN figure keys, in the fixture's own order — the greeting picks out of this fixed list rather than out of _starLit's key order, so which star speaks can never depend on the order a save file happened to be written in
-const REMEMBER_ANCHOR_EN={taurus:'ALDEBARAN', leo:'REGULUS', virgo:'SPICA', scorpius:'ANTARES'};   // the four zodiac anchors that carry a proper name in the lore AND in the real sky: the greeting prefers these because they are findable from a driveway
-const REMEMBER_FIG_EN={aries:'THE RAM', taurus:'THE BULL', gemini:'THE TWINS', cancer:'THE CRAB', leo:'THE LION', virgo:'THE MAIDEN', libra:'THE SCALES', scorpius:'THE SCORPION', ophiuchus:'THE SERPENT-BEARER', sagittarius:'THE ARCHER', capricornus:'THE SEA-GOAT', aquarius:'THE WATER-BEARER', pisces:'THE FISHES'};   // all thirteen carry a name so the fallback is TOTAL — the four anchor figures never reach this table while their anchor names exist above it, but the dictionary is complete rather than clever
-let _rememberDay=null;        // "YYYY-MM-DD" of the last night actually played, or null for a player this browser has never witnessed
-let _rememberLoaded=false;    // the file is opened at most once per page life, by whichever surface needs it first (the threshold, or the night's first scoring hit)
-let _rememberSaid=false;      // the greeting has been SPOKEN this page life — a hitless restart must not re-greet, because a welcome twice is not a welcome
-let _rememberStampedDay='';   // the local civil date this page has already taken its "tonight was played" write attempt for ('' = none yet). 1.1 amendment (wave 5a review, M3): a DAY, not a boolean — a tab left open across local midnight kept a page-lifetime latch closed forever, so the new night was never recorded and lastNight could lag a day the player really played (and later fabricate a comeback out of it). Exactly once per played DAY, whatever the tab's lifetime, and every hit after the first costs one string compare
-let _rememberSaveT=0, _rememberDirty=false;
-function rememberLoad(){
-  if(_rememberLoaded) return; _rememberLoaded=true;
-  let raw=null; try{ raw=localStorage.getItem(REMEMBER_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
-  if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                 // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a player the sky has yet to meet, silently
-  if(realCivilDate(o.d)) _rememberDay=o.d;                                             // …and d is a REAL local civil date in this build's own grammar (realCivilDate — one date authority for the whole memory layer, M5). An epoch number, an ISO timestamp, ' ' padding, a 2026-02-31: not a night, and a night nobody could have played is greeted by nothing
-}
 })();
