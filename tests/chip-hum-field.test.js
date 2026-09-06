@@ -183,6 +183,20 @@ test('new field hooks preserve the old spawn, grading, chord arrangement and per
   for(const [name,original]of Object.entries(offFixture.functions)){
     assert.equal(crypto.createHash('sha256').update(original).digest('hex'),offFixture.hashes[name]);
     let current=extractFunction(main,name);
+    if(name==='spawnTarget'){
+      // Authenticate only the tank-shield addition; keep the frozen fixture/hash and
+      // the complete historical spawn comparison, including every audio/RNG byte.
+      const fillSpawn=[
+        '  if(CFG.tank.fillOnly && tg.fill16>=0 && tg.fig){   // all draws and the final distance are settled; a missed opener is never the first advertised window',
+        '    fillSkipClosed(tg, _beatSpawnK);',
+        '    if(tg.fill16<0){ hp=1; tg.radius=r; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; if(through) through.material=TARGET_THROUGH_MAT[kind]; core.scale.setScalar(tg.radius*tg.sc); }   // no reachable offer: plain Echo at the final distance/k, with no amber shell or mercy lifetime',
+        '  }',
+        ''
+      ].join('\n');
+      assert.equal(current.split(fillSpawn).length,2,'exactly one authored tank-shield spawn block exists');
+      assert.ok(current.includes(fillSpawn+'  if(tg.fill16>=0){ const spbF='),'the shield block stays after final dressing and immediately before fill lifetime');
+      current=current.replace(fillSpawn,'');
+    }
     if(name==='onGrid') current=pianoIntroOff(current);
     if(name==='makeTargetSound') current=current.replace("  if(PIANO && CFG.piano.hums){ try{ THREE.MathUtils.generateUUID(); pickPenta(); if(!CHIP_HUMS) Math.random(); }catch(e){} return null; }   // retain the old audio-only draws while the shared piano owns every lesson and main-mode call\n", '').replace("if(PIANO && CFG.piano.hums) osc.type='sine'; else ", '').replace('(PIANO && CFG.piano.hums)||CHIP_HUMS?', 'CHIP_HUMS?').replace('!(PIANO && CFG.piano.hums) && !CHIP_HUMS', '!CHIP_HUMS');
     if(name==='voiceTargetSound') current=current.replace("  if(PIANO && CFG.piano.hums){ if(listener && soundOn && kind===3) Math.random(); return; }   // all sphere colours use one keyboard, without legacy vibrato or detuned twins\n", '');

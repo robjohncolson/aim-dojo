@@ -9415,11 +9415,37 @@
 
 
 
-
-
-
-
-
+function updateScope(dt){
+  if(!(CFG.projectile && CFG.scope && state.running && !templeActive)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
+  if(bonusActive){ hideScope(); scopeAccum=SCOPE_STEP; return; }   // RAIL-FLICK BONUS: updateFlickBonus owns lockBoxEl (the gold "lockable now" mark) during the bonus
+  scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
+  const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
+  const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
+  const flight=computeShotPlan(_scM, _scV);
+  const locked=simShotHits(_scM, _scV, flight, tg);   // does the real shot path connect with the moving target?
+  // seeking → LOCK reticle around the target, sized to its on-screen radius
+  const ts=projectPointScope(Tt);
+  if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
+    lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
+    setVar(lockBoxEl,'--lx', ts[0]+'px'); setVar(lockBoxEl,'--ly', ts[1]+'px');
+    const isDecoy=tg.kind===2, lk=locked && !isDecoy; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', lk);   // decoy -> red AVOID box, never the gold LOCK
+    if(lk && flight>0 && !reduceMotion){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast. reduced-motion -> steady box (no breathe)
+    else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
+  else { lockBoxEl.classList.remove('on','lock','decoy'); _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); }
+  // deviation edge tints: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits) — the red glow on the screen edge to aim toward
+  if(ts[2] && _scVMissOn && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one). edge tints are a functional aim cue -> shown under reduced-motion too; only the conveyor SCROLL is motion (frozen in updateEdgeTints)
+    const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
+    const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
+    driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
+  } else { hideEdgeTints(); }
+}
+/* ========================= RAIL-FLICK BONUS (#4) =========================
+   Earned by a FLAWLESS on-beat kill on a hot streak. Orb MOTION freezes (the beat clock keeps
+   ticking — we never touch dt/Tone.Transport); aiming becomes pure FLICK (crosshair literally ON
+   an orb, no lead). Tap ANY WASD / pad-face ON the beat to LOCK the pointed orb; each lock extends
+   the window. When it ends the locked orbs detonate in a one-per-beat cascade, each a scored bonus
+   kill. Trains FLICK — the complement to the core LEAD skill. No auto-aim. */
+function currentRawBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b; }   // raw whole-beat clock (no groove phase-shift) — drives the window countdown + cascade cadence
 function maybeArmFlickBonus(){   // called from gradeRhythmHit on a good kill; the call site already checked good && gradeIdx<=CFG.flickBonus.gradeMax && !bonusActive
   if(!CFG.flickBonus || !CFG.grooveGroove || reduceMotion) return;                 // groove-only, reduced-motion off (freeze is a motion effect)
   if(state.streak<CFG.flickBonus.streakGate) return;                               // must be on a hot streak

@@ -6940,6 +6940,28 @@
 
 
 
+
+
+
+
+
+function rememberFlush(){
+  if(_rememberSaveT){ clearTimeout(_rememberSaveT); _rememberSaveT=0; }
+  if(!_rememberDirty) return; _rememberDirty=false;
+  try{ localStorage.setItem(REMEMBER_KEY, JSON.stringify({v:1, d:_rememberDay})); }catch(e){}   // a full or blocked quota loses the write, never the run — and the worst a lost write can do is greet you once more than it should have
+}
+function rememberSaveSoon(){
+  if(_rememberDirty) return;
+  _rememberDirty=true; _rememberSaveT=setTimeout(rememberFlush, PHASES_SAVE_MS);   // the memory layer's one trailing throttle, shared with the ring: a night writes this file exactly once, and it lands in the same quiet moment the stamp does
+}
+function rememberGap(from,to){
+  // Nights between two local civil dates, as a plain integer. Both sides are built at LOCAL midnight, so a DST
+  // boundary inside the gap shifts the difference by an hour at most and the rounding absorbs it — the same calendar
+  // the deal's freshness gate and the ring's stamps turn over on.
+  const a=from.split('-'), b=to.split('-');
+  const n=Math.round((new Date(+b[0],+b[1]-1,+b[2]) - new Date(+a[0],+a[1]-1,+a[2]))/86400000);
+  return isFinite(n)?n:0;   // a hand-written "2026-99-99" rolls into a real date rather than throwing; a NaN is simply no gap, and no gap is no greeting
+}
 function rememberStar(){
   // WHOSE seat it was: one of the player's OWN lit stars, preferring the four anchors, chosen deterministically by
   // the date (the way the Bow picks its phrasing) so one night has one voice — and so two returns a month apart are
@@ -7612,6 +7634,10 @@ function spawnTarget(opts){
   tg.hp=hp; tg.hpMax=hp;
   if(hp>1){ tg.radius*=1.2; core.material=TANK_CORE_MAT; shell.material=TANK_SHELL_MAT; if(through) through.material=TANK_THROUGH_MAT; core.scale.setScalar(tg.radius*tg.sc);   // distinct AMBER + bigger = reads as "hit me on several beats"
     if(_tankD!=null){ _spawnPos.copy(PLAYER_POS).addScaledVector(dir3, _tankD); _spawnPos.y=Math.max(2.2,Math.min(ROOM_BY,_spawnPos.y)); core.position.copy(_spawnPos); } }   // tanks spawn CLOSE (short, consistent lead) so repeated on-beat hits are manageable
+  if(CFG.tank.fillOnly && tg.fill16>=0 && tg.fig){   // all draws and the final distance are settled; a missed opener is never the first advertised window
+    fillSkipClosed(tg, _beatSpawnK);
+    if(tg.fill16<0){ hp=1; tg.radius=r; core.material=KIND_CORE_MAT[kind]; shell.material=KIND_SHELL_MAT[kind]; if(through) through.material=TARGET_THROUGH_MAT[kind]; core.scale.setScalar(tg.radius*tg.sc); }   // no reachable offer: plain Echo at the final distance/k, with no amber shell or mercy lifetime
+  }
   if(tg.fill16>=0){ const spbF=60/Math.max(20,state.bpm), lifeF=Math.max(life, ((1+Math.max(0,CFG.tide.mercyBars|0))*16 - fillOff16(tg.fill16))*spbF*0.25);
     tg.expireAt=state.t+lifeF; }   // THE FILL departs at MERCY END, through the existing expiry path — Math.max keeps it at or above today's life, so a short rhythmLifeBeats can never retire the tank before its own figure resolves
   if(kind){                                                // per-kind feel (deterministic given the seeded kind — no extra rnd)
@@ -9389,35 +9415,4 @@ function scopeLockTarget(tight){ camera.getWorldDirection(_scAim); let best=null
     else if(dot>bestDot){ bestDot=dot; best=tg; } }
   return best;
 }
-function updateScope(dt){
-  if(!(CFG.projectile && CFG.scope && state.running && !templeActive)){ hideScope(); scopeAccum=SCOPE_STEP; return; }
-  if(bonusActive){ hideScope(); scopeAccum=SCOPE_STEP; return; }   // RAIL-FLICK BONUS: updateFlickBonus owns lockBoxEl (the gold "lockable now" mark) during the bonus
-  scopeAccum+=dt; if(scopeAccum<SCOPE_STEP) return; scopeAccum=0;
-  const tg=scopeLockTarget(); if(!tg){ hideScope(); return; }
-  const Tt=tg.mesh.position, P=PLAYER_POS, slant=Tt.distanceTo(P);
-  const flight=computeShotPlan(_scM, _scV);
-  const locked=simShotHits(_scM, _scV, flight, tg);   // does the real shot path connect with the moving target?
-  // seeking → LOCK reticle around the target, sized to its on-screen radius
-  const ts=projectPointScope(Tt);
-  if(ts[2]){ const screenR=Math.max(12, Math.min(180, (tg.radius*tg.sc)/slant*(viewH*0.5)/Math.tan(camera.fov*Math.PI/360))), box=(screenR*2.4)|0;
-    lockBoxEl.style.width=box+'px'; lockBoxEl.style.height=box+'px';
-    setVar(lockBoxEl,'--lx', ts[0]+'px'); setVar(lockBoxEl,'--ly', ts[1]+'px');
-    const isDecoy=tg.kind===2, lk=locked && !isDecoy; lockBoxEl.classList.add('on'); lockBoxEl.classList.toggle('decoy', isDecoy); lockBoxEl.classList.toggle('lock', lk);   // decoy -> red AVOID box, never the gold LOCK
-    if(lk && flight>0 && !reduceMotion){ _pulsePhase+=SCOPE_STEP/flight; lockBoxEl.style.setProperty('--pulse',(1+0.15*Math.sin(_pulsePhase*6.2831853)).toFixed(3)); }   // LOCKED: the reticle breathes — one expand/contract per FLIGHT (= the time-to-hit); a quick shot pulses fast. reduced-motion -> steady box (no breathe)
-    else { _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); } }
-  else { lockBoxEl.classList.remove('on','lock','decoy'); _pulsePhase=0; lockBoxEl.style.setProperty('--pulse','1'); }
-  // deviation edge tints: how far YOUR shot's arc misses the locked orb at closest approach (from simShotHits) — the red glow on the screen edge to aim toward
-  if(ts[2] && _scVMissOn && tg.kind!==2){       // no aim gauges for decoys (don't coach hitting one). edge tints are a functional aim cue -> shown under reduced-motion too; only the conveyor SCROLL is motion (frozen in updateEdgeTints)
-    const fl=Math.hypot(_scAim.x,_scAim.z)||1, fx=_scAim.x/fl, fz=_scAim.z/fl;    // horizontal view forward
-    const lat=_scMissX*(-fz)+_scMissZ*fx;                                         // horizontal miss onto screen-right (-fz,fx): <0 arc passes LEFT, >0 RIGHT
-    driveEdgeTints(_scVMiss, lat);            // red glow on the screen edge to aim toward (top/bottom for Δy, left/right for Δx), opacity ∝ |delta|
-  } else { hideEdgeTints(); }
-}
-/* ========================= RAIL-FLICK BONUS (#4) =========================
-   Earned by a FLAWLESS on-beat kill on a hot streak. Orb MOTION freezes (the beat clock keeps
-   ticking — we never touch dt/Tone.Transport); aiming becomes pure FLICK (crosshair literally ON
-   an orb, no lead). Tap ANY WASD / pad-face ON the beat to LOCK the pointed orb; each lock extends
-   the window. When it ends the locked orbs detonate in a one-per-beat cascade, each a scored bonus
-   kill. Trains FLICK — the complement to the core LEAD skill. No auto-aim. */
-function currentRawBeat(){ let b=0; try{ b=Tone.Transport.ticks/Tone.Transport.PPQ; }catch(e){} return b; }   // raw whole-beat clock (no groove phase-shift) — drives the window countdown + cascade cadence
 })();

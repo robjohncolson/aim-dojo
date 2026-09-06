@@ -6298,11 +6298,33 @@ function fillOpen(tg){   // the tank's sub-node gate: this hit must land on ONE 
   for(let j=i0; j<tg.fig.length; j++){ if(Math.abs(off-tg.fig[j])*spb*0.25 < win) return j; }   // the SAME seconds-off-the-sixteenth test against the SAME window, only searched forward from the first gate still owed. The windows cannot overlap at whole-beat spacing unless win > half a beat, and even then FIRST match wins, so a hit is never credited two gates for one sixteenth
   return -1;   // seconds off every remaining sixteenth vs the same seconds window
 }
-function fillGlowAmt(){   // THE BLINK CUE (spec 1.2, T4): 0..1 nearness to the live fill tank's NEXT NEEDED gate, or -1 when nothing is asking. Same law as fillOpen judges by — heard sixteenths since the fill bar's downbeat vs tg.fig[hpMax-hp], in seconds against the skill-tightened window — so the light and the pocket cannot disagree about where the gate is. The visual half-width is that window widened to at least CFG.tank.blinkWin BEATS, because at the 28bpm floor the judged window alone is a pinprick on a two-second beat, and never narrowed below it, because a cue tighter than the window it advertises lies. fillOnly keeps at most one tank alive so the first match is the answer; the loop is over patternConcurrency-few targets and every non-fill orb costs one field read
+function fillCueNeed(tg){   // T4 follows T2: advertise an accepted gate first, then the next remaining window instead of a missed opener
+  if(!CFG.tank.fillOnly || !CFG.tide.on || !(CFG.grooveGroove && CFG.grooveVuln) || !tg || tg.dead || tg.fill16<0 || !tg.fig || tg.hp<=0) return -1;
+  const i0=tg.hpMax-tg.hp; if(i0>=tg.fig.length) return -1;
+  const open=fillOpen(tg); if(open>=0) return open;
+  const spb=60/Math.max(20,state.bpm), win=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();
+  const off=fillOff16(tg.fill16), win16=win/(spb*0.25);
+  for(let j=i0;j<tg.fig.length;j++){ if(tg.fig[j]>=off-win16) return j; }
+  return tg.fig.length-1;   // retain the final mercy gate until expiry; this does not reopen its elapsed judged window
+}
+function fillSkipClosed(tg, k){   // spawn only: keep the original figure/indices and offer only gates a shot fired now can still reach
+  if(!CFG.tank.fillOnly || !CFG.tide.on || !(CFG.grooveGroove && CFG.grooveVuln) || tg.fill16<0 || !tg.fig) return;
+  let j=tg.hpMax-tg.hp;
+  if(!(Number.isFinite(k) && k>0)) j=tg.fig.length;   // an unquantized fallback has unknown flight, not zero flight: offer a plain Echo
+  else {
+    const spb=60/Math.max(20,state.bpm), win=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();
+    const off=fillOff16(tg.fill16), flight=(k/16)*spb;   // exactly beatSpawnDist's flight model; k=4 is a quarter beat
+    while(j<tg.fig.length && (tg.fig[j]-off)*spb*0.25+win<=flight) j++;   // fillOpen is strict: arrival at the closing boundary is already too late
+  }
+  tg.hp=tg.hpMax-j;
+  if(tg.hp<=0){ tg.hp=1; tg.hpMax=1; tg.fig=null; tg.fill16=-1; }
+}
+function fillGlowAmt(){   // THE BLINK CUE (spec 1.2, T4): 0..1 nearness to the live fill tank's next playable remaining gate, or -1 when nothing is asking. T2's accepted gate wins; closed openers are skipped in favour of the next remaining window. The visual half-width is the judged window widened to at least CFG.tank.blinkWin BEATS, never narrowed below it. fillOnly keeps at most one tank alive, so the first match is the answer; every non-fill orb costs one field read
   if(!(CFG.grooveGroove && CFG.grooveVuln)) return -1;   // no windows at all → nothing to blink about (the strict inverse of fillOpen's escape hatch)
   for(const tg of targets){
     if(tg.dead || tg.fill16<0 || !tg.fig) continue;
-    const need=tg.fig[tg.hpMax-tg.hp]; if(need==null) return -1;   // the figure is spent (a kill is mid-flight) — let the field's own beat have the shell back
+    const j=fillCueNeed(tg); if(j<0) return -1;   // the figure is spent or inactive — let the field's own beat have the shell back
+    const need=tg.fig[j];
     const spb=60/Math.max(20,state.bpm), win=CFG.grooveOpenSec[0]+(CFG.grooveOpenSec[1]-CFG.grooveOpenSec[0])*diffT();
     const winV=Math.max(win, CFG.tank.blinkWin*spb);
     return Math.max(0, 1 - Math.abs(fillOff16(tg.fill16)-need)*spb*0.25/winV);
@@ -6922,22 +6944,5 @@ function rememberLoad(){
   let o=null; try{ o=JSON.parse(raw); }catch(e){ return; }
   if(!o || typeof o!=='object' || Array.isArray(o) || o.v!==1) return;                 // the ENVELOPE: a plain object at the exact version this build writes. An array, a number, a future v:2 — every one of them is a player the sky has yet to meet, silently
   if(realCivilDate(o.d)) _rememberDay=o.d;                                             // …and d is a REAL local civil date in this build's own grammar (realCivilDate — one date authority for the whole memory layer, M5). An epoch number, an ISO timestamp, ' ' padding, a 2026-02-31: not a night, and a night nobody could have played is greeted by nothing
-}
-function rememberFlush(){
-  if(_rememberSaveT){ clearTimeout(_rememberSaveT); _rememberSaveT=0; }
-  if(!_rememberDirty) return; _rememberDirty=false;
-  try{ localStorage.setItem(REMEMBER_KEY, JSON.stringify({v:1, d:_rememberDay})); }catch(e){}   // a full or blocked quota loses the write, never the run — and the worst a lost write can do is greet you once more than it should have
-}
-function rememberSaveSoon(){
-  if(_rememberDirty) return;
-  _rememberDirty=true; _rememberSaveT=setTimeout(rememberFlush, PHASES_SAVE_MS);   // the memory layer's one trailing throttle, shared with the ring: a night writes this file exactly once, and it lands in the same quiet moment the stamp does
-}
-function rememberGap(from,to){
-  // Nights between two local civil dates, as a plain integer. Both sides are built at LOCAL midnight, so a DST
-  // boundary inside the gap shifts the difference by an hour at most and the rounding absorbs it — the same calendar
-  // the deal's freshness gate and the ring's stamps turn over on.
-  const a=from.split('-'), b=to.split('-');
-  const n=Math.round((new Date(+b[0],+b[1]-1,+b[2]) - new Date(+a[0],+a[1]-1,+a[2]))/86400000);
-  return isFinite(n)?n:0;   // a hand-written "2026-99-99" rolls into a real date rather than throwing; a NaN is simply no gap, and no gap is no greeting
 }
 })();
