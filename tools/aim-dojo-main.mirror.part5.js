@@ -9359,6 +9359,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
+  if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
+  tg.dead=true; tg._flickLocked=false;
+  const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
+  recordHit(tg);
+  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
+  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
+}
 function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
   const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
   if(!ts[2]){ if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); return; }

@@ -1694,6 +1694,7 @@
 
 
 
+
 function buildNaveVault(){
   /* ONE POINT MATERIAL, THE ROAD'S OWN CLOCK AND COURSE. Anchors wrap by mod(anchor-uNow,SPAN), exactly like roadDust;
      uNow/uBase/uA/uW/uP/uBreath are the same uniform OBJECTS roadSync writes, so this adds no per-frame work and reduceMotion's

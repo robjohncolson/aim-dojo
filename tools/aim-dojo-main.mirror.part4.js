@@ -6897,6 +6897,7 @@
 
 
 
+
 /* ---- NIGHT CARDS (wave 5a, parcel O) ----
    The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
    tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON
@@ -8471,6 +8472,7 @@ function updateFlock(dt){
    The recorder remains a write-only sink; validated own and stranger nights are data only here, with nothing drawn.
    Revival path for lanes, gifts and returning stars: git ad8a9a9 and SPEC_THE_VISITOR / SPEC_THE_GIFT / SPEC_THE_INVITATION. */
 const GH_RECORD=!!CFG.ghostRecord;
+const GH_FAST_TRIM=CFG.ghostTrimFast!==0;
 const GH_SHARE=!!CFG.ghostShare;                                          // raw boolean first: false means no token, relay call or visitor/mail allocation
 const GH_STORE_KEY='aimdojo.ghost', GH_VERSION=1;
 const GH_WORTHY_ARRIVALS=8, GH_WORTHY_DUR=45;
@@ -8658,6 +8660,24 @@ function ghostRecordBpm(bpm){
 function ghostRecordTrim(r,mail){
   const payload={ghost:r,mail:Array.isArray(mail)?mail:[]};
   let json=JSON.stringify(payload);
+  if(GH_FAST_TRIM){
+    if(json.length<=GH_MAX_BYTES) return json;
+    const families=[r.bpmCurve,r.targets,r.taps,r.fires], cut=[0,0,0,0];
+    let units=json.length;
+    while(units>GH_MAX_BYTES){
+      let family=-1, first=Infinity;
+      for(let i=0;i<families.length;i++){
+        const a=families[i], head=cut[i];
+        if(head<a.length && a[head][0]<first){ first=a[head][0]; family=i; }
+      }
+      if(family<0) break;
+      const a=families[family], head=cut[family]++;
+      units-=JSON.stringify(a[head]).length+(head+1<a.length?1:0);
+    }
+    if(!cut.some(n=>n>0)) return json;
+    for(let i=0;i<families.length;i++) if(cut[i]) families[i].splice(0,cut[i]);
+    return JSON.stringify(payload);
+  }
   while(json.length>GH_MAX_BYTES){
     let family=null, first=Infinity;
     for(const name of ['bpmCurve','targets','taps','fires']){ const a=r[name]; if(a.length && a[0][0]<first){ first=a[0][0]; family=a; } }
@@ -9350,13 +9370,5 @@ function endFlickBonus(){
   if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
   if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
-}
-function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
-  if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
-  tg.dead=true; tg._flickLocked=false;
-  const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
-  recordHit(tg);
-  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
-  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
 }
 })();
