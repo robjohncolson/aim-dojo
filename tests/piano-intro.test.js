@@ -10,6 +10,10 @@ const legacyGrid=extractFunction(pianoIntroOff(source),'onGrid');
 function harness(piano,phase,bpm,gridBody=extractFunction(source,'onGrid')){
  const audio=[],visual=[],harmony=[],c=vm.createContext({Math,Number,Set,console});
  const voice=name=>({triggerAttackRelease:(...args)=>audio.push({source:name,args})});
+ // Take each phase's timing directly from production; full-mode windows would hide the lesson's legal main-note edges.
+ const phaseWindows=[...extractFunction(source,'setTrainPhase').matchAll(/CFG\.wasdWindow=([\d.]+);\s*CFG\.wasdWindowFrac=([\d.]+);/g)];
+ assert.equal(phaseWindows.length,3,'each lesson phase supplies its own timing window');
+ const [,wasdWindow,wasdWindowFrac]=phaseWindows[phase];
  Object.assign(c,{
   PIANO:piano,trainMode:true,trainPhase:phase,trainWasd:0,TRAIN_NEED_WASD:3,
   state:{running:true,t:0,bpm},templeActive:false,rhythmGeneration:1,grid8:0,
@@ -17,7 +21,7 @@ function harness(piano,phase,bpm,gridBody=extractFunction(source,'onGrid')){
   PENTA:[277.18,329.63,369.99,415.30,493.88,554.37,659.25,739.99],activeTheme:{name:'MOONLIGHT'},
   tick:voice('tick'),tapSynth:voice('tapSynth'),lead:voice('lead'),pianoSfx:voice('pianoSfx'),
   kick:piano?null:voice('kick'),bass:voice('bass'),pad:voice('pad'),hat:piano?null:voice('hat'),arp:voice('arp'),
-  CFG:{piano:{hums:true},patternConcurrency:0,wasdRhythm:true,wasdNoteDivs:[2,4,8],wasdNoteT:[.75,1.01],minBpm:20,maxBpm:60,wasdWindow:.16,wasdWindowFrac:.4,grooveGroove:true,grooveFreezePhase:.5,groovePocket:true},
+  CFG:{piano:{hums:true},patternConcurrency:0,wasdRhythm:true,wasdNoteDivs:[2,4,8],wasdNoteT:[0,1.01],minBpm:20,maxBpm:60,wasdWindow:Number(wasdWindow),wasdWindowFrac:Number(wasdWindowFrac),grooveGroove:true,grooveFreezePhase:.5,groovePocket:true},
   humFieldGrid:(...args)=>harmony.push(args),
   bonusActive:false,activeTargetCount:()=>0,cd:99,restSlots:0,CHIP_FIELD:false,
   bowTouch:()=>{},_bow:{stage:0},BOW:{LAST:2},MOBILE:false,GH_CHALK:false,GH_RECORD:false,
@@ -58,7 +62,9 @@ for(const bpm of [28,60])for(const phase of [0,1,2]){
  test('every lesson offbeat has one lane note, with duplicate and wrong silent '+bpm+'/'+phase,()=>{
   for(const i of [1,3,5,7]){
    const h=harness(true,phase,bpm),silent=harness(true,phase,bpm);h.step(i);silent.step(i);
+   assert.equal(h.c.wasdNoteDiv(),1,'the live trainer has no optional subdivisions');
    const ci=Math.round(h.c.wasdBeats()*h.c.wasdNoteDiv()),k=h.c._combo[ci%h.c._combo.length];
+   assert.equal(k,(i-1)/2,'lesson mains retain the W/A/S/D sequence at both tempos');
    const beforePress=h.audio.length;h.press(k);
    const added=h.audio.slice(beforePress);assert.deepEqual(added,[{source:'tapSynth',args:[h.c.PENTA[k*2],'16n',h.c.now,.42]}]);
    assert.deepEqual(tickEvents(h),tickEvents(silent));assert.equal(tickEvents(h).length,0);
@@ -69,7 +75,43 @@ for(const bpm of [28,60])for(const phase of [0,1,2]){
    assert.equal(wrong.audio.length,n,'wrong key is silent');wrong.press(k);assert.equal(wrong.audio.length,n,'wrong key resolves the note; retry does not sound');
   }
  });
+ test('lesson midpoints cannot earn bonus credit or progress '+bpm+'/'+phase,()=>{
+  for(const i of [2,4,6]){
+   const h=harness(true,phase,bpm);
+   h.step(i);const before=h.audio.length;
+   const nd=h.c.wasdNoteDiv(),bps=60/Math.max(20,bpm),full=bps/nd;
+   const w=Math.min(full*.5,Math.max(h.c.CFG.wasdWindow,full*h.c.CFG.wasdWindowFrac));
+   const claim=h.c.claimWasdNote(h.c.wasdBeats(),nd,bps,w);
+   assert.equal(nd,1,'all lesson notes remain mains');
+   if(phase<2){
+    assert.ok(claim&&claim.main,'the forgiving window includes the edge of an existing main');
+    assert.equal(Math.abs(claim.offBeats),.5);
+    const k=h.c._combo[claim.ci%h.c._combo.length];h.press(k);
+    assert.equal(h.c._tapOffN,1,'the existing main edge is graded');
+    assert.equal(h.c._tapAcc,0,'the midpoint earns zero main accuracy');
+    assert.deepEqual(h.audio.slice(before),[{source:'tapSynth',args:[h.c.PENTA[k*2],'16n',h.c.now,.42]}],'a correct edge main retains its existing tap sound');
+   }else{
+    assert.equal(claim,null,'phase two closes its main windows before the midpoint');
+    for(const k of [0,1,2,3])h.press(k);
+    assert.equal(h.c._tapOffN,0);assert.equal(h.audio.length,before);
+   }
+   assert.equal(h.c._wasdCombo,0,'an edge main never earns optional bonus credit');
+   assert.equal(h.c.trainWasd,0,'zero-accuracy edge attempts never advance lesson progress');
+   assert.deepEqual(h.visual.filter(x=>x.source==='phase'),[],'midpoint attempts cannot advance the lesson');
+  }
+ });
 }
+test('phase zero still requires three correct lesson mains to progress',()=>{
+ for(const bpm of [28,60]){
+  const h=harness(true,0,bpm);
+  for(const [i,k] of [[1,0],[3,1],[5,2]]){
+   h.step(i);h.press(k);h.press(k);
+   assert.equal(h.c.trainWasd,k+1,'one credited main per lesson beat despite duplicate presses');
+  }
+  assert.deepEqual(h.visual.filter(x=>x.source==='phase'),[{source:'phase',next:1}]);
+  assert.equal(h.c._wasdCombo,0,'required lesson notes never become bonus rewards');
+ }
+});
 test('PIANO lesson retains every non-tick schedule from baseline',()=>{
  for(const bpm of [28,60])for(const phase of [0,1,2]){
   const now=harness(true,phase,bpm),old=harness(true,phase,bpm,legacyGrid);

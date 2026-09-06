@@ -6859,15 +6859,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
 /* ---- NIGHT CARDS (wave 5a, parcel O) ----
    The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
    tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON
@@ -8226,7 +8217,7 @@ function updateStarTethers(){
   if(n){ m.geometry.attributes.position.needsUpdate=true; m.geometry.attributes.color.needsUpdate=true; }
   if(m.visible!==(n>0)) m.visible=(n>0);                                  // one boundary write, never a per-frame one
 }
-/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride the LANE's own ladder (wasdNoteDiv — one per beat from 20 to 50 bpm, an optional in-between one from 50 to 60; it used to be half the orb-jump rate, which THE SIXTY CAP turned into a doubled press demand from ~37.5 bpm up). On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); in-between (BONUS) notes draw as dim ghosts and stack a combo that calms the field further + intensifies the groove — claiming one credits it, skipping one costs nothing, and only a MAIN going unresolved resets it. Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
+/* ===== WASD-rhythm TAP NOTES (osu-style, free-play): a circle SHRINKS from far to the inner hit-line ring (Rin) - TAP the key as it lands (no hold). Notes ride the LANE's own ladder (wasdNoteDiv — one required note plus an optional in-between note throughout the main night; lessons keep one note per beat). On-beat (MAIN) notes set the field-motion damping by tap accuracy (perfect = frozen, miss = full move); in-between (BONUS) notes draw as dim ghosts and stack a combo that calms the field further + intensifies the groove — claiming one credits it, skipping one costs nothing, and only a MAIN going unresolved resets it. Mashing does nothing - a wrong key spoils the note. Damping is LIVE via wasdMul(); no hold, no grading. ===== */
 const hudCanvas=gid('wasdHud'), hudCtx=hudCanvas&&hudCanvas.getContext('2d'), wasdGlyphEl=gid('wasdGlyph');
 const WASD_COL=['#43d9ff','#74e84a','#ffd36b','#ff5a7a'], WASD_HEX=[0x43d9ff,0x74e84a,0xffd36b,0xff5a7a];   // key→color: W cyan, A green, S gold, D pink (WASD_HEX = int form for setHex on the hot path, no per-frame regex alloc)
 const WASD_COL_GHOST=WASD_COL.map(c=>c+'73');   // DE-COERCION (parcel R): the same four colors at alpha 0x73 (0.45) — an in-between (bonus) note is drawn as a GHOST of its key, so the eye reads "optional" with no new text and no new glyph. Precomputed once (setStyle caches, so the letter costs nothing per frame).
@@ -8274,7 +8265,7 @@ function drawWasdLane(){
   if(showHud){ hudCtx.globalAlpha=0.85*pocketMainAlpha; hudCtx.lineWidth=6; hudCtx.strokeStyle='rgba(0,0,0,0.6)'; ARC(Rin);
     hudCtx.globalAlpha=0.8*pocketMainAlpha; hudCtx.lineWidth=3; hudCtx.strokeStyle = fa>0&&!pocketTarget?(_noteFlashHit?'rgba(116,232,74,0.95)':'rgba(255,90,80,0.95)'):'rgba(230,235,245,0.85)'; ARC(Rin); }
   // ---- the IN-FOCUS note: optional legacy circle converges at expected; an explicitly enabled colored target instead keeps the raw path so both rings cross there. ----
-  let letterKey=_combo[0], spoiled=false, hitHeld=false, ghostNote=false;   // ghostNote: the in-focus note is an in-between (bonus) one — only possible at nd>1, i.e. the 50..60 summit
+  let letterKey=_combo[0], spoiled=false, hitHeld=false, ghostNote=false;   // ghostNote: the in-focus note is an in-between (bonus) one — available at nd>1 throughout the main night
   { const nd=wasdNoteDiv();
     syncWasdResolutionGrid(nd);
     let beats=trainMode?wasdBeatsHeard():wasdBeats();   // trainer: heard timeline matches input grading + floor flash
@@ -9321,5 +9312,13 @@ function endFlickBonus(){
   if(bonusActive){ try{ updatePocketMisses(); }catch(e){} }                        // advance the frozen frontier at the exact exit edge, even between animation sweeps
   bonusActive=false; _bonusResolving=false; _bonusJustArmed=false; _bonusLast=state.t;   // start the cooldown from the END of the bonus so it can't immediately re-arm
   if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy');
+}
+function resolveFlickLock(tg){   // detonate one locked orb: a guaranteed bonus kill — SCORE (GOOD KILLS) + streak + a golden burst + the lead cascade. Counts each lock as ONE scored ACTION (state.hits+=sc, state.shots++) so the cosmetic pause-screen CLICK ACCURACY (=score/shot) moves like a normal kill instead of a free numerator bump — a lock IS a real on-beat + on-orb precision input. It deliberately does NOT call pushEvent, so it can't move the ADAPTIVE engine (windowAccuracy→BPM) or Dojo Records submission (runtime/peak BPM).
+  if(!tg || tg.dead || tg.idx<0){ if(tg) tg._flickLocked=false; return; }
+  tg.dead=true; tg._flickLocked=false;
+  const sc=kindScore(tg, state.t); state.hits+=sc; state.shots++; state.streak++; state.bestStreak=Math.max(state.bestStreak,state.streak);
+  recordHit(tg);
+  if(soundOn && toneReady && kick){ try{ kick.triggerAttackRelease('C1','16n',Tone.now(),0.7); }catch(e){} }
+  playHit(0); chordHit(state.streak); killTarget(tg, true);                         // FLAWLESS lead note — the cascade walks UP the pentatonic with the growing streak // clutch=true → the bigger GOLDEN burst reads these as bonus kills
 }
 })();

@@ -58,8 +58,8 @@ const CFG = {
   yawSpreadDeg:38, pitchSpreadDeg:16, driftSlow:1.6, driftFast:6.5,
   brownian:4, brownianMax:9, brownianMaxSlow:1.4, brownianDamp:0.35,   // wander: noise intensity (lowered 7→4 so the beat-JUKE reads as a clean cut instead of drowning in random drift), speed cap HIGH→LOW skill (lerp by diffT), LIGHT mean-reversion
   beatQuant:true, beatQuantDivs:[2,4,8], beatQuantT:[0.40,0.75],   // strobe target motion to the beat grid so the cursor/aim-guide can settle — the orb HOLDS, then steps. 1/2-beat steps when learning → 1/4 → 1/8 as diffT (skill) rises.
-  wasdNoteDivs:[2,4,8], wasdNoteT:[0.75,1.01],   // THE FORTY FIX (wave 7, parcel R): the NOTE LANE now owns its own density ladder instead of borrowing the orb strobe's. It was one ladder on purpose (2026-06-23, "no separate difficulty system") and that was right while the tiers sat at bpm 80.8/134.0 — nobody ever reached them. THE SIXTY CAP moved the same thresholds to 36.0/50.0, so from ~37.5 bpm on the lane silently DOUBLED the required presses (and quadrupled them at 50) onto raw downbeats that collide with shot arrival — one demanded key per beat, the lane's whole contract, quietly stopped being true a third of the way up the mountain. Same SHAPE as beatQuantT (divs/2 = notes per beat), different thresholds: see wasdNoteDiv() for the crossing arithmetic. The ORB STROBE keeps parcel P's audited 36/50 deepening untouched — this is a decoupling, not a retune.
-  wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.18, wasdGrooveMax:1.2,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
+  wasdNoteDivs:[2,4,8], wasdNoteT:[0,1.01],   // EARLIER BLOOM: main night offers an optional half-beat from 20 BPM; four notes/beat stays unreachable. Live lessons use one main note/beat (wasdNoteDiv). Orb motion keeps its separate 36/50 BPM ladder.
+  wasdRhythm:true, wasdLetter:true, wasdHud:true, wasdTapText:(function(){ try{ const t=localStorage.getItem('aimdojo.wasdTapText'); if(t==='1') return true; if(t==='0') return false; }catch(e){} return false; })(), floorBeat:true, floorBeatMax:0.45, floorBeatDayMul:2.2, wasdWindow:0.16, wasdWindowFrac:0.4, wasdComboLen:8, wasdComboGain:0.14, wasdComboCap:0.8, wasdGrooveGain:0.30, wasdGrooveMax:2.7,   // WASD-on-rhythm "steady the field": a looping wasdComboLen-letter combo scrolls in a note-lane; each beat ONE required key (the note at the hit line). Tap it as the note crosses (window = max(wasdWindow s, wasdWindowFrac × beat-step)) → the WHOLE field HOLDS that beat. Only the required key counts (no spam). wasdRhythm:false disables. Center beat-circle (wasdHud) is ON BY DEFAULT (wave 8.2, Y3 — it was opt-in; the Moonline playtest asked for the ring, and a cue you have to find in a pause menu is a cue most players never see). It remains a TOGGLE: the pause BEAT CIRCLE switch writes localStorage 'aimdojo.wasdHud' and the wasd_hud cloud pref, and a stored preference beats this literal and every phase default IN BOTH DIRECTIONS — see applyWasdHudPref.
   ringEcho:1,   // SPACE TRUTH R: raw flat kill-switch. 0 restores the shipped beat-circle draw law; 1 lets a correct freeze answer across the nearest-note handoff while the newborn approach ring condenses
   ghostRecord:1,   // NIGHT GHOSTS G: raw flat kill-switch. 0 wires no recorder taps, allocates no run ledger and never opens aimdojo.ghost; 1 records one bounded, write-only local echo at a completed Bow
   ghostChalk:0,   // plain doors are the resting image; 0 compiles out chalk and skips its computation, uniforms and interaction; 1 restores tonight-only marks
@@ -193,7 +193,7 @@ const CFG = {
   speedScore:3, speedWindow:0.8, speedLifeMul:0.7,         // SPEED orb (cyan): ×speedScore if hit within speedWindow s of spawn (else ×1); shorter life forces a fast snap
   moverScore:2, moverVelMul:2.2,                            // MOVER orb (purple): ×moverScore, drifts moverVelMul× faster/erratic
   goldDistMul:1.35, goldSizeMul:0.7,   // FREE-PLAY orb feel: GOLD bonus sits farther + smaller (a skill reward). Deterministic given the seeded kind; the daily is left untouched.
-  grooveStreakFull:4, grooveHitsFull:25, grooveAccLo:0.4, grooveAccHi:0.9, grooveW:[0.35,0.3,0.35],   // adaptive-groove TARGET tier (0..3) = a COMPOSITE: streak/grooveStreakFull + click% mapped grooveAccLo..Hi→0..1 + totalHits/grooveHitsFull, weighted by grooveW (sum 1). Click% (rolling) + total hits PERSIST through a miss, so the groove builds + holds instead of tanking on a broken streak. Audio only.
+  grooveStreakFull:3, grooveHitsFull:12, grooveAccLo:0.4, grooveAccHi:0.8, grooveW:[0.35,0.3,0.35],   // adaptive-groove TARGET tier (0..3) = a COMPOSITE: streak/grooveStreakFull + click% mapped grooveAccLo..Hi→0..1 + totalHits/grooveHitsFull, weighted by grooveW (sum 1). Click% (rolling) + total hits PERSIST through a miss, so the groove builds + holds instead of tanking on a broken streak. Audio only.
   targetPulse:true, targetPulseOn:1, targetPulsePeriod:4,   // target tone is GATED to a rhythm instead of continuous: ON for targetPulseOn sixteenths, then rest for the remainder of targetPulsePeriod (default: a 16th note + 3 16ths rest), beat-synced to state.bpm. Audio only -> daily-safe. Set targetPulse:false for the old continuous tone.
   // wind — FREE-PLAY PROTOTYPE, opt-in via ?wind (URL) or CFG.wind. A gentle constant per-run horizontal wind that pushes the projectile, curves the firing-computer ribbon (the bullet still flies down it — wind is in all 4 ballistics fns), and drifts the clouds. The DAILY stays wind=0 → bit-identical + deterministic.
   wind:false, windMin:0.4, windMax:0.9, windCloudK:0.014,
@@ -461,24 +461,15 @@ function remapWasdNoteIndex(ci, fromNd, toNd){
   const raw=ci*toNd/fromNd, mapped=Math.round(raw);
   return Math.abs(raw-mapped)<=1e-9?mapped:null;
 }
-/* THE LANE'S OWN DENSITY — the single authority for `nd` (notes per beat). Pure: pass dT to test a tempo, omit it to read the live ramp.
-   THE CROSSING MATH (computed against the shipped constants, not asserted). diffT() = clamp((bpm-minBpm)/(maxBpm-minBpm)) = (bpm-20)/40, so a
-   threshold t IS a tempo: bpm = 20 + 40t, exactly.
-     ORB STROBE  beatQuantT [0.40, 0.75] -> 36.0 and 50.0 bpm  (before THE SIXTY CAP these same numbers were 80.8 / 134.0 bpm — unreachable, which
-                 is why one shared ladder was safe for two years). UNTOUCHED here: parcel P's deepening is the orb's, and it stays the orb's.
-     LANE        wasdNoteT  [0.75, 1.01] -> 50.0 and 60.4 bpm. diffT SATURATES at 1.00 at maxBpm 60, so the second rung is DELIBERATELY out of the
-                 world: nd = 1 across the whole 20.0..49.9 band and nd = 2 across 50..60, and 4 never happens. (4/beat at 60 = 240 presses/min is a
-                 mash test, not a rhythm game.) To let the summit reach 4 again, drop wasdNoteT[1] below 1.00 — nothing else needs to move; setting
-                 wasdNoteDivs/wasdNoteT to beatQuantDivs/beatQuantT restores the old shared ladder exactly, which is this parcel's kill-switch.
-   THE REACHABLE TEMPO LADDER (BFS over the shipped adaptive law — SENSEI bpmUp 2.5 x CFG.tide.bpmUpMul 2.0 up, bpmDown 2.5 down, clamped 20..60,
-   from startBpm 28): the run can occupy 33 distinct rungs — 20, 20.5, 22.5, 23, 25 ... 57.5, 58, 60. Under the OLD shared ladder 19 of those 33
-   rungs (every rung from 37.5 up) demanded 2 or 4 presses per beat, peaking at 240/min; under this one only the 9 summit rungs (50..60) carry a
-   second note at all, it is OPTIONAL (see the de-coercion below), and the demanded rate is one per beat — 20..60/min — at every rung on the ladder.
-   DE-COERCION rides with it (parcel R, option D): in the 50..60 band the in-between notes render as DIM GHOSTS (drawWasdLane), claiming one still
-   credits _wasdCombo (_wasdResolve, unchanged), but only a MAIN can break the combo (animate gates its reset on _curMain). The bonus note is an
-   invitation, never a demand — which is also the first time the combo/FLOCK system has had an honest food supply, since under the old ladder its
-   only source lived above 80.8 bpm and the cap put that out of reach forever. */
+/* THE LANE'S OWN DENSITY: one required main note per beat, with an optional dim half-beat throughout the main night.
+   EARLIER BLOOM: dots, bonus groove and rainbow bursts are available at the starting tempo instead of waiting for 50 BPM.
+   The lesson keeps a single main note per beat at every tempo. An explicit finite dT remains a pure main-night density probe.
+   wasdNoteT[0]=0 opens the optional rung at the 20 BPM floor; [1]=1.01 keeps four notes/beat outside the live 20..60 range.
+   Required notes still own miss penalties; skipping a bonus costs nothing. The existing denser claim windows apply:
+   at 28 BPM, full=60/28/2 and w=full*0.4=0.429 seconds on either side. Orb/shot grading and the tempo ramp are separate.
+   Successful optional taps retain the existing combo, field-calming, pips and flock rewards. No new drawing or audio pool. */
 function wasdNoteDiv(dT){
+  if(!Number.isFinite(dT) && trainMode) return 1;   // live lesson: no interstitial notes or bonus demands
   const t=Number.isFinite(dT)?dT:diffT(), d=CFG.wasdNoteDivs, th=CFG.wasdNoteT;
   return Math.max(1,(t<th[0]?d[0]:(t<th[1]?d[1]:d[2]))/2);
 }
