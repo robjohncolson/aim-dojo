@@ -10,6 +10,7 @@ const { main } = require("./source.js");
 const { captureGraph, chipDefaults, pianoDefaults, extractFunction, normalize } = require("./chip-graph.js");
 
 const beforePiano = fs.readFileSync(path.join(__dirname, "fixtures/piano-off.js"), "utf8");
+const committedBeforePiano = fs.readFileSync(path.join(__dirname, "fixtures/piano-off-committed.js"), "utf8");
 const frozenHashes = {
   dutyToWidth: "c177fee22e4f742023fe55bb5045307fd91e8a1ab46e3bf3c416a76082668c2e",
   buildDrums: "0d5395bda96826dee3a468c13003ca0bce13ab7e35389721f714a0662b811cf3",
@@ -20,6 +21,15 @@ const frozenHashes = {
 };
 const chipNames = ["lead", "dry", "bass", "hums", "pad", "tune", "drums"];
 const chipCombinations = Array.from({ length: 128 }, (_, mask) => Object.fromEntries(chipNames.map((name, i) => [name, !!(mask & (1 << i))])));
+
+function pianoGraphReference(source) {
+  const body = extractFunction(source, "buildDrums");
+  const tune = /\bCHIP_TUNE\b/.test(body), drums = /\bCHIP_DRUMS\b/.test(body);
+  assert.equal(tune, drums, "the graph must match one complete authenticated committed or experiment variant");
+  return tune ? beforePiano : committedBeforePiano;
+}
+
+const graphReference = pianoGraphReference(main);
 const expectedPatch = {
   harmonicity: 3, modulationIndex: 2.2,
   oscillator: { type: "sine" },
@@ -34,6 +44,19 @@ test("Piano frozen fixture authenticates the as-found chip graph and later SFX s
     assert.equal(createHash("sha256").update(body).digest("hex"), hash, name);
   }
   assert.equal(extractFunction(main, "dutyToWidth"), extractFunction(beforePiano, "dutyToWidth"));
+  assert.match(committedBeforePiano, /Source: 6a3464cba6292031348a2f9dc386e77222e4f803:aim-dojo-main\.js/);
+  for (const [name, hash] of Object.entries({ dutyToWidth: frozenHashes.dutyToWidth, buildDrums: "912b531cbd5ddf421077c047e2dfb39cbda9d2e6bb612d943dd07f3325ac03b9" })) {
+    const body = extractFunction(committedBeforePiano, name).replace(/\r\n/g, "\n");
+    assert.equal(createHash("sha256").update(body).digest("hex"), hash, `committed ${name}`);
+  }
+  assert.doesNotMatch(extractFunction(committedBeforePiano, "buildDrums"), /\bCHIP_(?:TUNE|DRUMS)\b/, "the committed oracle ignores the two unsupported experiment flags");
+});
+
+test("Piano graph references distinguish committed and complete pending-experiment construction", () => {
+  assert.equal(pianoGraphReference(committedBeforePiano), committedBeforePiano);
+  assert.equal(pianoGraphReference(beforePiano), beforePiano);
+  assert.throws(() => pianoGraphReference(beforePiano.replace(/\bCHIP_TUNE\b/g, "false")), /one complete authenticated/);
+  assert.throws(() => pianoGraphReference(beforePiano.replace(/\bCHIP_DRUMS\b/g, "false")), /one complete authenticated/);
 });
 
 test("Piano authored defaults make the keyboard and soft calls the night, with URL-only escapes", () => {
@@ -127,9 +150,11 @@ test("Piano bass helper leaves off-arm values untouched and transposes exactly o
   assert.deepEqual(calls, [["Frequency", "A3"], ["transpose", 12], ["toFrequency"]]);
 });
 
-test("Piano off preserves all 128 as-found chip node graphs, options and connection order", () => {
+test("Piano off preserves all 128 flag inputs against the matching authenticated graph, options and connection order", () => {
   for (const flags of chipCombinations) {
-    const expected = captureGraph(beforePiano, flags);
+    // The accepted graph ignores tune/drums; the separate as-found experiment implements both.
+    // Keep every flag combination and the complete graph equality on whichever variant is under test.
+    const expected = captureGraph(graphReference, flags);
     const actual = captureGraph(main, { ...flags, piano: false }, {}, { on: true, harm: 99 });
     assert.deepEqual(actual, expected, JSON.stringify(flags));
     assert.equal(actual.nodes.some(node => node.name === "FMSynth"), false);
@@ -160,7 +185,7 @@ test("Piano graph is seven shared-patch keyboard voices including the metronome,
   assert.deepEqual(graph.polyphony, { tick: 4, lead: 4 }, "the tick can share a downbeat without restarting a voice, and lead graces retain their root");
   assert.equal(graph.nodes.filter(n => n.name === "Synth").length, 0, "the metronome now uses the shared FM piano patch too");
   assert.equal(graph.nodes.some(n => ["NoiseSynth", "MembraneSynth"].includes(n.name)), false);
-  assert.deepEqual(graph.routes.tick.slice(1), captureGraph(beforePiano).routes.tick.slice(1), "the metronome keeps its held trim and bus route");
+  assert.deepEqual(graph.routes.tick.slice(1), captureGraph(graphReference).routes.tick.slice(1), "the metronome keeps its held trim and bus route");
 });
 
 test("Piano outranks every chip voicing combination while the existing dry switch alone chooses delay topology", () => {

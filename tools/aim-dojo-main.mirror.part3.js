@@ -4130,6 +4130,23 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function fetchListen(pick,fallback){   // glossary paints first; authenticated Railway and legacy natal-id desk remain deliberately separate
   const CL=CFG.skyListen, seq=++_lsn.seq, studySeq=_templeStudySeq, tz=deviceSkyTimezone(), authMode=!!_personalListenExpected, nid=_lsnNatalId();
   if(!authMode&&!nid) return;
@@ -5341,6 +5358,26 @@ function ensureListener(){
     if(listener.context && listener.context.state!=='running' && listener.context.resume) listener.context.resume().catch(()=>{});
   }catch(e){ listener=null; }
 }
+function pianoContextAlign(){
+  if(_pianoContext)return _pianoContext;
+  const lib=window.Tone,previous=lib.getContext();
+  const NativeContext=window.AudioContext||window.webkitAudioContext;
+  const native=new NativeContext({latencyHint:previous.latencyHint,sampleRate:previous.sampleRate});
+  let candidate=null;
+  try{
+    candidate=new lib.Context({context:native,lookAhead:previous.lookAhead,updateInterval:previous.updateInterval,clockSource:previous.clockSource});
+    candidate.transport.bpm.value=previous.transport.bpm.value;
+    lib.setContext(candidate);
+    _pianoContext=candidate;
+  }catch(e){
+    if(candidate)candidate.dispose();else native.close().catch(()=>{});
+    throw e;
+  }
+  // Before audioInit, no app instrument or scheduled run belongs to the bundled context.
+  // Its public dispose closes only that unused native context and stops its worker once.
+  try{previous.dispose();}catch(e){}
+  return candidate;
+}
 function initAudio(){
   ensureListener();
   if(!reverbInput && listener && !state.running){ try{ buildReverb(); }catch(e){} } else scheduleReverbBuild();
@@ -5348,6 +5385,7 @@ function initAudio(){
   if(!window.Tone){ toneReady=false; loadToneOnce().catch(()=>{}); applyAudioState(); return; }
   audioInit=true;
   try{
+    if(PIANO && CFG.pianoNativeContext)pianoContextAlign();
     Tone.start();
     rawCtx = (Tone.getContext && Tone.getContext().rawContext) ? Tone.getContext().rawContext : null;
     if(PIANO){

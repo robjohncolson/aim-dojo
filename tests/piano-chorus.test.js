@@ -77,7 +77,14 @@ test("Piano chorus fixture authenticates all thirty chorus functions and preserv
   assert.equal(Object.keys(fixture.functions).length, 30);
   for (const [name, original] of Object.entries(fixture.functions)) {
     if (name === "chorusEnsure" || name === "chorusCut") continue;
-    assert.equal(extractFunction(main, name).replace(/\r\n/g, "\n"), original, `${name}: pitch, stem choice, timing, combat mute and the fence remain exact`);
+    let current = extractFunction(main, name).replace(/\r\n/g, "\n");
+    if (name === "chorusBootGesture") {
+      const oldComment = "// the graph, on Tone's own load-time context (see the header: it cannot be ours)";
+      const contextComment = "// align the accepted piano context and build its graph; the off arm retains the original owner";
+      assert.equal(current.split(oldComment).length + current.split(contextComment).length - 2, 1, "exactly one authenticated context-ownership comment is present");
+      current = current.replace(contextComment, oldComment);
+    }
+    assert.equal(current, original, `${name}: pitch, stem choice, timing, combat mute and the fence remain exact`);
   }
 });
 

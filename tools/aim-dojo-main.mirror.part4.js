@@ -6859,6 +6859,44 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* ---- NIGHT CARDS (wave 5a, parcel O) ----
    The night leaves an ARTIFACT: one tall dark image of tonight — the zodiac band with your lit stars brightened and
    tonight's haloed, the Bow's own Mandala glyph, the phase disc, the night's rule and the date. THAT IS EVERY MARK ON

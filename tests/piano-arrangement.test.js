@@ -8,10 +8,16 @@ const { main } = require("./source.js");
 const { extractFunction } = require("./chip-graph.js");
 const { pianoIntroOff } = require("./piano-intro-source.js");
 const fixture = require("./fixtures/piano-arrangement-off.json");
+const committed = require("./fixtures/piano-chords-off.json");
+const committedBeforeGrid = committed.committedOnGrid.replace(/\bbassOut\(/g, "bassNote(");
 
 test("Piano arrangement fixture authenticates the pre-Piano clock and musical call sites", () => {
   assert.equal(createHash("sha256").update(JSON.stringify(fixture.functions)).digest("hex"), "00e02e89a2df95d7eea5db60babef0d9c7806400b58fb22ae73ce99999b84d11");
   assert.deepEqual(Object.keys(fixture.functions), ["onGrid", "themeBreath", "wasdLanePress", "volleyNote", "bowEnterHold"]);
+  assert.equal(committed.committedOnGridRef, "3a17ff8");
+  assert.equal(createHash("sha256").update(committed.committedOnGrid).digest("hex"), "28ade9178108a8681167546e95e373aaaf1d069bfea117b3e70bdd1830596d3c");
+  assert.equal((fixture.functions.onGrid.match(/\bkickHit\(/g) || []).length, 3);
+  assert.equal(fixture.functions.onGrid.replace(/\bkickHit\(/g, "kick.triggerAttackRelease("), committedBeforeGrid, "the two authenticated grids differ only in the pending experiment's three kick callees");
 });
 
 test("Piano bass routing preserves off-arm note identity and raises exactly one octave for all four flag combinations", () => {
@@ -48,7 +54,7 @@ test("Piano changes only the bass wrapper at all six sites, preserving the full 
   for (const [name, expectedSites] of [["onGrid", 5], ["themeBreath", 1]]) {
     const body = extractFunction(main, name).replace(/\r\n/g, "\n");
     const current = name === "onGrid" ? pianoIntroOff(body) : body;
-    const before = fixture.functions[name];
+    const before = name === "onGrid" && !current.includes("kickHit(") ? committedBeforeGrid : fixture.functions[name];
     assert.equal((current.match(/bass\.triggerAttackRelease\(bassOut\(/g) || []).length, expectedSites, name);
     assert.equal((before.match(/bass\.triggerAttackRelease\(bassNote\(/g) || []).length, expectedSites, name);
     assert.equal(current.includes("bassNote("), false, `${name} has no bypass of the selector`);

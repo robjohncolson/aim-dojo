@@ -20,6 +20,22 @@ function TF(key,en,values){
 }
 function songDisplay(name){ return name==='MOONLIGHT'?T('songMoonlight',name):name; }
 
+// R1: keep app singleton reads on the same public context as newly constructed instruments.
+// Off/legacy reads forward the pinned library exports exactly; window.Tone remains untouched.
+let _pianoContext=null;
+function pianoToneFacadeGet(_target,key){
+  const lib=window.Tone;if(!lib)return undefined;
+  if(_pianoContext){
+    if(key==='Transport')return lib.getTransport();
+    if(key==='Draw')return lib.getDraw();
+    if(key==='Destination'||key==='Master')return lib.getDestination();
+    if(key==='Listener')return lib.getListener();
+    if(key==='context')return lib.getContext();
+  }
+  return lib[key];
+}
+const Tone=new Proxy({}, {get:pianoToneFacadeGet});
+
 const TONE_JS='https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js';
 const lazyScripts={};
 function loadScriptOnce(src){
@@ -45,6 +61,7 @@ const SIDEREAL_RUNTIME=(window.__SIDEREAL__ && typeof window.__SIDEREAL__==='obj
 const DEFAULT_SKY_SUPABASE_URL='https://hgvnytaqmuybzbotosyj.supabase.co';
 const DEFAULT_SKY_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU';
 const CFG = {
+  pianoNativeContext:1,   // R1 off switch: 0 keeps the pinned bundled context and original singleton owners
   // rhythm tempo
   // THE SIXTY CAP (wave 6, parcel P): difficulty stops escalating through TEMPO and starts escalating through rhythmic COMPLEXITY. maxBpm 172 -> 60. One constant; diffT() does the rest, because every skill-scaled system in the game reads that one ramp — so the whole mountain compresses into 20..60 and its summit becomes a real, reachable, SUSTAINABLE state instead of a number nobody arrives at. 60 is not "the slow end of the old range": it is full mastery, and every expert value (tightest grooveOpenSec, fastest projSpeedNow, deepest beatQuantDivs, full dolly) is now genuinely reached there. NOTHING ELSE MOVED: minBpm/startBpm stay 20 (the sacred dead-slow ramp), the adaptive law (upThreshold/bpmUp/bpmDown + the tide-boundary step) is untouched and simply tops out sooner, and state.maxBpm bookkeeping + the dojo board are unchanged — LEGACY >60 PEAK-BPM ROWS ARE HISTORY AND RENDER UNTOUCHED (there is no clamp anywhere on the read path); new runs simply cap.
   // MEASURED (solver against the shipped constants, SENSEI_PACK merged): a flawless climb is 7 swells / ~6.2 min from startBpm 28 to 60 at bpmUp 2.5 x tide.bpmUpMul 2.0 (it was 29 swells to 172); dT at the 28bpm start is now 0.200, not 0.053; beatQuantDivs steps up at bpm 36 and bpm 50 (it was 80.8 and 134.0 — i.e. the 1/8-beat strobe was effectively unreachable and is now the expert state it was written to be).

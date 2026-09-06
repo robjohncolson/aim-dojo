@@ -9321,6 +9321,44 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function showFlickBox(tg){   // the gold "lockable NOW" box on the orb the crosshair is currently on (reuses #lockBox / .lock)
   const Tt=tg.mesh.position, slant=Tt.distanceTo(PLAYER_POS), ts=projectPointScope(Tt);
   if(!ts[2]){ if(lockBoxEl) lockBoxEl.classList.remove('on','lock','decoy'); return; }
@@ -10721,16 +10759,11 @@ document.addEventListener('pointerlockerror', onPointerLockError);   // retry Ch
    itself; anything else is IGNORED WITHOUT DISARMING. And it disarms only when it has actually done its job — with
    Tone loaded that is init + sing, and with Tone still in flight it stays armed and re-offers the moment the script
    lands, so a slow CDN racing PLAY can no longer cost the visit its chorus.
-   THE UNLOCK CANNOT BE PRE-BUILT ON THIS TONE (verified against the pinned 14.8.49): the library evaluates
-   `const Transport = getContext().transport` and the same for Destination at SCRIPT LOAD, so its AudioContext is
-   created the moment the file lands and those singletons are bound to it for good. Tone.setContext() would swap the
-   context every later node is built on while Transport — the game's whole clock — stayed on the abandoned one, so
-   adopting a context we unlocked ourselves inside the gesture is not available here (it is a real path on builds
-   whose Transport is resolved per call; it is not one on this build, and the whole game rides Transport). What we do
-   instead is the spec's stated fallback: kick the fetch, keep the listener, and when the script lands resume Tone's
-   own context under the page's sticky activation (any earlier real gesture — and we know there was one, it is why we
-   are here) and sing if the card is still up. If that resume does not take — a browser that honours it only INSIDE
-   the gesture — we stay armed and the next gesture does it, which is exactly today's behaviour, never worse. */
+   R1 CONTEXT OWNERSHIP: pinned Tone singleton exports are captured at script load. The app facade resolves those
+   singletons through public getters after pianoContextAlign supplies its native musical context. The song keeps
+   the original worker clock and lookAhead; sphere piano keeps its immediate listener context and forwarded tick.
+   The off switch and legacy arm continue using Tone's original context. Loading still requires the same valid
+   browser gesture and resume retry; a context replacement is not an autoplay unlock. */
 let _chorusBootArmed=false, _chorusBootPending=false;
 function chorusBootDisarm(){
   if(!_chorusBootArmed) return; _chorusBootArmed=false;
@@ -10760,7 +10793,7 @@ function chorusBootGesture(e){
   _chorusBootPending=true;
   loadToneOnce().then(()=>{
     if(!window.Tone) return null;
-    initAudio();                                                   // the graph, on Tone's own load-time context (see the header: it cannot be ours)
+    initAudio();                                                   // align the accepted piano context and build its graph; the off arm retains the original owner
     return Promise.resolve(window.Tone.start()).catch(()=>{});     // and the resume, under the sticky activation the gesture that brought us here already granted
   }).catch(()=>{}).then(()=>{
     _chorusBootPending=false;
